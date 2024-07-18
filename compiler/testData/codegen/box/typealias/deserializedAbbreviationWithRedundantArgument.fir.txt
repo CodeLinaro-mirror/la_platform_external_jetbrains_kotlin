@@ -6,14 +6,14 @@ FILE: a.kt
             super<R|kotlin/Any|>()
         }
 
-        public final val foo: R|Foo<T>?| = Null(null)
-            public get(): R|Foo<T>?|
+        public final val foo: R|{Foo<T>?=} kotlin/collections/List<kotlin/String>?| = Null(null)
+            public get(): R|{Foo<T>?=} kotlin/collections/List<kotlin/String>?|
 
     }
 Module: b
 FILE: b.kt
-    public final val bar: R|Foo<kotlin/Int>?| = R|/C.C|<R|kotlin/Int|>().R|SubstitutionOverride</C.foo: R|Foo<kotlin/Int>?|>|
-        public get(): R|Foo<kotlin/Int>?|
+    public final val bar: R|{Foo<kotlin/Int>?=} kotlin/collections/List<kotlin/String>?| = R|/C.C|<R|kotlin/Int|>().R|SubstitutionOverride</C.foo: R|{Foo<kotlin/Int>?=} kotlin/collections/List<kotlin/String>?|>|
+        public get(): R|{Foo<kotlin/Int>?=} kotlin/collections/List<kotlin/String>?|
     public final fun box(): R|kotlin/String| {
         ^box String(OK)
     }

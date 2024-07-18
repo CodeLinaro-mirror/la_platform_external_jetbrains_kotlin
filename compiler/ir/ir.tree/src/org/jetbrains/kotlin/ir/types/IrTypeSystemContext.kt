@@ -1,17 +1,17 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the license/LICENSE.txt file.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.ir.types
 
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
@@ -332,7 +332,7 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
     override fun createFlexibleType(lowerBound: SimpleTypeMarker, upperBound: SimpleTypeMarker): KotlinTypeMarker {
         require(lowerBound.isNothing())
         require(upperBound is IrType && upperBound.isNullableAny())
-        return IrDynamicTypeImpl(null, emptyList(), Variance.INVARIANT)
+        return IrDynamicTypeImpl(emptyList(), Variance.INVARIANT)
     }
 
     override fun createSimpleType(
@@ -399,28 +399,19 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
         this is IrType && isNullable()
 
     @Suppress("UNCHECKED_CAST")
-    override fun intersectTypes(types: List<SimpleTypeMarker>): SimpleTypeMarker =
-        makeTypeIntersection(types as List<IrType>) as SimpleTypeMarker
+    override fun intersectTypes(types: Collection<SimpleTypeMarker>): SimpleTypeMarker =
+        makeTypeIntersection(types as Collection<IrType>) as SimpleTypeMarker
 
     @Suppress("UNCHECKED_CAST")
-    override fun intersectTypes(types: List<KotlinTypeMarker>): KotlinTypeMarker =
-        makeTypeIntersection(types as List<IrType>)
+    override fun intersectTypes(types: Collection<KotlinTypeMarker>): KotlinTypeMarker =
+        makeTypeIntersection(types as Collection<IrType>)
 
     override fun SimpleTypeMarker.isPrimitiveType(): Boolean =
         this is IrSimpleType && irTypePredicates_isPrimitiveType()
 
     override fun KotlinTypeMarker.getAttributes(): List<AnnotationMarker> {
         require(this is IrType)
-        return this.annotations.memoryOptimizedMap { object : AnnotationMarker, IrElement by it {} }
-    }
-
-    override fun KotlinTypeMarker.hasCustomAttributes(): Boolean {
-        return false
-    }
-
-    override fun KotlinTypeMarker.getCustomAttributes(): List<AnnotationMarker> {
-        require(this is IrType)
-        return emptyList()
+        return this.annotations
     }
 
     override fun createErrorType(debugName: String, delegatedType: SimpleTypeMarker?): SimpleTypeMarker {
@@ -562,7 +553,7 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
     override fun DefinitelyNotNullTypeMarker.original(): SimpleTypeMarker =
         error("DefinitelyNotNullTypeMarker.original() type is unsupported in IR")
 
-    override fun KotlinTypeMarker.makeDefinitelyNotNullOrNotNull(): KotlinTypeMarker {
+    override fun KotlinTypeMarker.makeDefinitelyNotNullOrNotNull(preserveAttributes: Boolean): KotlinTypeMarker {
         error("makeDefinitelyNotNullOrNotNull is not supported in IR")
     }
 
@@ -600,6 +591,10 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
         require(this is AbstractIrTypeSubstitutor)
         require(type is IrType)
         return substitute(type)
+    }
+
+    override fun supportsImprovedVarianceInCst(): Boolean {
+        return irBuiltIns.languageVersionSettings.supportsFeature(LanguageFeature.ImprovedVarianceInCst)
     }
 }
 

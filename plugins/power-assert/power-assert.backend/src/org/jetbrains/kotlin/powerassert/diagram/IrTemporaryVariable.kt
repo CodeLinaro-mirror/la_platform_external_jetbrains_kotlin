@@ -19,32 +19,30 @@
 
 package org.jetbrains.kotlin.powerassert.diagram
 
+import org.jetbrains.kotlin.ir.SourceRangeInfo
 import org.jetbrains.kotlin.ir.builders.IrStatementsBuilder
 import org.jetbrains.kotlin.ir.builders.irGet
-import org.jetbrains.kotlin.ir.builders.irTemporary
 import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.util.deepCopyWithSymbols
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 
 data class IrTemporaryVariable(
     val temporary: IrVariable,
     val original: IrExpression,
+    val sourceRangeInfo: SourceRangeInfo,
+    val text: String,
 )
 
 class IrTemporaryExtractionTransformer(
     private val builder: IrStatementsBuilder<*>,
-    private val transform: Set<IrExpression>,
+    variables: List<IrTemporaryVariable>,
 ) : IrElementTransformerVoid() {
-    private val _variables = mutableListOf<IrTemporaryVariable>()
-    val variables: List<IrTemporaryVariable> = _variables
+    private val replacements = variables.associate { it.original to it.temporary }
 
     override fun visitExpression(expression: IrExpression): IrExpression {
-        return if (expression in transform) {
-            val copy = expression.deepCopyWithSymbols(builder.scope.getLocalDeclarationParent())
-            val variable = builder.irTemporary(super.visitExpression(expression))
-            _variables.add(IrTemporaryVariable(variable, copy))
-            builder.irGet(variable)
+        val replacement = replacements[expression.attributeOwnerId]
+        return if (replacement != null) {
+            builder.irGet(replacement)
         } else {
             super.visitExpression(expression)
         }

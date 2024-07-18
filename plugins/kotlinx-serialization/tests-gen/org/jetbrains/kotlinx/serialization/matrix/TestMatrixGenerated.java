@@ -9,7 +9,6 @@ import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -20,14 +19,14 @@ import java.util.regex.Pattern;
 @TestMetadata("plugins/kotlinx-serialization/testData/matrix")
 @TestDataPath("$PROJECT_ROOT")
 public class TestMatrixGenerated extends AbstractTestMatrix {
-    @Test
-    public void testAllFilesPresentInMatrix() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/kotlinx-serialization/testData/matrix"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
-    }
+  @Test
+  public void testAllFilesPresentInMatrix() {
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/kotlinx-serialization/testData/matrix"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+  }
 
-    @Test
-    @TestMetadata("enums.kt")
-    public void testEnums() throws Exception {
-        runTest("plugins/kotlinx-serialization/testData/matrix/enums.kt");
-    }
+  @Test
+  @TestMetadata("enums.kt")
+  public void testEnums() {
+    runTest("plugins/kotlinx-serialization/testData/matrix/enums.kt");
+  }
 }

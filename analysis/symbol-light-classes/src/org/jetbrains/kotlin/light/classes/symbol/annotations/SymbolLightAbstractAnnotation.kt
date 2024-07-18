@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.light.classes.symbol.annotations
 
 import com.intellij.psi.*
-import org.jetbrains.kotlin.analysis.api.calls.singleConstructorCallOrNull
-import org.jetbrains.kotlin.analysis.api.calls.symbol
+import org.jetbrains.kotlin.analysis.api.resolution.singleConstructorCallOrNull
+import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.asJava.classes.cannotModify
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
@@ -47,6 +47,15 @@ internal abstract class SymbolLightAbstractAnnotation(parent: PsiElement) :
         kotlinOrigin?.delete()
     }
 
+    override fun getText(): String {
+        kotlinOrigin?.text?.let { return it }
+
+        val parameterAttributes = parameterList.attributes
+        if (parameterAttributes.isEmpty()) return toString()
+
+        return "@$qualifiedName(" + parameterAttributes.joinToString { it.name + "=" + it.value?.text } + ")"
+    }
+
     override fun toString() = "@$qualifiedName"
 
     abstract override fun equals(other: Any?): Boolean
@@ -64,7 +73,7 @@ internal abstract class SymbolLightAbstractAnnotation(parent: PsiElement) :
         if (useDefault) {
             val callElement = kotlinOrigin ?: return null
             return analyzeForLightClasses(callElement) {
-                val valueParameter = callElement.resolveCall()
+                val valueParameter = callElement.resolveToCall()
                     ?.singleConstructorCallOrNull()
                     ?.symbol
                     ?.valueParameters
@@ -73,7 +82,8 @@ internal abstract class SymbolLightAbstractAnnotation(parent: PsiElement) :
                 when (val psi = valueParameter?.psi) {
                     is KtParameter -> {
                         psi.defaultValue?.let { defaultValue ->
-                            defaultValue.evaluateAsAnnotationValue()?.toAnnotationMemberValue(parameterList)
+                            val annotationValue = defaultValue.evaluateAsAnnotationValue()?.toLightClassAnnotationValue()
+                            annotationValue?.toAnnotationMemberValue(parameterList)
                         }
                     }
                     is PsiAnnotationMethod -> psi.defaultValue

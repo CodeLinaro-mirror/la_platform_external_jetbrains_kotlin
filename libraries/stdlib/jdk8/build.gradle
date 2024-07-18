@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 description = 'Kotlin Standard Library JDK 8 extension'
 
 apply plugin: 'kotlin'
@@ -61,8 +63,6 @@ compileKotlin {
 compileTestKotlin {
 }
 
-LibrariesCommon.configureFrontendIr(project)
-
 LibrariesCommon.configureJava9Compilation(project, 'kotlin.stdlib.jdk8')
 
 tasks.named("compileModuleTestJava", JavaCompile) {
@@ -71,7 +71,9 @@ tasks.named("compileModuleTestJava", JavaCompile) {
 }
 
 compileModuleTestKotlin {
-    kotlinJavaToolchain.toolchain.use(JvmToolchain.getToolchainLauncherFor(project, JdkMajorVersion.JDK_9_0))
+    kotlinJavaToolchain.toolchain.use(JvmToolchain.getToolchainLauncherFor(project, JdkMajorVersion.JDK_11_0))
+    compilerOptions.jvmTarget = JvmTarget.JVM_9
+    compilerOptions.freeCompilerArgs = [ "-Xjdk-release=9" ]
 }
 
 check.dependsOn(tasks.register("moduleInfoTest", Test) {test ->

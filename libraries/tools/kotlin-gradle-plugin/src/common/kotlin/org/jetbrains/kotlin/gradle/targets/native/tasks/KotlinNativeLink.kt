@@ -6,29 +6,28 @@
 @file:Suppress("PackageDirectoryMismatch") // Old package for compatibility
 package org.jetbrains.kotlin.gradle.tasks
 
-import groovy.lang.Closure
+import org.gradle.api.Action
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
-import org.gradle.api.attributes.Category
-import org.gradle.api.attributes.Usage
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileCollection
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
-import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
 import org.jetbrains.kotlin.compilerRunner.*
 import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
+import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.create
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.categoryByName
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.asValidFrameworkName
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.plugin.usesPlatformOf
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.UsesXcodeVersion
 import org.jetbrains.kotlin.gradle.report.UsesBuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.native.UsesKonanPropertiesBuildService
 import org.jetbrains.kotlin.gradle.targets.native.tasks.CompilerPluginData
@@ -36,7 +35,6 @@ import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.UsesKotlinNativeBundleBuildService
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
-import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.project.model.LanguageSettings
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.io.File
@@ -53,10 +51,10 @@ constructor(
     @Transient // This property can't be accessed in the execution phase
     val binary: NativeBinary,
     private val objectFactory: ObjectFactory,
-    private val execOperations: ExecOperations,
 ) : AbstractKotlinCompileTool<K2NativeCompilerArguments>(objectFactory),
     UsesKonanPropertiesBuildService,
     UsesBuildMetricsService,
+    UsesXcodeVersion,
     KotlinToolTask<KotlinCommonCompilerToolOptions>,
     UsesKotlinNativeBundleBuildService {
 
@@ -75,7 +73,7 @@ constructor(
         {
             // Avoid resolving these dependencies during task graph construction when we can't build the target:
             @Suppress("DEPRECATION")
-            if (konanTarget.enabledOnCurrentHost) compilation.compileDependencyFiles
+            if (konanTarget.enabledOnCurrentHostForBinariesCompilation()) compilation.compileDependencyFiles
             else objectFactory.fileCollection()
         }
     )
@@ -101,7 +99,8 @@ constructor(
     internal val binaryName: String by lazyConvention { binary.name }
 
     @Suppress("DEPRECATION")
-    private val konanTarget = compilation.konanTarget
+    @get:Internal
+    internal val konanTarget = compilation.konanTarget
 
     @Suppress("DEPRECATION")
     @Deprecated("Use toolOptions to configure the task")
@@ -116,7 +115,7 @@ constructor(
 
     @Suppress("unused")
     @get:Input
-    internal val useEmbeddableCompilerJar: Boolean = project.nativeUseEmbeddableCompilerJar
+    internal val useEmbeddableCompilerJar: Provider<Boolean> = project.nativeProperties.isUseEmbeddableCompilerJar
 
     @Suppress("unused", "UNCHECKED_CAST")
     @Deprecated(
@@ -126,19 +125,24 @@ constructor(
     @get:Internal
     val additionalCompilerOptions: Provider<Collection<String>> = toolOptions.freeCompilerArgs as Provider<Collection<String>>
 
+    @Suppress("DEPRECATION")
+    @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
     @get:Internal
     val kotlinOptions: KotlinCommonToolOptions = object : KotlinCommonToolOptions {
         override val options: KotlinCommonCompilerToolOptions
             get() = toolOptions
     }
 
+    @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
+    @Suppress("DEPRECATION")
     fun kotlinOptions(fn: KotlinCommonToolOptions.() -> Unit) {
         kotlinOptions.fn()
     }
 
-    fun kotlinOptions(fn: Closure<*>) {
-        fn.delegate = kotlinOptions
-        fn.call()
+    @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
+    @Suppress("DEPRECATION")
+    fun kotlinOptions(fn: Action<KotlinCommonToolOptions>) {
+        fn.execute(kotlinOptions)
     }
 
     // Binary-specific options.
@@ -188,21 +192,7 @@ constructor(
         (binary as? Framework)?.embedBitcodeMode ?: objectFactory.property()
 
     @get:Internal
-    val apiFiles = project
-        .configurations
-        .detachedResolvable()
-        .apply @Suppress("DEPRECATION") {
-            val apiConfiguration = project.configurations.getByName(compilation.apiConfigurationName)
-            dependencies.addAll(apiConfiguration.allDependencies)
-            usesPlatformOf(compilation.target)
-            attributes.setAttribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.consumerApiUsage(compilation.target))
-            attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
-        }.filterKlibsPassedToCompiler()
-
-    @get:Optional
-    @get:InputFile
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    internal val xcodeVersion = objectFactory.fileProperty()
+    val apiFiles: ConfigurableFileCollection = objectFactory.fileCollection()
 
     private val externalDependenciesArgs by lazy {
         @Suppress("DEPRECATION")
@@ -338,8 +328,7 @@ constructor(
                 when {
                     outputKind == CompilerOutputKind.FRAMEWORK ->
                         it.asValidFrameworkName()
-                    outputKind in listOf(CompilerOutputKind.STATIC, CompilerOutputKind.DYNAMIC) ||
-                            outputKind == CompilerOutputKind.PROGRAM && konanTarget == KonanTarget.WASM32 ->
+                    outputKind in listOf(CompilerOutputKind.STATIC, CompilerOutputKind.DYNAMIC) ->
                         it.replace('-', '_')
                     else -> it
                 }
@@ -363,20 +352,23 @@ constructor(
     var kotlinPluginData: Provider<KotlinCompilerPluginData>? = null
 
     @get:Nested
-    internal val kotlinNativeProvider: Provider<KotlinNativeProvider> = project.provider {
-        KotlinNativeProvider(project, konanTarget, kotlinNativeBundleBuildService)
-    }
+    internal val kotlinNativeProvider: Property<KotlinNativeProvider> =
+        project.objects.propertyWithConvention<KotlinNativeProvider>(
+            // For KT-66452 we need to get rid of invocation of 'Task.project'.
+            // That is why we moved setting this property to task registration
+            // and added convention for backwards compatibility.
+            project.provider {
+                KotlinNativeProvider(project, konanTarget, kotlinNativeBundleBuildService)
+            })
 
     @Deprecated(
-        message = "This property as a konanHome will be squashed into one in future releases.",
-        replaceWith = ReplaceWith("kotlinNativeProvider.konanDataDir")
+        message = "This property will be removed in future releases. Don't use it in your code.",
     )
     @get:Internal
     val konanDataDir: Provider<String?> = kotlinNativeProvider.flatMap { it.konanDataDir }
 
     @Deprecated(
-        message = "This property as a konanDataDir will be squashed into one in future releases.",
-        replaceWith = ReplaceWith("kotlinNativeProvider.compilerDirectory")
+        message = "This property will be removed in future releases. Don't use it in your code.",
     )
     @get:Internal
     val konanHome: Provider<String> = kotlinNativeProvider.map { it.bundleDirectory.get().asFile.absolutePath }
@@ -397,7 +389,6 @@ constructor(
             val output = outputFile.get()
             output.parentFile.mkdirs()
 
-            val executionContext = KotlinToolRunner.GradleExecutionContext.fromTaskContext(objectFactory, execOperations, logger)
             val additionalOptions = mutableListOf<String>().apply {
                 addAll(externalDependenciesArgs)
                 when (cacheSettings.orchestration) {
@@ -420,12 +411,12 @@ constructor(
                     }
                     NativeCacheOrchestration.Gradle -> {
                         if (cacheSettings.icEnabled) {
-                            executionContext.logger.warn(
+                            logger.warn(
                                 "K/N incremental compilation only works in conjunction with kotlin.native.cacheOrchestration=compiler"
                             )
                         }
                         val cacheBuilder = CacheBuilder(
-                            executionContext = executionContext,
+                            objectFactory = objectFactory,
                             settings = cacheBuilderSettings,
                             konanPropertiesService = konanPropertiesService.get(),
                             metricsReporter = metricsReporter
@@ -438,11 +429,9 @@ constructor(
             val arguments = createCompilerArguments()
             val buildArguments = ArgumentUtils.convertArgumentsToStringList(arguments) + additionalOptions
 
-            KotlinNativeCompilerRunner(
+            objectFactory.KotlinNativeCompilerRunner(
                 settings = runnerSettings,
-                executionContext = executionContext,
                 metricsReporter = metricsReporter
-
             ).run(buildArguments)
         }
     }

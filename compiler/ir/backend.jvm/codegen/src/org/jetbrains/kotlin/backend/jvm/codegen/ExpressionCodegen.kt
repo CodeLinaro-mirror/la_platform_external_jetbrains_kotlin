@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.ir.getDefaultAdditionalStatementsFrom
 import org.jetbrains.kotlin.backend.common.ir.getNonDefaultAdditionalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.ir.getOriginalStatementsFromInlinedBlock
 import org.jetbrains.kotlin.backend.common.lower.BOUND_RECEIVER_PARAMETER
+import org.jetbrains.kotlin.backend.common.lower.LoweredDeclarationOrigins
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
 import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.backend.jvm.intrinsics.IntrinsicMethod
@@ -30,6 +31,7 @@ import org.jetbrains.kotlin.codegen.pseudoInsns.fakeAlwaysFalseIfeq
 import org.jetbrains.kotlin.codegen.pseudoInsns.fixStackAndJump
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.JvmBackendConfig
+import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.diagnostics.BackendErrors
@@ -50,11 +52,10 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
-import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.JAVA_STRING_TYPE
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
-import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodParameterKind
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
 import org.jetbrains.kotlin.types.TypeSystemCommonBackendContext
 import org.jetbrains.kotlin.types.computeExpandedTypeForInlineClass
@@ -148,7 +149,7 @@ class ExpressionCodegen(
     var finallyDepth = 0
 
     val enclosingFunctionForLocalObjects: IrFunction
-        get() = generateSequence(irFunction) { context.enclosingMethodOverride[it] }.last()
+        get() = generateSequence(irFunction) { it.enclosingMethodOverride }.last()
 
     val context = classCodegen.context
     val typeMapper = classCodegen.typeMapper
@@ -156,6 +157,13 @@ class ExpressionCodegen(
 
     val state: GenerationState = context.state
     val config: JvmBackendConfig = context.config
+
+    override val inlineScopesGenerator =
+        if (state.configuration.getBoolean(JVMConfigurationKeys.USE_INLINE_SCOPES_NUMBERS)) {
+            InlineScopesGenerator()
+        } else {
+            null
+        }
 
     override val visitor: InstructionAdapter
         get() = mv
@@ -288,7 +296,7 @@ class ExpressionCodegen(
 
         if ((DescriptorVisibilities.isPrivate(irFunction.visibility) && !shouldGenerateNonNullAssertionsForPrivateFun(irFunction)) ||
             irFunction.origin.isSynthetic ||
-            irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_LAMBDA ||
+            irFunction.origin == LoweredDeclarationOrigins.INLINE_LAMBDA ||
             // TODO: refine this condition to not generate nullability assertions on parameters
             //       corresponding to captured variables and anonymous object super constructor arguments
             (irFunction is IrConstructor && irFunction.parentAsClass.isAnonymousObject) ||
@@ -316,8 +324,13 @@ class ExpressionCodegen(
 
         // Private operator functions don't have null checks on value parameters,
         // see `DescriptorAsmUtil.genNotNullAssertionsForParameters`.
-        if (!DescriptorVisibilities.isPrivate(irFunction.visibility) || irFunction !is IrSimpleFunction || !irFunction.isOperator) {
-            irFunction.valueParameters.forEach(::generateNonNullAssertion)
+        if (DescriptorVisibilities.isPrivate(irFunction.visibility) && irFunction is IrSimpleFunction && irFunction.isOperator)
+            return
+
+        for (parameter in irFunction.valueParameters) {
+            if (!parameter.origin.isSynthetic) {
+                generateNonNullAssertion(parameter)
+            }
         }
     }
 
@@ -326,7 +339,7 @@ class ExpressionCodegen(
     // * Hidden constructors with mangled parameters require non-null assertions (see KT-53492)
     private fun shouldGenerateNonNullAssertionsForPrivateFun(irFunction: IrFunction): Boolean {
         if (irFunction is IrSimpleFunction && irFunction.isOperator || irFunction.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA) return true
-        if (context.hiddenConstructorsWithMangledParams.containsKey(irFunction)) return true
+        if (irFunction is IrConstructor && irFunction.hiddenConstructorMangledParams != null) return true
         return false
     }
 
@@ -533,7 +546,7 @@ class ExpressionCodegen(
 
     private fun IrInlinedFunctionBlock.buildOrGetClassSMAP(data: BlockInfo): SMAP {
         if (this.isLambdaInlining()) {
-            return context.typeToCachedSMAP[context.getLocalClassType(this.inlinedElement as IrAttributeContainer)]!!
+            return context.typeToCachedSMAP[(this.inlinedElement as IrAttributeContainer).localClassType]!!
         }
 
         val callee = this.inlineDeclaration
@@ -599,31 +612,37 @@ class ExpressionCodegen(
 
         callGenerator.beforeCallStart()
 
+        fun handleParameter(parameter: IrValueParameter, argument: IrExpression, asmType: Type) {
+            callGenerator.genValueAndPut(parameter, argument, asmType, this, data)
+        }
+
+        fun getValueArgument(i: Int): IrExpression =
+            expression.getValueArgument(i) ?: error(
+                "No argument for parameter ${callee.symbol.owner.valueParameters[i].render()}:\n${expression.dump()}"
+            )
+
         expression.dispatchReceiver?.let { receiver ->
-            val type = if (expression.superQualifierSymbol != null) receiver.asmType else callable.owner
-            callGenerator.genValueAndPut(callee.dispatchReceiverParameter!!, receiver, type, this, data)
+            handleParameter(
+                callee.dispatchReceiverParameter!!,
+                receiver,
+                if (expression.superQualifierSymbol != null) receiver.asmType else callable.owner,
+            )
         }
 
-        fun handleValueParameter(i: Int, irParameter: IrValueParameter) {
-            val arg = expression.getValueArgument(i)
-            val parameterType = callable.valueParameterTypes[i]
-            require(arg != null) {
-                "No argument for parameter ${irParameter.render()}:\n${expression.dump()}"
-            }
-            callGenerator.genValueAndPut(irParameter, arg, parameterType, this, data)
+        val valueParameterAsmTypes = callable.signature.valueParameters
+        val contextReceiverCount = callee.contextReceiverParametersCount
+        for (i in 0 until contextReceiverCount) {
+            handleParameter(callee.valueParameters[i], getValueArgument(i), valueParameterAsmTypes[i].asmType)
         }
-
-        val contextReceivers = callee.valueParameters.subList(0, callee.contextReceiverParametersCount)
-        contextReceivers.forEachIndexed(::handleValueParameter)
 
         expression.extensionReceiver?.let { receiver ->
-            val type = callable.signature.valueParameters.singleOrNull { it.kind == JvmMethodParameterKind.RECEIVER }?.asmType
-                ?: error("No single extension receiver parameter: ${callable.signature.valueParameters}")
-            callGenerator.genValueAndPut(callee.extensionReceiverParameter!!, receiver, type, this, data)
+            handleParameter(callee.extensionReceiverParameter!!, receiver, valueParameterAsmTypes[contextReceiverCount].asmType)
         }
 
-        callee.valueParameters.subList(callee.contextReceiverParametersCount, callee.valueParameters.size)
-            .forEachIndexed { i, valueParameter -> handleValueParameter(i + contextReceivers.size, valueParameter) }
+        val valueParametersShift = if (callee.extensionReceiverParameter != null) 1 else 0
+        for (i in contextReceiverCount until callee.valueParameters.size) {
+            handleParameter(callee.valueParameters[i], getValueArgument(i), valueParameterAsmTypes[i + valueParametersShift].asmType)
+        }
 
         expression.markLineNumber(true)
 
@@ -686,9 +705,7 @@ class ExpressionCodegen(
                 SuspensionPointKind.NEVER
             // Copy-pasted bytecode blocks are not suspension points.
             symbol.owner.isInline ->
-                if (symbol.owner.name.asString() == "suspendCoroutineUninterceptedOrReturn" &&
-                    symbol.owner.getPackageFragment().packageFqName == FqName("kotlin.coroutines.intrinsics")
-                )
+                if (symbol.owner.isBuiltInSuspendCoroutineUninterceptedOrReturn())
                     SuspensionPointKind.ALWAYS
                 else
                     SuspensionPointKind.NEVER
@@ -758,6 +775,15 @@ class ExpressionCodegen(
     override fun visitVariable(declaration: IrVariable, data: BlockInfo): PromisedValue {
         val varType = typeMapper.mapType(declaration)
         val index = frameMap.enter(declaration.symbol, varType)
+        val name = declaration.name.asString()
+
+        if (state.configuration.getBoolean(JVMConfigurationKeys.USE_INLINE_SCOPES_NUMBERS) &&
+            state.configuration.getBoolean(JVMConfigurationKeys.ENABLE_IR_INLINER) &&
+            isFakeLocalVariableForInline(name) &&
+            name.contains(INLINE_SCOPE_NUMBER_SEPARATOR)
+        ) {
+            declaration.name = Name.identifier(updateCallSiteLineNumber(name, lineNumberMapper.getLineNumber()))
+        }
 
         val initializer = declaration.initializer
         if (initializer != null) {
@@ -1607,7 +1633,7 @@ class ExpressionCodegen(
     }
 
     val isFinallyMarkerRequired: Boolean
-        get() = irFunction.isInline || irFunction.origin == JvmLoweredDeclarationOrigin.INLINE_LAMBDA
+        get() = irFunction.isInline || irFunction.origin == LoweredDeclarationOrigins.INLINE_LAMBDA
 
     companion object {
         internal fun generateClassInstance(v: InstructionAdapter, classType: IrType, typeMapper: IrTypeMapper, wrapPrimitives: Boolean) {

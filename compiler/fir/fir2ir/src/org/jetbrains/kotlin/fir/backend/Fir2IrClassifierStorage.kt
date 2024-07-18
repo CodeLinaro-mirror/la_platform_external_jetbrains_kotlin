@@ -8,6 +8,8 @@ package org.jetbrains.kotlin.fir.backend
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
+import org.jetbrains.kotlin.fir.backend.generators.isExternalParent
+import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
@@ -17,30 +19,30 @@ import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
-import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.*
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import java.util.concurrent.ConcurrentHashMap
 
 class Fir2IrClassifierStorage(
-    private val components: Fir2IrComponents,
+    private val c: Fir2IrComponents,
     commonMemberStorage: Fir2IrCommonMemberStorage,
     private val conversionScope: Fir2IrConversionScope,
-) : Fir2IrComponents by components {
-    private val classCache: MutableMap<FirRegularClass, IrClass> = commonMemberStorage.classCache
+) : Fir2IrComponents by c {
+    private val classCache: MutableMap<FirRegularClass, IrClassSymbol> = commonMemberStorage.classCache
+    private val notFoundClassCache: ConcurrentHashMap<ConeClassLikeLookupTag, IrClass> = commonMemberStorage.notFoundClassCache
 
-    private val typeAliasCache: MutableMap<FirTypeAlias, IrTypeAlias> = mutableMapOf()
+    private val typeAliasCache: MutableMap<FirTypeAlias, IrTypeAliasSymbol> = mutableMapOf()
 
     private val typeParameterCache: MutableMap<FirTypeParameter, IrTypeParameter> = commonMemberStorage.typeParameterCache
 
     private val typeParameterCacheForSetter: MutableMap<FirTypeParameter, IrTypeParameter> = mutableMapOf()
 
-    private val enumEntryCache: MutableMap<FirEnumEntry, IrEnumEntry> = commonMemberStorage.enumEntryCache
+    private val enumEntryCache: MutableMap<FirEnumEntry, IrEnumEntrySymbol> = commonMemberStorage.enumEntryCache
 
     private val codeFragmentCache: MutableMap<FirCodeFragment, IrClass> = mutableMapOf()
 
@@ -59,11 +61,12 @@ class Fir2IrClassifierStorage(
      *
      * Be careful when using it, and avoid it, except really needed.
      */
+    @Suppress("unused")
     @DelicateDeclarationStorageApi
     fun forEachCachedDeclarationSymbol(block: (IrSymbol) -> Unit) {
-        classCache.values.forEach { block(it.symbol) }
-        typeAliasCache.values.forEach { block(it.symbol) }
-        enumEntryCache.values.forEach { block(it.symbol) }
+        classCache.values.forEach { block(it) }
+        typeAliasCache.values.forEach { block(it) }
+        enumEntryCache.values.forEach { block(it) }
         fieldsForContextReceivers.values.forEach { fields ->
             fields.forEach { block(it.symbol) }
         }
@@ -71,21 +74,18 @@ class Fir2IrClassifierStorage(
 
     private var processMembersOfClassesOnTheFlyImmediately = false
 
-    private fun FirTypeRef.toIrType(typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT): IrType =
-        with(typeConverter) { toIrType(typeOrigin) }
-
     // ------------------------------------ type parameters ------------------------------------
 
     // Note: declareTypeParameters should be called before!
-    internal fun preCacheTypeParameters(owner: FirTypeParameterRefsOwner, irOwnerSymbol: IrSymbol) {
+    internal fun preCacheTypeParameters(owner: FirTypeParameterRefsOwner) {
         for ((index, typeParameter) in owner.typeParameters.withIndex()) {
             val original = typeParameter.symbol.fir
             getCachedIrTypeParameter(original)
-                ?: createAndCacheIrTypeParameter(original, index, irOwnerSymbol)
+                ?: createAndCacheIrTypeParameter(original, index)
             if (owner is FirProperty && owner.isVar) {
                 val context = ConversionTypeOrigin.SETTER
                 getCachedIrTypeParameter(original, context)
-                    ?: createAndCacheIrTypeParameter(original, index, irOwnerSymbol, context)
+                    ?: createAndCacheIrTypeParameter(original, index, context)
             }
         }
     }
@@ -93,11 +93,10 @@ class Fir2IrClassifierStorage(
     internal fun getIrTypeParameter(
         typeParameter: FirTypeParameter,
         index: Int,
-        ownerSymbol: IrSymbol,
         typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT
     ): IrTypeParameter {
         getCachedIrTypeParameter(typeParameter, typeOrigin)?.let { return it }
-        val irTypeParameter = createAndCacheIrTypeParameter(typeParameter, index, ownerSymbol, typeOrigin)
+        val irTypeParameter = createAndCacheIrTypeParameter(typeParameter, index, typeOrigin)
         classifiersGenerator.initializeTypeParameterBounds(typeParameter, irTypeParameter)
         return irTypeParameter
     }
@@ -105,10 +104,9 @@ class Fir2IrClassifierStorage(
     private fun createAndCacheIrTypeParameter(
         typeParameter: FirTypeParameter,
         index: Int,
-        ownerSymbol: IrSymbol,
         typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT,
     ): IrTypeParameter {
-        val symbol = createTypeParameterSymbol(ownerSymbol, index)
+        val symbol = IrTypeParameterSymbolImpl()
         val irTypeParameter = classifiersGenerator.createIrTypeParameterWithoutBounds(typeParameter, index, symbol)
         // Cache the type parameter BEFORE processing its bounds/supertypes, to properly handle recursive type bounds.
         if (typeOrigin.forSetter) {
@@ -117,13 +115,6 @@ class Fir2IrClassifierStorage(
             typeParameterCache[typeParameter] = irTypeParameter
         }
         return irTypeParameter
-    }
-
-    private fun createTypeParameterSymbol(ownerSymbol: IrSymbol, index: Int): IrTypeParameterSymbol {
-        if (ownerSymbol !is IrClassifierSymbol) return IrTypeParameterSymbolImpl()
-        val signature = signatureComposer.composeTypeParameterSignature(index, ownerSymbol.signature)
-            ?: return IrTypeParameterSymbolImpl()
-        return symbolTable.referenceTypeParameter(signature)
     }
 
     internal fun getCachedIrTypeParameter(
@@ -149,7 +140,7 @@ class Fir2IrClassifierStorage(
             return cachedSymbol
         }
 
-        if (components.configuration.allowNonCachedDeclarations) {
+        if (c.configuration.allowNonCachedDeclarations) {
             return createIrTypeParameterForNonCachedDeclaration(firTypeParameter)
         }
 
@@ -164,7 +155,7 @@ class Fir2IrClassifierStorage(
         val isSetter = firTypeParameterOwner is FirPropertyAccessor && firTypeParameterOwner.isSetter
         val conversionTypeOrigin = if (isSetter) ConversionTypeOrigin.SETTER else ConversionTypeOrigin.DEFAULT
 
-        return createAndCacheIrTypeParameter(firTypeParameter, index, IrTypeParameterSymbolImpl(), conversionTypeOrigin).also {
+        return createAndCacheIrTypeParameter(firTypeParameter, index, conversionTypeOrigin).also {
             classifiersGenerator.initializeTypeParameterBounds(firTypeParameter, it)
         }.symbol
     }
@@ -176,18 +167,15 @@ class Fir2IrClassifierStorage(
         parent: IrDeclarationParent,
         predefinedOrigin: IrDeclarationOrigin? = null
     ): IrClass {
-        val symbol = createClassSymbol(signature = null)
+        val symbol = createClassSymbol()
         return classifiersGenerator.createIrClass(regularClass, parent, symbol, predefinedOrigin).also {
             @OptIn(LeakedDeclarationCaches::class)
             cacheIrClass(regularClass, it)
         }
     }
 
-    private fun createClassSymbol(signature: IdSignature?): IrClassSymbol {
-        return when {
-            signature != null -> symbolTable.referenceClass(signature)
-            else -> IrClassSymbolImpl()
-        }
+    private fun createClassSymbol(): IrClassSymbol {
+        return IrClassSymbolImpl()
     }
 
     @LeakedDeclarationCaches
@@ -195,58 +183,67 @@ class Fir2IrClassifierStorage(
         if (regularClass.visibility == Visibilities.Local) {
             localStorage[regularClass] = irClass
         } else {
-            classCache[regularClass] = irClass
+            classCache[regularClass] = irClass.symbol
         }
     }
 
-    fun getCachedIrClass(klass: FirClass): IrClass? {
-        return if (klass is FirAnonymousObject || klass is FirRegularClass && klass.visibility == Visibilities.Local) {
-            localStorage[klass]
-        } else {
-            classCache[klass]
-        }
-    }
-
-    fun findIrClass(lookupTag: ConeClassLikeLookupTag): IrClass? {
-        return if (lookupTag.classId.isLocal) {
-            getCachedLocalClass(lookupTag)
-        } else {
-            val firSymbol = lookupTag.toSymbol(session)
-            if (firSymbol is FirClassSymbol) {
-                getOrCreateIrClass(firSymbol)
-            } else {
-                null
-            }
-        }
-    }
-
-    private fun getCachedLocalClass(lookupTag: ConeClassLikeLookupTag): IrClass? {
-        return localStorage[lookupTag.toSymbol(session)!!.fir as FirClass]
-    }
-
-    fun getOrCreateIrClass(firClassSymbol: FirClassSymbol<*>): IrClass {
-        val firClass = firClassSymbol.fir
-        classifierStorage.getCachedIrClass(firClass)?.let { return it }
+    /**
+     * FIR2IR looks over all non-local source classes and creates IR for them using [createAndCacheIrClass]
+     * This means that after this phase all classes are either created and bound to their symbols or external classes,
+     *   which are created and bound at the first access anyway
+     *
+     * So, unlike callable declarations, it's safe to expose an API, which returns not just IrClassSymbol, but IrClass itself
+     *
+     * But on the first FIR2IR stage this API should not be used
+     */
+    fun getIrClass(firClass: FirClass): IrClass {
+        getCachedIrClass(firClass)?.let { return it }
         if (firClass is FirAnonymousObject || firClass is FirRegularClass && firClass.visibility == Visibilities.Local) {
             return createAndCacheLocalIrClassOnTheFly(firClass)
         }
-        firClass as FirRegularClass
-        val classId = firClassSymbol.classId
+        require(firClass is FirRegularClass)
+        val symbol = createClassSymbol()
+        val classId = firClass.symbol.classId
         val parentId = classId.outerClassId
         val parentClass = parentId?.let { session.symbolProvider.getClassLikeSymbolByClassId(it) }
-        val irParent = declarationStorage.findIrParent(classId.packageFqName, parentClass?.toLookupTag(), firClassSymbol, firClass.origin)!!
+        val irParent = declarationStorage.findIrParent(
+            classId.packageFqName,
+            parentClass?.toLookupTag(),
+            firClass.symbol,
+            firClass.origin
+        )!!
 
-        // firClass may be referenced by some parent's type parameters as a bound. In that case, getIrClassSymbol will be called recursively.
-        classifierStorage.getCachedIrClass(firClass)?.let { return it }
-
-        val symbol = createClassSymbol(signature = null)
+        classCache[firClass] = symbol
+        check(irParent.isExternalParent()) { "Source classes should be created separately before referencing" }
         val irClass = lazyDeclarationsGenerator.createIrLazyClass(firClass, irParent, symbol)
-        classCache[firClass] = irClass
         // NB: this is needed to prevent recursions in case of self bounds
         irClass.prepareTypeParameters()
 
         return irClass
+    }
 
+    private fun getIrClass(lookupTag: ConeClassLikeLookupTag): IrClass? {
+        val firClassSymbol = lookupTag.toSymbol(session) as? FirClassSymbol<*> ?: return null
+        return getIrClass(firClassSymbol.fir)
+    }
+
+    fun getCachedIrLocalClass(klass: FirClass): IrClass? {
+        return runIf(klass is FirAnonymousObject || klass is FirRegularClass && klass.visibility == Visibilities.Local) {
+            localStorage[klass]
+        }
+    }
+
+    private fun getCachedIrClass(klass: FirClass): IrClass? {
+        @OptIn(UnsafeDuringIrConstructionAPI::class)
+        return getCachedIrLocalClass(klass) ?: classCache[klass]?.owner
+    }
+
+    fun getIrClassSymbol(firClassSymbol: FirClassSymbol<*>): IrClassSymbol {
+        return getIrClass(firClassSymbol.fir).symbol
+    }
+
+    fun getIrClassSymbol(lookupTag: ConeClassLikeLookupTag): IrClassSymbol? {
+        return getIrClass(lookupTag)?.symbol
     }
 
     fun getFieldsWithContextReceiversForClass(irClass: IrClass, klass: FirClass): List<IrField> {
@@ -254,14 +251,14 @@ class Fir2IrClassifierStorage(
 
         return fieldsForContextReceivers.getOrPut(irClass) {
             klass.contextReceivers.withIndex().map { (index, contextReceiver) ->
-                components.irFactory.createField(
+                c.irFactory.createField(
                     startOffset = UNDEFINED_OFFSET,
                     endOffset = UNDEFINED_OFFSET,
                     origin = IrDeclarationOrigin.FIELD_FOR_CLASS_CONTEXT_RECEIVER,
                     name = Name.identifier("contextReceiverField$index"),
                     visibility = DescriptorVisibilities.PRIVATE,
                     symbol = IrFieldSymbolImpl(),
-                    type = contextReceiver.typeRef.toIrType(),
+                    type = contextReceiver.typeRef.toIrType(c),
                     isFinal = true,
                     isStatic = false,
                     isExternal = false,
@@ -272,10 +269,20 @@ class Fir2IrClassifierStorage(
         }
     }
 
+    fun getIrClassForNotFoundClass(classLikeLookupTag: ConeClassLikeLookupTag): IrClass {
+        return notFoundClassCache.getOrPut(classLikeLookupTag) {
+            classifiersGenerator.createIrClassForNotFoundClass(classLikeLookupTag)
+        }
+    }
+
     // ------------------------------------ local classes ------------------------------------
 
     private fun createAndCacheLocalIrClassOnTheFly(klass: FirClass): IrClass {
-        val (irClass, firClassOrLocalParent, irClassOrLocalParent) = classifiersGenerator.createLocalIrClassOnTheFly(klass, processMembersOfClassesOnTheFlyImmediately)
+        val (irClass, firClassOrLocalParent, irClassOrLocalParent) = classifiersGenerator.createLocalIrClassOnTheFly(
+            klass,
+            processMembersOfClassesOnTheFlyImmediately
+        )
+
         if (!processMembersOfClassesOnTheFlyImmediately) {
             localClassesCreatedOnTheFly[firClassOrLocalParent] = irClassOrLocalParent
         }
@@ -291,22 +298,6 @@ class Fir2IrClassifierStorage(
             conversionScope.withContainingFirClass(klass) {
                 classifiersGenerator.processClassHeader(klass, irClass)
                 converter.processClassMembers(klass, irClass)
-                // See the problem from KT-57441
-                //
-                // ```kt
-                // class Wrapper {
-                //     private val dummy = object: Bar {}
-                //     private val bar = object: Bar by dummy {}
-                // }
-                // interface Bar {
-                //     val foo: String
-                //         get() = ""
-                // }
-                // ```
-                //
-                // When we are building bar.foo fake override, we should call dummy.foo,
-                // so we should have object : Bar.foo fake override to be built and bound.
-                converter.bindFakeOverridesInClass(irClass)
             }
         }
         localClassesCreatedOnTheFly.clear()
@@ -328,7 +319,7 @@ class Fir2IrClassifierStorage(
 
     fun getIrAnonymousObjectForEnumEntry(anonymousObject: FirAnonymousObject, name: Name, irParent: IrClass?): IrClass {
         localStorage[anonymousObject]?.let { return it }
-        val irAnonymousObject = classifierStorage.createAndCacheAnonymousObject(anonymousObject, Visibilities.Private, name, irParent)
+        val irAnonymousObject = createAndCacheAnonymousObject(anonymousObject, Visibilities.Private, name, irParent)
         classifiersGenerator.processClassHeader(anonymousObject, irAnonymousObject)
         return irAnonymousObject
     }
@@ -339,17 +330,30 @@ class Fir2IrClassifierStorage(
         localStorage[(enumEntry.initializer as FirAnonymousObjectExpression).anonymousObject] = correspondingClass
     }
 
-    internal fun getCachedIrEnumEntry(enumEntry: FirEnumEntry): IrEnumEntry? {
-        return enumEntryCache[enumEntry]
+    fun getIrEnumEntrySymbol(enumEntry: FirEnumEntry): IrEnumEntrySymbol {
+        enumEntryCache[enumEntry]?.let { return it }
+
+        val symbol = IrEnumEntrySymbolImpl()
+        enumEntryCache[enumEntry] = symbol
+
+        val irParent = declarationStorage.findIrParent(enumEntry, fakeOverrideOwnerLookupTag = null) as IrClass
+        if (irParent.isExternalParent()) {
+            classifiersGenerator.createIrEnumEntry(
+                enumEntry,
+                irParent = irParent,
+                symbol,
+                predefinedOrigin = irParent.origin
+            )
+        }
+        return symbol
     }
 
-    fun getOrCreateIrEnumEntry(
+    fun createAndCacheIrEnumEntry(
         enumEntry: FirEnumEntry,
         irParent: IrClass,
         predefinedOrigin: IrDeclarationOrigin? = null,
     ): IrEnumEntry {
-        getCachedIrEnumEntry(enumEntry)?.let { return it }
-
+        val symbol = getIrEnumEntrySymbol(enumEntry)
         val containingFile = firProvider.getFirCallableContainerFile(enumEntry.symbol)
 
         @Suppress("NAME_SHADOWING")
@@ -358,15 +362,13 @@ class Fir2IrClassifierStorage(
         } else {
             irParent.origin
         }
-        val symbol = IrEnumEntrySymbolImpl()
+
         return classifiersGenerator.createIrEnumEntry(
             enumEntry,
             irParent = irParent,
             symbol,
             predefinedOrigin = predefinedOrigin
-        ).also {
-            enumEntryCache[enumEntry] = it
-        }
+        )
     }
 
     // ------------------------------------ typealiases ------------------------------------
@@ -377,15 +379,19 @@ class Fir2IrClassifierStorage(
     ): IrTypeAlias {
         val symbol = IrTypeAliasSymbolImpl()
         return classifiersGenerator.createIrTypeAlias(typeAlias, parent, symbol).also {
-            typeAliasCache[typeAlias] = it
+            typeAliasCache[typeAlias] = symbol
         }
     }
 
-    internal fun getCachedTypeAlias(firTypeAlias: FirTypeAlias): IrTypeAlias? = typeAliasCache[firTypeAlias]
+    internal fun getCachedTypeAlias(firTypeAlias: FirTypeAlias): IrTypeAlias? {
+        // Type alias should be created at this point
+        @OptIn(UnsafeDuringIrConstructionAPI::class)
+        return typeAliasCache[firTypeAlias]?.owner
+    }
 
-    fun referenceTypeAlias(firTypeAliasSymbol: FirTypeAliasSymbol): IrTypeAlias {
+    fun getIrTypeAliasSymbol(firTypeAliasSymbol: FirTypeAliasSymbol): IrTypeAliasSymbol {
         val firTypeAlias = firTypeAliasSymbol.fir
-        classifierStorage.getCachedTypeAlias(firTypeAlias)?.let { return it }
+        getCachedTypeAlias(firTypeAlias)?.let { return it.symbol }
 
         val typeAliasId = firTypeAliasSymbol.classId
         val parentId = typeAliasId.outerClassId
@@ -399,10 +405,10 @@ class Fir2IrClassifierStorage(
 
         val symbol = IrTypeAliasSymbolImpl()
         val irTypeAlias = lazyDeclarationsGenerator.createIrLazyTypeAlias(firTypeAlias, irParent, symbol)
-        typeAliasCache[firTypeAlias] = irTypeAlias
+        typeAliasCache[firTypeAlias] = symbol
         irTypeAlias.prepareTypeParameters()
 
-        return irTypeAlias
+        return symbol
     }
 
     // ------------------------------------ code fragments ------------------------------------
@@ -412,8 +418,7 @@ class Fir2IrClassifierStorage(
     }
 
     fun createAndCacheCodeFragmentClass(codeFragment: FirCodeFragment, containingFile: IrFile): IrClass {
-        val signature = signatureComposer.composeSignature(codeFragment)
-        val symbol = createClassSymbol(signature)
+        val symbol = createClassSymbol()
         return classifiersGenerator.createCodeFragmentClass(codeFragment, containingFile, symbol).also {
             codeFragmentCache[codeFragment] = it
         }

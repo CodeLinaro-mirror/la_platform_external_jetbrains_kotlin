@@ -6,7 +6,9 @@
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
+import org.jetbrains.kotlin.config.IrVerificationMode
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
+import org.jetbrains.kotlin.konan.target.KonanTarget
 
 class KonanConfigKeys {
     companion object {
@@ -19,8 +21,6 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("add debug information")
         val FAKE_OVERRIDE_VALIDATOR: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("fake override validator")
-        val BITCODE_EMBEDDING_MODE: CompilerConfigurationKey<BitcodeEmbedding.Mode>
-                = CompilerConfigurationKey.create("bitcode embedding mode")
         val EMIT_LAZY_OBJC_HEADER_FILE: CompilerConfigurationKey<String?> =
                 CompilerConfigurationKey.create("output file to emit lazy Obj-C header")
         val ENABLE_ASSERTIONS: CompilerConfigurationKey<Boolean>
@@ -61,8 +61,6 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("overridden compiler distribution path")
         val LIBRARY_FILES: CompilerConfigurationKey<List<String>> 
                 = CompilerConfigurationKey.create("library file paths")
-        val LIBRARY_VERSION: CompilerConfigurationKey<String?>
-                = CompilerConfigurationKey.create("library version")
         val LIGHT_DEBUG: CompilerConfigurationKey<Boolean?>
                 = CompilerConfigurationKey.create("add light debug information")
         val GENERATE_DEBUG_TRAMPOLINE: CompilerConfigurationKey<Boolean?>
@@ -127,8 +125,6 @@ class KonanConfigKeys {
                 = CompilerConfigurationKey.create("save LLVM IR")
         val VERIFY_BITCODE: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("verify bitcode")
-        val VERIFY_IR: CompilerConfigurationKey<IrVerificationMode>
-                = CompilerConfigurationKey.create("IR verification mode")
         val VERIFY_COMPILER: CompilerConfigurationKey<Boolean>
                 = CompilerConfigurationKey.create("verify compiler")
         val DEBUG_INFO_VERSION: CompilerConfigurationKey<Int>
@@ -158,6 +154,6 @@ class KonanConfigKeys {
         val SAVE_DEPENDENCIES_PATH: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("path to save serialized dependencies to")
         val SAVE_LLVM_IR_DIRECTORY: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("directory to store LLVM IR from phases")
         val KONAN_DATA_DIR: CompilerConfigurationKey<String?> = CompilerConfigurationKey.create("directory for storing konan dependencies, cache and prebuilds")
+        val MANIFEST_NATIVE_TARGETS: CompilerConfigurationKey<Collection<KonanTarget>?> = CompilerConfigurationKey.create("value of native_targets property to write in manifest")
     }
 }
-

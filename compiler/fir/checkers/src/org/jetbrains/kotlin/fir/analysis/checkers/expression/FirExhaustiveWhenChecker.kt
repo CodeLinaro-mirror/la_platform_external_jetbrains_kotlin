@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.expressions.ExhaustivenessStatus
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
+import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyExpressionBlock
 import org.jetbrains.kotlin.fir.expressions.isExhaustive
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
@@ -37,13 +38,28 @@ object FirExhaustiveWhenChecker : FirWhenExpressionChecker(MppCheckerKind.Common
         reportElseMisplaced(expression, reporter, context)
     }
 
+    private fun reportEmptyThenInExpression(whenExpression: FirWhenExpression, context: CheckerContext, reporter: DiagnosticReporter) {
+        val source = whenExpression.source ?: return
+
+        if (source.isIfExpression && whenExpression.usedAsExpression) {
+            val thenBranch = whenExpression.branches.firstOrNull()
+            if (thenBranch == null || thenBranch.result is FirEmptyExpressionBlock) {
+                reporter.reportOn(source, FirErrors.INVALID_IF_AS_EXPRESSION, context)
+            }
+        }
+    }
+
     private fun reportNotExhaustive(whenExpression: FirWhenExpression, context: CheckerContext, reporter: DiagnosticReporter) {
-        if (whenExpression.isExhaustive) return
+        if (whenExpression.isExhaustive) {
+            // whenExpression.isExhaustive is checked as otherwise the constraint is checked below
+            reportEmptyThenInExpression(whenExpression, context, reporter)
+            return
+        }
 
         val source = whenExpression.source ?: return
 
-        val subjectType = whenExpression.subject?.resolvedType?.lowerBoundIfFlexible()
-        val subjectClassSymbol = subjectType?.fullyExpandedType(context.session)?.toRegularClassSymbol(context.session)
+        val subjectType = whenExpression.subject?.resolvedType?.fullyExpandedType(context.session)?.lowerBoundIfFlexible()
+        val subjectClassSymbol = subjectType?.toRegularClassSymbol(context.session)
 
         if (whenExpression.usedAsExpression) {
             if (source.isIfExpression) {

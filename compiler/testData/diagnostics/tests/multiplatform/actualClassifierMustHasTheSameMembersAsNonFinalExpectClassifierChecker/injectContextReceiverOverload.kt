@@ -1,3 +1,4 @@
+// DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
 // LANGUAGE: +ContextReceivers
 // MODULE: m1-common
 // FILE: common.kt
@@ -12,7 +13,7 @@ expect open class Foo {
 actual open class Foo {
     actual fun foo() {}
 
-    // Expected: NON_ACTUAL_MEMBER_DECLARED_IN_EXPECT_NON_FINAL_CLASSIFIER_ACTUALIZATION_WARNING.
+    // Expected: AMBIGUOUS_ACTUALS.
     // But it doesn't work because context receivers are not yet supported in expect actual matcher KT-61447
     context(Int)
     fun <!ACTUAL_MISSING!>foo<!>() {}

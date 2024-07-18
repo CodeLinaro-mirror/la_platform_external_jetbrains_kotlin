@@ -59,6 +59,8 @@ internal class UltraLightMembersCreator(
         usedPropertyNames: HashSet<String>,
         forceStatic: Boolean
     ): KtLightField? {
+        ProgressManager.checkCanceled()
+
         if (variable.nameAsSafeName.isSpecial) return null
         if (!hasBackingField(variable)) return null
 
@@ -118,6 +120,7 @@ internal class UltraLightMembersCreator(
         forceNonFinal: Boolean = false,
         additionalReceiverParameter: ((KtUltraLightMethod) -> KtUltraLightParameter)? = null,
     ): Collection<KtLightMethod> {
+        ProgressManager.checkCanceled()
 
         if (ktFunction.hasExpectModifier()
             || ktFunction.hasReifiedParameters()
@@ -257,11 +260,11 @@ internal class UltraLightMembersCreator(
         if (ktDeclaration is KtNamedFunction &&
             ktDeclaration.hasBlockBody() &&
             !ktDeclaration.hasDeclaredReturnType()
-        ) return PsiType.VOID
+        ) return PsiTypes.voidType()
 
         val desc =
             ktDeclaration.resolve()?.getterIfProperty() as? CallableDescriptor
-                ?: return PsiType.NULL
+                ?: return PsiTypes.nullType()
 
         return support.mapType(desc.returnType, wrapper) { typeMapper, signatureWriter ->
             typeMapper.mapReturnType(desc, signatureWriter)
@@ -436,6 +439,7 @@ internal class UltraLightMembersCreator(
         forceNonFinal: Boolean = false,
         additionalReceiverParameter: ((KtUltraLightMethod) -> KtUltraLightParameter)? = null,
     ): List<KtLightMethod> {
+        ProgressManager.checkCanceled()
 
         val propertyName = declaration.name ?: return emptyList()
         if (declaration.isConstOrJvmField() ||
@@ -531,7 +535,7 @@ internal class UltraLightMembersCreator(
                 auxiliaryOrigin,
                 forceStatic = onlyJvmStatic || forceStatic,
                 forceNonFinal = forceNonFinal,
-            ).setMethodReturnType(PsiType.VOID)
+            ).setMethodReturnType(PsiTypes.voidType())
 
             val setterWrapper = KtUltraLightMethodForSourceDeclaration(
                 setterPrototype,

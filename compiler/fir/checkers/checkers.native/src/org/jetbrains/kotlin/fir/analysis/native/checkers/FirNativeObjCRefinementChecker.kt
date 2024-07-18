@@ -18,10 +18,10 @@ import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 
-object FirNativeObjCRefinementChecker : FirCallableDeclarationChecker(MppCheckerKind.Common) {
+object FirNativeObjCRefinementChecker : FirCallableDeclarationChecker(MppCheckerKind.Platform) {
 
-    val hidesFromObjCClassId = ClassId.topLevel(FqName("kotlin.native.HidesFromObjC"))
-    val refinesInSwiftClassId = ClassId.topLevel(FqName("kotlin.native.RefinesInSwift"))
+    val hidesFromObjCClassId: ClassId = ClassId.topLevel(FqName("kotlin.native.HidesFromObjC"))
+    val refinesInSwiftClassId: ClassId = ClassId.topLevel(FqName("kotlin.native.RefinesInSwift"))
 
     override fun check(declaration: FirCallableDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         if (declaration !is FirSimpleFunction && declaration !is FirProperty) return

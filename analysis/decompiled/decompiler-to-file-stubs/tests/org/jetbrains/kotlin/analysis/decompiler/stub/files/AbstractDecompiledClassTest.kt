@@ -150,7 +150,7 @@ internal data class TestData(
             val mainKotlinFile = findMainTestKotlinFile(directory)
             val fileText = mainKotlinFile.readText()
             val jvmFileName = InTextDirectivesUtils.findStringWithPrefixes(fileText, "JVM_FILE_NAME:") ?: directory.name
-            val additionalCompilerOptions = InTextDirectivesUtils.findListWithPrefixes(fileText, "// !LANGUAGE: ").map { "-XXLanguage:$it" }
+            val additionalCompilerOptions = InTextDirectivesUtils.findListWithPrefixes(fileText, "// LANGUAGE: ").map { "-XXLanguage:$it" }
             return TestData(
                 directory = directory,
                 mainKotlinFile = mainKotlinFile,
@@ -168,17 +168,22 @@ internal data class TestData(
     ) {
         override fun getClassicFileToCompare(testDataFile: File): File {
             val path = testDataFile.toPath()
-            val fileNameWithoutExtension = path.fileName.toString().removeSuffix(".k2.txt").removeSuffix(".txt")
-            return path.parent.resolve("$fileNameWithoutExtension.txt").toFile()
+            val fileNameWithoutExtension = path.fileName.toString()
+                .removeSuffix(DECOMPILED_TEST_DATA_K2_SUFFIX).removeSuffix(DECOMPILED_TEST_DATA_SUFFIX)
+            return path.parent.resolve("$fileNameWithoutExtension$DECOMPILED_TEST_DATA_SUFFIX").toFile()
         }
 
         override fun getFirFileToCompare(testDataFile: File): File {
             val path = testDataFile.toPath()
-            val fileNameWithoutExtension = path.fileName.toString().removeSuffix(".k2.txt").removeSuffix(".txt")
-            return path.parent.resolve("$fileNameWithoutExtension.k2.txt").toFile()
+            val fileNameWithoutExtension = path.fileName.toString()
+                .removeSuffix(DECOMPILED_TEST_DATA_K2_SUFFIX).removeSuffix(DECOMPILED_TEST_DATA_SUFFIX)
+            return path.parent.resolve("$fileNameWithoutExtension$DECOMPILED_TEST_DATA_K2_SUFFIX").toFile()
         }
     }
 }
+
+const val DECOMPILED_TEST_DATA_SUFFIX = ".txt"
+const val DECOMPILED_TEST_DATA_K2_SUFFIX = ".k2.txt"
 
 fun findMainTestKotlinFile(directory: Path): Path {
     val allFiles = Files.list(directory).collect(Collectors.toList())

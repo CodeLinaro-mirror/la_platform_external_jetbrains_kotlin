@@ -400,10 +400,14 @@ class TestProject(
 
     /**
      * Includes another project as a submodule in the current project.
+     *
+     * - Copies the other project to a directory inside this project.
+     * - Updates this project's `settings.gradle(.kts)` with `include(":$newSubmoduleName")`
+     *
      * @param otherProjectName The name of the other project to include as a submodule.
      * @param pathPrefix An optional prefix to prepend to the submodule's path. Defaults to an empty string.
-     * @param newSubmoduleName An optional new name for the submodule. Defaults to the otherProjectName.
-     * @param isKts Whether to update a .kts settings file instead of a .gradle settings file. Defaults to false.
+     * @param newSubmoduleName An optional new name for the submodule. Defaults to [otherProjectName].
+     * @param isKts Whether to update a `settings.gradle.kts` instead of a `settings.gradle` file. Defaults to `false`.
      */
     fun includeOtherProjectAsSubmodule(
         otherProjectName: String,
@@ -434,18 +438,28 @@ class TestProject(
     fun includeOtherProjectAsIncludedBuild(
         otherProjectName: String,
         pathPrefix: String,
+        newProjectName: String = otherProjectName,
     ) {
         val otherProjectPath = "$pathPrefix/$otherProjectName".testProjectPath
-        otherProjectPath.copyRecursively(projectPath.resolve(otherProjectName))
+        otherProjectPath.copyRecursively(projectPath.resolve(newProjectName))
 
-        projectPath.resolve(otherProjectName).addDefaultSettingsToSettingsGradle(gradleVersion)
+        projectPath.resolve(newProjectName).addDefaultSettingsToSettingsGradle(gradleVersion)
 
-        settingsGradle.append(
-            """
-            
-            includeBuild '$otherProjectName'
-            """.trimIndent()
-        )
+        if (settingsGradle.exists()) {
+            settingsGradle.append(
+                """
+                
+                    includeBuild '$newProjectName'
+                """.trimIndent()
+            )
+        } else {
+            settingsGradleKts.append(
+                """
+                    
+                    includeBuild("$newProjectName")
+                """.trimIndent()
+            )
+        }
     }
 }
 
@@ -464,6 +478,7 @@ private fun commonBuildSetup(
     val jdkLocations = System.getProperties()
         .filterKeys { it.toString().matches(jdkPropNameRegex) }
         .values
+        .sortedWith(compareBy { it.toString() })
         .joinToString(separator = ",")
     return buildOptions.toArguments(gradleVersion) + buildArguments + listOfNotNull(
         // Required toolchains should be pre-installed via repo. Tests should not download any JDKs
@@ -776,9 +791,15 @@ private fun TestProject.agreeToBuildScanService() {
 private fun BuildResult.printBuildScanUrl() {
     val buildScanUrl = output
         .lineSequence()
-        .first { it.contains("https://gradle.com/s/") }
-        .replaceBefore("https://gradle", "")
-    println("Build scan url: $buildScanUrl")
+        .firstOrNull { it.contains("https://gradle.com/s/") }
+        ?.replaceBefore("https://gradle", "")
+    if (buildScanUrl != null) {
+        println("Build scan url: $buildScanUrl")
+    } else {
+        // It is ok to not fail the build as Develocity server may be down or have temporary issues.
+        // In such a case, we should not fail the whole test suite.
+        printBuildOutput()
+    }
 }
 
 private fun TestProject.setupNonDefaultJdk(pathToJdk: File) {
@@ -902,7 +923,7 @@ private fun TestProject.configureSingleNativeTargetInSubFolders(preset: String =
         }
 }
 
-private fun GradleProject.configureLocalRepository(localRepoDir: Path) {
+internal fun GradleProject.configureLocalRepository(localRepoDir: Path) {
     projectPath.toFile().walkTopDown()
         .filter { it.isFile && it.name in buildFileNames }
         .forEach { file ->
@@ -922,40 +943,6 @@ internal fun TestProject.enableStableConfigurationCachePreview() {
             |enableFeaturePreview("STABLE_CONFIGURATION_CACHE")
             """.trimMargin()
     )
-}
-
-/**
- * Kotlin Multiplatform Projects have dedicated configurations for source files resolution of all source set dependencies
- * This helper can be useful for cases when you want to resolve a bunch of configurations and don't want to see any unexpected failures
- * coming from *DependencySources configurations. Because by nature not every published library has sources variants that can be resolved
- * via gradle Configurations.
- */
-internal fun TestProject.suppressDependencySourcesConfigurations() {
-    if (buildGradleKts.exists()) {
-        buildGradleKts.appendText(
-            """
-                allprojects {
-                    configurations.configureEach {
-                        if (name.endsWith("DependencySources") || name.endsWith("dependencySources")) {
-                            incoming.beforeResolve { setExtendsFrom(emptySet()) }                            
-                        }
-                    }            
-                }
-            """.trimIndent()
-        )
-    } else if (buildGradle.exists()) {
-        """
-            allprojects {
-                configurations {
-                    configureEach {
-                        if (name.endsWith("DependencySources") || name.endsWith("dependencySources")) {
-                            incoming.beforeResolve { setExtendsFrom([]) }
-                        }
-                    }
-                }
-            }
-        """.trimIndent()
-    }
 }
 
 /**

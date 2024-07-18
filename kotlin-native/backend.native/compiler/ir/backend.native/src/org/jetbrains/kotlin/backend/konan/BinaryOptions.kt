@@ -37,6 +37,8 @@ object BinaryOptions : BinaryOptionRegistry() {
 
     val objcExportReportNameCollisions by booleanOption()
 
+    val objcExportErrorOnNameCollisions by booleanOption()
+
     val gc by option<GC>(shortcut = { it.shortcut })
 
     val gcSchedulerType by option<GCSchedulerType>(hideValue = { it.deprecatedWithReplacement != null })
@@ -44,6 +46,8 @@ object BinaryOptions : BinaryOptionRegistry() {
     val gcMarkSingleThreaded by booleanOption()
 
     val concurrentWeakSweep by booleanOption()
+
+    val concurrentMarkMaxIterations by uintOption()
 
     val gcMutatorsCooperate by booleanOption()
 
@@ -80,6 +84,10 @@ object BinaryOptions : BinaryOptionRegistry() {
     val cInterfaceMode by option<CInterfaceGenerationMode>()
 
     val globalDataLazyInit by booleanOption()
+
+    val swiftExport by booleanOption()
+
+    val genericSafeCasts by booleanOption()
 }
 
 open class BinaryOption<T : Any>(

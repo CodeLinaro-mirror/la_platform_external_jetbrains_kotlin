@@ -15,10 +15,7 @@ import org.jetbrains.kotlin.backend.wasm.utils.getWasmImportDescriptor
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.backend.js.utils.getJsModule
-import org.jetbrains.kotlin.ir.backend.js.utils.getJsNameOrKotlinName
-import org.jetbrains.kotlin.ir.backend.js.utils.getJsQualifier
-import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
+import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.irCallConstructor
@@ -28,6 +25,8 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.isPrimitiveType
+import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
@@ -96,8 +95,10 @@ class ComplexExternalDeclarationsToTopLevelFunctionsLowering(val context: WasmBa
         if (klass.kind == ClassKind.OBJECT)
             generateExternalObjectInstanceGetter(klass)
 
-        if (klass.kind != ClassKind.INTERFACE)
+        if (klass.kind != ClassKind.INTERFACE) {
             generateInstanceCheckForExternalClass(klass)
+            generateGetClassForExternalClass(klass)
+        }
     }
 
     fun processExternalProperty(property: IrProperty) {
@@ -337,7 +338,14 @@ class ComplexExternalDeclarationsToTopLevelFunctionsLowering(val context: WasmBa
         if (dispatchReceiver != null) {
             res.addValueParameter("_this", dispatchReceiver.type)
         }
-        function.valueParameters.forEach { res.addValueParameter(it.name, it.type).apply { varargElementType = it.varargElementType } }
+        function.valueParameters.forEach {
+            res.addValueParameter(
+                name = it.name,
+                type = if (it.type.isPrimitiveType(false)) it.type else it.type.makeNullable()
+            ).apply {
+                varargElementType = it.varargElementType
+            }
+        }
         // Using Int type with 0 and 1 values to prevent overhead of converting Boolean to true and false
         repeat(numDefaultParameters) { res.addValueParameter("isDefault$it", context.irBuiltIns.intType) }
         externalFunToTopLevelMapping[function] = res
@@ -372,6 +380,18 @@ class ComplexExternalDeclarationsToTopLevelFunctionsLowering(val context: WasmBa
         ).also {
             it.addValueParameter("x", context.irBuiltIns.anyType)
         }
+    }
+
+    fun generateGetClassForExternalClass(klass: IrClass) {
+        context.mapping.wasmGetJsClass[klass] = createExternalJsFunction(
+            klass.name,
+            "_\$external_class_get",
+            resultType = context.wasmSymbols.jsRelatedSymbols.jsAnyType.makeNullable(),
+            jsCode = buildString {
+                append("() => ")
+                appendExternalClassReference(klass)
+            }
+        )
     }
 
     private fun createExternalJsFunction(
@@ -452,7 +472,7 @@ class ComplexExternalDeclarationsUsageLowering(val context: WasmBackendContext) 
 
         private fun process(container: IrDeclarationContainer) {
             container.declarations.transformFlat { member ->
-                if (nestedExternalToNewTopLevelFunctions.keys.contains(member)) {
+                if (member is IrFunction && nestedExternalToNewTopLevelFunctions[member] != null) {
                     emptyList()
                 } else {
                     member.acceptVoid(this)
@@ -506,6 +526,18 @@ class ComplexExternalDeclarationsUsageLowering(val context: WasmBackendContext) 
                     IrConstImpl.int(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.intType, value)
                 )
             }
+
+            // Add default argument values if needed
+            for (i in 0 until newFun.valueParameters.size) {
+                val parameter = newFun.valueParameters[i]
+                if (parameter.isVararg) continue // Handled with WasmVarargExpressionLowering
+                if (newCall.getValueArgument(i) != null) continue
+                newCall.putValueArgument(
+                    i,
+                    IrConstImpl.defaultValueForType(UNDEFINED_OFFSET, UNDEFINED_OFFSET, parameter.type)
+                )
+            }
+
             return newCall
         }
     }

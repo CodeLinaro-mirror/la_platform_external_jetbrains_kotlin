@@ -2,25 +2,19 @@
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.api.Project
-import org.gradle.api.artifacts.DependencySubstitution
-import org.gradle.api.artifacts.component.ProjectComponentSelector
 import org.gradle.api.attributes.LibraryElements
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.DuplicatesStrategy
-import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.jvm.tasks.Jar
-import org.gradle.kotlin.dsl.exclude
 import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.project
 import org.gradle.kotlin.dsl.register
-import java.io.File
 
 const val kotlinEmbeddableRootPackage = "org.jetbrains.kotlin"
 
 val packagesToRelocate =
     listOf(
-        "com.intellij",
         "com.google",
         "com.sampullara",
         "org.apache",
@@ -62,6 +56,11 @@ val packagesToExcludeFromDummy =
 
 private fun ShadowJar.configureEmbeddableCompilerRelocation(withJavaxInject: Boolean = true) {
     relocate("com.google.protobuf", "org.jetbrains.kotlin.protobuf")
+    relocate("com.intellij", "$kotlinEmbeddableRootPackage.com.intellij") {
+        // These are not real packages, but important string constants which are used by xml-reader.
+        exclude("com.intellij.projectService")
+        exclude("com.intellij.applicationService")
+    }
     packagesToRelocate.forEach {
         relocate(it, "$kotlinEmbeddableRootPackage.$it")
     }

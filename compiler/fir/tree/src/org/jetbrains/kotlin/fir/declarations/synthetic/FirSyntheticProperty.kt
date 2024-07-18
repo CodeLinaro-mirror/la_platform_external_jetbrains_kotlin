@@ -28,10 +28,12 @@ class FirSyntheticProperty @FirImplementationDetail internal constructor(
     override val symbol: FirSyntheticPropertySymbol,
     override val status: FirDeclarationStatus,
     override val getter: FirSyntheticPropertyAccessor,
+    override val dispatchReceiverType: ConeSimpleKotlinType?,
     override val setter: FirSyntheticPropertyAccessor? = null,
-    override val deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
+    override val deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider,
 ) : FirProperty() {
     init {
+        @OptIn(FirImplementationDetail::class)
         symbol.bind(this)
     }
 
@@ -39,9 +41,6 @@ class FirSyntheticProperty @FirImplementationDetail internal constructor(
 
     override val returnTypeRef: FirTypeRef
         get() = getter.returnTypeRef
-
-    override val dispatchReceiverType: ConeSimpleKotlinType?
-        get() = getter.dispatchReceiverType
 
     override val source: KtSourceElement?
         get() = null
@@ -62,7 +61,7 @@ class FirSyntheticProperty @FirImplementationDetail internal constructor(
         get() = false
 
     override val receiverParameter: FirReceiverParameter?
-        get() = null
+        get() = getter.receiverParameter
 
     override val isVal: Boolean
         get() = !isVar
@@ -84,7 +83,7 @@ class FirSyntheticProperty @FirImplementationDetail internal constructor(
         get() = FirPropertyBodyResolveState.ALL_BODIES_RESOLVED
 
     override val contextReceivers: List<FirContextReceiver>
-        get() = emptyList()
+        get() = getter.contextReceivers
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         returnTypeRef.accept(visitor, data)

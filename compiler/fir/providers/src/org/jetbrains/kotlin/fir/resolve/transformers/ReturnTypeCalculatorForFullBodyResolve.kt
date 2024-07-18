@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers
 
+import org.jetbrains.kotlin.fir.canHaveDeferredReturnTypeCalculation
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
@@ -20,11 +21,11 @@ class ReturnTypeCalculatorForFullBodyResolve private constructor(
     companion object {
         // It's actual only for local functions because simple members are being resolved at another phase.
         // Local properties are just unresolved if they are used recursively.
-        val Default = ReturnTypeCalculatorForFullBodyResolve(
+        val Default: ReturnTypeCalculatorForFullBodyResolve = ReturnTypeCalculatorForFullBodyResolve(
             DiagnosticKind.RecursionInImplicitTypes,
             "Recursion with local function"
         )
-        val Contract = ReturnTypeCalculatorForFullBodyResolve(
+        val Contract: ReturnTypeCalculatorForFullBodyResolve = ReturnTypeCalculatorForFullBodyResolve(
             DiagnosticKind.InferenceError,
             "Cannot calculate return type during full-body resolution (local class/object?)"
         )
@@ -36,7 +37,7 @@ class ReturnTypeCalculatorForFullBodyResolve private constructor(
     override fun tryCalculateReturnTypeOrNull(declaration: FirCallableDeclaration): FirResolvedTypeRef? {
         val returnTypeRef = declaration.returnTypeRef
         if (returnTypeRef is FirResolvedTypeRef) return returnTypeRef
-        if (declaration.origin.fromSupertypes) {
+        if (declaration.canHaveDeferredReturnTypeCalculation) {
             return CallableCopyTypeCalculator.Forced.computeReturnType(declaration)
         }
 

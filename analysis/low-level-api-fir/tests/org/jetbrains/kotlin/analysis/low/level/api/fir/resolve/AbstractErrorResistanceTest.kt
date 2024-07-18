@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.resolve
 
 import com.intellij.lang.java.JavaLanguage
 import com.intellij.mock.MockProject
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.psi.*
 import com.intellij.psi.impl.file.PsiPackageImpl
@@ -15,23 +16,23 @@ import com.intellij.psi.impl.light.LightModifierList
 import com.intellij.psi.impl.light.LightPsiClassBase
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchScopeUtil
+import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.AnalysisApiServiceRegistrar
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.DiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.collectDiagnosticsForFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolveWithClearCaches
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestServiceRegistrar
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
-import org.jetbrains.kotlin.test.impl.testConfiguration
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import kotlin.test.fail
 
 abstract class AbstractErrorResistanceTest : AbstractAnalysisApiBasedTest() {
     override val configurator: AnalysisApiFirSourceTestConfigurator = ErrorResistanceConfigurator
 
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         resolveWithClearCaches(mainFile) { firResolveSession ->
             ENABLE_INTERRUPTION.set(true)
 
@@ -57,7 +58,7 @@ abstract class AbstractErrorResistanceTest : AbstractAnalysisApiBasedTest() {
 }
 
 private object ErrorResistanceConfigurator : AnalysisApiFirSourceTestConfigurator(analyseInDependentSession = false) {
-    override val serviceRegistrars: List<AnalysisApiTestServiceRegistrar>
+    override val serviceRegistrars: List<AnalysisApiServiceRegistrar<TestServices>>
         get() = buildList {
             addAll(super.serviceRegistrars)
             add(ErrorResistanceServiceRegistrar)
@@ -66,9 +67,9 @@ private object ErrorResistanceConfigurator : AnalysisApiFirSourceTestConfigurato
 
 private object ErrorResistanceServiceRegistrar : AnalysisApiTestServiceRegistrar() {
     @OptIn(TestInfrastructureInternals::class)
-    override fun registerProjectModelServices(project: MockProject, testServices: TestServices) {
+    override fun registerProjectModelServices(project: MockProject, disposable: Disposable, testServices: TestServices) {
         with(PsiElementFinder.EP.getPoint(project)) {
-            registerExtension(BrokenLibraryElementFinder(project), testServices.testConfiguration.rootDisposable)
+            registerExtension(BrokenLibraryElementFinder(project), disposable)
         }
     }
 }
@@ -150,7 +151,7 @@ private class BrokenClass(
 
             val projectScope = GlobalSearchScope.allScope(manager.project)
             addParameter("first", PsiType.getJavaLangString(manager, projectScope))
-            addParameter("second", PsiType.INT)
+            addParameter("second", PsiTypes.intType())
         }
     }
 
@@ -158,7 +159,7 @@ private class BrokenClass(
         init {
             containingClass = owner
             setModifiers(PsiModifier.PUBLIC)
-            setMethodReturnType(PsiType.BOOLEAN)
+            setMethodReturnType(PsiTypes.booleanType())
         }
 
         override fun getTypeParameterList(): PsiTypeParameterList? {

@@ -21,7 +21,6 @@ import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
-import org.jetbrains.kotlin.ir.util.SymbolTable
 
 /**
  * @param allowNonCachedDeclarations
@@ -29,9 +28,6 @@ import org.jetbrains.kotlin.ir.util.SymbolTable
  *  It means asking for an IR element of a non-cached declaration is a sign of inconsistent state.
  *  Code generation in the IDE is trickier, though, as declarations from any module can be potentially referenced.
  *  For such a scenario, there is a flag that relaxes consistency checks.
- *
- * @param useIrFakeOverrideBuilder Enables creation of fake-overrides using the IR f/o generator instead of the FIR2IR one.
- *  See [KT-61514](https://youtrack.jetbrains.com/issue/KT-61514).
  */
 class Fir2IrConfiguration private constructor(
     val languageVersionSettings: LanguageVersionSettings,
@@ -40,9 +36,7 @@ class Fir2IrConfiguration private constructor(
     val inlineConstTracker: InlineConstTracker?,
     val expectActualTracker: ExpectActualTracker?,
     val allowNonCachedDeclarations: Boolean,
-    val useIrFakeOverrideBuilder: Boolean,
 ) {
-
     companion object {
         fun forJvmCompilation(
             compilerConfiguration: CompilerConfiguration,
@@ -58,7 +52,6 @@ class Fir2IrConfiguration private constructor(
                 inlineConstTracker = compilerConfiguration[CommonConfigurationKeys.INLINE_CONST_TRACKER],
                 expectActualTracker = compilerConfiguration[CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER],
                 allowNonCachedDeclarations = false,
-                useIrFakeOverrideBuilder = compilerConfiguration.getBoolean(CommonConfigurationKeys.USE_IR_FAKE_OVERRIDE_BUILDER),
             )
 
         fun forKlibCompilation(
@@ -75,7 +68,6 @@ class Fir2IrConfiguration private constructor(
                 inlineConstTracker = null,
                 expectActualTracker = compilerConfiguration[CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER],
                 allowNonCachedDeclarations = false,
-                useIrFakeOverrideBuilder = true,
             )
 
         fun forAnalysisApi(
@@ -93,7 +85,6 @@ class Fir2IrConfiguration private constructor(
                 inlineConstTracker = compilerConfiguration[CommonConfigurationKeys.INLINE_CONST_TRACKER],
                 expectActualTracker = compilerConfiguration[CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER],
                 allowNonCachedDeclarations = true,
-                useIrFakeOverrideBuilder = compilerConfiguration.getBoolean(CommonConfigurationKeys.USE_IR_FAKE_OVERRIDE_BUILDER),
             )
     }
 }

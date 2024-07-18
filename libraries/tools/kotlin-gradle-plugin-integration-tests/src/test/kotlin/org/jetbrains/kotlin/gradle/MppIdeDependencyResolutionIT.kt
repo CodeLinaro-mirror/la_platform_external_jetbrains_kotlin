@@ -8,7 +8,10 @@ package org.jetbrains.kotlin.gradle
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
 import org.jetbrains.kotlin.commonizer.identityString
-import org.jetbrains.kotlin.gradle.idea.tcs.*
+import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinBinaryDependency
+import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinDependency
+import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinResolvedBinaryDependency
+import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinUnresolvedBinaryDependency
 import org.jetbrains.kotlin.gradle.idea.tcs.extras.*
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.*
 import org.jetbrains.kotlin.gradle.testbase.*
@@ -98,14 +101,20 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
             build(":dep-with-cinterop:publishAllPublicationsToBuildRepository")
 
             resolveIdeDependencies("dep-with-cinterop") { dependencies ->
+                dependencies.assertResolvedDependenciesOnly()
+
                 dependencies["commonMain"].cinteropDependencies()
-                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(linux_arm64, linux_x64\\)")))
+                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(ios_x64, linux_arm64, linux_x64\\)")))
                 dependencies["commonTest"].cinteropDependencies()
-                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(linux_arm64, linux_x64\\)")))
+                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(ios_x64, linux_arm64, linux_x64\\)")))
                 dependencies["linuxX64Main"].cinteropDependencies().assertMatches(binaryCoordinates(Regex("a:dep.*linux_x64")))
                 dependencies["linuxArm64Main"].cinteropDependencies().assertMatches(binaryCoordinates(Regex("a:dep.*linux_arm64")))
                 dependencies["linuxX64Test"].cinteropDependencies().assertMatches(binaryCoordinates(Regex("a:dep.*linux_x64")))
                 dependencies["linuxArm64Test"].cinteropDependencies().assertMatches(binaryCoordinates(Regex("a:dep.*linux_arm64")))
+
+                if (HostManager.hostIsMac) {
+                    dependencies["iosX64Main"].cinteropDependencies().assertMatches(binaryCoordinates(Regex("a:dep.*ios_x64")))
+                }
             }
 
             resolveIdeDependencies("client-for-binary-dep") { dependencies ->
@@ -139,10 +148,12 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
             }
 
             resolveIdeDependencies("client-for-project-to-project-dep") { dependencies ->
+                dependencies.assertResolvedDependenciesOnly()
+
                 dependencies["commonMain"].cinteropDependencies()
-                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(linux_arm64, linux_x64\\)")))
+                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(ios_x64, linux_arm64, linux_x64\\)")))
                 dependencies["commonTest"].cinteropDependencies()
-                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(linux_arm64, linux_x64\\)")))
+                    .assertMatches(binaryCoordinates(Regex("a:dep.*\\(ios_x64, linux_arm64, linux_x64\\)")))
 
                 dependencies["linuxX64Main"].cinteropDependencies()
                     .assertMatches(binaryCoordinates(Regex("a:dep-with-cinterop-cinterop-dep.*linux_x64")))
@@ -152,9 +163,15 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
                     .assertMatches(binaryCoordinates(Regex("a:dep-with-cinterop-cinterop-dep.*linux_arm64")))
                 dependencies["linuxArm64Test"].cinteropDependencies()
                     .assertMatches(binaryCoordinates(Regex("a:dep-with-cinterop-cinterop-dep.*linux_arm64")))
+
+                if (HostManager.hostIsMac) {
+                    dependencies["iosX64Main"].cinteropDependencies().assertMatches(binaryCoordinates(Regex("a:dep.*ios_x64")))
+                }
             }
 
             resolveIdeDependencies("client-with-complex-hierarchy") { dependencies ->
+                dependencies.assertResolvedDependenciesOnly()
+
                 dependencies["commonMain"].cinteropDependencies().assertMatches()
                 dependencies["commonTest"].cinteropDependencies().assertMatches()
                 dependencies["nativeMain"].cinteropDependencies().assertMatches(
@@ -428,6 +445,40 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
                     binaryCoordinates("test:producer:1.0")
                         .withResolvedSourcesFile("producer-1.0-foo-sources.jar")
                 )
+            }
+        }
+    }
+
+    @GradleTest
+    fun `test resolve sources for transitive dependencies through dependency without sources variant`(gradleVersion: GradleVersion) {
+        project(
+            "transitive-sources-dependencies",
+            gradleVersion,
+            localRepoDir = workingDir.resolve(gradleVersion.version),
+        ) {
+            // lib_without_sources dependsOn lib_with_sources
+            build(":lib_with_sources:publish", ":lib_without_sources:publish")
+
+            settingsGradleKts.replaceText("val isConsumer = false", "val isConsumer = true")
+
+            resolveIdeDependencies(":consumer") { dependencies ->
+                dependencies["jvmMain"].getOrFail(
+                    binaryCoordinates("test:lib_with_sources-jvm:1.0")
+                        .withResolvedSourcesFile("lib_with_sources-jvm-1.0-sources.jar"),
+                )
+
+                dependencies["jvmMain"].getOrFail(
+                    binaryCoordinates("test:lib_without_sources-jvm:1.0")
+                ).assertNoSourcesResolved()
+
+                dependencies["linuxX64Main"].getOrFail(
+                    binaryCoordinates("test:lib_with_sources-linuxx64:1.0")
+                        .withResolvedSourcesFile("lib_with_sources-linuxx64-1.0-sources.jar"),
+                )
+
+                dependencies["linuxX64Main"].getOrFail(
+                    binaryCoordinates("test:lib_without_sources-linuxx64:1.0")
+                ).assertNoSourcesResolved()
             }
         }
     }

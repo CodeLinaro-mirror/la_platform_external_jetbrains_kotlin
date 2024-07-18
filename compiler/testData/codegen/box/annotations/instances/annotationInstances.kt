@@ -4,9 +4,7 @@
 // Regular JS works too, but without proper hashCode or equals
 
 // WITH_STDLIB
-// !LANGUAGE: +InstantiationOfAnnotationClasses
-
-// JVM_ABI_K1_K2_DIFF: KT-62465
+// LANGUAGE: +InstantiationOfAnnotationClasses
 
 // note: taken from ../parameters.kt and ../parametersWithPrimitiveValues.kt
 import kotlin.reflect.KClass

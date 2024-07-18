@@ -216,13 +216,13 @@ class JvmBinaryAnnotationDeserializer(
     ): FirExpression? {
         val signature = getCallableSignature(propertyProto, nameResolver, typeTable, CallableKind.PROPERTY_GETTER) ?: return null
         val firExpr = annotationInfo.annotationMethodsDefaultValues[signature]
-        return if (firExpr is FirLiteralExpression<*> && expectedPropertyType.coneType.isUnsignedType && firExpr.kind.isSignedNumber)
+        return if (firExpr is FirLiteralExpression && expectedPropertyType.coneType.isUnsignedType && firExpr.kind.isSignedNumber)
             firExpr.value.createConstantIfAny(session, unsigned = true)
         else
             firExpr
     }
 
-    private val <T> ConstantValueKind<T>.isSignedNumber: Boolean
+    private val ConstantValueKind.isSignedNumber: Boolean
         get() = this is ConstantValueKind.Byte || this is ConstantValueKind.Short || this is ConstantValueKind.Int || this is ConstantValueKind.Long
 
     private fun computeJvmParameterIndexShift(classProto: ProtoBuf.Class?, message: MessageLite): Int {
@@ -343,7 +343,7 @@ private fun FirSession.loadMemberAnnotations(
             }
 
             override fun visitAnnotationMemberDefaultValue(): KotlinJvmBinaryClass.AnnotationArgumentVisitor? {
-                return annotationsLoader.loadAnnotationMethodDefaultValue(signature) { annotationMethodsDefaultValues[signature] = it }
+                return annotationsLoader.loadAnnotationMethodDefaultValue() { annotationMethodsDefaultValues[signature] = it }
             }
         }
 

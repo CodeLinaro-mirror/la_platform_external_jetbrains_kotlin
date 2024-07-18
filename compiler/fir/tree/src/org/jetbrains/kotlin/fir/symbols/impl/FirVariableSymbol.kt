@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.symbols.impl
 
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
@@ -18,9 +19,35 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
-sealed class FirVariableSymbol<E : FirVariable>(override val callableId: CallableId) : FirCallableSymbol<E>()
+sealed class FirVariableSymbol<out E : FirVariable>(override val callableId: CallableId) : FirCallableSymbol<E>() {
+    val resolvedInitializer: FirExpression?
+        get() {
+            if (fir.initializer == null) return null
+            val requiredPhase = when {
+                this.isConst -> FirResolvePhase.IMPLICIT_TYPES_BODY_RESOLVE
+                else -> FirResolvePhase.BODY_RESOLVE
+            }
+            lazyResolveToPhase(requiredPhase)
+            return fir.initializer
+        }
 
-open class FirPropertySymbol(callableId: CallableId, ) : FirVariableSymbol<FirProperty>(callableId), PropertySymbolMarker {
+    val resolvedDefaultValue: FirExpression?
+        get() {
+            val valueParameter = fir as? FirValueParameter
+            if (valueParameter?.defaultValue == null) return null
+
+            lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
+            return valueParameter.defaultValue
+        }
+
+    val isVal: Boolean
+        get() = fir.isVal
+
+    val isVar: Boolean
+        get() = fir.isVar
+}
+
+open class FirPropertySymbol(callableId: CallableId) : FirVariableSymbol<FirProperty>(callableId), PropertySymbolMarker {
     // TODO: should we use this constructor for local variables?
     constructor(name: Name) : this(CallableId(name))
 
@@ -51,42 +78,26 @@ open class FirPropertySymbol(callableId: CallableId, ) : FirVariableSymbol<FirPr
     val initializerSource: KtSourceElement?
         get() = fir.initializer?.source
 
-    val resolvedInitializer: FirExpression?
-        get() {
-            lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
-            return fir.initializer
-        }
-
     val controlFlowGraphReference: FirControlFlowGraphReference?
         get() {
             lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
             return fir.controlFlowGraphReference
         }
-
-    val isVal: Boolean
-        get() = fir.isVal
-
-    val isVar: Boolean
-        get() = fir.isVar
 }
 
 class FirIntersectionOverridePropertySymbol(
     callableId: CallableId,
-    override val intersections: Collection<FirCallableSymbol<*>>
+    override val intersections: Collection<FirCallableSymbol<*>>,
+    override val containsMultipleNonSubsumed: Boolean,
 ) : FirPropertySymbol(callableId), FirIntersectionCallableSymbol
 
 class FirIntersectionOverrideFieldSymbol(
     callableId: CallableId,
-    override val intersections: Collection<FirCallableSymbol<*>>
+    override val intersections: Collection<FirCallableSymbol<*>>,
+    override val containsMultipleNonSubsumed: Boolean,
 ) : FirFieldSymbol(callableId), FirIntersectionCallableSymbol
 
 class FirBackingFieldSymbol(callableId: CallableId) : FirVariableSymbol<FirBackingField>(callableId) {
-    val isVal: Boolean
-        get() = fir.isVal
-
-    val isVar: Boolean
-        get() = fir.isVar
-
     val propertySymbol: FirPropertySymbol
         get() = fir.propertySymbol
 
@@ -102,12 +113,6 @@ open class FirFieldSymbol(callableId: CallableId) : FirVariableSymbol<FirField>(
 
     val hasConstantInitializer: Boolean
         get() = fir.hasConstantInitializer
-
-    val isVal: Boolean
-        get() = fir.isVal
-
-    val isVar: Boolean
-        get() = fir.isVar
 }
 
 class FirEnumEntrySymbol(callableId: CallableId) : FirVariableSymbol<FirEnumEntry>(callableId) {

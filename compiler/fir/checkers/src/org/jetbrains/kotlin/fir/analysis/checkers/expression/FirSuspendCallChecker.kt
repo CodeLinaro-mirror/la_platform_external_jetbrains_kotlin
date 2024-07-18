@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.analysis.checkers.isExplicit
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.getChild
 import org.jetbrains.kotlin.fir.declarations.*
@@ -30,6 +31,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
+import org.jetbrains.kotlin.util.getChildren
 import org.jetbrains.kotlin.utils.addToStdlib.lastIsInstanceOrNull
 
 object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Common) {
@@ -115,8 +117,8 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker(MppCheckerKin
         if (this !is FirFunctionCall) return null
         val reference = this.calleeReference
         if (reference is FirResolvedCallableReference) return null
-        if (typeArguments.any { it.source != null }) return null
-        if (arguments.singleOrNull() is FirLambdaArgumentExpression) {
+        if (typeArguments.any { it.isExplicit }) return null
+        if (arguments.singleOrNull().let { it is FirAnonymousFunctionExpression && it.isTrailingLambda }) {
             // No brackets should be in a selector call
             val callExpressionSource =
                 if (explicitReceiver == null) source
@@ -164,20 +166,32 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker(MppCheckerKin
     }
 
     private fun checkNonLocalReturnUsage(enclosingSuspendFunction: FirFunction, context: CheckerContext): Boolean {
-        val containingFunction = context.containingDeclarations.lastIsInstanceOrNull<FirFunction>() ?: return false
-        return if (containingFunction is FirAnonymousFunction && enclosingSuspendFunction !== containingFunction) {
-            containingFunction.inlineStatus.returnAllowed
-        } else {
-            enclosingSuspendFunction === containingFunction
+        for (declaration in context.containingDeclarations.asReversed()) {
+            // If we found the nearest suspend function, we're finished.
+            if (declaration == enclosingSuspendFunction) return true
+            // Local variables are okay.
+            if (declaration is FirProperty && declaration.isLocal) continue
+            // Inline lambdas are okay.
+            if (declaration is FirAnonymousFunction && declaration.inlineStatus.returnAllowed) continue
+            // We already report UNSUPPORTED on suspend calls in value parameters default values, so they are okay for our purposes.
+            if (declaration is FirValueParameter) continue
+            // Everything else (local classes, init blocks, non-inline lambdas, etc.F) is not okay.
+            return false
         }
+
+        return false
     }
 
     private fun checkRestrictsSuspension(
         expression: FirQualifiedAccessExpression,
         enclosingSuspendFunction: FirFunction,
         calledDeclarationSymbol: FirCallableSymbol<*>,
-        context: CheckerContext
+        context: CheckerContext,
     ): Boolean {
+        if (expression is FirFunctionCall && isCaseMissedByK1(expression)) {
+            return true
+        }
+
         val session = context.session
 
         val enclosingSuspendFunctionDispatchReceiverOwnerSymbol =
@@ -209,6 +223,49 @@ object FirSuspendCallChecker : FirQualifiedAccessExpressionChecker(MppCheckerKin
             }
         }
         return false
+    }
+
+    /**
+     * This function exists because of KT-65272:
+     *
+     * ```
+     * @RestrictsSuspension
+     * object TestScope
+     *
+     * val testLambda: suspend TestScope.() -> Unit
+     *     get() = TODO()
+     *
+     * suspend fun test() {
+     *     TestScope.testLambda()        // ❌️K1 ❌️K2
+     *     testLambda(TestScope)         // ✅️K1 ❌️K2  <-- Working K1 code now fails to compile
+     *     testLambda.invoke(TestScope)  // ✅️K1 ✅️K2
+     * }
+     * ```
+     *
+     * It was decided to replicate K1 behavior for now, so function
+     * returns `true` when given an expression like `testLambda(TestScope)`:
+     * an implicit invoke call on a receiver of an extension function type
+     * such that the receiver argument is passed as a value argument.
+     */
+    private fun isCaseMissedByK1(expression: FirFunctionCall): Boolean {
+        val isInvokeFromExtensionFunctionType = expression is FirImplicitInvokeCall
+                && expression.explicitReceiver?.resolvedType?.isExtensionFunctionType == true
+
+        if (!isInvokeFromExtensionFunctionType) {
+            return false
+        }
+
+        val source = expression.source
+            ?: return false
+
+        val visualValueArgumentsCount = source
+            .getChild(KtNodeTypes.VALUE_ARGUMENT_LIST, depth = 1)
+            ?.lighterASTNode?.getChildren(source.treeStructure)
+            ?.filter { it.tokenType == KtNodeTypes.VALUE_ARGUMENT }
+            ?.size
+            ?: return false
+
+        return visualValueArgumentsCount != expression.arguments.count() - 1
     }
 
     private fun ConeKotlinType.isRestrictSuspensionReceiver(session: FirSession): Boolean {

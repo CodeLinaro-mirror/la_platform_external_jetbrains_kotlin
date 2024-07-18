@@ -101,17 +101,17 @@ private class TestGeneratorImplInstance(
         val generatedCode = generate()
 
         val testSourceFile = File(testSourceFilePath)
-        val changed =
-            GeneratorsFileUtil.isFileContentChangedIgnoringLineSeparators(testSourceFile, generatedCode)
-        if (!dryRun) {
+        val changed = if (!dryRun) {
             GeneratorsFileUtil.writeFileIfContentChanged(testSourceFile, generatedCode, false)
+        } else {
+            GeneratorsFileUtil.isFileContentChangedIgnoringLineSeparators(testSourceFile, generatedCode)
         }
         return TestGenerator.GenerationResult(changed, testSourceFilePath)
     }
 
     private fun generate(): String {
         val out = StringBuilder()
-        val p = Printer(out)
+        val p = Printer(out, indentUnit = Printer.TWO_SPACE_INDENT)
 
         val copyright = File("license/COPYRIGHT_HEADER.txt").readText()
         p.println(copyright)

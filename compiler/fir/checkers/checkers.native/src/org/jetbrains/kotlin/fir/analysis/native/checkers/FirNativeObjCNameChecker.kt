@@ -34,7 +34,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
-object FirNativeObjCNameChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) {
+object FirNativeObjCNameChecker : FirBasicDeclarationChecker(MppCheckerKind.Platform) {
     override fun check(declaration: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         if (declaration is FirValueParameter) return // those are checked with the FirFunction
         val objCNames = declaration.symbol.getObjCNames(context.session).filterNotNull()
@@ -54,7 +54,7 @@ object FirNativeObjCNameChecker : FirBasicDeclarationChecker(MppCheckerKind.Comm
     private fun checkObjCName(objCName: ObjCName, declaration: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
         val annotationSource = objCName.annotation.source
         for ((_, argument) in objCName.annotation.argumentMapping.mapping) {
-            if (argument is FirLiteralExpression<*>) continue
+            if (argument is FirLiteralExpression) continue
             reporter.reportOn(argument.source, NON_LITERAL_OBJC_NAME_ARG, context)
         }
         if (objCName.name == null && objCName.swiftName == null) {

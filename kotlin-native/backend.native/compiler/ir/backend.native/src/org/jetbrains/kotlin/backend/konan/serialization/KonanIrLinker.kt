@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.backend.konan.InlineFunctionOriginInfo
 import org.jetbrains.kotlin.backend.konan.PartialCacheInfo
 import org.jetbrains.kotlin.backend.konan.ir.interop.IrProviderForCEnumAndCStructStubs
 import org.jetbrains.kotlin.backend.konan.ir.konanLibrary
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.descriptors.konan.isNativeStdlib
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -41,8 +42,7 @@ import org.jetbrains.kotlin.library.impl.IrArrayMemoryReader
 import org.jetbrains.kotlin.library.impl.IrMemoryArrayWriter
 import org.jetbrains.kotlin.library.impl.IrMemoryStringWriter
 import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
-import org.jetbrains.kotlin.library.metadata.isFromInteropLibrary
-import org.jetbrains.kotlin.library.metadata.isInteropLibrary
+import org.jetbrains.kotlin.library.metadata.isCInteropLibrary
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.backend.common.serialization.proto.IdSignature as ProtoIdSignature
 
@@ -110,10 +110,9 @@ internal object InlineFunctionBodyReferenceSerializer {
         }
     }
 }
-
-// [binaryType] is needed in case a field is of a private inline class type (which can't be deserialized).
-// But it is safe to just set the field's type to the primitive type the inline class will be erased to.
-class SerializedClassFieldInfo(val name: Int, val binaryType: Int, val type: Int, val flags: Int, val alignment: Int) {
+// [binaryType] is needed in case a field is of a primitive type. Otherwise we know it's an object type and
+// that is enough information for the backend.
+class SerializedClassFieldInfo(val name: String, val binaryType: Int, val flags: Int, val alignment: Int) {
     companion object {
         const val FLAG_IS_CONST = 1
     }
@@ -152,9 +151,10 @@ internal object ClassFieldsSerializer {
             classFields.forEach {
                 +it.file.fqName
                 +it.file.path
+                it.fields.forEach { +it.name }
             }
         }
-        val size = stringTable.sizeBytes + classFields.sumOf { Int.SIZE_BYTES * (6 + it.typeParameterSigs.size + it.fields.size * 5) }
+        val size = stringTable.sizeBytes + classFields.sumOf { Int.SIZE_BYTES * (6 + it.typeParameterSigs.size + it.fields.size * 4) }
         val stream = ByteArrayStream(ByteArray(size))
         stringTable.serialize(stream)
         classFields.forEach {
@@ -165,9 +165,8 @@ internal object ClassFieldsSerializer {
             stream.writeInt(it.outerThisIndex)
             stream.writeInt(it.fields.size)
             it.fields.forEach { field ->
-                stream.writeInt(field.name)
+                stream.writeInt(stringTable.indices[field.name]!!)
                 stream.writeInt(field.binaryType)
-                stream.writeInt(field.type)
                 stream.writeInt(field.flags)
                 stream.writeInt(field.alignment)
             }
@@ -206,12 +205,11 @@ internal object ClassFieldsSerializer {
             val outerThisIndex = stream.readInt()
             val fieldsCount = stream.readInt()
             val fields = Array(fieldsCount) {
-                val name = stream.readInt()
+                val name = stringTable[stream.readInt()]
                 val binaryType = stream.readInt()
-                val type = stream.readInt()
                 val flags = stream.readInt()
                 val alignment = stream.readInt()
-                SerializedClassFieldInfo(name, binaryType, type, flags, alignment)
+                SerializedClassFieldInfo(name, binaryType, flags, alignment)
             }
             val fileSignature = IdSignature.FileSignature(
                 id = Any(),
@@ -264,7 +262,7 @@ internal data class DeserializedInlineFunction(val firstAccess: Boolean, val fun
 internal class KonanIrLinker(
         private val currentModule: ModuleDescriptor,
         override val translationPluginContext: TranslationPluginContext?,
-        messageLogger: IrMessageLogger,
+        messageCollector: MessageCollector,
         builtIns: IrBuiltIns,
         symbolTable: SymbolTable,
         friendModules: Map<String, Collection<String>>,
@@ -278,7 +276,7 @@ internal class KonanIrLinker(
         private val libraryBeingCached: PartialCacheInfo?,
         override val userVisibleIrModulesSupport: UserVisibleIrModulesSupport,
         externalOverridabilityConditions: List<IrExternalOverridabilityCondition>,
-) : KotlinIrLinker(currentModule, messageLogger, builtIns, symbolTable, exportedDependencies) {
+) : KotlinIrLinker(currentModule, messageCollector, builtIns, symbolTable, exportedDependencies) {
     override fun isBuiltInModule(moduleDescriptor: ModuleDescriptor): Boolean = moduleDescriptor.isNativeStdlib()
 
     private val forwardDeclarationDeserializer = forwardModuleDescriptor?.let {
@@ -305,7 +303,7 @@ internal class KonanIrLinker(
         val klib = packageFragment.konanLibrary
         val declarationBeingCached = packageFragment is IrFile && klib != null && libraryBeingCached?.klib == klib
                 && libraryBeingCached.strategy.contains(packageFragment.path)
-        return if (klib != null && !moduleDescriptor.isFromInteropLibrary()
+        return if (klib != null && !moduleDescriptor.isFromCInteropLibrary()
                 && cachedLibraries.isLibraryCached(klib) && !declarationBeingCached)
             moduleDeserializers[moduleDescriptor] ?: error("No module deserializer for ${declaration.render()}")
         else null
@@ -319,7 +317,7 @@ internal class KonanIrLinker(
                 klib == null -> {
                     error("Expecting kotlin library for $moduleDescriptor")
                 }
-                klib.isInteropLibrary() -> {
+                klib.isCInteropLibrary() -> {
                     KonanInteropModuleDeserializer(
                             moduleDescriptor,
                             klib,

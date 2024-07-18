@@ -97,6 +97,9 @@ abstract class AbstractIrTextTest<FrontendOutput : ResultingArtifact.FrontendOut
                 ::IrSourceRangesDumpHandler,
                 ::IrMangledNameAndSignatureDumpHandler,
             )
+            useAfterAnalysisCheckers(
+                ::FirIrDumpIdenticalChecker,
+            )
         }
     }
 
@@ -109,10 +112,6 @@ abstract class AbstractIrTextTest<FrontendOutput : ResultingArtifact.FrontendOut
                 ::FirScopeDumpHandler,
             )
         }
-
-        useAfterAnalysisCheckers(
-            ::FirIrDumpIdenticalChecker,
-        )
 
         forTestsMatching("compiler/testData/ir/irText/properties/backingField/*") {
             defaultDirectives {

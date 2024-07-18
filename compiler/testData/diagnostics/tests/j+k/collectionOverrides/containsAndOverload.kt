@@ -1,4 +1,4 @@
-// !DIAGNOSTICS: -UNUSED_PARAMETER -UNUSED_VARIABLE -PARAMETER_NAME_CHANGED_ON_OVERRIDE
+// DIAGNOSTICS: -UNUSED_PARAMETER -UNUSED_VARIABLE -PARAMETER_NAME_CHANGED_ON_OVERRIDE
 // SCOPE_DUMP: KA:contains
 // RENDER_DIAGNOSTICS_FULL_TEXT
 
@@ -9,8 +9,8 @@ abstract public class A implements java.util.Collection<String> {
 }
 
 // FILE: main.kt
-abstract class <!CONFLICTING_JVM_DECLARATIONS!>KA<!> : A() {
-    <!CONFLICTING_JVM_DECLARATIONS!>override fun contains(x: String)<!> = false
+abstract class KA : A() {
+    override fun contains(x: String) = false
 }
 
 fun foo(a: A, ka: KA) {

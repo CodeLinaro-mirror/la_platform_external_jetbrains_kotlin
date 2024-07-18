@@ -19,8 +19,6 @@ import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.util.toIrConst
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
-import org.jetbrains.kotlin.js.config.WasmTarget
 import org.jetbrains.kotlin.name.Name
 
 // This pass needed to call coroutines event loop run after exported functions calls
@@ -52,6 +50,7 @@ internal class InvokeOnExportedFunctionExitLowering(val context: WasmBackendCont
     private fun processExportFunction(irFunction: IrFunction) {
         val body = irFunction.body ?: return
         if (body is IrBlockBody && body.statements.isEmpty()) return
+        if (irFunction in context.closureCallExports.values) return
 
         val bodyType = when (body) {
             is IrExpressionBody -> body.expression.type
@@ -72,7 +71,11 @@ internal class InvokeOnExportedFunctionExitLowering(val context: WasmBackendCont
                 irGet(irBooleanType, null, isNotFirstWasmExportCallGetter)
 
             val tryBody = irComposite {
-                +irSet(irBooleanType, null, isNotFirstWasmExportCallSetter, true.toIrConst(irBooleanType))
+                +irSet(
+                    isNotFirstWasmExportCallSetter.owner.returnType,
+                    null, isNotFirstWasmExportCallSetter,
+                    true.toIrConst(irBooleanType)
+                )
                 when (body) {
                     is IrBlockBody -> body.statements.forEach { +it }
                     is IrExpressionBody -> +body.expression
@@ -82,7 +85,7 @@ internal class InvokeOnExportedFunctionExitLowering(val context: WasmBackendCont
 
             val finally = irComposite(resultType = context.irBuiltIns.unitType) {
                 +irSet(
-                    type = irBooleanType,
+                    type = isNotFirstWasmExportCallSetter.owner.returnType,
                     receiver = null,
                     setterSymbol = isNotFirstWasmExportCallSetter,
                     value = irGet(currentIsNotFirstWasmExportCall, irBooleanType)

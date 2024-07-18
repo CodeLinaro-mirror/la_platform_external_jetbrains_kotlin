@@ -1,9 +1,12 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.generators.tree
+
+import org.jetbrains.kotlin.generators.tree.imports.ImportCollecting
+import org.jetbrains.kotlin.generators.tree.imports.Importable
 
 /**
  * A class representing a non-abstract implementation of an abstract class/interface of a tree node.
@@ -14,13 +17,10 @@ abstract class AbstractImplementation<Implementation, Element, Field>(
     val name: String?,
 ) : FieldContainer<Field>, ImplementationKindOwner
         where Implementation : AbstractImplementation<Implementation, Element, Field>,
-              Element : AbstractElement<Element, *, Implementation>,
-              Field : AbstractField<*> {
+              Element : AbstractElement<Element, Field, Implementation>,
+              Field : AbstractField<Field> {
 
-    private val isDefault: Boolean
-        get() = name == null
-
-    override val allParents: List<ImplementationKindOwner>
+    override val allParents: List<Element>
         get() = listOf(element)
 
     val namePrefix: String
@@ -29,9 +29,8 @@ abstract class AbstractImplementation<Implementation, Element, Field>(
     override val typeName: String
         get() = name ?: (element.typeName + "Impl")
 
-    context(ImportCollector)
-    override fun renderTo(appendable: Appendable) {
-        addImport(this)
+    override fun renderTo(appendable: Appendable, importCollector: ImportCollecting) {
+        importCollector.addImport(this)
         appendable.append(this.typeName)
         if (element.params.isNotEmpty()) {
             element.params.joinTo(appendable, prefix = "<", postfix = ">") { it.name }
@@ -51,13 +50,11 @@ abstract class AbstractImplementation<Implementation, Element, Field>(
      */
     val additionalImports = mutableListOf<Importable>()
 
+    var kDoc: String? = null
+
     init {
         @Suppress("UNCHECKED_CAST")
-        if (isDefault) {
-            element.defaultImplementation = this as Implementation
-        } else {
-            element.customImplementations += this as Implementation
-        }
+        element.implementations += this as Implementation
     }
 
     override val hasAcceptChildrenMethod: Boolean
@@ -70,16 +67,18 @@ abstract class AbstractImplementation<Implementation, Element, Field>(
     override val hasTransformChildrenMethod: Boolean
         get() = true
     var isPublic = false
+    var isConstructorPublic = true
 
-    override fun get(fieldName: String): Field? {
-        return allFields.firstOrNull { it.name == fieldName }
-    }
+    var putImplementationOptInInConstructor = true
 
-    private fun withDefault(field: Field) = !field.isFinal && (field.defaultValueInImplementation != null || field.isLateinit)
+    var constructorParameterOrderOverride: List<String>? = null
 
-    val fieldsWithoutDefault by lazy { allFields.filterNot(::withDefault) }
+    private fun withDefault(field: Field) =
+        !field.isFinal && field.implementationDefaultStrategy !is AbstractField.ImplementationDefaultStrategy.Required
 
-    val fieldsWithDefault by lazy { allFields.filter(::withDefault) }
+    val fieldsInConstructor by lazy { allFields.filterNot(::withDefault) }
+
+    val fieldsInBody by lazy { allFields.filter(::withDefault) }
 
     var requiresOptIn = false
 
@@ -98,4 +97,9 @@ abstract class AbstractImplementation<Implementation, Element, Field>(
         }
 
     var builder: LeafBuilder<Field, Element, Implementation>? = null
+
+    open val doPrint: Boolean
+        get() = true
+
+    override fun toString(): String = buildString { renderTo(this, ImportCollecting.Empty) }
 }

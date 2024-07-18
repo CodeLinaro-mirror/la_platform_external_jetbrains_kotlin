@@ -6,11 +6,12 @@
 // This file was generated automatically. See compiler/fir/tree/tree-generator/Readme.md.
 // DO NOT MODIFY IT MANUALLY.
 
-@file:Suppress("DuplicatedCode", "unused")
+@file:Suppress("DuplicatedCode")
 
 package org.jetbrains.kotlin.fir.declarations.impl
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.MutableOrEmptyList
 import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
@@ -28,7 +29,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
-@OptIn(ResolveStateAccess::class)
+@OptIn(FirImplementationDetail::class, ResolveStateAccess::class)
 internal class FirConstructorImpl(
     override val source: KtSourceElement?,
     resolvePhase: FirResolvePhase,
@@ -44,7 +45,7 @@ internal class FirConstructorImpl(
     override val dispatchReceiverType: ConeSimpleKotlinType?,
     override var contextReceivers: MutableOrEmptyList<FirContextReceiver>,
     override val valueParameters: MutableList<FirValueParameter>,
-    override var contractDescription: FirContractDescription,
+    override var contractDescription: FirContractDescription?,
     override var annotations: MutableOrEmptyList<FirAnnotation>,
     override val symbol: FirConstructorSymbol,
     override var delegatedConstructor: FirDelegatedConstructorCall?,
@@ -67,7 +68,7 @@ internal class FirConstructorImpl(
         contextReceivers.forEach { it.accept(visitor, data) }
         controlFlowGraphReference?.accept(visitor, data)
         valueParameters.forEach { it.accept(visitor, data) }
-        contractDescription.accept(visitor, data)
+        contractDescription?.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
         delegatedConstructor?.accept(visitor, data)
         body?.accept(visitor, data)
@@ -114,7 +115,7 @@ internal class FirConstructorImpl(
     }
 
     override fun <D> transformContractDescription(transformer: FirTransformer<D>, data: D): FirConstructorImpl {
-        contractDescription = contractDescription.transform(transformer, data)
+        contractDescription = contractDescription?.transform(transformer, data)
         return this
     }
 
@@ -158,11 +159,12 @@ internal class FirConstructorImpl(
     }
 
     override fun replaceValueParameters(newValueParameters: List<FirValueParameter>) {
+        if (valueParameters === newValueParameters) return
         valueParameters.clear()
         valueParameters.addAll(newValueParameters)
     }
 
-    override fun replaceContractDescription(newContractDescription: FirContractDescription) {
+    override fun replaceContractDescription(newContractDescription: FirContractDescription?) {
         contractDescription = newContractDescription
     }
 

@@ -77,7 +77,7 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
         visitElement(variableAssignment, data)
     }
 
-    override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>, data: MutableMap<KtElement, FirElement>) {
+    override fun visitLiteralExpression(literalExpression: FirLiteralExpression, data: MutableMap<KtElement, FirElement>) {
         cacheElement(literalExpression, data)
         literalExpression.annotations.forEach {
             it.accept(this, data)
@@ -125,14 +125,19 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
                         // For secondary constructors without explicit delegated constructor call, the PSI tree always create an empty
                         // KtConstructorDelegationCall. In this case, the source in FIR has this fake source kind.
                         it.kind == KtFakeSourceElementKind.ImplicitConstructor ||
-                        it.kind == KtFakeSourceElementKind.SmartCastExpression ||
+                        it.isSourceForSmartCasts(element) ||
                         it.kind == KtFakeSourceElementKind.DanglingModifierList ||
                         it.isSourceForArrayAugmentedAssign(element) ||
-                        it.isSourceForCompoundAccess(element)
+                        it.isSourceForCompoundAccess(element) ||
+                        it.isSourceForInvertedInOperator(element)
             }.psi as? KtElement
             ?: return
         cache(psi, element, cache)
     }
+
+    private fun KtSourceElement.isSourceForInvertedInOperator(fir: FirElement) =
+        kind == KtFakeSourceElementKind.DesugaredInvertedContains
+                && fir is FirResolvedNamedReference && fir.name == OperatorNameConventions.CONTAINS
 
     /**
      * FIR represents compound assignment and inc/dec operations as multiple smaller instructions. Here we choose the write operation as the
@@ -145,7 +150,7 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
     private fun KtSourceElement.isSourceForCompoundAccess(fir: FirElement): Boolean {
         val psi = psi
         val parentPsi = psi?.parent
-        if (kind != KtFakeSourceElementKind.DesugaredCompoundAssignment && kind !is KtFakeSourceElementKind.DesugaredIncrementOrDecrement) {
+        if (kind !is KtFakeSourceElementKind.DesugaredAugmentedAssign && kind !is KtFakeSourceElementKind.DesugaredIncrementOrDecrement) {
             return false
         }
         return when {
@@ -159,8 +164,18 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
     private fun KtSourceElement.isSourceForArrayAugmentedAssign(fir: FirElement) =
         // after desugaring, we also have FirBlock with the same source element.
         // We need to filter it out to map this source element to set/plusAssign call, so we check `is FirFunctionCall`
-        (kind is KtFakeSourceElementKind.DesugaredArrayAugmentedAssign) && fir is FirFunctionCall
+        (kind is KtFakeSourceElementKind.DesugaredAugmentedAssign) && fir is FirFunctionCall
 
+    // `FirSmartCastExpression` forward the source from the original expression,
+    // and implicit receivers have fake sources pointing to a wider part of the expression.
+    // Thus, `FirElementsRecorder` may try assigning an unnecessarily wide source
+    // to smart cast expressions, which will affect the
+    // `org.jetbrains.kotlin.idea.highlighting.highlighters.ExpressionsSmartcastHighlighter#highlightExpression`
+    // function in intellij.git
+    private fun KtSourceElement.isSourceForSmartCasts(fir: FirElement) =
+        (kind is KtFakeSourceElementKind.SmartCastExpression) && fir is FirSmartCastExpression && !fir.originalExpression.isImplicitThisReceiver
+
+    private val FirExpression.isImplicitThisReceiver get() = this is FirThisReceiverExpression && this.isImplicit
 
     private fun FirElement.isReadInCompoundCall(): Boolean {
         if (this is FirPropertyAccessExpression) return true
@@ -192,21 +207,21 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
         return FirOperationNameConventions.ASSIGNMENTS[firOperation]
     }
 
-    private val FirLiteralExpression<*>.isConverted: Boolean
+    private val FirLiteralExpression.isConverted: Boolean
         get() {
             val firSourcePsi = this.source?.psi ?: return false
             return firSourcePsi is KtPrefixExpression && firSourcePsi.operationToken == KtTokens.MINUS
         }
 
-    private val FirLiteralExpression<*>.ktConstantExpression: KtConstantExpression?
+    private val FirLiteralExpression.ktConstantExpression: KtConstantExpression?
         get() {
             val firSourcePsi = this.source?.psi
             return firSourcePsi?.findDescendantOfType()
         }
 
-    private fun <T> ConstantValueKind<T>.reverseConverted(original: FirLiteralExpression<T>): FirLiteralExpression<T>? {
+    private fun ConstantValueKind.reverseConverted(original: FirLiteralExpression): FirLiteralExpression? {
         val value = original.value as? Number ?: return null
-        val convertedValue = when (this) {
+        val convertedValue: Any = when (this) {
             ConstantValueKind.Byte -> value.toByte().unaryMinus()
             ConstantValueKind.Double -> value.toDouble().unaryMinus()
             ConstantValueKind.Float -> value.toFloat().unaryMinus()
@@ -215,11 +230,10 @@ internal open class FirElementsRecorder : FirVisitor<Unit, MutableMap<KtElement,
             ConstantValueKind.Short -> value.toShort().unaryMinus()
             else -> null
         } ?: return null
-        @Suppress("UNCHECKED_CAST")
         return buildLiteralExpression(
             original.ktConstantExpression?.toKtPsiSourceElement(),
             this,
-            convertedValue as T,
+            convertedValue,
             setType = false
         ).also {
             it.replaceConeTypeOrNull(original.resolvedType)

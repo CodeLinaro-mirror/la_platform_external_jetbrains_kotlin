@@ -63,7 +63,6 @@ fun copyK2JVMCompilerArguments(from: K2JVMCompilerArguments, to: K2JVMCompilerAr
     to.nullabilityAnnotations = from.nullabilityAnnotations?.copyOf()
     to.oldInnerClassesLogic = from.oldInnerClassesLogic
     to.profileCompilerCommand = from.profileCompilerCommand
-    to.repeatCompileModules = from.repeatCompileModules
     to.samConversions = from.samConversions
     to.sanitizeParentheses = from.sanitizeParentheses
     to.scriptResolverEnvironment = from.scriptResolverEnvironment?.copyOf()
@@ -76,6 +75,7 @@ fun copyK2JVMCompilerArguments(from: K2JVMCompilerArguments, to: K2JVMCompilerAr
     to.suppressMissingBuiltinsError = from.suppressMissingBuiltinsError
     to.typeEnhancementImprovementsInStrictMode = from.typeEnhancementImprovementsInStrictMode
     to.useFastJarFileSystem = from.useFastJarFileSystem
+    to.useInlineScopesNumbers = from.useInlineScopesNumbers
     to.useJavac = from.useJavac
     to.useKapt4 = from.useKapt4
     to.useOldBackend = from.useOldBackend
@@ -83,7 +83,6 @@ fun copyK2JVMCompilerArguments(from: K2JVMCompilerArguments, to: K2JVMCompilerAr
     to.useOldInlineClassesManglingScheme = from.useOldInlineClassesManglingScheme
     to.useTypeTable = from.useTypeTable
     to.validateBytecode = from.validateBytecode
-    to.validateIr = from.validateIr
     to.valueClasses = from.valueClasses
 
     return to

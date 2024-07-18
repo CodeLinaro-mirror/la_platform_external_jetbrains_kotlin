@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import org.jetbrains.kotlin.ideaExt.idea
 
 plugins {
@@ -54,10 +55,9 @@ sourceSets {
     "test" {}
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
-    kotlinOptions {
-        freeCompilerArgs += "-Xinline-classes"
-    }
+tasks.withType<KotlinJvmCompile> {
+    compilerOptions.freeCompilerArgs.add("-Xinline-classes")
+    compilerOptions.freeCompilerArgs.add("-Xconsistent-data-class-copy-visibility")
 }
 
 if (kotlinBuildProperties.isInJpsBuildIdeaSync) {

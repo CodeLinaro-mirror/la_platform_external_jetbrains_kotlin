@@ -9,14 +9,12 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.impl.light.LightEmptyImplementsList
 import org.jetbrains.annotations.NonNls
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.scopes.KtScope
+import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
+import org.jetbrains.kotlin.analysis.api.scopes.KaScope
 import org.jetbrains.kotlin.analysis.api.symbols.*
-import org.jetbrains.kotlin.analysis.api.symbols.markers.KtAnnotatedSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.markers.KtPossibleMultiplatformSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.markers.KtSymbolWithVisibility
+import org.jetbrains.kotlin.analysis.api.symbols.markers.KaAnnotatedSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.symbolPointerOfType
-import org.jetbrains.kotlin.analysis.project.structure.KtModule
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.FakeFileForLightClass
@@ -40,22 +38,22 @@ import org.jetbrains.kotlin.psi.KtFile
 internal class SymbolLightClassForFacade(
     override val facadeClassFqName: FqName,
     override val files: Collection<KtFile>,
-    ktModule: KtModule,
+    ktModule: KaModule,
 ) : SymbolLightClassBase(ktModule, files.first().manager), KtLightClassForFacade {
 
     init {
         require(files.isNotEmpty())
         /*
         Actually, here should be the following check
-        require(files.all { it.getKtModule() is KtSourceModule })
+        require(files.all { it.getKtModule() is KaSourceModule })
         but it is quite expensive
          */
         require(files.none { it.isCompiled })
     }
 
-    private fun <T> withFileSymbols(action: KtAnalysisSession.(List<KtFileSymbol>) -> T): T =
+    private fun <T> withFileSymbols(action: KaSession.(List<KaFileSymbol>) -> T): T =
         analyzeForLightClasses(ktModule) {
-            action(files.map { it.getFileSymbol() })
+            action(files.map { it.symbol })
         }
 
     private val firstFileInFacade: KtFile get() = files.first()
@@ -70,7 +68,7 @@ internal class SymbolLightClassForFacade(
                 GranularAnnotationsBox(
                     annotationsProvider = SymbolAnnotationsProvider(
                         ktModule = this.ktModule,
-                        annotatedSymbolPointer = firstFileInFacade.symbolPointerOfType<KtFileSymbol>(),
+                        annotatedSymbolPointer = firstFileInFacade.symbolPointerOfType<KaFileSymbol>(),
                         annotationUseSiteTargetFilter = AnnotationUseSiteTarget.FILE.toOptionalFilter(),
                     )
                 )
@@ -85,17 +83,15 @@ internal class SymbolLightClassForFacade(
     override fun getOwnMethods(): List<PsiMethod> = cachedValue {
         withFileSymbols { fileSymbols ->
             val result = mutableListOf<KtLightMethod>()
-            val methodsAndProperties = sequence<KtCallableSymbol> {
+            val methodsAndProperties = sequence<KaCallableSymbol> {
                 for (fileSymbol in fileSymbols) {
-                    for (callableSymbol in fileSymbol.getFileScope().getCallableSymbols()) {
-                        if (callableSymbol !is KtFunctionSymbol && callableSymbol !is KtKotlinPropertySymbol) continue
-                        @Suppress("USELESS_IS_CHECK") // K2 warning suppression, TODO: KT-62472
-                        if (callableSymbol !is KtSymbolWithVisibility) continue
+                    for (callableSymbol in fileSymbol.fileScope.callables) {
+                        if (callableSymbol !is KaNamedFunctionSymbol && callableSymbol !is KaKotlinPropertySymbol) continue
 
                         // We shouldn't materialize expect declarations
                         @Suppress("USELESS_IS_CHECK") // K2 warning suppression, TODO: KT-62472
-                        if (callableSymbol is KtPossibleMultiplatformSymbol && callableSymbol.isExpect) continue
-                        if ((callableSymbol as? KtAnnotatedSymbol)?.hasInlineOnlyAnnotation() == true) continue
+                        if (callableSymbol is KaDeclarationSymbol && callableSymbol.isExpect) continue
+                        if ((callableSymbol as? KaAnnotatedSymbol)?.hasInlineOnlyAnnotation() == true) continue
                         if (multiFileClass && callableSymbol.toPsiVisibilityForMember() == PsiModifier.PRIVATE) continue
                         if (callableSymbol.hasTypeForValueClassInSignature(ignoreReturnType = true)) continue
                         yield(callableSymbol)
@@ -110,14 +106,15 @@ internal class SymbolLightClassForFacade(
 
     override val multiFileClass: Boolean get() = files.size > 1 || firstFileInFacade.isJvmMultifileClassFile
 
-    context(KtAnalysisSession)
+    context(KaSession)
+    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
     private fun loadFieldsFromFile(
-        fileScope: KtScope,
+        fileScope: KaScope,
         nameGenerator: SymbolLightField.FieldNameGenerator,
         result: MutableList<KtLightField>
     ) {
-        for (propertySymbol in fileScope.getCallableSymbols()) {
-            if (propertySymbol !is KtKotlinPropertySymbol) continue
+        for (propertySymbol in fileScope.callables) {
+            if (propertySymbol !is KaKotlinPropertySymbol) continue
 
             // If this facade represents multiple files, only `const` properties need to be generated.
             if (multiFileClass && !propertySymbol.isConst) continue
@@ -131,7 +128,7 @@ internal class SymbolLightClassForFacade(
         }
     }
 
-    private fun KtPropertyAccessorSymbol?.isNullOrPublic(): Boolean =
+    private fun KaPropertyAccessorSymbol?.isNullOrPublic(): Boolean =
         this?.toPsiVisibilityForMember()?.let { it == PsiModifier.PUBLIC } != false
 
     override fun getOwnFields(): List<PsiField> = cachedValue {
@@ -139,7 +136,7 @@ internal class SymbolLightClassForFacade(
         val nameGenerator = SymbolLightField.FieldNameGenerator()
         withFileSymbols { fileSymbols ->
             for (fileSymbol in fileSymbols) {
-                loadFieldsFromFile(fileSymbol.getFileScope(), nameGenerator, result)
+                loadFieldsFromFile(fileSymbol.fileScope, nameGenerator, result)
             }
         }
 
@@ -177,7 +174,7 @@ internal class SymbolLightClassForFacade(
     override fun getOwnInnerClasses(): List<PsiClass> = listOf()
     override fun getAllInnerClasses(): Array<PsiClass> = PsiClass.EMPTY_ARRAY
     override fun findInnerClassByName(@NonNls name: String, checkBases: Boolean): PsiClass? = null
-    override fun isInheritorDeep(baseClass: PsiClass?, classToByPass: PsiClass?): Boolean = false
+    override fun isInheritorDeep(baseClass: PsiClass, classToByPass: PsiClass?): Boolean = false
     override fun getName(): String = super<KtLightClassForFacade>.getName()
     override fun getQualifiedName(): String = facadeClassFqName.asString()
     override fun getNameIdentifier(): PsiIdentifier? = null

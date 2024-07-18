@@ -6,12 +6,13 @@
 package org.jetbrains.kotlin.powerassert
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.test.backend.handlers.IrPrettyKotlinDumpHandler
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.builders.irHandlersStep
 import org.jetbrains.kotlin.test.directives.AdditionalFilesDirectives
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.FULL_JDK
@@ -66,6 +67,10 @@ fun TestConfigurationBuilder.configurePlugin() {
     )
 
     enableJunit()
+
+    irHandlersStep {
+        useHandlers(::IrPrettyKotlinDumpHandler)
+    }
 }
 
 class PowerAssertEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigurator(testServices) {
@@ -77,8 +82,7 @@ class PowerAssertEnvironmentConfigurator(testServices: TestServices) : Environme
             .ifEmpty { listOf("kotlin.assert") }
             .mapTo(mutableSetOf()) { FqName(it) }
 
-        val messageCollector = configuration.get(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, MessageCollector.NONE)
-        IrGenerationExtension.registerExtension(PowerAssertIrGenerationExtension(messageCollector, functions))
+        IrGenerationExtension.registerExtension(PowerAssertIrGenerationExtension(configuration.messageCollector, functions))
     }
 }
 

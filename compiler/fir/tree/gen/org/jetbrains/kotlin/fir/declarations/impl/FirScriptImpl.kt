@@ -6,11 +6,12 @@
 // This file was generated automatically. See compiler/fir/tree/tree-generator/Readme.md.
 // DO NOT MODIFY IT MANUALLY.
 
-@file:Suppress("DuplicatedCode", "unused")
+@file:Suppress("DuplicatedCode")
 
 package org.jetbrains.kotlin.fir.declarations.impl
 
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.MutableOrEmptyList
 import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
@@ -23,7 +24,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.name.Name
 
-@OptIn(ResolveStateAccess::class)
+@OptIn(FirImplementationDetail::class, ResolveStateAccess::class)
 internal class FirScriptImpl(
     override val source: KtSourceElement?,
     resolvePhase: FirResolvePhase,
@@ -35,7 +36,7 @@ internal class FirScriptImpl(
     override val declarations: MutableList<FirDeclaration>,
     override val symbol: FirScriptSymbol,
     override val parameters: MutableList<FirProperty>,
-    override var contextReceivers: MutableOrEmptyList<FirContextReceiver>,
+    override var receivers: MutableOrEmptyList<FirScriptReceiverParameter>,
     override val resultPropertyName: Name?,
 ) : FirScript() {
     override var controlFlowGraphReference: FirControlFlowGraphReference? = null
@@ -50,7 +51,7 @@ internal class FirScriptImpl(
         controlFlowGraphReference?.accept(visitor, data)
         declarations.forEach { it.accept(visitor, data) }
         parameters.forEach { it.accept(visitor, data) }
-        contextReceivers.forEach { it.accept(visitor, data) }
+        receivers.forEach { it.accept(visitor, data) }
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirScriptImpl {
@@ -58,7 +59,7 @@ internal class FirScriptImpl(
         controlFlowGraphReference = controlFlowGraphReference?.transform(transformer, data)
         transformDeclarations(transformer, data)
         transformParameters(transformer, data)
-        transformContextReceivers(transformer, data)
+        transformReceivers(transformer, data)
         return this
     }
 
@@ -77,8 +78,8 @@ internal class FirScriptImpl(
         return this
     }
 
-    override fun <D> transformContextReceivers(transformer: FirTransformer<D>, data: D): FirScriptImpl {
-        contextReceivers.transformInplace(transformer, data)
+    override fun <D> transformReceivers(transformer: FirTransformer<D>, data: D): FirScriptImpl {
+        receivers.transformInplace(transformer, data)
         return this
     }
 
@@ -91,6 +92,7 @@ internal class FirScriptImpl(
     }
 
     override fun replaceDeclarations(newDeclarations: List<FirDeclaration>) {
+        if (declarations === newDeclarations) return
         declarations.clear()
         declarations.addAll(newDeclarations)
     }

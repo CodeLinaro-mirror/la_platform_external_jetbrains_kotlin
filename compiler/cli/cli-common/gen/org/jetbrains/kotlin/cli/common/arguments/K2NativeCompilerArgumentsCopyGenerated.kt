@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.cli.common.arguments
 
 @OptIn(org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI::class)
 fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeCompilerArguments): K2NativeCompilerArguments {
-    copyCommonCompilerArguments(from, to)
+    copyCommonKlibBasedCompilerArguments(from, to)
 
     to.allocator = from.allocator
     to.autoCacheDir = from.autoCacheDir
@@ -59,6 +59,7 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.mainPackage = from.mainPackage
     to.makePerFileCache = from.makePerFileCache
     to.manifestFile = from.manifestFile
+    to.manifestNativeTargets = from.manifestNativeTargets?.copyOf()
     to.memoryModel = from.memoryModel
     to.moduleName = from.moduleName
     to.nativeLibraries = from.nativeLibraries?.copyOf()
@@ -72,8 +73,6 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.optimization = from.optimization
     to.outputName = from.outputName
     to.overrideKonanProperties = from.overrideKonanProperties?.copyOf()
-    to.partialLinkageLogLevel = from.partialLinkageLogLevel
-    to.partialLinkageMode = from.partialLinkageMode
     to.preLinkCaches = from.preLinkCaches
     to.printBitCode = from.printBitCode
     to.printFiles = from.printFiles
@@ -97,7 +96,6 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.testDumpOutputPath = from.testDumpOutputPath
     to.verifyBitCode = from.verifyBitCode
     to.verifyCompiler = from.verifyCompiler
-    to.verifyIr = from.verifyIr
     to.workerExceptionHandling = from.workerExceptionHandling
 
     return to

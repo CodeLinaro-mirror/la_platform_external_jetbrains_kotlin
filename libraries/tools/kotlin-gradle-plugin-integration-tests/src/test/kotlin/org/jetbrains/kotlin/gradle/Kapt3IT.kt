@@ -20,6 +20,8 @@ import org.gradle.api.JavaVersion
 import org.gradle.api.logging.LogLevel
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.android.Kapt4AndroidExternalIT
+import org.jetbrains.kotlin.gradle.android.Kapt4AndroidIT
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.USING_JVM_INCREMENTAL_COMPILATION_MESSAGE
 import org.jetbrains.kotlin.gradle.testbase.*
@@ -67,6 +69,18 @@ abstract class Kapt3BaseIT : KGPBaseTest() {
         }
     }
 
+    /**
+     * The default value is defined in [org.jetbrains.kotlin.gradle.testbase.project]
+     */
+    private fun Kapt3BaseIT.calculateGradleDaemonMemoryLimitInMb() = when (this) {
+        /*
+         * Kapt4 Android projects may require bigger Gradle heap size.
+         * This number was chosen as (default * 1.5)
+         */
+        is Kapt4AndroidExternalIT, is Kapt4AndroidIT -> 1536
+        else -> null // use the default limit
+    }
+
     // All Kapt projects require around 2.5g of heap size for Kotlin daemon
     @OptIn(EnvironmentalVariablesOverride::class)
     protected fun Kapt3BaseIT.project(
@@ -77,6 +91,7 @@ abstract class Kapt3BaseIT : KGPBaseTest() {
         enableBuildScan: Boolean = false,
         addHeapDumpOptions: Boolean = true,
         enableGradleDebug: Boolean = false,
+        enableGradleDaemonMemoryLimitInMb: Int? = calculateGradleDaemonMemoryLimitInMb(),
         enableKotlinDaemonMemoryLimitInMb: Int? = 2512,
         projectPathAdditionalSuffix: String = "",
         buildJdk: File? = null,
@@ -93,6 +108,7 @@ abstract class Kapt3BaseIT : KGPBaseTest() {
         dependencyManagement = dependencyManagement,
         addHeapDumpOptions = addHeapDumpOptions,
         enableGradleDebug = enableGradleDebug,
+        enableGradleDaemonMemoryLimitInMb = enableGradleDaemonMemoryLimitInMb,
         enableKotlinDaemonMemoryLimitInMb = enableKotlinDaemonMemoryLimitInMb,
         projectPathAdditionalSuffix = projectPathAdditionalSuffix,
         buildJdk = buildJdk,
@@ -121,42 +137,52 @@ open class Kapt3ClassLoadersCacheIT : Kapt3IT() {
     )
 
     @Disabled("classloaders cache is incompatible with AP discovery in classpath")
+    @GradleTest
     override fun testDisableDiscoveryInCompileClasspath(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun testChangesInLocalAnnotationProcessor(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun testKt19179andKt37241(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun testChangesToKaptConfigurationDoNotTriggerStubGeneration(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun testKt33847(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun testRepeatableAnnotations(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun useGeneratedKotlinSource(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun useGeneratedKotlinSourceK2(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun testMultipleProcessingPasses(gradleVersion: GradleVersion) {
     }
 
     @Disabled("classloaders cache is leaking file descriptors that prevents cleaning test project")
+    @GradleTest
     override fun useK2KaptProperty(gradleVersion: GradleVersion) {
     }
 
@@ -723,7 +749,8 @@ open class Kapt3IT : Kapt3BaseIT() {
                         7,
                         if (buildOptions.languageVersion?.startsWith("2") ?: (KotlinVersion.DEFAULT >= KotlinVersion.KOTLIN_2_0)) 18 else 19
                     ),
-                    actual = actual)
+                    actual = actual
+                )
             }
 
             buildGradle.modify {
@@ -1223,61 +1250,6 @@ open class Kapt3IT : Kapt3BaseIT() {
             build("build") {
                 assertKaptSuccessful()
                 assertTasksExecuted(":kaptGenerateStubsKotlin", ":kaptKotlin", ":compileKotlin")
-            }
-        }
-    }
-
-    @DisplayName("KT-55452: KaptGenerateStubs task compiler options are not duplicated")
-    @GradleTest
-    fun testKaptGenerateStubsCompilerOptionsDup(gradleVersion: GradleVersion) {
-        project(
-            "simple".withPrefix,
-            gradleVersion,
-            buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)
-        ) {
-            buildGradle.appendText(
-                """
-                |
-                |tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-                |    compilerOptions {
-                |        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
-                |        freeCompilerArgs.addAll([
-                |            "-P",
-                |            "plugin:androidx.compose.compiler.plugins.kotlin:suppressKotlinVersionCompatibilityCheck=true",
-                |            "-P",
-                |            "plugin:androidx.compose.compiler.plugins.kotlin:metricsDestination=" +
-                |            project.buildDir.absolutePath + "/compose_metrics"
-                |        ])
-                |    }
-                |}
-                |
-                """.trimMargin()
-            )
-
-            build(":kaptGenerateStubsKotlin") {
-                val compilerArguments = output
-                    .lineSequence()
-                    .first { it.contains("Kotlin compiler args:") }
-                    .substringAfter("Kotlin compiler args:")
-                    .split(" ")
-
-                val pOption = compilerArguments.filter { it == "-P" }.size
-                // 2 from freeArgs and 1 for kapt itself
-                assert(pOption <= 3) {
-                    printBuildOutput()
-                    "KaptGenerateStubs task compiler arguments contains $pOption times '-P' option: ${compilerArguments.joinToString("\n")}"
-                }
-
-                val composeSuppressOption = compilerArguments
-                    .filter {
-                        it == "plugin:androidx.compose.compiler.plugins.kotlin:suppressKotlinVersionCompatibilityCheck=true"
-                    }
-                    .size
-                assert(composeSuppressOption == 1) {
-                    printBuildOutput()
-                    "KaptGenerateStubs task compiler arguments contains $composeSuppressOption times option to suppress compose warning:" +
-                            " ${compilerArguments.joinToString("\n")}"
-                }
             }
         }
     }

@@ -22,10 +22,5 @@ data class KtObjCExportConfiguration(
      * - [org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportNamingHelper.canBeSwiftInner]
      */
     val objcGenerics: Boolean = true,
-
-    /**
-     * Flag to enable/disable the emission of 'base declarations'
-     * (see [org.jetbrains.kotlin.objcexport.objCBaseDeclarations]).
-     */
-    val generateBaseDeclarationStubs: Boolean = true,
 )
+

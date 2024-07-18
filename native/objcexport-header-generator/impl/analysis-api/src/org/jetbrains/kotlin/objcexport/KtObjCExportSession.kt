@@ -12,31 +12,61 @@ sealed interface KtObjCExportSession {
     val configuration: KtObjCExportConfiguration
 }
 
+/**
+ * Internal representation of [withKtObjCExportSession].
+ * All *internal* accessible services shall be added here.
+ */
+@PublishedApi
+internal sealed interface KtObjCExportSessionInternal : KtObjCExportSession {
+    val moduleNaming: KtObjCExportModuleNaming
+    val moduleClassifier: KtObjCExportModuleClassifier
+}
+
+@PublishedApi
+internal val KtObjCExportSession.internal: KtObjCExportSessionInternal
+    get() = when (this) {
+        is KtObjCExportSessionInternal -> this
+    }
+
+/**
+ * Private representation of [withKtObjCExportSession].
+ * All *private* accessible data shall only be added here and potentially
+ * exposed as functions within this source file
+ */
+private interface KtObjCExportSessionPrivate : KtObjCExportSessionInternal {
+    val cache: MutableMap<Any, Any?>
+}
+
 private val KtObjCExportSession.private: KtObjCExportSessionPrivate
     get() = when (this) {
         is KtObjCExportSessionPrivate -> this
     }
 
-private interface KtObjCExportSessionPrivate : KtObjCExportSession {
-    val cache: MutableMap<Any, Any?>
-}
-
-inline fun <T> KtObjCExportSession(
+inline fun <T> withKtObjCExportSession(
     configuration: KtObjCExportConfiguration,
+    moduleNaming: KtObjCExportModuleNaming = KtObjCExportModuleNaming.default,
+    moduleClassifier: KtObjCExportModuleClassifier = KtObjCExportModuleClassifier.default,
     block: KtObjCExportSession.() -> T,
 ): T {
-    return KtObjCExportSessionImpl(configuration, hashMapOf()).block()
+    return KtObjCExportSessionImpl(
+        configuration = configuration,
+        moduleNaming = moduleNaming,
+        moduleClassifier = moduleClassifier,
+        cache = hashMapOf()
+    ).block()
 }
 
 @PublishedApi
 internal class KtObjCExportSessionImpl(
     override val configuration: KtObjCExportConfiguration,
+    override val moduleNaming: KtObjCExportModuleNaming,
+    override val moduleClassifier: KtObjCExportModuleClassifier,
     override val cache: MutableMap<Any, Any?>,
 ) : KtObjCExportSessionPrivate
 
 
 /**
- * Will cache the given [computation] in the current [KtObjCExportSession].
+ * Will cache the given [computation] in the current [withKtObjCExportSession].
  * Example Usage: Caching the ObjC name of 'MutableSet'
  *
  * ```kotlin
@@ -49,6 +79,7 @@ internal class KtObjCExportSessionImpl(
  * ```
  */
 context(KtObjCExportSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
 internal inline fun <reified T> cached(key: Any, noinline computation: () -> T): T {
     return cached(T::class.java, key, computation)
 }
@@ -57,6 +88,7 @@ internal inline fun <reified T> cached(key: Any, noinline computation: () -> T):
  * @see cached
  */
 context(KtObjCExportSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
 private fun <T> cached(typeOfT: Class<T>, key: Any, computation: () -> T): T {
     val value = private.cache.getOrPutNullable(key) {
         computation()

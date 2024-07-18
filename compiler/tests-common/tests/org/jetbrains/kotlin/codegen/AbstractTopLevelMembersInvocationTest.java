@@ -39,7 +39,7 @@ import static org.jetbrains.kotlin.codegen.BytecodeTextUtilsKt.readExpectedOccur
 
 public abstract class AbstractTopLevelMembersInvocationTest extends AbstractBytecodeTextTest {
     @Override
-    public void doTest(@NotNull String filename) throws Exception {
+    public void doTest(@NotNull String filename) {
         File root = new File(filename);
         List<String> sourceFiles = SequencesKt.toList(SequencesKt.map(
                 SequencesKt.filter(FilesKt.walkTopDown(root).maxDepth(1), File::isFile),
@@ -72,6 +72,6 @@ public abstract class AbstractTopLevelMembersInvocationTest extends AbstractByte
 
         List<OccurrenceInfo> expected = readExpectedOccurrences(KtTestUtil.getTestDataPathBase() + "/codegen/" + sourceFiles.get(0));
         String actual = generateToText();
-        checkGeneratedTextAgainstExpectedOccurrences(actual, expected, TargetBackend.ANY, true, JUnit4Assertions.INSTANCE);
+        checkGeneratedTextAgainstExpectedOccurrences(actual, expected, TargetBackend.ANY, true, JUnit4Assertions.INSTANCE, false);
     }
 }

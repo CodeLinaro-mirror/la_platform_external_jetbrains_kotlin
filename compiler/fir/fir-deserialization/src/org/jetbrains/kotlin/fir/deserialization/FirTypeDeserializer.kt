@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.metadata.ProtoBuf
+import org.jetbrains.kotlin.metadata.ProtoBuf.Type
 import org.jetbrains.kotlin.metadata.deserialization.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -35,13 +36,14 @@ import org.jetbrains.kotlin.serialization.deserialization.ProtoEnumFlags
 import org.jetbrains.kotlin.serialization.deserialization.getClassId
 import org.jetbrains.kotlin.serialization.deserialization.getName
 import org.jetbrains.kotlin.types.Variance
-import org.jetbrains.kotlin.utils.exceptions.shouldIjPlatformExceptionBeRethrown
+import org.jetbrains.kotlin.utils.exceptions.rethrowIntellijPlatformExceptionIfNeeded
 
 class FirTypeDeserializer(
     private val moduleData: FirModuleData,
     private val nameResolver: NameResolver,
     private val typeTable: TypeTable,
     private val annotationDeserializer: AbstractAnnotationDeserializer,
+    private val flexibleTypeFactory: FlexibleTypeFactory,
     typeParameterProtos: List<ProtoBuf.TypeParameter>,
     private val parent: FirTypeDeserializer?,
     private val containingSymbol: FirBasedSymbol<*>?
@@ -96,6 +98,23 @@ class FirTypeDeserializer(
         }
     }
 
+    fun forChildContext(
+        typeParameterProtos: List<ProtoBuf.TypeParameter>,
+        containingDeclarationSymbol: FirBasedSymbol<*>,
+        nameResolver: NameResolver,
+        typeTable: TypeTable,
+        annotationDeserializer: AbstractAnnotationDeserializer,
+    ): FirTypeDeserializer = FirTypeDeserializer(
+        moduleData,
+        nameResolver,
+        typeTable,
+        annotationDeserializer,
+        flexibleTypeFactory,
+        typeParameterProtos,
+        this,
+        containingDeclarationSymbol,
+    )
+
     private fun computeClassifier(fqNameIndex: Int): ConeClassLikeLookupTag {
         try {
             // We can't just load local types as is, because later we will get an exception
@@ -103,7 +122,7 @@ class FirTypeDeserializer(
             val id = nameResolver.getClassId(fqNameIndex).takeIf { !it.isLocal } ?: StandardClassIds.Any
             return id.toLookupTag()
         } catch (e: Throwable) {
-            if (shouldIjPlatformExceptionBeRethrown(e)) throw e
+            rethrowIntellijPlatformExceptionIfNeeded(e)
             throw RuntimeException("Looking up for ${nameResolver.getClassId(fqNameIndex)}", e)
         }
     }
@@ -133,17 +152,30 @@ class FirTypeDeserializer(
             val lowerBound = simpleType(proto, attributes)
             val upperBound = simpleType(proto.flexibleUpperBound(typeTable)!!, attributes)
 
-            val isDynamic = lowerBound == moduleData.session.builtinTypes.nothingType.coneType &&
-                    upperBound == moduleData.session.builtinTypes.nullableAnyType.coneType
+            val isDynamic = lowerBound?.classId == moduleData.session.builtinTypes.nothingType.id &&
+                    upperBound?.classId == moduleData.session.builtinTypes.nullableAnyType.id
 
+            // TODO: Consider hiding dynamic type creation under FlexibleTypeFactory for JS only (KT-67452)
             return if (isDynamic) {
-                ConeDynamicType.create(moduleData.session)
+                ConeDynamicType.create(moduleData.session, lowerBound?.attributes ?: ConeAttributes.Empty)
             } else {
-                ConeFlexibleType(lowerBound!!, upperBound!!)
+                flexibleTypeFactory.createFlexibleType(proto, lowerBound!!, upperBound!!)
             }
         }
 
         return simpleType(proto, attributes) ?: ConeErrorType(ConeSimpleDiagnostic("?!id:0", DiagnosticKind.DeserializationError))
+    }
+
+    interface FlexibleTypeFactory {
+        fun createFlexibleType(proto: Type, lowerBound: ConeSimpleKotlinType, upperBound: ConeSimpleKotlinType): ConeFlexibleType
+
+        object Default : FlexibleTypeFactory {
+            override fun createFlexibleType(
+                proto: Type,
+                lowerBound: ConeSimpleKotlinType,
+                upperBound: ConeSimpleKotlinType,
+            ): ConeFlexibleType = ConeFlexibleType(lowerBound, upperBound)
+        }
     }
 
     private fun typeParameterSymbol(typeParameterId: Int): ConeTypeParameterLookupTag? =
@@ -204,7 +236,7 @@ class FirTypeDeserializer(
         val abbreviatedType = proto.abbreviatedType(typeTable)?.let { simpleType(it, attributes) }
             ?: return simpleType
 
-        return simpleType.withAttributes(simpleType.attributes.plus(AbbreviatedTypeAttribute(abbreviatedType)))
+        return simpleType.withAttributes(simpleType.attributes.add(AbbreviatedTypeAttribute(abbreviatedType)))
     }
 
     private fun createSuspendFunctionTypeForBasicCase(

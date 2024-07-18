@@ -5,25 +5,25 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.containingDeclarationProvider
 
-import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtProperty
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractContainingDeclarationProviderForSetterParameterTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val context = testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtProperty>(mainFile)
 
         analyseForTest(context) { declaration ->
-            val propertySymbol = (declaration as KtProperty).getVariableSymbol() as KtPropertySymbol
+            val propertySymbol = (declaration as KtProperty).symbol as KaPropertySymbol
             val setterSymbol = propertySymbol.setter!!
             val setterParameterSymbol = setterSymbol.valueParameters.single()
-            testServices.assertions.assertEquals(propertySymbol, setterSymbol.getContainingSymbol())
-            testServices.assertions.assertEquals(setterSymbol, setterParameterSymbol.getContainingSymbol())
+            testServices.assertions.assertEquals(propertySymbol, setterSymbol.containingDeclaration)
+            testServices.assertions.assertEquals(setterSymbol, setterParameterSymbol.containingDeclaration)
         }
     }
 }

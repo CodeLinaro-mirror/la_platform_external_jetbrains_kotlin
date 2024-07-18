@@ -91,18 +91,6 @@ sealed class ConeStubType(val constructor: ConeStubTypeConstructor, override val
     }
 }
 
-open class ConeStubTypeForChainInference(
-    constructor: ConeStubTypeConstructor,
-    nullability: ConeNullability
-) : ConeStubType(constructor, nullability) {
-    constructor(variable: ConeTypeVariable, nullability: ConeNullability) : this(
-        ConeStubTypeConstructor(
-            variable,
-            isTypeVariableInSubtyping = false
-        ), nullability
-    )
-}
-
 class ConeStubTypeForTypeVariableInSubtyping(
     constructor: ConeStubTypeConstructor,
     nullability: ConeNullability
@@ -116,8 +104,8 @@ class ConeStubTypeForTypeVariableInSubtyping(
 }
 
 open class ConeTypeVariable(name: String, originalTypeParameter: TypeParameterMarker? = null) : TypeVariableMarker {
-    val typeConstructor = ConeTypeVariableTypeConstructor(name, originalTypeParameter)
-    val defaultType = ConeTypeVariableType(ConeNullability.NOT_NULL, typeConstructor)
+    val typeConstructor: ConeTypeVariableTypeConstructor = ConeTypeVariableTypeConstructor(name, originalTypeParameter)
+    val defaultType: ConeTypeVariableType = ConeTypeVariableType(ConeNullability.NOT_NULL, typeConstructor)
 
     override fun toString(): String {
         return defaultType.toString()

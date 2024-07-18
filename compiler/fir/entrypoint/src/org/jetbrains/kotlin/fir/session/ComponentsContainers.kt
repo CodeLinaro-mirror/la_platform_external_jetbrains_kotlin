@@ -23,11 +23,7 @@ import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJvmInlineCheckerCompone
 import org.jetbrains.kotlin.fir.analysis.jvm.checkers.FirJvmPrimaryConstructorSuperTypeCheckerPlatformComponent
 import org.jetbrains.kotlin.fir.caches.FirCachesFactory
 import org.jetbrains.kotlin.fir.caches.FirThreadUnsafeCachesFactory
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOverloadabilityHelper
-import org.jetbrains.kotlin.fir.declarations.FirTypeSpecificityComparatorProvider
-import org.jetbrains.kotlin.fir.declarations.SealedClassInheritorsProvider
-import org.jetbrains.kotlin.fir.declarations.SealedClassInheritorsProviderImpl
-import org.jetbrains.kotlin.fir.declarations.FirAnnotationsPlatformSpecificSupportComponent
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.deserialization.FirDeserializationExtension
 import org.jetbrains.kotlin.fir.extensions.*
 import org.jetbrains.kotlin.fir.java.FirJavaVisibilityChecker
@@ -39,9 +35,10 @@ import org.jetbrains.kotlin.fir.java.enhancement.FirAnnotationTypeQualifierResol
 import org.jetbrains.kotlin.fir.java.enhancement.FirEnhancedSymbolsStorage
 import org.jetbrains.kotlin.fir.java.enhancement.JavaCompilerRequiredAnnotationEnhancementProvider
 import org.jetbrains.kotlin.fir.java.scopes.JavaOverridabilityRules
+import org.jetbrains.kotlin.fir.modules.FirJavaModuleResolverProvider
 import org.jetbrains.kotlin.fir.resolve.*
-import org.jetbrains.kotlin.fir.resolve.calls.ConeCallConflictResolverFactory
-import org.jetbrains.kotlin.fir.resolve.calls.FirDeclarationOverloadabilityHelperImpl
+import org.jetbrains.kotlin.fir.resolve.calls.overloads.ConeCallConflictResolverFactory
+import org.jetbrains.kotlin.fir.resolve.calls.overloads.FirDeclarationOverloadabilityHelperImpl
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticNamesProvider
 import org.jetbrains.kotlin.fir.resolve.calls.jvm.JvmCallConflictResolverFactory
 import org.jetbrains.kotlin.fir.resolve.inference.InferenceComponents
@@ -51,10 +48,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.FirDummyCompilerLazyDeclara
 import org.jetbrains.kotlin.fir.resolve.transformers.PlatformSupertypeUpdater
 import org.jetbrains.kotlin.fir.resolve.transformers.mpp.FirExpectActualMatchingContextImpl
 import org.jetbrains.kotlin.fir.resolve.transformers.plugin.CompilerRequiredAnnotationEnhancementProvider
-import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
-import org.jetbrains.kotlin.fir.scopes.FirOverrideService
-import org.jetbrains.kotlin.fir.scopes.FirPlatformClassMapper
-import org.jetbrains.kotlin.fir.scopes.PlatformSpecificOverridabilityRules
+import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.*
 import org.jetbrains.kotlin.fir.scopes.jvm.FirJvmDelegatedMembersFilter
 import org.jetbrains.kotlin.fir.scopes.jvm.JvmMappedScope.FirMappedSymbolStorage
@@ -133,6 +127,7 @@ fun FirSession.registerJavaComponents(
     javaModuleResolver: JavaModuleResolver,
     predefinedComponents: FirSharableJavaComponents? = null,
 ) {
+    register(FirJavaModuleResolverProvider::class, FirJavaModuleResolverProvider(javaModuleResolver))
     val jsr305State = languageVersionSettings.getFlag(JvmAnalysisFlags.javaTypeEnhancementState)
     register(
         FirAnnotationTypeQualifierResolver::class,
@@ -166,6 +161,7 @@ fun FirSession.registerJavaComponents(
     register(FirGenericArrayClassLiteralSupport::class, FirGenericArrayClassLiteralSupport.Enabled)
     register(FirDelegatedMembersFilter::class, FirJvmDelegatedMembersFilter(this))
     register(FirPlatformUpperBoundsProvider::class, FirJavaNullabilityWarningUpperBoundsProvider(this))
+    register(FirDefaultImportProviderHolder::class, FirDefaultImportProviderHolder(FirJvmDefaultImportProvider))
 }
 
 // -------------------------- Resolve components --------------------------

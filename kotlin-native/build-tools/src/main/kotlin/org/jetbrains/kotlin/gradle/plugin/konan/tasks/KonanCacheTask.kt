@@ -7,8 +7,10 @@ package org.jetbrains.kotlin.gradle.plugin.konan.tasks
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.internal.file.FileOperations
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
+import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.plugin.konan.KonanCliCompilerRunner
 import org.jetbrains.kotlin.konan.library.defaultResolver
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
@@ -16,16 +18,21 @@ import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.PlatformManager
 import org.jetbrains.kotlin.library.uniqueName
 import org.jetbrains.kotlin.*
+import org.jetbrains.kotlin.gradle.plugin.konan.KonanCliRunnerIsolatedClassLoadersService
 import org.jetbrains.kotlin.util.Logger
 import java.io.File
 import java.util.*
+import javax.inject.Inject
 
 enum class KonanCacheKind(val outputKind: CompilerOutputKind) {
     STATIC(CompilerOutputKind.STATIC_CACHE),
     DYNAMIC(CompilerOutputKind.DYNAMIC_CACHE)
 }
 
-abstract class KonanCacheTask : DefaultTask() {
+abstract class KonanCacheTask @Inject constructor(
+        private val fileOperations: FileOperations,
+        private val execOperations: ExecOperations,
+) : DefaultTask() {
     @get:InputDirectory
     abstract val originalKlib: DirectoryProperty
 
@@ -77,12 +84,12 @@ abstract class KonanCacheTask : DefaultTask() {
 
     @get:Input
     /** Path to a compiler distribution that is used to build this cache. */
-    val compilerDistributionPath: Property<File> = project.objects.property(File::class.java).apply {
-        set(project.provider { project.kotlinNativeDist })
-    }
+    val compilerDistributionPath: Property<File> = project.objects.property(File::class.java).convention(project.kotlinNativeDist)
 
     @get:Input
     var cachedLibraries: Map<File, File> = emptyMap()
+
+    private val isolatedClassLoadersService = KonanCliRunnerIsolatedClassLoadersService.attachingToTask(this)
 
     @TaskAction
     fun compile() {
@@ -114,6 +121,6 @@ abstract class KonanCacheTask : DefaultTask() {
             args += "-Xmake-per-file-cache"
         args += additionalCacheFlags
         args += cachedLibraries.map { "-Xcached-library=${it.key},${it.value}" }
-        KonanCliCompilerRunner(project, konanHome = konanHome).run(args)
+        KonanCliCompilerRunner(fileOperations, execOperations, logger, isolatedClassLoadersService, konanHome).run(args)
     }
 }

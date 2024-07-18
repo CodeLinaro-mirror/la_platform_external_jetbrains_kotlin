@@ -8,24 +8,20 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.FirDesignation
-import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.llFirModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.codeFragment
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
-import org.jetbrains.kotlin.analysis.utils.errors.withPsiEntry
+import org.jetbrains.kotlin.analysis.api.utils.errors.withPsiEntry
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.builder.BodyBuildingMode
 import org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder
 import org.jetbrains.kotlin.fir.builder.buildDestructuringVariable
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
-import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirMultiDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.scopes.FirScopeProvider
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
@@ -43,32 +39,9 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
     baseScopeProvider: FirScopeProvider,
     private val originalDeclaration: FirDeclaration,
     private val declarationToBuild: KtElement,
-    private val functionsToRebind: Set<FirFunction>? = null,
-    private val replacementApplier: RawFirReplacement.Applier? = null,
+    private val functionsToRebind: Set<FirFunction>,
 ) : PsiRawFirBuilder(session, baseScopeProvider, bodyBuildingMode = BodyBuildingMode.NORMAL) {
     companion object {
-        fun buildNewFile(
-            session: FirSession,
-            scopeProvider: FirScopeProvider,
-            file: KtFile,
-        ): FirFile {
-            val builder = PsiRawFirBuilder(session, scopeProvider, bodyBuildingMode = BodyBuildingMode.NORMAL)
-            return builder.buildFirFile(file)
-        }
-
-        fun buildWithReplacement(
-            session: FirSession,
-            scopeProvider: FirScopeProvider,
-            designation: FirDesignation,
-            rootNonLocalDeclaration: KtElement,
-            replacement: RawFirReplacement?,
-        ): FirDeclaration {
-            val replacementApplier = replacement?.Applier()
-            val result = build(session, scopeProvider, designation, rootNonLocalDeclaration, replacementApplier = replacementApplier)
-            replacementApplier?.ensureApplied()
-            return result
-        }
-
         fun buildWithFunctionSymbolRebind(
             session: FirSession,
             scopeProvider: FirScopeProvider,
@@ -78,10 +51,10 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
             val functionsToRebind = when (val originalDeclaration = designation.target) {
                 is FirFunction -> setOf(originalDeclaration)
                 is FirProperty -> setOfNotNull(originalDeclaration.getter, originalDeclaration.setter)
-                else -> null
+                else -> emptySet()
             }
 
-            return build(session, scopeProvider, designation, rootNonLocalDeclaration, functionsToRebind, rebindContainingSymbol = true)
+            return build(session, scopeProvider, designation, rootNonLocalDeclaration, functionsToRebind)
         }
 
         private fun build(
@@ -89,9 +62,7 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
             scopeProvider: FirScopeProvider,
             designation: FirDesignation,
             rootNonLocalDeclaration: KtElement,
-            functionsToRebind: Set<FirFunction>? = null,
-            replacementApplier: RawFirReplacement.Applier? = null,
-            rebindContainingSymbol: Boolean = false,
+            functionsToRebind: Set<FirFunction>,
         ): FirDeclaration {
             check(rootNonLocalDeclaration is KtDeclaration || rootNonLocalDeclaration is KtCodeFragment)
 
@@ -101,14 +72,11 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
                 originalDeclaration = designation.target as FirDeclaration,
                 declarationToBuild = rootNonLocalDeclaration,
                 functionsToRebind = functionsToRebind,
-                replacementApplier = replacementApplier
             )
 
             builder.context.packageFqName = rootNonLocalDeclaration.containingKtFile.packageFqName
-            if (rebindContainingSymbol) {
-                @OptIn(PrivateForInline::class)
-                builder.context.forcedContainerSymbol = designation.target.symbol
-            }
+            @OptIn(PrivateForInline::class)
+            builder.context.forcedContainerSymbol = designation.target.symbol
 
             return builder.moveNext(designation.path.iterator(), containingDeclaration = null)
         }
@@ -151,21 +119,17 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
 
     private inner class VisitorWithReplacement(private val containingClass: FirRegularClass?) : Visitor() {
         fun convertDestructuringDeclaration(element: KtDestructuringDeclaration, containingDeclaration: FirDeclaration?): FirVariable {
-            val replacementDeclaration = replacementApplier?.tryReplace(element) ?: element
-            requireIsInstance<KtDestructuringDeclaration>(replacementDeclaration)
             return if (containingDeclaration is FirScript) {
                 withContainerSymbol(containingDeclaration.symbol) {
                     // Annotations from script destructuring declarations are linked to the script itself
-                    buildScriptDestructuringDeclaration(replacementDeclaration)
+                    buildScriptDestructuringDeclaration(element)
                 }
             } else {
-                buildErrorTopLevelDestructuringDeclaration(replacementDeclaration.toFirSourceElement())
+                buildErrorTopLevelDestructuringDeclaration(element.toFirSourceElement())
             }
         }
 
         fun convertDestructuringDeclarationEntry(element: KtDestructuringDeclarationEntry): FirVariable {
-            val replacementDeclaration = replacementApplier?.tryReplace(element) ?: element
-            requireIsInstance<KtDestructuringDeclarationEntry>(replacementDeclaration)
             requireIsInstance<FirProperty>(originalDeclaration)
 
             val container = originalDeclaration.destructuringDeclarationContainerVariable?.fir
@@ -176,10 +140,11 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
 
             return buildDestructuringVariable(
                 moduleData = baseModuleData,
+                this,
                 container = container,
                 element,
                 isVar = false,
-                localEntries = false,
+                forceLocal = false,
                 index = element.index(),
                 configure = { configureScriptDestructuringDeclarationEntry(it, container) },
             )
@@ -192,72 +157,7 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
         }
 
         fun convertAnonymousInitializer(element: KtAnonymousInitializer, containingDeclaration: FirDeclaration?): FirAnonymousInitializer {
-            val replacementDeclaration = replacementApplier?.tryReplace(element) ?: element
-            requireIsInstance<KtAnonymousInitializer>(replacementDeclaration)
-            return buildAnonymousInitializer(replacementDeclaration, containingDeclaration?.symbol)
-        }
-
-        override fun convertElement(element: KtElement, original: FirElement?): FirElement? =
-            super.convertElement(replacementApplier?.tryReplace(element) ?: element, original)
-
-        override fun convertProperty(
-            property: KtProperty,
-            ownerRegularOrAnonymousObjectSymbol: FirClassSymbol<*>?,
-            ownerRegularClassTypeParametersCount: Int?,
-        ): FirProperty {
-            val replacementProperty = replacementApplier?.tryReplace(property) ?: property
-            check(replacementProperty is KtProperty)
-            return super.convertProperty(
-                property = replacementProperty,
-                ownerRegularOrAnonymousObjectSymbol = ownerRegularOrAnonymousObjectSymbol,
-                ownerRegularClassTypeParametersCount = ownerRegularClassTypeParametersCount
-            )
-        }
-
-        override fun convertPropertyAccessor(
-            accessor: KtPropertyAccessor?,
-            property: KtProperty,
-            propertyTypeRef: FirTypeRef,
-            propertySymbol: FirPropertySymbol,
-            isGetter: Boolean,
-            accessorAnnotationsFromProperty: List<FirAnnotation>,
-            parameterAnnotationsFromProperty: List<FirAnnotation>,
-        ): FirPropertyAccessor? {
-            val replacementAccessor = if (accessor != null) {
-                val replacementAccessor = replacementApplier?.tryReplace(accessor) ?: accessor
-                check(replacementAccessor is KtPropertyAccessor)
-                replacementAccessor
-            } else {
-                accessor
-            }
-
-            return super.convertPropertyAccessor(
-                replacementAccessor,
-                property,
-                propertyTypeRef,
-                propertySymbol,
-                isGetter,
-                accessorAnnotationsFromProperty,
-                parameterAnnotationsFromProperty
-            )
-        }
-
-        override fun convertValueParameter(
-            valueParameter: KtParameter,
-            functionSymbol: FirFunctionSymbol<*>,
-            defaultTypeRef: FirTypeRef?,
-            valueParameterDeclaration: ValueParameterDeclaration,
-            additionalAnnotations: List<FirAnnotation>,
-        ): FirValueParameter {
-            val replacementParameter = replacementApplier?.tryReplace(valueParameter) ?: valueParameter
-            check(replacementParameter is KtParameter)
-            return super.convertValueParameter(
-                valueParameter = replacementParameter,
-                functionSymbol = functionSymbol,
-                defaultTypeRef = defaultTypeRef,
-                valueParameterDeclaration = valueParameterDeclaration,
-                additionalAnnotations = additionalAnnotations
-            )
+            return buildAnonymousInitializer(element, containingDeclaration?.symbol)
         }
 
         private fun extractContructorConversionParams(
@@ -369,8 +269,7 @@ internal class RawFirNonLocalDeclarationBuilder private constructor(
             return when (declarationToBuild) {
                 is KtProperty -> {
                     val ownerSymbol = containingClass?.symbol
-                    val ownerTypeArgumentsCount = containingClass?.typeParameters?.size
-                    visitor.convertProperty(declarationToBuild, ownerSymbol, ownerTypeArgumentsCount)
+                    visitor.convertProperty(declarationToBuild, ownerSymbol)
                 }
                 is KtConstructor<*> -> {
                     if (containingClass == null) {

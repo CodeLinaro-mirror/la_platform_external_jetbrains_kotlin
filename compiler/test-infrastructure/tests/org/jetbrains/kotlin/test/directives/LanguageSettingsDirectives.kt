@@ -15,7 +15,7 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
     val LANGUAGE by stringDirective(
         description = """
             List of enabled and disabled language features.
-            Usage: // !LANGUAGE: +SomeFeature -OtherFeature warn:FeatureWithEarning
+            Usage: // LANGUAGE: +SomeFeature -OtherFeature warn:FeatureWithEarning
         """.trimIndent()
     )
 
@@ -38,7 +38,7 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
             which will become obsolete at some point and the test won't check things like feature
             intersection with newer releases.
 
-            For language feature testing, use `// !LANGUAGE: [+-]FeatureName` directive instead,
+            For language feature testing, use `// LANGUAGE: [+-]FeatureName` directive instead,
             where FeatureName is an entry of the enum `LanguageFeature`
         """.trimIndent()
     )
@@ -59,8 +59,17 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
         additionalParser = ExplicitApiMode.Companion::fromString
     )
 
+    val EXPLICIT_RETURN_TYPES_MODE by enumDirective(
+        "Configures explicit API mode (AnalysisFlags.explicitReturnTypes)",
+        additionalParser = ExplicitApiMode.Companion::fromString
+    )
+
     val ALLOW_KOTLIN_PACKAGE by directive(
         description = "Allow compiling code in package 'kotlin' and allow not requiring kotlin.stdlib in module-info (AnalysisFlags.allowKotlinPackage)"
+    )
+
+    val PREFER_IN_TEST_OVER_STDLIB by directive(
+        description = "Prefer in-test defined class over stdlib one if the names collide"
     )
 
     // It's inverted because otherwise we would have warnings in almost all KMP tests
@@ -100,6 +109,7 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
     val OLD_INNER_CLASSES_LOGIC by directive("Use old logic for generation of InnerClasses attributes")
     val LINK_VIA_SIGNATURES_K1 by directive("Use linkage via signatures instead of descriptors on the K1 frontend")
     val ENABLE_JVM_IR_INLINER by directive("Enable inlining on IR, instead of inlining on bytecode")
+    val USE_INLINE_SCOPES_NUMBERS by directive("Use inline scopes numbers for inline marker variables")
     val GENERATE_PROPERTY_ANNOTATIONS_METHODS by directive(
         description = "Enables corresponding analysis flag (JvmAnalysisFlags.generatePropertyAnnotationsMethods)"
     )

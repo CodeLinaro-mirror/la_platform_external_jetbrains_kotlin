@@ -19,12 +19,12 @@ import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
 /**
- * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.declaration]
+ * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.declaration]
  */
 sealed class FirDeclaration : FirElementWithResolveState(), FirAnnotationContainer {
     abstract override val source: KtSourceElement?
     abstract override val annotations: List<FirAnnotation>
-    abstract val symbol: FirBasedSymbol<out FirDeclaration>
+    abstract val symbol: FirBasedSymbol<FirDeclaration>
     abstract override val moduleData: FirModuleData
     abstract val origin: FirDeclarationOrigin
     abstract val attributes: FirDeclarationAttributes

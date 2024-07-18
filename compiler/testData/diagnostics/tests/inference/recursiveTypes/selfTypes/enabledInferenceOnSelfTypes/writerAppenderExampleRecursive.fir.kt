@@ -1,4 +1,4 @@
-// !LANGUAGE: +TypeInferenceOnCallsWithSelfTypes
+// LANGUAGE: +TypeInferenceOnCallsWithSelfTypes
 
 // FILE: JavaWriterAppender.java
 public class JavaWriterAppender {
@@ -26,10 +26,10 @@ fun test() {
 }
 
 fun testJava(appender: JavaWriterAppender) {
-    <!DEBUG_INFO_EXPRESSION_TYPE("CapturedType(*)!!..CapturedType(*)?!")!>appender.newBuilder()<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("CapturedType(*)..CapturedType(*)?!")!>appender.newBuilder()<!>
     <!DEBUG_INFO_EXPRESSION_TYPE("JavaWriterAppender.Builder1<CapturedType(*)>")!>appender.Builder1()<!>
 
-    <!DEBUG_INFO_EXPRESSION_TYPE("CapturedType(*)!!..CapturedType(*)?!")!>appender.intersectTwoSelfTypes()<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("CapturedType(*)..CapturedType(*)?!")!>appender.intersectTwoSelfTypes()<!>
 }
 
 object WriterAppender {

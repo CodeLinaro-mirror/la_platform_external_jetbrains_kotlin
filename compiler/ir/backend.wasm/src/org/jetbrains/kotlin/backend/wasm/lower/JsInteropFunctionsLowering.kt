@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -31,8 +31,6 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
-import org.jetbrains.kotlin.js.config.WasmTarget
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -64,7 +62,7 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
         if (declaration.getWasmImportDescriptor() != null) return null
         check(!(isExported && isExternal)) { "Exported external declarations are not supported: ${declaration.fqNameWhenAvailable}" }
         check(declaration.parent !is IrClass) { "Interop members are not supported:  ${declaration.fqNameWhenAvailable}" }
-        if (context.mapping.wasmNestedExternalToNewTopLevelFunction.keys.contains(declaration)) return null
+        if (context.mapping.wasmNestedExternalToNewTopLevelFunction[declaration] != null) return null
 
         additionalDeclarations.clear()
         currentParent = declaration.parent
@@ -285,7 +283,7 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
             builtIns.doubleType,
             context.wasmSymbols.voidType ->
                 return null
-
+            else -> {}
         }
 
         if (isExternalType(this))
@@ -337,7 +335,7 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
         notNullType: IrType,
         isPrimitiveOrUnsigned: Boolean,
         valueAdapter: InteropTypeAdapter?
-    ): InteropTypeAdapter? {
+    ): InteropTypeAdapter {
         return if (isPrimitiveOrUnsigned) { //nullable primitive should be checked and adapt to target type
             val externRefToPrimitiveAdapter = when (notNullType) {
                 builtIns.floatType -> adapters.externRefToKotlinFloatAdapter.owner
@@ -426,6 +424,7 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
             builtIns.doubleType,
             symbols.voidType ->
                 return null
+            else -> {}
         }
 
         if (isExternalType(this))
@@ -466,7 +465,7 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
 
     private fun createKotlinClosureCaller(info: FunctionTypeInfo): IrSimpleFunction {
         val result = context.irFactory.buildFun {
-            name = Name.identifier("__callFunction_${info.signatureString}")
+            name = Name.identifier("$CALL_FUNCTION${info.signatureString}")
             returnType = info.adaptedResultType
             origin = KOTLIN_TO_JS_CLOSURE_ORIGIN
         }
@@ -519,12 +518,15 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
         // TODO: Cache created JS closures
         val arity = info.parametersAdapters.size
         val jsCode = buildString {
-            append("(f) => (")
+            append("(f) => ")
+            append("getCachedJsObject(f, ")
+            append("(")
             appendParameterList(arity)
             append(") => wasmExports[")
-            append("__callFunction_${info.signatureString}".toJsStringLiteral())
+            append("$CALL_FUNCTION${info.signatureString}".toJsStringLiteral())
             append("](f, ")
             appendParameterList(arity)
+            append(")")
             append(")")
         }
 
@@ -910,6 +912,10 @@ class JsInteropFunctionsLowering(val context: WasmBackendContext) : DeclarationT
                 +irGet(newJsArrayVar)
             }
         }
+    }
+
+    companion object {
+        const val CALL_FUNCTION = "__callFunction_"
     }
 }
 

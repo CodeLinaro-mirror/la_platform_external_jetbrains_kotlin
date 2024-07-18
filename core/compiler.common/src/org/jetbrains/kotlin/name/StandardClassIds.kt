@@ -24,6 +24,13 @@ object StandardClassIds {
     val BASE_CONCURRENT_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("concurrent"))
     val BASE_TEST_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("test"))
 
+    val builtInsPackagesWithDefaultNamedImport = setOf(
+        BASE_KOTLIN_PACKAGE,
+        BASE_COLLECTIONS_PACKAGE,
+        BASE_RANGES_PACKAGE,
+        BASE_ANNOTATION_PACKAGE,
+    )
+
     val builtInsPackages = setOf(
         BASE_KOTLIN_PACKAGE,
         BASE_COLLECTIONS_PACKAGE,
@@ -83,6 +90,7 @@ object StandardClassIds {
     fun reflectByName(name: String) = name.reflectId()
 
     val primitiveTypes = setOf(Boolean, Char, Byte, Short, Int, Long, Float, Double)
+    val signedIntegerTypes = setOf(Byte, Short, Int, Long)
 
     val primitiveArrayTypeByElementType = primitiveTypes.associateWith { id -> id.shortClassName.primitiveArrayId() }
     val elementTypeByPrimitiveArrayType = primitiveArrayTypeByElementType.inverseMap()
@@ -157,6 +165,9 @@ object StandardClassIds {
         val DeprecatedSinceKotlin = "DeprecatedSinceKotlin".baseId()
         val RequireKotlin = "RequireKotlin".internalId()
 
+        val ConsistentCopyVisibility = "ConsistentCopyVisibility".baseId()
+        val ExposedCopyVisibility = "ExposedCopyVisibility".baseId()
+
         val HidesMembers = "HidesMembers".internalId()
         val DynamicExtension = "DynamicExtension".internalId()
         val IntrinsicConstEvaluation = "IntrinsicConstEvaluation".internalId()
@@ -191,10 +202,14 @@ object StandardClassIds {
         val OptionalExpectation = "OptionalExpectation".baseId()
         val ImplicitlyActualizedByJvmDeclaration = "ImplicitlyActualizedByJvmDeclaration".jvmId()
 
+        val jvmStatic = "JvmStatic".jvmId()
+
         val AssociatedObjectKey = "AssociatedObjectKey".reflectId()
         val ExperimentalAssociatedObjects = "ExperimentalAssociatedObjects".reflectId()
 
         val associatedObjectAnnotations = hashSetOf(AssociatedObjectKey, ExperimentalAssociatedObjects)
+
+        val ActualizeByJvmBuiltinProvider = "ActualizeByJvmBuiltinProvider".internalId()
 
         object ParameterNames {
             val value = Name.identifier("value")
@@ -243,6 +258,8 @@ object StandardClassIds {
         val mutableCollectionToBaseCollection: Map<ClassId, ClassId> =
             baseCollectionToMutableEquivalent.entries.associateBy({ it.value }) { it.key }
     }
+
+    val allBuiltinTypes = primitiveTypes + unsignedTypes + this.String + this.Unit + this.Any + this.Enum
 }
 
 private fun String.baseId() = ClassId(StandardClassIds.BASE_KOTLIN_PACKAGE, Name.identifier(this))

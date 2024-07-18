@@ -6,12 +6,10 @@
 package org.jetbrains.kotlin.fir.java.declarations
 
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
-import org.jetbrains.kotlin.fir.contracts.impl.FirEmptyContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirConstructorBuilder
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
@@ -26,9 +24,10 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.properties.Delegates
 
-@OptIn(FirImplementationDetail::class)
 class FirJavaConstructor @FirImplementationDetail constructor(
     override val source: KtSourceElement?,
     override val moduleData: FirModuleData,
@@ -45,14 +44,17 @@ class FirJavaConstructor @FirImplementationDetail constructor(
 ) : FirConstructor() {
     override val receiverParameter: FirReceiverParameter? get() = null
     override var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
-    override val contractDescription: FirContractDescription get() = FirEmptyContractDescription
+    override val contractDescription: FirContractDescription? get() = null
 
     init {
+        @OptIn(FirImplementationDetail::class)
         symbol.bind(this)
 
         @OptIn(ResolveStateAccess::class)
         this.resolveState = resolvePhase.asResolveState()
     }
+
+    private val typeParameterBoundsResolveLock = ReentrantLock()
 
     override val delegatedConstructor: FirDelegatedConstructorCall?
         get() = null
@@ -68,6 +70,11 @@ class FirJavaConstructor @FirImplementationDetail constructor(
 
     override val contextReceivers: List<FirContextReceiver>
         get() = emptyList()
+
+    internal fun withTypeParameterBoundsResolveLock(f: () -> Unit) {
+        // TODO: KT-68587
+        typeParameterBoundsResolveLock.withLock(f)
+    }
 
     override fun <D> transformValueParameters(transformer: FirTransformer<D>, data: D): FirJavaConstructor {
         valueParameters.transformInplace(transformer, data)
@@ -157,7 +164,7 @@ class FirJavaConstructor @FirImplementationDetail constructor(
     }
 
     override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?) {}
-    override fun replaceContractDescription(newContractDescription: FirContractDescription) {
+    override fun replaceContractDescription(newContractDescription: FirContractDescription?) {
         error("Contract description cannot be replaced for FirJavaConstructor")
     }
 

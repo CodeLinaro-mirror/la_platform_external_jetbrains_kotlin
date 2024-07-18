@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,20 +10,42 @@ import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.descriptors.ValueClassRepresentation
 import org.jetbrains.kotlin.generators.tree.*
-import org.jetbrains.kotlin.generators.tree.printer.FunctionParameter
-import org.jetbrains.kotlin.generators.tree.printer.printFunctionDeclaration
-import org.jetbrains.kotlin.generators.tree.printer.printFunctionWithBlockBody
+import org.jetbrains.kotlin.generators.tree.imports.ArbitraryImportable
+import org.jetbrains.kotlin.generators.tree.printer.*
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.anonymousInitializerSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.classSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.classifierSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.constructorSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.enumEntrySymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.externalPackageFragmentSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.fieldSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.fileSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.functionSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.localDelegatedPropertySymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.packageFragmentSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.propertySymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.returnTargetSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.returnableBlockSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.scriptSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.simpleFunctionSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.typeAliasSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.typeParameterSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.valueParameterSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.valueSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.variableSymbol
 import org.jetbrains.kotlin.ir.generator.config.AbstractTreeBuilder
 import org.jetbrains.kotlin.ir.generator.model.Element
 import org.jetbrains.kotlin.ir.generator.model.Element.Category.*
 import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.*
 import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.Array
 import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.MutableList
-import org.jetbrains.kotlin.ir.generator.model.SingleField
+import org.jetbrains.kotlin.ir.generator.model.SimpleField
+import org.jetbrains.kotlin.ir.generator.model.symbol.Symbol
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.types.Variance
+import org.jetbrains.kotlin.types.model.AnnotationMarker
 import org.jetbrains.kotlin.utils.withIndent
 
 // Note the style of the DSL to describe IR elements, which is these things in the following order:
@@ -31,10 +53,8 @@ import org.jetbrains.kotlin.utils.withIndent
 // 2) parents
 // 3) fields
 object IrTree : AbstractTreeBuilder() {
-    private fun symbol(type: TypeRefWithNullability, mutable: Boolean = false): SingleField =
-        field("symbol", type, mutable = mutable)
 
-    private fun descriptor(typeName: String, nullable: Boolean = false): SingleField =
+    private fun descriptor(typeName: String, nullable: Boolean = false): SimpleField =
         field(
             name = "descriptor",
             type = type(Packages.descriptors, typeName),
@@ -42,21 +62,15 @@ object IrTree : AbstractTreeBuilder() {
             nullable = nullable,
         ) {
             optInAnnotation = obsoleteDescriptorBasedApiAnnotation
-            skipInIrFactory()
         }
 
-    private fun declarationWithLateBinding(symbol: ClassRef<*>, initializer: Element.() -> Unit) = element(Declaration) {
+    private fun declarationWithLateBinding(symbol: Symbol, initializer: Element.() -> Unit) = element(Declaration) {
         initializer()
 
         noAcceptMethod()
         noMethodInVisitor()
 
-        fieldsToSkipInIrFactoryMethod.add("symbol")
-        fieldsToSkipInIrFactoryMethod.add("containerSource")
-
-        +field("isBound", boolean, mutable = false) {
-            skipInIrFactory()
-        }
+        +field("isBound", boolean, mutable = false)
 
         generationCallback = {
             println()
@@ -70,9 +84,7 @@ object IrTree : AbstractTreeBuilder() {
         }
     }
 
-    private val factory: SingleField = field("factory", irFactoryType, mutable = false) {
-        skipInIrFactory()
-    }
+    private val factory: SimpleField = field("factory", irFactoryType, mutable = false)
 
     override val rootElement: Element by element(Other, name = "Element") {
         needAcceptMethod()
@@ -100,17 +112,23 @@ object IrTree : AbstractTreeBuilder() {
     val declaration: Element by element(Declaration) {
         parent(statement)
         parent(symbolOwner)
-        parent(mutableAnnotationContainerType)
+        parent(mutableAnnotationContainer)
 
         +descriptor("DeclarationDescriptor")
         +field("origin", type(Packages.declarations, "IrDeclarationOrigin"))
-        +field("parent", declarationParent, isChild = false) {
-            skipInIrFactory()
-        }
         +factory
+
+        generationCallback = {
+            println()
+            printPropertyDeclaration("parent", declarationParent, VariableKind.VAR)
+            println()
+        }
     }
     val declarationBase: Element by element(Declaration) {
-        typeKind = TypeKind.Class
+        // This class is defined manually, but the entry here needs to be kept actual as well,
+        // to correctly generate related code.
+        doPrint = false
+        kind = ImplementationKind.AbstractClass
         transformByChildren = true
         transformerReturnType = statement
         nameInVisitorMethod = "Declaration"
@@ -131,24 +149,21 @@ object IrTree : AbstractTreeBuilder() {
     val possiblyExternalDeclaration: Element by element(Declaration) {
         parent(declarationWithName)
 
-        +field("isExternal", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
+        +field("isExternal", boolean)
     }
     val symbolOwner: Element by element(Declaration) {
-        +symbol(symbolType)
+        +declaredSymbol(IrSymbolTree.rootElement)
     }
     val metadataSourceOwner: Element by element(Declaration) {
         val metadataField = +field("metadata", type(Packages.declarations, "MetadataSource"), nullable = true) {
-            skipInIrFactory()
             kDoc = """
             The arbitrary metadata associated with this IR node.
             
-            @see $typeName
+            @see ${render()}
             """.trimIndent()
         }
         kDoc = """
-        An [${rootElement.typeName}] capable of holding something which backends can use to write
+        An [${rootElement.render()}] capable of holding something which backends can use to write
         as the metadata for the declaration.
         
         Technically, it can even be ± an array of bytes, but right now it's usually the frontend representation of the declaration,
@@ -169,31 +184,31 @@ object IrTree : AbstractTreeBuilder() {
         +field("modality", type<Modality>())
     }
     val overridableDeclaration: Element by element(Declaration) {
-        val s = +param("S", symbolType)
+        val s = +param("S", IrSymbolTree.rootElement)
 
         parent(overridableMember)
 
-        +field("symbol", s, mutable = false)
-        +isFakeOverrideField()
-        +listField("overriddenSymbols", s, mutability = Var) {
-            skipInIrFactory()
-        }
+        // These fields are made mutable here to allow converting fake overrides to non-fake overrides
+        // (for example, to delegated members) and replacing their debug info without performing a full copy.
+        +field("startOffset", int, mutable = true)
+        +field("endOffset", int, mutable = true)
+
+        +declaredSymbol(s)
+        +field("isFakeOverride", boolean)
+        +referencedSymbolList("overriddenSymbols", s)
     }
     val memberWithContainerSource: Element by element(Declaration) {
         parent(declarationWithName)
 
-        +field("containerSource", type<DeserializedContainerSource>(), nullable = true, mutable = false) {
-            useFieldInIrFactory(defaultValue = "null")
-        }
+        +field("containerSource", type<DeserializedContainerSource>(), nullable = true, mutable = false)
     }
     val valueDeclaration: Element by element(Declaration) {
         parent(declarationWithName)
         parent(symbolOwner)
 
         +descriptor("ValueDescriptor")
-        +symbol(valueSymbolType)
+        +declaredSymbol(valueSymbol)
         +field("type", irTypeType)
-        +field("isAssignable", boolean, mutable = false)
     }
     val valueParameter: Element by element(Declaration) {
         needTransformMethod()
@@ -202,15 +217,15 @@ object IrTree : AbstractTreeBuilder() {
         parent(valueDeclaration)
 
         +descriptor("ParameterDescriptor")
-        +symbol(valueParameterSymbolType)
+        +field("isAssignable", boolean, mutable = false)
+        +declaredSymbol(valueParameterSymbol)
         +field("index", int)
         +field("varargElementType", irTypeType, nullable = true)
         +field("isCrossinline", boolean)
         +field("isNoinline", boolean)
         +field("isHidden", boolean) {
-            additionalImports.add(idSignatureType)
             kDoc = """
-            If `true`, the value parameter does not participate in [IdSignature] computation.
+            If `true`, the value parameter does not participate in [${idSignatureType.render()}] computation.
 
             This is a workaround that is needed for better support of compiler plugins.
             Suppose you have the following code and some IR plugin that adds a value parameter to functions
@@ -226,7 +241,7 @@ object IrTree : AbstractTreeBuilder() {
             fun foo(defined: Int, ${'$'}extra: String) { /* ... */ }
             ```
 
-            If a compiler plugin adds parameters to an [${function.typeName}],
+            If a compiler plugin adds parameters to an [${function.render()}],
             the representations of the function in the frontend and in the backend may diverge, potentially causing signature mismatch and
             linkage errors (see [KT-40980](https://youtrack.jetbrains.com/issue/KT-40980)).
             We wouldn't want IR plugins to affect the frontend representation, since in an IDE you'd want to be able to see those
@@ -249,29 +264,16 @@ object IrTree : AbstractTreeBuilder() {
         parent(metadataSourceOwner)
 
         +descriptor("ClassDescriptor")
-        +symbol(classSymbolType)
+        +declaredSymbol(classSymbol)
         +field("kind", type<ClassKind>())
         +field("modality", type<Modality>())
-        +field("isCompanion", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
-        +field("isInner", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
-        +field("isData", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
-        +field("isValue", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
-        +field("isExpect", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
-        +field("isFun", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
+        +field("isCompanion", boolean)
+        +field("isInner", boolean)
+        +field("isData", boolean)
+        +field("isValue", boolean)
+        +field("isExpect", boolean)
+        +field("isFun", boolean)
         +field("hasEnumEntries", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
             kDoc = """
             Returns true iff this is a class loaded from dependencies which has the `HAS_ENUM_ENTRIES` metadata flag set.
             This flag is useful for Kotlin/JVM to determine whether an enum class from dependency actually has the `entries` property
@@ -279,27 +281,20 @@ object IrTree : AbstractTreeBuilder() {
             old versions of Kotlin which did not support the EnumEntries language feature.
             """.trimIndent()
         }
-        +field("source", type<SourceElement>(), mutable = false) {
-            useFieldInIrFactory(defaultValue = "SourceElement.NO_SOURCE")
-        }
-        +listField("superTypes", irTypeType, mutability = Var) {
-            skipInIrFactory()
-        }
+        +field("source", type<SourceElement>(), mutable = false)
+        +listField("superTypes", irTypeType, mutability = Var)
         +field("thisReceiver", valueParameter, nullable = true)
         +field(
             "valueClassRepresentation",
             type<ValueClassRepresentation<*>>().withArgs(type(Packages.types, "IrSimpleType")),
             nullable = true,
-        ) {
-            skipInIrFactory()
-        }
-        +listField("sealedSubclasses", classSymbolType, mutability = Var) {
-            skipInIrFactory()
+        )
+        +referencedSymbolList("sealedSubclasses", classSymbol) {
             kDoc = """
             If this is a sealed class or interface, this list contains symbols of all its immediate subclasses.
             Otherwise, this is an empty list.
             
-            NOTE: If this [$typeName] was deserialized from a klib, this list will always be empty!
+            NOTE: If this [${render()}] was deserialized from a klib, this list will always be empty!
             See [KT-54028](https://youtrack.jetbrains.com/issue/KT-54028).
             """.trimIndent()
         }
@@ -315,12 +310,15 @@ object IrTree : AbstractTreeBuilder() {
               idempotence invariant and can contain a chain of declarations.
         """.trimIndent()
 
-        +field("attributeOwnerId", attributeContainer, isChild = false) {
-            skipInIrFactory()
-        }
+        +field("attributeOwnerId", attributeContainer, isChild = false)
         // null <=> this element wasn't inlined
-        +field("originalBeforeInline", attributeContainer, nullable = true, isChild = false) {
-            skipInIrFactory()
+        +field("originalBeforeInline", attributeContainer, nullable = true, isChild = false)
+    }
+    val mutableAnnotationContainer: Element by element(Declaration) {
+        parent(type(Packages.declarations, "IrAnnotationContainer"))
+
+        +listField("annotations", constructorCall, mutability = Var, isChild = false) {
+            isOverride = true
         }
     }
     val anonymousInitializer: Element by element(Declaration) {
@@ -331,10 +329,8 @@ object IrTree : AbstractTreeBuilder() {
         """.trimIndent()
 
         +descriptor("ClassDescriptor") // TODO special descriptor for anonymous initializer blocks
-        +symbol(anonymousInitializerSymbolType)
-        +field("isStatic", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
+        +declaredSymbol(anonymousInitializerSymbol)
+        +field("isStatic", boolean)
         +field("body", blockBody)
     }
     val declarationContainer: Element by element(Declaration) {
@@ -367,19 +363,17 @@ object IrTree : AbstractTreeBuilder() {
         parent(declarationWithName)
 
         +descriptor("TypeParameterDescriptor")
-        +symbol(typeParameterSymbolType)
+        +declaredSymbol(typeParameterSymbol)
         +field("variance", type<Variance>())
         +field("index", int)
         +field("isReified", boolean)
-        +listField("superTypes", irTypeType, mutability = Var) {
-            skipInIrFactory()
-        }
+        +listField("superTypes", irTypeType, mutability = Var)
     }
     val returnTarget: Element by element(Declaration) {
         parent(symbolOwner)
 
         +descriptor("FunctionDescriptor")
-        +symbol(returnTargetSymbolType)
+        +declaredSymbol(returnTargetSymbol)
     }
     val function: Element by element(Declaration) {
         parent(declarationBase)
@@ -393,7 +387,7 @@ object IrTree : AbstractTreeBuilder() {
         parent(metadataSourceOwner)
 
         +descriptor("FunctionDescriptor")
-        +symbol(functionSymbolType)
+        +declaredSymbol(functionSymbol)
         // NB: there's an inline constructor for Array and each primitive array class.
         +field("isInline", boolean)
         +field("isExpect", boolean)
@@ -402,16 +396,14 @@ object IrTree : AbstractTreeBuilder() {
         +field("extensionReceiverParameter", valueParameter, nullable = true)
         +listField("valueParameters", valueParameter, mutability = Var)
         // The first `contextReceiverParametersCount` value parameters are context receivers.
-        +field("contextReceiverParametersCount", int) {
-            skipInIrFactory()
-        }
+        +field("contextReceiverParametersCount", int)
         +field("body", body, nullable = true)
     }
     val constructor: Element by element(Declaration) {
         parent(function)
 
         +descriptor("ClassConstructorDescriptor")
-        +symbol(constructorSymbolType)
+        +declaredSymbol(constructorSymbol)
         +field("isPrimary", boolean)
     }
     val enumEntry: Element by element(Declaration) {
@@ -419,30 +411,19 @@ object IrTree : AbstractTreeBuilder() {
         parent(declarationWithName)
 
         +descriptor("ClassDescriptor")
-        +symbol(enumEntrySymbolType)
+        +declaredSymbol(enumEntrySymbol)
         +field("initializerExpression", expressionBody, nullable = true)
         +field("correspondingClass", `class`, nullable = true)
     }
     val errorDeclaration: Element by element(Declaration) {
         parent(declarationBase)
 
-        additionalIrFactoryMethodParameters.add(
-            descriptor("DeclarationDescriptor", nullable = true).apply {
-                useFieldInIrFactory(defaultValue = "null")
-            }
-        )
-
-        fieldsToSkipInIrFactoryMethod.add("origin")
-
-        +field("symbol", symbolType, mutable = false) {
-            baseGetter = "error(\"Should never be called\")"
-            skipInIrFactory()
-        }
+        +field("symbol", IrSymbolTree.rootElement, mutable = false)
     }
-    val functionWithLateBinding: Element by declarationWithLateBinding(simpleFunctionSymbolType) {
+    val functionWithLateBinding: Element by declarationWithLateBinding(simpleFunctionSymbol) {
         parent(simpleFunction)
     }
-    val propertyWithLateBinding: Element by declarationWithLateBinding(propertySymbolType) {
+    val propertyWithLateBinding: Element by declarationWithLateBinding(propertySymbol) {
         parent(property)
     }
     val field: Element by element(Declaration) {
@@ -453,14 +434,12 @@ object IrTree : AbstractTreeBuilder() {
         parent(metadataSourceOwner)
 
         +descriptor("PropertyDescriptor")
-        +symbol(fieldSymbolType)
+        +declaredSymbol(fieldSymbol)
         +field("type", irTypeType)
         +field("isFinal", boolean)
         +field("isStatic", boolean)
         +field("initializer", expressionBody, nullable = true)
-        +field("correspondingPropertySymbol", propertySymbolType, nullable = true) {
-            skipInIrFactory()
-        }
+        +referencedSymbol("correspondingPropertySymbol", propertySymbol, nullable = true)
     }
     val localDelegatedProperty: Element by element(Declaration) {
         parent(declarationBase)
@@ -469,7 +448,7 @@ object IrTree : AbstractTreeBuilder() {
         parent(metadataSourceOwner)
 
         +descriptor("VariableDescriptorWithAccessors")
-        +symbol(localDelegatedPropertySymbolType)
+        +declaredSymbol(localDelegatedPropertySymbol)
         +field("type", irTypeType)
         +field("isVar", boolean)
         +field("delegate", variable)
@@ -479,94 +458,74 @@ object IrTree : AbstractTreeBuilder() {
     val moduleFragment: Element by element(Declaration) {
         needTransformMethod()
         transformByChildren = true
-        generateIrFactoryMethod = false
-
+        
         +descriptor("ModuleDescriptor").apply {
             optInAnnotation = null
         }
         +field("name", type<Name>(), mutable = false)
         +field("irBuiltins", type(Packages.tree, "IrBuiltIns"), mutable = false)
         +listField("files", file, mutability = MutableList)
-        additionalImports += ArbitraryImportable(Packages.tree, "UNDEFINED_OFFSET")
-        +field("startOffset", int, mutable = false) {
-            baseGetter = "UNDEFINED_OFFSET"
-        }
-        +field("endOffset", int, mutable = false) {
-            baseGetter = "UNDEFINED_OFFSET"
-        }
     }
     val property: Element by element(Declaration) {
-        isLeaf = true
-
         parent(declarationBase)
         parent(possiblyExternalDeclaration)
-        parent(overridableDeclaration.withArgs("S" to propertySymbolType))
+        parent(overridableDeclaration.withArgs("S" to propertySymbol))
         parent(metadataSourceOwner)
         parent(attributeContainer)
         parent(memberWithContainerSource)
 
         +descriptor("PropertyDescriptor")
-        +symbol(propertySymbolType)
+        +declaredSymbol(propertySymbol)
+        +listField("overriddenSymbols", propertySymbol, mutability = Var)
         +field("isVar", boolean)
         +field("isConst", boolean)
         +field("isLateinit", boolean)
         +field("isDelegated", boolean)
-        +field("isExpect", boolean) {
-            useFieldInIrFactory(defaultValue = "false")
-        }
-        +isFakeOverrideField()
+        +field("isExpect", boolean)
         +field("backingField", field, nullable = true)
         +field("getter", simpleFunction, nullable = true)
         +field("setter", simpleFunction, nullable = true)
     }
 
-    private fun isFakeOverrideField() = field("isFakeOverride", boolean) {
-        useFieldInIrFactory(defaultValue = "origin == IrDeclarationOrigin.FAKE_OVERRIDE")
-    }
-
     //TODO: make IrScript as IrPackageFragment, because script is used as a file, not as a class
     //NOTE: declarations and statements stored separately
     val script: Element by element(Declaration) {
-        generateIrFactoryMethod = false
-
         parent(declarationBase)
         parent(declarationWithName)
         parent(declarationParent)
         parent(statementContainer)
         parent(metadataSourceOwner)
 
-        +symbol(scriptSymbolType)
+        +declaredSymbol(scriptSymbol)
+        +descriptor("ScriptDescriptor")
         // NOTE: is the result of the FE conversion, because there script interpreted as a class and has receiver
         // TODO: consider removing from here and handle appropriately in the lowering
         +field("thisReceiver", valueParameter, nullable = true) // K1
         +field("baseClass", irTypeType, nullable = true) // K1
         +listField("explicitCallParameters", variable, mutability = Var)
         +listField("implicitReceiversParameters", valueParameter, mutability = Var)
-        +listField("providedProperties", propertySymbolType, mutability = Var)
+        +referencedSymbolList("providedProperties", propertySymbol)
         +listField("providedPropertiesParameters", valueParameter, mutability = Var)
-        +field("resultProperty", propertySymbolType, nullable = true)
+        +referencedSymbol("resultProperty", propertySymbol, nullable = true)
         +field("earlierScriptsParameter", valueParameter, nullable = true)
-        +listField("importedScripts", scriptSymbolType, mutability = Var, nullable = true)
-        +listField("earlierScripts", scriptSymbolType, mutability = Var, nullable = true)
-        +field("targetClass", classSymbolType, nullable = true)
+        +referencedSymbolList("importedScripts", scriptSymbol, nullable = true)
+        +referencedSymbolList("earlierScripts", scriptSymbol, nullable = true)
+        +referencedSymbol("targetClass", classSymbol, nullable = true)
         +field("constructor", constructor, nullable = true, isChild = false) // K1
     }
     val simpleFunction: Element by element(Declaration) {
-        isLeaf = true
-
         parent(function)
-        parent(overridableDeclaration.withArgs("S" to simpleFunctionSymbolType))
+        parent(overridableDeclaration.withArgs("S" to simpleFunctionSymbol))
         parent(attributeContainer)
 
-        +symbol(simpleFunctionSymbolType)
+        +descriptor("FunctionDescriptor")
+        +declaredSymbol(simpleFunctionSymbol)
+        +listField("overriddenSymbols", simpleFunctionSymbol, mutability = Var)
         +field("isTailrec", boolean)
         +field("isSuspend", boolean)
-        +isFakeOverrideField()
         +field("isOperator", boolean)
         +field("isInfix", boolean)
-        +field("correspondingPropertySymbol", propertySymbolType, nullable = true) {
-            skipInIrFactory()
-        }
+        +referencedSymbol("correspondingPropertySymbol", propertySymbol, nullable = true)
     }
     val typeAlias: Element by element(Declaration) {
         parent(declarationBase)
@@ -575,18 +534,16 @@ object IrTree : AbstractTreeBuilder() {
         parent(typeParametersContainer)
 
         +descriptor("TypeAliasDescriptor")
-        +symbol(typeAliasSymbolType)
+        +declaredSymbol(typeAliasSymbol)
         +field("isActual", boolean)
         +field("expandedType", irTypeType)
     }
     val variable: Element by element(Declaration) {
-        generateIrFactoryMethod = false
-
         parent(declarationBase)
         parent(valueDeclaration)
 
         +descriptor("VariableDescriptor")
-        +symbol(variableSymbolType)
+        +declaredSymbol(variableSymbol)
         +field("isVar", boolean)
         +field("isConst", boolean)
         +field("isLateinit", boolean)
@@ -598,66 +555,43 @@ object IrTree : AbstractTreeBuilder() {
         parent(declarationContainer)
         parent(symbolOwner)
 
-        +symbol(packageFragmentSymbolType)
-        +field("packageFragmentDescriptor", type(Packages.descriptors, "PackageFragmentDescriptor"), mutable = false) {
-            optInAnnotation = obsoleteDescriptorBasedApiAnnotation
-        }
-        +field("moduleDescriptor", type(Packages.descriptors, "ModuleDescriptor"), mutable = false) {
-            kDoc = """
-            This should be a link to [IrModuleFragment] instead. 
-               
-            Unfortunately, some package fragments (e.g. some synthetic ones and [IrExternalPackageFragment])
-            are not located in any IR module, but still have a module descriptor. 
-            """.trimIndent()
-        }
+        +declaredSymbol(packageFragmentSymbol)
         +field("packageFqName", type<FqName>())
-        +field("fqName", type<FqName>()) {
-            baseGetter = "packageFqName"
-            customSetter = "packageFqName = value"
-            deprecation = Deprecated(
-                "Please use `packageFqName` instead",
-                ReplaceWith("packageFqName"),
-                DeprecationLevel.ERROR,
-            )
-        }
     }
     val externalPackageFragment: Element by element(Declaration) {
         transformByChildren = true
-        generateIrFactoryMethod = false
-
+        
         kDoc = """
             This is a root parent element for external declarations (meaning those that come from
             another compilation unit/module, not to be confused with [IrPossiblyExternalDeclaration.isExternal]). 
             
-            Each declaration is contained either in some [IrFile], or in some [IrExternalPackageFragment].
-            Declarations coming from dependencies are located in [IrExternalPackageFragment].
+            Each declaration is contained either in some [${file.render()}], or in some [${externalPackageFragment.render()}].
+            Declarations coming from dependencies are located in [${externalPackageFragment.render()}].
             
             It can be used for obtaining a module descriptor, which contains the information about
             the module from which the declaration came. It would be more correct to have a link to some
-            [IrModuleFragment] instead, which would make [IrModuleFragment] the only source of truth about modules,
+            [${moduleFragment.render()}] instead, which would make [${moduleFragment.render()}] the only source of truth about modules,
             but this is how things are now.
             
             Also, it can be used for checking whether some declaration is external (by checking whether its top
-            level parent is an [IrExternalPackageFragment]). But it is not possible
+            level parent is an [${externalPackageFragment.render()}]). But it is not possible
             to get all declarations from a fragment. Also, being in the same or different
             fragment doesn't mean anything. There can be more than one fragment for the same dependency.
         """.trimIndent()
 
         parent(packageFragment)
 
-        +symbol(externalPackageFragmentSymbolType)
-        +field("containerSource", type<DeserializedContainerSource>(), nullable = true, mutable = false)
+        +declaredSymbol(externalPackageFragmentSymbol)
     }
     val file: Element by element(Declaration) {
         needTransformMethod()
         transformByChildren = true
-        generateIrFactoryMethod = false
-
+        
         parent(packageFragment)
-        parent(mutableAnnotationContainerType)
+        parent(mutableAnnotationContainer)
         parent(metadataSourceOwner)
 
-        +symbol(fileSymbolType)
+        +declaredSymbol(fileSymbol)
         +field("module", moduleFragment, isChild = false)
         +field("fileEntry", type(Packages.tree, "IrFileEntry"))
     }
@@ -670,14 +604,6 @@ object IrTree : AbstractTreeBuilder() {
         parent(varargElement)
         parent(attributeContainer)
 
-        +field("attributeOwnerId", attributeContainer, isChild = false) {
-            baseDefaultValue = "this"
-            skipInIrFactory()
-        }
-        +field("originalBeforeInline", attributeContainer, nullable = true, isChild = false) {
-            baseDefaultValue = "null"
-            skipInIrFactory()
-        }
         +field("type", irTypeType)
     }
     val statementContainer: Element by element(Expression) {
@@ -689,49 +615,38 @@ object IrTree : AbstractTreeBuilder() {
         needTransformMethod()
         visitorParameterName = "body"
         transformByChildren = true
-        typeKind = TypeKind.Class
+        kind = ImplementationKind.AbstractClass
     }
     val expressionBody: Element by element(Expression) {
         needTransformMethod()
         visitorParameterName = "body"
-        generateIrFactoryMethod = true
 
         parent(body)
 
-        +factory
-        +field("expression", expression) {
-            useFieldInIrFactory()
-        }
+        +field("expression", expression)
     }
     val blockBody: Element by element(Expression) {
         visitorParameterName = "body"
-        generateIrFactoryMethod = true
 
         parent(body)
         parent(statementContainer)
-
-        +factory
     }
     val declarationReference: Element by element(Expression) {
         parent(expression)
 
-        +symbol(symbolType)
+        +referencedSymbol(IrSymbolTree.rootElement, mutable = false)
         //diff: no accept
     }
     val memberAccessExpression: Element by element(Expression) {
         nameInVisitorMethod = "MemberAccess"
         transformerReturnType = rootElement
-        val s = +param("S", symbolType)
+        val s = +param("S", IrSymbolTree.rootElement)
 
         parent(declarationReference)
 
-        +field("dispatchReceiver", expression, nullable = true) {
-            baseDefaultValue = "null"
-        }
-        +field("extensionReceiver", expression, nullable = true) {
-            baseDefaultValue = "null"
-        }
-        +symbol(s)
+        +field("dispatchReceiver", expression, nullable = true)
+        +field("extensionReceiver", expression, nullable = true)
+        +referencedSymbol(s, mutable = false)
         +field("origin", statementOriginType, nullable = true)
         +listField("valueArguments", expression.copy(nullable = true), mutability = Array) {
             visibility = Visibility.PROTECTED
@@ -803,7 +718,7 @@ object IrTree : AbstractTreeBuilder() {
         nameInVisitorMethod = "FunctionAccess"
         transformerReturnType = rootElement
 
-        parent(memberAccessExpression.withArgs("S" to functionSymbolType))
+        parent(memberAccessExpression.withArgs("S" to functionSymbol))
 
         +field("contextReceiversCount", int)
     }
@@ -811,11 +726,10 @@ object IrTree : AbstractTreeBuilder() {
         transformerReturnType = rootElement
 
         parent(functionAccessExpression)
+        parent(type<AnnotationMarker>())
 
-        +symbol(constructorSymbolType, mutable = true)
-        +field("source", type<SourceElement>()) {
-            useFieldInIrFactory(defaultValue = "SourceElement.NO_SOURCE")
-        }
+        +referencedSymbol(constructorSymbol)
+        +field("source", type<SourceElement>())
         +field("constructorTypeArgumentsCount", int)
     }
     val getSingletonValue: Element by element(Expression) {
@@ -827,13 +741,13 @@ object IrTree : AbstractTreeBuilder() {
 
         parent(getSingletonValue)
 
-        +symbol(classSymbolType, mutable = true)
+        +referencedSymbol(classSymbol)
     }
     val getEnumValue: Element by element(Expression) {
 
         parent(getSingletonValue)
 
-        +symbol(enumEntrySymbolType, mutable = true)
+        +referencedSymbol(enumEntrySymbol)
     }
 
     val rawFunctionReference: Element by element(Expression) {
@@ -847,16 +761,13 @@ object IrTree : AbstractTreeBuilder() {
         On the JVM platform it represents a [java.lang.invoke.MethodHandle] constant.
         """.trimIndent()
 
-        +symbol(functionSymbolType, mutable = true)
+        +referencedSymbol(functionSymbol)
     }
     val containerExpression: Element by element(Expression) {
         parent(expression)
         parent(statementContainer)
 
         +field("origin", statementOriginType, nullable = true)
-        +listField("statements", statement, mutability = MutableList) {
-            baseDefaultValue = "ArrayList(2)"
-        }
     }
     val block: Element by element(Expression) {
         needAcceptMethod()
@@ -871,7 +782,7 @@ object IrTree : AbstractTreeBuilder() {
         parent(symbolOwner)
         parent(returnTarget)
 
-        +symbol(returnableBlockSymbolType)
+        +declaredSymbol(returnableBlockSymbol)
     }
     val inlinedFunctionBlock: Element by element(Expression) {
         parent(block)
@@ -894,9 +805,7 @@ object IrTree : AbstractTreeBuilder() {
         parent(expression)
 
         +field("loop", loop, isChild = false)
-        +field("label", string, nullable = true) {
-            baseDefaultValue = "null"
-        }
+        +field("label", string, nullable = true)
     }
     val `break` by element(Expression) {
         visitorParameterName = "jump"
@@ -911,40 +820,40 @@ object IrTree : AbstractTreeBuilder() {
     val call: Element by element(Expression) {
         parent(functionAccessExpression)
 
-        +symbol(simpleFunctionSymbolType, mutable = true)
-        +field("superQualifierSymbol", classSymbolType, nullable = true)
+        +referencedSymbol(simpleFunctionSymbol)
+        +referencedSymbol("superQualifierSymbol", classSymbol, nullable = true)
     }
     val callableReference: Element by element(Expression) {
-        val s = +param("S", symbolType)
+        val s = +param("S", IrSymbolTree.rootElement)
 
         parent(memberAccessExpression.withArgs("S" to s))
 
-        +symbol(s, mutable = true)
+        +referencedSymbol(s)
     }
     val functionReference: Element by element(Expression) {
 
-        parent(callableReference.withArgs("S" to functionSymbolType))
+        parent(callableReference.withArgs("S" to functionSymbol))
 
-        +field("reflectionTarget", functionSymbolType, nullable = true)
+        +field("reflectionTarget", functionSymbol, nullable = true)
     }
     val propertyReference: Element by element(Expression) {
-        parent(callableReference.withArgs("S" to propertySymbolType))
+        parent(callableReference.withArgs("S" to propertySymbol))
 
-        +field("field", fieldSymbolType, nullable = true)
-        +field("getter", simpleFunctionSymbolType, nullable = true)
-        +field("setter", simpleFunctionSymbolType, nullable = true)
+        +referencedSymbol("field", fieldSymbol, nullable = true)
+        +referencedSymbol("getter", simpleFunctionSymbol, nullable = true)
+        +referencedSymbol("setter", simpleFunctionSymbol, nullable = true)
     }
     val localDelegatedPropertyReference: Element by element(Expression) {
-        parent(callableReference.withArgs("S" to localDelegatedPropertySymbolType))
+        parent(callableReference.withArgs("S" to localDelegatedPropertySymbol))
 
-        +field("delegate", variableSymbolType)
-        +field("getter", simpleFunctionSymbolType)
-        +field("setter", simpleFunctionSymbolType, nullable = true)
+        +referencedSymbol("delegate", variableSymbol)
+        +referencedSymbol("getter", simpleFunctionSymbol)
+        +referencedSymbol("setter", simpleFunctionSymbol, nullable = true)
     }
     val classReference: Element by element(Expression) {
         parent(declarationReference)
 
-        +symbol(classifierSymbolType, mutable = true)
+        +referencedSymbol(classifierSymbol)
         +field("classType", irTypeType)
     }
     val const: Element by element(Expression) {
@@ -957,27 +866,9 @@ object IrTree : AbstractTreeBuilder() {
     }
     val constantValue: Element by element(Expression) {
         transformByChildren = true
+        kind = ImplementationKind.SealedClass
 
         parent(expression)
-
-        generationCallback = {
-            println()
-            printFunctionDeclaration(
-                name = "contentEquals",
-                parameters = listOf(FunctionParameter("other", constantValue)),
-                returnType = StandardTypes.boolean,
-                modality = Modality.ABSTRACT,
-            )
-            println()
-            println()
-            printFunctionDeclaration(
-                name = "contentHashCode",
-                parameters = emptyList(),
-                returnType = StandardTypes.int,
-                modality = Modality.ABSTRACT,
-            )
-            println()
-        }
     }
     val constantPrimitive: Element by element(Expression) {
         parent(constantValue)
@@ -987,7 +878,7 @@ object IrTree : AbstractTreeBuilder() {
     val constantObject: Element by element(Expression) {
         parent(constantValue)
 
-        +field("constructor", constructorSymbolType)
+        +referencedSymbol("constructor", constructorSymbol)
         +listField("valueArguments", constantValue, mutability = MutableList)
         +listField("typeArguments", irTypeType, mutability = MutableList)
     }
@@ -999,7 +890,7 @@ object IrTree : AbstractTreeBuilder() {
     val delegatingConstructorCall: Element by element(Expression) {
         parent(functionAccessExpression)
 
-        +symbol(constructorSymbolType, mutable = true)
+        +referencedSymbol(constructorSymbol)
     }
     val dynamicExpression: Element by element(Expression) {
         parent(expression)
@@ -1020,7 +911,7 @@ object IrTree : AbstractTreeBuilder() {
     val enumConstructorCall: Element by element(Expression) {
         parent(functionAccessExpression)
 
-        +symbol(constructorSymbolType, mutable = true)
+        +referencedSymbol(constructorSymbol)
     }
     val errorExpression: Element by element(Expression) {
         needAcceptMethod()
@@ -1041,11 +932,9 @@ object IrTree : AbstractTreeBuilder() {
 
         parent(declarationReference)
 
-        +symbol(fieldSymbolType, mutable = true)
-        +field("superQualifierSymbol", classSymbolType, nullable = true)
-        +field("receiver", expression, nullable = true) {
-            baseDefaultValue = "null"
-        }
+        +referencedSymbol(fieldSymbol)
+        +field("superQualifierSymbol", classSymbol, nullable = true)
+        +field("receiver", expression, nullable = true)
         +field("origin", statementOriginType, nullable = true)
     }
     val getField: Element by element(Expression) {
@@ -1072,7 +961,7 @@ object IrTree : AbstractTreeBuilder() {
     val instanceInitializerCall: Element by element(Expression) {
         parent(expression)
 
-        +field("classSymbol", classSymbolType)
+        +referencedSymbol("classSymbol", classSymbol)
     }
     val loop: Element by element(Expression) {
         visitorParameterName = "loop"
@@ -1081,13 +970,9 @@ object IrTree : AbstractTreeBuilder() {
         parent(expression)
 
         +field("origin", statementOriginType, nullable = true)
-        +field("body", expression, nullable = true) {
-            baseDefaultValue = "null"
-        }
+        +field("body", expression, nullable = true)
         +field("condition", expression)
-        +field("label", string, nullable = true) {
-            baseDefaultValue = "null"
-        }
+        +field("label", string, nullable = true)
     }
     val whileLoop: Element by element(Expression) {
         visitorParameterName = "loop"
@@ -1104,7 +989,7 @@ object IrTree : AbstractTreeBuilder() {
         parent(expression)
 
         +field("value", expression)
-        +field("returnTargetSymbol", returnTargetSymbolType)
+        +referencedSymbol("returnTargetSymbol", returnTargetSymbol)
     }
     val stringConcatenation: Element by element(Expression) {
         parent(expression)
@@ -1117,9 +1002,9 @@ object IrTree : AbstractTreeBuilder() {
         val i = 10
         val template = "i = ${'$'}i"
         ```
-        will be represented by [${typeName}] with the following list of [arguments]:
-        - [${const.typeName}] whose `value` is `"i = "`
-        - [${getValue.typeName}] whose `symbol` will be that of the `i` variable. 
+        will be represented by [${render()}] with the following list of [arguments]:
+        - [${const.render()}] whose `value` is `"i = "`
+        - [${getValue.render()}] whose `symbol` will be that of the `i` variable. 
         """.trimIndent()
 
         +listField("arguments", expression, mutability = MutableList)
@@ -1173,7 +1058,7 @@ object IrTree : AbstractTreeBuilder() {
 
         parent(declarationReference)
 
-        +symbol(valueSymbolType, mutable = true)
+        +referencedSymbol(valueSymbol)
         +field("origin", statementOriginType, nullable = true)
     }
     val getValue: Element by element(Expression) {

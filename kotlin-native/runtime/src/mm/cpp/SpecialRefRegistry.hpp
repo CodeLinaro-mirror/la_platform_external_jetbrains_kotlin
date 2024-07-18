@@ -61,10 +61,18 @@ class SpecialRefRegistry : private Pinned {
         inline static constexpr Rc disposedMarker = std::numeric_limits<Rc>::min();
         static_assert(disposedMarker < 0, "disposedMarker must be an impossible Rc value");
 
-        Node(ObjHeader* obj, Rc rc) noexcept : obj_(obj), rc_(rc) {
+        Node(SpecialRefRegistry& registry, ObjHeader* obj, Rc rc) noexcept : obj_(obj), rc_(rc) {
             RuntimeAssert(obj != nullptr, "Creating StableRef for null object");
             RuntimeAssert(rc >= 0, "Creating StableRef with negative rc %d", rc);
+            // Runtime tests occasionally use sentinel values under 8 for opaque objects
+            RuntimeAssert(reinterpret_cast<uintptr_t>(obj) < 8u || !obj->local(), "Creating StableRef to a stack-allocated object %p", obj);
+
+            if (rc > 0) {
+                registry.insertIntoRootsHead(*this);
+            }
         }
+
+        Node() noexcept : obj_(nullptr), rc_(disposedMarker) {}
 
         ~Node() {
             if (compiler::runtimeAssertsEnabled()) {
@@ -111,10 +119,6 @@ class SpecialRefRegistry : private Pinned {
             auto rc = rc_.fetch_add(1, std::memory_order_relaxed);
             RuntimeAssert(rc >= 0, "Retaining StableRef@%p with rc %d", this, rc);
             if (rc == 0) {
-                RuntimeAssert(
-                        position_ == std::list<Node>::iterator{},
-                        "Retaining StableRef@%p with fast deletion optimization is disallowed", this);
-
                 if (!obj_.load(std::memory_order_relaxed)) {
                     // In objc export if ObjCClass extends from KtClass
                     // calling retain inside [ObjCClass dealloc] will cause
@@ -165,19 +169,12 @@ class SpecialRefRegistry : private Pinned {
         //   Synchronization between GC and mutators happens via enabling/disabling
         //   the barriers.
         // TODO: Try to handle it atomically only when the GC is in progress.
-        std::atomic<ObjHeader*> obj_ = nullptr;
+        std::atomic<ObjHeader*> obj_;
         // Only ever updated using relaxed memory ordering. Any synchronization
         // with nextRoot_ is achieved via acquire-release of nextRoot_.
-        std::atomic<Rc> rc_ = 0; // After dispose() will be disposedMarker.
+        std::atomic<Rc> rc_; // After dispose() will be disposedMarker.
         // Singly linked lock free list. Using acquire-release throughout.
         std::atomic<Node*> nextRoot_ = nullptr;
-        // This and the next one only serve fast deletion optimization for shortly lived StableRefs.
-        // TODO: Consider discarding this optimization completely.
-        //       If we were to use custom allocator for these nodes as well they better
-        //       be only deleted in the sweep anyway.
-        //       Alternative: keep stable refs completely separate.
-        void* owner_ = nullptr;
-        std::list<Node>::iterator position_{};
     };
 
 public:
@@ -188,31 +185,6 @@ public:
         ~ThreadQueue() { publish(); }
 
         void publish() noexcept {
-            for (auto& node : queue_) {
-                // No need to synchronize. These two can only be updated in the runnable state.
-                // TODO: If we were to remove this optimization, we could avoid scanning
-                //       the whole queue here and just have the nodes inserted into the roots
-                //       when they're created.
-                node.owner_ = nullptr;
-                node.position_ = std::list<Node>::iterator();
-                RuntimeAssert(node.obj_ != nullptr, "Publishing Node with null obj_");
-                // If the node was created with a positive refcount, we must ensure its put into
-                // the roots.
-                auto rc = node.rc_.load(std::memory_order_relaxed);
-                if (rc > 0) {
-                    // Regular publishing happens before the global root scanning,
-                    // so this insertion will definitely be processed.
-                    // Publishing during the thread destruction is a bit more complicated.
-                    // But the GC makes sure to process all threads before scanning global
-                    // roots. So, it'll either publish the dying thread itself, or
-                    // if the dying thread has already deregistered, it means it published
-                    // itself. In any case, global root scanning happens afterwards.
-                    // TODO: With CMS root-set-write barrier for marking `node.obj_` should be here.
-                    // TODO: No barrier that uses mm::ThreadData can be placed here.
-
-                    owner_.insertIntoRootsHead(node);
-                }
-            }
             std::unique_lock guard(owner_.mutex_);
             RuntimeAssert(owner_.all_.get_allocator() == queue_.get_allocator(), "allocators must match");
             owner_.all_.splice(owner_.all_.end(), std::move(queue_));
@@ -235,16 +207,10 @@ public:
 
         [[nodiscard("must be manually disposed")]] Node& registerNode(ObjHeader* obj, Node::Rc rc, bool allowFastDeletion) noexcept {
             RuntimeAssert(obj != nullptr, "Creating node for null object");
-            queue_.emplace_back(obj, rc);
+            queue_.emplace_back(owner_, obj, rc);
             auto& node = queue_.back();
-            if (allowFastDeletion) {
-                node.owner_ = this;
-                node.position_ = std::prev(queue_.end());
-            }
             return node;
         }
-
-        void deleteNodeIfLocal(Node& node) noexcept;
 
         SpecialRefRegistry& owner_;
         std::list<Node> queue_;
@@ -278,9 +244,9 @@ public:
 
     class RootsIterable : private MoveOnly {
     public:
-        RootsIterator begin() const noexcept { return RootsIterator(*owner_, owner_->nextRoot(owner_->rootsHead())); }
+        RootsIterator begin() const noexcept { return RootsIterator(*owner_, owner_->nextRoot(&owner_->rootsHead_)); }
 
-        RootsIterator end() const noexcept { return RootsIterator(*owner_, owner_->rootsTail()); }
+        RootsIterator end() const noexcept { return RootsIterator(*owner_, &owner_->rootsTail_); }
 
     private:
         friend class SpecialRefRegistry;
@@ -327,14 +293,14 @@ public:
         std::unique_lock<Mutex> guard_;
     };
 
-    SpecialRefRegistry() noexcept { rootsHead()->nextRoot_.store(rootsTail(), std::memory_order_relaxed); }
+    SpecialRefRegistry() noexcept { rootsHead_.nextRoot_.store(&rootsTail_, std::memory_order_relaxed); }
 
     ~SpecialRefRegistry() = default;
 
     static SpecialRefRegistry& instance() noexcept;
 
     void clearForTests() noexcept {
-        rootsHead()->nextRoot_ = rootsTail();
+        rootsHead_.nextRoot_ = &rootsTail_;
         for (auto& node : all_) {
             // Allow the tests not to run the finalizers for weaks.
             node.rc_ = Node::disposedMarker;
@@ -362,17 +328,13 @@ private:
     void insertIntoRootsHead(Node& node) noexcept;
     std::list<Node>::iterator findAliveNode(std::list<Node>::iterator it) noexcept;
 
-    Node* rootsHead() noexcept { return reinterpret_cast<Node*>(rootsHeadStorage_); }
-    const Node* rootsHead() const noexcept { return reinterpret_cast<const Node*>(rootsHeadStorage_); }
-    static Node* rootsTail() noexcept { return reinterpret_cast<Node*>(rootsTailStorage_); }
-
     // TODO: Iteration over `all_` will be slow, because it's `std::list`
     //       collected at different times from different threads, and so the nodes
     //       are all over the memory. Consider using custom allocator for that.
     std::list<Node> all_;
     Mutex mutex_;
-    alignas(Node) char rootsHeadStorage_[sizeof(Node)] = {0};
-    alignas(Node) static inline char rootsTailStorage_[sizeof(Node)] = {0};
+    Node rootsHead_{};
+    static inline Node rootsTail_{};
 };
 
 } // namespace kotlin::mm

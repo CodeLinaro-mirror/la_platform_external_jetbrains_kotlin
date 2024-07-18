@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.declarations.utils.isActual
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
-import org.jetbrains.kotlin.fir.declarations.utils.isExternal
 import org.jetbrains.kotlin.fir.isSubstitutionOrIntersectionOverride
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
@@ -101,7 +100,7 @@ fun FirBasedSymbol<*>.isPredefinedObject(session: FirSession): Boolean {
     if (fir is FirMemberDeclaration && isExpect) return true
     if (isEffectivelyExternalMember(session)) return true
 
-    for (annotation in PredefinedAnnotation.values()) {
+    for (annotation in PredefinedAnnotation.entries) {
         if (hasAnnotationOrInsideAnnotatedClass(annotation.classId, session)) {
             return true
         }
@@ -123,14 +122,14 @@ fun FirBasedSymbol<*>.isExportedObject(session: FirSession): Boolean {
     return when {
         hasAnnotationOrInsideAnnotatedClass(JsStandardClassIds.Annotations.JsExportIgnore, session) -> false
         hasAnnotationOrInsideAnnotatedClass(JsStandardClassIds.Annotations.JsExport, session) -> true
-        else -> getContainingFile(session)?.hasAnnotation(JsStandardClassIds.Annotations.JsExport, session) == true
+        else -> getContainingFile()?.symbol?.hasAnnotation(JsStandardClassIds.Annotations.JsExport, session) ?: false
     }
 }
 
-internal fun FirBasedSymbol<*>.getContainingFile(session: FirSession): FirFile? {
+internal fun FirBasedSymbol<*>.getContainingFile(): FirFile? {
     return when (this) {
-        is FirCallableSymbol<*> -> session.firProvider.getFirCallableContainerFile(this)
-        is FirClassLikeSymbol<*> -> session.firProvider.getFirClassifierContainerFileIfAny(this)
+        is FirCallableSymbol<*> -> moduleData.session.firProvider.getFirCallableContainerFile(this)
+        is FirClassLikeSymbol<*> -> moduleData.session.firProvider.getFirClassifierContainerFileIfAny(this)
         else -> return null
     }
 }

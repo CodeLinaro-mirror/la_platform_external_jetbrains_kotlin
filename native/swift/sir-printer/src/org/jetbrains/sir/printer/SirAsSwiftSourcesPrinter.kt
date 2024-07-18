@@ -6,140 +6,290 @@
 package org.jetbrains.sir.printer
 
 import org.jetbrains.kotlin.sir.*
-import org.jetbrains.kotlin.sir.visitors.SirVisitorVoid
+import org.jetbrains.kotlin.sir.util.Comparators
+import org.jetbrains.kotlin.sir.util.swiftName
+import org.jetbrains.kotlin.utils.IndentingPrinter
 import org.jetbrains.kotlin.utils.SmartPrinter
 import org.jetbrains.kotlin.utils.withIndent
 
-public class SirAsSwiftSourcesPrinter(private val printer: SmartPrinter) : SirVisitorVoid() {
+public class SirAsSwiftSourcesPrinter(
+    private val printer: SmartPrinter,
+    private val stableDeclarationsOrder: Boolean,
+    private val renderDocComments: Boolean,
+    private val emptyBodyStub: SirFunctionBody
+) : IndentingPrinter by printer {
 
-    public constructor() : this(SmartPrinter(StringBuilder()))
+    public companion object {
 
-    public fun print(element: SirElement): String {
-        element.accept(this)
-        return printer.toString().trim()
+        public val fatalErrorBodyStub: SirFunctionBody = SirFunctionBody(
+            listOf("fatalError()")
+        )
+
+        public fun print(
+            module: SirModule,
+            stableDeclarationsOrder: Boolean,
+            renderDocComments: Boolean,
+            emptyBodyStub: SirFunctionBody = fatalErrorBodyStub
+        ): String {
+            val childrenPrinter = SirAsSwiftSourcesPrinter(
+                SmartPrinter(StringBuilder()),
+                stableDeclarationsOrder = stableDeclarationsOrder,
+                renderDocComments = renderDocComments,
+                emptyBodyStub = emptyBodyStub,
+            )
+            val declarationsString = with(childrenPrinter) {
+                module.printChildren()
+                toString().trimIndent()
+            }
+            val importsString = if (module.imports.isNotEmpty()) {
+                // We print imports after module declarations as they might lazily add new imports.
+                val importsPrinter = SirAsSwiftSourcesPrinter(
+                    SmartPrinter(StringBuilder()),
+                    stableDeclarationsOrder = stableDeclarationsOrder,
+                    renderDocComments = renderDocComments,
+                    emptyBodyStub = emptyBodyStub,
+                )
+                with(importsPrinter) {
+                    module.printImports()
+                    println()
+                    toString().trimIndent()
+                }
+            } else ""
+            return importsString + declarationsString
+        }
     }
 
-    override fun visitModule(module: SirModule): Unit = with(printer) {
-        // We have to write imports before other declarations.
-        val (imports, declarations) = module.declarations.partition { it is SirImport }
-
+    private fun SirModule.printImports() {
+        val lastImport = imports.lastOrNull()
         imports.forEach {
-            it.accept(this@SirAsSwiftSourcesPrinter)
-        }
-        if (imports.isNotEmpty()) {
-            println()
-        }
-        declarations.forEach {
-            it.accept(this@SirAsSwiftSourcesPrinter)
-            if (module.declarations.last() != it) {
+            it.print()
+            if (it == lastImport) {
                 println()
             }
         }
     }
 
-    override fun visitImport(import: SirImport): Unit = with(printer) {
-        println("import ${import.moduleName}")
+    private fun SirTypealias.print() {
+        printDocumentation()
+        printVisibility()
+        print("typealias ")
+        printName()
+        print(" = ")
+        println(type.swiftName)
     }
 
-    override fun visitVariable(variable: SirVariable): Unit = with(printer) {
-        print(
-            variable.visibility.takeIf { it != SirVisibility.INTERNAL }?.let { "${it.swift} " } ?: "",
-            if (variable.isStatic) "static " else "",
-            "var ",
-            variable.name.swiftIdentifier,
-            ": ",
-            variable.type.swift,
-        )
-        println(" {")
+    private fun SirDeclarationContainer.print() {
+        (this as? SirDeclaration)?.let {
+            printDocumentation()
+            printVisibility()
+        }
+
+        printContainerKeyword()
+        print(" ")
+        printName()
+        print(" ")
+        if (this is SirClass) {
+            printSuperClass()
+        }
+        println("{")
         withIndent {
-            variable.getter.accept(this@SirAsSwiftSourcesPrinter)
-            variable.setter?.accept(this@SirAsSwiftSourcesPrinter)
+            printChildren()
         }
         println("}")
     }
 
-    override fun visitSetter(setter: SirSetter): Unit = with(printer) {
-        print("set")
-        setter.body?.let { body ->
-            println(" {")
-            withIndent {
-                printFunctionBody(body).forEach { println(it) }
-            }
-            println("}")
-        } ?: println("")
+    private fun SirDeclarationContainer.printChildren() {
+        allNonPackageEnums()
+            .sortedWithIfNeeded(Comparators.stableNamedComparator)
+            .forEach { it.print() }
+        allTypealiases()
+            .sortedWithIfNeeded(Comparators.stableNamedComparator)
+            .forEach { it.print() }
+        allClasses()
+            .sortedWithIfNeeded(Comparators.stableNamedComparator)
+            .forEach { it.print() }
+        allVariables()
+            .sortedWithIfNeeded(Comparators.stableVariableComparator)
+            .forEach { it.print() }
+        allCallables()
+            .sortedWithIfNeeded(Comparators.stableCallableComparator)
+            .forEach { it.print() }
+        if (this is SirModule) {
+            allExtensions()
+                .sortedWithIfNeeded(Comparators.stableExtensionComparator)
+                .forEach { it.print() }
+        }
+        allPackageEnums()
+            .sortedWithIfNeeded(Comparators.stableNamedComparator)
+            .forEach { it.print() }
     }
 
-    override fun visitGetter(getter: SirGetter): Unit = with(printer) {
-        print("get")
-        getter.body?.let { body ->
-            println(" {")
-            withIndent {
-                printFunctionBody(body).forEach { println(it) }
-            }
-            println("}")
-        } ?: println("")
-    }
+    private inline fun <reified T : SirElement> Sequence<T>.sortedWithIfNeeded(comparator: Comparator<in T>): Sequence<T> =
+        if (stableDeclarationsOrder) sortedWith(comparator) else this
 
-    override fun visitFunction(function: SirFunction): Unit = with(printer) {
-        function.documentation?.let { println(it) }
+    private fun SirVariable.print() {
+        printDocumentation()
+        printVisibility()
+        kind.print()
         print(
-            function.visibility.takeIf { it != SirVisibility.INTERNAL }?.let { "${it.swift} " } ?: "",
-            if (function.isStatic) {
-                "static "
-            } else {
-                ""
-            },
-            "func ",
-            function.name.swiftIdentifier,
-            "("
+            "var ",
+            name.swiftIdentifier,
+            ": ",
+            type.swiftName,
         )
-        if (function.parameters.isNotEmpty()) {
-            println()
-            withIndent {
-                function.parameters.forEachIndexed { index, sirParameter ->
-                    print(sirParameter.swift)
-                    if (index != function.parameters.lastIndex) {
-                        println(",")
-                    } else {
-                        println()
+        println(" {")
+        withIndent {
+            getter.print()
+            setter?.print()
+        }
+        println("}")
+    }
+
+    private fun SirCallable.print() {
+        printDocumentation()
+        printVisibility()
+        printOverride()
+        printPreNameKeywords()
+        printName()
+        printPostNameKeywords()
+        if (this !is SirAccessor) {
+            print("(")
+        }
+        collectParameters().print()
+        if (this !is SirAccessor) {
+            print(")")
+        }
+        printReturnType()
+        println(" {")
+        withIndent {
+            body.print()
+        }
+        println("}")
+    }
+
+    private fun SirCallable.printOverride() {
+        if (this is SirInit && this.isOverride) {
+            print("override ")
+        }
+    }
+
+    private fun SirDeclaration.printDocumentation() {
+        if (!renderDocComments) return
+        documentation?.lines()?.forEach { println(it.trimIndent()) }
+    }
+
+    private fun SirImport.print() = println("${if (isExported) "@_exported " else ""}import $moduleName")
+
+    private fun SirDeclarationContainer.printContainerKeyword() = print(
+        when (this@printContainerKeyword) {
+            is SirClass -> "class"
+            is SirEnum -> "enum"
+            is SirExtension -> "extension"
+            is SirStruct -> "struct"
+            is SirModule -> error("there is no keyword for module. Do not print module as declaration container.")
+        }
+    )
+
+    private fun SirClass.printSuperClass() = print(
+        superClass?.let { ": ${it.swiftName} " } ?: ""
+    )
+
+    private fun SirElement.printName() = print(
+        when (this@printName) {
+            is SirNamed -> name
+            is SirExtension -> extendedType.swiftName
+            else -> error("There is no printable name for SirElement: ${this@printName}")
+        }
+    )
+
+    private fun SirDeclaration.printVisibility() = print(
+        visibility
+            .takeUnless { this is SirAccessor }
+            .takeIf { it != SirVisibility.INTERNAL }
+            ?.let { "${it.swift} " }
+            ?: ""
+    )
+
+    private fun SirCallable.printPreNameKeywords() = when (this) {
+        is SirInit -> initKind.print()
+        is SirFunction -> kind.print()
+        is SirGetter -> print("get")
+        is SirSetter -> print("set")
+    }
+
+    private fun SirCallable.printName() = print(
+        when (this) {
+            is SirInit -> "init"
+            is SirFunction -> "func $name"
+            is SirGetter,
+            is SirSetter,
+            -> ""
+        }
+    )
+
+    private fun SirCallable.printPostNameKeywords() = when (this) {
+        is SirInit -> "?".takeIf { isFailable }?.let { print(it) }
+        is SirFunction,
+        is SirGetter,
+        is SirSetter,
+        -> print("")
+    }
+
+    private fun SirCallable.collectParameters(): List<SirParameter> = when (this) {
+        is SirGetter -> emptyList()
+        is SirSetter -> emptyList()
+        is SirFunction -> parameters
+        is SirInit -> parameters
+    }
+
+    private fun SirCallable.printReturnType() = print(
+        when (this) {
+            is SirFunction -> " -> ${returnType.swiftName}"
+            is SirInit,
+            is SirGetter,
+            is SirSetter,
+            -> ""
+        }
+    )
+
+    private fun SirInitializerKind.print() = print(
+        when (this) {
+            SirInitializerKind.ORDINARY -> ""
+            SirInitializerKind.REQUIRED -> "required "
+            SirInitializerKind.CONVENIENCE -> "convenience "
+        }
+    )
+
+    private fun List<SirParameter>.print() =
+        takeIf { it.isNotEmpty() }
+            ?.let {
+                println()
+                withIndent {
+                    this.forEachIndexed { index, sirParameter ->
+                        print(sirParameter.swiftName)
+                        if (index != lastIndex) {
+                            println(",")
+                        } else {
+                            println()
+                        }
                     }
                 }
             }
-        }
-        print(
-            ")",
-            " -> ",
-            function.returnType.swift,
-        )
-        println(" {")
-        withIndent {
-            printFunctionBody(function.body).forEach {
-                println(it)
-            }
-        }
-        println("}")
-    }
 
-    override fun visitEnum(enum: SirEnum): Unit = with(printer) {
-        println(
-            enum.visibility.takeIf { it != SirVisibility.INTERNAL }?.let { "${it.swift} " } ?: "",
-            "enum ",
-            enum.name.swiftIdentifier,
-            " {"
-        )
-        withIndent {
-            enum.acceptChildren(this@SirAsSwiftSourcesPrinter)
+    private fun SirFunctionBody?.print() = (this ?: emptyBodyStub)
+        .statements
+        .forEach {
+            println(it)
         }
-        println("}")
-    }
 
-    override fun visitElement(element: SirElement): Unit = with(printer) {
-        println("/* ERROR: unsupported element type: " + element.javaClass.simpleName + " */")
-    }
-}
-
-private fun printFunctionBody(body: SirFunctionBody?): List<String> {
-    return body?.statements ?: listOf("fatalError()")
+    private fun SirCallableKind.print() = print(
+        when (this) {
+            SirCallableKind.FUNCTION -> ""
+            SirCallableKind.INSTANCE_METHOD -> ""
+            SirCallableKind.CLASS_METHOD -> "class "
+            SirCallableKind.STATIC_METHOD -> "static "
+        }
+    )
 }
 
 private val SirVisibility.swift
@@ -151,20 +301,13 @@ private val SirVisibility.swift
         SirVisibility.PACKAGE -> "package"
     }
 
-private val SirParameter.swift get(): String = (argumentName ?: "_") + (parameterName?.let { " $it" } ?: "") + ": " + type.swift
-
-private val SirType.swift
-    get(): String = when (this) {
-        is SirExistentialType -> "Any"
-        is SirNominalType -> type.swiftFqName
-    }
-
-private val SirNamedDeclaration.swiftFqName: String
-    get() {
-        val parentName = (parent as? SirNamedDeclaration)?.swiftFqName ?: ((parent as? SirNamed)?.name)
-        return parentName?.let { "$it.$name" } ?: name
-    }
+private val SirParameter.swift get(): String = (argumentName ?: "_") + (parameterName?.let { " $it" } ?: "") + ": " + type.swiftName
 
 private val simpleIdentifierRegex = Regex("[_a-zA-Z][_a-zA-Z0-9]*")
 
 private val String.swiftIdentifier get() = if (simpleIdentifierRegex.matches(this)) this else "`$this`"
+
+private val SirParameter.swiftName
+    get(): String = (argumentName ?: "_") +
+            (parameterName?.let { " $it" } ?: "") + ": " +
+            type.swiftName

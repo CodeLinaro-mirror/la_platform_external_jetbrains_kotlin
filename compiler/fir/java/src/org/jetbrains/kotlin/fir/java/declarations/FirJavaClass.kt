@@ -5,10 +5,12 @@
 
 package org.jetbrains.kotlin.fir.java.declarations
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
+import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.MutableOrEmptyList
@@ -46,7 +48,7 @@ class FirJavaClass @FirImplementationDetail internal constructor(
     override val declarations: MutableList<FirDeclaration>,
     override val scopeProvider: FirScopeProvider,
     override val symbol: FirRegularClassSymbol,
-    private val unenhnancedSuperTypes: List<FirTypeRef>,
+    private val nonEnhancedSuperTypes: List<FirTypeRef>,
     override val typeParameters: MutableList<FirTypeParameterRef>,
     internal val javaPackage: JavaPackage?,
     val javaTypeParameterStack: MutableJavaTypeParameterStack,
@@ -60,6 +62,7 @@ class FirJavaClass @FirImplementationDetail internal constructor(
         get() = emptyList()
 
     init {
+        @OptIn(FirImplementationDetail::class)
         symbol.bind(this)
 
         @OptIn(ResolveStateAccess::class)
@@ -71,12 +74,14 @@ class FirJavaClass @FirImplementationDetail internal constructor(
     // TODO: the lazy superTypeRefs is a workaround for KT-55387, some non-lazy solution should probably be used instead
     override val superTypeRefs: List<FirTypeRef> by lazy {
         val enhancement = FirSignatureEnhancement(this@FirJavaClass, moduleData.session, overridden = { emptyList() })
-        enhancement.enhanceSuperTypes(unenhnancedSuperTypes)
+        enhancement.enhanceSuperTypes(nonEnhancedSuperTypes)
     }
 
     // TODO: the lazy annotations is a workaround for KT-55387, some non-lazy solution should probably be used instead
     override val annotations: List<FirAnnotation> by lazy {
-        unEnhancedAnnotations.convertAnnotationsToFir(moduleData.session, isDeprecatedInJavaDoc)
+        unEnhancedAnnotations.convertAnnotationsToFir(
+            moduleData.session, source?.fakeElement(KtFakeSourceElementKind.Enhancement), isDeprecatedInJavaDoc
+        )
     }
 
     // TODO: the lazy deprecationsProvider is a workaround for KT-55387, some non-lazy solution should probably be used instead

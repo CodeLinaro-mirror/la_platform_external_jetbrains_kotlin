@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.cli.common.messages
 
 import org.jetbrains.kotlin.analyzer.CompilationErrorException
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.util.Logger
 
@@ -22,7 +22,8 @@ private class CompilerLoggerAdapter(
     private val treatWarningsAsErrors: Boolean
 ) : Logger {
     override fun log(message: String) = messageCollector.report(LOGGING, message, null)
-    override fun warning(message: String) = messageCollector.report(if (treatWarningsAsErrors) ERROR else STRONG_WARNING, message, null)
+    override fun warning(message: String) = messageCollector.report(WARNING.orError(), message, null)
+    override fun strongWarning(message: String) = messageCollector.report(STRONG_WARNING.orError(), message, null)
     override fun error(message: String) = messageCollector.report(ERROR, message, null)
 
     @Deprecated(Logger.FATAL_DEPRECATION_MESSAGE, ReplaceWith(Logger.FATAL_REPLACEMENT))
@@ -31,10 +32,12 @@ private class CompilerLoggerAdapter(
         (messageCollector as? GroupingMessageCollector)?.flush()
         throw CompilationErrorException()
     }
+
+    private fun CompilerMessageSeverity.orError(): CompilerMessageSeverity = if (treatWarningsAsErrors) ERROR else this
 }
 
 fun MessageCollector.toLogger(treatWarningsAsErrors: Boolean = false): Logger =
     CompilerLoggerAdapter(this, treatWarningsAsErrors)
 
 fun CompilerConfiguration.getLogger(treatWarningsAsErrors: Boolean = false): Logger =
-    getNotNull(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY).toLogger(treatWarningsAsErrors)
+    getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY).toLogger(treatWarningsAsErrors)

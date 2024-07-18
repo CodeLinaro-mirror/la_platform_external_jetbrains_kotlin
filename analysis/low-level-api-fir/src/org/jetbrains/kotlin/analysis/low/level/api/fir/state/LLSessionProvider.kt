@@ -5,45 +5,42 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.state
 
-import com.intellij.psi.util.CachedValueProvider
-import com.intellij.psi.util.CachedValuesManager
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirResolvableModuleSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionCache
-import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 
 class LLSessionProvider(
-    val useSiteModule: KtModule,
-    private val useSiteSessionFactory: (KtModule) -> LLFirSession
+    val useSiteModule: KaModule,
+    private val useSiteSessionFactory: (KaModule) -> LLFirSession
 ) {
-    private val useSiteSessionCached = CachedValuesManager.getManager(useSiteModule.project).createCachedValue {
-        val session = useSiteSessionFactory(useSiteModule)
-        CachedValueProvider.Result.create(session, session.createValidityTracker())
-    }
-
-    val useSiteSession: LLFirSession
-        get() = useSiteSessionCached.value
+    /**
+     * The [LLFirSession] must be strongly reachable from the resolvable session and ultimately the `KaFirSession` so that soft
+     * reference garbage collection doesn't collect the [LLFirSession] without collecting its dependent `KaFirSession`. See
+     * [LLFirSession] for more details.
+     */
+    val useSiteSession: LLFirSession by lazy(LazyThreadSafetyMode.PUBLICATION) { useSiteSessionFactory(useSiteModule) }
 
     /**
-     * Returns a [FirSession] for the [module].
+     * Returns an [LLFirSession] for the [module].
      * For a binary module, the resulting session will be a binary (non-resolvable) one.
      */
-    fun getSession(module: KtModule): LLFirSession {
+    fun getSession(module: KaModule): LLFirSession {
         return getSession(module, preferBinary = true)
     }
 
     /**
-     * Returns an analyzable [FirSession] for the module.
+     * Returns an analyzable [LLFirSession] for the module.
      * For a binary module, the resulting session will still be a resolvable one.
      *
      * Note: prefer using [getSession] unless you need to perform resolution actively.
      * Resolvable sessions for libraries are much less performant.
      */
-    fun getResolvableSession(module: KtModule): LLFirResolvableModuleSession {
+    fun getResolvableSession(module: KaModule): LLFirResolvableModuleSession {
         return getSession(module, preferBinary = false) as LLFirResolvableModuleSession
     }
 
-    private fun getSession(module: KtModule, preferBinary: Boolean): LLFirSession {
+    private fun getSession(module: KaModule, preferBinary: Boolean): LLFirSession {
         if (module == useSiteModule) {
             return useSiteSession
         }

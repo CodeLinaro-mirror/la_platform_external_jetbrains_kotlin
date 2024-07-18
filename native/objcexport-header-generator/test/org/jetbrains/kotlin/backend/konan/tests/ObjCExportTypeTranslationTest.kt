@@ -88,7 +88,7 @@ class ObjCExportTypeTranslationTest(
             """.trimIndent()
         )
 
-        assertEquals("Unit * -> void", header.renderTypesOfSymbol("foo"))
+        assertEquals("KotlinUnit * -> void", header.renderTypesOfSymbol("foo"))
     }
 
 
@@ -174,6 +174,18 @@ class ObjCExportTypeTranslationTest(
     fun `test - number - Double`() {
         val header = header("""val foo: Double get() = error("stub")""")
         assertEquals("double", header.renderTypesOfSymbol("foo"))
+    }
+
+    @Test
+    fun `test - Vector128`() {
+        val header = header("""val foo: kotlinx.cinterop.Vector128 get() = error("stub")""")
+        assertEquals("float __attribute__((__vector_size__(16)))", header.renderTypesOfSymbol("foo"))
+    }
+
+    @Test
+    fun `test - Vector128 - nullable`() {
+        val header = header("""val foo: kotlinx.cinterop.Vector128? get() = error("stub")""")
+        assertEquals("id _Nullable", header.renderTypesOfSymbol("foo"))
     }
 
     @Test
@@ -565,6 +577,57 @@ class ObjCExportTypeTranslationTest(
         )
 
         assertEquals("NSArray<NSString *> *", header.renderTypesOfSymbol("foo"))
+    }
+
+    @Test
+    fun `test - ObjCObject - no ExternalObjCClass annotation`() {
+        val header = header(
+            """
+                class Foo  : kotlinx.cinterop.ObjCObject 
+                val foo: Foo get() = error("stub")
+            """.trimIndent()
+        )
+
+        assertEquals("id", header.renderTypesOfSymbol("foo"))
+    }
+
+    @Test
+    fun `test - ObjCObject - with ExternalObjCClass annotation`() {
+        val header = header(
+            """
+                @kotlinx.cinterop.ExternalObjCClass
+                class Foo: kotlinx.cinterop.ObjCObject
+                val foo: Foo get() = error("stub")
+            """.trimIndent()
+        )
+
+        assertEquals("Foo *", header.renderTypesOfSymbol("foo"))
+    }
+
+    @Test
+    fun `test - ObjCObject - with ExternalObjCClass annotation - in super class`() {
+        val header = header(
+            """
+                @kotlinx.cinterop.ExternalObjCClass
+                open class A: kotlinx.cinterop.ObjCObject
+                class Foo: A()
+                val foo: Foo get() = error("stub")
+            """.trimIndent()
+        )
+
+        assertEquals("A *", header.renderTypesOfSymbol("foo"))
+    }
+
+    @Test
+    fun `test - ObjCObject - with ObjCClass supertype`() {
+        val header = header(
+            """
+                class Foo: kotlinx.cinterop.ObjCClass
+                val foo: Foo get() = error("stub")
+            """.trimIndent()
+        )
+
+        assertEquals("Class", header.renderTypesOfSymbol("foo"))
     }
 
     private fun header(

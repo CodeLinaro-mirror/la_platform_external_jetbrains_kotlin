@@ -11,12 +11,11 @@ import org.gradle.api.artifacts.repositories.ArtifactRepository
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileTree
 import org.gradle.api.logging.Logger
+import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ValueSource
 import org.gradle.api.provider.ValueSourceParameters
 import org.jetbrains.kotlin.compilerRunner.KotlinNativeToolRunner
-import org.jetbrains.kotlin.compilerRunner.konanDataDir
-import org.jetbrains.kotlin.compilerRunner.konanHome
-import org.jetbrains.kotlin.compilerRunner.konanVersion
+import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
@@ -24,6 +23,7 @@ import org.jetbrains.kotlin.gradle.plugin.internal.configurationTimePropertiesAc
 import org.jetbrains.kotlin.gradle.plugin.internal.usedAtConfigurationTime
 import org.jetbrains.kotlin.gradle.targets.native.internal.NativeDistributionTypeProvider
 import org.jetbrains.kotlin.gradle.targets.native.internal.PlatformLibrariesGenerator
+import org.jetbrains.kotlin.gradle.targets.native.konanPropertiesBuildService
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.DependencyDirectories
@@ -55,11 +55,23 @@ class NativeCompilerDownloader(
             )
         }
 
-        internal fun getCompilerDirectory(project: Project): File {
+        internal fun getCompilerDirectory(
+            project: Project,
+            konanDataDirProperty: Provider<File?>
+        ): File {
             return DependencyDirectories
-                .getLocalKonanDir(project.konanDataDir)
+                .getLocalKonanDir(konanDataDirProperty.orNull?.absolutePath)
                 .resolve(getDependencyNameWithOsAndVersion(project))
         }
+
+        internal fun getDefaultCompilerDirectory(project: Project): File = DependencyDirectories
+            .getLocalKonanDir(null)
+            .resolve(getDependencyNameWithOsAndVersion(project))
+
+        internal fun getOsSpecificCompilerDirectory(
+            project: Project,
+            konanDataDir: File,
+        ): File = konanDataDir.resolve(getDependencyNameWithOsAndVersion(project))
 
         internal fun getDependencyNameWithOsAndVersion(project: Project): String {
             return "${getDependencyName(project)}-$simpleOsName-${getCompilerVersion(project)}"
@@ -69,7 +81,7 @@ class NativeCompilerDownloader(
         private val simpleOsName = HostManager.platformName()
 
         private fun getCompilerVersion(project: Project): String {
-            return project.konanVersion
+            return project.nativeProperties.kotlinNativeVersion.get()
         }
 
         private fun getDependencyName(project: Project): String {
@@ -93,13 +105,14 @@ class NativeCompilerDownloader(
     }
 
     val compilerDirectory: File
-        get() = getCompilerDirectory(project)
+        get() = getCompilerDirectory(project, project.nativeProperties.konanDataDir)
 
     private val logger: Logger
         get() = project.logger
 
     private val kotlinProperties get() = PropertiesProvider(project)
 
+    private val downloadFromMaven = project.nativeProperties.downloadFromMaven
 
     private val dependencyNameWithOsAndVersion: String
         get() = getDependencyNameWithOsAndVersion(project)
@@ -141,11 +154,11 @@ class NativeCompilerDownloader(
     }
 
     private fun downloadAndExtract() {
-        val repo = if (!kotlinProperties.nativeDownloadFromMaven) {
+        val repo = if (!downloadFromMaven.get()) {
             setupRepo(repoUrl)
         } else null
 
-        val compilerDependency = if (kotlinProperties.nativeDownloadFromMaven) {
+        val compilerDependency = if (downloadFromMaven.get()) {
             project.dependencies.create(getCompilerDependencyNotation(project))
         } else {
             project.dependencies.create(
@@ -160,7 +173,7 @@ class NativeCompilerDownloader(
         val configuration = project.configurations.detachedResolvable(compilerDependency)
         logger.lifecycle("\nPlease wait while Kotlin/Native compiler ${getCompilerVersion(project)} is being installed.")
 
-        if (!kotlinProperties.nativeDownloadFromMaven) {
+        if (!downloadFromMaven.get()) {
             val dependencyUrl = "$repoUrl/$dependencyFileName"
             val lengthSuffix = project.probeRemoteFileLength(dependencyUrl, probingTimeoutMs = 200)
                 ?.let { " (${formatContentLength(it)})" }
@@ -212,7 +225,13 @@ class NativeCompilerDownloader(
 
     private fun checkClassPath() {
         project.providers.of(NativeCompilerDownloaderClassPathChecker::class.java) {
-            it.parameters.classPath.setFrom(KotlinNativeToolRunner.Settings.of(project.konanHome.absolutePath, project.konanDataDir, project).classpath)
+            it.parameters.classPath.setFrom(
+                KotlinNativeToolRunner.Settings.of(
+                    project.nativeProperties.actualNativeHomeDirectory.get().absolutePath,
+                    project.nativeProperties.konanDataDir.orNull?.absolutePath,
+                    project
+                ).classpath
+            )
         }.usedAtConfigurationTime(project.configurationTimePropertiesAccessor).get()
     }
 
@@ -244,7 +263,7 @@ class NativeCompilerDownloader(
     level = DeprecationLevel.WARNING
 )
 internal fun Project.setupNativeCompiler(konanTarget: KonanTarget) {
-    val isKonanHomeOverridden = kotlinPropertiesProvider.nativeHome != null
+    val isKonanHomeOverridden = project.nativeProperties.userProvidedNativeHome.orNull != null
     if (!isKonanHomeOverridden) {
         val downloader = NativeCompilerDownloader(this)
 
@@ -254,13 +273,19 @@ internal fun Project.setupNativeCompiler(konanTarget: KonanTarget) {
         }
 
         downloader.downloadIfNeeded()
-        logger.info("Kotlin/Native distribution: ${konanHome.absolutePath}")
+        logger.info("Kotlin/Native distribution: ${nativeProperties.actualNativeHomeDirectory.get().absolutePath}")
     } else {
-        logger.info("User-provided Kotlin/Native distribution: ${konanHome.absolutePath}")
+        logger.info("User-provided Kotlin/Native distribution: ${nativeProperties.userProvidedNativeHome.orNull}")
     }
 
     val distributionType = NativeDistributionTypeProvider(project).getDistributionType()
     if (distributionType.mustGeneratePlatformLibs) {
-        PlatformLibrariesGenerator(project, konanTarget).generatePlatformLibsIfNeeded()
+        PlatformLibrariesGenerator(
+            project,
+            konanTarget,
+            nativeProperties.actualNativeHomeDirectory.get(),
+            project.kotlinPropertiesProvider,
+            project.konanPropertiesBuildService,
+        ).generatePlatformLibsIfNeeded()
     }
 }

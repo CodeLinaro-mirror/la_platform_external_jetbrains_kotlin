@@ -6,22 +6,34 @@
 package org.jetbrains.kotlin.konan.test.blackbox.support.compilation
 
 import java.io.File
+import java.nio.file.*
 
-internal sealed interface TestCompilationArtifact {
+sealed interface TestCompilationArtifact {
     val logFile: File
 
     data class KLIB(val klibFile: File) : TestCompilationArtifact {
         val path: String get() = klibFile.path
+
+        val headerKlib: File get() = klibFile.resolveSibling(klibFile.name.replaceAfterLast(".", "header.klib"))
         override val logFile: File get() = klibFile.resolveSibling("${klibFile.name}.log")
     }
 
-    data class KLIBStaticCache(val cacheDir: File, val klib: KLIB, val fileCheckStage: String? = null) : TestCompilationArtifact {
+    interface KLIBStaticCache : TestCompilationArtifact {
+        val cacheDir: File
+        val klib: KLIB
+        val fileCheckStage: String?
         override val logFile: File get() = cacheDir.resolve("${klib.klibFile.nameWithoutExtension}-cache.log")
         val fileCheckDump: File?
             get() = fileCheckStage?.let {
                 cacheDir.resolveSibling("out.$it.ll")
             }
     }
+
+    data class KLIBStaticCacheImpl(override val cacheDir: File, override val klib: KLIB, override val fileCheckStage: String? = null) :
+        KLIBStaticCache
+
+    data class KLIBStaticCacheHeader(override val cacheDir: File, override val klib: KLIB, override val fileCheckStage: String? = null) :
+        KLIBStaticCache
 
     data class Executable(val executableFile: File, val fileCheckStage: String? = null) : TestCompilationArtifact {
         val path: String get() = executableFile.path
@@ -36,15 +48,12 @@ internal sealed interface TestCompilationArtifact {
     data class ObjCFramework(private val buildDir: File, val frameworkName: String) : TestCompilationArtifact {
         val frameworkDir: File get() = buildDir.resolve("$frameworkName.framework")
         override val logFile: File get() = frameworkDir.resolveSibling("${frameworkDir.name}.log")
-        val headersDir: File get () = frameworkDir.resolve("Headers")
+        val headersDir: File get() = frameworkDir.resolve("Headers")
         val mainHeader: File get() = headersDir.resolve("$frameworkName.h")
+        val imagePath: File get() = frameworkDir.resolve(frameworkName)
     }
 
-    data class BinaryLibrary(val libraryFile: File, val kind: Kind) : TestCompilationArtifact {
-
-        enum class Kind {
-            STATIC, DYNAMIC
-        }
+    data class BinaryLibrary(val libraryFile: File) : TestCompilationArtifact {
 
         override val logFile: File get() = libraryFile.resolveSibling("${libraryFile.name}.log")
 
@@ -59,9 +68,18 @@ internal sealed interface TestCompilationArtifact {
     }
 
     sealed interface Swift : TestCompilationArtifact {
-        class Module(val rootDir: File, val moduleName: String) : Swift {
+        class Module(val rootDir: File, val moduleName: String, val modulemap: File?) : Swift {
             override val logFile: File get() = rootDir.resolve("$moduleName.log")
             val binaryLibrary: File get() = rootDir.resolve("lib$moduleName.dylib")
         }
+    }
+
+    data class XCTestBundle(val bundleDir: File, val fileCheckStage: String? = null) : TestCompilationArtifact {
+        override val logFile: File get() = bundleDir.resolveSibling("${bundleDir.name}.log")
+        val testDumpFile: File get() = bundleDir.resolveSibling("${bundleDir.name}.dump")
+        val fileCheckDump: File?
+            get() = fileCheckStage?.let {
+                bundleDir.resolveSibling("out.$it.ll")
+            }
     }
 }

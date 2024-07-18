@@ -95,21 +95,38 @@ object FirImportsChecker : FirFileChecker(MppCheckerKind.Common) {
         val symbolProvider = context.session.symbolProvider
         val parentClassId = (import as? FirResolvedImport)?.resolvedParentClassId
         if (parentClassId != null) {
-            val parentClassSymbol = parentClassId.resolveToClass(context) ?: return
+            val parentClassLikeSymbol = parentClassId.resolveToClassLike(context) ?: return
+            val parentClassSymbol = parentClassLikeSymbol.fullyExpandedClass(context.session) ?: return
 
-            fun reportInvisibleParentClasses(classSymbol: FirRegularClassSymbol, depth: Int) {
+            fun reportInvisibleParentClasses(classSymbol: FirClassLikeSymbol<*>, depth: Int) {
                 if (!classSymbol.isVisible(context)) {
                     val source = import.getSourceForImportSegment(indexFromLast = depth)
                     reporter.report(classSymbol.toInvisibleReferenceDiagnostic(source), context)
                 }
-
-                classSymbol.classId.outerClassId?.resolveToClass(context)?.let { reportInvisibleParentClasses(it, depth + 1) }
             }
 
-            reportInvisibleParentClasses(parentClassSymbol, 1)
+            fun reportInvisibleParentClassesRecursively(classSymbol: FirRegularClassSymbol, depth: Int) {
+                reportInvisibleParentClasses(classSymbol, depth)
+                classSymbol.classId.outerClassId?.resolveToClass(context)?.let {
+                    reportInvisibleParentClassesRecursively(it, depth + 1)
+                }
+            }
+
+            if (parentClassLikeSymbol is FirTypeAliasSymbol) {
+                // Checking one outer typealias only is enough, because we don't support nested typealiases.
+                reportInvisibleParentClasses(parentClassLikeSymbol, depth = 1)
+            }
+            reportInvisibleParentClassesRecursively(parentClassSymbol, 1)
 
             when (val status = parentClassSymbol.getImportStatusOfCallableMembers(context, importedName)) {
-                ImportStatus.OK -> return
+                ImportStatus.OK -> {
+                    if (parentClassLikeSymbol is FirTypeAliasSymbol) {
+                        reporter.reportOn(
+                            import.source, FirErrors.TYPEALIAS_AS_CALLABLE_QUALIFIER_IN_IMPORT,
+                            parentClassLikeSymbol.name, parentClassSymbol.name, context
+                        )
+                    }
+                }
                 is ImportStatus.Invisible -> {
                     val source = import.getSourceForImportSegment(0)
                     reporter.report(status.symbol.toInvisibleReferenceDiagnostic(source), context)
@@ -237,8 +254,12 @@ object FirImportsChecker : FirFileChecker(MppCheckerKind.Common) {
         }
     }
 
+    private fun ClassId.resolveToClassLike(context: CheckerContext): FirClassLikeSymbol<*>? {
+        return context.session.symbolProvider.getClassLikeSymbolByClassId(this)
+    }
+
     private fun ClassId.resolveToClass(context: CheckerContext): FirRegularClassSymbol? {
-        val classSymbol = context.session.symbolProvider.getClassLikeSymbolByClassId(this) ?: return null
+        val classSymbol = resolveToClassLike(context) ?: return null
         return when (classSymbol) {
             is FirRegularClassSymbol -> classSymbol
             is FirTypeAliasSymbol -> classSymbol.fullyExpandedClass(context.session)

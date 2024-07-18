@@ -37,12 +37,24 @@ internal class AbiRendererImpl(
 
         if (settings.renderManifest) {
             with(libraryAbi.manifest) {
+                val nativeTargets = mutableListOf<LibraryTarget.Native>()
+                val wasmTargets = mutableListOf<LibraryTarget.WASM>()
+
+                for (platformTarget in platformTargets) {
+                    when (platformTarget) {
+                        is LibraryTarget.Native -> nativeTargets += platformTarget
+                        is LibraryTarget.WASM -> wasmTargets += platformTarget
+                    }
+                }
+
                 listOfNotNull(
                     platform?.let { "Platform" to it },
-                    nativeTargets.takeIf { it.isNotEmpty() }?.let { "Native targets" to it.joinToString(separator = ", ") },
+                    nativeTargets.takeIf { it.isNotEmpty() }
+                        ?.let { "Native targets" to it.joinToString(separator = ", ", transform = LibraryTarget.Native::name) },
+                    wasmTargets.takeIf { it.isNotEmpty() }
+                        ?.let { "WASM targets" to it.joinToString(separator = ", ", transform = LibraryTarget.WASM::name) },
                     compilerVersion?.let { "Compiler version" to it },
                     abiVersion?.let { "ABI version" to it },
-                    libraryVersion?.let { "Library version" to it },
                     irProviderName?.let { "IR provider" to it }
                 ).forEach { (name, value) ->
                     output.append("// ").append(name).append(": ").appendLine(value)
@@ -411,7 +423,7 @@ internal class AbiRendererImpl(
                 if (valueParameter.isCrossinline) append("crossinline ")
                 appendType(valueParameter.type)
                 if (valueParameter.isVararg) append("...")
-                if (valueParameter.hasDefaultArg) append(" =...")
+                if (valueParameter.hasDefaultArg) append(" = ...")
                 return ""
             }
 

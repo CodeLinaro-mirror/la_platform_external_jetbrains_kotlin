@@ -6,26 +6,16 @@
 // This file was generated automatically. See native/swift/sir/tree-generator/Readme.md.
 // DO NOT MODIFY IT MANUALLY.
 
-@file:Suppress("DuplicatedCode", "unused")
+@file:Suppress("DuplicatedCode")
 
 package org.jetbrains.kotlin.sir.impl
 
 import org.jetbrains.kotlin.sir.SirDeclaration
+import org.jetbrains.kotlin.sir.SirImport
 import org.jetbrains.kotlin.sir.SirModule
-import org.jetbrains.kotlin.sir.util.transformInPlace
-import org.jetbrains.kotlin.sir.visitors.SirTransformer
-import org.jetbrains.kotlin.sir.visitors.SirVisitor
 
 internal class SirModuleImpl(
     override val declarations: MutableList<SirDeclaration>,
     override val name: String,
-) : SirModule() {
-
-    override fun <R, D> acceptChildren(visitor: SirVisitor<R, D>, data: D) {
-        declarations.forEach { it.accept(visitor, data) }
-    }
-
-    override fun <D> transformChildren(transformer: SirTransformer<D>, data: D) {
-        declarations.transformInPlace(transformer, data)
-    }
-}
+    override val imports: MutableList<SirImport>,
+) : SirModule()

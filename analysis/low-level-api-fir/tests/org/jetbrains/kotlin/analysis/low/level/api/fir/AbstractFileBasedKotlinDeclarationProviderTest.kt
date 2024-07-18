@@ -8,8 +8,9 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirScriptTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
-import org.jetbrains.kotlin.analysis.providers.impl.declarationProviders.FileBasedKotlinDeclarationProvider
+import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinFileBasedDeclarationProvider
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -17,7 +18,6 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.moduleStructure
@@ -32,15 +32,15 @@ abstract class AbstractFileBasedKotlinDeclarationProviderTest : AbstractAnalysis
         }
     }
 
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
-        val provider = FileBasedKotlinDeclarationProvider(mainFile)
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
+        val provider = KotlinFileBasedDeclarationProvider(mainFile)
         assertContains(provider.findFilesForFacadeByPackage(mainFile.packageFqName), mainFile)
 
         checkByDirectives(testServices.moduleStructure, provider)
         checkByVisitor(mainFile, provider)
     }
 
-    private fun checkByDirectives(moduleStructure: TestModuleStructure, provider: FileBasedKotlinDeclarationProvider) {
+    private fun checkByDirectives(moduleStructure: TestModuleStructure, provider: KotlinFileBasedDeclarationProvider) {
         for (directive in moduleStructure.allDirectives[Directives.CLASS]) {
             val classId = ClassId.fromString(directive)
             assert(provider.getAllClassesByClassId(classId).isNotEmpty()) { "Class $classId not found" }
@@ -64,7 +64,7 @@ abstract class AbstractFileBasedKotlinDeclarationProviderTest : AbstractAnalysis
         }
     }
 
-    private fun checkByVisitor(ktFile: KtFile, provider: FileBasedKotlinDeclarationProvider) {
+    private fun checkByVisitor(ktFile: KtFile, provider: KotlinFileBasedDeclarationProvider) {
         ktFile.accept(object : KtTreeVisitorVoid() {
             override fun visitClass(klass: KtClass) {
                 super.visitClass(klass)

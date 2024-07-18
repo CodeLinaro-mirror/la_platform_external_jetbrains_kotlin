@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.light.classes.symbol.classes
 
 import com.intellij.psi.*
-import org.jetbrains.kotlin.analysis.api.types.KtTypeMappingMode
-import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.asJava.classes.KotlinSuperTypeListBuilder
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightField
@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.light.classes.symbol.annotations.ReferenceInformationHolder
 import org.jetbrains.kotlin.light.classes.symbol.cachedValue
 import org.jetbrains.kotlin.light.classes.symbol.codeReferences.SymbolLightPsiJavaCodeReferenceElementWithNoReference
+import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightField
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightFieldForEnumEntry
 import org.jetbrains.kotlin.light.classes.symbol.isOriginEquivalentTo
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.InitializedModifiersBox
@@ -26,7 +27,7 @@ import org.jetbrains.kotlin.psi.KtEnumEntry
 internal class SymbolLightClassForEnumEntry(
     private val enumConstant: SymbolLightFieldForEnumEntry,
     private val enumClass: SymbolLightClassBase,
-    ktModule: KtModule,
+    ktModule: KaModule,
 ) : SymbolLightClassBase(ktModule, enumConstant.manager), PsiEnumConstantInitializer {
     override fun getBaseClassType(): PsiClassType = enumConstant.type as PsiClassType //???TODO
 
@@ -81,7 +82,7 @@ internal class SymbolLightClassForEnumEntry(
             symbol.returnType.asPsiType(
                 this@SymbolLightClassForEnumEntry,
                 allowErrorTypes = true,
-                KtTypeMappingMode.SUPER_TYPE
+                KaTypeMappingMode.SUPER_TYPE
             ) as? PsiClassType
         } ?: return@lazyPub null
 
@@ -116,6 +117,7 @@ internal class SymbolLightClassForEnumEntry(
                 addPropertyBackingFields(
                     result,
                     initializer,
+                    SymbolLightField.FieldNameGenerator(),
 
                     // `addPropertyBackingFields` detects that property fields should be static when the given symbol with members is an
                     // object. Unfortunately, the enum entry's initializer is an anonymous object, yet we want the enum entry's light class
@@ -133,11 +135,11 @@ internal class SymbolLightClassForEnumEntry(
             val result = mutableListOf<KtLightMethod>()
 
             enumEntrySymbol.enumEntryInitializer?.let { initializer ->
-                val declaredMemberScope = initializer.getDeclaredMemberScope()
-                val visibleDeclarations = declaredMemberScope.getCallableSymbols()
+                val declaredMemberScope = initializer.declaredMemberScope
+                val visibleDeclarations = declaredMemberScope.callables
 
                 createMethods(visibleDeclarations, result)
-                createConstructors(declaredMemberScope.getConstructors(), result)
+                createConstructors(declaredMemberScope.constructors, result)
             }
 
             result
@@ -159,7 +161,7 @@ internal class SymbolLightClassForEnumEntry(
     override fun isDeprecated(): Boolean = false
     override fun isInterface(): Boolean = false
     override fun isAnnotationType(): Boolean = false
-    override fun isInheritorDeep(baseClass: PsiClass?, classToByPass: PsiClass?): Boolean = false
+    override fun isInheritorDeep(baseClass: PsiClass, classToByPass: PsiClass?): Boolean = false
     override val kotlinOrigin: KtEnumEntry get() = enumConstant.kotlinOrigin
     override val originKind: LightClassOriginKind = LightClassOriginKind.SOURCE
     override fun isValid(): Boolean = enumConstant.isValid

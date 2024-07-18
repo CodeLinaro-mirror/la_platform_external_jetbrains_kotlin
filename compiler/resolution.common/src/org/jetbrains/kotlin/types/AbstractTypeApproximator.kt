@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.resolve.calls.NewCommonSuperTypeCalculator.commonSuperType
 import org.jetbrains.kotlin.types.model.*
+import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import java.util.concurrent.ConcurrentHashMap
 
@@ -54,7 +55,7 @@ abstract class AbstractTypeApproximator(
 
             type.isError() ->
                 // todo -- fix builtIns. Now builtIns here is DefaultBuiltIns
-                (if (conf.errorType) null else type.defaultResult(toSuper)).toApproximationResult()
+                (if (!conf.approximateErrorTypes) null else type.defaultResult(toSuper)).toApproximationResult()
 
             depth > 3 ->
                 type.defaultResult(toSuper).toApproximationResult()
@@ -117,9 +118,9 @@ abstract class AbstractTypeApproximator(
             is SimpleTypeMarker -> return approximateTo(type, conf, depth)
             is FlexibleTypeMarker -> {
                 if (type.isDynamic()) {
-                    return if (conf.dynamic) null else type.bound()
+                    return if (!conf.approximateDynamic) null else type.bound()
                 } else if (type.isRawType()) {
-                    return if (conf.rawType) null else type.bound()
+                    return if (!conf.approximateRawTypes) null else type.bound()
                 }
 
 //              TODO: Restore check
@@ -128,7 +129,7 @@ abstract class AbstractTypeApproximator(
 //                  "Unexpected subclass of FlexibleType: ${type::class.java.canonicalName}, type = $type"
 //              }
 
-                if (conf.flexible) {
+                if (!conf.approximateFlexible) {
                     /**
                      * Let inputType = L_1..U_1; resultType = L_2..U_2
                      * We should create resultType such as inputType <: resultType.
@@ -186,7 +187,7 @@ abstract class AbstractTypeApproximator(
         // This saves us from doing twice the work unnecessarily in many cases.
         return isK2 &&
                 upperBoundConstructor.isArrayConstructor() &&
-                upperBound.getArgumentOrNull(0).let { it is CapturedTypeMarker && conf.capturedType(ctx, it) }
+                upperBound.getArgumentOrNull(0).let { it is CapturedTypeMarker && conf.shouldApproximateCapturedType(ctx, it) }
     }
 
     private fun approximateLocalTypes(
@@ -196,19 +197,55 @@ abstract class AbstractTypeApproximator(
         depth: Int,
     ): SimpleTypeMarker? {
         if (!toSuper) return null
-        if (!conf.localTypes && !conf.anonymous) return null
+        if (!conf.approximateLocalTypes && !conf.approximateAnonymous) return null
+
+        fun TypeConstructorMarker.isAcceptable(conf: TypeApproximatorConfiguration): Boolean {
+            return !(conf.approximateLocalTypes && isLocalType()) && !(conf.approximateAnonymous && isAnonymous())
+        }
+
         val constructor = type.typeConstructor()
-        val needApproximate = (conf.localTypes && constructor.isLocalType()) || (conf.anonymous && constructor.isAnonymous())
-        if (!needApproximate) return null
-        val superConstructor = constructor.supertypes().first().typeConstructor()
+        if (constructor.isAcceptable(conf)) return null
         val typeCheckerContext = newTypeCheckerState(
             errorTypesEqualToAnything = false,
             stubTypesEqualToAnything = false
         )
-        val result = AbstractTypeChecker.findCorrespondingSupertypes(typeCheckerContext, type, superConstructor)
-            .firstOrNull()
-            ?.withNullability(type.isMarkedNullable())
-            ?: return null
+
+        var result: SimpleTypeMarker? = null
+
+        if (isK2) {
+            // BFS for non-local/anonymous supertype:
+            // search for non-local supertypes in the super types of the given type,
+            // then it their respective super types, etc.
+            // Ignore `Any`.
+            // If no suitable type is found, return `Any`.
+            val visited = mutableSetOf<SimpleTypeMarker>()
+            val queue = ArrayDeque<SimpleTypeMarker>().apply { add(type) }
+
+            while (queue.isNotEmpty()) {
+                val currentType = queue.removeFirst()
+                if (!visited.add(currentType)) continue
+                val currentConstructor = currentType.typeConstructor()
+                if (currentConstructor.isAcceptable(conf)) {
+                    result = currentType.withNullability(type.isMarkedNullable())
+                    break
+                }
+                currentConstructor.supertypes()
+                    .flatMap { AbstractTypeChecker.findCorrespondingSupertypes(typeCheckerContext, type, it.typeConstructor()) }
+                    .filterTo(queue) { !it.typeConstructor().isAnyConstructor() }
+            }
+
+            if (result == null) {
+                result = ctx.anyType().withNullability(type.isMarkedNullable())
+            }
+        } else {
+            val superConstructor = constructor.supertypes().first().typeConstructor()
+            result = AbstractTypeChecker.findCorrespondingSupertypes(typeCheckerContext, type, superConstructor)
+                .firstOrNull()
+                ?.withNullability(type.isMarkedNullable())
+        }
+
+        if (result == null) return null
+
         /*
          * AbstractTypeChecker captures any projections in the super type by default, which may lead to the situation, when some local
          *   type with projection is approximated to some public type with captured (from subtyping) type argument (which is obviously
@@ -267,8 +304,13 @@ abstract class AbstractTypeApproximator(
          *
          * For other case -- it's impossible to find some type except Nothing as subType for intersection type.
          */
-        val baseResult = when (conf.intersection) {
-            TypeApproximatorConfiguration.IntersectionStrategy.ALLOWED -> if (!thereIsApproximation) return null else intersectTypes(newTypes)
+        val baseResult = when (conf.intersectionStrategy) {
+            TypeApproximatorConfiguration.IntersectionStrategy.ALLOWED -> if (!thereIsApproximation) {
+                return null
+            } else {
+                val upperBoundForApproximation = type.getUpperBoundForApproximationOfIntersectionType()
+                intersectTypes(newTypes, upperBoundForApproximation, toSuper, conf, depth)
+            }
             TypeApproximatorConfiguration.IntersectionStrategy.TO_FIRST -> if (toSuper) newTypes.first() else return type.defaultResult(toSuper = false)
             // commonSupertypeCalculator should handle flexible types correctly
             TypeApproximatorConfiguration.IntersectionStrategy.TO_COMMON_SUPERTYPE,
@@ -282,11 +324,33 @@ abstract class AbstractTypeApproximator(
         return if (type.isMarkedNullable()) baseResult.withNullability(true) else baseResult
     }
 
+    private fun intersectTypes(
+        newTypes: List<KotlinTypeMarker>,
+        upperBoundForApproximation: KotlinTypeMarker?,
+        toSuper: Boolean,
+        conf: TypeApproximatorConfiguration,
+        depth: Int,
+    ): KotlinTypeMarker {
+        val intersectionType = intersectTypes(newTypes)
+
+        if (upperBoundForApproximation == null) {
+            return intersectionType
+        }
+
+        val alternativeTypeApproximated = if (toSuper) {
+            approximateToSuperType(upperBoundForApproximation, conf, depth)
+        } else {
+            approximateToSubType(upperBoundForApproximation, conf, depth)
+        } ?: upperBoundForApproximation
+
+        return createTypeWithUpperBoundForIntersectionResult(intersectionType, alternativeTypeApproximated)
+    }
+
     private fun approximateCapturedType(
         capturedType: CapturedTypeMarker,
         conf: TypeApproximatorConfiguration,
         toSuper: Boolean,
-        depth: Int
+        depth: Int,
     ): KotlinTypeMarker? {
         fun KotlinTypeMarker.replaceRecursionWithStarProjection(capturedType: CapturedTypeMarker): KotlinTypeMarker {
             // This replacement is important for resolving the code like below in K2.
@@ -358,7 +422,7 @@ abstract class AbstractTypeApproximator(
         }
         val approximatedSubType by lazy(LazyThreadSafetyMode.NONE) { approximateToSubType(baseSubType, conf, depth) }
 
-        if (!conf.capturedType(ctx, capturedType)) {
+        if (!conf.shouldApproximateCapturedType(ctx, capturedType)) {
             /**
              * Here everything is ok if bounds for this captured type should not be approximated.
              * But. If such bounds contains some unauthorized types, then we cannot leave this captured type "as is".
@@ -435,18 +499,26 @@ abstract class AbstractTypeApproximator(
         }
 
         if (typeConstructor is TypeVariableTypeConstructorMarker) {
-            return if (conf.shouldKeepTypeVariableBasedType(typeConstructor, isK2)) null else type.defaultResult(toSuper)
+            return if (!conf.shouldApproximateTypeVariableBasedType(typeConstructor, isK2)) null else type.defaultResult(toSuper)
         }
 
         if (typeConstructor.isIntegerLiteralConstantTypeConstructor()) {
-            return runIf(conf.integerLiteralConstantType) {
-                typeConstructor.getApproximatedIntegerLiteralType().withNullability(type.isMarkedNullable())
+            return runIf(conf.approximateIntegerLiteralConstantTypes) {
+                // We ensure that expectedTypeForIntegerLiteralType is only used for top-level and possibly flexible ILTs.
+                // Otherwise, we can accidentally approximate nested ILTs to wrong types.
+                check(conf.expectedTypeForIntegerLiteralType == null || depth <= 0)
+                typeConstructor.getApproximatedIntegerLiteralType(conf.expectedTypeForIntegerLiteralType)
+                    .withNullability(type.isMarkedNullable())
             }
         }
 
         if (typeConstructor.isIntegerConstantOperatorTypeConstructor()) {
-            return runIf(conf.integerConstantOperatorType) {
-                typeConstructor.getApproximatedIntegerLiteralType().withNullability(type.isMarkedNullable())
+            return runIf(conf.approximateIntegerConstantOperatorTypes) {
+                // We ensure that expectedTypeForIntegerLiteralType is only used for top-level and possibly flexible ILTs.
+                // Otherwise, we can accidentally approximate nested ILTs to wrong types.
+                check(conf.expectedTypeForIntegerLiteralType == null || depth <= 0)
+                typeConstructor.getApproximatedIntegerLiteralType(conf.expectedTypeForIntegerLiteralType)
+                    .withNullability(type.isMarkedNullable())
             }
         }
 
@@ -469,8 +541,8 @@ abstract class AbstractTypeApproximator(
             return typeWithErasedNullability
         }
 
-        return if (conf.definitelyNotNullType || languageVersionSettings.supportsFeature(LanguageFeature.DefinitelyNonNullableTypes)) {
-            approximatedOriginalType?.makeDefinitelyNotNullOrNotNull()
+        return if (!conf.approximateDefinitelyNotNullTypes || languageVersionSettings.supportsFeature(LanguageFeature.DefinitelyNonNullableTypes)) {
+            approximatedOriginalType?.makeDefinitelyNotNullOrNotNull(preserveAttributes = true)
         } else {
             if (toSuper)
                 (approximatedOriginalType ?: originalType).withNullability(false)
@@ -494,7 +566,7 @@ abstract class AbstractTypeApproximator(
     ): SimpleTypeMarker? {
         val typeConstructor = type.typeConstructor()
         if (typeConstructor.parametersCount() != type.argumentsCount()) {
-            return if (conf.errorType) {
+            return if (!conf.approximateErrorTypes) {
                 createErrorType(
                     "Inconsistent type: $type (parameters.size = ${typeConstructor.parametersCount()}, arguments.size = ${type.argumentsCount()})",
                     type
@@ -523,7 +595,7 @@ abstract class AbstractTypeApproximator(
                 (effectiveVariance == TypeVariance.OUT || effectiveVariance == TypeVariance.INV) &&
                 toSuper &&
                 capturedType.typeParameter() == parameter &&
-                (!isK2 || conf.capturedType(ctx, capturedType))
+                (!isK2 || conf.shouldApproximateCapturedType(ctx, capturedType))
             ) {
                 newArguments[index] = capturedStarProjectionOrNull
                 continue@loop
@@ -531,7 +603,7 @@ abstract class AbstractTypeApproximator(
 
             when (effectiveVariance) {
                 null -> {
-                    return if (conf.errorType) {
+                    return if (!conf.approximateErrorTypes) {
                         createErrorType(
                             "Inconsistent type: $type ($index parameter has declared variance: ${parameter.getVariance()}, " +
                                     "but argument variance is ${argument.getVariance()})",
@@ -541,15 +613,13 @@ abstract class AbstractTypeApproximator(
                 }
                 TypeVariance.OUT, TypeVariance.IN -> {
                     if (
-                        conf.intersectionTypesInContravariantPositions &&
+                        conf.approximateIntersectionTypesInContravariantPositions &&
                         effectiveVariance == TypeVariance.IN &&
-                        argumentType.typeConstructor().isIntersection()
+                        argumentType.typeConstructor().isIntersection() &&
+                        isIntersectionTypeEffectivelyNothing(argumentType.typeConstructor() as IntersectionTypeConstructorMarker)
                     ) {
-                        val argumentTypeConstructor = argumentType.typeConstructor()
-                        if (argumentTypeConstructor.isIntersection() && isIntersectionTypeEffectivelyNothing(argumentTypeConstructor as IntersectionTypeConstructorMarker)) {
-                            newArguments[index] = createStarProjection(parameter)
-                            continue@loop
-                        }
+                        newArguments[index] = createStarProjection(parameter)
+                        continue@loop
                     }
 
                     /**
@@ -561,7 +631,9 @@ abstract class AbstractTypeApproximator(
                      */
                     val approximatedArgument = if (isApproximateDirectionToSuper(effectiveVariance, toSuper)) {
                         val approximatedType = approximateToSuperType(argumentType, conf, depth)
-                        if (conf.intersection == TypeApproximatorConfiguration.IntersectionStrategy.TO_UPPER_BOUND_IF_SUPERTYPE
+                            ?.makeApproximatedFlexibleNotNullIfUpperBoundNotNull(argumentType, parameter, conf)
+
+                        if (conf.intersectionStrategy == TypeApproximatorConfiguration.IntersectionStrategy.TO_UPPER_BOUND_IF_SUPERTYPE
                             && argumentType.typeConstructor().isIntersection()
                             && parameter.getUpperBounds().all { AbstractTypeChecker.isSubtypeOf(ctx, argumentType, it) }
                         ) {
@@ -581,7 +653,7 @@ abstract class AbstractTypeApproximator(
                     }
 
                     if (
-                        conf.intersection != TypeApproximatorConfiguration.IntersectionStrategy.ALLOWED &&
+                        conf.intersectionStrategy != TypeApproximatorConfiguration.IntersectionStrategy.ALLOWED &&
                         effectiveVariance == TypeVariance.OUT &&
                         argumentType.typeConstructor().isIntersection()
                     ) {
@@ -643,8 +715,9 @@ abstract class AbstractTypeApproximator(
                     //  Inv<In<C>> <: Inv<in In<Any?>>
                     //
                     // So, both of the options are possible, but since such case is rare we will chose Inv<out In<Int>> for now
-                    val approximatedSuperType =
-                        approximateToSuperType(argumentType, conf, depth) ?: continue@loop // null means that this type we can leave as is
+                    val approximatedSuperType = approximateToSuperType(argumentType, conf, depth)
+                        ?.makeApproximatedFlexibleNotNullIfUpperBoundNotNull(argumentType, parameter, conf)
+                        ?: continue@loop // null means that this type we can leave as is
                     if (approximatedSuperType.isTrivialSuper()) {
                         val approximatedSubType =
                             approximateToSubType(argumentType, conf, depth) ?: continue@loop // seems like this is never null
@@ -668,6 +741,29 @@ abstract class AbstractTypeApproximator(
         val newArgumentsList = List(type.argumentsCount()) { index -> newArguments[index] ?: type.getArgument(index) }
         val approximatedType = type.replaceArguments(newArgumentsList)
         return approximateLocalTypes(approximatedType, conf, toSuper, depth) ?: approximatedType
+    }
+
+    private fun KotlinTypeMarker.makeApproximatedFlexibleNotNullIfUpperBoundNotNull(
+        nonApproximatedType: KotlinTypeMarker,
+        parameter: TypeParameterMarker,
+        conf: TypeApproximatorConfiguration,
+    ): KotlinTypeMarker {
+        if (!isK2 || !conf.approximateFlexible) {
+            return this
+        }
+
+        return applyIf(
+            nonApproximatedType.isFlexibleOrCapturedWithFlexibleSuperTypes() &&
+                    parameter.getUpperBounds().any { b -> !b.isNullableType() }) {
+            withNullability(false)
+        }
+    }
+
+    private fun KotlinTypeMarker.isFlexibleOrCapturedWithFlexibleSuperTypes(): Boolean {
+        return hasFlexibleNullability() ||
+                (asSimpleType()?.originalIfDefinitelyNotNullable()?.asCapturedType()?.typeConstructor()?.supertypes()?.all {
+                    it.hasFlexibleNullability()
+                } == true)
     }
 
     private fun shouldUseSubTypeForCapturedArgument(

@@ -5,13 +5,14 @@
 
 package org.jetbrains.kotlin.fir.backend
 
-import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.signaturer.FirBasedSignatureComposer
-import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
+import org.jetbrains.kotlin.ir.IrLock
+import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
 import org.jetbrains.kotlin.ir.symbols.*
-import org.jetbrains.kotlin.ir.util.SymbolTable
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,24 +22,23 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * See `/docs/fir/k2_kmp.md`
  */
-class Fir2IrCommonMemberStorage(firMangler: FirMangler) {
-    val firSignatureComposer = FirBasedSignatureComposer(firMangler)
+class Fir2IrCommonMemberStorage(val mangler: FirMangler) {
+    val lock: IrLock = IrLock()
 
-    val symbolTable = SymbolTable(signaturer = null, irFactory = IrFactoryImpl)
-
-    val classCache: MutableMap<FirRegularClass, IrClass> = mutableMapOf()
+    val classCache: MutableMap<FirRegularClass, IrClassSymbol> = mutableMapOf()
+    val notFoundClassCache: ConcurrentHashMap<ConeClassLikeLookupTag, IrClass> = ConcurrentHashMap()
 
     val typeParameterCache: MutableMap<FirTypeParameter, IrTypeParameter> = mutableMapOf()
 
-    val enumEntryCache: MutableMap<FirEnumEntry, IrEnumEntry> = mutableMapOf()
+    val enumEntryCache: MutableMap<FirEnumEntry, IrEnumEntrySymbol> = mutableMapOf()
 
     val localClassCache: MutableMap<FirClass, IrClass> = mutableMapOf()
 
     val functionCache: ConcurrentHashMap<FirFunction, IrSimpleFunctionSymbol> = ConcurrentHashMap()
+    val dataClassGeneratedFunctionsCache: ConcurrentHashMap<FirClass, Fir2IrDeclarationStorage.DataClassGeneratedFunctionsStorage> =
+        ConcurrentHashMap()
 
     val constructorCache: ConcurrentHashMap<FirConstructor, IrConstructorSymbol> = ConcurrentHashMap()
-
-    val fieldCache: ConcurrentHashMap<FirField, IrFieldSymbol> = ConcurrentHashMap()
 
     val propertyCache: ConcurrentHashMap<FirProperty, IrPropertySymbol> = ConcurrentHashMap()
     val syntheticPropertyCache: ConcurrentHashMap<FirFunction, IrPropertySymbol> = ConcurrentHashMap()
@@ -48,17 +48,35 @@ class Fir2IrCommonMemberStorage(firMangler: FirMangler) {
     val propertyForBackingFieldCache: ConcurrentHashMap<IrFieldSymbol, IrPropertySymbol> = ConcurrentHashMap()
     val delegateVariableForPropertyCache: ConcurrentHashMap<IrLocalDelegatedPropertySymbol, IrVariableSymbol> = ConcurrentHashMap()
 
-    val fakeOverridesInClass: MutableMap<IrClass, MutableMap<Fir2IrDeclarationStorage.FirOverrideKey, FirCallableDeclaration>> = mutableMapOf()
-
     val irForFirSessionDependantDeclarationMap: MutableMap<Fir2IrDeclarationStorage.FakeOverrideIdentifier, IrSymbol> = mutableMapOf()
 
-    fun registerFirProvider(moduleData: FirModuleData, firProvider: FirProviderWithGeneratedFiles) {
-        require(moduleData !in _previousFirProviders) { "FirProvider for $moduleData already registered"}
-        _previousFirProviders[moduleData] = firProvider
-    }
+    /**
+     * This map contains information about classes, which implement interfaces by delegation
+     *
+     * ```
+     * class Some(val a: A, b: B) : A by a, B by b
+     * ```
+     *
+     * delegatedClassesMap = {
+     *     Some -> {
+     *         A -> backingField of val a,
+     *         B -> field for delegate b
+     *     }
+     * }
+     */
+    val delegatedClassesInfo: MutableMap<IrClassSymbol, MutableMap<IrClassSymbol, IrFieldSymbol>> = mutableMapOf()
+    val firClassesWithInheritanceByDelegation: MutableSet<FirClass> = mutableSetOf()
 
-    val previousFirProviders: Map<FirModuleData, FirProviderWithGeneratedFiles>
-        get() = _previousFirProviders
+    /**
+     * Contains information about synthetic methods generated for data and value classes
+     * It will be used to generate bodies of those methods after fir2ir conversion is over
+     */
+    val generatedDataValueClassSyntheticFunctions: MutableMap<IrClass, DataValueClassGeneratedMembersInfo> = mutableMapOf()
 
-    private val _previousFirProviders: MutableMap<FirModuleData, FirProviderWithGeneratedFiles> = mutableMapOf()
+    data class DataValueClassGeneratedMembersInfo(
+        val components: Fir2IrComponents,
+        val firClass: FirRegularClass,
+        val origin: IrDeclarationOrigin,
+        val generatedFunctions: MutableList<IrSimpleFunction>
+    )
 }

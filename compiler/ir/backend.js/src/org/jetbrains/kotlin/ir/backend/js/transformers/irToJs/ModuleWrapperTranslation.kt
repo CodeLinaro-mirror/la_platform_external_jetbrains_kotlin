@@ -96,7 +96,7 @@ object ModuleWrapperTranslation {
         val selector = JsAstUtils.newJsIf(amdTest, amdBody, JsAstUtils.newJsIf(commonJsTest, commonJsBody, plainBlock))
         adapterBody.statements += selector
 
-        return listOf(JsInvocation(adapter, JsThisRef(), function).makeStmt())
+        return listOf(JsInvocation(adapter, JsName("globalThis", false).makeRef(), function).makeStmt())
     }
 
     private fun wrapAmd(
@@ -201,7 +201,7 @@ object ModuleWrapperTranslation {
         // TODO: we could use `this.moduleName` syntax. However, this does not work for `kotlin` module in Rhino, since
         // we run kotlin.js in a parent scope. Consider better solution
         return if (Namer.requiresEscaping(moduleId)) {
-            JsArrayAccess(JsThisRef(), JsStringLiteral(moduleId))
+            JsArrayAccess(JsName("globalThis", false).makeRef(), JsStringLiteral(moduleId))
         }
         else {
             program.scope.declareName(moduleId).makeRef()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,10 +8,11 @@ package org.jetbrains.kotlin.konan.test.blackbox.support.compilation
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.konan.properties.resolvablePropertyList
 import org.jetbrains.kotlin.konan.target.AppleConfigurables
+import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.withOSVersion
 import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.*
-import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allDependsOn
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allDependsOnDependencies
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation.Companion.applyFileCheckArgs
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation.Companion.applyPartialLinkageArgs
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation.Companion.applyTestRunnerSpecificArgs
@@ -33,11 +34,11 @@ private fun AssertionsMode.assertionsEnabledWith(optimizationMode: OptimizationM
     else -> optimizationMode != OptimizationMode.OPT
 }
 
-internal abstract class TestCompilation<A : TestCompilationArtifact> {
+abstract class TestCompilation<A : TestCompilationArtifact> {
     abstract val result: TestCompilationResult<out A>
 }
 
-internal abstract class BasicCompilation<A : TestCompilationArtifact>(
+abstract class BasicCompilation<A : TestCompilationArtifact>(
     protected val targets: KotlinNativeTargets,
     protected val home: KotlinNativeHome,
     private val classLoader: KotlinNativeClassLoader,
@@ -63,13 +64,19 @@ internal abstract class BasicCompilation<A : TestCompilationArtifact>(
     }
 
     private fun ArgsBuilder.applyCommonArgs() {
+        add("-kotlin-home", home.dir.absolutePath)
         add("-target", targets.testTarget.name)
         optimizationMode.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
         if (freeCompilerArgs.assertionsMode.assertionsEnabledWith(optimizationMode))
             add("-enable-assertions")
-        add(
-            "-Xverify-ir=error"
-        )
+
+        // Enable basic IR validation before all lowerings (IrValidationBeforeLoweringPhase)
+        // and after all lowerings (IrValidationAfterLoweringPhase).
+        add("-Xverify-ir=error")
+
+        // Additionally, validate IR after each compilation phase
+        add("-Xphases-to-validate-after=all")
+
         // We use dev distribution for tests as it provides a full set of testing utilities,
         // which might not be available in user distribution.
         add("-Xllvm-variant=dev")
@@ -184,7 +191,7 @@ internal abstract class BasicCompilation<A : TestCompilationArtifact>(
     }
 }
 
-internal abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
+abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
     targets: KotlinNativeTargets,
     home: KotlinNativeHome,
     classLoader: KotlinNativeClassLoader,
@@ -224,9 +231,9 @@ internal abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
     }
 
     override fun applyDependencies(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
-        addFlattened(dependencies.libraries) { library -> listOf("-l", library.path) }
         dependencies.friends.takeIf(Collection<*>::isNotEmpty)?.let { friends ->
             add("-friend-modules", friends.joinToString(File.pathSeparator) { friend -> friend.path })
+            addFlattened(friends) { friend -> listOf("-l", friend.path) }
         }
         add(dependencies.includedLibraries) { include -> "-Xinclude=${include.path}" }
         super.applyDependencies(argsBuilder)
@@ -236,7 +243,7 @@ internal abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
         if (pipelineType == PipelineType.K2 && freeCompilerArgs.compilerArgs.any { it == "-XXLanguage:+MultiPlatformProjects" }) {
             sourceModules.mapToSet { "-Xfragments=${it.name}" }
                 .sorted().forEach { add(it) }
-            sourceModules.flatMapToSet { module -> module.allDependsOn.map { "-Xfragment-refines=${module.name}:${it.name}" } }
+            sourceModules.flatMapToSet { module -> module.allDependsOnDependencies.map { "-Xfragment-refines=${module.name}:${it.name}" } }
                 .sorted().forEach { add(it) }
             sourceModules.flatMapToSet { module -> module.files.map { "-Xfragment-sources=${module.name}:${it.location.path}" } }
                 .sorted().forEach { add(it) }
@@ -269,14 +276,28 @@ internal class LibraryCompilation(
     dependencies = CategorizedDependencies(dependencies),
     expectedArtifact = expectedArtifact
 ) {
+    private val useHeaders: Boolean = settings.get<CacheMode>().useHeaders
     override val binaryOptions get() = BinaryOptions.RuntimeAssertionsMode.defaultForTesting(optimizationMode, freeCompilerArgs.assertionsMode)
 
     override fun applySpecificArgs(argsBuilder: ArgsBuilder) = with(argsBuilder) {
         add(
             "-produce", "library",
-            "-output", expectedArtifact.path
+            "-output", expectedArtifact.path,
         )
+        if (useHeaders) {
+            add("-Xheader-klib-path=${expectedArtifact.headerKlib.path}")
+        }
         super.applySpecificArgs(argsBuilder)
+    }
+
+    override fun applyDependencies(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
+        super.applyDependencies(argsBuilder)
+        addFlattened(dependencies.libraries) { library ->
+            listOf(
+                "-l",
+                library.headerKlib.takeIf { useHeaders && it.exists() }?.path ?: library.path
+            )
+        }
     }
 }
 
@@ -298,7 +319,7 @@ internal class ObjCFrameworkCompilation(
     gcType = settings.get(),
     gcScheduler = settings.get(),
     allocator = settings.get(),
-    pipelineType = settings.getStageDependentPipelineType(),
+    pipelineType = settings.getStageDependentPipelineType(sourceModules),
     cacheMode = settings.get(),
     freeCompilerArgs = freeCompilerArgs,
     compilerPlugins = settings.get(),
@@ -317,6 +338,7 @@ internal class ObjCFrameworkCompilation(
     }
 
     override fun applyDependencies(argsBuilder: ArgsBuilder) = with(argsBuilder) {
+        addFlattened(dependencies.libraries) { library -> listOf("-l", library.path) }
         exportedLibraries.forEach {
             assertTrue(it in dependencies.libraries)
             add("-Xexport-library=${it.path}")
@@ -330,7 +352,8 @@ internal class BinaryLibraryCompilation(
     freeCompilerArgs: TestCompilerArgs,
     sourceModules: Collection<TestModule>,
     dependencies: Iterable<TestCompilationDependency<*>>,
-    expectedArtifact: BinaryLibrary
+    expectedArtifact: BinaryLibrary,
+    private val kind: BinaryLibraryKind,
 ) : SourceBasedCompilation<BinaryLibrary>(
     targets = settings.get(),
     home = settings.get(),
@@ -342,7 +365,7 @@ internal class BinaryLibraryCompilation(
     gcType = settings.get(),
     gcScheduler = settings.get(),
     allocator = settings.get(),
-    pipelineType = settings.getStageDependentPipelineType(),
+    pipelineType = settings.getStageDependentPipelineType(sourceModules),
     cacheMode = settings.get(),
     freeCompilerArgs = freeCompilerArgs,
     compilerPlugins = settings.get(),
@@ -350,18 +373,31 @@ internal class BinaryLibraryCompilation(
     dependencies = CategorizedDependencies(dependencies),
     expectedArtifact = expectedArtifact
 ) {
+    private val cinterfaceMode = settings.get<CInterfaceMode>().compilerFlag
     override val binaryOptions get() = BinaryOptions.RuntimeAssertionsMode.defaultForTesting(optimizationMode, freeCompilerArgs.assertionsMode)
 
     override fun applySpecificArgs(argsBuilder: ArgsBuilder) = with(argsBuilder) {
-        val libraryKind = when (expectedArtifact.kind) {
-            BinaryLibrary.Kind.STATIC -> "static"
-            BinaryLibrary.Kind.DYNAMIC -> "dynamic"
+        if (kind == BinaryLibraryKind.DYNAMIC && targets.testTarget.family == Family.MINGW) {
+            val implib = expectedArtifact.libraryFile.run {
+                resolveSibling("${name}.a")
+            }
+            add("-linker-option", "-Wl,--out-implib,${implib.absolutePath}")
+        }
+        val libraryKind = when (kind) {
+            BinaryLibraryKind.STATIC -> "static"
+            BinaryLibraryKind.DYNAMIC -> "dynamic"
         }
         add(
             "-produce", libraryKind,
-            "-output", expectedArtifact.libraryFile.absolutePath
+            "-output", expectedArtifact.libraryFile.absolutePath,
+            cinterfaceMode
         )
         super.applySpecificArgs(argsBuilder)
+    }
+
+    override fun applyDependencies(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
+        super.applyDependencies(argsBuilder)
+        addFlattened(dependencies.libraries) { library -> listOf("-l", library.path) }
     }
 }
 
@@ -440,7 +476,7 @@ internal class CInteropCompilation(
     }
 }
 
-internal class SwiftCompilation<T: TestCompilationArtifact>(
+internal class SwiftCompilation<T : TestCompilationArtifact>(
     testRunSettings: Settings,
     sources: List<File>,
     expectedArtifact: T,
@@ -450,10 +486,13 @@ internal class SwiftCompilation<T: TestCompilationArtifact>(
     override val result: TestCompilationResult<out T> by lazy {
         val configs = testRunSettings.configurables as AppleConfigurables
         val swiftTarget = configs.targetTriple.withOSVersion(configs.osVersionMin).toString()
-        val args = swiftExtraOpts + sources.map { it.absolutePath } + listOf(
+
+        val optimizationModeFlags = swiftcOptimizationModeFlags(testRunSettings.get<OptimizationMode>())
+
+        val args = swiftExtraOpts + optimizationModeFlags + sources.map { it.absolutePath } + listOf(
             "-sdk", configs.absoluteTargetSysRoot, "-target", swiftTarget,
             "-o", outputFile(expectedArtifact).absolutePath,
-            "-g", // TODO https://youtrack.jetbrains.com/issue/KT-65436/K-N-ObjCExport-tests-use-various-optimization-flags-for-swiftc
+            "-g", // Xcode seems to pass -g even for optimized builds by default.
             "-Xcc", "-Werror", // To fail compilation on warnings in framework header.
         )
 
@@ -486,17 +525,33 @@ internal class SwiftCompilation<T: TestCompilationArtifact>(
         expectedArtifact.logFile.writeText(loggedCall.toString())
         immediateResult
     }
+
+    // This function tries to mimic Xcode default behavior,
+    // so that we test the same Kotlin+Swift flags combination as used in production.
+    private fun swiftcOptimizationModeFlags(optimizationMode: OptimizationMode): List<String> {
+        return when (optimizationMode) {
+            OptimizationMode.DEBUG -> listOf(
+                "-Xcc", "-DDEBUG=1", // -DDEBUG=1 for Clang, e.g. for C and Objective-C code
+                "-D", "DEBUG", // for Swift
+                "-Onone", // Optimization level
+            )
+            OptimizationMode.OPT -> listOf("-enable-default-cmo", "-O")
+            OptimizationMode.NO -> emptyList()
+        }
+        // TODO: swiftc has more variants of optimization flags, see
+        //   https://youtrack.jetbrains.com/issue/KT-65436/K-N-ObjCExport-tests-use-various-optimization-flags-for-swiftc
+    }
 }
 
-internal class ExecutableCompilation(
+abstract class FinalBinaryCompilation<A : TestCompilationArtifact>(
     settings: Settings,
+    cacheMode: CacheMode,
     freeCompilerArgs: TestCompilerArgs,
     sourceModules: Collection<TestModule>,
-    private val extras: Extras,
     dependencies: Iterable<TestCompilationDependency<*>>,
-    expectedArtifact: Executable,
+    expectedArtifact: A,
     override val tryPassSystemCacheDirectory: Boolean = true,
-) : SourceBasedCompilation<Executable>(
+) : SourceBasedCompilation<A>(
     targets = settings.get(),
     home = settings.get(),
     classLoader = settings.get(),
@@ -507,13 +562,36 @@ internal class ExecutableCompilation(
     gcType = settings.get(),
     gcScheduler = settings.get(),
     allocator = settings.get(),
-    pipelineType = settings.getStageDependentPipelineType(),
-    cacheMode = settings.get(),
+    pipelineType = settings.getStageDependentPipelineType(sourceModules),
+    cacheMode = cacheMode,
     freeCompilerArgs = freeCompilerArgs,
     compilerPlugins = settings.get(),
     sourceModules = sourceModules,
     dependencies = CategorizedDependencies(dependencies),
     expectedArtifact = expectedArtifact
+) {
+    override fun applyDependencies(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
+        super.applyDependencies(argsBuilder)
+        addFlattened(dependencies.libraries) { library -> listOf("-l", library.path) }
+    }
+}
+
+class ExecutableCompilation(
+    settings: Settings,
+    freeCompilerArgs: TestCompilerArgs,
+    sourceModules: Collection<TestModule>,
+    private val extras: Extras,
+    dependencies: Iterable<TestCompilationDependency<*>>,
+    expectedArtifact: Executable,
+    tryPassSystemCacheDirectory: Boolean = true,
+) : FinalBinaryCompilation<Executable>(
+    settings = settings,
+    cacheMode = settings.get(),
+    freeCompilerArgs = freeCompilerArgs,
+    sourceModules = sourceModules,
+    dependencies = dependencies,
+    expectedArtifact = expectedArtifact,
+    tryPassSystemCacheDirectory
 ) {
     override val binaryOptions = BinaryOptions.RuntimeAssertionsMode.chooseFor(cacheMode, optimizationMode, freeCompilerArgs.assertionsMode)
 
@@ -525,7 +603,9 @@ internal class ExecutableCompilation(
             "-output", expectedArtifact.path
         )
         when (extras) {
-            is NoTestRunnerExtras -> add("-entry", extras.entryPoint)
+            is NoTestRunnerExtras -> extras.entryPoint?.let {
+                add("-entry", it)
+            }
             is WithTestRunnerExtras -> {
                 val testDumpFile: File? = if (sourceModules.isEmpty()
                     && dependencies.includedLibraries.isNotEmpty()
@@ -548,12 +628,8 @@ internal class ExecutableCompilation(
         super.applySpecificArgs(argsBuilder)
     }
 
-    override fun applyDependencies(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
-        super.applyDependencies(argsBuilder)
-    }
-
     override fun postCompileCheck() {
-        expectedArtifact.assertTestDumpFileNotEmptyIfExists()
+        expectedArtifact.testDumpFile.assertTestDumpFileNotEmptyIfExists()
     }
 
     companion object {
@@ -567,10 +643,10 @@ internal class ExecutableCompilation(
             testDumpFile?.let { add("-Xdump-tests-to=$it") }
         }
 
-        internal fun Executable.assertTestDumpFileNotEmptyIfExists() {
-            if (testDumpFile.exists()) {
-                testDumpFile.useLines { lines ->
-                    assertTrue(lines.filter(String::isNotBlank).any()) { "Test dump file is empty: $testDumpFile" }
+        internal fun File.assertTestDumpFileNotEmptyIfExists() {
+            if (exists()) {
+                useLines { lines ->
+                    assertTrue(lines.filter(String::isNotBlank).any()) { "Test dump file is empty: $this" }
                 }
             }
         }
@@ -597,8 +673,9 @@ internal class StaticCacheCompilation(
     private val options: Options,
     private val pipelineType: PipelineType,
     dependencies: Iterable<TestCompilationDependency<*>>,
-    expectedArtifact: KLIBStaticCache,
     makePerFileCacheOverride: Boolean? = null,
+    private val createHeaderCache: Boolean = false,
+    expectedArtifact: KLIBStaticCache
 ) : BasicCompilation<KLIBStaticCache>(
     targets = settings.get(),
     home = settings.get(),
@@ -623,8 +700,10 @@ internal class StaticCacheCompilation(
 
     private val partialLinkageConfig: UsedPartialLinkageConfig = settings.get()
 
+    private val useHeaders: Boolean = settings.get<CacheMode>().useHeaders
+
     override fun applySpecificArgs(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
-        add("-produce", "static_cache")
+        add("-produce", if (createHeaderCache) "header_cache" else "static_cache")
         pipelineType.compilerFlags.forEach { compilerFlag -> add(compilerFlag) }
 
         when (options) {
@@ -650,18 +729,86 @@ internal class StaticCacheCompilation(
 
     override fun applyDependencies(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
         dependencies.friends.takeIf(Collection<*>::isNotEmpty)?.let { friends ->
-            add("-friend-modules", friends.joinToString(File.pathSeparator) { friend -> friend.path })
+            add("-friend-modules", friends.joinToString(File.pathSeparator) { friend -> friend.getHeaderKlibPathOrDefaultPath() })
         }
-        addFlattened(dependencies.cachedLibraries) { (_, library) -> listOf("-l", library.path) }
+        addFlattened(dependencies.cachedLibraries) { lib -> listOf("-l", lib.klib.getHeaderKlibPathOrDefaultPath()) }
         super.applyDependencies(argsBuilder)
     }
 
     override fun postCompileCheck() {
-        (options as? Options.ForIncludedLibraryWithTests)?.expectedExecutableArtifact?.assertTestDumpFileNotEmptyIfExists()
+        (options as? Options.ForIncludedLibraryWithTests)?.expectedExecutableArtifact?.testDumpFile?.assertTestDumpFileNotEmptyIfExists()
+    }
+
+    private fun KLIB.getHeaderKlibPathOrDefaultPath(): String = headerKlib.takeIf { useHeaders && it.exists() }?.path ?: path
+}
+
+internal class TestBundleCompilation(
+    val settings: Settings,
+    freeCompilerArgs: TestCompilerArgs,
+    sourceModules: Collection<TestModule>,
+    private val extras: Extras,
+    dependencies: Iterable<TestCompilationDependency<*>>,
+    expectedArtifact: XCTestBundle,
+    tryPassSystemCacheDirectory: Boolean = true,
+) : FinalBinaryCompilation<XCTestBundle>(
+    settings,
+    settings.get(),
+    freeCompilerArgs,
+    sourceModules,
+    dependencies,
+    expectedArtifact,
+    tryPassSystemCacheDirectory
+) {
+    override val binaryOptions = BinaryOptions.RuntimeAssertionsMode.chooseFor(cacheMode, optimizationMode, freeCompilerArgs.assertionsMode)
+
+    private val partialLinkageConfig: UsedPartialLinkageConfig = settings.get()
+
+    override fun applySpecificArgs(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
+        add(
+            "-produce", "test_bundle",
+            "-linker-option", "-F" + settings.get<XCTestRunner>().frameworksPath,
+            "-output", expectedArtifact.bundleDir.path,
+            "-Xbinary=bundleId=com.jetbrains.kotlin.${expectedArtifact.bundleDir.nameWithoutExtension}"
+        )
+        when (extras) {
+            is NoTestRunnerExtras -> error("XCTest supports only TestRunner extras")
+            is WithTestRunnerExtras -> {
+                val testDumpFile: File? = if (sourceModules.isEmpty()
+                    && dependencies.includedLibraries.isNotEmpty()
+                    && cacheMode.useStaticCacheForUserLibraries
+                ) {
+                    // If there are no source modules passed to the compiler, but there is an included library with the static cache, then
+                    // this should be two-stage test mode: Test functions are already stored in the included library, and they should
+                    // already have been dumped during generation of library's static cache.
+                    null // No, don't need to dump tests.
+                } else {
+                    expectedArtifact.testDumpFile // Yes, need to dump tests.
+                }
+                applyTestRunnerSpecificArgs(extras, testDumpFile)
+            }
+        }
+        applyPartialLinkageArgs(partialLinkageConfig)
+        applyFileCheckArgs(expectedArtifact.fileCheckStage, expectedArtifact.fileCheckDump)
+        super.applySpecificArgs(argsBuilder)
+    }
+
+    override fun postCompileCheck() {
+        expectedArtifact.testDumpFile.assertTestDumpFileNotEmptyIfExists()
+    }
+
+    companion object {
+        internal fun ArgsBuilder.applyTestRunnerSpecificArgs(extras: WithTestRunnerExtras, testDumpFile: File?) {
+            val testRunnerArg = when (extras.runnerType) {
+                TestRunnerType.DEFAULT -> "-generate-test-runner"
+                TestRunnerType.WORKER, TestRunnerType.NO_EXIT -> error("${extras.runnerType} runner is not supported in XCTest execution")
+            }
+            add(testRunnerArg)
+            testDumpFile?.let { add("-Xdump-tests-to=$it") }
+        }
     }
 }
 
-internal class CategorizedDependencies(uncategorizedDependencies: Iterable<TestCompilationDependency<*>>) {
+class CategorizedDependencies(uncategorizedDependencies: Iterable<TestCompilationDependency<*>>) {
     val failures: Set<TestCompilationResult.Failure> by lazy {
         uncategorizedDependencies.flatMapToSet { dependency ->
             when (val result = (dependency as? TestCompilation<*>)?.result) {
@@ -690,7 +837,7 @@ internal class CategorizedDependencies(uncategorizedDependencies: Iterable<TestC
     }
 
     val uniqueCacheDirs: Set<File> by lazy {
-        cachedLibraries.mapToSet { (libraryCacheDir, _) -> libraryCacheDir } // Avoid repeating the same directory more than once.
+        cachedLibraries.mapToSet { it.cacheDir } // Avoid repeating the same directory more than once.
     }
 
     private inline fun <reified A : TestCompilationArtifact, reified T : TestCompilationDependencyType<A>> Iterable<TestCompilationDependency<*>>.collectArtifacts(): List<A> {
@@ -711,8 +858,24 @@ private object BinaryOptions {
     }
 }
 
-internal fun Settings.getStageDependentPipelineType(): PipelineType =
+// Calculates PipelineType to be used for compilations involving native backend or C/ObjC export.
+// Second stage of TWO_STAGE_MULTI_MODULE must receive PipelineType.DEFAULT to be unaware of the language version used before, during first stage.
+internal fun Settings.getStageDependentPipelineType(sourceModules: Collection<TestModule>): PipelineType =
     when (get<TestMode>()) {
         TestMode.ONE_STAGE_MULTI_MODULE -> get<PipelineType>()
-        TestMode.TWO_STAGE_MULTI_MODULE -> PipelineType.DEFAULT  // Don't pass "-language_version" option to the second stage
+        TestMode.TWO_STAGE_MULTI_MODULE -> {
+            if (sourceModules.isEmpty())
+                PipelineType.DEFAULT // KT-56182: Don't pass "-language_version" option to pure second compilation stage.
+            else {
+                println(  // KT-66014: TODO change println() to fail{} if all testsuites in KT-66014 would be changed
+                    "WARNING: Wrong testing approach for `mode=TWO_STAGE_MULTI_MODULE`: test explicitly uses one-stage compilation for sources:\n" +
+                            "${sourceModules.map { it.files.map { it.location.name } }}\n" +
+                            "Please re-implement test to split compilation to two stages, when `mode=TWO_STAGE_MULTI_MODULE` is specified.\n" +
+                            "TestCompilationFactory provides some tooling for this."
+                )
+                // Provided source modules must be compiled with proper frontend version,
+                // even if this version would be then wrongly passed to backend or C/ObjC generator
+                get<PipelineType>()
+            }
+        }
     }

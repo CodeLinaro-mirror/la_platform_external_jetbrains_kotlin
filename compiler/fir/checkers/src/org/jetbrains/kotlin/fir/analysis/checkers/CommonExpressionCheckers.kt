@@ -38,6 +38,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
             FirAbstractSuperCallChecker,
             FirQualifiedSupertypeExtendedByOtherSupertypeChecker,
             FirProjectionsOnNonClassTypeArgumentChecker,
+            FirDataClassCopyUsageWillBecomeInaccessibleChecker,
             FirIncompatibleProjectionsOnTypeArgumentChecker,
             FirUpperBoundViolatedExpressionChecker,
             FirTypeArgumentsNotAllowedExpressionChecker,
@@ -54,6 +55,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
             FirMissingDependencyClassChecker,
             FirMissingDependencySupertypeInQualifiedAccessExpressionsChecker,
             FirArrayOfNothingQualifierChecker,
+            FirPrivateToThisAccessChecker,
         )
 
     override val callCheckers: Set<FirCallChecker>
@@ -100,11 +102,13 @@ object CommonExpressionCheckers : ExpressionCheckers() {
             FirWhenSubjectChecker,
             FirCommaInWhenConditionChecker,
             FirConfusingWhenBranchSyntaxChecker,
+            FirWhenGuardChecker,
         )
 
     override val loopExpressionCheckers: Set<FirLoopExpressionChecker>
         get() = setOf(
             FirLoopConditionChecker,
+            FirForLoopStatementAssignmentChecker
         )
 
     override val loopJumpCheckers: Set<FirLoopJumpChecker>
@@ -127,7 +131,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         get() = setOf(
             FirForLoopChecker,
             FirConflictsExpressionChecker,
-            FirSingleNamedFunctionChecker
+            FirSingleNamedFunctionChecker,
         )
 
     override val checkNotNullCallCheckers: Set<FirCheckNotNullCallChecker>
@@ -150,10 +154,14 @@ object CommonExpressionCheckers : ExpressionCheckers() {
             FirUnnecessarySafeCallChecker,
         )
 
+    override val smartCastExpressionCheckers: Set<FirSmartCastExpressionChecker>
+        get() = setOf(
+            FirDeprecatedSmartCastChecker
+        )
+
     override val typeOperatorCallCheckers: Set<FirTypeOperatorCallChecker>
         get() = setOf(
-            FirUselessTypeOperationCallChecker,
-            FirCastOperatorsChecker
+            FirCastOperatorsChecker,
         )
 
     override val resolvedQualifierCheckers: Set<FirResolvedQualifierChecker>
@@ -186,5 +194,15 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         get() = setOf(
             FirTypeArgumentsOfQualifierOfCallableReferenceChecker,
             FirCustomEnumEntriesMigrationReferenceChecker,
+        )
+
+    override val stringConcatenationCallCheckers: Set<FirStringConcatenationCallChecker>
+        get() = setOf(
+            FirMultiDollarInterpolationCheckerConcatenation,
+        )
+
+    override val literalExpressionCheckers: Set<FirLiteralExpressionChecker>
+        get() = setOf(
+            FirMultiDollarInterpolationCheckerLiteral,
         )
 }

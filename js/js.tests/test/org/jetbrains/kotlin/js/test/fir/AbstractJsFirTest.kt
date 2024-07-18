@@ -1,34 +1,33 @@
 package org.jetbrains.kotlin.js.test.fir
 
-import org.jetbrains.kotlin.js.test.JsSteppingTestAdditionalSourceProvider
-import org.jetbrains.kotlin.js.test.ir.AbstractJsBlackBoxCodegenTestBase
 import org.jetbrains.kotlin.js.test.converters.FirJsKlibBackendFacade
 import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade
 import org.jetbrains.kotlin.js.test.converters.incremental.RecompileModuleJsIrBackendFacade
-import org.jetbrains.kotlin.js.test.handlers.JsDebugRunner
 import org.jetbrains.kotlin.js.test.handlers.JsIrRecompiledArtifactsIdentityHandler
 import org.jetbrains.kotlin.js.test.handlers.JsWrongModuleHandler
 import org.jetbrains.kotlin.js.test.handlers.createFirJsLineNumberHandler
-import org.jetbrains.kotlin.js.test.ir.AbstractJsIrTest
+import org.jetbrains.kotlin.js.test.ir.AbstractJsBlackBoxCodegenTestBase
+import org.jetbrains.kotlin.js.test.utils.configureJsTypeScriptExportTest
+import org.jetbrains.kotlin.js.test.utils.configureLineNumberTests
+import org.jetbrains.kotlin.js.test.utils.configureSteppingTests
 import org.jetbrains.kotlin.parsing.parseBoolean
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.*
-import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
-import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
-import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
+import org.jetbrains.kotlin.test.directives.*
 import org.jetbrains.kotlin.test.frontend.fir.Fir2IrJsResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirMetaInfoDiffSuppressor
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
-import org.jetbrains.kotlin.test.frontend.fir.handlers.*
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgConsistencyHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgDumpHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDumpHandler
+import org.jetbrains.kotlin.test.frontend.fir.handlers.FirResolvedTypesVerifier
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.codegen.commonFirHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
-import org.jetbrains.kotlin.utils.bind
 import java.lang.Boolean.getBoolean
 
 
@@ -98,13 +97,13 @@ open class AbstractFirJsTest(
 
 open class AbstractFirPsiJsBoxTest : AbstractFirJsTest(
     pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/box/",
-    testGroupOutputDirPrefix = "firBox/",
+    testGroupOutputDirPrefix = "firPsiBox/",
     parser = FirParser.Psi,
 )
 
 open class AbstractFirLightTreeJsBoxTest : AbstractFirJsTest(
     pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/box/",
-    testGroupOutputDirPrefix = "firBox/",
+    testGroupOutputDirPrefix = "firLightTreeBox/",
     parser = FirParser.LightTree,
 )
 
@@ -124,26 +123,30 @@ open class AbstractFirJsCodegenBoxTest : AbstractFirJsTest(
     }
 }
 
-open class AbstractFirJsCodegenBoxErrorTest : AbstractFirJsTest(
-    pathToTestDir = "compiler/testData/codegen/boxError/",
-    testGroupOutputDirPrefix = "codegen/firBoxError/"
-)
-
 open class AbstractFirJsCodegenInlineTest : AbstractFirJsTest(
     pathToTestDir = "compiler/testData/codegen/boxInline/",
     testGroupOutputDirPrefix = "codegen/firBoxInline/"
 )
 
-// TODO: implement method order independent comparison to reuse testdata, disabled for now
-//open class AbstractFirJsTypeScriptExportTest : AbstractFirJsTest(
-//    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",
-//    testGroupOutputDirPrefix = "typescript-export/"
-//) {
-//    override fun configure(builder: TestConfigurationBuilder) {
-//        super.configure(builder)
-//        configureIrJsTypeScriptExportTest(builder)
-//    }
-//}
+open class AbstractFirJsTypeScriptExportTest : AbstractFirJsTest(
+    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",
+    testGroupOutputDirPrefix = "typescript-export/fir/"
+) {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        builder.configureJsTypeScriptExportTest()
+    }
+}
+
+open class AbstractFirJsES6TypeScriptExportTest : AbstractFirJsES6Test(
+    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",
+    testGroupOutputDirPrefix = "typescript-export/fir-es6"
+) {
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        builder.configureJsTypeScriptExportTest()
+    }
+}
 
 open class AbstractFirJsLineNumberTest : AbstractFirJsTest(
     pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/lineNumbers/",
@@ -151,17 +154,7 @@ open class AbstractFirJsLineNumberTest : AbstractFirJsTest(
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        with(builder) {
-            defaultDirectives {
-                +JsEnvironmentConfigurationDirectives.KJS_WITH_FULL_RUNTIME
-                +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
-                -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
-                JsEnvironmentConfigurationDirectives.DONT_RUN_GENERATED_CODE.with(listOf("JS", "JS_IR", "JS_IR_ES6"))
-            }
-            configureJsArtifactsHandlersStep {
-                useHandlers(::createFirJsLineNumberHandler)
-            }
-        }
+        builder.configureLineNumberTests(::createFirJsLineNumberHandler)
     }
 }
 
@@ -202,15 +195,7 @@ open class AbstractFirJsSteppingTest : AbstractFirJsTest(
 ) {
     override fun TestConfigurationBuilder.configuration() {
         commonConfigurationForJsBlackBoxCodegenTest()
-        defaultDirectives {
-            +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
-        }
-        useAdditionalSourceProviders(::JsSteppingTestAdditionalSourceProvider)
-        jsArtifactsHandlersStep {
-            useHandlers(
-                ::JsDebugRunner.bind(false)
-            )
-        }
+        configureSteppingTests()
     }
 }
 
@@ -218,3 +203,17 @@ open class AbstractFirJsCodegenWasmJsInteropTest : AbstractFirJsTest(
     pathToTestDir = "compiler/testData/codegen/wasmJsInterop/",
     testGroupOutputDirPrefix = "codegen/firWasmJsInteropJs/"
 )
+
+// TODO(KT-64570): Don't inherit from AbstractFirJsTest after we move the common prefix of lowerings before serialization.
+open class AbstractFirJsKlibSyntheticAccessorTest : AbstractFirJsTest(
+    pathToTestDir = "compiler/testData/klib/syntheticAccessors/",
+    testGroupOutputDirPrefix = "klib/syntheticAccessors-k2/",
+) {
+
+    override fun TestConfigurationBuilder.configuration() {
+        commonConfigurationForJsBlackBoxCodegenTest()
+        defaultDirectives {
+            +CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING
+        }
+    }
+}

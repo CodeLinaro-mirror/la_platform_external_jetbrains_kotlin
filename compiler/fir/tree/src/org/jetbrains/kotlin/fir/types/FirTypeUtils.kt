@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.ConstantValueKind
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
@@ -85,7 +86,7 @@ val FirTypeRef.isArrayType: Boolean
                 || StandardClassIds.unsignedArrayTypeByElementType.values.any { isBuiltinType(it, false) }
 
 val FirExpression.isNullLiteral: Boolean
-    get() = this is FirLiteralExpression<*> &&
+    get() = this is FirLiteralExpression &&
             this.kind == ConstantValueKind.Null &&
             this.value == null &&
             this.source != null
@@ -134,7 +135,7 @@ fun List<FirAnnotation>.dropExtensionFunctionAnnotation(): List<FirAnnotation> {
     return filterNot { it.isExtensionFunctionAnnotationCall }
 }
 
-fun ConeClassLikeType.toConstKind(): ConstantValueKind<*>? = when (lookupTag.classId) {
+fun ConeClassLikeType.toConstKind(): ConstantValueKind? = when (lookupTag.classId) {
     StandardClassIds.Byte -> ConstantValueKind.Byte
     StandardClassIds.Short -> ConstantValueKind.Short
     StandardClassIds.Int -> ConstantValueKind.Int
@@ -154,4 +155,28 @@ fun FirTypeProjection.toConeTypeProjection(): ConeTypeProjection = when (this) {
         type.toTypeProjection(this.variance)
     }
     else -> errorWithAttachment("Unexpected ${this::class.simpleName}") { withFirEntry("projection", this@toConeTypeProjection) }
+}
+
+fun ConeKotlinType.arrayElementType(checkUnsignedArrays: Boolean = true): ConeKotlinType? {
+    return when (val argument = arrayElementTypeArgument(checkUnsignedArrays)) {
+        is ConeKotlinTypeProjection -> argument.type
+        else -> null
+    }
+}
+
+fun ConeKotlinType.arrayElementTypeArgument(checkUnsignedArrays: Boolean = true): ConeTypeProjection? {
+    val type = this.lowerBoundIfFlexible()
+    if (type !is ConeClassLikeType) return null
+    val classId = type.lookupTag.classId
+    if (classId == StandardClassIds.Array) {
+        return type.typeArguments.first()
+    }
+    val elementType = StandardClassIds.elementTypeByPrimitiveArrayType[classId] ?: runIf(checkUnsignedArrays) {
+        StandardClassIds.elementTypeByUnsignedArrayType[classId]
+    }
+    if (elementType != null) {
+        return elementType.constructClassLikeType(emptyArray(), isNullable = false)
+    }
+
+    return null
 }

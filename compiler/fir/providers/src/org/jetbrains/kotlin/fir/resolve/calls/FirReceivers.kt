@@ -180,13 +180,16 @@ private fun receiverExpression(
         boundSymbol = symbol
         this.contextReceiverNumber = contextReceiverNumber
     }
+    val newSource = symbol.source?.fakeElement(KtFakeSourceElementKind.ImplicitThisReceiverExpression)
     return when (inaccessibleReceiver) {
         false -> buildThisReceiverExpression {
+            source = newSource
             this.calleeReference = calleeReference
             this.coneTypeOrNull = type
             isImplicit = true
         }
         true -> buildInaccessibleReceiverExpression {
+            source = newSource
             this.calleeReference = calleeReference
             this.coneTypeOrNull = type
         }
@@ -296,15 +299,15 @@ class ContextReceiverValueForClass(
 class ImplicitReceiverValueForScript(
     boundSymbol: FirScriptSymbol,
     type: ConeKotlinType,
-    labelName: Name?,
     useSiteSession: FirSession,
     scopeSession: ScopeSession,
     mutable: Boolean = true,
-    contextReceiverNumber: Int,
-) : ContextReceiverValue<FirScriptSymbol>(
-    boundSymbol, type, labelName, useSiteSession, scopeSession, mutable, contextReceiverNumber
-) {
-    override fun createSnapshot(keepMutable: Boolean): ContextReceiverValue<FirScriptSymbol> =
-        ImplicitReceiverValueForScript(boundSymbol, type, labelName, useSiteSession, scopeSession, keepMutable, contextReceiverNumber)
-}
+    receiverNumber: Int,
+) : ImplicitReceiverValue<FirScriptSymbol>(boundSymbol, type, useSiteSession, scopeSession, mutable, receiverNumber) {
 
+    override val isContextReceiver: Boolean
+        get() = false
+
+    override fun createSnapshot(keepMutable: Boolean): ImplicitReceiverValue<FirScriptSymbol> =
+        ImplicitReceiverValueForScript(boundSymbol, type, useSiteSession, scopeSession, keepMutable, contextReceiverNumber)
+}

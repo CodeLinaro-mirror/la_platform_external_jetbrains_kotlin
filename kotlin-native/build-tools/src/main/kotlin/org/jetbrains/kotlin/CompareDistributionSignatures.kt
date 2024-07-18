@@ -1,9 +1,13 @@
 package org.jetbrains.kotlin
 
+import kotlinBuildProperties
 import org.gradle.api.DefaultTask
+import org.gradle.api.Project
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 import org.jetbrains.kotlin.konan.target.HostManager
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -14,10 +18,40 @@ import java.nio.file.Paths
  * Compares SignatureIds of the current distribution and the given older one.
  * Can be used to validate that there are no unexpected breaking ABI changes.
  */
-open class CompareDistributionSignatures : DefaultTask() {
+abstract class CompareDistributionSignatures : DefaultTask() {
 
-    @Input
-    lateinit var oldDistribution: String
+    companion object {
+        @JvmStatic
+        fun registerForPlatform(project: Project, target: String) {
+            register(project, "${target}CheckPlatformAbiCompatibility", Libraries.Platform(target)) {
+                dependsOn("${target}PlatformLibs")
+            }
+        }
+
+        @JvmStatic
+        fun registerForStdlib(project: Project) {
+            register(project, "checkStdlibAbiCompatibility", Libraries.Standard) {
+                dependsOn("distRuntime")
+            }
+        }
+
+        private fun register(project: Project, name: String, libraries: Libraries, configure: CompareDistributionSignatures.() -> Unit) {
+            project.tasks.register(name, CompareDistributionSignatures::class.java) {
+                oldDistributionProperty.set(project.provider {
+                    val property = project.kotlinBuildProperties.getOrNull("anotherDistro") as String?
+                    property ?: error("'anotherDistro' property must be set in order to execute '$name' task")
+                })
+                this.libraries = libraries
+                configure(this)
+            }
+        }
+    }
+
+    @get:Input
+    abstract val oldDistributionProperty: Property<String>
+
+    private val oldDistribution
+        get() = oldDistributionProperty.get()
 
     private val newDistribution: String =
             project.kotlinNativeDist.absolutePath
@@ -28,7 +62,7 @@ open class CompareDistributionSignatures : DefaultTask() {
     }
 
     @Input
-    var onMismatchMode: OnMismatchMode = OnMismatchMode.NOTIFY
+    var onMismatchMode: OnMismatchMode = OnMismatchMode.FAIL
 
     sealed class Libraries {
         object Standard : Libraries()
@@ -153,12 +187,13 @@ open class CompareDistributionSignatures : DefaultTask() {
         val tool = if (HostManager.hostIsMingw) "klib.bat" else "klib"
         val klibTool = File("$newDistribution/bin/$tool").absolutePath
         val args = listOf("dump-metadata-signatures", klib.absolutePath, "-signature-version", "1")
-        val output = runProcess(localExecutor(project), klibTool, args)
-        if (output.exitCode != 0) {
-            logger.error(output.stdErr)
-            error("Execution failed with exit code: ${output.exitCode}")
+        ByteArrayOutputStream().use { stdout ->
+            project.exec {
+                commandLine(klibTool, *args.toTypedArray())
+                this.standardOutput = stdout
+            }.assertNormalExitValue()
+            return stdout.toString().lines().filter { it.isNotBlank() }
         }
-        return output.stdOut.lines().filter { it.isNotBlank() }
     }
 
     private fun looksLikeKotlinNativeDistribution(directory: Path): Boolean {

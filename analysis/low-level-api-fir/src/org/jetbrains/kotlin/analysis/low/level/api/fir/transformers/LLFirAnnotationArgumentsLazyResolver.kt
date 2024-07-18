@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.transformers
 
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.targets.LLFirResolveTarget
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirElementError
-import org.jetbrains.kotlin.analysis.low.level.api.fir.file.builder.LLFirLockProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.FirLazyBodiesCalculator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.lazy.resolve.NonLocalAnnotationVisitor
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirSession
@@ -20,25 +19,14 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.isError
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
-import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirResolveContextCollector
 import org.jetbrains.kotlin.fir.resolve.transformers.plugin.FirAnnotationArgumentsTransformer
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 
 internal object LLFirAnnotationArgumentsLazyResolver : LLFirLazyResolver(FirResolvePhase.ANNOTATION_ARGUMENTS) {
-    override fun resolve(
-        target: LLFirResolveTarget,
-        lockProvider: LLFirLockProvider,
-        scopeSession: ScopeSession,
-        towerDataContextCollector: FirResolveContextCollector?,
-    ) {
-        val resolver = LLFirAnnotationArgumentsTargetResolver(target, lockProvider, scopeSession, towerDataContextCollector)
-        resolver.resolveDesignation()
-    }
+    override fun createTargetResolver(target: LLFirResolveTarget): LLFirTargetResolver = LLFirAnnotationArgumentsTargetResolver(target)
 
     override fun phaseSpecificCheckIsResolved(target: FirElementWithResolveState) {
         if (target !is FirAnnotationContainer) return
@@ -53,9 +41,7 @@ internal object LLFirAnnotationArgumentsLazyResolver : LLFirLazyResolver(FirReso
                     checkAnnotationsAreResolved(target, receiverParameter.typeRef)
                 }
 
-                for (contextReceiver in target.contextReceivers) {
-                    checkAnnotationsAreResolved(target, contextReceiver.typeRef)
-                }
+                checkAnnotationsAreResolved(target.contextReceivers, target)
             }
 
             is FirTypeParameter -> {
@@ -64,28 +50,41 @@ internal object LLFirAnnotationArgumentsLazyResolver : LLFirLazyResolver(FirReso
                 }
             }
 
-            is FirClass -> {
+            is FirRegularClass -> {
                 for (typeRef in target.superTypeRefs) {
                     checkAnnotationsAreResolved(target, typeRef)
                 }
+
+                checkAnnotationsAreResolved(target.contextReceivers, target)
             }
 
-            is FirTypeAlias -> {
-                checkAnnotationsAreResolved(target, target.expandedTypeRef)
+            is FirScript -> for (receiver in target.receivers) {
+                checkAnnotationsAreResolved(receiver)
+                checkAnnotationsAreResolved(target, receiver.typeRef)
             }
+
+            is FirTypeAlias -> checkAnnotationsAreResolved(target, target.expandedTypeRef)
         }
     }
 }
 
-private class LLFirAnnotationArgumentsTargetResolver(
-    resolveTarget: LLFirResolveTarget,
-    lockProvider: LLFirLockProvider,
-    scopeSession: ScopeSession,
-    firResolveContextCollector: FirResolveContextCollector?,
-) : LLFirAbstractBodyTargetResolver(
+/**
+ * This resolver is responsible for [ANNOTATION_ARGUMENTS][FirResolvePhase.ANNOTATION_ARGUMENTS] phase.
+ *
+ * This resolver:
+ * - Transforms unresolved annotation arguments into resolved ones.
+ *   It includes both regular and type annotations.
+ *
+ * Before the transformation, the resolver [recreates][AnnotationArgumentsStateKeepers] all unresolved argument lists
+ * to prevent corrupted states due to [PCE][com.intellij.openapi.progress.ProcessCanceledException].
+ *
+ * @see postponedSymbolsForAnnotationResolution
+ * @see AnnotationArgumentsStateKeepers
+ * @see FirAnnotationArgumentsTransformer
+ * @see FirResolvePhase.ANNOTATION_ARGUMENTS
+ */
+private class LLFirAnnotationArgumentsTargetResolver(resolveTarget: LLFirResolveTarget) : LLFirAbstractBodyTargetResolver(
     resolveTarget,
-    lockProvider,
-    scopeSession,
     FirResolvePhase.ANNOTATION_ARGUMENTS,
 ) {
     /**
@@ -102,10 +101,9 @@ private class LLFirAnnotationArgumentsTargetResolver(
      */
     override val transformer = FirAnnotationArgumentsTransformer(
         resolveTargetSession,
-        scopeSession,
+        resolveTargetScopeSession,
         resolverPhase,
-        returnTypeCalculator = createReturnTypeCalculator(firResolveContextCollector = firResolveContextCollector),
-        firResolveContextCollector = firResolveContextCollector,
+        returnTypeCalculator = createReturnTypeCalculator(),
     )
 
     override fun doResolveWithoutLock(target: FirElementWithResolveState): Boolean {
@@ -118,8 +116,9 @@ private class LLFirAnnotationArgumentsTargetResolver(
             symbolsToResolve = buildList {
                 target.forEachDeclarationWhichCanHavePostponedSymbols {
                     addAll(it.postponedSymbolsForAnnotationResolution.orEmpty())
-                    addOriginalSymbolsForCopyDeclarations(it)
                 }
+
+                addSymbolsFromForeignAnnotations(target)
             }
         }
 
@@ -130,14 +129,12 @@ private class LLFirAnnotationArgumentsTargetResolver(
         return false
     }
 
-    private fun MutableList<FirBasedSymbol<*>>.addOriginalSymbolsForCopyDeclarations(target: FirCallableDeclaration) {
-        if (!target.isSubstitutionOrIntersectionOverride) return
-
+    private fun MutableList<FirBasedSymbol<*>>.addSymbolsFromForeignAnnotations(target: FirDeclaration) {
         // It is fine to just visit the declaration recursively as copy declarations don't have a body
         target.accept(ForeignAnnotationsCollector, ForeignAnnotationsContext(this, target.symbol))
     }
 
-    private class ForeignAnnotationsContext(val collection: MutableCollection<FirBasedSymbol<*>>, val currentSymbol: FirCallableSymbol<*>)
+    private class ForeignAnnotationsContext(val collection: MutableCollection<FirBasedSymbol<*>>, val currentSymbol: FirBasedSymbol<*>)
     private object ForeignAnnotationsCollector : NonLocalAnnotationVisitor<ForeignAnnotationsContext>() {
         override fun processAnnotation(annotation: FirAnnotation, data: ForeignAnnotationsContext) {
             if (annotation !is FirAnnotationCall) return
@@ -192,8 +189,12 @@ private class LLFirAnnotationArgumentsTargetResolver(
             }
 
             target is FirScript -> target.transformAnnotations(transformer.declarationsTransformer, ResolutionMode.ContextIndependent)
+            target is FirFile -> transformer.declarationsTransformer.withFile(target) {
+                target.transformAnnotations(transformer.declarationsTransformer, ResolutionMode.ContextIndependent)
+            }
+
             target.isRegularDeclarationWithAnnotation -> target.transformSingle(transformer, ResolutionMode.ContextIndependent)
-            target is FirCodeFragment || target is FirFile -> {}
+            target is FirCodeFragment -> {}
             else -> throwUnexpectedFirElementError(target)
         }
     }
@@ -204,7 +205,6 @@ internal val FirElementWithResolveState.isRegularDeclarationWithAnnotation: Bool
         is FirCallableDeclaration,
         is FirAnonymousInitializer,
         is FirDanglingModifierList,
-        is FirFileAnnotationsContainer,
         is FirTypeAlias,
         -> true
         else -> false

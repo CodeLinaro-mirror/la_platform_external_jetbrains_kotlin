@@ -16,7 +16,9 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirDiagnosticCompilerTestDataSpecTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataSpecTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirPreresolvedReversedScriptDiagnosticCompilerTestDataTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirReversedBlackBoxCodegenBasedTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirScriptDiagnosticCompilerTestDataTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractErrorResistanceTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractOutOfContentRootLazyDeclarationResolveScopeBasedTest
@@ -25,6 +27,13 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractScriptLaz
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractScriptWholeFileResolvePhaseTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractSourceLazyDeclarationResolveScopeBasedTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractSourceWholeFileResolvePhaseTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.extensions.AbstractResolveExtensionDisposalAfterModificationEventTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractCodeFragmentContextModificationLLFirSessionInvalidationTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractGlobalModuleStateModificationLLFirSessionInvalidationTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractGlobalSourceModuleStateModificationLLFirSessionInvalidationTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractGlobalSourceOutOfBlockModificationLLFirSessionInvalidationTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractModuleOutOfBlockModificationLLFirSessionInvalidationTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractModuleStateModificationLLFirSessionInvalidationTest
 import org.jetbrains.kotlin.generators.TestGroup
 import org.jetbrains.kotlin.generators.TestGroupSuite
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
@@ -61,6 +70,10 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             model("lazyResolve", pattern = TestGeneratorUtil.KTS)
         }
 
+        testClass<AbstractFirCustomScriptDefinitionLazyDeclarationResolveTest> {
+            model("lazyResolveCustomScriptDefinition", pattern = TestGeneratorUtil.KTS)
+        }
+
         testClass<AbstractSourceLazyTypeAnnotationsTest> {
             model("lazyResolveTypeAnnotations", pattern = TestGeneratorUtil.KT)
         }
@@ -87,6 +100,10 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractStdLibSourcesLazyDeclarationResolveTest> {
             model("lazyResolveStdlibSources")
+        }
+
+        testClass<AbstractBuiltinsBinaryLazyDeclarationResolveTest> {
+            model("lazyResolveBuiltinsBinary")
         }
 
         testClass<AbstractSourceLazyDeclarationResolveScopeBasedTest> {
@@ -278,8 +295,20 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             model("contextCollector", pattern = TestGeneratorUtil.KT)
         }
 
+        testClass<AbstractDependentContextCollectorSourceTest> {
+            model("contextCollector", pattern = TestGeneratorUtil.KT)
+        }
+
         testClass<AbstractContextCollectorScriptTest> {
             model("contextCollector", pattern = TestGeneratorUtil.KTS)
+        }
+
+        testClass<AbstractDependentContextCollectorScriptTest> {
+            model("contextCollector", pattern = TestGeneratorUtil.KTS)
+        }
+
+        testClass<AbstractResolveExtensionDisposalAfterModificationEventTest> {
+            model("resolveExtensionDisposal")
         }
     }
 
@@ -304,6 +333,19 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest>(suiteTestClassName = "LLFirPreresolvedReversedDiagnosticCompilerFirTestDataTestGenerated") {
             modelInit()
+        }
+    }
+
+    testGroup(
+        "analysis/low-level-api-fir/tests",
+        "plugins/scripting/scripting-tests/testData",
+    ) {
+        testClass<AbstractLLFirScriptDiagnosticCompilerTestDataTest> {
+            model("diagnostics/testScripts", pattern = TestGeneratorUtil.KTS)
+        }
+
+        testClass<AbstractLLFirPreresolvedReversedScriptDiagnosticCompilerTestDataTest>() {
+            model("diagnostics/testScripts", pattern = TestGeneratorUtil.KTS)
         }
     }
 
@@ -375,6 +417,33 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataSpecTest>(suiteTestClassName = "PreFirIdeSpecTestGenerated") {
             modelInit()
+        }
+    }
+
+    testGroup(testsRoot = "analysis/low-level-api-fir/tests", testDataRoot = "analysis/analysis-api/testData") {
+        // Session invalidation test data is shared with analysis session invalidation tests.
+        testClass<AbstractModuleStateModificationLLFirSessionInvalidationTest> {
+            model("sessions/sessionInvalidation")
+        }
+
+        testClass<AbstractModuleOutOfBlockModificationLLFirSessionInvalidationTest> {
+            model("sessions/sessionInvalidation")
+        }
+
+        testClass<AbstractGlobalModuleStateModificationLLFirSessionInvalidationTest> {
+            model("sessions/sessionInvalidation")
+        }
+
+        testClass<AbstractGlobalSourceModuleStateModificationLLFirSessionInvalidationTest> {
+            model("sessions/sessionInvalidation")
+        }
+
+        testClass<AbstractGlobalSourceOutOfBlockModificationLLFirSessionInvalidationTest> {
+            model("sessions/sessionInvalidation")
+        }
+
+        testClass<AbstractCodeFragmentContextModificationLLFirSessionInvalidationTest> {
+            model("sessions/sessionInvalidation")
         }
     }
 }

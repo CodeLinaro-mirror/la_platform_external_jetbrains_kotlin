@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.parcelize.test.runners
 
+import org.jetbrains.kotlin.parcelize.test.services.ParcelizeDirectives.ENABLE_PARCELIZE
 import org.jetbrains.kotlin.parcelize.test.services.ParcelizeEnvironmentConfigurator
 import org.jetbrains.kotlin.parcelize.test.services.ParcelizeMainClassProvider
 import org.jetbrains.kotlin.parcelize.test.services.ParcelizeRuntimeClasspathProvider
@@ -13,7 +14,6 @@ import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
-import org.jetbrains.kotlin.test.backend.handlers.FirIrDumpIdenticalChecker
 import org.jetbrains.kotlin.test.backend.handlers.IrTextDumpHandler
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.backend.ir.JvmIrBackendFacade
@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
 import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
 import org.jetbrains.kotlin.test.frontend.fir.Fir2IrJvmResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
+import org.jetbrains.kotlin.test.frontend.fir.FirMetaInfoDiffSuppressor
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
@@ -50,6 +51,7 @@ abstract class AbstractParcelizeBoxTestBase<R : ResultingArtifact.FrontendOutput
 
     override fun TestConfigurationBuilder.configuration() {
         defaultDirectives {
+            +ENABLE_PARCELIZE
             +REQUIRES_SEPARATE_PROCESS
             +REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO
         }
@@ -82,7 +84,7 @@ abstract class AbstractParcelizeBoxTestBase<R : ResultingArtifact.FrontendOutput
 
         useAdditionalServices(service<JvmBoxMainClassProvider>(::ParcelizeMainClassProvider))
 
-        useAfterAnalysisCheckers(::BlackBoxCodegenSuppressor, ::FirIrDumpIdenticalChecker)
+        useAfterAnalysisCheckers(::BlackBoxCodegenSuppressor)
 
         enableMetaInfoHandler()
     }
@@ -121,6 +123,7 @@ abstract class AbstractParcelizeFirBoxTestBase(val parser: FirParser) : Abstract
                 +ENABLE_PLUGIN_PHASES
                 FirDiagnosticsDirectives.FIR_PARSER with parser
             }
+            useAfterAnalysisCheckers(::FirMetaInfoDiffSuppressor)
         }
     }
 }

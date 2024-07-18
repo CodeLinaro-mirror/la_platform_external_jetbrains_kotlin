@@ -9,14 +9,20 @@ import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.konan.properties.resolvablePropertyList
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.konan.test.blackbox.support.ClassLevelProperty
 import org.jetbrains.kotlin.konan.test.blackbox.support.MutedOption
-import org.jetbrains.kotlin.konan.test.blackbox.support.TestKind
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.RunnerWithExecutor
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.NoopTestRunner
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.Runner
+import org.jetbrains.kotlin.native.executors.ExecuteRequest
+import org.jetbrains.kotlin.native.executors.RunProcessResult
+import org.jetbrains.kotlin.native.executors.runProcess
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.net.URLClassLoader
 import java.util.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -24,14 +30,14 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * The tested and the host Kotlin/Native targets.
  */
-internal class KotlinNativeTargets(val testTarget: KonanTarget, val hostTarget: KonanTarget) {
+class KotlinNativeTargets(val testTarget: KonanTarget, val hostTarget: KonanTarget) {
     fun areDifferentTargets() = testTarget != hostTarget
 }
 
 /**
  * The Kotlin/Native home.
  */
-internal class KotlinNativeHome(val dir: File) {
+class KotlinNativeHome(val dir: File) {
     val librariesDir: File = dir.resolve("klib")
     val stdlibFile: File = librariesDir.resolve("common/stdlib")
     val properties: Properties by lazy {
@@ -55,7 +61,7 @@ internal class LLDB(nativeHome: KotlinNativeHome) {
 /**
  * Lazy-initialized class loader with the Kotlin/Native embedded compiler.
  */
-internal class KotlinNativeClassLoader(private val lazyClassLoader: Lazy<ClassLoader>) {
+class KotlinNativeClassLoader(private val lazyClassLoader: Lazy<ClassLoader>) {
     val classLoader: ClassLoader get() = lazyClassLoader.value
 }
 
@@ -81,7 +87,7 @@ internal enum class TestMode(private val description: String) {
  * Kotlin compiler plugins to be used together with the the Kotlin/Native compiler.
  */
 @JvmInline
-internal value class CompilerPlugins(val compilerPluginJars: Set<File>) {
+value class CompilerPlugins(val compilerPluginJars: Set<File>) {
     init {
         val invalidJars = compilerPluginJars.filterNot { it.isDirectory || (it.isFile && it.extension == "jar") }
         assertTrue(invalidJars.isEmpty()) {
@@ -112,9 +118,16 @@ internal value class CustomKlibs(val klibs: Set<File>) {
 internal value class ForcedNoopTestRunner(val value: Boolean)
 
 /**
+ * Controls whether tests that support TestRunner should be executed once in the binary.
+ * Their execution result is shared between tests from the same test executable.
+ */
+@JvmInline
+internal value class SharedExecutionTestRunner(val value: Boolean)
+
+/**
  * Optimization mode to be applied.
  */
-internal enum class OptimizationMode(private val description: String, val compilerFlag: String?) {
+enum class OptimizationMode(private val description: String, val compilerFlag: String?) {
     DEBUG("Build with debug information", "-g"),
     OPT("Build with optimizations applied", "-opt"),
     NO("Don't use any specific optimizations", null);
@@ -125,7 +138,7 @@ internal enum class OptimizationMode(private val description: String, val compil
 /**
  * Thread state checked. Can be applied only with [OptimizationMode.DEBUG], [CacheMode.WithoutCache].
  */
-internal enum class ThreadStateChecker(val compilerFlag: String?) {
+enum class ThreadStateChecker(val compilerFlag: String?) {
     DISABLED(null),
     ENABLED("-Xbinary=checkStateAtExternalCalls=true");
 
@@ -135,7 +148,7 @@ internal enum class ThreadStateChecker(val compilerFlag: String?) {
 /**
  * Type of sanitizer. Can be applied only with [CacheMode.WithoutCache]
  */
-internal enum class Sanitizer(val compilerFlag: String?) {
+enum class Sanitizer(val compilerFlag: String?) {
     NONE(null),
     THREAD("-Xbinary=sanitizer=thread");
 
@@ -145,20 +158,17 @@ internal enum class Sanitizer(val compilerFlag: String?) {
 /**
  * Garbage collector type.
  */
-internal enum class GCType(val compilerFlag: String?) {
+enum class GCType(val compilerFlag: String?) {
     UNSPECIFIED(null),
     NOOP("-Xbinary=gc=noop"),
     STWMS("-Xbinary=gc=stwms"),
     PMCS("-Xbinary=gc=pmcs"),
-
-    // TODO: Remove these deprecated GC options.
-    STMS("-Xgc=stms"),
-    CMS("-Xgc=cms");
+    CMS("-Xbinary=gc=cms");
 
     override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
 }
 
-internal enum class GCScheduler(val compilerFlag: String?) {
+enum class GCScheduler(val compilerFlag: String?) {
     UNSPECIFIED(null),
     MANUAL("-Xbinary=gcSchedulerType=manual"),
     ADAPTIVE("-Xbinary=gcSchedulerType=adaptive"),
@@ -172,7 +182,7 @@ internal enum class GCScheduler(val compilerFlag: String?) {
     override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
 }
 
-internal enum class Allocator(val compilerFlag: String?) {
+enum class Allocator(val compilerFlag: String?) {
     UNSPECIFIED(null),
     STD("-Xallocator=std"),
     MIMALLOC("-Xallocator=mimalloc"),
@@ -198,10 +208,11 @@ internal class Timeouts(val executionTimeout: Duration) {
 /**
  * Used cache mode.
  */
-internal sealed class CacheMode {
+sealed class CacheMode {
     abstract val staticCacheForDistributionLibrariesRootDir: File?
     abstract val useStaticCacheForUserLibraries: Boolean
     abstract val makePerFileCaches: Boolean
+    abstract val useHeaders: Boolean
     abstract val alias: Alias
 
     val useStaticCacheForDistributionLibraries: Boolean get() = staticCacheForDistributionLibrariesRootDir != null
@@ -210,6 +221,7 @@ internal sealed class CacheMode {
         override val staticCacheForDistributionLibrariesRootDir: File? get() = null
         override val useStaticCacheForUserLibraries: Boolean get() = false
         override val makePerFileCaches: Boolean = false
+        override val useHeaders = false
         override val alias = Alias.NO
     }
 
@@ -219,8 +231,16 @@ internal sealed class CacheMode {
         optimizationMode: OptimizationMode,
         override val useStaticCacheForUserLibraries: Boolean,
         override val makePerFileCaches: Boolean,
+        override val useHeaders: Boolean,
         override val alias: Alias,
     ) : CacheMode() {
+        init {
+            assertFalse (optimizationMode == OptimizationMode.OPT) {
+                "Static caches are incompatible with `-P${ClassLevelProperty.OPTIMIZATION_MODE.propertyName}=${OptimizationMode.OPT.name}`.\n" +
+                "To test in ${OptimizationMode.OPT.name} mode, either don't specify `-P${ClassLevelProperty.CACHE_MODE.propertyName}`, or set it to ${Alias.NO.name}."
+            }
+        }
+
         override val staticCacheForDistributionLibrariesRootDir: File = File(distribution.klib)
             .resolve("cache")
             .resolve(
@@ -240,7 +260,7 @@ internal sealed class CacheMode {
         }
     }
 
-    enum class Alias { NO, STATIC_ONLY_DIST, STATIC_EVERYWHERE, STATIC_PER_FILE_EVERYWHERE }
+    enum class Alias { NO, STATIC_ONLY_DIST, STATIC_EVERYWHERE, STATIC_PER_FILE_EVERYWHERE, STATIC_USE_HEADERS_EVERYWHERE }
 
     companion object {
         fun defaultForTestTarget(distribution: Distribution, kotlinNativeTargets: KotlinNativeTargets): Alias {
@@ -268,7 +288,7 @@ internal sealed class CacheMode {
     }
 }
 
-internal enum class PipelineType(val mutedOption: MutedOption, val compilerFlags: List<String>) {
+enum class PipelineType(val mutedOption: MutedOption, val compilerFlags: List<String>) {
     DEFAULT(
         MutedOption.DEFAULT,
         emptyList()
@@ -285,7 +305,76 @@ internal enum class PipelineType(val mutedOption: MutedOption, val compilerFlags
     override fun toString() = if (compilerFlags.isEmpty()) "" else compilerFlags.joinToString(prefix = "(", postfix = ")", separator = " ")
 }
 
-internal enum class CompilerOutputInterceptor {
+enum class CompilerOutputInterceptor {
     DEFAULT,
     NONE
+}
+
+internal enum class TestGroupCreation {
+    DEFAULT,
+    EAGER;
+
+    companion object {
+        private const val PROPERTY = "kotlin.internal.native.test.eagerGroupCreation"
+
+        fun getFromProperty(): TestGroupCreation = System.getProperty(PROPERTY)
+            ?.let {
+                if (it.toBoolean()) EAGER
+                else DEFAULT
+            } ?: DEFAULT
+    }
+}
+
+internal enum class BinaryLibraryKind {
+    STATIC, DYNAMIC
+}
+
+internal enum class CInterfaceMode(val compilerFlag: String) {
+    V1("-Xbinary=cInterfaceMode=v1"),
+    NONE("-Xbinary=cInterfaceMode=none")
+}
+
+internal class XCTestRunner(val isEnabled: Boolean, private val nativeTargets: KotlinNativeTargets) {
+    /**
+     * Path to the developer frameworks directory.
+     */
+    val frameworksPath: String by lazy {
+        "${targetPlatform()}/Developer/Library/Frameworks/"
+    }
+
+    private fun targetPlatform(): String {
+        val xcodeTarget = when (val target = nativeTargets.testTarget) {
+            KonanTarget.MACOS_X64, KonanTarget.MACOS_ARM64 -> "macosx"
+            KonanTarget.IOS_X64, KonanTarget.IOS_SIMULATOR_ARM64 -> "iphonesimulator"
+            KonanTarget.IOS_ARM64 -> "iphoneos"
+            else -> error("Target $target is not supported buy the executor")
+        }
+
+        val result = try {
+            runProcess(
+                "/usr/bin/xcrun",
+                "--sdk",
+                xcodeTarget,
+                "--show-sdk-platform-path"
+            )
+        } catch (t: Throwable) {
+            throw IllegalStateException("Failed to run /usr/bin/xcrun process", t)
+        }
+
+        return result.stdout.trim()
+    }
+}
+
+internal class ReleasedCompiler(private val lazyNativeHome: Lazy<KotlinNativeHome>) {
+    val nativeHome: KotlinNativeHome get() = lazyNativeHome.value
+    val lazyClassloader: Lazy<URLClassLoader> = lazy {
+        val nativeClassPath = setOf(
+            nativeHome.dir.resolve("konan/lib/trove4j.jar"),
+            nativeHome.dir.resolve("konan/lib/kotlin-native-compiler-embeddable.jar")
+        )
+            .map { it.toURI().toURL() }
+            .toTypedArray()
+
+        URLClassLoader(nativeClassPath, null).apply { setDefaultAssertionStatus(true) }
+    }
 }

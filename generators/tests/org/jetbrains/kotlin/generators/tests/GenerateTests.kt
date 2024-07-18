@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.assignment.plugin.AbstractAssignmentPluginDiagnostic
 import org.jetbrains.kotlin.assignment.plugin.AbstractFirLightTreeBlackBoxCodegenTestForAssignmentPlugin
 import org.jetbrains.kotlin.assignment.plugin.AbstractFirPsiAssignmentPluginDiagnosticTest
 import org.jetbrains.kotlin.assignment.plugin.AbstractIrBlackBoxCodegenTestAssignmentPlugin
+import org.jetbrains.kotlin.compiler.plugins.AbstractPluginInteractionFirBlackBoxCodegenTest
 import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirLightTreePluginBlackBoxCodegenTest
 import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirLoadK2CompiledWithPluginJsKotlinTest
 import org.jetbrains.kotlin.fir.plugin.runners.AbstractFirLoadK2CompiledWithPluginJvmKotlinTest
@@ -44,6 +45,8 @@ import org.jetbrains.kotlin.parcelize.test.runners.*
 import org.jetbrains.kotlin.powerassert.AbstractFirLightTreeBlackBoxCodegenTestForPowerAssert
 import org.jetbrains.kotlin.powerassert.AbstractIrBlackBoxCodegenTestForPowerAssert
 import org.jetbrains.kotlin.samWithReceiver.*
+import org.jetbrains.kotlin.scripting.test.AbstractScriptWithCustomDefBlackBoxCodegenTest
+import org.jetbrains.kotlin.scripting.test.AbstractScriptWithCustomDefDiagnosticsTestBase
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuJsIrTest
 import org.jetbrains.kotlinx.atomicfu.AbstractAtomicfuJvmIrTest
@@ -54,12 +57,10 @@ private class ExcludePattern {
         private const val MEMBER_ALIAS = "(^removeMemberTypeAlias)|(^addMemberTypeAlias)"
 
         private const val ALL_EXPECT = "(^.*Expect.*)"
-        private const val COMPANION_CONSTANT = "(^companionConstantChanged)"
 
         internal val forK2 = listOf(
             ALL_EXPECT, // KT-63125 - Partially related to single-module expect-actual tests, but regexp is really wide
             MEMBER_ALIAS, // KT-55195 - Invalid for K2
-            COMPANION_CONSTANT // KT-56242 - Work in progress
         ).joinToString("|")
     }
 }
@@ -250,6 +251,10 @@ fun main(args: Array<String>) {
                 model("codegen")
             }
 
+            testClass<AbstractFirParcelizeBytecodeListingTest> {
+                model("codegen")
+            }
+
             testClass<AbstractParcelizeDiagnosticTest> {
                 model("diagnostics", excludedPattern = excludedFirTestdataPattern)
             }
@@ -408,6 +413,18 @@ fun main(args: Array<String>) {
             }
         }
 
+        testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
+            testClass<AbstractScriptWithCustomDefDiagnosticsTestBase> {
+                model("testData/diagnostics/testScripts", extension = "kts")
+            }
+        }
+
+        testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
+            testClass<AbstractScriptWithCustomDefBlackBoxCodegenTest> {
+                model("testData/codegen/testScripts", extension = "kts")
+            }
+        }
+
         testGroup("plugins/assign-plugin/tests-gen", "plugins/assign-plugin/testData") {
             testClass<AbstractAssignmentPluginDiagnosticTest> {
                 model("diagnostics", excludedPattern = excludedFirTestdataPattern)
@@ -420,6 +437,12 @@ fun main(args: Array<String>) {
             }
             testClass<AbstractFirLightTreeBlackBoxCodegenTestForAssignmentPlugin> {
                 model("codegen", excludedPattern = excludedFirTestdataPattern)
+            }
+        }
+
+        testGroup("plugins/plugins-interactions-testing/tests-gen", "plugins/plugins-interactions-testing/testData") {
+            testClass<AbstractPluginInteractionFirBlackBoxCodegenTest> {
+                model("box", excludedPattern = excludedFirTestdataPattern)
             }
         }
     }

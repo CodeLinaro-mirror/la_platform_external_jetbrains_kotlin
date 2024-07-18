@@ -9,6 +9,7 @@ import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.contracts.description.ConeContractDescriptionElement
+import org.jetbrains.kotlin.fir.declarations.FirDeprecationInfo
 import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithNullability
@@ -28,7 +29,6 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
-import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 
 sealed interface ConeUnresolvedError : ConeDiagnostic {
     val qualifier: String
@@ -109,12 +109,6 @@ open class ConeVisibilityError(
     override val symbol: FirBasedSymbol<*>
 ) : ConeDiagnosticWithSymbol<FirBasedSymbol<*>> {
     override val reason: String get() = "HIDDEN: ${describeSymbol(symbol)} is invisible"
-}
-
-open class ConeSetterVisibilityError(
-    override val symbol: FirPropertySymbol
-) : ConeDiagnosticWithSymbol<FirBasedSymbol<*>> {
-    override val reason: String get() = "HIDDEN SETTER: ${describeSymbol(symbol)} is invisible"
 }
 
 class ConeTypeVisibilityError(
@@ -199,7 +193,7 @@ sealed class ConeContractDescriptionError : ConeDiagnostic {
     }
 
     class IllegalConst(
-        val element: FirLiteralExpression<*>,
+        val element: FirLiteralExpression,
         val onlyNullAllowed: Boolean
     ) : ConeContractDescriptionError() {
         override val reason: String
@@ -341,17 +335,17 @@ class ConeUnresolvedParentInImport(val parentClassId: ClassId) : ConeDiagnostic 
 class ConeDeprecated(
     val source: KtSourceElement?,
     override val symbol: FirBasedSymbol<*>,
-    val deprecationInfo: DeprecationInfo
+    val deprecationInfo: FirDeprecationInfo
 ) : ConeDiagnosticWithSymbol<FirBasedSymbol<*>> {
-    override val reason: String get() = "Deprecated: ${deprecationInfo.message}"
+    override val reason: String get() = "Deprecated: ${deprecationInfo.deprecationLevel}"
 }
 
 class ConeLocalVariableNoTypeOrInitializer(val variable: FirVariable) : ConeDiagnostic {
     override val reason: String get() = "Cannot infer variable type without initializer / getter / delegate"
 }
 
-class ConePropertyAsOperator(val symbol: FirPropertySymbol) : ConeDiagnostic {
-    override val reason: String get() = "Cannot use a property as an operator"
+class ConeNotFunctionAsOperator(val symbol: FirBasedSymbol<*>) : ConeDiagnostic {
+    override val reason: String get() = "Cannot use not function as an operator"
 }
 
 class ConeUnknownLambdaParameterTypeDiagnostic : ConeDiagnostic {

@@ -8,13 +8,12 @@ package org.jetbrains.kotlin.gradle.tooling
 import com.android.build.gradle.BaseExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.file.ProjectLayout
 import org.gradle.api.internal.GeneratedSubclass
 import org.gradle.api.tasks.*
 import org.gradle.work.DisableCachingByDefault
-import org.jetbrains.kotlin.compilerRunner.konanVersion
 import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget
@@ -159,9 +158,11 @@ private fun buildTargetMetadataExtras(target: KotlinTarget): KotlinToolingMetada
 
 private fun buildJvmExtrasOrNull(target: KotlinTarget): KotlinToolingMetadata.ProjectTargetMetadata.JvmExtras? {
     if (target !is KotlinJvmTarget) return null
+    @Suppress("DEPRECATION")
     return KotlinToolingMetadata.ProjectTargetMetadata.JvmExtras(
         withJavaEnabled = target.withJavaEnabled,
-        jvmTarget = target.compilations.findByName(KotlinCompilation.MAIN_COMPILATION_NAME)?.kotlinOptions?.jvmTarget
+        jvmTarget = target.compilations.findByName(KotlinCompilation.MAIN_COMPILATION_NAME)
+            ?.compilerOptions?.options?.jvmTarget?.orNull?.target
     )
 }
 
@@ -186,7 +187,7 @@ private fun buildNativeExtrasOrNull(target: KotlinTarget): KotlinToolingMetadata
     if (target !is KotlinNativeTarget) return null
     return KotlinToolingMetadata.ProjectTargetMetadata.NativeExtras(
         konanTarget = target.konanTarget.name,
-        konanVersion = target.project.konanVersion,
+        konanVersion = target.project.nativeProperties.kotlinNativeVersion.get(),
         konanAbiVersion = KotlinAbiVersion.CURRENT.toString()
     )
 }

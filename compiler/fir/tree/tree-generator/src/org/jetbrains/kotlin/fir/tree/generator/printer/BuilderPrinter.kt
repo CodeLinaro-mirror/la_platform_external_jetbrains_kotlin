@@ -10,15 +10,16 @@ import org.jetbrains.kotlin.fir.tree.generator.firBuilderDslAnnotation
 import org.jetbrains.kotlin.fir.tree.generator.firImplementationDetailType
 import org.jetbrains.kotlin.fir.tree.generator.model.Element
 import org.jetbrains.kotlin.fir.tree.generator.model.Field
-import org.jetbrains.kotlin.fir.tree.generator.model.FieldWithDefault
 import org.jetbrains.kotlin.fir.tree.generator.model.Implementation
+import org.jetbrains.kotlin.fir.tree.generator.model.ListField
 import org.jetbrains.kotlin.fir.tree.generator.toMutableOrEmptyImport
 import org.jetbrains.kotlin.generators.tree.AbstractBuilderPrinter
 import org.jetbrains.kotlin.generators.tree.ClassRef
-import org.jetbrains.kotlin.generators.tree.ImportCollector
-import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.generators.tree.printer.ImportCollectingPrinter
 
-internal class BuilderPrinter(printer: SmartPrinter) : AbstractBuilderPrinter<Element, Implementation, FieldWithDefault, Field>(printer) {
+internal class BuilderPrinter(
+    printer: ImportCollectingPrinter
+) : AbstractBuilderPrinter<Element, Implementation, Field>(printer) {
 
     override val implementationDetailAnnotation: ClassRef<*>
         get() = firImplementationDetailType
@@ -28,18 +29,16 @@ internal class BuilderPrinter(printer: SmartPrinter) : AbstractBuilderPrinter<El
 
     override fun actualTypeOfField(field: Field) = field.getMutableType(forBuilder = true)
 
-    context(ImportCollector)
-    override fun SmartPrinter.printFieldReferenceInImplementationConstructorCall(field: FieldWithDefault) {
+    override fun ImportCollectingPrinter.printFieldReferenceInImplementationConstructorCall(field: Field) {
         print(field.name)
-        if (field.isMutableOrEmptyList) {
+        if (field is ListField && field.isMutableOrEmptyList) {
             addImport(toMutableOrEmptyImport)
             print(".toMutableOrEmpty()")
         }
     }
 
-    context(ImportCollector)
     override fun copyField(
-        field: FieldWithDefault,
+        field: Field,
         originalParameterName: String,
         copyBuilderVariableName: String
     ) {

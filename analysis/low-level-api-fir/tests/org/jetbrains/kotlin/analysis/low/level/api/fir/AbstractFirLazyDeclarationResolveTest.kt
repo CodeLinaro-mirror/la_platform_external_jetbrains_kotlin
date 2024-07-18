@@ -5,26 +5,28 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir
 
+import org.jetbrains.kotlin.analysis.low.level.api.fir.AbstractFirLazyDeclarationResolveTestCase.Directives.LAZY_MODE
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirCustomScriptDefinitionTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirOutOfContentRootTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirScriptTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.NO_RUNTIME
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.services.moduleStructure
 
 abstract class AbstractFirLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveOverAllPhasesTest() {
     override fun checkSession(firSession: LLFirResolveSession) {
         require(firSession.isSourceSession)
     }
 
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
-        doLazyResolveTest(mainFile, testServices, renderAllFiles = true) { firResolveSession ->
-            findFirDeclarationToResolve(mainFile, testServices.moduleStructure, testServices, firResolveSession)
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
+        doLazyResolveTest(mainFile, testServices, outputRenderingMode = OutputRenderingMode.ALL_FILES_FROM_ALL_MODULES) { firResolveSession ->
+            findFirDeclarationToResolve(mainFile, testServices, firResolveSession)
         }
     }
 
@@ -42,6 +44,12 @@ abstract class AbstractFirLazyDeclarationResolveTest : AbstractFirLazyDeclaratio
                     +NO_RUNTIME
                 }
             }
+
+            forTestsMatching("analysis/low-level-api-fir/testData/lazyResolve/withCallableMembers/*") {
+                defaultDirectives {
+                    LAZY_MODE.with(LazyResolveMode.WithCallableMembers)
+                }
+            }
         }
     }
 }
@@ -56,4 +64,10 @@ abstract class AbstractFirOutOfContentRootLazyDeclarationResolveTest : AbstractF
 
 abstract class AbstractFirScriptLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
     override val configurator = AnalysisApiFirScriptTestConfigurator(analyseInDependentSession = false)
+}
+
+abstract class AbstractFirCustomScriptDefinitionLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
+    override val configurator: AnalysisApiTestConfigurator = AnalysisApiFirCustomScriptDefinitionTestConfigurator(
+        analyseInDependentSession = false,
+    )
 }

@@ -46,7 +46,7 @@ if (includeJava9) {
 }
 
 compileKotlin {
-    kotlinOptions {
+    compilerOptions {
         freeCompilerArgs = [
                 "-Xallow-kotlin-package",
                 "-Xno-optimized-callable-references",
@@ -54,12 +54,11 @@ compileKotlin {
                 "-opt-in=kotlin.RequiresOptIn",
                 "-opt-in=org.jetbrains.kotlin.utils.addToStdlib.UnsafeCastFunction",
                 "-Xno-new-java-annotation-targets",
+                "-Xdont-warn-on-error-suppression",
         ]
         moduleName = "kotlin-reflection"
     }
 }
-
-LibrariesCommon.configureFrontendIr(project)
 
 jar {
     LibrariesCommon.manifestAttributes(project, manifest, "internal")

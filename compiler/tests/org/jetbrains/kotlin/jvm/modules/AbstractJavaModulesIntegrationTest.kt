@@ -12,22 +12,20 @@ import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.jvm.compiler.AbstractKotlinCompilerIntegrationTest
 import org.jetbrains.kotlin.test.KotlinTestUtils
+import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.jar.Manifest
 import kotlin.test.fail
 
 abstract class AbstractJavaModulesIntegrationTest(
-    private val jdkVersion: Int,
-    private val jdkHome: File,
     private val languageVersion: LanguageVersion,
 ) : AbstractKotlinCompilerIntegrationTest() {
+    private val jdkHome: File
+        get() = KtTestUtil.getJdk11Home()
+
     override val testDataPath: String
         get() = "compiler/testData/javaModules/"
-
-    protected open fun muteForK2(test: () -> Unit) {
-        test()
-    }
 
     private fun module(
         name: String,
@@ -70,15 +68,12 @@ abstract class AbstractJavaModulesIntegrationTest(
         )
     }
 
-
     private fun checkKotlinOutput(moduleName: String): (String) -> Unit {
         val expectedFirFile = File(testDataDirectory, "$moduleName.fir.txt")
         return { actual ->
             KotlinTestUtils.assertEqualsToFile(
                 if (languageVersion.usesK2 && expectedFirFile.exists()) expectedFirFile else File(testDataDirectory, "$moduleName.txt"),
                 getNormalizedCompilerOutput(actual, null, testDataPath, tmpdir.absolutePath)
-                    .replace((System.getenv("JDK_11_0") ?: System.getenv("JDK_11")).replace("\\", "/"), "\$JDK11")
-                    .replace((System.getenv("JDK_17_0") ?: System.getenv("JDK_17")).replace("\\", "/"), "\$JDK17")
             )
         }
     }
@@ -100,7 +95,7 @@ abstract class AbstractJavaModulesIntegrationTest(
         )
     }
 
-    private fun createMultiReleaseJar(jdkHome: File, destination: File, mainRoot: File, version: Int, versionSpecificRoot: File): File {
+    private fun createMultiReleaseJar(destination: File, mainRoot: File, version: Int, versionSpecificRoot: File): File {
         val command = listOf<String>(
             File(jdkHome, "bin/jar").path,
             "--create", "--file=$destination",
@@ -123,78 +118,12 @@ abstract class AbstractJavaModulesIntegrationTest(
         module("moduleB", listOf(a))
     }
 
-    // TODO (KT-60797): missing JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE.
-    fun testSimpleUseNonExportedPackage() = muteForK2 {
-        val a = module("moduleA")
-        module("moduleB", listOf(a))
-    }
-
-    fun testDependOnManyModules() {
-        val a = module("moduleA")
-        val b = module("moduleB")
-        val c = module("moduleC")
-        module("moduleD", listOf(a, b, c))
-    }
-
-    // TODO (KT-60797): missing JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE.
-    fun testUnnamedDependsOnNamed() = muteForK2 {
-        val a = module("moduleA")
-        module("moduleB", listOf(a), listOf("moduleA"))
-
-        // Also check that -Xadd-modules=ALL-MODULE-PATH has the same effect as -Xadd-module=moduleA, i.e. adds moduleA to the roots
-        module("moduleB", listOf(a), listOf("ALL-MODULE-PATH"))
-    }
-
     fun testAllModulePathAndNamedModule() {
         try {
             module("main", addModules = listOf("ALL-MODULE-PATH"))
         } catch (e: JavaCompilationError) {
             // Java compilation should fail, it's expected
         }
-    }
-
-    fun testJdkModulesFromNamed() {
-        module("main")
-    }
-
-    fun testJdkModulesFromUnnamed() {
-        module("main")
-    }
-
-    fun testUnnamedDoesNotReadNotAdded() {
-        // Test that although we have moduleA in the module path, it's not in the module graph
-        // because we did not provide -Xadd-modules=moduleA
-        module("moduleB", listOf(module("moduleA")), addModules = emptyList())
-    }
-
-    fun testReleaseFlagWrongValue() {
-        module("module5", additionalKotlinArguments = listOf("-Xjdk-release=5"), checkKotlinOutput = { output ->
-            assertTrue(output, "error: unknown JDK release version: 5" in output)
-            assertTrue(output, "error: unknown JVM target version: 5" in output)
-        })
-        if (jdkVersion == 11) {
-            module("module12", additionalKotlinArguments = listOf("-Xjdk-release=12"))
-        }
-    }
-
-    // TODO (KT-60797): missing JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE.
-    fun testAutomaticModuleInternalJdkPackageUsage() = muteForK2 {
-        module("jvmStatUsage")
-    }
-
-    fun testReleaseFlag() {
-        module("module")
-        module("module9", additionalKotlinArguments = listOf("-Xjdk-release=9"))
-        module("module11", additionalKotlinArguments = listOf("-Xjdk-release=11"))
-        if (jdkVersion == 17) {
-            module("module17", additionalKotlinArguments = listOf("-Xjdk-release=17"))
-        }
-        module("moduleSwing", additionalKotlinArguments = listOf("-Xjdk-release=9"))
-    }
-
-    fun testReleaseFlagConflict() {
-        module("module9", additionalKotlinArguments = listOf("-Xjdk-release=9", "-jvm-target=10"))
-        module("module11", additionalKotlinArguments = listOf("-Xjdk-release=11", "-jvm-target=10"))
     }
 
     fun testNamedReadsTransitive() {
@@ -209,19 +138,33 @@ abstract class AbstractJavaModulesIntegrationTest(
         module("moduleC", listOf(a, b), addModules = listOf("moduleB"))
     }
 
-    fun testNonTransitiveDoesNotAffectExplicitDependency() {
-        // In this test, D depends on C (which requires B non-transitively) and on B; also B transitively requires A.
-        // We check that if we depend on both C and B, we still transitively depend on A (via B).
-        // This is a check against an incorrectly implemented DFS which, upon entering C, would write off B as "visited"
-        // and not enter it later even though we explicitly depend on it in D's module-info
+    fun testInheritedDeclarationFromTwiceTransitiveDependency() {
+        // module A <-t- module B <-t- module C <--- module D
+
+        // Java: class A { String ok() { /* ... */ } }
         val a = module("moduleA")
+
+        // Java: class B extends A
         val b = module("moduleB", listOf(a))
+
         val c = module("moduleC", listOf(a, b))
-        module("moduleD", listOf(c, b, a))
+
+        // Java: new B().ok()
+        // Kotlin: B().ok()
+        val d = module("moduleD", listOf(a, b, c))
+
+        // validate the run-time behavior of Java-compiled code for the sake of comparison
+        val (javaStdout, javaStderr) = runModule("moduleD/d.JavaMain", listOf(d, c, b, a))
+        assertEquals("", javaStderr)
+        assertEquals("OK", javaStdout)
+
+        // test the run-time behavior of Kotlin-compiled code
+        val (kotlinStdout, kotlinStderr) = runModule("moduleD/d.KotlinMainKt", listOf(d, c, b, a))
+        assertEquals("", kotlinStderr)
+        assertEquals("OK", kotlinStdout)
     }
 
-    // TODO (KT-60797): missing JAVA_MODULE_DOES_NOT_EXPORT_PACKAGE.
-    fun testSpecifyPathToModuleInfoInArguments() = muteForK2 {
+    fun testSpecifyPathToModuleInfoInArguments() {
         val a = module("moduleA")
 
         val kotlinOptions = mutableListOf(
@@ -251,7 +194,7 @@ abstract class AbstractJavaModulesIntegrationTest(
             try {
                 // Use the name other from 'library' to prevent it from being loaded as an automatic module if module-info.class is not found.
                 val libraryJar = createMultiReleaseJar(
-                    jdkHome, File(tmpdir, "multi-release-library-jdk$version.jar"), libraryOut, version, libraryOut11
+                    File(tmpdir, "multi-release-library-jdk$version.jar"), libraryOut, version, libraryOut11
                 )
                 module("main", listOf(libraryJar))
             } catch (e: Throwable) {
@@ -352,15 +295,13 @@ abstract class AbstractJavaModulesIntegrationTest(
         })
     }
 
-    // TODO (KT-60797): missing JAVA_MODULE_DOES_NOT_DEPEND_ON_MODULE.
-    fun testNoDependencyOnNamed() = muteForK2 {
+    fun testNoDependencyOnNamed() {
         // This is a test on the JAVA_MODULE_DOES_NOT_DEPEND_ON_MODULE diagnostic.
         val lib = module("lib")
         module("main", listOf(lib), listOf("lib"))
     }
 
-    // TODO (KT-60797): missing JAVA_MODULE_DOES_NOT_READ_UNNAMED_MODULE.
-    fun testNoDependencyOnUnnamed() = muteForK2 {
+    fun testNoDependencyOnUnnamed() {
         // This is a test on the JAVA_MODULE_DOES_NOT_READ_UNNAMED_MODULE diagnostic.
         // Most of the other tests in this class are compiling modules to jars, however here we need to compile the module to a directory.
         // The reason is twofold:
@@ -373,5 +314,28 @@ abstract class AbstractJavaModulesIntegrationTest(
         // In this test we're checking the diagnostic about using symbols from unnamed modules, so we need to compile 'lib' to a directory.
         val lib = module("lib", destination = File(tmpdir, name))
         module("main", additionalKotlinArguments = listOf("-classpath", lib.path))
+    }
+
+    fun testNamedDoesNotReadAutomaticWithUnrelatedNamed() {
+        // This test should result in an error because 'main' does not depend on 'lib' or any other automatic module.
+        // But currently it's OK for compatibility, see KT-66622.
+        val lib = module("lib")
+        val unrelated = module("unrelated")
+        module("main", listOf(lib, unrelated))
+    }
+
+    fun testNamedDoesNotReadAutomaticWithTransitiveStdlib() {
+        // This test should result in an error because 'main' does not depend on 'lib' or any other automatic module.
+        // But currently it's OK for compatibility, see KT-66622.
+        val lib = module("lib")
+        module("main", listOf(lib))
+    }
+
+    fun testNamedReadsAutomaticWithUnrelatedAutomatic() {
+        // Similarly to how it works in javac, if we depend on one automatic module, we depend on all of them. So even though 'main' does
+        // not have explicit "requires lib", in fact it depends on 'lib' because it has "requires unrelated". So "OK" is expected.
+        val lib = module("lib")
+        val unrelated = module("unrelated")
+        module("main", listOf(lib, unrelated))
     }
 }

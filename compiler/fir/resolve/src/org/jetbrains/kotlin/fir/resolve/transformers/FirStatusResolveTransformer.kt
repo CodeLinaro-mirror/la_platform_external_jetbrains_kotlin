@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -32,7 +32,7 @@ class FirStatusResolveProcessor(
     session: FirSession,
     scopeSession: ScopeSession
 ) : FirTransformerBasedResolveProcessor(session, scopeSession, FirResolvePhase.STATUS) {
-    override val transformer = run {
+    override val transformer: FirStatusResolveTransformer = run {
         val statusComputationSession = StatusComputationSession()
         FirStatusResolveTransformer(
             session,
@@ -194,8 +194,8 @@ abstract class AbstractFirStatusResolveTransformer(
     private val isTransformerForLocalDeclarations: Boolean get() = scopeForLocalClass != null
 
     @PrivateForInline
-    val classes = mutableListOf<FirClass>()
-    val statusResolver = FirStatusResolver(session, scopeSession)
+    val classes: MutableList<FirClass> = mutableListOf()
+    val statusResolver: FirStatusResolver = FirStatusResolver(session, scopeSession)
 
     @OptIn(PrivateForInline::class)
     val containingClass: FirClass? get() = classes.lastOrNull()
@@ -326,7 +326,7 @@ abstract class AbstractFirStatusResolveTransformer(
         firClass.transformStatus(this, statusResolver.resolveStatus(firClass, containingClass, isLocal = false))
     }
 
-    fun forceResolveStatusesOfSupertypes(regularClass: FirClass) {
+    open fun forceResolveStatusesOfSupertypes(regularClass: FirClass) {
         for (superTypeRef in regularClass.superTypeRefs) {
             for (classifierSymbol in superTypeToSymbols(superTypeRef)) {
                 forceResolveStatusOfCorrespondingClass(classifierSymbol)
@@ -337,7 +337,7 @@ abstract class AbstractFirStatusResolveTransformer(
     /**
      * @return symbols which should be resolved to [FirResolvePhase.STATUS] phase
      */
-    protected open fun superTypeToSymbols(typeRef: FirTypeRef): List<FirClassifierSymbol<*>> {
+    protected open fun superTypeToSymbols(typeRef: FirTypeRef): Collection<FirClassifierSymbol<*>> {
         return listOfNotNull(typeRef.coneType.toSymbol(session))
     }
 
@@ -364,11 +364,11 @@ abstract class AbstractFirStatusResolveTransformer(
     }
 
     private fun forceResolveStatusesOfClass(regularClass: FirRegularClass) {
-        if (regularClass.origin is FirDeclarationOrigin.Java || regularClass.origin == FirDeclarationOrigin.Precompiled) {
+        if (regularClass.origin != FirDeclarationOrigin.Source) {
             /*
-             * If regular class has no corresponding file then it is platform class,
+             * If regular class has no corresponding file then it is platform or binary class,
              *   so we need to resolve supertypes of this class because they could
-             *   come from kotlin sources
+             *   come from kotlin sources (e.g. for java classes or cases of classpath substitution)
              */
             val statusComputationStatus = statusComputationSession[regularClass]
             if (!statusComputationStatus.requiresComputation) return
@@ -380,7 +380,6 @@ abstract class AbstractFirStatusResolveTransformer(
             return
         }
 
-        if (regularClass.origin != FirDeclarationOrigin.Source) return
         val statusComputationStatus = statusComputationSession[regularClass]
         if (!statusComputationStatus.requiresComputation) return
         if (!resolveClassForSuperType(regularClass)) return
@@ -430,8 +429,10 @@ abstract class AbstractFirStatusResolveTransformer(
         return transformDeclaration(constructor, data) as FirStatement
     }
 
-    override fun transformErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor, data: FirResolvedDeclarationStatus?) =
-        transformConstructor(errorPrimaryConstructor, data)
+    override fun transformErrorPrimaryConstructor(
+        errorPrimaryConstructor: FirErrorPrimaryConstructor,
+        data: FirResolvedDeclarationStatus?,
+    ): FirStatement = transformConstructor(errorPrimaryConstructor, data)
 
     override fun transformSimpleFunction(
         simpleFunction: FirSimpleFunction,

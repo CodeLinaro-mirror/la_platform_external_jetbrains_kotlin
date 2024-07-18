@@ -1,12 +1,12 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.generators.tree.config
 
 import org.jetbrains.kotlin.generators.tree.*
-import org.jetbrains.kotlin.generators.tree.config.AbstractImplementationConfigurator.ImplementationContext.DefaultValueContext
+import org.jetbrains.kotlin.generators.tree.imports.Importable
 import org.jetbrains.kotlin.utils.DummyDelegate
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
@@ -15,12 +15,10 @@ import kotlin.reflect.KProperty
  * Provides a DSL to configure builder classes for tree nodes, for example, add intermediate builders, or add default values
  * for properties in the generated builders.
  */
-abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField, ElementField>(
-    val elements: List<Element>,
+abstract class AbstractBuilderConfigurator<Element, Implementation, ElementField>(
+    val model: Model<Element>
 ) where Element : AbstractElement<Element, ElementField, Implementation>,
-        Implementation : AbstractImplementation<Implementation, Element, BuilderField>,
-        BuilderField : AbstractField<*>,
-        BuilderField : AbstractFieldWithDefaultValue<*>,
+        Implementation : AbstractImplementation<Implementation, Element, ElementField>,
         ElementField : AbstractField<ElementField> {
 
     /**
@@ -45,12 +43,7 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
      */
     abstract fun configureBuilders()
 
-    /**
-     * Must return a copy of [elementField] that will be used in builder configuration.
-     */
-    protected abstract fun builderFieldFromElementField(elementField: ElementField): BuilderField
-
-    val intermediateBuilders = mutableListOf<IntermediateBuilder<BuilderField, Element>>()
+    val intermediateBuilders = mutableListOf<IntermediateBuilder<ElementField, Element>>()
 
     /**
      * Provides a way to configure an intermediate builder class.
@@ -85,10 +78,10 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
 
     private fun Element.extractImplementation(type: String?): Implementation {
         return if (type == null) {
-            allImplementations.singleOrNull { it.kind?.hasLeafBuilder == true } ?: this@AbstractBuilderConfigurator.run {
+            implementations.singleOrNull { it.kind?.hasLeafBuilder == true } ?: this@AbstractBuilderConfigurator.run {
                 val message = buildString {
                     appendLine("${this@extractImplementation} has multiple implementations:")
-                    for (implementation in allImplementations) {
+                    for (implementation in implementations) {
                         appendLine("  - ${implementation.typeName}")
                     }
                     appendLine("Please specify implementation is needed")
@@ -96,10 +89,10 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
                 throw IllegalArgumentException(message)
             }
         } else {
-            allImplementations.firstOrNull { it.typeName == type } ?: this@AbstractBuilderConfigurator.run {
+            implementations.firstOrNull { it.typeName == type } ?: this@AbstractBuilderConfigurator.run {
                 val message = buildString {
                     appendLine("${this@extractImplementation} has not implementation $type. Existing implementations:")
-                    for (implementation in allImplementations) {
+                    for (implementation in implementations) {
                         appendLine("  - ${implementation.typeName}")
                     }
                     appendLine("Please specify implementation is needed")
@@ -117,18 +110,18 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
         element: Element,
         implementationPredicate: (Implementation) -> Boolean = { true }
     ): Collection<Implementation> {
-        return elements
-            .flatMap { it.allImplementations }
+        return model.elements
+            .flatMap { it.implementations }
             .mapNotNullTo(mutableSetOf()) { implementation ->
                 if (!implementationPredicate(implementation)) return@mapNotNullTo null
                 if (implementation.element == element) return@mapNotNullTo null
-                val hasElementInParents = implementation.element.traverseParentsUntil { it == element }
+                val hasElementInParents = implementation.element.isSubclassOf(element)
                 implementation.takeIf { hasElementInParents }
             }
     }
 
-    private val allLeafBuilders: List<LeafBuilder<BuilderField, Element, Implementation>>
-        get() = elements.flatMap { it.allImplementations }.mapNotNull { it.builder }
+    private val allLeafBuilders: List<LeafBuilder<ElementField, Element, Implementation>>
+        get() = model.elements.flatMap { it.implementations }.mapNotNull { it.builder }
 
     /**
      * Allows to batch-apply [config] to certain fields in _all_ the builders that satisfy the given
@@ -142,8 +135,8 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
      */
     protected fun configureFieldInAllLeafBuilders(
         field: String,
-        builderPredicate: ((LeafBuilder<BuilderField, Element, Implementation>) -> Boolean)? = null,
-        fieldPredicate: ((BuilderField) -> Boolean)? = null,
+        builderPredicate: ((LeafBuilder<ElementField, Element, Implementation>) -> Boolean)? = null,
+        fieldPredicate: ((ElementField) -> Boolean)? = null,
         config: LeafBuilderConfigurationContext.(field: String) -> Unit
     ) {
         for (builder in allLeafBuilders) {
@@ -169,9 +162,9 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
      * A DSL for configuring one or more intermediate or leaf builder classes.
      */
     protected abstract inner class BuilderConfigurationContext {
-        protected abstract val builder: Builder<BuilderField, Element>
+        protected abstract val builder: Builder<ElementField, Element>
 
-        private fun getField(name: String): BuilderField {
+        private fun getField(name: String): ElementField {
             return builder[name]
         }
 
@@ -247,7 +240,7 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
         /**
          * A DSL for configuring a field's default value.
          */
-        inner class DefaultValueContext(private val field: BuilderField) {
+        inner class DefaultValueContext(private val field: ElementField) {
 
             /**
              * The default value of this field in the builder class. Can be arbitrary code.
@@ -273,7 +266,7 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
      * ```
      */
     protected inner class IntermediateBuilderConfigurationContext(
-        override val builder: IntermediateBuilder<BuilderField, Element>
+        override val builder: IntermediateBuilder<ElementField, Element>
     ) : BuilderConfigurationContext() {
         inner class Fields {
 
@@ -281,7 +274,7 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
              * Copy all fields from [element] to this builder class.
              */
             infix fun from(element: Element): ExceptConfigurator {
-                builder.fields += element.allFields.map(this@AbstractBuilderConfigurator::builderFieldFromElementField)
+                builder.fields += element.allFields.map { it.copy() }
                 builder.packageName = "${element.packageName}.builder"
                 builder.materializedElement = element
                 return ExceptConfigurator()
@@ -315,21 +308,21 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
         /**
          * The list of parents of this intermediate builder. Can be used for adding builder superclasses to this builder class.
          */
-        val parents: MutableList<IntermediateBuilder<BuilderField, Element>>
+        val parents: MutableList<IntermediateBuilder<ElementField, Element>>
             get() = builder.parents
     }
 
     protected inner class IntermediateBuilderDelegateProvider(
         private val block: IntermediateBuilderConfigurationContext.() -> Unit
     ) {
-        lateinit var builder: IntermediateBuilder<BuilderField, Element>
+        lateinit var builder: IntermediateBuilder<ElementField, Element>
 
         operator fun provideDelegate(
             thisRef: Nothing?,
             prop: KProperty<*>
-        ): ReadOnlyProperty<Nothing?, IntermediateBuilder<BuilderField, Element>> {
+        ): ReadOnlyProperty<Nothing?, IntermediateBuilder<ElementField, Element>> {
             val name = namePrefix + prop.name.replaceFirstChar(Char::uppercaseChar)
-            builder = IntermediateBuilder<BuilderField, Element>(name, defaultBuilderPackage).apply {
+            builder = IntermediateBuilder<ElementField, Element>(name, defaultBuilderPackage).apply {
                 intermediateBuilders += this
                 IntermediateBuilderConfigurationContext(this).block()
             }
@@ -341,13 +334,13 @@ abstract class AbstractBuilderConfigurator<Element, Implementation, BuilderField
      * A DSL for configuring one or more leaf builder classes.
      */
     protected inner class LeafBuilderConfigurationContext(
-        override val builder: LeafBuilder<BuilderField, Element, Implementation>
+        override val builder: LeafBuilder<ElementField, Element, Implementation>
     ) : BuilderConfigurationContext() {
 
         /**
          * The list of parents of this leaf builder. Can be used for adding builder superclasses to this builder class.
          */
-        val parents: MutableList<IntermediateBuilder<BuilderField, Element>>
+        val parents: MutableList<IntermediateBuilder<ElementField, Element>>
             get() = builder.parents
 
         /**

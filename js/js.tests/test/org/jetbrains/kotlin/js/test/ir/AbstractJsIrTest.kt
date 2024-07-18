@@ -10,6 +10,9 @@ import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade
 import org.jetbrains.kotlin.js.test.converters.JsKlibBackendFacade
 import org.jetbrains.kotlin.js.test.converters.incremental.RecompileModuleJsIrBackendFacade
 import org.jetbrains.kotlin.js.test.handlers.*
+import org.jetbrains.kotlin.js.test.utils.configureJsTypeScriptExportTest
+import org.jetbrains.kotlin.js.test.utils.configureLineNumberTests
+import org.jetbrains.kotlin.js.test.utils.configureSteppingTests
 import org.jetbrains.kotlin.parsing.parseBoolean
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
@@ -17,6 +20,7 @@ import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.configureJsArtifactsHandlersStep
 import org.jetbrains.kotlin.test.builders.jsArtifactsHandlersStep
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontend2IrConverter
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFacade
@@ -87,48 +91,28 @@ open class AbstractIrJsCodegenBoxTest : AbstractJsIrTest(
     testGroupOutputDirPrefix = "codegen/irBox/"
 )
 
-open class AbstractIrJsCodegenBoxErrorTest : AbstractJsIrTest(
-    pathToTestDir = "compiler/testData/codegen/boxError/",
-    testGroupOutputDirPrefix = "codegen/irBoxError/"
-)
-
 open class AbstractIrJsCodegenInlineTest : AbstractJsIrTest(
     pathToTestDir = "compiler/testData/codegen/boxInline/",
     testGroupOutputDirPrefix = "codegen/irBoxInline/"
 )
 
 open class AbstractIrJsTypeScriptExportTest : AbstractJsIrTest(
-    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",
-    testGroupOutputDirPrefix = "typescript-export/"
+    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/js/",
+    testGroupOutputDirPrefix = "typescript-export/ir/"
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        configureIrJsTypeScriptExportTest(builder)
+        builder.configureJsTypeScriptExportTest()
     }
 }
 
 open class AbstractIrJsES6TypeScriptExportTest : AbstractJsIrES6Test(
-    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/",
-    testGroupOutputDirPrefix = "es6-typescript-export/"
+    pathToTestDir = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/js/",
+    testGroupOutputDirPrefix = "typescript-export/ir-es6/"
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        configureIrJsTypeScriptExportTest(builder)
-    }
-}
-
-private fun configureIrJsTypeScriptExportTest(builder: TestConfigurationBuilder) {
-    with(builder) {
-        defaultDirectives {
-            +JsEnvironmentConfigurationDirectives.GENERATE_DTS
-            if (getBoolean("kotlin.js.updateReferenceDtsFiles")) +JsEnvironmentConfigurationDirectives.UPDATE_REFERENCE_DTS_FILES
-        }
-
-        configureJsArtifactsHandlersStep {
-            useHandlers(
-                ::JsDtsHandler
-            )
-        }
+        builder.configureJsTypeScriptExportTest()
     }
 }
 
@@ -138,17 +122,7 @@ open class AbstractJsIrLineNumberTest : AbstractJsIrTest(
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
-        with(builder) {
-            defaultDirectives {
-                +JsEnvironmentConfigurationDirectives.KJS_WITH_FULL_RUNTIME
-                +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
-                -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
-                JsEnvironmentConfigurationDirectives.DONT_RUN_GENERATED_CODE.with(listOf("JS", "JS_IR", "JS_IR_ES6"))
-            }
-            configureJsArtifactsHandlersStep {
-                useHandlers(::createIrJsLineNumberHandler)
-            }
-        }
+        builder.configureLineNumberTests(::createIrJsLineNumberHandler)
     }
 }
 
@@ -209,15 +183,7 @@ open class AbstractIrJsSteppingTest : AbstractJsIrTest(
 ) {
     override fun TestConfigurationBuilder.configuration() {
         commonConfigurationForJsBlackBoxCodegenTest()
-        defaultDirectives {
-            +JsEnvironmentConfigurationDirectives.NO_COMMON_FILES
-        }
-        useAdditionalSourceProviders(::JsSteppingTestAdditionalSourceProvider)
-        jsArtifactsHandlersStep {
-            useHandlers(
-                ::JsDebugRunner.bind(false)
-            )
-        }
+        configureSteppingTests()
     }
 }
 
@@ -243,3 +209,17 @@ open class AbstractIrCodegenWasmJsInteropJsTest : AbstractJsIrTest(
     pathToTestDir = "compiler/testData/codegen/wasmJsInterop/",
     testGroupOutputDirPrefix = "codegen/irWasmJsInteropJs/"
 )
+
+// TODO(KT-64570): Don't inherit from AbstractJsIrTest after we move the common prefix of lowerings before serialization.
+open class AbstractClassicJsKlibSyntheticAccessorTest : AbstractJsIrTest(
+    pathToTestDir = "compiler/testData/klib/syntheticAccessors/",
+    testGroupOutputDirPrefix = "klib/syntheticAccessors-k1/",
+) {
+
+    override fun TestConfigurationBuilder.configuration() {
+        commonConfigurationForJsBlackBoxCodegenTest()
+        defaultDirectives {
+            +CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING
+        }
+    }
+}

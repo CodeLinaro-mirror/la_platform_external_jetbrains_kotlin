@@ -22,7 +22,7 @@ import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
 /**
- * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.klass]
+ * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.klass]
  */
 sealed class FirClass : FirClassLikeDeclaration(), FirStatement, FirTypeParameterRefsOwner, FirControlFlowGraphOwner {
     abstract override val source: KtSourceElement?
@@ -33,7 +33,7 @@ sealed class FirClass : FirClassLikeDeclaration(), FirStatement, FirTypeParamete
     abstract override val status: FirDeclarationStatus
     abstract override val deprecationsProvider: DeprecationsProvider
     abstract override val controlFlowGraphReference: FirControlFlowGraphReference?
-    abstract override val symbol: FirClassSymbol<out FirClass>
+    abstract override val symbol: FirClassSymbol<FirClass>
     abstract val classKind: ClassKind
     abstract val superTypeRefs: List<FirTypeRef>
     abstract val declarations: List<FirDeclaration>

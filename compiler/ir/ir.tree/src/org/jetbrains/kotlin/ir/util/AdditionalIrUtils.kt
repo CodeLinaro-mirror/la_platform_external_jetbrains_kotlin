@@ -5,12 +5,13 @@
 
 package org.jetbrains.kotlin.ir.util
 
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.symbols.*
-import org.jetbrains.kotlin.ir.symbols.impl.IrClassPublicSymbolImpl
+import org.jetbrains.kotlin.ir.symbols.impl.IrClassSymbolImpl
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
@@ -139,7 +140,7 @@ val IrClass.packageFqName: FqName?
     get() = symbol.signature?.packageFqName() ?: parent.getPackageFragment()?.packageFqName
 
 fun IrDeclarationWithName.hasEqualFqName(fqName: FqName): Boolean =
-    symbol.hasEqualFqName(fqName) || name == fqName.shortName() && when (val parent = parent) {
+    name == fqName.shortName() && when (val parent = parent) {
         is IrPackageFragment -> parent.packageFqName == fqName.parent()
         is IrDeclarationWithName -> parent.hasEqualFqName(fqName.parent())
         else -> false
@@ -152,7 +153,7 @@ fun IrDeclarationWithName.hasTopLevelEqualFqName(packageName: String, declaratio
     }
 
 fun IrSymbol.hasEqualFqName(fqName: FqName): Boolean {
-    return this is IrClassPublicSymbolImpl && with(signature as? IdSignature.CommonSignature ?: return false) {
+    return this is IrClassSymbol && with(signature as? IdSignature.CommonSignature ?: return false) {
         // optimized version of FqName("$packageFqName.$declarationFqName") == fqName
         val fqNameAsString = fqName.asString()
         fqNameAsString.length == packageFqName.length + 1 + declarationFqName.length &&
@@ -163,11 +164,13 @@ fun IrSymbol.hasEqualFqName(fqName: FqName): Boolean {
 }
 
 private fun IrSymbol.hasTopLevelEqualFqName(packageName: String, declarationName: String): Boolean {
-    return this is IrClassPublicSymbolImpl && with(signature as? IdSignature.CommonSignature ?: return false) {
+    return this is IrClassSymbol && with(signature as? IdSignature.CommonSignature ?: return false) {
         // optimized version of FqName("$packageFqName.$declarationFqName") == fqName
         packageFqName == packageName && declarationFqName == declarationName
     }
 }
+
+fun List<IrConstructorCall>.hasAnnotation(classId: ClassId): Boolean = hasAnnotation(classId.asSingleFqName())
 
 fun List<IrConstructorCall>.hasAnnotation(fqName: FqName): Boolean =
     any { it.annotationClass.hasEqualFqName(fqName) }
@@ -324,3 +327,12 @@ fun IrClassSymbol.getPropertySetter(name: String): IrSimpleFunctionSymbol? = own
 fun filterOutAnnotations(fqName: FqName, annotations: List<IrConstructorCall>): List<IrConstructorCall> {
     return annotations.filterNot { it.annotationClass.hasEqualFqName(fqName) }
 }
+
+fun IrFunction.isBuiltInSuspendCoroutine(): Boolean =
+    isTopLevelInPackage("suspendCoroutine", StandardNames.COROUTINES_PACKAGE_FQ_NAME)
+
+fun IrFunction.isBuiltInSuspendCoroutineUninterceptedOrReturn(): Boolean =
+    isTopLevelInPackage(
+        "suspendCoroutineUninterceptedOrReturn",
+        StandardNames.COROUTINES_INTRINSICS_PACKAGE_FQ_NAME
+    )

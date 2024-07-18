@@ -67,17 +67,16 @@ internal class LibraryBuilder(
     targetSrc: String,
     dependencies: List<TestCompilationArtifact.KLIB>
 ) : ArtifactBuilder<TestCompilationArtifact.KLIB>(test, rootDir, targetSrc, dependencies) {
-    var libraryVersion: String? = null
-
     override fun build(sourcesDir: File, outputDir: File, dependencies: List<TestCompilationArtifact.KLIB>) =
         test.compileToLibrary(
             sourcesDir,
             outputDir,
-            freeCompilerArgs = libraryVersion?.let { TestCompilerArgs(listOf("-library-version=$it")) } ?: TestCompilerArgs.EMPTY,
+            freeCompilerArgs = TestCompilerArgs.EMPTY,
             dependencies
         )
 }
 
+// WARNING: compiles in one-stage mode (sources->executable) even when `mode=TWO_STAGE_MULTI_MODULE`
 internal class ExecutableBuilder(
     test: AbstractNativeSimpleTest,
     rootDir: File,
@@ -91,8 +90,9 @@ internal class ExecutableBuilder(
         freeCompilerArgs.add(this)
     }
 
+    // WARNING: compiles in one-stage mode (sources->executable) even when `mode=TWO_STAGE_MULTI_MODULE`
     override fun build(sourcesDir: File, outputDir: File, dependencies: List<TestCompilationArtifact.KLIB>) =
-        test.compileToExecutable(
+        test.compileToExecutableInOneStage(
             sourcesDir,
             tryPassSystemCacheDirectory,
             freeCompilerArgs = if (freeCompilerArgs.isEmpty()) TestCompilerArgs.EMPTY else TestCompilerArgs(freeCompilerArgs),
@@ -101,7 +101,7 @@ internal class ExecutableBuilder(
 }
 
 internal val AbstractNativeSimpleTest.buildDir: File get() = testRunSettings.get<Binaries>().testBinariesDir
-internal val AbstractNativeSimpleTest.targets: KotlinNativeTargets get() = testRunSettings.get()
+val AbstractNativeSimpleTest.targets: KotlinNativeTargets get() = testRunSettings.get()
 
 internal fun TestCompilationArtifact.KLIB.asLibraryDependency() =
     ExistingDependency(this, TestCompilationDependencyType.Library)
@@ -141,16 +141,30 @@ internal fun AbstractNativeSimpleTest.cinteropToLibrary(
     outputDir: File,
     freeCompilerArgs: TestCompilerArgs
 ): TestCompilationResult<out TestCompilationArtifact.KLIB> {
-    val testCase: TestCase = generateCInteropTestCaseFromSingleDefFile(defFile, freeCompilerArgs)
+    val args = freeCompilerArgs + cinteropModulesCachePathArguments(freeCompilerArgs.cinteropArgs, outputDir)
+    val testCase: TestCase = generateCInteropTestCaseFromSingleDefFile(defFile, args)
     return CInteropCompilation(
         classLoader = testRunSettings.get(),
         targets = targets,
-        freeCompilerArgs = freeCompilerArgs,
+        freeCompilerArgs = args,
         defFile = testCase.modules.single().files.single().location,
         dependencies = emptyList(),
         expectedArtifact = getLibraryArtifact(testCase, outputDir)
     ).result
 }
+
+private fun cinteropModulesCachePathArguments(
+    cinteropArgs: List<String>,
+    outputDir: File,
+) = if (cinteropArgs.contains("-fmodules") && cinteropArgs.none { it.startsWith(FMODULES_CACHE_PATH_EQ) }) {
+    // Don't reuse the system-wide module cache to make the test run more predictably.
+    // See e.g. https://youtrack.jetbrains.com/issue/KT-68254.
+    TestCInteropArgs("-compiler-option", "$FMODULES_CACHE_PATH_EQ$outputDir/modulesCachePath")
+} else {
+    TestCompilerArgs.EMPTY
+}
+
+private const val FMODULES_CACHE_PATH_EQ = "-fmodules-cache-path="
 
 internal class CompiledExecutable(
     val testCase: TestCase,
@@ -161,26 +175,29 @@ internal class CompiledExecutable(
     val testExecutable by lazy { TestExecutable.fromCompilationResult(testCase, compilationResult) }
 }
 
-internal fun AbstractNativeSimpleTest.compileToExecutable(
+// WARNING: compiles in one-stage mode (sources->executable) even when `mode=TWO_STAGE_MULTI_MODULE`
+internal fun AbstractNativeSimpleTest.compileToExecutableInOneStage(
     sourcesDir: File,
     tryPassSystemCacheDirectory: Boolean,
     freeCompilerArgs: TestCompilerArgs,
     vararg dependencies: TestCompilationArtifact.KLIB
-) = compileToExecutable(sourcesDir, tryPassSystemCacheDirectory, freeCompilerArgs, dependencies.asList())
+) = compileToExecutableInOneStage(sourcesDir, tryPassSystemCacheDirectory, freeCompilerArgs, dependencies.asList())
 
-internal fun AbstractNativeSimpleTest.compileToExecutable(
+// WARNING: compiles in one-stage mode (sources->executable) even when `mode=TWO_STAGE_MULTI_MODULE`
+internal fun AbstractNativeSimpleTest.compileToExecutableInOneStage(
     sourcesDir: File,
     tryPassSystemCacheDirectory: Boolean,
     freeCompilerArgs: TestCompilerArgs,
     dependencies: List<TestCompilationArtifact.KLIB>
 ): CompiledExecutable {
     val testCase: TestCase = generateTestCaseWithSingleModule(sourcesDir, freeCompilerArgs)
-    val compilationResult = compileToExecutable(testCase, tryPassSystemCacheDirectory, dependencies.map { it.asLibraryDependency() })
+    val compilationResult = compileToExecutableInOneStage(testCase, tryPassSystemCacheDirectory, dependencies.map { it.asLibraryDependency() })
     return CompiledExecutable(testCase, compilationResult.assertSuccess())
 }
 
-internal fun AbstractNativeSimpleTest.compileToExecutable(testCase: TestCase, vararg dependencies: TestCompilationDependency<*>) =
-    compileToExecutable(testCase, true, dependencies.asList())
+// WARNING: compiles in one-stage mode (sources->executable) even when `mode=TWO_STAGE_MULTI_MODULE`
+internal fun AbstractNativeSimpleTest.compileToExecutableInOneStage(testCase: TestCase, vararg dependencies: TestCompilationDependency<*>) =
+    compileToExecutableInOneStage(testCase, true, dependencies.asList())
 
 internal fun AbstractNativeSimpleTest.compileToStaticCache(
     klib: TestCompilationArtifact.KLIB,
@@ -196,20 +213,25 @@ internal fun AbstractNativeSimpleTest.compileToStaticCache(
             this += klib.asLibraryDependency()
             dependencies.mapTo(this) { it.asStaticCacheDependency() }
         },
-        expectedArtifact = TestCompilationArtifact.KLIBStaticCache(cacheDir, klib)
+        expectedArtifact = TestCompilationArtifact.KLIBStaticCacheImpl(cacheDir, klib)
     )
     return compilation.result.assertSuccess().resultingArtifact
 }
 
+/**
+ * [sourcesRoot] points either to a .kt-file, or a folder.
+ *
+ * If it's present, then it's name (without .kt-extension, if it's a file) will be used as 'moduleName' for generated module.
+ */
 internal fun AbstractNativeSimpleTest.generateTestCaseWithSingleModule(
-    moduleDir: File?,
+    sourcesRoot: File?,
     freeCompilerArgs: TestCompilerArgs = TestCompilerArgs.EMPTY,
     extras: TestCase.Extras = TestCase.WithTestRunnerExtras(TestRunnerType.DEFAULT),
 ): TestCase {
-    val moduleName: String = moduleDir?.name ?: LAUNCHER_MODULE_NAME
+    val moduleName: String = sourcesRoot?.name?.removeSuffix(".kt") ?: LAUNCHER_MODULE_NAME
     val module = TestModule.Exclusive(moduleName, emptySet(), emptySet(), emptySet())
 
-    moduleDir?.walkTopDown()
+    sourcesRoot?.walkTopDown()
         ?.filter { it.isFile && it.extension == "kt" }
         ?.forEach { file -> module.files += TestFile.createCommitted(file, module) }
 
@@ -311,7 +333,7 @@ private fun AbstractNativeSimpleTest.compileToLibrary(
     return compilation.result.assertSuccess()
 }
 
-private fun AbstractNativeSimpleTest.compileToExecutable(
+private fun AbstractNativeSimpleTest.compileToExecutableInOneStage(
     testCase: TestCase,
     tryPassSystemCacheDirectory: Boolean,
     dependencies: List<TestCompilationDependency<*>>
@@ -328,8 +350,8 @@ private fun AbstractNativeSimpleTest.compileToExecutable(
     return compilation.result
 }
 
-internal fun getLibraryArtifact(testCase: TestCase, outputDir: File) =
-    TestCompilationArtifact.KLIB(outputDir.resolve(testCase.modules.first().name + ".klib"))
+internal fun getLibraryArtifact(testCase: TestCase, outputDir: File, packed: Boolean = true) =
+    TestCompilationArtifact.KLIB(outputDir.resolve(testCase.modules.first().name + if (packed) ".klib" else ""))
 
 private fun AbstractNativeSimpleTest.getExecutableArtifact() =
     TestCompilationArtifact.Executable(buildDir.resolve("app." + testRunSettings.get<KotlinNativeTargets>().testTarget.family.exeSuffix))

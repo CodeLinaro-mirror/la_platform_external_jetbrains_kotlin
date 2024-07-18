@@ -6,13 +6,8 @@
 package org.jetbrains.kotlin.sir.bridge
 
 import com.intellij.testFramework.TestDataFile
-import org.jetbrains.kotlin.sir.SirNominalType
-import org.jetbrains.kotlin.sir.SirParameter
-import org.jetbrains.kotlin.sir.SirType
-import org.jetbrains.kotlin.sir.builder.buildFunction
-import org.jetbrains.kotlin.sir.builder.buildGetter
-import org.jetbrains.kotlin.sir.builder.buildSetter
-import org.jetbrains.kotlin.sir.builder.buildVariable
+import org.jetbrains.kotlin.sir.*
+import org.jetbrains.kotlin.sir.builder.*
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.util.KtTestUtil
@@ -27,14 +22,25 @@ abstract class AbstractKotlinSirBridgeTest {
 
         val requests = parseRequestsFromTestDir(testPathFull)
 
-        val generator = createBridgeGenerator()
+        val generator = createBridgeGenerator(object : SirTypeNamer {
+            override fun swiftFqName(type: SirType): String {
+                TODO("Not yet implemented")
+            }
+
+            override fun kotlinFqName(type: SirType): String {
+                require(type is SirNominalType)
+                require(type.type.origin is SirOrigin.ExternallyDefined)
+                return type.type.name
+            }
+        })
         val kotlinBridgePrinter = createKotlinBridgePrinter()
         val cBridgePrinter = createCBridgePrinter()
 
         requests.forEach { request ->
-            val bridge = generator.generate(request)
-            kotlinBridgePrinter.add(bridge)
-            cBridgePrinter.add(bridge)
+            generator.generateFunctionBridges(request).forEach {
+                kotlinBridgePrinter.add(it)
+                cBridgePrinter.add(it)
+            }
         }
 
         val actualKotlinSrc = kotlinBridgePrinter.print().joinToString(separator = lineSeparator)
@@ -51,7 +57,7 @@ private fun parseRequestsFromTestDir(testDir: File): List<BridgeRequest> =
     testDir.listFiles()
         ?.filter { it.extension == "properties" && it.name.startsWith("request") }
         ?.map { readRequestFromFile(it) }
-        ?.sortedBy { it.bridgeName }
+        ?.sorted()
         ?: emptyList()
 
 private fun parseType(typeName: String): SirType {
@@ -67,6 +73,11 @@ private fun parseType(typeName: String): SirType {
         "ushort" -> SirSwiftModule.uint16
         "uint" -> SirSwiftModule.uint32
         "ulong" -> SirSwiftModule.uint64
+
+        "any" -> buildClass {
+            name = "MyClass"
+            origin = SirOrigin.ExternallyDefined(name="MyClass")
+        }
 
         else -> error("Unknown type: $typeName")
     }.let { SirNominalType(it) }
@@ -97,30 +108,34 @@ private fun readRequestFromFile(file: File): BridgeRequest {
             this.name = fqName.last()
             this.returnType = returnType
             this.parameters += parameters
-            this.isStatic = false
+            this.kind = SirCallableKind.FUNCTION
         }
         BridgeRequestKind.PROPERTY_GETTER -> {
-            val getter = buildGetter()
+            val getter = buildGetter {
+                this.kind = SirCallableKind.FUNCTION
+            }
 
             getter.parent = buildVariable {
                 this.name = fqName.last()
                 this.type = returnType
                 check(parameters.isEmpty())
-                this.isStatic = false
                 this.getter = getter
             }
 
             getter
         }
         BridgeRequestKind.PROPERTY_SETTER -> {
-            val setter = buildSetter()
+            val setter = buildSetter {
+                this.kind = SirCallableKind.FUNCTION
+            }
 
             setter.parent = buildVariable {
                 this.name = fqName.last()
                 this.type = returnType
                 check(parameters.isEmpty())
-                this.isStatic = false
-                this.getter = buildGetter()
+                this.getter = buildGetter {
+                    this.kind = SirCallableKind.FUNCTION
+                }
                 this.setter = setter
             }
 

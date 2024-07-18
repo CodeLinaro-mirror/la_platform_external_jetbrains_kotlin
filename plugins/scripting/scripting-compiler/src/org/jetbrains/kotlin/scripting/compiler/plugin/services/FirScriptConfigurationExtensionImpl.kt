@@ -6,19 +6,23 @@
 package org.jetbrains.kotlin.scripting.compiler.plugin.services
 
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.builder.Context
 import org.jetbrains.kotlin.fir.builder.FirScriptConfiguratorExtension
 import org.jetbrains.kotlin.fir.builder.FirScriptConfiguratorExtension.Factory
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.builder.*
+import org.jetbrains.kotlin.fir.declarations.builder.FirFileBuilder
+import org.jetbrains.kotlin.fir.declarations.builder.FirScriptBuilder
+import org.jetbrains.kotlin.fir.declarations.builder.buildProperty
+import org.jetbrains.kotlin.fir.declarations.builder.buildScriptReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
 import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
-import org.jetbrains.kotlin.fir.declarations.utils.SCRIPT_SPECIAL_NAME_STRING
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.moduleData
@@ -30,7 +34,8 @@ import org.jetbrains.kotlin.fir.types.builder.buildUserTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.fir.types.impl.FirQualifierPartImpl
 import org.jetbrains.kotlin.fir.types.impl.FirTypeArgumentListImpl
-import org.jetbrains.kotlin.fir.types.toFirResolvedTypeRef
+import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
+import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -47,32 +52,14 @@ import kotlin.script.experimental.host.StringScriptSource
 class FirScriptConfiguratorExtensionImpl(
     session: FirSession,
     // TODO: left here because it seems it will be needed soon, remove supression if used or remove the param if it is not the case
-    @Suppress("UNUSED_PARAMETER") hostConfiguration: ScriptingHostConfiguration,
+    @Suppress("UNUSED_PARAMETER", "unused") hostConfiguration: ScriptingHostConfiguration,
 ) : FirScriptConfiguratorExtension(session) {
 
-    @OptIn(SymbolInternals::class)
     override fun FirScriptBuilder.configureContainingFile(fileBuilder: FirFileBuilder) {
-        val sourceFile = fileBuilder.sourceFile ?: return
-        val configuration = getOrLoadConfiguration(sourceFile) ?: run {
-            log.warn("Configuration for ${sourceFile.asString()} wasn't found. FirScriptBuilder wasn't configured.")
-            return
-        }
-
-        configuration[ScriptCompilationConfiguration.defaultImports]?.forEach { defaultImport ->
-            val trimmed = defaultImport.trim()
-            val endsWithStar = trimmed.endsWith("*")
-            val stripped = if (endsWithStar) trimmed.substring(0, trimmed.length - 2) else trimmed
-            val fqName = FqName.fromSegments(stripped.split("."))
-            fileBuilder.imports += buildImport {
-                source = fileBuilder.source?.fakeElement(KtFakeSourceElementKind.ImplicitImport)
-                importedFqName = fqName
-                isAllUnder = endsWithStar
-            }
-        }
     }
 
     @OptIn(SymbolInternals::class)
-    override fun FirScriptBuilder.configure(sourceFile: KtSourceFile) {
+    override fun FirScriptBuilder.configure(sourceFile: KtSourceFile, context: Context<PsiElement>) {
         val configuration = getOrLoadConfiguration(sourceFile) ?: run {
             log.warn("Configuration for ${sourceFile.asString()} wasn't found. FirScriptBuilder wasn't configured.")
             return
@@ -81,7 +68,7 @@ class FirScriptConfiguratorExtensionImpl(
         // TODO: rewrite/extract decision logic for clarity
         configuration.getNoDefault(ScriptCompilationConfiguration.baseClass)?.let { baseClass ->
             val baseClassFqn = FqName.fromSegments(baseClass.typeName.split("."))
-            contextReceivers.add(buildContextReceiverWithFqName(baseClassFqn, Name.special(SCRIPT_SPECIAL_NAME_STRING)))
+            receivers.add(buildImplicitReceiverWithFqName(baseClassFqn, isBaseClassReceiver = true))
 
             val baseClassSymbol =
                 session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(ClassId(baseClassFqn.parent(), baseClassFqn.shortName()))
@@ -93,7 +80,7 @@ class FirScriptConfiguratorExtensionImpl(
                         buildProperty {
                             moduleData = session.moduleData
                             source = this@configure.source?.fakeElement(KtFakeSourceElementKind.ScriptParameter)
-                            origin = FirDeclarationOrigin.ScriptCustomization.Parameter
+                            origin = FirDeclarationOrigin.ScriptCustomization.ParameterFromBaseClass
                             // TODO: copy type parameters?
                             returnTypeRef = baseCtorParameter.returnTypeRef
                             name = baseCtorParameter.name
@@ -108,7 +95,12 @@ class FirScriptConfiguratorExtensionImpl(
         }
 
         configuration[ScriptCompilationConfiguration.implicitReceivers]?.forEach { implicitReceiver ->
-            contextReceivers.add(buildContextReceiverWithFqName(FqName.fromSegments(implicitReceiver.typeName.split("."))))
+            receivers.add(
+                buildImplicitReceiverWithFqName(
+                    FqName.fromSegments(implicitReceiver.typeName.split(".")),
+                    isBaseClassReceiver = false
+                )
+            )
         }
 
         configuration[ScriptCompilationConfiguration.providedProperties]?.forEach { (propertyName, propertyType) ->
@@ -155,7 +147,7 @@ class FirScriptConfiguratorExtensionImpl(
                 declarations.add(
                     buildProperty {
                         this.name = Name.identifier(resultFieldName)
-                        this.symbol = FirPropertySymbol(this.name)
+                        this.symbol = FirPropertySymbol(CallableId(context.packageFqName, this.name))
                         source = lastScriptBlock?.source
                         moduleData = session.moduleData
                         origin = FirDeclarationOrigin.ScriptCustomization.ResultProperty
@@ -194,9 +186,9 @@ class FirScriptConfiguratorExtensionImpl(
         return configuration
     }
 
-    private fun buildContextReceiverWithFqName(classFqn: FqName, customName: Name? = null) =
-        buildContextReceiver {
-            typeRef = buildUserTypeRef {
+    private fun buildImplicitReceiverWithFqName(classFqn: FqName, isBaseClassReceiver: Boolean) =
+        buildScriptReceiverParameter {
+            val userTypeRef = buildUserTypeRef {
                 isMarkedNullable = false
                 qualifier.addAll(
                     classFqn.pathSegments().map {
@@ -204,9 +196,8 @@ class FirScriptConfiguratorExtensionImpl(
                     }
                 )
             }
-            if (customName != null) {
-                customLabelName = customName
-            }
+            typeRef = userTypeRef
+            this.isBaseClassReceiver = isBaseClassReceiver
         }
 
     private val _knownAnnotationsForSamWithReceiver = hashSetOf<String>()

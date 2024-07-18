@@ -10,6 +10,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.*
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.tree.TokenSet
+import com.intellij.psi.util.descendants
 import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -17,6 +18,9 @@ import org.jetbrains.kotlin.lexer.KtTokens.MODALITY_MODIFIERS
 import org.jetbrains.kotlin.lexer.KtTokens.VISIBILITY_MODIFIERS
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.*
+import org.jetbrains.kotlin.utils.addToStdlib.UnsafeCastFunction
+import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.utils.sure
 
 object PositioningStrategies {
@@ -137,6 +141,13 @@ object PositioningStrategies {
                 else -> DEFAULT.mark(element)
             }
         }
+    }
+
+    @JvmField
+    val CONTEXT_KEYWORD: PositioningStrategy<PsiElement> = object : PositioningStrategy<PsiElement>() {
+        override fun mark(element: PsiElement): List<TextRange> =
+            element.descendants().firstIsInstanceOrNull<KtContextReceiverList>()?.firstChild?.textRange?.let(::markRange)
+                ?: DEFAULT.mark(element)
     }
 
     @JvmField
@@ -461,7 +472,7 @@ object PositioningStrategies {
             val elementToMark = when (element) {
                 is KtObjectDeclaration -> element.getObjectKeyword()!!
                 is KtPropertyAccessor -> element.namePlaceholder
-                is KtAnonymousInitializer -> element
+                is KtAnonymousInitializer, is KtPrimaryConstructor -> element
                 else -> throw IllegalArgumentException(
                     "Can't find text range for element '${element::class.java.canonicalName}' with the text '${element.text}'"
                 )
@@ -606,6 +617,13 @@ object PositioningStrategies {
     val WHEN_EXPRESSION: PositioningStrategy<KtWhenExpression> = object : PositioningStrategy<KtWhenExpression>() {
         override fun mark(element: KtWhenExpression): List<TextRange> {
             return markElement(element.whenKeyword)
+        }
+    }
+
+    @JvmField
+    val WHEN_GUARD: PositioningStrategy<KtWhenEntry> = object : PositioningStrategy<KtWhenEntry>() {
+        override fun mark(element: KtWhenEntry): List<TextRange> {
+            return markElement(element.guard ?: element)
         }
     }
 
@@ -1013,6 +1031,20 @@ object PositioningStrategies {
         }
     }
 
+    @OptIn(UnsafeCastFunction::class)
+    val IMPORT_LAST_BUT_ONE_NAME: PositioningStrategy<KtImportDirective> = object : PositioningStrategy<KtImportDirective>() {
+        override fun mark(element: KtImportDirective): List<TextRange> {
+            element.importedReference
+                ?.safeAs<KtDotQualifiedExpression>()
+                ?.receiverExpression
+                ?.safeAs<KtDotQualifiedExpression>()
+                ?.selectorExpression
+                ?.let { return markElement(it) }
+
+            return super.mark(element)
+        }
+    }
+
     val LABEL: PositioningStrategy<KtElement> = object : PositioningStrategy<KtElement>() {
         override fun mark(element: KtElement): List<TextRange> {
             return super.mark((element as? KtExpressionWithLabel)?.labelQualifier ?: element)
@@ -1108,6 +1140,20 @@ object PositioningStrategies {
                 result = result.expression ?: break
             }
             return super.mark(result)
+        }
+    }
+
+    val TYPE_ARGUMENT_LIST_OR_SELF = object : PositioningStrategy<PsiElement>() {
+        override fun mark(element: PsiElement): List<TextRange> {
+            element.getChildOfType<KtTypeArgumentList>()?.let { return markElement(it) }
+            return super.mark(element)
+        }
+    }
+
+    val PACKAGE_DIRECTIVE_NAME_EXPRESSION: PositioningStrategy<KtElement> = object : PositioningStrategy<KtElement>() {
+        override fun mark(element: KtElement): List<TextRange> {
+            val packageNameExpression = (element as? KtPackageDirective)?.packageNameExpression
+            return super.mark(packageNameExpression ?: element)
         }
     }
 }

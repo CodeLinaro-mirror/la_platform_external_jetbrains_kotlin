@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.api
 
-import org.jetbrains.kotlin.analysis.low.level.api.fir.project.structure.llFirModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.providers.nullableJavaSymbolProvider
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirLibraryOrLibrarySourceResolvableModuleSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.FirElementFinder
@@ -13,8 +13,8 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.util.containingClassIdOrN
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.getContainingFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.isLocalForLazyResolutionPurposes
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.unwrapCopy
-import org.jetbrains.kotlin.analysis.project.structure.DanglingFileResolutionMode
-import org.jetbrains.kotlin.analysis.project.structure.KtDanglingFileModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileResolutionMode
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
 import org.jetbrains.kotlin.builtins.StandardNames
@@ -165,7 +165,7 @@ private fun tryCollectDesignation(providedFile: FirFile?, target: FirElementWith
             return collectDesignationPathWithContainingClass(providedFile, target, containingClassId)
         }
 
-        is FirFileAnnotationsContainer -> return FirDesignation(path = listOf(target.containingFileSymbol.fir), target = target)
+        is FirFile -> return FirDesignation(target)
         is FirScript, is FirCodeFragment -> {
             requireIsInstance<FirDeclaration>(target)
 
@@ -365,7 +365,7 @@ fun FirElementWithResolveState.tryCollectDesignationWithOptionalFile(providedFil
  */
 fun FirElementWithResolveState.tryCollectDesignation(providedFile: FirFile? = null): FirDesignation? = when (this) {
     is FirSyntheticProperty, is FirSyntheticPropertyAccessor -> unexpectedElementError<FirElementWithResolveState>(this)
-    is FirFileAnnotationsContainer, is FirDeclaration -> {
+    is FirDeclaration -> {
         val designation = tryCollectDesignation(providedFile = providedFile, target = this)
         designation?.takeIf { it.fileOrNull != null }
     }
@@ -379,7 +379,7 @@ internal fun patchDesignationPathIfNeeded(target: FirElementWithResolveState, ta
 private fun patchDesignationPathForCopy(target: FirElementWithResolveState, targetPath: List<FirDeclaration>): List<FirDeclaration>? {
     val targetModule = target.llFirModuleData.ktModule
 
-    if (targetModule is KtDanglingFileModule && targetModule.resolutionMode == DanglingFileResolutionMode.IGNORE_SELF) {
+    if (targetModule is KaDanglingFileModule && targetModule.resolutionMode == KaDanglingFileResolutionMode.IGNORE_SELF) {
         val targetPsiFile = targetModule.file
 
         val contextModule = targetModule.contextModule

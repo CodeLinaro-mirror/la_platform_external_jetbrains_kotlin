@@ -33,7 +33,6 @@ import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.ir.backend.jvm.jvmResolveLibraries
-import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.AnalyzingUtils
@@ -59,7 +58,7 @@ object GenerationUtils {
         files: List<KtFile>,
         environment: KotlinCoreEnvironment,
         classBuilderFactory: ClassBuilderFactory = ClassBuilderFactories.TEST,
-        trace: BindingTrace = NoScopeRecordCliBindingTrace()
+        trace: BindingTrace = NoScopeRecordCliBindingTrace(environment.project)
     ): GenerationState =
         compileFiles(files, environment.configuration, classBuilderFactory, environment::createPackagePartProvider, trace)
 
@@ -70,7 +69,7 @@ object GenerationUtils {
         configuration: CompilerConfiguration,
         classBuilderFactory: ClassBuilderFactory,
         packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
-        trace: BindingTrace = NoScopeRecordCliBindingTrace()
+        trace: BindingTrace = NoScopeRecordCliBindingTrace(files.first().project)
     ): GenerationState {
         val project = files.first().project
         val state = if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
@@ -118,17 +117,17 @@ object GenerationUtils {
             FirParser.Psi,
         )
 
-        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl(), JvmIrMangler)
+        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
         val diagnosticReporter = DiagnosticReporterFactory.createReporter()
         firAnalyzerFacade.runResolution()
-        val (moduleFragment, components, pluginContext) = firAnalyzerFacade.result.convertToIrAndActualizeForJvm(
+        val (moduleFragment, components, pluginContext, _, _, symbolTable) = firAnalyzerFacade.result.convertToIrAndActualizeForJvm(
             fir2IrExtensions,
             configuration,
             diagnosticReporter,
             irGeneratorExtensions = emptyList()
         )
 
-        val dummyBindingContext = NoScopeRecordCliBindingTrace().bindingContext
+        val dummyBindingContext = NoScopeRecordCliBindingTrace(project).bindingContext
 
         val codegenFactory = JvmIrCodegenFactory(
             configuration,
@@ -148,7 +147,7 @@ object GenerationUtils {
         generationState.beforeCompile()
         generationState.oldBEInitTrace(files)
         codegenFactory.generateModuleInFrontendIRMode(
-            generationState, moduleFragment, components.symbolTable, components.irProviders,
+            generationState, moduleFragment, symbolTable, components.irProviders,
             fir2IrExtensions, FirJvmBackendExtension(components, actualizedExpectDeclarations = null), pluginContext,
         ) {}
 

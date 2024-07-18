@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirBuiltinSyntheticFunctionInterfaceProvider
+import org.jetbrains.kotlin.fir.scopes.FirDefaultImportProviderHolder
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.scopes.FirOverrideChecker
 import org.jetbrains.kotlin.fir.scopes.FirPlatformClassMapper
@@ -24,6 +25,7 @@ import org.jetbrains.kotlin.fir.session.FirSessionFactoryHelper.registerDefaultC
 import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
 import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.konan.platform.NativePlatformAnalyzerServices
 
 object FirNativeSessionFactory : FirAbstractSessionFactory() {
     fun createLibrarySession(
@@ -51,7 +53,6 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
                 val forwardDeclarationsModuleData = BinaryModuleData.createDependencyModuleData(
                     FORWARD_DECLARATIONS_MODULE_NAME,
                     moduleDataProvider.platform,
-                    moduleDataProvider.analyzerServices,
                 ).apply {
                     bindSession(session)
                 }
@@ -59,7 +60,7 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
                 listOfNotNull(
                     KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, resolvedKotlinLibraries),
                     NativeForwardDeclarationsSymbolProvider(session, forwardDeclarationsModuleData, kotlinScopeProvider, resolvedKotlinLibraries),
-                    FirBuiltinSyntheticFunctionInterfaceProvider(session, builtinsModuleData, kotlinScopeProvider),
+                    FirBuiltinSyntheticFunctionInterfaceProvider.initialize(session, builtinsModuleData, kotlinScopeProvider),
                     syntheticFunctionInterfaceProvider,
                 )
             })
@@ -89,7 +90,7 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
             },
             registerExtraCheckers = { it.registerNativeCheckers() },
             createKotlinScopeProvider = { FirKotlinScopeProvider() },
-            createProviders = { _, _, symbolProvider, generatedSymbolsProvider, dependencies ->
+            createProviders = { session, kotlinScopeProvider, symbolProvider, generatedSymbolsProvider, dependencies ->
                 listOfNotNull(
                     symbolProvider,
                     generatedSymbolsProvider,
@@ -105,5 +106,6 @@ object FirNativeSessionFactory : FirAbstractSessionFactory() {
         register(FirPlatformSpecificCastChecker::class, FirNativeCastChecker)
         register(PlatformConflictDeclarationsDiagnosticDispatcher::class, NativeConflictDeclarationsDiagnosticDispatcher)
         register(FirOverrideChecker::class, FirNativeOverrideChecker(this))
+        register(FirDefaultImportProviderHolder::class, FirDefaultImportProviderHolder(NativePlatformAnalyzerServices))
     }
 }

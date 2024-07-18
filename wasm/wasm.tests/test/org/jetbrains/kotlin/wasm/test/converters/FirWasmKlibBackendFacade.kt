@@ -13,9 +13,8 @@ import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
 import org.jetbrains.kotlin.ir.backend.js.serializeModuleIntoKlib
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
-import org.jetbrains.kotlin.js.config.WasmTarget
 import org.jetbrains.kotlin.library.KotlinAbiVersion
+import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.test.backend.ir.IrBackendFacade
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
@@ -28,7 +27,8 @@ import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
-import java.io.File
+import org.jetbrains.kotlin.test.services.configuration.getFriendDependencies
+import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 
 class FirWasmKlibBackendFacade(
     testServices: TestServices,
@@ -45,15 +45,15 @@ class FirWasmKlibBackendFacade(
     }
 
     override fun transform(module: TestModule, inputArtifact: IrBackendInput): BinaryArtifacts.KLib {
-        require(inputArtifact is IrBackendInput.WasmBackendInput) {
-            "FirWasmKlibBackendFacade expects IrBackendInput.WasmBackendInput as input"
+        require(inputArtifact is IrBackendInput.WasmAfterFrontendBackendInput) {
+            "FirWasmKlibBackendFacade expects IrBackendInput.WasmAfterFrontendBackendInput as input"
         }
 
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
-        val outputFile = WasmEnvironmentConfigurator.getWasmKlibArtifactPath(testServices, module.name)
+        val outputFile = WasmEnvironmentConfigurator.getKlibArtifactFile(testServices, module.name)
 
         // TODO: consider avoiding repeated libraries resolution
-        val target = configuration.get(JSConfigurationKeys.WASM_TARGET, WasmTarget.JS)
+        val target = configuration.get(WasmConfigurationKeys.WASM_TARGET, WasmTarget.JS)
         val libraries = resolveLibraries(configuration, getAllWasmDependenciesPaths(module, testServices, target))
 
         if (firstTimeCompilation) {
@@ -62,7 +62,7 @@ class FirWasmKlibBackendFacade(
                 configuration,
                 inputArtifact.diagnosticReporter,
                 inputArtifact.metadataSerializer,
-                klibPath = outputFile,
+                klibPath = outputFile.path,
                 libraries.map { it.library },
                 inputArtifact.irModuleFragment,
                 cleanFiles = inputArtifact.icData,
@@ -70,13 +70,14 @@ class FirWasmKlibBackendFacade(
                 perFile = false,
                 containsErrorCode = inputArtifact.hasErrors,
                 abiVersion = KotlinAbiVersion.CURRENT, // TODO get from test file data
-                jsOutputName = null
+                jsOutputName = null,
+                wasmTarget = target,
             )
         }
 
         // TODO: consider avoiding repeated libraries resolution
         val lib = CommonKLibResolver.resolve(
-            getAllWasmDependenciesPaths(module, testServices, target) + listOf(outputFile),
+            getAllWasmDependenciesPaths(module, testServices, target) + listOf(outputFile.path),
             configuration.getLogger(treatWarningsAsErrors = true)
         ).getFullResolvedList().last().library
 
@@ -90,12 +91,13 @@ class FirWasmKlibBackendFacade(
         )
 
         moduleDescriptor.setDependencies(
-            inputArtifact.irModuleFragment.descriptor.allDependencyModules.filterIsInstance<ModuleDescriptorImpl>() + moduleDescriptor
+            inputArtifact.irModuleFragment.descriptor.allDependencyModules.filterIsInstance<ModuleDescriptorImpl>() + moduleDescriptor,
+            getFriendDependencies(module, testServices),
         )
 
         testServices.moduleDescriptorProvider.replaceModuleDescriptorForModule(module, moduleDescriptor)
-        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile, moduleDescriptor, lib)
+        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile.path, moduleDescriptor, lib)
 
-        return BinaryArtifacts.KLib(File(outputFile), inputArtifact.diagnosticReporter)
+        return BinaryArtifacts.KLib(outputFile, inputArtifact.diagnosticReporter)
     }
 }

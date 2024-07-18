@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.backend.common.extensions.IrGeneratedDeclarationsRegistrar
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.backend.utils.startOffsetSkippingComments
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
@@ -233,7 +234,7 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
                     val lookupTag = classifier.toLookupTag()
                     lookupTag.constructType(
                         this.arguments.map { it.toConeTypeProjection() }.toTypedArray(),
-                        isNullable = this.isNullable()
+                        isNullable = this.isMarkedNullable()
                     )
                 }
                 is IrDynamicType -> ConeDynamicType.create(session)
@@ -332,13 +333,13 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
                             source = null,
                             ConstantValueKind.Short,
                             argument.value as Short,
-                            setType = false
+                            setType = true
                         )
                         IrConstKind.String -> buildLiteralExpression(
                             source = null,
                             ConstantValueKind.String,
                             argument.value as String,
-                            setType = false
+                            setType = true
                         )
                     }
                 }
@@ -391,6 +392,7 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
             } ?: this
         }
 
+        @Suppress("RecursivePropertyAccessor")
         private val ClassId.topmostParentClassId: ClassId
             get() = parentClassId?.topmostParentClassId ?: this
     }

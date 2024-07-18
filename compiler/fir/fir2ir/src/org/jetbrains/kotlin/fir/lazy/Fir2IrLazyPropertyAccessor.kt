@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.fir.lazy
 
 import org.jetbrains.kotlin.fir.backend.*
+import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
+import org.jetbrains.kotlin.fir.backend.utils.contextReceiversForFunctionOrContainingProperty
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
@@ -25,7 +27,7 @@ import org.jetbrains.kotlin.serialization.deserialization.descriptors.Deserializ
 
 @Suppress("DELEGATED_MEMBER_HIDES_SUPERTYPE_OVERRIDE") // K2 warning suppression, TODO: KT-62472
 class Fir2IrLazyPropertyAccessor(
-    components: Fir2IrComponents,
+    c: Fir2IrComponents,
     startOffset: Int,
     endOffset: Int,
     origin: IrDeclarationOrigin,
@@ -37,7 +39,7 @@ class Fir2IrLazyPropertyAccessor(
     parent: IrDeclarationParent,
     isFakeOverride: Boolean,
     override var correspondingPropertySymbol: IrPropertySymbol?
-) : AbstractFir2IrLazyFunction<FirCallableDeclaration>(components, startOffset, endOffset, origin, symbol, parent, isFakeOverride) {
+) : AbstractFir2IrLazyFunction<FirCallableDeclaration>(c, startOffset, endOffset, origin, symbol, parent, isFakeOverride) {
     init {
         symbol.bind(this)
     }
@@ -50,14 +52,17 @@ class Fir2IrLazyPropertyAccessor(
         get() = firAccessor?.isInline == true
         set(_) = mutationNotSupported()
 
-    override var annotations: List<IrConstructorCall> by createLazyAnnotations()
+    override var annotations: List<IrConstructorCall> by when {
+        firAccessor != null -> createLazyAnnotations()
+        else -> lazyVar<List<IrConstructorCall>>(lock) { emptyList() }
+    }
 
     override var name: Name
         get() = Name.special("<${if (isSetter) "set" else "get"}-${firParentProperty.name}>")
         set(_) = mutationNotSupported()
 
     override var returnType: IrType by lazyVar(lock) {
-        if (isSetter) irBuiltIns.unitType else firParentProperty.returnTypeRef.toIrType(typeConverter, conversionTypeContext)
+        if (isSetter) builtins.unitType else firParentProperty.returnTypeRef.toIrType(typeConverter, conversionTypeContext)
     }
 
     override var dispatchReceiverParameter: IrValueParameter? by lazyVar(lock) {

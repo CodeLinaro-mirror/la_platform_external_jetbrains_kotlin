@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
+import org.jetbrains.kotlin.fir.analysis.diagnostics.toFirDiagnostics
 import org.jetbrains.kotlin.fir.analysis.diagnostics.toInvisibleReferenceDiagnostic
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
@@ -124,6 +125,15 @@ object FirDestructuringDeclarationChecker : FirPropertyChecker(MppCheckerKind.Co
                     context
                 )
             }
+            is ConeHiddenCandidateError -> {
+                reporter.reportOn(
+                    source,
+                    FirErrors.COMPONENT_FUNCTION_MISSING,
+                    diagnostic.candidate.callInfo.name,
+                    destructuringDeclarationType,
+                    context
+                )
+            }
             is ConeInapplicableWrongReceiver -> {
                 reporter.reportOn(
                     source,
@@ -150,6 +160,8 @@ object FirDestructuringDeclarationChecker : FirPropertyChecker(MppCheckerKind.Co
                         (diagnostic.candidate.symbol as FirNamedFunctionSymbol).callableId.callableName,
                         context
                     )
+                } else {
+                    reportDefaultDiagnostics(diagnostic, componentCall, reporter, context)
                 }
             }
             is ConeConstraintSystemHasContradiction -> {
@@ -181,12 +193,27 @@ object FirDestructuringDeclarationChecker : FirPropertyChecker(MppCheckerKind.Co
                         expectedType,
                         context
                     )
+                } else {
+                    reportDefaultDiagnostics(diagnostic, componentCall, reporter, context)
                 }
             }
             is ConeVisibilityError -> {
                 reporter.report(diagnostic.symbol.toInvisibleReferenceDiagnostic(property.source), context)
             }
-            else -> error("Unhandled error during a component function call")
+            else -> {
+                reportDefaultDiagnostics(diagnostic, componentCall, reporter, context)
+            }
+        }
+    }
+
+    private fun reportDefaultDiagnostics(
+        diagnostic: ConeDiagnostic,
+        componentCall: FirComponentCall,
+        reporter: DiagnosticReporter,
+        context: CheckerContext,
+    ) {
+        for (coneDiagnostic in diagnostic.toFirDiagnostics(context.session, componentCall.source, null)) {
+            reporter.report(coneDiagnostic, context)
         }
     }
 

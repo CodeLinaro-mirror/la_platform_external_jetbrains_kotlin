@@ -18,6 +18,10 @@ import org.jetbrains.kotlin.fir.expressions.builder.buildResolvedQualifier
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.DoubleColonLHS
 import org.jetbrains.kotlin.fir.resolve.calls.*
+import org.jetbrains.kotlin.fir.resolve.calls.candidate.CallInfo
+import org.jetbrains.kotlin.fir.resolve.calls.candidate.CallKind
+import org.jetbrains.kotlin.fir.resolve.calls.candidate.CandidateCollector
+import org.jetbrains.kotlin.fir.resolve.calls.candidate.CandidateFactory
 import org.jetbrains.kotlin.fir.resolve.setTypeOfQualifier
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirWhenSubjectImportingScope
@@ -86,15 +90,22 @@ internal abstract class FirBaseTowerResolveTask(
     protected fun FirScope.toScopeTowerLevel(
         extensionReceiver: ReceiverValue? = null,
         withHideMembersOnly: Boolean = false,
-        includeInnerConstructors: Boolean = extensionReceiver != null,
+        constructorFilter: ConstructorFilter = extensionReceiver.toConstructorFilter(),
         contextReceiverGroup: ContextReceiverGroup? = null,
         dispatchReceiverForStatics: ExpressionReceiverValue? = null
     ): ScopeTowerLevel {
         return ScopeTowerLevel(
             components, this,
             givenExtensionReceiverOptions = createExtensionReceiverOptions(contextReceiverGroup, extensionReceiver),
-            withHideMembersOnly, includeInnerConstructors, dispatchReceiverForStatics
+            withHideMembersOnly, constructorFilter, dispatchReceiverForStatics
         )
+    }
+
+    private fun ReceiverValue?.toConstructorFilter(): ConstructorFilter {
+        return when (this) {
+            null -> ConstructorFilter.OnlyNested
+            else -> ConstructorFilter.Both
+        }
     }
 
     protected fun FirScope.toScopeTowerLevelForStaticWithImplicitDispatchReceiver(
@@ -103,7 +114,7 @@ internal abstract class FirBaseTowerResolveTask(
     ): ScopeTowerLevel = toScopeTowerLevel(
         extensionReceiver = null,
         withHideMembersOnly = false,
-        includeInnerConstructors = false,
+        constructorFilter = ConstructorFilter.OnlyNested,
         contextReceiverGroup = null,
         staticOwnerOwnerSymbol?.let {
             val resolvedQualifier = buildResolvedQualifier {
@@ -112,7 +123,7 @@ internal abstract class FirBaseTowerResolveTask(
                 this.symbol = it
                 this.source = source?.fakeElement(KtFakeSourceElementKind.ImplicitReceiver)
             }.apply {
-                setTypeOfQualifier(components.session)
+                setTypeOfQualifier(components)
             }
             ExpressionReceiverValue(resolvedQualifier)
         }
@@ -256,13 +267,13 @@ internal open class FirTowerResolveTask(
         val callableScope = qualifierReceiver.callableScope() ?: return
         processLevel(
             callableScope.toScopeTowerLevel(
-                includeInnerConstructors = false,
+                constructorFilter = ConstructorFilter.OnlyNested,
                 dispatchReceiverForStatics = when (qualifierReceiver) {
                     is ClassQualifierReceiver -> ExpressionReceiverValue(qualifierReceiver.explicitReceiver)
                     else -> null
                 }
             ),
-            info, TowerGroup.Qualifier
+            info, TowerGroup.QualifierOrClassifier
         )
     }
 
@@ -276,8 +287,8 @@ internal open class FirTowerResolveTask(
         ) return
         val scope = qualifierReceiver.classifierScope() ?: return
         processLevel(
-            scope.toScopeTowerLevel(includeInnerConstructors = false), info,
-            TowerGroup.Classifier
+            scope.toScopeTowerLevel(constructorFilter = ConstructorFilter.OnlyNested), info,
+            TowerGroup.QualifierOrClassifier
         )
     }
 

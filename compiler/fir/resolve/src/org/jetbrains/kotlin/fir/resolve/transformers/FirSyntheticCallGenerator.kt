@@ -35,7 +35,9 @@ import org.jetbrains.kotlin.fir.references.impl.FirSimpleNamedReference
 import org.jetbrains.kotlin.fir.references.impl.FirStubReference
 import org.jetbrains.kotlin.fir.references.isError
 import org.jetbrains.kotlin.fir.resolve.*
-import org.jetbrains.kotlin.fir.resolve.calls.*
+import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticFunctionSymbol
+import org.jetbrains.kotlin.fir.resolve.calls.ResolutionContext
+import org.jetbrains.kotlin.fir.resolve.calls.candidate.*
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguityError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeInapplicableCandidateError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedNameError
@@ -57,7 +59,6 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.ArrayFqNames
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.resolve.calls.tower.CandidateApplicability
-import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
 import org.jetbrains.kotlin.types.Variance
 
 class FirSyntheticCallGenerator(
@@ -221,7 +222,7 @@ class FirSyntheticCallGenerator(
     }
 
     private fun calculateArrayOfSymbol(expectedTypeRef: FirTypeRef): FirNamedFunctionSymbol? {
-        val coneType = expectedTypeRef.coneType
+        val coneType = expectedTypeRef.coneType.fullyExpandedType(session)
         val arrayCallName = when {
             coneType.isPrimitiveArray -> {
                 val arrayElementClassId = coneType.arrayElementType()!!.classId
@@ -378,7 +379,7 @@ class FirSyntheticCallGenerator(
         val candidate = generateCandidate(callInfo, function, context)
         val applicability = components.resolutionStageRunner.processCandidate(candidate, context)
         val source = callSite.source?.fakeElement(KtFakeSourceElementKind.SyntheticCall)
-        if (!applicability.isSuccess) {
+        if (!candidate.isSuccessful) {
             return createErrorReferenceWithExistingCandidate(
                 candidate,
                 ConeInapplicableCandidateError(applicability, candidate),
@@ -430,7 +431,7 @@ class FirSyntheticCallGenerator(
         val typeParameter =
             buildTypeParameter {
                 moduleData = session.moduleData
-                origin = FirDeclarationOrigin.Library
+                origin = FirDeclarationOrigin.Synthetic.FakeFunction
                 resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
                 name = Name.identifier("K")
                 symbol = typeParameterSymbol
@@ -550,7 +551,7 @@ class FirSyntheticCallGenerator(
         return buildValueParameter {
             moduleData = session.moduleData
             containingFunctionSymbol = functionSymbol
-            origin = FirDeclarationOrigin.Library
+            origin = FirDeclarationOrigin.Synthetic.FakeFunction
             this.name = name
             returnTypeRef = this@toValueParameter
             isCrossinline = false

@@ -8,13 +8,13 @@ package org.jetbrains.kotlin.scripting.compiler.test
 
 import com.intellij.openapi.util.Disposer
 import junit.framework.TestCase
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.*
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.codegen.CompilationException
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
+import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.script.loadScriptingPlugin
 import org.jetbrains.kotlin.scripting.compiler.plugin.*
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.SCRIPT_BASE_COMPILER_ARGUMENTS_PROPERTY
@@ -119,8 +119,7 @@ class ScriptTemplateTest : TestCase() {
         assertEqualsTrimmed(NUM_4_LINE + FIB_SCRIPT_OUTPUT_TAIL, out)
     }
 
-    // Fails on K2, see KT-60452
-    fun testScriptWithoutParams() = expectTestToFailOnK2 {
+    fun testScriptWithoutParams() {
         val messageCollector = TestMessageCollector()
         val aClass = compileScript("without_params.kts", ScriptWithoutParams::class, null, messageCollector = messageCollector)
         Assert.assertNotNull("Compilation failed:\n$messageCollector", aClass)
@@ -372,7 +371,7 @@ class ScriptTemplateTest : TestCase() {
                 *additionalClasspath
             )
             configuration.updateWithBaseCompilerArguments()
-            configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
+            configuration.messageCollector = messageCollector
             configuration.add(
                 ScriptingConfigurationKeys.SCRIPT_DEFINITIONS,
                 ScriptDefinition.FromLegacy(

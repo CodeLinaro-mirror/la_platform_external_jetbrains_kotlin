@@ -29,9 +29,7 @@ sealed class TowerGroupKind(val index: Byte) : Comparable<TowerGroupKind> {
 
     data object Start : TowerGroupKind(0b0)
 
-    data object Qualifier : TowerGroupKind(1)
-
-    data object Classifier : TowerGroupKind(2)
+    data object QualifierOrClassifier : TowerGroupKind(1)
 
     class TopPrioritized(depth: Int) : WithDepth(3, depth)
 
@@ -171,47 +169,45 @@ private constructor(
             return TowerGroup(subscript(0, kind), debugKindArrayOf(kind))
         }
 
-        val EmptyRoot = TowerGroup(0, EMPTY_KIND_ARRAY)
-        val EmptyRootForInvokeReceiver = TowerGroup(0, EMPTY_KIND_ARRAY, InvokeResolvePriority.INVOKE_RECEIVER)
+        val EmptyRoot: TowerGroup = TowerGroup(0, EMPTY_KIND_ARRAY)
+        val EmptyRootForInvokeReceiver: TowerGroup = TowerGroup(0, EMPTY_KIND_ARRAY, InvokeResolvePriority.INVOKE_RECEIVER)
 
-        val Start = kindOf(TowerGroupKind.Start)
+        val Start: TowerGroup = kindOf(TowerGroupKind.Start)
 
-        val Qualifier = kindOf(TowerGroupKind.Qualifier)
+        val QualifierOrClassifier: TowerGroup = kindOf(TowerGroupKind.QualifierOrClassifier)
 
-        val Classifier = kindOf(TowerGroupKind.Classifier)
+        val QualifierValue: TowerGroup = kindOf(TowerGroupKind.QualifierValue)
 
-        val QualifierValue = kindOf(TowerGroupKind.QualifierValue)
+        val Member: TowerGroup = kindOf(TowerGroupKind.Member)
 
-        val Member = kindOf(TowerGroupKind.Member)
+        fun UnqualifiedEnum(depth: Int): TowerGroup = kindOf(TowerGroupKind.UnqualifiedEnum(depth))
 
-        fun UnqualifiedEnum(depth: Int) = kindOf(TowerGroupKind.UnqualifiedEnum(depth))
+        fun Local(depth: Int): TowerGroup = kindOf(TowerGroupKind.Local(depth))
 
-        fun Local(depth: Int) = kindOf(TowerGroupKind.Local(depth))
+        fun Implicit(depth: Int): TowerGroup = kindOf(TowerGroupKind.Implicit(depth))
+        fun NonLocal(depth: Int): TowerGroup = kindOf(TowerGroupKind.NonLocal(depth))
 
-        fun Implicit(depth: Int) = kindOf(TowerGroupKind.Implicit(depth))
-        fun NonLocal(depth: Int) = kindOf(TowerGroupKind.NonLocal(depth))
+        fun ContextReceiverGroup(depth: Int): TowerGroup = kindOf(TowerGroupKind.ContextReceiverGroup(depth))
 
-        fun ContextReceiverGroup(depth: Int) = kindOf(TowerGroupKind.ContextReceiverGroup(depth))
+        fun TopPrioritized(depth: Int): TowerGroup = kindOf(TowerGroupKind.TopPrioritized(depth))
 
-        fun TopPrioritized(depth: Int) = kindOf(TowerGroupKind.TopPrioritized(depth))
-
-        val Last = kindOf(TowerGroupKind.Last)
+        val Last: TowerGroup = kindOf(TowerGroupKind.Last)
     }
 
     private fun kindOf(kind: TowerGroupKind): TowerGroup = TowerGroup(subscript(code, kind), appendDebugKind(debugKinds, kind))
 
-    val Member get() = kindOf(TowerGroupKind.Member)
+    val Member: TowerGroup get() = kindOf(TowerGroupKind.Member)
 
-    val InvokeExtensionWithImplicitReceiver get() = kindOf(TowerGroupKind.InvokeExtensionWithImplicitReceiver)
+    val InvokeExtensionWithImplicitReceiver: TowerGroup get() = kindOf(TowerGroupKind.InvokeExtensionWithImplicitReceiver)
 
-    fun Local(depth: Int) = kindOf(TowerGroupKind.Local(depth))
+    fun Local(depth: Int): TowerGroup = kindOf(TowerGroupKind.Local(depth))
 
-    fun Implicit(depth: Int) = kindOf(TowerGroupKind.Implicit(depth))
-    fun NonLocal(depth: Int) = kindOf(TowerGroupKind.NonLocal(depth))
+    fun Implicit(depth: Int): TowerGroup = kindOf(TowerGroupKind.Implicit(depth))
+    fun NonLocal(depth: Int): TowerGroup = kindOf(TowerGroupKind.NonLocal(depth))
 
-    fun ContextReceiverGroup(depth: Int) = kindOf(TowerGroupKind.ContextReceiverGroup(depth))
+    fun ContextReceiverGroup(depth: Int): TowerGroup = kindOf(TowerGroupKind.ContextReceiverGroup(depth))
 
-    fun TopPrioritized(depth: Int) = kindOf(TowerGroupKind.TopPrioritized(depth))
+    fun TopPrioritized(depth: Int): TowerGroup = kindOf(TowerGroupKind.TopPrioritized(depth))
 
     fun InvokeReceiver(
         receiverGroup: TowerGroup,

@@ -10,7 +10,7 @@
 
 #include "ManuallyScoped.hpp"
 #include "Memory.h"
-#include "Mutex.hpp"
+#include "concurrent/Mutex.hpp"
 
 // TODO: Generalize for uses outside this file.
 enum class ErrorPolicy {
@@ -50,6 +50,9 @@ class BackRefFromAssociatedObject {
 
   void initAndAddRef(ObjHeader* obj);
 
+  // Returns true if initialized as permanent.
+  bool initWithExternalRCRef(void* ref) noexcept;
+
   // Error if refCount is zero and it's called from the wrong worker with non-frozen obj_.
   template <ErrorPolicy errorPolicy>
   void addRef();
@@ -71,6 +74,8 @@ class BackRefFromAssociatedObject {
   ObjHeader* ref() const;
 
   ObjHeader* refPermanent() const;
+
+  void* externalRCRef(bool permanent) const noexcept;
 
  private:
   union {

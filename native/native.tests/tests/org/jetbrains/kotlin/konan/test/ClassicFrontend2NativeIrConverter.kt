@@ -12,7 +12,9 @@ import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignature
 import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerDesc
 import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerIr
 import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.linkage.IrDeserializer
 import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
@@ -33,8 +35,8 @@ import org.jetbrains.kotlin.test.model.Frontend2BackendConverter
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
+import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 import kotlin.reflect.KClass
-
 
 class ClassicFrontend2NativeIrConverter(
     testServices: TestServices,
@@ -74,7 +76,7 @@ class ClassicFrontend2NativeIrConverter(
                 ignoreErrors = CodegenTestDirectives.IGNORE_ERRORS in module.directives,
                 configuration.partialLinkageConfig.isEnabled
             ),
-            configuration.irMessageLogger::checkNoUnboundSymbols
+            configuration.messageCollector::checkNoUnboundSymbols
         )
         val manglerDesc = KonanManglerDesc
         val konanIdSignaturerClass = kotlinNativeClass("org.jetbrains.kotlin.backend.konan.serialization.KonanIdSignaturer")
@@ -103,9 +105,7 @@ class ClassicFrontend2NativeIrConverter(
                 signature: IdSignature,
                 kind: IrDeserializer.TopLevelSymbolKind,
                 moduleName: Name
-            ): IrSymbol {
-                error("Should not be called")
-            }
+            ): Nothing = shouldNotBeCalled()
 
             override fun postProcess(inOrAfterLinkageStep: Boolean) = Unit
         }
@@ -126,9 +126,10 @@ class ClassicFrontend2NativeIrConverter(
             generatorContext.typeTranslator,
             generatorContext.irBuiltIns,
             linker = irDeserializer,
-            diagnosticReporter = configuration.irMessageLogger
+            diagnosticReporter = configuration.messageCollector
         )
 
+        @OptIn(ObsoleteDescriptorBasedAPI::class)
         return IrBackendInput.NativeBackendInput(
             moduleFragment,
             pluginContext,
@@ -136,6 +137,7 @@ class ClassicFrontend2NativeIrConverter(
             descriptorMangler = (pluginContext.symbolTable as SymbolTable).signaturer!!.mangler,
             irMangler = KonanManglerIr,
             firMangler = null,
+            metadataSerializer = null
         )
     }
 

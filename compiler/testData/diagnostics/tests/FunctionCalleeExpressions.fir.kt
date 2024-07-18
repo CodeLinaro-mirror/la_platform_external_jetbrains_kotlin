@@ -1,4 +1,4 @@
-// !CHECK_TYPE
+// CHECK_TYPE
 
 package foo
 
@@ -47,7 +47,7 @@ fun main(args : Array<String>) {
 
     val b = fooT2<Int>()(1)
     checkSubtype<Int>(b)
-    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>fooT2<!>()(1) // : Any?
+    <!CANNOT_INFER_PARAMETER_TYPE, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>fooT2<!>()(1) // : Any?
 
     <!FUNCTION_EXPECTED!>1<!>()
     <!FUNCTION_EXPECTED!>1<!>{}
@@ -71,7 +71,7 @@ fun main1() {
 
     1.<!ILLEGAL_SELECTOR!>"sdf"<!>
     1.<!ILLEGAL_SELECTOR!>{}<!>
-    1.<!ILLEGAL_SELECTOR!><!INVALID_IF_AS_EXPRESSION!>if<!> (true) {}<!>
+    1.<!ILLEGAL_SELECTOR!>if (true) {}<!>
 }
 
 fun test() {

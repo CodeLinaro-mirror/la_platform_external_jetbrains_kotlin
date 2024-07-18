@@ -1,14 +1,15 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.fir.tree.generator
 
+import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirBuilderConfigurator
 
-object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirTreeBuilder.elements) {
-    override fun configureBuilders() = with(FirTreeBuilder) {
+class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<AbstractFirTreeBuilder>(model) {
+    override fun configureBuilders() = with(FirTree) {
         val declarationBuilder by builder {
             fields from declaration without "symbol"
         }
@@ -36,7 +37,7 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
         }
 
         builder(file) {
-            defaultNull("annotationsContainer")
+            default("symbol", "FirFileSymbol()")
         }
 
         builder(regularClass) {
@@ -90,19 +91,13 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
         for (constructorType in listOf("FirPrimaryConstructor", "FirConstructorImpl")) {
             builder(constructor, constructorType) {
                 parents += abstractConstructorBuilder
-                defaultNull("delegatedConstructor")
-                defaultNull("body")
-                default("contractDescription", "FirEmptyContractDescription")
-                additionalImports(emptyContractDescriptionType)
+                defaultNull("delegatedConstructor", "body", "contractDescription")
             }
         }
 
         builder(errorPrimaryConstructor) {
             parents += abstractConstructorBuilder
-            defaultNull("delegatedConstructor")
-            defaultNull("body")
-            default("contractDescription", "FirEmptyContractDescription")
-            additionalImports(emptyContractDescriptionType)
+            defaultNull("delegatedConstructor", "body", "contractDescription")
         }
 
         builder(constructor, "FirConstructorImpl") {
@@ -157,7 +152,7 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
             parents += callBuilder
         }
 
-        builder(augmentedArraySetCall) {
+        builder(indexedAccessAugmentedAssignment) {
             default("calleeReference", "FirStubReference")
             additionalImports(stubReferenceType)
         }
@@ -257,6 +252,11 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
             withCopy()
         }
 
+        builder(backingField) {
+            parents += variableBuilder
+            default("resolvePhase", "FirResolvePhase.DECLARATIONS")
+        }
+
         builder(enumEntry) {
             withCopy()
         }
@@ -289,20 +289,16 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
 
         builder(anonymousFunction) {
             parents += functionBuilder
-            defaultNull("invocationKind", "label", "body", "controlFlowGraphReference")
+            defaultNull("invocationKind", "label", "body", "controlFlowGraphReference", "contractDescription")
             default("inlineStatus", "InlineStatus.Unknown")
-            default("contractDescription", "FirEmptyContractDescription")
             default("status", "FirResolvedDeclarationStatusImpl.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS")
             default("typeRef", "FirImplicitTypeRefImplWithoutSource")
-            withCopy()
-            additionalImports(emptyContractDescriptionType, resolvedDeclarationStatusImport, firImplicitTypeWithoutSourceType)
+            additionalImports(resolvedDeclarationStatusImport, firImplicitTypeWithoutSourceType)
         }
 
         builder(propertyAccessor) {
             parents += functionBuilder
-            defaultNull("body")
-            default("contractDescription", "FirEmptyContractDescription")
-            additionalImports(emptyContractDescriptionType)
+            defaultNull("body", "contractDescription")
             withCopy()
         }
 
@@ -347,9 +343,7 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
         builder(simpleFunction) {
             parents += functionBuilder
             parents += typeParametersOwnerBuilder
-            defaultNull("body")
-            default("contractDescription", "FirEmptyContractDescription")
-            additionalImports(emptyContractDescriptionType)
+            defaultNull("body", "contractDescription")
             openBuilder()
             withCopy()
         }
@@ -375,6 +369,20 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
         builder(anonymousInitializer) {
             parents += declarationBuilder
             default("symbol", "FirAnonymousInitializerSymbol()")
+        }
+
+        builder(spreadArgumentExpression) {
+            defaultFalse("isNamed", "isFakeSpread")
+        }
+
+        val abstractWhenBranchBuilder by builder {
+            fields from whenBranch without "hasGuard"
+        }
+        builder(whenBranch, type = "FirRegularWhenBranch") {
+            parents += abstractWhenBranchBuilder
+        }
+        builder(whenBranch, type = "FirGuardedWhenBranch") {
+            parents += abstractWhenBranchBuilder
         }
 
         val abstractResolvedQualifierBuilder by builder {
@@ -429,7 +437,7 @@ object BuilderConfigurator : AbstractFirBuilderConfigurator<FirTreeBuilder>(FirT
 
         configureFieldInAllLeafBuilders(
             field = "resolvePhase",
-            fieldPredicate = { it.defaultValueInImplementation == null }
+            fieldPredicate = { it.implementationDefaultStrategy!!.defaultValue == null }
         ) {
             default(it, "FirResolvePhase.RAW_FIR")
         }

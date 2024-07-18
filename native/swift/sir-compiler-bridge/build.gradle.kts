@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm")
+    id("jps-compatible")
 }
 
 description = "SIR to Kotlin bindings generator"
@@ -12,6 +13,7 @@ dependencies {
     compileOnly(kotlinStdlib())
 
     api(project(":native:swift:sir"))
+    implementation(project(":native:swift:sir-providers"))
 
     testApi(platform(libs.junit.bom))
     testRuntimeOnly(libs.junit.jupiter.engine)
@@ -38,3 +40,11 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
 }
 
 testsJar()
+
+if (kotlinBuildProperties.isSwiftExportPluginPublishingEnabled) {
+    publish()
+}
+
+runtimeJar()
+sourcesJar()
+javadocJar()

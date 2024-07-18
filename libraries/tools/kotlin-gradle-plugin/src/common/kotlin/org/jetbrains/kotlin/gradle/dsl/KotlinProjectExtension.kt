@@ -10,6 +10,7 @@ import org.gradle.api.Named
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.internal.plugins.DslObject
+import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.provider.Property
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainSpec
@@ -17,6 +18,7 @@ import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinPluginLifecycle.CoroutineStart.Undispatched
+import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
@@ -27,7 +29,6 @@ import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.gradle.utils.CompletableFuture
 import org.jetbrains.kotlin.gradle.utils.Future
 import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
-import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryNext
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.tooling.core.HasMutableExtras
 import org.jetbrains.kotlin.tooling.core.MutableExtras
@@ -198,18 +199,20 @@ abstract class KotlinSingleTargetExtension<TARGET : KotlinTarget>(project: Proje
 abstract class KotlinSingleJavaTargetExtension(project: Project) : KotlinSingleTargetExtension<KotlinWithJavaTarget<*, *>>(project)
 
 abstract class KotlinJvmProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
+    @Suppress("DEPRECATION")
     override val target: KotlinWithJavaTarget<KotlinJvmOptions, KotlinJvmCompilerOptions>
         get() = targetFuture.getOrThrow()
 
+    @Suppress("DEPRECATION")
     override val targetFuture = CompletableFuture<KotlinWithJavaTarget<KotlinJvmOptions, KotlinJvmCompilerOptions>>()
 
-    open fun target(body: KotlinWithJavaTarget<KotlinJvmOptions, KotlinJvmCompilerOptions>.() -> Unit) {
+    open fun target(
+        @Suppress("DEPRECATION") body: KotlinWithJavaTarget<KotlinJvmOptions, KotlinJvmCompilerOptions>.() -> Unit
+    ) {
         project.launch(Undispatched) { targetFuture.await().body() }
     }
 
-    val compilerOptions: KotlinJvmCompilerOptions = project.objects
-        .newInstance(KotlinJvmCompilerOptionsDefault::class.java)
-        .configureExperimentalTryNext(project)
+    val compilerOptions: KotlinJvmCompilerOptions = project.objects.KotlinJvmCompilerOptionsDefault(project)
 
     fun compilerOptions(configure: Action<KotlinJvmCompilerOptions>) {
         configure.execute(compilerOptions)
@@ -221,14 +224,18 @@ abstract class KotlinJvmProjectExtension(project: Project) : KotlinSingleJavaTar
 }
 
 abstract class Kotlin2JsProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
+    @Suppress("DEPRECATION")
     override val target: KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>
         get() {
             if (!targetFuture.isCompleted) throw IllegalStateException("Extension target is not initialized!")
             return targetFuture.getOrThrow()
         }
 
+    @Suppress("DEPRECATION")
     override val targetFuture = CompletableFuture<KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>>()
-    open fun target(body: KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>.() -> Unit) {
+    open fun target(
+        @Suppress("DEPRECATION") body: KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>.() -> Unit
+    ) {
         project.launch(Undispatched) { targetFuture.await().body() }
     }
 }
@@ -321,10 +328,13 @@ abstract class KotlinJsProjectExtension(project: Project) :
 
 abstract class KotlinCommonProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
     override val target: KotlinWithJavaTarget<*, *> get() = targetFuture.getOrThrow()
+
+    @Suppress("DEPRECATION")
     override val targetFuture =
         CompletableFuture<KotlinWithJavaTarget<KotlinMultiplatformCommonOptions, KotlinMultiplatformCommonCompilerOptions>>()
 
     open fun target(
+        @Suppress("DEPRECATION")
         body: KotlinWithJavaTarget<KotlinMultiplatformCommonOptions, KotlinMultiplatformCommonCompilerOptions>.() -> Unit,
     ) = project.launch(Undispatched) {
         targetFuture.await().body()
@@ -339,9 +349,7 @@ abstract class KotlinAndroidProjectExtension(project: Project) : KotlinSingleTar
         targetFuture.await().body()
     }
 
-    val compilerOptions: KotlinJvmCompilerOptions = project.objects
-        .newInstance(KotlinJvmCompilerOptionsDefault::class.java)
-        .configureExperimentalTryNext(project)
+    val compilerOptions: KotlinJvmCompilerOptions = project.objects.KotlinJvmCompilerOptionsDefault(project)
 
     fun compilerOptions(configure: Action<KotlinJvmCompilerOptions>) {
         configure.execute(compilerOptions)
@@ -355,7 +363,8 @@ abstract class KotlinAndroidProjectExtension(project: Project) : KotlinSingleTar
 enum class NativeCacheKind(val produce: String?, val outputKind: CompilerOutputKind?) {
     NONE(null, null),
     DYNAMIC("dynamic_cache", CompilerOutputKind.DYNAMIC_CACHE),
-    STATIC("static_cache", CompilerOutputKind.STATIC_CACHE);
+    STATIC("static_cache", CompilerOutputKind.STATIC_CACHE),
+    HEADER("header_cache", CompilerOutputKind.HEADER_CACHE);
 
     companion object {
         fun byCompilerArgument(argument: String): NativeCacheKind? =

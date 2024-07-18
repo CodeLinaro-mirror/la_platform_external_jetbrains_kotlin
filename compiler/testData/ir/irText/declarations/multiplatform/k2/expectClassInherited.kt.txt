@@ -1,5 +1,3 @@
-// FILE: common.kt
-
 // FILE: platform.kt
 
 abstract class A {
@@ -20,10 +18,13 @@ open class B : A {
 
   }
 
-  override fun foo() {
-  }
-
   open fun bar(s: String) {
   }
 
+  override fun foo() {
+  }
+
 }
+
+// FILE: common.kt
+

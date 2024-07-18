@@ -5,18 +5,18 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.resolveExtensionInfoProvider
 
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
+import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.scopeProvider.TestScopeRenderer.renderForTests
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.resolve.extensions.KtResolveExtensionTestSupport
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.resolve.extensions.getDescription
-import org.jetbrains.kotlin.analysis.api.scopes.KtScope
-import org.jetbrains.kotlin.analysis.api.symbols.KtDeclarationSymbol
+import org.jetbrains.kotlin.analysis.api.scopes.KaScope
+import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
@@ -26,28 +26,30 @@ abstract class AbstractResolveExtensionInfoProviderTest : AbstractAnalysisApiBas
         KtResolveExtensionTestSupport.configure(builder)
     }
 
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         analyseForTest(mainFile) {
-            val resolveExtensionScope = getResolveExtensionScopeWithTopLevelDeclarations()
+            val resolveExtensionScope = resolveExtensionScopeWithTopLevelDeclarations
 
-            val actual = resolveExtensionScope.renderSymbolsWithExtendedPsiInfo(pretty = false)
-            val actualPretty = resolveExtensionScope.renderSymbolsWithExtendedPsiInfo(pretty = true)
+            val actual = renderSymbolsWithExtendedPsiInfo(resolveExtensionScope, printPretty = false)
+            val actualPretty = renderSymbolsWithExtendedPsiInfo(resolveExtensionScope, printPretty = true)
 
             testServices.assertions.assertEqualsToTestDataFileSibling(actual)
             testServices.assertions.assertEqualsToTestDataFileSibling(actualPretty, extension = ".pretty.txt")
         }
     }
 
-    context(KtAnalysisSession)
-    private fun KtScope.renderSymbolsWithExtendedPsiInfo(pretty: Boolean) = prettyPrint {
-        renderForTests(this@renderSymbolsWithExtendedPsiInfo, pretty) { symbol ->
-            (symbol as? KtDeclarationSymbol)?.getPsiDeclarationInfo()
+    private fun KaSession.renderSymbolsWithExtendedPsiInfo(scope: KaScope, printPretty: Boolean) = prettyPrint {
+        renderForTests(scope, this@prettyPrint, printPretty) { symbol ->
+            if (symbol is KaDeclarationSymbol) {
+                getPsiDeclarationInfo(symbol)
+            } else {
+                null
+            }
         }
     }
 
-    context(KtAnalysisSession)
-    private fun KtDeclarationSymbol.getPsiDeclarationInfo(): String = prettyPrint {
-        val ktElement = psi as? KtElement
+    private fun KaSession.getPsiDeclarationInfo(symbol: KaDeclarationSymbol): String = prettyPrint {
+        val ktElement = symbol.psi as? KtElement
         val containingVirtualFile = ktElement?.containingFile?.virtualFile
         appendLine("PSI: ${ktElement?.getDescription()} [from ${containingVirtualFile?.name}]")
         if (ktElement == null || containingVirtualFile == null) {
@@ -58,7 +60,7 @@ abstract class AbstractResolveExtensionInfoProviderTest : AbstractAnalysisApiBas
             val isResolveExtensionFile = containingVirtualFile.isResolveExtensionFile
             appendLine("From resolve extension: $isResolveExtensionFile")
 
-            val navTargets = ktElement.getResolveExtensionNavigationElements()
+            val navTargets = ktElement.resolveExtensionNavigationElements
             appendLine("Resolve extension navigation targets: ${navTargets.size}")
             withIndent { navTargets.forEach { appendLine(it.toString()) } }
         }

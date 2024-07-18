@@ -759,7 +759,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
         }
     }
 
-    private fun FlowContent.generate(expression: FirLiteralExpression<*>) {
+    private fun FlowContent.generate(expression: FirLiteralExpression) {
         val value = expression.value
         if (value == null && expression.kind != ConstantValueKind.Null) {
             return error {
@@ -1545,7 +1545,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                 is FirElseIfTrueCondition -> generate(expression)
                 is FirWhenExpression -> generate(expression, isStatement = false)
                 is FirTryExpression -> generate(expression, isStatement = false)
-                is FirLiteralExpression<*> -> generate(expression)
+                is FirLiteralExpression -> generate(expression)
                 is FirReturnExpression -> {
                     span("return-label") {
                         symbolRef(expression.target.labeledElement.symbol) {
@@ -1572,11 +1572,6 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                     +"*"
                     generate(expression.expression)
 
-                }
-                is FirLambdaArgumentExpression -> {
-                    keyword("lambda")
-                    +" = "
-                    generate(expression.expression)
                 }
                 is FirTypeOperatorCall -> generate(expression)
                 is FirEqualityOperatorCall -> generate(expression)

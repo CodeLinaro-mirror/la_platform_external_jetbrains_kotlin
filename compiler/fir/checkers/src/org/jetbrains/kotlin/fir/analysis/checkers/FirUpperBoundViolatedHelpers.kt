@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
+import org.jetbrains.kotlin.fir.expressions.explicitTypeArgumentIfMadeFlexibleSynthetically
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
@@ -25,7 +26,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.AbstractTypeChecker
-import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import kotlin.reflect.KClass
 
 /**
@@ -52,7 +52,8 @@ private fun checkUpperBoundViolated(
 
     // If we have FirTypeRef information, add KtSourceElement information to each argument of the type and fully expand.
     val type = if (typeRef != null) {
-        notExpandedType.fullyExpandedTypeWithSource(typeRef, context.session)
+        (notExpandedType.abbreviatedTypeOrSelf as? ConeClassLikeType)
+            ?.fullyExpandedTypeWithSource(typeRef, context.session)
             // Add fallback source information to arguments of the expanded type.
             ?.withArguments { it.withSource(FirTypeRefSource(null, typeRef.source)) }
             ?: return
@@ -192,7 +193,7 @@ fun checkUpperBoundViolated(
         val argumentTypeRef = sourceAttribute?.typeRef
         val argumentSource = sourceAttribute?.source
 
-        if (argumentType != null && argumentSource != null) {
+        if (argumentType != null && isExplicitTypeArgumentSource(argumentSource)) {
             if (!isIgnoreTypeParameters || (argumentType.typeArguments.isEmpty() && argumentType !is ConeTypeParameterType)) {
                 val intersection =
                     typeSystemContext.intersectTypes(typeParameters[index].resolvedBounds.map { it.coneType })
@@ -209,7 +210,7 @@ fun checkUpperBoundViolated(
                             argumentSource, FirErrors.UPPER_BOUND_VIOLATED_IN_TYPEALIAS_EXPANSION, upperBound, argumentType.type, context
                         )
                     } else {
-                        val extraMessage = if(upperBound is ConeCapturedType) "Consider removing the explicit type arguments" else ""
+                        val extraMessage = if (upperBound.lowerBoundIfFlexible().originalIfDefinitelyNotNullable() is ConeCapturedType) "Consider removing the explicit type arguments" else ""
                         reporter.reportOn(
                             argumentSource, FirErrors.UPPER_BOUND_VIOLATED,
                             upperBound, argumentType.type, extraMessage, context
@@ -217,20 +218,17 @@ fun checkUpperBoundViolated(
                     }
                 } else {
                     // Only check if the original check was successful to prevent duplicate diagnostics
-                    val additionalUpperBound = additionalUpperBoundsProvider?.getAdditionalUpperBound(upperBound)
-                    if (additionalUpperBound != null && !AbstractTypeChecker.isSubtypeOf(
-                            typeSystemContext,
-                            argumentType,
-                            additionalUpperBound,
-                            stubTypesEqualToAnything = true
-                        )
-                    ) {
-                        val factory = when {
-                            isReportExpansionError && argumentTypeRef == null -> additionalUpperBoundsProvider.diagnosticForTypeAlias
-                            else -> additionalUpperBoundsProvider.diagnostic
-                        }
-                        reporter.reportOn(argumentSource, factory, upperBound, argumentType.type, context)
-                    }
+                    reportUpperBoundViolationWarningIfNecessary(
+                        additionalUpperBoundsProvider,
+                        argumentType,
+                        upperBound,
+                        context,
+                        typeSystemContext,
+                        reporter,
+                        isReportExpansionError,
+                        argumentTypeRef,
+                        argumentSource
+                    )
                 }
             }
 
@@ -238,6 +236,40 @@ fun checkUpperBoundViolated(
                 checkUpperBoundViolated(argumentTypeRef, argumentType, context, reporter, isIgnoreTypeParameters)
             }
         }
+    }
+}
+
+private fun reportUpperBoundViolationWarningIfNecessary(
+    additionalUpperBoundsProvider: FirPlatformUpperBoundsProvider?,
+    argumentType: ConeKotlinType,
+    upperBound: ConeKotlinType,
+    context: CheckerContext,
+    typeSystemContext: ConeInferenceContext,
+    reporter: DiagnosticReporter,
+    isReportExpansionError: Boolean,
+    argumentTypeRef: FirTypeRef?,
+    argumentSource: KtSourceElement?,
+) {
+    if (additionalUpperBoundsProvider == null) return
+    val additionalUpperBound = additionalUpperBoundsProvider.getAdditionalUpperBound(upperBound) ?: return
+    // While [org.jetbrains.kotlin.fir.resolve.calls.CreateFreshTypeVariableSubstitutorStage.getTypePreservingFlexibilityWrtTypeVariable]
+    // is here, to obtain original explicit type arguments, we need to look into special attribute.
+    // TODO: Get rid of this unwrapping once KT-59138 is fixed and the relevant feature for disabling it will be removed
+    val properArgumentType =
+        argumentType.attributes.explicitTypeArgumentIfMadeFlexibleSynthetically?.coneType ?: argumentType
+
+    if (!AbstractTypeChecker.isSubtypeOf(
+            typeSystemContext,
+            properArgumentType,
+            additionalUpperBound,
+            stubTypesEqualToAnything = true
+        )
+    ) {
+        val factory = when {
+            isReportExpansionError && argumentTypeRef == null -> additionalUpperBoundsProvider.diagnosticForTypeAlias
+            else -> additionalUpperBoundsProvider.diagnostic
+        }
+        reporter.reportOn(argumentSource, factory, upperBound, properArgumentType.type, context)
     }
 }
 

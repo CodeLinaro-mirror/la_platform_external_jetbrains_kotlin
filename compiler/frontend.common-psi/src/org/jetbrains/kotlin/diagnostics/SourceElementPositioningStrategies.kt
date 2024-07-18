@@ -36,6 +36,11 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.DECLARATION_RETURN_TYPE
     )
 
+    val CONTEXT_KEYWORD = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.CONTEXT_KEYWORD,
+        PositioningStrategies.CONTEXT_KEYWORD
+    )
+
     val DECLARATION_NAME = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.DECLARATION_NAME,
         PositioningStrategies.DECLARATION_NAME
@@ -201,6 +206,11 @@ object SourceElementPositioningStrategies {
         PositioningStrategies.WHEN_EXPRESSION
     )
 
+    val WHEN_GUARD = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.WHEN_GUARD,
+        PositioningStrategies.WHEN_GUARD
+    )
+
     val IF_EXPRESSION = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.IF_EXPRESSION,
         PositioningStrategies.IF_EXPRESSION
@@ -284,6 +294,11 @@ object SourceElementPositioningStrategies {
     val IMPORT_LAST_NAME = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.IMPORT_LAST_NAME,
         PositioningStrategies.IMPORT_LAST_NAME
+    )
+
+    val IMPORT_LAST_BUT_ONE_NAME = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.IMPORT_LAST_BUT_ONE_NAME,
+        PositioningStrategies.IMPORT_LAST_BUT_ONE_NAME,
     )
 
     val SPREAD_OPERATOR = SourceElementPositioningStrategy(
@@ -401,5 +416,15 @@ object SourceElementPositioningStrategies {
     val SUPERTYPE_INITIALIZED_IN_EXPECTED_CLASS_DIAGNOSTIC = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.SUPERTYPE_INITIALIZED_IN_EXPECTED_CLASS_DIAGNOSTIC,
         PositioningStrategies.SUPERTYPE_INITIALIZED_IN_EXPECTED_CLASS_DIAGNOSTIC,
+    )
+
+    val TYPE_ARGUMENT_LIST_OR_SELF = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.TYPE_ARGUMENT_LIST_OR_SELF,
+        PositioningStrategies.TYPE_ARGUMENT_LIST_OR_SELF,
+    )
+
+    val PACKAGE_DIRECTIVE_NAME_EXPRESSION = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.PACKAGE_DIRECTIVE_NAME_EXPRESSION,
+        PositioningStrategies.PACKAGE_DIRECTIVE_NAME_EXPRESSION,
     )
 }

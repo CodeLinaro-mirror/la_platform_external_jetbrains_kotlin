@@ -1,4 +1,5 @@
-// !LANGUAGE: +ContextReceivers
+// DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
+// LANGUAGE: +ContextReceivers
 // ISSUE: KT-64531, KT-64488
 // FIR_DUMP
 // WITH_STDLIB
@@ -41,7 +42,7 @@ context(Bar)
 fun test3() = z
 
 context(Bar)
-fun test4() = <!DEPRECATED_ACCESS_TO_ENTRY_PROPERTY_FROM_ENUM!>entries<!>
+fun test4() = <!DEPRECATED_ACCESS_TO_ENTRIES_PROPERTY!>entries<!>
 
 context(Bar)
 fun Baz.test5() = w

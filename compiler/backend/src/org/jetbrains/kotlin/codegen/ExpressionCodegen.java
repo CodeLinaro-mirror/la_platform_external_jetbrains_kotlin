@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.codegen;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.util.ArrayUtil;
@@ -43,6 +42,7 @@ import org.jetbrains.kotlin.codegen.when.SwitchCodegen;
 import org.jetbrains.kotlin.codegen.when.SwitchCodegenProvider;
 import org.jetbrains.kotlin.config.ApiVersion;
 import org.jetbrains.kotlin.config.JVMAssertionsMode;
+import org.jetbrains.kotlin.config.JVMConfigurationKeys;
 import org.jetbrains.kotlin.config.LanguageFeature;
 import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.descriptors.impl.AnonymousFunctionDescriptor;
@@ -84,6 +84,7 @@ import org.jetbrains.kotlin.types.expressions.DoubleColonLHS;
 import org.jetbrains.kotlin.types.model.TypeParameterMarker;
 import org.jetbrains.kotlin.types.typesApproximation.CapturedTypeApproximationKt;
 import org.jetbrains.kotlin.util.OperatorNameConventions;
+import org.jetbrains.kotlin.utils.exceptions.PlatformExceptionUtilsKt;
 import org.jetbrains.org.objectweb.asm.Label;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
 import org.jetbrains.org.objectweb.asm.Opcodes;
@@ -131,6 +132,8 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
     private final TailRecursionCodegen tailRecursionCodegen;
     public final CallGenerator defaultCallGenerator = new CallGenerator.DefaultCallGenerator(this);
     private final SwitchCodegenProvider switchCodegenProvider;
+    private final InlineScopesGenerator inlineScopesGenerator;
+
     private final TypeSystemCommonBackendContext typeSystem;
 
     private final Stack<BlockStackElement> blockStackElements = new Stack<>();
@@ -165,6 +168,9 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         this.tailRecursionCodegen = new TailRecursionCodegen(context, this, this.v, state);
         this.switchCodegenProvider = new SwitchCodegenProvider(this);
         this.typeSystem = new ClassicTypeSystemContextImpl(state.getModule().getBuiltIns());
+
+        boolean inlineScopesEnabled = state.getConfiguration().getBoolean(JVMConfigurationKeys.USE_INLINE_SCOPES_NUMBERS);
+        this.inlineScopesGenerator = inlineScopesEnabled ? new InlineScopesGenerator() : null;
     }
 
     @Nullable
@@ -341,10 +347,11 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
             return genNotNullAssertions(state, stackValue, runtimeAssertionInfo);
         }
-        catch (ProcessCanceledException | CompilationException e) {
+        catch (CompilationException e) {
             throw e;
         }
         catch (Throwable e) {
+            PlatformExceptionUtilsKt.rethrowIntellijPlatformExceptionIfNeeded(e);
             throw new CompilationException("Failed to generate expression: " + selector.getClass().getSimpleName(), e, selector);
         }
     }
@@ -1567,6 +1574,11 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
     @Override
     public int getLastLineNumber() {
         return myLastLineNumber;
+    }
+
+    @Override
+    public InlineScopesGenerator getInlineScopesGenerator() {
+        return inlineScopesGenerator;
     }
 
     private boolean doFinallyOnReturn(@NotNull Label afterReturnLabel, @NotNull List<TryBlockStackElement> nestedTryBlocksWithoutFinally) {

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 description = "Kotlin Scripting Compiler Plugin"
 
 plugins {
@@ -35,7 +37,7 @@ dependencies {
     testImplementation(libs.junit4)
 
     testImplementation(intellijCore())
-    testImplementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-coroutines-core"))
+    testImplementation(libs.kotlinx.coroutines.core)
     testImplementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 }
 
@@ -46,9 +48,10 @@ sourceSets {
     "test" { projectDefault() }
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
-    kotlinOptions {
-        freeCompilerArgs = freeCompilerArgs - "-progressive" + "-Xskip-metadata-version-check"
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions {
+        progressiveMode.set(false)
+        freeCompilerArgs.add("-Xskip-metadata-version-check")
     }
 }
 

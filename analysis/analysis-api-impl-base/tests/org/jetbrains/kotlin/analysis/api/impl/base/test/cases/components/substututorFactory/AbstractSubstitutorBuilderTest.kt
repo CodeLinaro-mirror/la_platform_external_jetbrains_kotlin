@@ -5,45 +5,44 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.substututorFactory
 
-import org.jetbrains.kotlin.analysis.api.components.buildClassType
 import org.jetbrains.kotlin.analysis.api.components.buildSubstitutor
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.stringRepresentation
-import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.getSymbolOfType
+import org.jetbrains.kotlin.analysis.api.renderer.declarations.impl.KaDeclarationRendererForDebug
+import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.services.getSymbolByName
 import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractSubstitutorBuilderTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val declaration = testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtDeclaration>(mainFile)
         val actual = analyseForTest(declaration) {
-            val symbol = declaration.getSymbolOfType<KtCallableSymbol>()
+            val symbol = declaration.symbol as KaCallableSymbol
 
             val substitutor = buildSubstitutor {
-                substitution(getSymbolByName(mainFile, "A"), builtinTypes.INT)
-                substitution(getSymbolByName(mainFile, "B"), builtinTypes.LONG)
+                substitution(getSymbolByName(mainFile, "A"), builtinTypes.int)
+                substitution(getSymbolByName(mainFile, "B"), builtinTypes.long)
                 substitution(
                     getSymbolByName(mainFile, "C"),
                     buildClassType(StandardClassIds.List) {
-                        argument(builtinTypes.STRING)
+                        argument(builtinTypes.string)
                     }
                 )
             }
 
             val signatureAfterSubstitution = symbol.substitute(substitutor)
             prettyPrint {
-                appendLine("KtDeclaration: ${declaration::class.simpleName}")
+                appendLine("${KtDeclaration::class.simpleName}: ${declaration::class.simpleName}")
 
                 appendLine("Symbol:")
-                appendLine(symbol.render())
+                appendLine(symbol.render(KaDeclarationRendererForDebug.WITH_QUALIFIED_NAMES))
 
                 appendLine()
 

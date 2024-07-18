@@ -5,11 +5,11 @@
 
 package org.jetbrains.kotlin.gradle.native
 
+import com.intellij.openapi.util.JDOMUtil
 import com.intellij.testFramework.TestDataFile
 import org.gradle.api.logging.LogLevel
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
-import org.jdom.input.SAXBuilder
 import org.jetbrains.kotlin.gradle.internals.KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS_PROPERTY
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeOutputKind
@@ -59,24 +59,6 @@ class GeneralNativeIT : KGPBaseTest() {
             subProject("two").buildGradleKts.appendText(synchronisationBlock)
 
             build(":one:compileKotlinLinux", ":two:compileKotlinLinux")
-        }
-    }
-
-    @DisplayName("Build with ignoreIncorrectDependencies turned on")
-    @GradleTest
-    fun testIncorrectDependenciesWarning(gradleVersion: GradleVersion) {
-        nativeProject("new-mpp-lib-and-app/sample-lib", gradleVersion) {
-            buildGradle.replaceText(
-                "api 'org.jetbrains.kotlin:kotlin-stdlib-common'",
-                "compileOnly 'org.jetbrains.kotlin:kotlin-stdlib-common'"
-            )
-
-            build {
-                assertOutputContains("A compileOnly dependency is used in the Kotlin/Native target")
-            }
-            build("-Pkotlin.native.ignoreIncorrectDependencies=true") {
-                assertOutputDoesNotContain("A compileOnly dependency is used in the Kotlin/Native target")
-            }
         }
     }
 
@@ -584,6 +566,8 @@ class GeneralNativeIT : KGPBaseTest() {
             }
             val testsToSkip = testTasks.map { ":$it" } - testsToExecute
 
+            enablePassedTestLogging()
+
             val suffix = HostManager.host.family.exeSuffix
             val defaultOutputFile = "build/bin/host/debugTest/test.$suffix"
             val anotherOutputFile = "build/bin/host/anotherDebugTest/another.$suffix"
@@ -606,17 +590,17 @@ class GeneralNativeIT : KGPBaseTest() {
             val bootedSimulatorsBefore = getBootedSimulators()
 
             // Check the case when all tests pass.
-            build("check", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
+            build("check") {
 
                 assertTasksExecuted(*testsToExecute.toTypedArray())
                 assertTasksSkipped(*testsToSkip.toTypedArray())
 
                 if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) {
-                    assertOutputContains("org\\.foo\\.test\\.TestKt\\.fooTest\\s+PASSED".toRegex())
-                    assertOutputContains("org\\.foo\\.test\\.TestKt\\.barTest\\s+PASSED".toRegex())
+                    assertOutputContains("org.foo.test.TestKt.fooTest PASSED")
+                    assertOutputContains("org.foo.test.TestKt.barTest PASSED")
                 } else {
-                    assertOutputContains("org\\.foo\\.test\\.TestKt\\.fooTest\\[host]\\s+PASSED".toRegex())
-                    assertOutputContains("org\\.foo\\.test\\.TestKt\\.barTest\\[host]\\s+PASSED".toRegex())
+                    assertOutputContains("org.foo.test.TestKt.fooTest[host] PASSED")
+                    assertOutputContains("org.foo.test.TestKt.barTest[host] PASSED")
                 }
 
                 assertFileInProjectExists(defaultOutputFile)
@@ -703,9 +687,9 @@ class GeneralNativeIT : KGPBaseTest() {
             assertTasksSkipped(*testsToSkip.toTypedArray())
 
             if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) {
-                assertOutputContains("org\\.foo\\.test\\.TestKt\\.fail\\s+FAILED".toRegex())
+                assertOutputContains("org.foo.test.TestKt.fail FAILED")
             } else {
-                assertOutputContains("org\\.foo\\.test\\.TestKt\\.fail\\[host]\\s+FAILED".toRegex())
+                assertOutputContains("org.foo.test.TestKt.fail[host] FAILED")
             }
         }
 
@@ -720,7 +704,7 @@ class GeneralNativeIT : KGPBaseTest() {
 
             fun assertStacktrace(taskName: String, targetName: String) {
                 val testReport = projectPath.resolve("build/test-results/$taskName/TEST-org.foo.test.TestKt.xml").toFile()
-                val stacktrace = SAXBuilder().build(testReport).rootElement
+                val stacktrace = JDOMUtil.load(testReport)
                     .getChildren("testcase")
                     .single { it.getAttribute("name").value == "fail" || it.getAttribute("name").value == "fail[$targetName]" }
                     .getChild("failure")

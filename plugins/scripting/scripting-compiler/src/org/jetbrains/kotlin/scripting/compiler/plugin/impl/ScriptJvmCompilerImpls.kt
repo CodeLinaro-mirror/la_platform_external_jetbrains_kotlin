@@ -20,10 +20,7 @@ import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.DefaultCodegenFactory
 import org.jetbrains.kotlin.codegen.KotlinCodegenFacade
 import org.jetbrains.kotlin.codegen.state.GenerationState
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.JVMConfigurationKeys
-import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.declarations.FirFile
@@ -89,14 +86,14 @@ class ScriptJvmCompilerFromEnvironment(val environment: KotlinCoreEnvironment) :
 
                 val context = createCompilationContextFromEnvironment(initialConfiguration, environment, messageCollector)
 
-                val previousMessageCollector = environment.configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY]
+                val previousMessageCollector = environment.configuration[CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY]
                 try {
-                    environment.configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, messageCollector)
+                    environment.configuration.messageCollector = messageCollector
 
                     compileImpl(script, context, initialConfiguration, messageCollector)
                 } finally {
                     if (previousMessageCollector != null)
-                        environment.configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, previousMessageCollector)
+                        environment.configuration.messageCollector = previousMessageCollector
                 }
             }
         }
@@ -254,7 +251,7 @@ private fun doCompile(
 }
 
 private fun analyze(sourceFiles: Collection<KtFile>, environment: KotlinCoreEnvironment): AnalysisResult {
-    val messageCollector = environment.configuration[CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY]!!
+    val messageCollector = environment.configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
     val analyzerWithCompilerReport = AnalyzerWithCompilerReport(
         messageCollector,
@@ -267,7 +264,7 @@ private fun analyze(sourceFiles: Collection<KtFile>, environment: KotlinCoreEnvi
         TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(
             project,
             sourceFiles,
-            NoScopeRecordCliBindingTrace(),
+            NoScopeRecordCliBindingTrace(project),
             environment.configuration,
             environment::createPackagePartProvider
         )
@@ -365,7 +362,8 @@ private fun doCompileWithK2(
     )
     val session = prepareJvmSessions(
         sourceFiles, kotlinCompilerConfiguration, projectEnvironment, Name.special("<$rootModuleName>"), extensionRegistrars,
-        librariesScope, libraryList, isCommonSourceForPsi, fileBelongsToModuleForPsi,
+        librariesScope, libraryList, isCommonSourceForPsi, { false },
+        fileBelongsToModuleForPsi,
         createProviderAndScopeForIncrementalCompilation = { files ->
             createContextForIncrementalCompilation(
                 compilerInput.configuration,
@@ -433,7 +431,7 @@ private fun doCompileWithK2(
 
     val irInput = convertAnalyzedFirToIr(compilerInput, analysisResults, compilerEnvironment)
 
-    val codegenOutput = generateCodeFromIr(irInput, compilerEnvironment, null)
+    val codegenOutput = generateCodeFromIr(irInput, compilerEnvironment)
 
     diagnosticsReporter.reportToMessageCollector(messageCollector, renderDiagnosticName)
 

@@ -89,7 +89,9 @@ abstract class AbstractFir2IrNonJvmResultsConverter(
             createFirMangler(),
             Fir2IrVisibilityConverter.Default,
             builtIns ?: DefaultBuiltIns.Instance, // TODO: consider passing externally,
-            ::IrTypeSystemContextImpl
+            ::IrTypeSystemContextImpl,
+            specialAnnotationsProvider = null,
+            extraActualDeclarationExtractorInitializer = { null },
         ).also {
             (it.irModuleFragment.descriptor as? FirModuleDescriptor)?.let { it.allDependencyModules = dependencies }
         }

@@ -10,7 +10,7 @@ import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinTasksProvider
-import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryNext
+import org.jetbrains.kotlin.gradle.utils.KotlinMultiplatformCommonCompilerOptionsDefault
 
 internal open class KotlinCommonPlugin(
     registry: ToolingModelBuilderRegistry
@@ -27,17 +27,16 @@ internal open class KotlinCommonPlugin(
         KotlinCommonSourceSetProcessor(KotlinCompilationInfo(compilation), tasksProvider)
 
     override fun apply(project: Project) {
-        @Suppress("UNCHECKED_CAST")
+        @Suppress("UNCHECKED_CAST", "TYPEALIAS_EXPANSION_DEPRECATION", "DEPRECATION")
         val target = project.objects.newInstance(
             KotlinWithJavaTarget::class.java,
             project,
             KotlinPlatformType.common,
             targetName,
             {
-                object : HasCompilerOptions<KotlinMultiplatformCommonCompilerOptions> {
-                    override val options: KotlinMultiplatformCommonCompilerOptions = project.objects
-                        .newInstance(KotlinMultiplatformCommonCompilerOptionsDefault::class.java)
-                        .configureExperimentalTryNext(project)
+                object : DeprecatedHasCompilerOptions<KotlinMultiplatformCommonCompilerOptions> {
+                    override val options: KotlinMultiplatformCommonCompilerOptions =
+                        project.objects.KotlinMultiplatformCommonCompilerOptionsDefault(project)
                 }
             },
             { compilerOptions: KotlinMultiplatformCommonCompilerOptions ->

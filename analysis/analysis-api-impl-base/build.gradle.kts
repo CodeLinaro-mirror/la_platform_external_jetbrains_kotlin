@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 plugins {
     kotlin("jvm")
     id("jps-compatible")
@@ -9,7 +11,9 @@ dependencies {
     api(project(":analysis:analysis-api-impl-barebone"))
     api(project(":analysis:kt-references"))
     api(project(":compiler:resolution.common.jvm"))
+    implementation(project(":analysis:decompiled:decompiler-to-psi"))
     implementation(project(":compiler:backend-common"))
+    implementation(kotlinxCollectionsImmutable())
     api(intellijCore())
     implementation(project(":analysis:analysis-internal-utils"))
 
@@ -29,11 +33,11 @@ dependencies {
     testImplementation(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(project(":analysis:decompiled:light-classes-for-decompiled"))
-    testImplementation(project(":analysis:decompiled:decompiler-to-psi"))
     testImplementation(project(":analysis:decompiled:decompiler-native"))
     testImplementation(projectTests(":analysis:analysis-test-framework"))
     testImplementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
-    testImplementation(toolsJar())
+    testCompileOnly(toolsJarApi())
+    testRuntimeOnly(toolsJar())
 }
 
 sourceSets {
@@ -41,9 +45,16 @@ sourceSets {
     "test" { projectDefault() }
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
-    kotlinOptions.freeCompilerArgs += "-opt-in=org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals"
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
+    compilerOptions.optIn.addAll(
+        listOf(
+            "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",
+            "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
+            "org.jetbrains.kotlin.analysis.api.KaNonPublicApi",
+            "org.jetbrains.kotlin.analysis.api.KaIdeApi"
+        )
+    )
 }
 
 testsJar()

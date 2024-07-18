@@ -23,8 +23,10 @@ import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.plugin.BuildEventsListenerRegistryHolder
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.StatisticsBuildFlowManager
+import org.jetbrains.kotlin.gradle.plugin.internal.isConfigurationCacheEnabled
 import org.jetbrains.kotlin.gradle.plugin.internal.isConfigurationCacheRequested
 import org.jetbrains.kotlin.gradle.plugin.internal.isProjectIsolationEnabled
+import org.jetbrains.kotlin.gradle.plugin.internal.isProjectIsolationRequested
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskExecutionResults
 import org.jetbrains.kotlin.gradle.report.reportingSettings
 import org.jetbrains.kotlin.gradle.tasks.withType
@@ -54,6 +56,7 @@ abstract class BuildFusService : BuildService<BuildFusService.Parameters>, AutoC
     }
 
     interface Parameters : BuildServiceParameters {
+        val generalConfigurationMetrics: Property<MetricContainer>
         val configurationMetrics: ListProperty<MetricContainer>
         val useBuildFinishFlowAction: Property<Boolean>
         val buildStatisticsConfiguration: Property<KotlinBuildStatsConfiguration>
@@ -89,14 +92,12 @@ abstract class BuildFusService : BuildService<BuildFusService.Parameters>, AutoC
         ): Provider<BuildFusService> {
 
             val isProjectIsolationEnabled = project.isProjectIsolationEnabled
+            val isConfigurationCacheRequested = project.isConfigurationCacheRequested
+            val isProjectIsolationRequested = project.isProjectIsolationRequested
+
+            ProjectConfigurationFusService.registerIfAbsent(project)
 
             project.gradle.sharedServices.registrations.findByName(serviceName)?.let {
-                (it.parameters as Parameters).configurationMetrics.add(
-                    project.provider {
-                        KotlinProjectConfigurationMetrics.collectMetrics(project)
-                    }
-
-                )
                 @Suppress("UNCHECKED_CAST")
                 return (it.service as Provider<BuildFusService>)
             }
@@ -112,20 +113,21 @@ abstract class BuildFusService : BuildService<BuildFusService.Parameters>, AutoC
             // when this OperationCompletionListener is called services can be already closed for Gradle 8,
             // so there is a change that no VariantImplementationFactory will be found
             return gradle.sharedServices.registerIfAbsent(serviceName, BuildFusService::class.java) { spec ->
-                spec.parameters.configurationMetrics.add(project.provider {
+                spec.parameters.generalConfigurationMetrics.set(project.provider {
+                    //isProjectIsolationEnabled isConfigurationCacheRequested and isProjectIsolationRequested should be calculated beforehand
+                    // because since Gradle 8.0 provider's calculation is made in BuildFinishFlowAction
+                    // and VariantImplementationFactories is not initialized at that moment
                     collectGeneralConfigurationTimeMetrics(
+                        project,
                         gradle,
                         buildReportOutputs,
                         useClasspathSnapshot,
                         pluginVersion,
-                        isProjectIsolationEnabled
+                        isProjectIsolationEnabled,
+                        isProjectIsolationRequested,
+                        isConfigurationCacheRequested
                     )
                 })
-                spec.parameters.configurationMetrics.add(
-                    project.provider {
-                        collectProjectConfigurationTimeMetrics(project)
-                    }
-                )
                 spec.parameters.useBuildFinishFlowAction.set(GradleVersion.current().baseVersion >= GradleVersion.version("8.1"))
                 spec.parameters.buildStatisticsConfiguration.set(KotlinBuildStatsConfiguration(project))
             }.also { buildService ->
@@ -135,7 +137,7 @@ abstract class BuildFusService : BuildService<BuildFusService.Parameters>, AutoC
                 //Gradle throws an exception when Gradle version less than 7.4 with configuration cache enabled and buildSrc,
                 @Suppress("DEPRECATION")
                 if (GradleVersion.current().baseVersion >= GradleVersion.version("7.4")
-                    || !project.isConfigurationCacheRequested
+                    || !project.isConfigurationCacheEnabled
                     || project.currentBuildId().name != "buildSrc"
                 ) {
                     BuildEventsListenerRegistryHolder.getInstance(project).listenerRegistry.onTaskCompletion(buildService)
@@ -165,18 +167,19 @@ abstract class BuildFusService : BuildService<BuildFusService.Parameters>, AutoC
         if (!parameters.useBuildFinishFlowAction.get()) {
             recordBuildFinished(buildFailed)
         }
+        KotlinBuildStatsBeanService.closeServices()
         log.kotlinDebug("Close ${this.javaClass.simpleName}")
     }
 
     internal fun recordBuildFinished(buildFailed: Boolean) {
         BuildFinishMetrics.collectMetrics(log, buildFailed, buildStartTime, projectEvaluatedTime, fusMetricsConsumer)
         parameters.configurationMetrics.orElse(emptyList()).get().forEach { it.addToConsumer(fusMetricsConsumer) }
+        parameters.generalConfigurationMetrics.orNull?.addToConsumer(fusMetricsConsumer)
         parameters.buildStatisticsConfiguration.orNull?.also {
             val loggerService = KotlinBuildStatsLoggerService(it)
             loggerService.initSessionLogger(buildId)
             loggerService.reportBuildFinished(fusMetricsConsumer)
         }
-        KotlinBuildStatsBeanService.closeServices()
     }
 }
 

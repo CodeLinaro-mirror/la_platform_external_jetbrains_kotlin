@@ -5,13 +5,14 @@
 
 package org.jetbrains.kotlin.test.services.impl
 
-import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.platform.CommonPlatforms
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
+import org.jetbrains.kotlin.platform.wasm.WasmPlatforms
 import org.jetbrains.kotlin.test.Assertions
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
@@ -250,13 +251,9 @@ class ModuleStructureExtractorImpl(
                     currentModuleTargetPlatform = if (values.size != 1) {
                         assertions.fail { "JVM target should be single" }
                     } else {
-                        when (values.single()) {
-                            "1.6" -> JvmPlatforms.jvm6
-                            "1.8" -> JvmPlatforms.jvm8
-                            "11" -> JvmPlatforms.jvm11
-                            "17" -> JvmPlatforms.jvm17
-                            else -> assertions.fail { "Incorrect value for JVM target" }
-                        }
+                        val jvmTarget = JvmTarget.fromString(values.single().toString())
+                            ?: assertions.fail { "Unknown JVM target: ${values.single()}" }
+                        JvmPlatforms.jvmPlatformByTargetVersion(jvmTarget)
                     }
                     return false // Workaround for FE and FIR
                 }
@@ -355,18 +352,13 @@ class ModuleStructureExtractorImpl(
                 directives = moduleDirectives,
                 languageVersionSettings = currentModuleLanguageVersionSettingsBuilder.build()
             )
-            if (testModule.frontendKind != FrontendKinds.FIR ||
-                !testModule.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) ||
-                modules.isEmpty()
-            ) {
-                additionalSourceProviders.flatMapTo(filesOfCurrentModule) { additionalSourceProvider ->
-                    additionalSourceProvider.produceAdditionalFiles(
-                        globalDirectives ?: RegisteredDirectives.Empty,
-                        testModule
-                    ).also { additionalFiles ->
-                        require(additionalFiles.all { it.isAdditional }) {
-                            "Files produced by ${additionalSourceProvider::class.qualifiedName} should have flag `isAdditional = true`"
-                        }
+            additionalSourceProviders.flatMapTo(filesOfCurrentModule) { additionalSourceProvider ->
+                additionalSourceProvider.produceAdditionalFiles(
+                    globalDirectives ?: RegisteredDirectives.Empty,
+                    testModule
+                ).also { additionalFiles ->
+                    require(additionalFiles.all { it.isAdditional }) {
+                        "Files produced by ${additionalSourceProvider::class.qualifiedName} should have flag `isAdditional = true`"
                     }
                 }
             }
@@ -381,6 +373,7 @@ class ModuleStructureExtractorImpl(
                 nameSuffix == "COMMON" -> CommonPlatforms.defaultCommonPlatform
                 nameSuffix == "JVM" -> JvmPlatforms.unspecifiedJvmPlatform // TODO(dsavvinov): determine JvmTarget precisely
                 nameSuffix == "JS" -> JsPlatforms.defaultJsPlatform
+                nameSuffix == "WASM" -> WasmPlatforms.wasmJs
                 nameSuffix == "NATIVE" -> NativePlatforms.unspecifiedNativePlatform
                 nameSuffix.isEmpty() -> null // TODO(dsavvinov): this leads to 'null'-platform in ModuleDescriptor
                 else -> throw IllegalStateException("Can't determine platform by name $nameSuffix")

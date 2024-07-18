@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,7 +10,8 @@ import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.incremental.components.LookupTracker
-import org.jetbrains.kotlin.ir.backend.js.*
+import org.jetbrains.kotlin.ir.backend.js.JsFactories
+import org.jetbrains.kotlin.ir.backend.js.serializeModuleIntoKlib
 import org.jetbrains.kotlin.js.test.utils.JsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
 import org.jetbrains.kotlin.library.KotlinAbiVersion
@@ -23,7 +24,7 @@ import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
-import java.io.File
+import org.jetbrains.kotlin.test.services.configuration.getFriendDependencies
 
 class JsKlibBackendFacade(
     testServices: TestServices,
@@ -39,12 +40,12 @@ class JsKlibBackendFacade(
     }
 
     override fun transform(module: TestModule, inputArtifact: IrBackendInput): BinaryArtifacts.KLib {
-        require(inputArtifact is IrBackendInput.JsIrBackendInput) {
-            "JsKlibBackendFacade expects IrBackendInput.JsIrBackendInput as input"
+        require(inputArtifact is IrBackendInput.JsIrAfterFrontendBackendInput) {
+            "JsKlibBackendFacade expects IrBackendInput.JsIrAfterFrontendBackendInput as input"
         }
 
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
-        val outputFile = JsEnvironmentConfigurator.getJsKlibArtifactPath(testServices, module.name)
+        val outputFile = JsEnvironmentConfigurator.getKlibArtifactFile(testServices, module.name)
 
         if (firstTimeCompilation) {
             serializeModuleIntoKlib(
@@ -52,7 +53,7 @@ class JsKlibBackendFacade(
                 configuration,
                 inputArtifact.diagnosticReporter,
                 inputArtifact.metadataSerializer,
-                klibPath = outputFile,
+                klibPath = outputFile.path,
                 JsEnvironmentConfigurator.getAllRecursiveLibrariesFor(module, testServices).keys.toList(),
                 inputArtifact.irModuleFragment,
                 cleanFiles = inputArtifact.icData,
@@ -66,7 +67,7 @@ class JsKlibBackendFacade(
 
         val dependencies = JsEnvironmentConfigurator.getAllRecursiveDependenciesFor(module, testServices).toList()
         val lib = CommonKLibResolver.resolve(
-            dependencies.map { testServices.libraryProvider.getPathByDescriptor(it) } + listOf(outputFile),
+            dependencies.map { testServices.libraryProvider.getPathByDescriptor(it) } + listOf(outputFile.path),
             configuration.getLogger(treatWarningsAsErrors = true)
         ).getFullResolvedList().last().library
 
@@ -78,14 +79,15 @@ class JsKlibBackendFacade(
             packageAccessHandler = null,
             lookupTracker = LookupTracker.DO_NOTHING
         )
-        moduleDescriptor.setDependencies(dependencies + moduleDescriptor)
+
+        moduleDescriptor.setDependencies(dependencies + moduleDescriptor, getFriendDependencies(module, testServices))
         testServices.moduleDescriptorProvider.replaceModuleDescriptorForModule(module, moduleDescriptor)
 
         if (JsEnvironmentConfigurator.incrementalEnabled(testServices)) {
             testServices.jsIrIncrementalDataProvider.recordIncrementalData(module, lib)
         }
-        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile, moduleDescriptor, lib)
+        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile.path, moduleDescriptor, lib)
 
-        return BinaryArtifacts.KLib(File(outputFile), inputArtifact.diagnosticReporter)
+        return BinaryArtifacts.KLib(outputFile, inputArtifact.diagnosticReporter)
     }
 }

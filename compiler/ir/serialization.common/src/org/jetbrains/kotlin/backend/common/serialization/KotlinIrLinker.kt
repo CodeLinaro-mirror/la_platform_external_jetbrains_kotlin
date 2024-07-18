@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,15 +10,13 @@ import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageSupport
 import org.jetbrains.kotlin.backend.common.overrides.FileLocalAwareLinker
 import org.jetbrains.kotlin.backend.common.overrides.IrLinkerFakeOverrideProvider
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolData
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.builders.TranslationPluginContext
-import org.jetbrains.kotlin.ir.declarations.IrDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.linkage.IrDeserializer
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.util.*
@@ -29,19 +27,13 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.module
 
 abstract class KotlinIrLinker(
     private val currentModule: ModuleDescriptor?,
-    val messageLogger: IrMessageLogger,
+    val messageCollector: MessageCollector,
     val builtIns: IrBuiltIns,
     val symbolTable: SymbolTable,
     private val exportedDependencies: List<ModuleDescriptor>,
     val symbolProcessor: IrSymbolDeserializer.(IrSymbol, IdSignature) -> IrSymbol = { s, _ -> s },
 ) : IrDeserializer, FileLocalAwareLinker {
-    val internationService = IrInterningService()
-
-    // Kotlin-MPP related data. Consider some refactoring
-    val expectIdSignatureToActualIdSignature = linkedMapOf<IdSignature, IdSignature>()
-    val topLevelActualIdSignatureToModuleDeserializer = hashMapOf<IdSignature, IrModuleDeserializer>()
-    internal val expectSymbols = hashMapOf<IdSignature, IrSymbol>()
-    internal val actualSymbols = hashMapOf<IdSignature, IrSymbol>()
+    val irInterner = IrInterningService()
 
     val modulesWithReachableTopLevels = linkedSetOf<IrModuleDeserializer>()
 
@@ -88,13 +80,13 @@ abstract class KotlinIrLinker(
                     problemModuleDeserializer = moduleDeserializer,
                     allModuleDeserializers = deserializersForModules.values,
                     userVisibleIrModulesSupport = userVisibleIrModulesSupport
-                ).raiseIssue(messageLogger)
+                ).raiseIssue(messageCollector)
         }
     }
 
     fun resolveModuleDeserializer(module: ModuleDescriptor, idSignature: IdSignature?): IrModuleDeserializer {
         return deserializersForModules[module.name.asString()]
-            ?: NoDeserializerForModule(module.name, idSignature).raiseIssue(messageLogger)
+            ?: NoDeserializerForModule(module.name, idSignature).raiseIssue(messageCollector)
     }
 
     protected abstract fun createModuleDeserializer(
@@ -162,7 +154,7 @@ abstract class KotlinIrLinker(
                     ?: tryResolveCustomDeclaration(symbol)
                     ?: return null
             } catch (e: IrSymbolTypeMismatchException) {
-                SymbolTypeMismatch(e, deserializersForModules.values, userVisibleIrModulesSupport).raiseIssue(messageLogger)
+                SymbolTypeMismatch(e, deserializersForModules.values, userVisibleIrModulesSupport).raiseIssue(messageCollector)
             }
         }
 
@@ -212,13 +204,10 @@ abstract class KotlinIrLinker(
     }
 
     fun clear() {
-        internationService.clear()
+        irInterner.reset()
     }
 
     override fun postProcess(inOrAfterLinkageStep: Boolean) {
-        // TODO: Expect/actual actualization should be fixed to cope with the situation when either expect or actual symbol is unbound.
-        finalizeExpectActualLinker()
-
         if (inOrAfterLinkageStep) {
             // We have to exclude classifiers with unbound symbols in supertypes and in type parameter upper bounds from F.O. generation
             // to avoid failing with `Symbol for <signature> is unbound` error or generating fake overrides with incorrect signatures.
@@ -239,36 +228,6 @@ abstract class KotlinIrLinker(
         // symbolTable.noUnboundLeft("unbound after fake overrides:")
     }
 
-    fun handleExpectActualMapping(idSig: IdSignature, rawSymbol: IrSymbol): IrSymbol {
-
-        // Actual signature
-        if (idSig in expectIdSignatureToActualIdSignature.values) {
-            actualSymbols[idSig] = rawSymbol
-        }
-
-        // Expect signature
-        expectIdSignatureToActualIdSignature[idSig]?.let { actualSig ->
-            assert(idSig.run { IdSignature.Flags.IS_EXPECT.test() })
-
-            val referencingSymbol = wrapInDelegatedSymbol(rawSymbol)
-
-            expectSymbols[idSig] = referencingSymbol
-
-            // Trigger actual symbol deserialization
-            topLevelActualIdSignatureToModuleDeserializer[actualSig]?.let { moduleDeserializer -> // Not null if top-level
-                val actualSymbol = actualSymbols[actualSig]
-                // Check if
-                if (actualSymbol == null || !actualSymbol.isBound) {
-                    moduleDeserializer.addModuleReachableTopLevel(actualSig)
-                }
-            }
-
-            return referencingSymbol
-        }
-
-        return rawSymbol
-    }
-
     private fun topLevelKindToSymbolKind(kind: IrDeserializer.TopLevelSymbolKind): BinarySymbolData.SymbolKind {
         return when (kind) {
             IrDeserializer.TopLevelSymbolKind.CLASS_SYMBOL -> BinarySymbolData.SymbolKind.CLASS_SYMBOL
@@ -286,58 +245,6 @@ abstract class KotlinIrLinker(
         if (signature !in moduleDeserializer) error("No signature $signature in module $moduleName")
         return moduleDeserializer.deserializeIrSymbolOrFail(signature, topLevelKindToSymbolKind(kind)).also {
             deserializeAllReachableTopLevels()
-        }
-    }
-
-    private inline fun <reified Owner, reified DelegatingSymbol, reified DelegateSymbol> finalizeExpectActual(
-        expectSymbol: DelegatingSymbol,
-        actualSymbol: IrSymbol,
-        noinline actualizer: (e: Owner, a: Owner) -> Unit,
-    ) where Owner : IrDeclaration,
-            DelegatingSymbol : IrDelegatingSymbol<DelegateSymbol, Owner, *>,
-            DelegateSymbol : IrBindableSymbol<*, Owner> {
-        require(actualSymbol is DelegateSymbol)
-        val expectDeclaration = expectSymbol.owner
-        val actualDeclaration = actualSymbol.owner
-        actualizer(expectDeclaration, actualDeclaration)
-        expectSymbol.delegate = actualSymbol
-    }
-
-    private fun actualizeIrFunction(e: IrFunction, a: IrFunction) {
-        for (i in 0 until e.valueParameters.size) {
-            val evp = e.valueParameters[i]
-            val avp = a.valueParameters[i]
-            val defaultValue = evp.defaultValue
-            if (avp.defaultValue == null && defaultValue != null) {
-                avp.defaultValue = defaultValue.patchDeclarationParents(a)
-                evp.defaultValue = null
-            }
-        }
-    }
-
-    // The issue here is that an expect can not trigger its actual deserialization by reachability
-    // because the expect can not see the actual higher in the module dependency dag.
-    // So we force deserialization of actuals for all deserialized expect symbols here.
-    private fun finalizeExpectActualLinker() {
-        // All actuals have been deserialized, retarget delegating symbols from expects to actuals.
-        expectIdSignatureToActualIdSignature.forEach {
-            val expectSymbol = expectSymbols[it.key]
-            val actualSymbol = actualSymbols[it.value]
-            if (expectSymbol != null && actualSymbol != null) {
-                when (expectSymbol) {
-                    is IrDelegatingClassSymbolImpl ->
-                        finalizeExpectActual(expectSymbol, actualSymbol) { _, _ -> }
-                    is IrDelegatingEnumEntrySymbolImpl ->
-                        finalizeExpectActual(expectSymbol, actualSymbol) { _, _ -> }
-                    is IrDelegatingSimpleFunctionSymbolImpl ->
-                        finalizeExpectActual(expectSymbol, actualSymbol) { e, a -> actualizeIrFunction(e, a) }
-                    is IrDelegatingConstructorSymbolImpl ->
-                        finalizeExpectActual(expectSymbol, actualSymbol) { e, a -> actualizeIrFunction(e, a) }
-                    is IrDelegatingPropertySymbolImpl ->
-                        finalizeExpectActual(expectSymbol, actualSymbol) { _, _ -> }
-                    else -> error("Unexpected expect symbol kind during actualization: $expectSymbol")
-                }
-            }
         }
     }
 

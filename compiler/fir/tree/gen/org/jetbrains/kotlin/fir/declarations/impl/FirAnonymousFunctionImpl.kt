@@ -6,12 +6,13 @@
 // This file was generated automatically. See compiler/fir/tree/tree-generator/Readme.md.
 // DO NOT MODIFY IT MANUALLY.
 
-@file:Suppress("DuplicatedCode", "unused")
+@file:Suppress("DuplicatedCode")
 
 package org.jetbrains.kotlin.fir.declarations.impl
 
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.contracts.description.EventOccurrencesRange
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirLabel
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.MutableOrEmptyList
@@ -29,7 +30,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
-@OptIn(ResolveStateAccess::class)
+@OptIn(FirImplementationDetail::class, ResolveStateAccess::class)
 internal class FirAnonymousFunctionImpl(
     override val source: KtSourceElement?,
     resolvePhase: FirResolvePhase,
@@ -47,7 +48,7 @@ internal class FirAnonymousFunctionImpl(
     override var controlFlowGraphReference: FirControlFlowGraphReference?,
     override val valueParameters: MutableList<FirValueParameter>,
     override var body: FirBlock?,
-    override var contractDescription: FirContractDescription,
+    override var contractDescription: FirContractDescription?,
     override val symbol: FirAnonymousFunctionSymbol,
     override var label: FirLabel?,
     override var invocationKind: EventOccurrencesRange?,
@@ -72,7 +73,7 @@ internal class FirAnonymousFunctionImpl(
         controlFlowGraphReference?.accept(visitor, data)
         valueParameters.forEach { it.accept(visitor, data) }
         body?.accept(visitor, data)
-        contractDescription.accept(visitor, data)
+        contractDescription?.accept(visitor, data)
         label?.accept(visitor, data)
         typeParameters.forEach { it.accept(visitor, data) }
         typeRef.accept(visitor, data)
@@ -125,7 +126,7 @@ internal class FirAnonymousFunctionImpl(
     }
 
     override fun <D> transformContractDescription(transformer: FirTransformer<D>, data: D): FirAnonymousFunctionImpl {
-        contractDescription = contractDescription.transform(transformer, data)
+        contractDescription = contractDescription?.transform(transformer, data)
         return this
     }
 
@@ -163,6 +164,7 @@ internal class FirAnonymousFunctionImpl(
     }
 
     override fun replaceValueParameters(newValueParameters: List<FirValueParameter>) {
+        if (valueParameters === newValueParameters) return
         valueParameters.clear()
         valueParameters.addAll(newValueParameters)
     }
@@ -171,7 +173,7 @@ internal class FirAnonymousFunctionImpl(
         body = newBody
     }
 
-    override fun replaceContractDescription(newContractDescription: FirContractDescription) {
+    override fun replaceContractDescription(newContractDescription: FirContractDescription?) {
         contractDescription = newContractDescription
     }
 

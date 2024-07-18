@@ -8,8 +8,9 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.providers
 import com.intellij.psi.PsiClass
 import com.intellij.psi.PsiTypeParameter
 import com.intellij.psi.impl.compiled.ClsElementImpl
+import org.jetbrains.kotlin.analysis.api.utils.errors.withClassEntry
+import org.jetbrains.kotlin.analysis.api.utils.errors.withPsiEntry
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
-import org.jetbrains.kotlin.analysis.utils.errors.*
 import org.jetbrains.kotlin.asJava.KtLightClassMarker
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
@@ -18,7 +19,7 @@ import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
-import org.jetbrains.kotlin.analysis.utils.classIdIfNonLocal
+import org.jetbrains.kotlin.analysis.utils.classId
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.checkWithAttachment
 
@@ -67,7 +68,7 @@ class LLFirFirClassByPsiClassProvider(private val session: LLFirSession) : FirSe
     }
 
     private fun createFirClassFromFirProvider(psiClass: PsiClass): FirRegularClassSymbol {
-        val classId = psiClass.classIdIfNonLocal
+        val classId = psiClass.classId
             ?: error("No classId for non-local class")
         val provider = session.nullableJavaSymbolProvider ?: session.symbolProvider
         val symbol = provider.getClassLikeSymbolByClassId(classId)

@@ -6,6 +6,9 @@
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import org.gradle.api.Project
+import org.gradle.api.artifacts.component.ComponentIdentifier
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedDependencyResult
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
@@ -93,7 +96,7 @@ internal class SourceSetVisibilityProvider(
                 val resolvedPlatformDependencies = platformCompilationData
                     .resolvedDependenciesConfiguration
                     .allResolvedDependencies
-                    .filter { it.selected.id == resolvedRootMppDependencyId }
+                    .filter { it.selected.id isEqualsIgnoringVersion resolvedRootMppDependencyId }
                     /*
                     Returning null if we can't find the given dependency in a certain platform compilations dependencies.
                     This is not expected, since this means the dependency does not support the given targets which will
@@ -189,12 +192,85 @@ internal class SourceSetVisibilityProvider(
                 }.toMap()
             }
 
-        return SourceSetVisibilityResult(
+        /**
+         * Sort from more to less target specific source sets.
+         * So that actuals will be first in the library path.
+         * e.g. linuxMain, nativeMain, commonMain.
+         */
+        val sortedVisibleSourceSets = sortSourceSetsByDependsOnRelation(
             visibleSourceSetNames,
+            dependencyProjectStructureMetadata.sourceSetsDependsOnRelation
+        )
+
+        return SourceSetVisibilityResult(
+            sortedVisibleSourceSets.toSet(),
             hostSpecificArtifactBySourceSet
         )
     }
 }
 
+/**
+ * Sorts the source sets based on the dependsOn relation from [KotlinProjectStructureMetadata]
+ *
+ * @param sourceSetsDependsOnRelation should contain direct dependsOn edges.
+ *
+ * For example, given this "dependsOn" closure: linuxMain -> nativeMain -> commonMain
+ * [sourceSetsDependsOnRelation] would have the following values:
+ *
+ * ```kotlin
+ * mapOf(
+ *   linuxMain to setOf(nativeMain),
+ *   nativeMain to setOf(commonMain),
+ *   commonMain to emptySet()
+ * )
+ * ```
+ *
+ * Then calling [sortSourceSetsByDependsOnRelation] with [sourceSets] as listOf(nativeMain, commonMain, linuxMain) should
+ * result to listOf(linuxMain, nativeMain, commonMain)
+ *
+ * And for [sortSourceSetsByDependsOnRelation] with this structure: jvmAndJs -> commonMain; linuxMain -> nativeMain -> commonMain;
+ * the result can be one of the following lists:
+ * * linuxMain, nativeMain, jvmAndJs, commonMain
+ * * linuxMain, jvmAndJs, nativeMain, commonMain
+ * * jvmAndJs, linuxMain, nativeMain, commonMain
+ *
+ * Because jvmAndJs has no dependsOn relation with linuxMain and nativeMain they can be treated equally.
+ *
+ * Implementation uses an algorithm for Topological Sorting with DFS.
+ */
+internal fun sortSourceSetsByDependsOnRelation(
+    sourceSets: Set<String>,
+    sourceSetsDependsOnRelation: Map<String, Set<String>>,
+): List<String> {
+    val visited = mutableSetOf<String>()
+    val result = mutableListOf<String>()
+    for (sourceSet in sourceSets) {
+        if (!visited.add(sourceSet)) continue
+
+        fun dfs(sourceSet: String) {
+            val children = sourceSetsDependsOnRelation[sourceSet].orEmpty()
+            for (child in children) {
+                if (!visited.add(child)) continue
+                dfs(child)
+            }
+            // We're only interested in input source sets
+            if (sourceSet in sourceSets) result.add(sourceSet)
+        }
+        dfs(sourceSet)
+    }
+
+    return result.reversed()
+}
+
 internal fun kotlinVariantNameFromPublishedVariantName(resolvedToVariantName: String): String =
     originalVariantNameFromPublished(resolvedToVariantName) ?: resolvedToVariantName
+
+/**
+ * Returns true when two components identifiers are from the same maven module (group + name)
+ * Gradle projects can't be resolved into multiple versions since there is only one version of a project in gradle build
+ */
+private infix fun ComponentIdentifier.isEqualsIgnoringVersion(that: ComponentIdentifier): Boolean {
+    if (this is ProjectComponentIdentifier && that is ProjectComponentIdentifier) return this == that
+    if (this is ModuleComponentIdentifier && that is ModuleComponentIdentifier) return this.moduleIdentifier == that.moduleIdentifier
+    return false
+}

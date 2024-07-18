@@ -7,6 +7,10 @@ package org.jetbrains.kotlin.fir.backend
 
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
+import org.jetbrains.kotlin.fir.backend.utils.buildSubstitutorByCalledCallable
+import org.jetbrains.kotlin.fir.backend.utils.implicitCast
+import org.jetbrains.kotlin.fir.backend.utils.unwrapCallRepresentative
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
@@ -27,14 +31,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 
-class Fir2IrImplicitCastInserter(
-    private val components: Fir2IrComponents
-) : Fir2IrComponents by components, FirDefaultVisitor<IrElement, IrElement>() {
-
-    private fun ConeKotlinType.toIrType(typeOrigin: ConversionTypeOrigin): IrType = with(typeConverter) {
-        toIrType(typeOrigin)
-    }
-
+class Fir2IrImplicitCastInserter(private val c: Fir2IrComponents) : Fir2IrComponents by c, FirDefaultVisitor<IrElement, IrElement>() {
     override fun visitElement(element: FirElement, data: IrElement): IrElement {
         TODO("Should not be here: ${element::class}: ${element.render()}")
     }
@@ -58,7 +55,7 @@ class Fir2IrImplicitCastInserter(
 
     override fun visitEqualityOperatorCall(equalityOperatorCall: FirEqualityOperatorCall, data: IrElement): IrElement = data
 
-    override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>, data: IrElement): IrElement = data
+    override fun visitLiteralExpression(literalExpression: FirLiteralExpression, data: IrElement): IrElement = data
 
     override fun visitThisReceiverExpression(thisReceiverExpression: FirThisReceiverExpression, data: IrElement): IrElement = data
 
@@ -88,9 +85,6 @@ class Fir2IrImplicitCastInserter(
     // TODO: element-wise cast?
     override fun visitArrayLiteral(arrayLiteral: FirArrayLiteral, data: IrElement): IrElement = data
 
-    // TODO: something to do w.r.t. SAM?
-    override fun visitLambdaArgumentExpression(lambdaArgumentExpression: FirLambdaArgumentExpression, data: IrElement): IrElement = data
-
     // TODO: element-wise cast?
     override fun visitNamedArgumentExpression(namedArgumentExpression: FirNamedArgumentExpression, data: IrElement): IrElement = data
 
@@ -105,7 +99,7 @@ class Fir2IrImplicitCastInserter(
     override fun visitExpression(expression: FirExpression, data: IrElement): IrElement {
         return when (expression) {
             is FirBlock -> (data as IrContainerExpression).insertImplicitCasts()
-            is FirUnitExpression -> coerceToUnitIfNeeded(data as IrExpression, irBuiltIns)
+            is FirUnitExpression -> coerceToUnitIfNeeded(data as IrExpression, builtins)
             else -> data
         }
     }
@@ -113,7 +107,7 @@ class Fir2IrImplicitCastInserter(
     override fun visitStatement(statement: FirStatement, data: IrElement): IrElement {
         return when (statement) {
             is FirTypeAlias -> data
-            is FirUnitExpression -> coerceToUnitIfNeeded(data as IrExpression, irBuiltIns)
+            is FirUnitExpression -> coerceToUnitIfNeeded(data as IrExpression, builtins)
             is FirBlock -> (data as IrContainerExpression).insertImplicitCasts()
             else -> statement.accept(this, data)
         }
@@ -187,7 +181,11 @@ class Fir2IrImplicitCastInserter(
     override fun visitReturnExpression(returnExpression: FirReturnExpression, data: IrElement): IrElement {
         val irReturn = data as? IrReturn ?: return data
         val expectedType = returnExpression.target.labeledElement.returnTypeRef
-        irReturn.value = irReturn.value.insertSpecialCast(returnExpression.result, returnExpression.result.resolvedType, expectedType.coneType)
+        irReturn.value = irReturn.value.insertSpecialCast(
+            returnExpression.result,
+            returnExpression.result.resolvedType,
+            expectedType.coneType
+        )
         return data
     }
 
@@ -217,11 +215,11 @@ class Fir2IrImplicitCastInserter(
 
         return when {
             expandedExpectedType.isUnit -> {
-                coerceToUnitIfNeeded(this, irBuiltIns)
+                coerceToUnitIfNeeded(this, builtins)
             }
             expandedValueType is ConeDynamicType -> {
                 if (expandedExpectedType !is ConeDynamicType && !expandedExpectedType.isNullableAny) {
-                    implicitCast(this, expandedExpectedType.toIrType(ConversionTypeOrigin.DEFAULT))
+                    generateImplicitCast(this, expandedExpectedType.toIrType(c, ConversionTypeOrigin.DEFAULT))
                 } else {
                     this
                 }
@@ -240,11 +238,11 @@ class Fir2IrImplicitCastInserter(
         expectedType: ConeKotlinType
     ): IrExpression {
         if (argumentType !is ConeIntersectionType) return this
-        val approximatedArgumentType = argumentType.approximateForIrOrNull() ?: argumentType
+        val approximatedArgumentType = argumentType.approximateForIrOrNull(c) ?: argumentType
         if (approximatedArgumentType.isSubtypeOf(expectedType, session)) return this
 
         return findComponentOfIntersectionForExpectedType(argumentType, expectedType)?.let {
-            implicitCast(this, it.toIrType())
+            generateImplicitCast(this, it.toIrType(c))
         } ?: this
     }
 
@@ -270,7 +268,7 @@ class Fir2IrImplicitCastInserter(
         statements.forEachIndexed { i, irStatement ->
             if (irStatement !is IrErrorCallExpression && irStatement is IrExpression) {
                 if (i != lastIndex || coerceLastExpressionToUnit) {
-                    statements[i] = coerceToUnitIfNeeded(irStatement, irBuiltIns)
+                    statements[i] = coerceToUnitIfNeeded(irStatement, builtins)
                 }
                 // TODO: for the last statement, need to cast to the return type if mismatched
             }
@@ -284,7 +282,7 @@ class Fir2IrImplicitCastInserter(
 
         statements.forEachIndexed { i, irStatement ->
             if (irStatement !is IrErrorCallExpression && irStatement is IrExpression) {
-                statements[i] = coerceToUnitIfNeeded(irStatement, irBuiltIns)
+                statements[i] = coerceToUnitIfNeeded(irStatement, builtins)
             }
         }
         return this
@@ -294,7 +292,7 @@ class Fir2IrImplicitCastInserter(
         // We don't want an implicit cast to Nothing?. This expression just encompasses nullability after null check.
         return if (smartCastExpression.isStable && smartCastExpression.smartcastTypeWithoutNullableNothing == null) {
             val smartcastedType = smartCastExpression.resolvedType
-            val approximatedType = smartcastedType.approximateForIrOrNull()
+            val approximatedType = smartcastedType.approximateForIrOrNull(c)
             if (approximatedType != null) {
                 if (smartCastExpression.originalExpression.resolvedType.isSubtypeOf(approximatedType, session)) {
                     return data
@@ -327,7 +325,7 @@ class Fir2IrImplicitCastInserter(
         typeOrigin: ConversionTypeOrigin,
     ): IrExpression? {
         val receiverExpressionType = receiver.resolvedType as? ConeIntersectionType ?: return null
-        val referencedDeclaration = selector.calleeReference.toResolvedCallableSymbol()?.unwrapCallRepresentative()?.fir
+        val referencedDeclaration = selector.calleeReference.toResolvedCallableSymbol()?.unwrapCallRepresentative(c)?.fir
 
         val receiverType = with(selector) {
             when {
@@ -337,7 +335,7 @@ class Fir2IrImplicitCastInserter(
                 }
                 receiver === extensionReceiver -> {
                     val extensionReceiverType = referencedDeclaration?.receiverParameter?.typeRef?.coneType ?: return null
-                    val substitutor = selector.buildSubstitutorByCalledCallable()
+                    val substitutor = selector.buildSubstitutorByCalledCallable(c)
                     val substitutedType = substitutor.substituteOrSelf(extensionReceiverType)
                     // Frontend may write captured types as type arguments (by design), so we need to approximate receiver type after substitution
                     val approximatedType = session.typeApproximator.approximateToSuperType(
@@ -367,17 +365,17 @@ class Fir2IrImplicitCastInserter(
     private fun implicitCastOrExpression(
         original: IrExpression, castType: ConeKotlinType, typeOrigin: ConversionTypeOrigin = ConversionTypeOrigin.DEFAULT
     ): IrExpression {
-        return implicitCastOrExpression(original, castType.toIrType(typeOrigin))
+        return implicitCastOrExpression(original, castType.toIrType(c, typeOrigin))
     }
 
     companion object {
         internal fun implicitCastOrExpression(original: IrExpression, castType: IrType): IrExpression {
             val originalNotNull = original.type.makeNotNull()
             if (originalNotNull == castType.makeNotNull()) return original
-            return implicitCast(original, castType)
+            return generateImplicitCast(original, castType)
         }
 
-        private fun implicitCast(original: IrExpression, castType: IrType): IrExpression {
+        private fun generateImplicitCast(original: IrExpression, castType: IrType): IrExpression {
             val typeOperator = if (original.type is IrDynamicType) {
                 IrTypeOperator.IMPLICIT_DYNAMIC_CAST
             } else {
@@ -387,21 +385,21 @@ class Fir2IrImplicitCastInserter(
             return implicitCast(original, castType, typeOperator)
         }
 
-        internal fun coerceToUnitIfNeeded(original: IrExpression, irBuiltIns: IrBuiltIns): IrExpression {
+        internal fun coerceToUnitIfNeeded(original: IrExpression, builtins: Fir2IrBuiltinSymbolsContainer): IrExpression {
             val valueType = original.type
             return if (valueType.isUnit() || valueType.isNothing())
                 original
             else
                 IrTypeOperatorCallImpl(
                     original.startOffset, original.endOffset,
-                    irBuiltIns.unitType,
+                    builtins.unitType,
                     IrTypeOperator.IMPLICIT_COERCION_TO_UNIT,
-                    irBuiltIns.unitType,
+                    builtins.unitType,
                     original
                 )
         }
 
-        internal fun implicitNotNullCast(original: IrExpression): IrTypeOperatorCall {
+        fun implicitNotNullCast(original: IrExpression): IrTypeOperatorCall {
             // Cast type massage 1. Remove @EnhancedNullability
             // Cast type massage 2. Convert it to a non-null variant (in case of @FlexibleNullability)
             val castType = original.type.removeAnnotations { annotationCall ->
