@@ -526,6 +526,27 @@ fun validateFeatureFlag(
     }
 }
 
+// Android Studio (b/353806867): this patch can be dropped once we integrate upstream
+// commit https://github.com/JetBrains/kotlin/commit/977443b8d8.
+@OptIn(ExperimentalCompilerApi::class)
+class ComposePluginRegistrarForK2 : org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar() {
+    override val supportsK2: Boolean
+        get() = true
+
+    override fun ExtensionStorage.registerExtensions(configuration: CompilerConfiguration) {
+        // Workaround only for K2 plugin registrar.
+        if (!configuration.languageVersionSettings.languageVersion.usesK2) return
+
+        if (ComposePluginRegistrar.checkCompilerVersion(configuration)) {
+            DescriptorSerializerPlugin.registerExtension(ClassStabilityFieldSerializationPlugin())
+            FirExtensionRegistrarAdapter.registerExtension(ComposeFirExtensionRegistrar())
+            IrGenerationExtension.registerExtension(
+                ComposePluginRegistrar.createComposeIrExtension(configuration)
+            )
+        }
+    }
+}
+
 @Suppress("DEPRECATION") // CompilerPluginRegistrar does not expose project (or disposable) causing
                          // memory leaks, see: https://youtrack.jetbrains.com/issue/KT-60952
 @OptIn(ExperimentalCompilerApi::class)
