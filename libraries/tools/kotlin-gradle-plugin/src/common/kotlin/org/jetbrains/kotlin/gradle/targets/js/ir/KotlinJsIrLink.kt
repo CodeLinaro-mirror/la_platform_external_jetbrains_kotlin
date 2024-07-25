@@ -14,6 +14,7 @@ import org.gradle.api.tasks.*
 import org.gradle.work.NormalizeLineEndings
 import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
+import org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptionsDefault
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.ContributeCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
@@ -21,8 +22,9 @@ import org.jetbrains.kotlin.gradle.plugin.statistics.CompileKotlinJsIrLinkMetric
 import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode.DEVELOPMENT
+import org.jetbrains.kotlin.gradle.tasks.K2MultiplatformStructure
 import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
-import org.jetbrains.kotlin.gradle.utils.configureExperimentalTryNext
+import org.jetbrains.kotlin.gradle.utils.KotlinJsCompilerOptionsDefault
 import javax.inject.Inject
 
 @CacheableTask
@@ -31,7 +33,7 @@ abstract class KotlinJsIrLink @Inject constructor(
     objectFactory: ObjectFactory,
     workerExecutor: WorkerExecutor,
 ) : Kotlin2JsCompile(
-    objectFactory.newInstance(KotlinJsCompilerOptionsDefault::class.java).configureExperimentalTryNext(project),
+    objectFactory.KotlinJsCompilerOptionsDefault(project),
     objectFactory,
     workerExecutor
 ), UsesBuildFusService {
@@ -43,6 +45,13 @@ abstract class KotlinJsIrLink @Inject constructor(
 
     @get:Internal
     override val sources: FileCollection = super.sources
+
+    /**
+     * [K2MultiplatformStructure] is not required for JS IR link
+     */
+    @InternalKotlinGradlePluginApi
+    @get:Internal
+    override val multiplatformStructure: K2MultiplatformStructure get() = super.multiplatformStructure
 
     override fun skipCondition(): Boolean {
         return !entryModule.get().asFile.exists()

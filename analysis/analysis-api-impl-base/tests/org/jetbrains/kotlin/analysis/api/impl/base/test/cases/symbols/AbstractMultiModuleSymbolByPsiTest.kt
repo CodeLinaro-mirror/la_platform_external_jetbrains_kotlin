@@ -7,20 +7,19 @@ package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.symbols
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementVisitor
-import org.jetbrains.kotlin.analysis.api.renderer.declarations.impl.KtDeclarationRendererForDebug
+import org.jetbrains.kotlin.analysis.api.renderer.declarations.impl.KaDeclarationRendererForDebug
 import org.jetbrains.kotlin.analysis.api.symbols.DebugSymbolRenderer
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
-import org.jetbrains.kotlin.analysis.test.framework.project.structure.allKtFiles
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.ktTestModuleStructure
 import org.jetbrains.kotlin.analysis.utils.printer.PrettyPrinter
 import org.jetbrains.kotlin.analysis.utils.printer.parentsOfType
 import org.jetbrains.kotlin.psi.KtDeclaration
-import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractMultiModuleSymbolByPsiTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByModuleStructure(moduleStructure: TestModuleStructure, testServices: TestServices) {
-        val files = testServices.allKtFiles()
+    override fun doTest(testServices: TestServices) {
+        val files = testServices.ktTestModuleStructure.allMainKtFiles
         val debugRenderer = DebugSymbolRenderer()
 
         val debugPrinter = PrettyPrinter()
@@ -32,17 +31,17 @@ abstract class AbstractMultiModuleSymbolByPsiTest : AbstractAnalysisApiBasedTest
             prettyPrinter.appendLine(fileDirective)
 
             analyseForTest(file) {
-                val fileSymbol = file.getFileSymbol()
+                val fileSymbol = file.symbol
                 file.forEachDescendantOfType<KtDeclaration>(predicate = { it.isValidForSymbolCreation }) { declaration ->
-                    val symbol = declaration.getSymbol()
+                    val symbol = declaration.symbol
 
                     checkContainingFileSymbol(fileSymbol, symbol, testServices)
 
-                    debugPrinter.appendLine(debugRenderer.render(symbol))
+                    debugPrinter.appendLine(debugRenderer.render(useSiteSession, symbol))
                     debugPrinter.appendLine()
 
                     prettyPrinter.withIndents(indentCount = declaration.parentsOfType<KtDeclaration>(withSelf = false).count()) {
-                        prettyPrinter.appendLine(symbol.render(KtDeclarationRendererForDebug.WITH_QUALIFIED_NAMES))
+                        prettyPrinter.appendLine(symbol.render(KaDeclarationRendererForDebug.WITH_QUALIFIED_NAMES))
                         prettyPrinter.appendLine()
                     }
                 }

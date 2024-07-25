@@ -57,7 +57,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-metadata-klib:$metadataVersion")
 
     implementation("org.jetbrains.kotlin:kotlin-util-klib:${project.bootstrapKotlinVersion}")
-    implementation(project(":kotlin-native-executors"))
 }
 
 java {
@@ -110,10 +109,6 @@ gradlePlugin {
             id = "compilation-database"
             implementationClass = "org.jetbrains.kotlin.cpp.CompilationDatabasePlugin"
         }
-        create("konanPlugin") {
-            id = "konan"
-            implementationClass = "org.jetbrains.kotlin.gradle.plugin.konan.KonanPlugin"
-        }
         create("native-interop-plugin") {
             id = "native-interop-plugin"
             implementationClass = "org.jetbrains.kotlin.NativeInteropPlugin"
@@ -129,6 +124,10 @@ gradlePlugin {
         create("nativeDependencies") {
             id = "native-dependencies"
             implementationClass = "org.jetbrains.kotlin.dependencies.NativeDependenciesPlugin"
+        }
+        create("platformManager") {
+            id = "platform-manager"
+            implementationClass = "org.jetbrains.kotlin.PlatformManagerPlugin"
         }
     }
 }

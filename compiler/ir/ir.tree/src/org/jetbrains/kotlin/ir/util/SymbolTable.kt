@@ -17,12 +17,11 @@ private fun <SymbolOwner : IrSymbolOwner, Symbol : IrBindableSymbol<*, SymbolOwn
 
 @OptIn(SymbolTableInternals::class)
 open class SymbolTable(
-    val signaturer: IdSignatureComposer?, // TODO: This is `null` only in FIR2IR. Make non-nullable again after KT-64990 is fixed.
+    val signaturer: IdSignatureComposer?, // TODO: This is `null` only in FIR2IR. Consider to update API in the scope of KT-68475
     val irFactory: IrFactory,
     val nameProvider: NameProvider = NameProvider.DEFAULT,
-) : ReferenceSymbolTable {
     val lock: IrLock = IrLock()
-
+) : ReferenceSymbolTable {
     private val scriptSlice = IdSignatureSymbolTableSlice<IrScript, IrScriptSymbol>(lock)
     private val classSlice = IdSignatureSymbolTableSlice<IrClass, IrClassSymbol>(lock)
     private val constructorSlice = IdSignatureSymbolTableSlice<IrConstructor, IrConstructorSymbol>(lock)
@@ -60,7 +59,7 @@ open class SymbolTable(
     }
 
     fun referenceScript(signature: IdSignature): IrScriptSymbol {
-        return scriptSlice.referenced(signature) { IrScriptPublicSymbolImpl(signature) }
+        return scriptSlice.referenced(signature) { IrScriptSymbolImpl(signature = signature) }
     }
 
     // ------------------------------------ class ------------------------------------
@@ -100,7 +99,7 @@ open class SymbolTable(
     override fun referenceClass(signature: IdSignature): IrClassSymbol {
         return referenceClassImpl(
             signature,
-            { IrClassPublicSymbolImpl(signature) },
+            { IrClassSymbolImpl(signature = signature) },
             { IrClassSymbolImpl().also { it.privateSignature = signature } }
         )
     }
@@ -150,7 +149,7 @@ open class SymbolTable(
     override fun referenceConstructor(signature: IdSignature): IrConstructorSymbol {
         return referenceConstructorImpl(
             signature,
-            { IrConstructorPublicSymbolImpl(signature) },
+            { IrConstructorSymbolImpl(signature = signature) },
             { IrConstructorSymbolImpl() }
         )
     }
@@ -190,7 +189,7 @@ open class SymbolTable(
     override fun referenceEnumEntry(signature: IdSignature): IrEnumEntrySymbol {
         return referenceEnumEntryImpl(
             signature,
-            { IrEnumEntryPublicSymbolImpl(signature) },
+            { IrEnumEntrySymbolImpl(signature = signature) },
             { IrEnumEntrySymbolImpl() }
         )
     }
@@ -230,7 +229,7 @@ open class SymbolTable(
     override fun referenceField(signature: IdSignature): IrFieldSymbol {
         return referenceFieldImpl(
             signature,
-            { IrFieldPublicSymbolImpl(signature) },
+            { IrFieldSymbolImpl(signature = signature) },
             { IrFieldSymbolImpl() }
         )
     }
@@ -282,7 +281,7 @@ open class SymbolTable(
     override fun referenceProperty(signature: IdSignature): IrPropertySymbol {
         return referencePropertyImpl(
             signature,
-            { IrPropertyPublicSymbolImpl(signature) },
+            { IrPropertySymbolImpl(signature = signature) },
             { IrPropertySymbolImpl() }
         )
     }
@@ -327,7 +326,7 @@ open class SymbolTable(
     override fun referenceTypeAlias(signature: IdSignature): IrTypeAliasSymbol {
         return referenceTypeAliasImpl(
             signature,
-            { IrTypeAliasPublicSymbolImpl(signature) },
+            { IrTypeAliasSymbolImpl(signature = signature) },
             { IrTypeAliasSymbolImpl() }
         )
     }
@@ -378,7 +377,7 @@ open class SymbolTable(
     override fun referenceSimpleFunction(signature: IdSignature): IrSimpleFunctionSymbol {
         return referenceSimpleFunctionImpl(
             signature,
-            { IrSimpleFunctionPublicSymbolImpl(signature) },
+            { IrSimpleFunctionSymbolImpl(signature = signature) },
             { IrSimpleFunctionSymbolImpl().also { it.privateSignature = signature } }
         )
     }
@@ -424,7 +423,7 @@ open class SymbolTable(
     override fun referenceTypeParameter(signature: IdSignature): IrTypeParameterSymbol {
         return referenceTypeParameterImpl(
             signature,
-            { IrTypeParameterPublicSymbolImpl(signature) },
+            { IrTypeParameterSymbolImpl(signature = signature) },
             { IrTypeParameterSymbolImpl() }
         )
     }
@@ -500,6 +499,7 @@ open class SymbolTable(
                 slice.unboundSymbols.filterTo(this) { !it.isBound }
             }
 
+            addUnbound(scriptSlice)
             addUnbound(classSlice)
             addUnbound(constructorSlice)
             addUnbound(functionSlice)
@@ -507,6 +507,7 @@ open class SymbolTable(
             addUnbound(enumEntrySlice)
             addUnbound(typeAliasSlice)
             addUnbound(fieldSlice)
+            addUnbound(globalTypeParameterSlice)
         }
 }
 

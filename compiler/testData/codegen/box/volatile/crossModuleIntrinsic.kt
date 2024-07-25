@@ -2,6 +2,8 @@
 // test is disabled now because of https://youtrack.jetbrains.com/issue/KT-55426
 // IGNORE_NATIVE: cacheMode=STATIC_EVERYWHERE
 // IGNORE_NATIVE: cacheMode=STATIC_PER_FILE_EVERYWHERE
+// IGNORE_NATIVE: cacheMode=STATIC_USE_HEADERS_EVERYWHERE
+// DISABLE_IR_VISIBILITY_CHECKS: ANY
 
 // MODULE: lib
 // FILE: lib.kt

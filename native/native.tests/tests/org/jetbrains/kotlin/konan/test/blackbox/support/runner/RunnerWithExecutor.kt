@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.konan.test.blackbox.support.runner
 
 import org.jetbrains.kotlin.konan.test.blackbox.support.LoggedData
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.AbstractRunner.AbstractRun
-import org.jetbrains.kotlin.konan.test.blackbox.support.util.TCTestOutputFilter
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.TestOutputFilter
 import org.jetbrains.kotlin.native.executors.ExecuteRequest
 import org.jetbrains.kotlin.native.executors.Executor
@@ -17,14 +16,14 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
-internal class RunnerWithExecutor(
+internal open class RunnerWithExecutor(
     private val executor: Executor,
     private val testRun: TestRun
 ) : AbstractRunner<Unit>() {
     private val executable get() = testRun.executable
 
     private val outputFilter: TestOutputFilter
-        get() = if (testRun.runParameters.has<TestRunParameter.WithTCTestLogger>()) TCTestOutputFilter else TestOutputFilter.NO_FILTERING
+        get() = testRun.checks.testFiltering.testOutputFilter
 
     private val programArgs = mutableListOf<String>().apply {
         add(executable.executable.executableFile.absolutePath)
@@ -66,7 +65,6 @@ internal class RunnerWithExecutor(
 
     override fun buildResultHandler(runResult: RunResult): ResultHandler = ResultHandler(
         runResult = runResult,
-        visibleProcessName = "Test process under Executor ${executor::class.simpleName}",
         checks = testRun.checks,
         testRun = testRun,
         loggedParameters = getLoggedParameters()
@@ -74,7 +72,7 @@ internal class RunnerWithExecutor(
 
     override fun getLoggedParameters() = LoggedData.TestRunParameters(
         compilationToolCall = executable.loggedCompilationToolCall,
-        testCaseId = testRun.testCaseId,
+        testCaseId = testRun.testCase.id,
         runArgs = programArgs,
         runParameters = testRun.runParameters
     )

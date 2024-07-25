@@ -9,20 +9,17 @@
 
 #if KONAN_OBJC_INTEROP
 
-#import <Foundation/NSObject.h>
-#import <Foundation/NSValue.h>
-#import <Foundation/NSString.h>
-#import <Foundation/NSException.h>
-#import <Foundation/NSDecimalNumber.h>
+#import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 #import <objc/objc-exception.h>
 #import <dispatch/dispatch.h>
 
+#import "CallsChecker.hpp"
 #import "ObjCExport.h"
 #import "ObjCExportInit.h"
 #import "ObjCExportPrivate.h"
 #import "Runtime.h"
-#import "Mutex.hpp"
+#import "concurrent/Mutex.hpp"
 #import "Exceptions.h"
 
 @interface NSObject (NSObjectPrivateMethods)
@@ -62,6 +59,12 @@ static void injectToRuntime();
 }
 
 +(instancetype)allocWithZone:(NSZone*)zone {
+  if (kotlin::compiler::swiftExport()) {
+      // Swift Export types create Kotlin object themselves and do not dynamically associate
+      // Swift type info with Kotlin type info.
+      return [super allocWithZone:zone];
+  }
+
   Kotlin_initRuntimeIfNeeded();
   kotlin::ThreadStateGuard guard(kotlin::ThreadState::kRunnable);
 
@@ -88,6 +91,8 @@ static void injectToRuntime();
 }
 
 +(instancetype)createRetainedWrapper:(ObjHeader*)obj {
+  RuntimeAssert(!kotlin::compiler::swiftExport(), "Must not be used in Swift Export");
+
   kotlin::AssertThreadState(kotlin::ThreadState::kRunnable);
 
   KotlinBase* candidate = [super allocWithZone:nil];
@@ -186,6 +191,45 @@ static void injectToRuntime();
 - (instancetype)copyWithZone:(NSZone *)zone {
   // TODO: write documentation.
   return [self retain];
+}
+
+- (instancetype)initWithExternalRCRef:(uintptr_t)ref {
+    kotlin::CalledFromNativeGuard guard;
+
+    RuntimeAssert(kotlin::compiler::swiftExport(), "Must be used in Swift Export only");
+
+    permanent = refHolder.initWithExternalRCRef(reinterpret_cast<void*>(ref));
+    if (permanent) {
+        // Cannot attach associated objects to permanent objects.
+        return self;
+    }
+
+    // ref holds a strong reference to obj, no need to place obj onto a stack.
+    auto obj = refHolder.ref<ErrorPolicy::kTerminate>();
+
+    id old = AtomicCompareAndSwapAssociatedObject(obj, nullptr, self);
+    if (old == nil) {
+        // Kotlin object did not have an associated object attached.
+        return self;
+    }
+
+    // Kotlin object did have an associated object attached.
+    RuntimeAssert([old class] == [self class], "Object %p had associated object of type %p but we try to init with %p", obj, [old class], [self class]);
+
+    // Make self point to that object.
+    KotlinBase* retiredSelf = self;
+    self = objc_retain(old);
+
+    retiredSelf->refHolder.releaseRef();
+    kotlin::CallsCheckerIgnoreGuard callsCheckerGuard;
+    // retiredSelf is safe to dealloc right in the Runnable state as it cannot not lead to any long-running or blocking calls.
+    [retiredSelf releaseAsAssociatedObject];
+
+    return self;
+}
+
+- (uintptr_t)externalRCRef {
+  return reinterpret_cast<uintptr_t>(refHolder.externalRCRef(permanent));
 }
 
 @end

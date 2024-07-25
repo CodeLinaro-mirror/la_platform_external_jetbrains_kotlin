@@ -107,6 +107,7 @@ WorkerExceptionHandling workerExceptionHandling() noexcept;
 DestroyRuntimeMode destroyRuntimeMode() noexcept;
 bool gcMutatorsCooperate() noexcept;
 uint32_t auxGCThreads() noexcept;
+uint32_t concurrentMarkMaxIterations() noexcept;
 bool suspendFunctionsFromAnyThreadFromObjCEnabled() noexcept;
 AppStateTracking appStateTracking() noexcept;
 int getSourceInfo(void* addr, SourceInfo *result, int result_size) noexcept;
@@ -116,6 +117,7 @@ bool objcDisposeOnMain() noexcept;
 bool objcDisposeWithRunLoop() noexcept;
 bool enableSafepointSignposts() noexcept;
 bool globalDataLazyInit() noexcept;
+bool swiftExport() noexcept;
 
 #ifdef KONAN_ANDROID
 bool printToAndroidLogcat() noexcept;

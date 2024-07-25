@@ -17,7 +17,6 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
         get() = setOf(
             FirModifierChecker,
             FirConflictsDeclarationChecker,
-            FirProjectionRelationChecker,
             FirTypeConstraintsChecker,
             FirReservedUnderscoreDeclarationChecker,
             FirUpperBoundViolatedDeclarationChecker,
@@ -29,6 +28,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirExplicitApiDeclarationChecker,
             FirAnnotationChecker,
             FirPublishedApiChecker,
+            FirContextReceiversDeprecatedDeclarationChecker,
             FirOptInMarkedDeclarationChecker,
             FirExpectConsistencyChecker,
             FirOptionalExpectationDeclarationChecker,
@@ -100,8 +100,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
         get() = setOf(
             FirOverrideChecker.Regular,
             FirOverrideChecker.ForExpectClass,
-            FirNotImplementedOverrideChecker.Regular,
-            FirNotImplementedOverrideChecker.ForExpectClass,
+            FirNotImplementedOverrideChecker,
             FirNotImplementedOverrideSimpleEnumEntryChecker.Regular,
             FirNotImplementedOverrideSimpleEnumEntryChecker.ForExpectClass,
             FirThrowableSubclassChecker,
@@ -115,6 +114,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirSupertypesChecker,
             FirPrimaryConstructorSuperTypeChecker,
             FirDynamicSupertypeChecker,
+            FirDataClassConsistentDataCopyAnnotationChecker,
             FirEnumCompanionInEnumConstructorCallChecker,
             FirBadInheritedJavaSignaturesChecker,
             FirSealedInterfaceAllowedChecker,
@@ -135,6 +135,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirManyCompanionObjectsChecker,
             FirMethodOfAnyImplementedInInterfaceChecker,
             FirDataClassPrimaryConstructorChecker,
+            FirDataClassNonPublicConstructorChecker,
             FirFunInterfaceDeclarationChecker.Regular,
             FirFunInterfaceDeclarationChecker.ForExpectClass,
             FirNestedClassChecker,
@@ -147,11 +148,15 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirMultipleDefaultsInheritedFromSupertypesChecker.ForExpectClass,
             FirFiniteBoundRestrictionChecker,
             FirNonExpansiveInheritanceRestrictionChecker,
+            FirObjectConstructorChecker,
+            FirInlineClassDeclarationChecker,
+            FirEnumEntryInitializationChecker,
         )
 
     override val constructorCheckers: Set<FirConstructorChecker>
         get() = setOf(
             FirConstructorAllowedChecker,
+            FirMissingConstructorKeywordSyntaxChecker,
         )
 
     override val fileCheckers: Set<FirFileChecker>
@@ -160,6 +165,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirOptInImportsChecker,
             FirUnresolvedInMiddleOfImportChecker,
             FirTopLevelPropertiesChecker,
+            FirPackageConflictsWithClassifierChecker,
         )
 
     override val scriptCheckers: Set<FirScriptChecker>
@@ -201,6 +207,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirInlinedLambdaNonSourceAnnotationsChecker,
             FirAnonymousFunctionSyntaxChecker,
             FirSuspendAnonymousFunctionChecker,
+            FirMissingDependencyClassForLambdaReceiverChecker,
         )
 
     override val anonymousInitializerCheckers: Set<FirAnonymousInitializerChecker>

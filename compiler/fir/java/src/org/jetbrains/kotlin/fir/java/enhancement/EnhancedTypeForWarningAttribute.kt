@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.java.enhancement
 
-import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.types.*
 import kotlin.reflect.KClass
@@ -36,6 +35,9 @@ val ConeAttributes.enhancedTypeForWarning: EnhancedTypeForWarningAttribute? by C
 val ConeKotlinType.enhancedTypeForWarning: ConeKotlinType?
     get() = attributes.enhancedTypeForWarning?.coneType
 
+val ConeKotlinType.enhancedTypeForWarningOrSelf: ConeKotlinType
+    get() = enhancedTypeForWarning ?: this
+
 val ConeKotlinType.isEnhancedTypeForWarningDeprecation: Boolean
     get() = attributes.enhancedTypeForWarning?.isDeprecation == true
 
@@ -44,19 +46,20 @@ val ConeKotlinType.isEnhancedTypeForWarningDeprecation: Boolean
  */
 class EnhancedForWarningConeSubstitutor(typeContext: ConeTypeContext) : AbstractConeSubstitutor(typeContext) {
     override fun substituteType(type: ConeKotlinType): ConeKotlinType? {
-        // The attribute is usually taken from the lower bound of flexible types.
-        // However, if the type has flexible mutability, we don't want to accidentally enhance the mutability to the lower bound.
-        if (type is ConeFlexibleType && type.hasFlexibleMutability()) {
+        // We substitute and recombine the bounds of flexible types (using the unsubstituted bounds as fallback) to produce the final type.
+        // Examples:
+        // (EFW(Any?) Any..Any?) -> coneFlexibleOrSimpleType(Any?, Any?) = Any?
+        // (Any..EFW(Any) Any?) -> coneFlexibleOrSimpleType(Any, Any) = Any
+        // (EFW(MutableList<>?) MutableList<>..List<>?) -> coneFlexibleOrSimpleType(MutableList<>?, List<>?) -> (MutableList<>?..List<>?)
+        if (type is ConeFlexibleType) {
             val lowerSubstituted = substituteOrNull(type.lowerBound)
+            val upperSubstituted = substituteOrNull(type.upperBound)
 
-            return if (lowerSubstituted is ConeSimpleKotlinType) {
-                ConeFlexibleType(
-                    lowerBound = lowerSubstituted,
-                    upperBound = substituteOrNull(type.upperBound) as? ConeSimpleKotlinType ?: type.upperBound
-                )
-            } else {
-                null
+            if (lowerSubstituted == null && upperSubstituted == null) {
+                return null
             }
+
+            return coneFlexibleOrSimpleType(typeContext, lowerSubstituted ?: type.lowerBound, upperSubstituted ?: type.upperBound)
         }
 
         // If the top-level type can be enhanced, this will only enhance the top-level type but not its arguments: Foo<Bar!>! -> Foo<Bar!>?
@@ -65,9 +68,5 @@ class EnhancedForWarningConeSubstitutor(typeContext: ConeTypeContext) : Abstract
 
         // This will also enhance type arguments if the top-level type was enhanced, otherwise it will continue enhancing recursively.
         return enhancedTopLevel?.let(::substituteOrSelf)
-    }
-
-    private fun ConeFlexibleType.hasFlexibleMutability(): Boolean {
-        return JavaToKotlinClassMap.isMutable(lowerBound.classId) && JavaToKotlinClassMap.isReadOnly(upperBound.classId)
     }
 }

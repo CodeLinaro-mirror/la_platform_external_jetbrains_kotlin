@@ -123,9 +123,9 @@ fun ControlFlowGraphBuilder.createFunctionCallArgumentsEnterNode(fir: FirFunctio
 
 fun ControlFlowGraphBuilder.createFunctionCallArgumentsExitNode(
     fir: FirFunctionCall,
-    enterNode: FunctionCallArgumentsEnterNode,
+    explicitReceiverExitNode: CFGNode<*>,
 ): FunctionCallArgumentsExitNode =
-    FunctionCallArgumentsExitNode(currentGraph, fir, enterNode, levelCounter)
+    FunctionCallArgumentsExitNode(currentGraph, fir, explicitReceiverExitNode, levelCounter)
 
 fun ControlFlowGraphBuilder.createFunctionCallNode(fir: FirFunctionCall): FunctionCallNode =
     FunctionCallNode(currentGraph, fir, levelCounter)
@@ -163,7 +163,7 @@ fun ControlFlowGraphBuilder.createElvisExitNode(fir: FirElvisExpression): ElvisE
 fun ControlFlowGraphBuilder.createVariableDeclarationNode(fir: FirProperty): VariableDeclarationNode =
     VariableDeclarationNode(currentGraph, fir, levelCounter)
 
-fun ControlFlowGraphBuilder.createLiteralExpressionNode(fir: FirLiteralExpression<*>): LiteralExpressionNode =
+fun ControlFlowGraphBuilder.createLiteralExpressionNode(fir: FirLiteralExpression): LiteralExpressionNode =
     LiteralExpressionNode(currentGraph, fir, levelCounter)
 
 fun ControlFlowGraphBuilder.createThrowExceptionNode(fir: FirThrowExpression): ThrowExceptionNode =

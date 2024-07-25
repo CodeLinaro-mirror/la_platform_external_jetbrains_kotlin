@@ -6,19 +6,21 @@
 package org.jetbrains.kotlin.fir.tree.generator.printer
 
 import org.jetbrains.kotlin.fir.tree.generator.*
-import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
 import org.jetbrains.kotlin.fir.tree.generator.model.Element
 import org.jetbrains.kotlin.fir.tree.generator.model.Field
 import org.jetbrains.kotlin.generators.tree.*
 import org.jetbrains.kotlin.generators.tree.printer.*
-import org.jetbrains.kotlin.utils.SmartPrinter
 
-internal class ElementPrinter(printer: SmartPrinter) : AbstractElementPrinter<Element, Field>(printer) {
+private val elementsWithReplaceSource = setOf(
+    FirTree.qualifiedAccessExpression,
+    FirTree.delegatedConstructorCall,
+)
 
-    override fun makeFieldPrinter(printer: SmartPrinter) = object : AbstractFieldPrinter<Field>(printer) {}
+internal class ElementPrinter(printer: ImportCollectingPrinter) : AbstractElementPrinter<Element, Field>(printer) {
 
-    context(ImportCollector)
-    override fun SmartPrinter.printAdditionalMethods(element: Element) {
+    override fun makeFieldPrinter(printer: ImportCollectingPrinter) = object : AbstractFieldPrinter<Field>(printer) {}
+
+    override fun ImportCollectingPrinter.printAdditionalMethods(element: Element) {
         val kind = element.kind ?: error("Expected non-null element kind")
         with(element) {
             val treeName = "FIR"
@@ -28,37 +30,50 @@ internal class ElementPrinter(printer: SmartPrinter) : AbstractElementPrinter<El
                 element = element,
                 transformerClass = firTransformerType,
                 implementation = "transformer.transform${element.name}(this, data)",
-                returnType = TypeVariable("E", listOf(AbstractFirTreeBuilder.baseFirElement)),
+                returnType = TypeVariable("E", listOf(FirTree.rootElement)),
                 treeName = treeName,
             )
 
-            fun Field.replaceDeclaration(override: Boolean, overridenType: TypeRefWithNullability? = null, forceNullable: Boolean = false) {
+            fun Field.replaceDeclaration(
+                override: Boolean,
+                overriddenType: TypeRefWithNullability? = null,
+                forceNullable: Boolean = false,
+            ) {
                 println()
                 if (name == "source") {
                     println("@", firImplementationDetailType.render())
                 }
-                replaceFunctionDeclaration(this, override, kind, overridenType, forceNullable)
+                replaceFunctionDeclaration(this, override, kind, overriddenType, forceNullable)
                 println()
             }
 
-            allFields.filter { it.withReplace }.forEach {
-                val override = overriddenFieldsHaveSameClass[it, it] && !(it.name == "source" && element == FirTreeBuilder.qualifiedAccessExpression)
-                it.replaceDeclaration(override, forceNullable = it.useNullableForReplace)
-                for (overriddenType in it.overriddenTypes) {
-                    it.replaceDeclaration(true, overriddenType)
+            allFields.filter { it.withReplace }.forEach { field ->
+                val clazz = field.typeRef.copy(nullable = false)
+                val overriddenClasses = field.overriddenFields.map { it -> it.typeRef.copy(nullable = false) }.toSet()
+
+                val override = clazz in overriddenClasses && !(field.name == "source" && element in elementsWithReplaceSource)
+                field.replaceDeclaration(override, forceNullable = field.receiveNullableTypeInReplace)
+
+                for (overriddenClass in overriddenClasses - clazz) {
+                    field.replaceDeclaration(true, overriddenType = overriddenClass)
                 }
             }
 
             for (field in allFields) {
-                if (!field.needsSeparateTransform) continue
+                if (!field.withTransform) continue
                 println()
-                transformFunctionDeclaration(field, element, override = field.fromParent && field.parentHasSeparateTransform, kind)
+                transformFunctionDeclaration(
+                    field = field,
+                    returnType = element.withSelfArgs(),
+                    override = field.overriddenFields.any { it.withTransform },
+                    implementationKind = kind
+                )
                 println()
             }
             if (needTransformOtherChildren) {
                 println()
                 transformOtherChildrenFunctionDeclaration(
-                    element,
+                    element.withSelfArgs(),
                     override = element.elementParents.any { it.element.needTransformOtherChildren },
                     kind,
                 )
@@ -79,7 +94,7 @@ internal class ElementPrinter(printer: SmartPrinter) : AbstractElementPrinter<El
                 printTransformChildrenMethod(
                     element = element,
                     transformerClass = firTransformerType,
-                    returnType = AbstractFirTreeBuilder.baseFirElement,
+                    returnType = FirTree.rootElement,
                 )
                 println()
             }

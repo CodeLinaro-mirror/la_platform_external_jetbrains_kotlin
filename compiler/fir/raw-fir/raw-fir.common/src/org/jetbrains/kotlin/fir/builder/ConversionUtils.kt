@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -200,13 +200,17 @@ fun FirExpression.generateContainsOperation(
     baseSource: KtSourceElement?,
     operationReferenceSource: KtSourceElement?
 ): FirFunctionCall {
-    val containsCall = createConventionCall(operationReferenceSource, baseSource, argument, OperatorNameConventions.CONTAINS)
+    val resultReferenceSource = if (inverted)
+        operationReferenceSource?.fakeElement(KtFakeSourceElementKind.DesugaredInvertedContains)
+    else
+        operationReferenceSource
+    val containsCall = createConventionCall(resultReferenceSource, baseSource, argument, OperatorNameConventions.CONTAINS)
     if (!inverted) return containsCall
 
     return buildFunctionCall {
         source = baseSource?.fakeElement(KtFakeSourceElementKind.DesugaredInvertedContains)
         calleeReference = buildSimpleNamedReference {
-            source = operationReferenceSource?.fakeElement(KtFakeSourceElementKind.DesugaredInvertedContains)
+            source = resultReferenceSource
             name = OperatorNameConventions.NOT
         }
         explicitReceiver = containsCall
@@ -312,9 +316,6 @@ val FirClassBuilder.ownerRegularOrAnonymousObjectSymbol
         is FirRegularClassBuilder -> symbol
         else -> null
     }
-
-val FirClassBuilder.ownerRegularClassTypeParametersCount
-    get() = if (this is FirRegularClassBuilder) typeParameters.size else null
 
 fun <T> FirPropertyBuilder.generateAccessorsByDelegate(
     delegateBuilder: FirWrappedDelegateExpressionBuilder?,
@@ -705,6 +706,17 @@ fun buildBalancedOrExpressionTree(conditions: List<FirExpression>, lower: Int = 
     )
 }
 
+fun FirExpression.guardedBy(
+    guard: FirExpression?,
+): FirExpression = when (guard) {
+    null -> this
+    else -> this.generateLazyLogicalOperation(
+        guard,
+        isAnd = true,
+        (this.source ?: guard.source)?.fakeElement(KtFakeSourceElementKind.WhenCondition)
+    )
+}
+
 fun AnnotationUseSiteTarget?.appliesToPrimaryConstructorParameter() = this == null ||
         this == AnnotationUseSiteTarget.CONSTRUCTOR_PARAMETER ||
         this == AnnotationUseSiteTarget.RECEIVER ||
@@ -717,4 +729,23 @@ fun FirErrorTypeRef.wrapIntoArray(): FirResolvedTypeRef {
         type = StandardClassIds.Array.constructClassLikeType(arrayOf(ConeKotlinTypeProjectionOut(typeRef.coneType)))
         delegatedTypeRef = typeRef.copyWithNewSourceKind(KtFakeSourceElementKind.ArrayTypeFromVarargParameter)
     }
+}
+
+fun shouldGenerateDelegatedSuperCall(
+    isAnySuperCall: Boolean,
+    isExpectClass: Boolean,
+    isEnumEntry: Boolean,
+    hasExplicitDelegatedCalls: Boolean
+): Boolean {
+    if (isAnySuperCall) {
+        return false
+    }
+
+    if (isExpectClass) {
+        // Generally, an `expect` class cannot inherit from other expect class.
+        // However, for the IDE resolution purposes, we keep invalid explicit delegate calls.
+        return !isEnumEntry && hasExplicitDelegatedCalls
+    }
+
+    return true
 }

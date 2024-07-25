@@ -11,13 +11,16 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.LockCopyTask.Companion.PACKAGE
 import org.jetbrains.kotlin.gradle.targets.js.npm.LockCopyTask.Companion.RESTORE_PACKAGE_LOCK_NAME
 import org.jetbrains.kotlin.gradle.targets.js.npm.LockCopyTask.Companion.STORE_PACKAGE_LOCK_NAME
 import org.jetbrains.kotlin.gradle.targets.js.npm.LockCopyTask.Companion.UPGRADE_PACKAGE_LOCK
+import org.jetbrains.kotlin.gradle.targets.js.npm.fromSrcPackageJson
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.testbase.TestVersions.Gradle.G_7_6
 import org.junit.jupiter.api.DisplayName
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.notExists
 import kotlin.io.path.readText
+import kotlin.test.assertEquals
 
 class NpmGradlePluginIT : PackageManagerGradlePluginIT() {
     override val yarn: Boolean = false
@@ -43,6 +46,8 @@ class NpmGradlePluginIT : PackageManagerGradlePluginIT() {
     override val lockFileName: String = LockCopyTask.PACKAGE_LOCK
 
     override val setProperty: (String) -> String = { ".set($it)" }
+
+    override val mismatchReportMessage: String = PACKAGE_LOCK_MISMATCH_MESSAGE
 }
 
 class YarnGradlePluginIT : PackageManagerGradlePluginIT() {
@@ -69,6 +74,8 @@ class YarnGradlePluginIT : PackageManagerGradlePluginIT() {
     override val lockFileName: String = LockCopyTask.YARN_LOCK
 
     override val setProperty: (String) -> String = { " = $it" }
+
+    override val mismatchReportMessage: String = YarnPlugin.YARN_LOCK_MISMATCH_MESSAGE
 }
 
 @JsGradlePluginTests
@@ -97,6 +104,8 @@ abstract class PackageManagerGradlePluginIT : KGPBaseTest() {
     abstract val lockFileName: String
 
     abstract val setProperty: (String) -> String
+
+    abstract val mismatchReportMessage: String
 
     override val defaultBuildOptions: BuildOptions
         get() = super.defaultBuildOptions.copy(
@@ -247,7 +256,7 @@ abstract class PackageManagerGradlePluginIT : KGPBaseTest() {
             assertTasksExecuted(":$restoreTaskName")
             assertTasksExecuted(":$storeTaskName")
 
-            assertOutputContains(PACKAGE_LOCK_MISMATCH_MESSAGE)
+            assertOutputContains(mismatchReportMessage)
         }
 
         build(upgradeTaskName) {
@@ -276,7 +285,7 @@ abstract class PackageManagerGradlePluginIT : KGPBaseTest() {
             assertTasksExecuted(":$restoreTaskName")
             assertTasksExecuted(":$storeTaskName")
 
-            assertOutputDoesNotContain(PACKAGE_LOCK_MISMATCH_MESSAGE)
+            assertOutputDoesNotContain(mismatchReportMessage)
         }
 
         build(upgradeTaskName) {
@@ -312,7 +321,7 @@ abstract class PackageManagerGradlePluginIT : KGPBaseTest() {
             assertTasksSkipped(":$restoreTaskName")
             assertTasksExecuted(":$storeTaskName")
 
-            assertOutputDoesNotContain(PACKAGE_LOCK_MISMATCH_MESSAGE)
+            assertOutputDoesNotContain(mismatchReportMessage)
         }
 
         buildGradleKts.modify {
@@ -459,6 +468,57 @@ abstract class PackageManagerGradlePluginIT : KGPBaseTest() {
                     .resolve("puppeteer")
                     .resolve(".local-chromium")
             )
+        }
+    }
+
+    @DisplayName("Change rootPackageJson after its generation")
+    @GradleTest
+    fun testChangeRootPackageJsonAfterGeneration(gradleVersion: GradleVersion) {
+        project("kotlin-js-package-lock-project", gradleVersion) {
+            buildGradleKts.modify {
+                //language=kotlin
+                """
+                |$it
+                |
+                |plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class.java) {
+                |    the<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>().apply {
+                |        rootPackageJsonTaskProvider.configure {
+                |            doLast {
+                |                val file = rootPackageJsonFile.get().asFile
+                |                val rootPackageJson = org.jetbrains.kotlin.gradle.targets.js.npm.fromSrcPackageJson(file) 
+                |                    ?: error("Null PackageJson from ${"$"}file")
+                |                rootPackageJson.version = "foo"
+                |                rootPackageJson.saveTo(file)
+                |            }
+                |        }
+                |    }
+                |}
+                """.trimMargin()
+            }
+
+            fun assertRootPackageJsonVersion(expectedVersion: String) {
+                val packageJsonFile = projectPath
+                    .resolve("build/js/package.json")
+                    .toFile()
+
+                val packageJson = fromSrcPackageJson(packageJsonFile)
+
+                assertEquals(expectedVersion, packageJson?.version)
+            }
+
+            build("kotlinNpmInstall", storeTaskName) {
+                assertTasksExecuted(":rootPackageJson", ":kotlinNpmInstall")
+                assertRootPackageJsonVersion("foo")
+            }
+
+            projectPath.resolve("build/js/$lockFileName").deleteRecursively()
+            projectPath.resolve(LockCopyTask.KOTLIN_JS_STORE).deleteRecursively()
+
+            build("kotlinNpmInstall", storeTaskName) {
+                assertTasksUpToDate(":rootPackageJson")
+                assertTasksExecuted(":kotlinNpmInstall")
+                assertRootPackageJsonVersion("foo")
+            }
         }
     }
 }

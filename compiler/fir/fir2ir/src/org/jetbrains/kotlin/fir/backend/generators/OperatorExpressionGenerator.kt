@@ -6,6 +6,10 @@
 package org.jetbrains.kotlin.fir.backend.generators
 
 import org.jetbrains.kotlin.fir.backend.*
+import org.jetbrains.kotlin.fir.backend.utils.convertWithOffsets
+import org.jetbrains.kotlin.fir.backend.utils.createSafeCallConstruction
+import org.jetbrains.kotlin.fir.backend.utils.createTemporaryVariableForSafeCallConstruction
+import org.jetbrains.kotlin.fir.backend.utils.unsubstitutedScope
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.resolve.providers.getRegularClassSymbolByClassId
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
@@ -24,10 +28,10 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.name.Name
 
 internal class OperatorExpressionGenerator(
-    private val components: Fir2IrComponents,
+    private val c: Fir2IrComponents,
     private val visitor: Fir2IrVisitor,
     private val conversionScope: Fir2IrConversionScope
-) : Fir2IrComponents by components {
+) : Fir2IrComponents by c {
 
     fun convertComparisonExpression(comparisonExpression: FirComparisonExpression): IrExpression {
         return comparisonExpression.convertWithOffsets { startOffset, endOffset ->
@@ -57,7 +61,7 @@ internal class OperatorExpressionGenerator(
             return IrDynamicOperatorExpressionImpl(
                 startOffset,
                 endOffset,
-                irBuiltIns.booleanType,
+                builtins.booleanType,
                 dynamicOperator,
             ).apply {
                 this.receiver = receiver.accept(visitor, null) as IrExpression
@@ -66,14 +70,16 @@ internal class OperatorExpressionGenerator(
         }
 
         fun fallbackToRealCall(): IrExpression {
-            val (symbol, origin) = getSymbolAndOriginForComparison(operation, irBuiltIns.intType.classifierOrFail)
+            val (symbol, origin) = getSymbolAndOriginForComparison(operation, builtins.intType.classifierOrFail)
+            val irCompareToCall = comparisonExpression.compareToCall.accept(visitor, null) as IrCall
+            irCompareToCall.origin = origin
             return primitiveOp2(
                 startOffset, endOffset,
                 symbol!!,
-                irBuiltIns.booleanType,
+                builtins.booleanType,
                 origin,
-                comparisonExpression.compareToCall.accept(visitor, null) as IrExpression,
-                IrConstImpl.int(startOffset, endOffset, irBuiltIns.intType, 0)
+                irCompareToCall,
+                IrConstImpl.int(startOffset, endOffset, builtins.intType, 0)
             )
         }
 
@@ -81,7 +87,7 @@ internal class OperatorExpressionGenerator(
             return fallbackToRealCall()
         }
 
-        val comparisonInfo = comparisonExpression.inferPrimitiveNumericComparisonInfo() ?: return fallbackToRealCall()
+        val comparisonInfo = comparisonExpression.inferPrimitiveNumericComparisonInfo(c) ?: return fallbackToRealCall()
         val comparisonType = comparisonInfo.comparisonType
 
         val comparisonIrType = typeConverter.classIdToTypeMap[comparisonType.lookupTag.classId] ?: return fallbackToRealCall()
@@ -91,7 +97,7 @@ internal class OperatorExpressionGenerator(
             startOffset,
             endOffset,
             symbol!!,
-            irBuiltIns.booleanType,
+            builtins.booleanType,
             origin,
             comparisonExpression.left.convertToIrExpression(comparisonInfo, isLeftType = true),
             comparisonExpression.right.convertToIrExpression(comparisonInfo, isLeftType = false)
@@ -103,10 +109,10 @@ internal class OperatorExpressionGenerator(
         classifier: IrClassifierSymbol
     ): Pair<IrSimpleFunctionSymbol?, IrStatementOriginImpl> {
         return when (operation) {
-            FirOperation.LT -> irBuiltIns.lessFunByOperandType[classifier] to IrStatementOrigin.LT
-            FirOperation.GT -> irBuiltIns.greaterFunByOperandType[classifier] to IrStatementOrigin.GT
-            FirOperation.LT_EQ -> irBuiltIns.lessOrEqualFunByOperandType[classifier] to IrStatementOrigin.LTEQ
-            FirOperation.GT_EQ -> irBuiltIns.greaterOrEqualFunByOperandType[classifier] to IrStatementOrigin.GTEQ
+            FirOperation.LT -> builtins.lessFunByOperandType[classifier] to IrStatementOrigin.LT
+            FirOperation.GT -> builtins.greaterFunByOperandType[classifier] to IrStatementOrigin.GT
+            FirOperation.LT_EQ -> builtins.lessOrEqualFunByOperandType[classifier] to IrStatementOrigin.LTEQ
+            FirOperation.GT_EQ -> builtins.greaterOrEqualFunByOperandType[classifier] to IrStatementOrigin.GTEQ
             else -> error("Unexpected comparison operation: $operation")
         }
     }
@@ -148,7 +154,7 @@ internal class OperatorExpressionGenerator(
         IrDynamicOperatorExpressionImpl(
             startOffset,
             endOffset,
-            irBuiltIns.booleanType,
+            builtins.booleanType,
             dynamicOperator,
         ).apply {
             receiver = firstArgument
@@ -166,7 +172,7 @@ internal class OperatorExpressionGenerator(
             FirOperation.NOT_EQ -> IrStatementOrigin.EXCLEQ
             else -> error("Not an equality operation: $operation")
         }
-        val comparisonInfo = inferPrimitiveNumericComparisonInfo(arguments[0], arguments[1])
+        val comparisonInfo = inferPrimitiveNumericComparisonInfo(arguments[0], arguments[1], c)
 
         val convertedLeft = arguments[0].convertToIrExpression(comparisonInfo, isLeftType = true)
         val convertedRight = arguments[1].convertToIrExpression(comparisonInfo, isLeftType = false)
@@ -183,13 +189,13 @@ internal class OperatorExpressionGenerator(
 
         val comparisonType = comparisonInfo?.comparisonType
         val eqeqSymbol = comparisonType?.let { typeConverter.classIdToSymbolMap[it.lookupTag.classId] }
-            ?.let { irBuiltIns.ieee754equalsFunByOperandType[it] } ?: irBuiltIns.eqeqSymbol
+            ?.let { builtins.ieee754equalsFunByOperandType[it] } ?: builtins.eqeqSymbol
 
         val equalsCall = primitiveOp2(
             startOffset,
             endOffset,
             eqeqSymbol,
-            irBuiltIns.booleanType,
+            builtins.booleanType,
             origin,
             convertedLeft,
             convertedRight
@@ -222,8 +228,8 @@ internal class OperatorExpressionGenerator(
         }
         val identityCall = primitiveOp2(
             startOffset, endOffset,
-            irBuiltIns.eqeqeqSymbol,
-            irBuiltIns.booleanType,
+            builtins.eqeqeqSymbol,
+            builtins.booleanType,
             origin,
             convertedLeft,
             convertedRight
@@ -236,7 +242,7 @@ internal class OperatorExpressionGenerator(
     }
 
     private fun IrExpression.negate(origin: IrStatementOrigin) =
-        primitiveOp1(startOffset, endOffset, irBuiltIns.booleanNotSymbol, irBuiltIns.booleanType, origin, this)
+        primitiveOp1(startOffset, endOffset, builtins.booleanNotSymbol, builtins.booleanType, origin, this)
 
     private fun FirExpression.convertToIrExpression(
         comparisonInfo: PrimitiveConeNumericComparisonInfo?,
@@ -286,8 +292,9 @@ internal class OperatorExpressionGenerator(
         val operandClassId = operandType.lookupTag.classId
         val targetClassId = targetType.lookupTag.classId
         if (operandClassId == targetClassId) return eraseImplicitCast()
-        val operandFirClass = session.symbolProvider.getRegularClassSymbolByClassId(operandClassId) ?: error("No symbol for $operandClassId")
-        val conversionFirFunction = operandFirClass.unsubstitutedScope()
+        val operandFirClass = session.symbolProvider.getRegularClassSymbolByClassId(operandClassId)
+            ?: error("No symbol for $operandClassId")
+        val conversionFirFunction = operandFirClass.unsubstitutedScope(c)
             .getFunctions(Name.identifier("to${targetType.lookupTag.classId.shortClassName.asString()}"))
             .singleOrNull()
             ?: error("No conversion function for $operandType ~> $targetType")
@@ -295,7 +302,7 @@ internal class OperatorExpressionGenerator(
 
         val unsafeIrCall = IrCallImpl(
             irExpression.startOffset, irExpression.endOffset,
-            conversionFirFunction.resolvedReturnType.toIrType(),
+            conversionFirFunction.resolvedReturnType.toIrType(c),
             conversionFunctionSymbol as IrSimpleFunctionSymbol,
             valueArgumentsCount = 0,
             typeArgumentsCount = 0
@@ -304,11 +311,11 @@ internal class OperatorExpressionGenerator(
         }
         return if (operandType.isNullable) {
             val (receiverVariable, receiverVariableSymbol) =
-                components.createTemporaryVariableForSafeCallConstruction(irExpression, conversionScope)
+                conversionScope.createTemporaryVariableForSafeCallConstruction(irExpression)
 
             unsafeIrCall.dispatchReceiver = IrGetValueImpl(irExpression.startOffset, irExpression.endOffset, receiverVariableSymbol)
 
-            components.createSafeCallConstruction(receiverVariable, receiverVariableSymbol, unsafeIrCall)
+            c.createSafeCallConstruction(receiverVariable, receiverVariableSymbol, unsafeIrCall)
         } else {
             unsafeIrCall
         }

@@ -1,4 +1,5 @@
-// !LANGUAGE: +ContextReceivers, +ValueClasses
+// DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
+// LANGUAGE: +ContextReceivers, +ValueClasses
 // WITH_STDLIB
 // SKIP_TXT
 // WORKS_WHEN_VALUE_CLASS

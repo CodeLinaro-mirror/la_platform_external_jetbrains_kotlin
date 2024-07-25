@@ -8,21 +8,23 @@ package org.jetbrains.kotlin.gradle.util
 import org.gradle.api.NamedDomainObjectContainer
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.*
-import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
-import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
-import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.external.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.external.ExternalKotlinCompilationDescriptor.CompilationFactory
 import org.jetbrains.kotlin.gradle.plugin.mpp.external.ExternalKotlinTargetDescriptor.TargetFactory
 
 class FakeCompilation(delegate: Delegate) : DecoratedExternalKotlinCompilation(delegate) {
-    @Suppress("UNCHECKED_CAST")
+    @Deprecated(
+        "To configure compilation compiler options use 'compileTaskProvider':\ncompilation.compileTaskProvider.configure{\n" +
+                "    compilerOptions {}\n}"
+    )
+    @Suppress("UNCHECKED_CAST", "DEPRECATION")
     override val compilerOptions: HasCompilerOptions<KotlinJvmCompilerOptions>
         get() = super.compilerOptions as HasCompilerOptions<KotlinJvmCompilerOptions>
 }
 
 class FakeTarget(delegate: Delegate) : DecoratedExternalKotlinTarget(delegate),
-    HasConfigurableCompilerOptions<KotlinJvmCompilerOptions> {
+    HasConfigurableKotlinCompilerOptions<KotlinJvmCompilerOptions> {
 
     @Suppress("UNCHECKED_CAST")
     override val compilations: NamedDomainObjectContainer<FakeCompilation>

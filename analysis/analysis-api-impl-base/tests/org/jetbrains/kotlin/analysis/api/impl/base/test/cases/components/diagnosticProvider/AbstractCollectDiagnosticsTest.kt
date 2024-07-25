@@ -7,33 +7,40 @@ package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.diagno
 
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.analysis.api.components.KtDiagnosticCheckerFilter
-import org.jetbrains.kotlin.analysis.api.diagnostics.KtDiagnosticWithPsi
+import org.jetbrains.kotlin.analysis.api.components.KaDiagnosticCheckerFilter
+import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnosticWithPsi
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils.getLineAndColumnRangeInPsiFile
 import org.jetbrains.kotlin.diagnostics.PsiDiagnosticUtils.offsetToLineAndColumn
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import kotlin.test.assertEquals
 
 abstract class AbstractCollectDiagnosticsTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
+        doTestByKtFile(mainFile, testServices)
+    }
+
+    /**
+     * [ktFile] may be a fake file for dangling module tests.
+     */
+    protected fun doTestByKtFile(ktFile: KtFile, testServices: TestServices) {
         fun TextRange.asLineColumnRange(): String {
-            return getLineAndColumnRangeInPsiFile(mainFile, this).toString()
+            return getLineAndColumnRangeInPsiFile(ktFile, this).toString()
         }
 
-        analyseForTest(mainFile) {
+        analyseForTest(ktFile) {
             val diagnosticsInFile =
-                mainFile.collectDiagnosticsForFile(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS).map { it.getKey() }.sorted()
+                ktFile.collectDiagnostics(KaDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS).map { it.getKey() }.sorted()
             val diagnosticsFromElements = buildList {
-                mainFile.accept(object : KtTreeVisitorVoid() {
+                ktFile.accept(object : KtTreeVisitorVoid() {
                     override fun visitKtElement(element: KtElement) {
-                        for (diagnostic in element.getDiagnostics(KtDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS)) {
+                        for (diagnostic in element.diagnostics(KaDiagnosticCheckerFilter.EXTENDED_AND_COMMON_CHECKERS)) {
                             add(element to diagnostic.getKey())
                         }
                         super.visitKtElement(element)
@@ -74,5 +81,5 @@ abstract class AbstractCollectDiagnosticsTest : AbstractAnalysisApiBasedTest() {
         override fun compareTo(other: DiagnosticKey): Int = this.toString().compareTo(other.toString())
     }
 
-    private fun KtDiagnosticWithPsi<*>.getKey() = DiagnosticKey(factoryName, psi, textRanges)
+    private fun KaDiagnosticWithPsi<*>.getKey() = DiagnosticKey(factoryName, psi, textRanges)
 }

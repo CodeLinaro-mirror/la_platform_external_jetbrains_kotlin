@@ -5,11 +5,11 @@
 
 package org.jetbrains.kotlin.gradle.unitTests.diagnosticsTests
 
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.targetFromPresetInternal
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmWithJavaTargetPreset
-import org.jetbrains.kotlin.gradle.util.androidLibrary
-import org.jetbrains.kotlin.gradle.util.checkDiagnosticsWithMppProject
-import org.jetbrains.kotlin.gradle.util.kotlin
+import org.jetbrains.kotlin.gradle.util.*
 import org.junit.Test
 
 class MppDiagnosticsFunctionalTest {

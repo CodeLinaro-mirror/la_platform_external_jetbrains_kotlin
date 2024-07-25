@@ -14,8 +14,12 @@ import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
-import org.jetbrains.kotlin.ir.backend.js.*
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
+import org.jetbrains.kotlin.ir.backend.js.KlibMetadataIncrementalSerializer
+import org.jetbrains.kotlin.ir.backend.js.getSerializedData
+import org.jetbrains.kotlin.ir.backend.js.incrementalDataProvider
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerIr
+import org.jetbrains.kotlin.ir.backend.js.sortDependencies
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
@@ -32,6 +36,7 @@ import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
+import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 
 class ClassicFrontend2IrConverter(
     testServices: TestServices
@@ -45,7 +50,7 @@ class ClassicFrontend2IrConverter(
 
     override fun transform(module: TestModule, inputArtifact: ClassicFrontendOutputArtifact): IrBackendInput {
         return when (module.targetBackend) {
-            TargetBackend.JVM_IR -> transformToJvmIr(module, inputArtifact)
+            TargetBackend.JVM_IR, TargetBackend.JVM_IR_SERIALIZE -> transformToJvmIr(module, inputArtifact)
             TargetBackend.JS_IR, TargetBackend.JS_IR_ES6 -> transformToJsIr(module, inputArtifact)
             TargetBackend.WASM -> transformToWasmIr(module, inputArtifact)
             else -> testServices.assertions.fail { "Target backend ${module.targetBackend} not supported for transformation into IR" }
@@ -113,7 +118,8 @@ class ClassicFrontend2IrConverter(
             hasErrors,
         )
 
-        return IrBackendInput.JsIrBackendInput(
+        @OptIn(ObsoleteDescriptorBasedAPI::class)
+        return IrBackendInput.JsIrAfterFrontendBackendInput(
             moduleFragment,
             pluginContext,
             icData,
@@ -149,7 +155,7 @@ class ClassicFrontend2IrConverter(
         }
 
         val errorPolicy = configuration.get(JSConfigurationKeys.ERROR_TOLERANCE_POLICY) ?: ErrorTolerancePolicy.DEFAULT
-        val analyzerFacade = TopDownAnalyzerFacadeForWasm.facadeFor(configuration.get(JSConfigurationKeys.WASM_TARGET))
+        val analyzerFacade = TopDownAnalyzerFacadeForWasm.facadeFor(configuration.get(WasmConfigurationKeys.WASM_TARGET))
         val hasErrors = analyzerFacade.checkForErrors(sourceFiles, analysisResult.bindingContext, errorPolicy)
         val metadataSerializer = KlibMetadataIncrementalSerializer(
             sourceFiles,
@@ -160,7 +166,8 @@ class ClassicFrontend2IrConverter(
             hasErrors,
         )
 
-        return IrBackendInput.WasmBackendInput(
+        @OptIn(ObsoleteDescriptorBasedAPI::class)
+        return IrBackendInput.WasmAfterFrontendBackendInput(
             moduleFragment,
             pluginContext,
             icData,

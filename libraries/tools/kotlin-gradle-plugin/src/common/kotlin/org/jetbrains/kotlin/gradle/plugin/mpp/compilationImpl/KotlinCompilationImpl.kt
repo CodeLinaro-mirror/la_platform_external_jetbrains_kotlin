@@ -41,7 +41,7 @@ internal class KotlinCompilationImpl constructor(
         val compilationTaskNames: KotlinCompilationTaskNamesContainer,
         val processResourcesTaskName: String?,
         val output: KotlinCompilationOutput,
-        val compilerOptions: HasCompilerOptions<*>,
+        @Suppress("TYPEALIAS_EXPANSION_DEPRECATION") val compilerOptions: DeprecatedHasCompilerOptions<*>,
         val kotlinOptions: KotlinCommonOptions,
         val compilationAssociator: KotlinCompilationAssociator,
         val compilationFriendPathsResolver: KotlinCompilationFriendPathsResolver,
@@ -92,7 +92,7 @@ internal class KotlinCompilationImpl constructor(
     override val kotlinSourceSets: ObservableSet<KotlinSourceSet>
         get() = sourceSets.kotlinSourceSets
 
-    @Deprecated("scheduled for removal with Kotlin 2.0")
+    @Deprecated("scheduled for removal with Kotlin 2.1")
     override fun source(sourceSet: KotlinSourceSet) {
         project.kotlinToolingDiagnosticsCollector.report(project, KotlinCompilationSourceDeprecation(Throwable()))
         sourceSets.source(sourceSet)
@@ -169,10 +169,16 @@ internal class KotlinCompilationImpl constructor(
 
     //region CompilerOptions & KotlinOptions
 
+    @Suppress("OVERRIDE_DEPRECATION")
     override val kotlinOptions: KotlinCommonOptions
         get() = params.kotlinOptions
 
-    override val compilerOptions: HasCompilerOptions<*>
+    @Deprecated(
+        "To configure compilation compiler options use 'compileTaskProvider':\ncompilation.compileTaskProvider.configure{\n" +
+                "    compilerOptions {}\n}"
+    )
+    @Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
+    override val compilerOptions: DeprecatedHasCompilerOptions<*>
         get() = params.compilerOptions
 
     //endregion

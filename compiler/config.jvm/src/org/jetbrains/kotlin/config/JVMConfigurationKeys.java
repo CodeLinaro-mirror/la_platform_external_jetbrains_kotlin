@@ -145,9 +145,6 @@ public class JVMConfigurationKeys {
     public static final CompilerConfigurationKey<JvmSerializeIrMode> SERIALIZE_IR =
             CompilerConfigurationKey.create("What functions to serialize as IR to class metadata");
 
-    public static final CompilerConfigurationKey<Boolean> VALIDATE_IR =
-            CompilerConfigurationKey.create("Validate IR");
-
     public static final CompilerConfigurationKey<Boolean> VALIDATE_BYTECODE =
             CompilerConfigurationKey.create("Validate generated JVM bytecode");
 
@@ -165,4 +162,7 @@ public class JVMConfigurationKeys {
 
     public static final CompilerConfigurationKey<Boolean> ENABLE_IR_INLINER =
             CompilerConfigurationKey.create("Enable inlining on IR, instead of inlining on bytecode");
+
+    public static final CompilerConfigurationKey<Boolean> USE_INLINE_SCOPES_NUMBERS =
+            CompilerConfigurationKey.create("Use inline scopes numbers for inline marker variables");
 }

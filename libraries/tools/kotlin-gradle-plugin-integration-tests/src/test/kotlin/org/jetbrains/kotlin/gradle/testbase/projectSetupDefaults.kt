@@ -33,12 +33,14 @@ internal val DEFAULT_GROOVY_SETTINGS_FILE =
             id "org.jetbrains.kotlin.plugin.jpa" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.noarg" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.lombok" version "${'$'}kotlin_version"
+            id "org.jetbrains.kotlin.plugin.power-assert" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.sam.with.receiver" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.serialization" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.assignment" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.test.fixes.android" version "${'$'}test_fixes_version"
             id "org.jetbrains.kotlin.gradle-subplugin-example" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.plugin.atomicfu" version "${'$'}kotlin_version"
+            id "org.jetbrains.kotlin.plugin.compose" version "${'$'}kotlin_version"
             id "org.jetbrains.kotlin.test.gradle-warnings-detector" version "${'$'}test_fixes_version"
             id "org.jetbrains.kotlin.test.kotlin-compiler-args-properties" version "${'$'}test_fixes_version"
         }
@@ -93,6 +95,15 @@ internal fun getGroovyRepositoryBlock(
     |        mavenCentral()
     |        google()
     |        ivy {
+    |            url = "https://download.jetbrains.com/kotlin/native/builds/releases"
+    |            patternLayout {
+    |                artifact("[revision]/[classifier]/[artifact]-[classifier]-[revision].[ext]")
+    |            }
+    |            metadataSources {
+    |                artifact()
+    |            }
+    |        }
+    |        ivy {
     |            url = "https://download.jetbrains.com/kotlin/native/builds/dev"
     |            patternLayout {
     |                artifact("[revision]/[classifier]/[artifact]-[classifier]-[revision].[ext]")
@@ -129,18 +140,6 @@ internal fun getGroovyRepositoryBlock(
     |            }
     |        }
     |        ivy {
-    |            url = uri("https://nodejs.org/download/v8-canary")
-    |            patternLayout {
-    |                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
-    |            }
-    |            metadataSources { 
-    |                artifact() 
-    |            }
-    |            content { 
-    |                includeModule("org.nodejs", "node") 
-    |            }
-    |        }
-    |        ivy {
     |            url = uri("https://github.com/WebAssembly/binaryen/releases/download")
     |            patternLayout {
     |                artifact("version_[revision]/binaryen-version_[revision]-[classifier].[ext]")
@@ -163,6 +162,9 @@ internal fun getGroovyRepositoryBlock(
     |            content { 
     |                includeModule("google.d8", "v8") 
     |            }
+    |        }
+    |        maven {
+    |            url "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/"
     |        }
     |        ${additionalDependencyRepositories.map { repo -> "maven{ url = \"$repo\" }" }.joinToString("\n")}
     |        ${localRepo?.absolutePathString()?.let { repo -> "maven{ url = \"${repo.replace("\\", "\\\\")}\" }" } ?: ""}
@@ -195,12 +197,14 @@ internal val DEFAULT_KOTLIN_SETTINGS_FILE =
             id("org.jetbrains.kotlin.plugin.jpa") version kotlin_version
             id("org.jetbrains.kotlin.plugin.noarg") version kotlin_version
             id("org.jetbrains.kotlin.plugin.lombok") version kotlin_version
+            id("org.jetbrains.kotlin.plugin.power-assert") version kotlin_version
             id("org.jetbrains.kotlin.plugin.sam.with.receiver") version kotlin_version
             id("org.jetbrains.kotlin.plugin.serialization") version kotlin_version
             id("org.jetbrains.kotlin.plugin.assignment") version kotlin_version
             id("org.jetbrains.kotlin.test.fixes.android") version test_fixes_version
             id("org.jetbrains.kotlin.gradle-subplugin-example") version kotlin_version
             id("org.jetbrains.kotlin.plugin.atomicfu") version kotlin_version
+            id("org.jetbrains.kotlin.plugin.compose") version kotlin_version
             id("org.jetbrains.kotlin.test.gradle-warnings-detector") version test_fixes_version
             id("org.jetbrains.kotlin.test.kotlin-compiler-args-properties") version test_fixes_version
         }
@@ -254,6 +258,15 @@ internal fun getKotlinRepositoryBlock(
     |        mavenCentral()
     |        google()
     |        ivy {
+    |            url = uri("https://download.jetbrains.com/kotlin/native/builds/releases")
+    |            patternLayout {
+    |                artifact("[revision]/[classifier]/[artifact]-[classifier]-[revision].[ext]")
+    |            }
+    |            metadataSources {
+    |                artifact()
+    |            }
+    |        }
+    |        ivy {
     |            url = uri("https://download.jetbrains.com/kotlin/native/builds/dev")
     |            patternLayout {
     |                artifact("[revision]/[classifier]/[artifact]-[classifier]-[revision].[ext]")
@@ -276,18 +289,6 @@ internal fun getKotlinRepositoryBlock(
     |        }
     |        ivy {
     |            url = uri("https://nodejs.org/dist")
-    |            patternLayout {
-    |                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
-    |            }
-    |            metadataSources { 
-    |                artifact() 
-    |            }
-    |            content { 
-    |                includeModule("org.nodejs", "node") 
-    |            }
-    |        }
-    |        ivy {
-    |            url = uri("https://nodejs.org/download/v8-canary")
     |            patternLayout {
     |                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
     |            }

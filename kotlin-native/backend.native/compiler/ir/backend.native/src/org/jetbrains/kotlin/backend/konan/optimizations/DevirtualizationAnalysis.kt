@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.backend.konan.util.IntArrayList
 import org.jetbrains.kotlin.backend.konan.util.LongArrayList
 import org.jetbrains.kotlin.backend.konan.lower.getObjectClassInstanceFunction
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.explicitParameters
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
@@ -36,6 +35,28 @@ import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.Name
 import java.util.*
 import kotlin.collections.ArrayList
+
+object DevirtualizationUnfoldFactors {
+    /**
+     * Maximum unfold factor for a devirtualized call via vtable.
+     */
+    const val IR_DEVIRTUALIZED_VTABLE_CALL = 3
+
+    /**
+     * Maximum unfold factor for a devirtualized interface call.
+     */
+    const val IR_DEVIRTUALIZED_ITABLE_CALL = 3
+
+    /**
+     * Maximum unfold factor for a devirtualized call during the call graph construction.
+     */
+    const val DFG_DEVIRTUALIZED_CALL = 5
+
+    /**
+     * Maximum unfold factor for a non devirtualized call during the call graph construction.
+     */
+    const val DFG_NON_DEVIRTUALIZED_CALL = 5
+}
 
 // Devirtualization analysis is performed using Variable Type Analysis algorithm.
 // See http://web.cs.ucla.edu/~palsberg/tba/papers/sundaresan-et-al-oopsla00.pdf for details.
@@ -1358,11 +1379,13 @@ internal object DevirtualizationAnalysis {
             DevirtualizationAnalysisImpl(context, irModule, moduleDFG, externalModulesDFG).analyze()
 
     fun devirtualize(irModule: IrModuleFragment, context: Context, externalModulesDFG: ExternalModulesDFG,
-                     devirtualizedCallSites: Map<IrCall, DevirtualizedCallSite>) {
+                     devirtualizedCallSites: Map<IrCall, DevirtualizedCallSite>,
+                     maxVTableUnfoldFactor: Int, maxITableUnfoldFactor: Int) {
         val symbols = context.ir.symbols
         val nativePtrEqualityOperatorSymbol = symbols.areEqualByValue[PrimitiveBinaryType.POINTER]!!
         val isSubtype = symbols.isSubtype
         val optimize = context.shouldOptimize()
+        val genericSafeCasts = context.config.genericSafeCasts
 
         fun DataFlowIR.Type.resolved(): DataFlowIR.Type.Declared {
             if (this is DataFlowIR.Type.Declared) return this
@@ -1456,10 +1479,10 @@ internal object DevirtualizationAnalysis {
         }
 
         fun IrBuilderWithScope.irDevirtualizedCall(callSite: IrCall, actualType: IrType,
-                                                   actualCallee: DataFlowIR.FunctionSymbol.Declared,
+                                                   actualCallee: DataFlowIR.FunctionSymbol,
                                                    arguments: List<PossiblyCoercedValue>): IrExpression {
-            return actualCallee.bridgeTarget.let { bridgeTarget ->
-                if (bridgeTarget == null)
+            return (actualCallee as? DataFlowIR.FunctionSymbol.Declared)?.bridgeTarget.let { bridgeTarget ->
+                if (bridgeTarget == null || genericSafeCasts) // Can't easily inline bridges with casts.
                     irDevirtualizedCall(callSite, actualType,
                             actualCallee.irFunction as IrSimpleFunction,
                             arguments.map { it.getFullValue(this@irDevirtualizedCall) }
@@ -1493,7 +1516,7 @@ internal object DevirtualizationAnalysis {
                 val devirtualizedCallSite = devirtualizedCallSites[expression] ?: return expression
                 val possibleCallees = devirtualizedCallSite.possibleCallees.groupBy {
                     if (it.receiverType is DataFlowIR.Type.External) return expression
-                    it.callee as? DataFlowIR.FunctionSymbol.Declared ?: return expression
+                    it.callee
                 }.entries.map { entry ->
                     entry.key to entry.value.map { it.receiverType as DataFlowIR.Type.Declared }.distinct()
                 }
@@ -1502,9 +1525,7 @@ internal object DevirtualizationAnalysis {
                 val callee = expression.symbol.owner
                 val owner = callee.parentAsClass
                 // TODO: Think how to evaluate different unfold factors (in terms of both execution speed and code size).
-                val classMaxUnfoldFactor = 3
-                val interfaceMaxUnfoldFactor = 3
-                val maxUnfoldFactor = if (owner.isInterface) interfaceMaxUnfoldFactor else classMaxUnfoldFactor
+                val maxUnfoldFactor = if (owner.isInterface) maxITableUnfoldFactor else maxVTableUnfoldFactor
                 ++devirtualizedCallSitesCount
                 if (possibleCallees.size > maxUnfoldFactor) {
                     // Callsite too complicated to devirtualize.
@@ -1545,6 +1566,57 @@ internal object DevirtualizationAnalysis {
                         }
 
                         else -> irBlock(expression) {
+                            /*
+                             * More than one possible callee - need to select the proper one.
+                             * There are two major cases here:
+                             *  - there is only one possible receiver type, and all what is needed is just compare the type infos
+                             *  - otherwise, there are multiple receiver types (meaning the actual callee has not been overridden in
+                             *    the inheritors), and a full type check operation is required.
+                             * These checks cannot be performed in arbitrary order - the check for a derived type must be
+                             * performed before the check for the base type.
+                             * To improve performance, we try to perform these checks in the following order: first, those with only one
+                             * receiver, then classes type checks, and finally interface type checks.
+                             * Note: performing the slowest check last allows to place it to else clause and skip it improving performance.
+                             * The actual order in which perform these checks is found by a simple back tracking algorithm
+                             * (since the number of possible callees is small, it is ok in terms of performance).
+                             */
+
+                            data class Target(val actualCallee: DataFlowIR.FunctionSymbol, val possibleReceivers: List<DataFlowIR.Type.Declared>) {
+                                val declType = actualCallee.irFunction!!.parentAsClass
+                                val weight = when {
+                                    possibleReceivers.size == 1 -> 0 // The fastest.
+                                    declType.isInterface -> 2 // The slowest.
+                                    else -> 1 // In between.
+                                }
+                                var used = false
+                            }
+
+                            val targets = possibleCallees.map { Target(it.first, it.second) }
+                            var bestOrder: List<Target>? = null
+                            var bestLexOrder = Int.MAX_VALUE
+                            fun backTrack(order: List<Target>, lexOrder: Int) {
+                                if (order.size == targets.size) {
+                                    if (lexOrder < bestLexOrder) {
+                                        bestOrder = order
+                                        bestLexOrder = lexOrder
+                                    }
+                                    return
+                                }
+                                for (target in targets.filterNot { it.used }) {
+                                    val fitsAsNext = order.none { target.declType.isSubclassOf(it.declType) }
+                                    if (!fitsAsNext) continue
+                                    val nextOrder = order + target
+                                    // Don't count the last one since it will be in the else clause.
+                                    val nextLexOrder = if (nextOrder.size == targets.size) lexOrder else lexOrder * 3 + target.weight
+                                    target.used = true
+                                    backTrack(nextOrder, nextLexOrder)
+                                    target.used = false
+                                }
+                            }
+
+                            backTrack(emptyList(), 0)
+                            require(bestLexOrder != Int.MAX_VALUE) // Should never happen since there are no cycles in a type hierarchy.
+
                             val arguments = expression.getArgumentsWithIr().mapIndexed { index, arg ->
                                 irSplitCoercion(caller, arg.second, "arg$index", arg.first.type)
                             }
@@ -1554,45 +1626,41 @@ internal object DevirtualizationAnalysis {
                                     putValueArgument(0, irGet(receiver))
                                 })
                             }
-
                             val branches = mutableListOf<IrBranchImpl>()
-                            possibleCallees
-                                    // Try to leave the most complicated case for the last,
-                                    // and, hopefully, place it in the else clause.
-                                    .sortedBy { it.second.size }
-                                    .mapIndexedTo(branches) { index, devirtualizedCallee ->
-                                        val (actualCallee, receiverTypes) = devirtualizedCallee
-                                        val condition =
-                                                if (optimize && index == possibleCallees.size - 1)
-                                                    irTrue() // Don't check last type in optimize mode.
-                                                else {
-                                                    if (receiverTypes.size == 1) {
-                                                        // It is faster to just compare type infos instead of a full type check.
-                                                        val receiverType = receiverTypes[0]
-                                                        val expectedTypeInfo = IrClassReferenceImpl(
-                                                                startOffset, endOffset,
-                                                                symbols.nativePtrType,
-                                                                receiverType.irClass!!.symbol,
-                                                                receiverType.irClass.defaultType
-                                                        )
-                                                        irCall(nativePtrEqualityOperatorSymbol).apply {
-                                                            putValueArgument(0, irGet(typeInfo))
-                                                            putValueArgument(1, expectedTypeInfo)
-                                                        }
-                                                    } else {
-                                                        val receiverType = actualCallee.irFunction!!.parentAsClass
-                                                        irCallWithSubstitutedType(isSubtype, listOf(receiverType.defaultType)).apply {
-                                                            putValueArgument(0, irGet(typeInfo))
-                                                        }
-                                                    }
-                                                }
-                                        IrBranchImpl(
-                                                startOffset = startOffset,
-                                                endOffset = endOffset,
-                                                condition = condition,
-                                                result = irDevirtualizedCall(expression, type, actualCallee, arguments)
-                                        )
+                            bestOrder!!.mapIndexedTo(branches) { index, target ->
+                                val (actualCallee, receiverTypes) = target
+                                val condition = when {
+                                    optimize && index == possibleCallees.size - 1 -> {
+                                        // Don't check the last type in optimize mode.
+                                        irTrue()
                                     }
+                                    receiverTypes.size == 1 -> {
+                                        // It is faster to just compare type infos instead of a full type check.
+                                        val receiverType = receiverTypes[0]
+                                        val expectedTypeInfo = IrClassReferenceImpl(
+                                                startOffset, endOffset,
+                                                symbols.nativePtrType,
+                                                receiverType.irClass!!.symbol,
+                                                receiverType.irClass.defaultType
+                                        )
+                                        irCall(nativePtrEqualityOperatorSymbol).apply {
+                                            putValueArgument(0, irGet(typeInfo))
+                                            putValueArgument(1, expectedTypeInfo)
+                                        }
+                                    }
+                                    else -> {
+                                        irCallWithSubstitutedType(isSubtype, listOf(target.declType.defaultType)).apply {
+                                            putValueArgument(0, irGet(typeInfo))
+                                        }
+                                    }
+                                }
+                                IrBranchImpl(
+                                        startOffset = startOffset,
+                                        endOffset = endOffset,
+                                        condition = condition,
+                                        result = irDevirtualizedCall(expression, type, actualCallee, arguments)
+                                )
+                            }
                             if (!optimize) { // Add else branch throwing exception for debug purposes.
                                 branches.add(IrBranchImpl(
                                         startOffset = startOffset,

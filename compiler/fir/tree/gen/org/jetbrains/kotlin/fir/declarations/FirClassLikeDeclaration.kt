@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
 
 /**
- * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.classLikeDeclaration]
+ * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.classLikeDeclaration]
  */
 sealed class FirClassLikeDeclaration : FirMemberDeclaration(), FirStatement {
     abstract override val source: KtSourceElement?
@@ -28,7 +28,7 @@ sealed class FirClassLikeDeclaration : FirMemberDeclaration(), FirStatement {
     abstract override val attributes: FirDeclarationAttributes
     abstract override val typeParameters: List<FirTypeParameterRef>
     abstract override val status: FirDeclarationStatus
-    abstract override val symbol: FirClassLikeSymbol<out FirClassLikeDeclaration>
+    abstract override val symbol: FirClassLikeSymbol<FirClassLikeDeclaration>
     abstract val deprecationsProvider: DeprecationsProvider
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R =

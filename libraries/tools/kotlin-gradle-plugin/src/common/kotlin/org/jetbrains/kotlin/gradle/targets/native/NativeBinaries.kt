@@ -18,6 +18,7 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.AbstractExecTask
 import org.gradle.api.tasks.TaskProvider
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.dsl.KotlinGradlePluginPublicDsl
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 import org.jetbrains.kotlin.gradle.utils.attributeOf
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
@@ -34,19 +35,15 @@ import java.io.File
  * @param compilation - a compilation used to produce this binary.
  *
  */
+@KotlinGradlePluginPublicDsl
 sealed class NativeBinary(
     private val name: String,
-    baseNameProvided: String,
+    open var baseName: String,
     val buildType: NativeBuildType,
     @Transient
     var compilation: KotlinNativeCompilation
 ) : Named {
-    open var baseName: String
-        get() = baseNameProvider.get()
-        set(value) {
-            baseNameProvider = project.provider { value }
-        }
-    internal var baseNameProvider: Provider<String> = project.provider { baseNameProvided }
+    internal val baseNameProvider: Provider<String> = project.provider { baseName }
 
     internal val konanTarget: KonanTarget
         get() = compilation.konanTarget
@@ -84,6 +81,7 @@ sealed class NativeBinary(
     }
 
     /** Additional arguments passed to the Kotlin/Native compiler. */
+    @Suppress("DEPRECATION")
     var freeCompilerArgs: List<String>
         get() = linkTask.kotlinOptions.freeCompilerArgs
         set(value) {
@@ -94,6 +92,7 @@ sealed class NativeBinary(
     val linkTaskName: String
         get() = lowerCamelCaseName("link", name, target.targetName)
 
+    @Deprecated("Use 'linkTaskProvider' instead", ReplaceWith("linkTaskProvider"))
     val linkTask: KotlinNativeLink
         get() = linkTaskProvider.get()
 
@@ -111,14 +110,14 @@ sealed class NativeBinary(
         objects.directoryProperty().convention(layout.buildDirectory.dir("bin/$targetSubDirectory${this@NativeBinary.name}"))
     }
 
-    val outputFile: File by lazy {
-        linkTask.outputFile.get()
-    }
+    val outputFile: File
+        get() = linkTaskProvider.get().outputFile.get()
 
     // Named implementation.
     override fun getName(): String = name
 }
 
+@KotlinGradlePluginPublicDsl
 abstract class AbstractExecutable(
     name: String,
     baseName: String,
@@ -126,6 +125,7 @@ abstract class AbstractExecutable(
     compilation: KotlinNativeCompilation
 ) : NativeBinary(name, baseName, buildType, compilation)
 
+@KotlinGradlePluginPublicDsl
 class Executable constructor(
     name: String,
     baseName: String,
@@ -189,6 +189,7 @@ class Executable constructor(
         get() = runTaskProvider?.get()
 }
 
+@KotlinGradlePluginPublicDsl
 class TestExecutable(
     name: String,
     baseName: String,
@@ -200,6 +201,7 @@ class TestExecutable(
         get() = NativeOutputKind.TEST
 }
 
+@KotlinGradlePluginPublicDsl
 abstract class AbstractNativeLibrary(
     name: String,
     baseName: String,
@@ -244,6 +246,7 @@ abstract class AbstractNativeLibrary(
     }
 }
 
+@KotlinGradlePluginPublicDsl
 class StaticLibrary(
     name: String,
     baseName: String,
@@ -254,6 +257,7 @@ class StaticLibrary(
         get() = NativeOutputKind.STATIC
 }
 
+@KotlinGradlePluginPublicDsl
 class SharedLibrary(
     name: String,
     baseName: String,
@@ -264,6 +268,7 @@ class SharedLibrary(
         get() = NativeOutputKind.DYNAMIC
 }
 
+@KotlinGradlePluginPublicDsl
 class Framework(
     name: String,
     baseName: String,

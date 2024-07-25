@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -28,8 +28,8 @@ import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
-import org.jetbrains.kotlin.utils.addToStdlib.safeAs
-import java.io.File
+import org.jetbrains.kotlin.test.services.configuration.getDependencies
+import org.jetbrains.kotlin.test.services.configuration.getFriendDependencies
 
 class FirJsKlibBackendFacade(
     testServices: TestServices,
@@ -46,12 +46,12 @@ class FirJsKlibBackendFacade(
     }
 
     override fun transform(module: TestModule, inputArtifact: IrBackendInput): BinaryArtifacts.KLib {
-        require(inputArtifact is IrBackendInput.JsIrBackendInput) {
-            "JsKlibBackendFacade expects IrBackendInput.JsIrBackendInput as input"
+        require(inputArtifact is IrBackendInput.JsIrAfterFrontendBackendInput) {
+            "JsKlibBackendFacade expects IrBackendInput.JsIrAfterFrontendBackendInput as input"
         }
 
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
-        val outputFile = JsEnvironmentConfigurator.getJsKlibArtifactPath(testServices, module.name)
+        val outputFile = JsEnvironmentConfigurator.getKlibArtifactFile(testServices, module.name)
 
         // TODO: consider avoiding repeated libraries resolution
         val libraries = resolveLibraries(configuration, getAllJsDependenciesPaths(module, testServices))
@@ -62,7 +62,7 @@ class FirJsKlibBackendFacade(
                 configuration,
                 inputArtifact.diagnosticReporter,
                 inputArtifact.metadataSerializer,
-                klibPath = outputFile,
+                klibPath = outputFile.path,
                 libraries.map { it.library },
                 inputArtifact.irModuleFragment,
                 cleanFiles = inputArtifact.icData,
@@ -76,7 +76,7 @@ class FirJsKlibBackendFacade(
 
         // TODO: consider avoiding repeated libraries resolution
         val lib = CommonKLibResolver.resolve(
-            getAllJsDependenciesPaths(module, testServices) + listOf(outputFile),
+            getAllJsDependenciesPaths(module, testServices) + listOf(outputFile.path),
             configuration.getLogger(treatWarningsAsErrors = true)
         ).getFullResolvedList().last().library
 
@@ -87,18 +87,27 @@ class FirJsKlibBackendFacade(
             inputArtifact.irModuleFragment.descriptor.builtIns,
             packageAccessHandler = null,
             lookupTracker = LookupTracker.DO_NOTHING
-        )
-        // TODO: find out why it must be so weird
-        moduleDescriptor.safeAs<ModuleDescriptorImpl>()?.let {
-            it.setDependencies(inputArtifact.irModuleFragment.descriptor.allDependencyModules.filterIsInstance<ModuleDescriptorImpl>() + it)
+        ).apply {
+            setDependencies(inputArtifact.regularDependencyModules + this, getFriendDependencies(module, testServices))
         }
 
         testServices.moduleDescriptorProvider.replaceModuleDescriptorForModule(module, moduleDescriptor)
         if (JsEnvironmentConfigurator.incrementalEnabled(testServices)) {
             testServices.jsIrIncrementalDataProvider.recordIncrementalData(module, lib)
         }
-        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile, moduleDescriptor, lib)
+        testServices.libraryProvider.setDescriptorAndLibraryByName(outputFile.path, moduleDescriptor, lib)
 
-        return BinaryArtifacts.KLib(File(outputFile), inputArtifact.diagnosticReporter)
+        return BinaryArtifacts.KLib(outputFile, inputArtifact.diagnosticReporter)
     }
+
+
+    /**
+     * Note: If it is implemented the same way as [getFriendDependencies] (i.e., get regular
+     * dependencies through [getDependencies] call), then important dependencies which do
+     * not exist in the form of [TestModule] such as stdlib & stdlib-test would not be included here.
+     */
+    private val IrBackendInput.regularDependencyModules: List<ModuleDescriptorImpl>
+        get() = irModuleFragment.descriptor.allDependencyModules
+            .filterIsInstance<ModuleDescriptorImpl>()
+
 }

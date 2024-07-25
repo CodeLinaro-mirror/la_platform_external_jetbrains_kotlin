@@ -12,12 +12,13 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationInfo
 import org.jetbrains.kotlin.gradle.plugin.KotlinNativeTargetConfigurator
 import org.jetbrains.kotlin.gradle.plugin.launch
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCompilation
-import org.jetbrains.kotlin.gradle.plugin.mpp.enabledOnCurrentHost
+import org.jetbrains.kotlin.gradle.plugin.mpp.enabledOnCurrentHostForBinariesCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.isMain
 import org.jetbrains.kotlin.gradle.targets.native.internal.commonizeCInteropTask
 import org.jetbrains.kotlin.gradle.targets.native.internal.copyCommonizeCInteropForIdeTask
 import org.jetbrains.kotlin.gradle.targets.native.internal.createCInteropApiElementsKlibArtifact
 import org.jetbrains.kotlin.gradle.targets.native.internal.locateOrCreateCInteropDependencyConfiguration
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
 import org.jetbrains.kotlin.gradle.tasks.CInteropProcess
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.newInstance
@@ -44,8 +45,11 @@ internal val KotlinCreateNativeCInteropTasksSideEffect = KotlinCompilationSideEf
             it.description = "Generates Kotlin/Native interop library '${interop.name}' " +
                     "for compilation '${compilation.compilationName}'" +
                     "of target '${it.konanTarget.name}'."
-            it.enabled = compilation.konanTarget.enabledOnCurrentHost
+            it.enabled = compilation.konanTarget.enabledOnCurrentHostForBinariesCompilation()
             it.definitionFile.set(params.settings.definitionFile)
+            it.kotlinNativeProvider.set(project.provider {
+                KotlinNativeProvider(project, it.konanTarget, it.kotlinNativeBundleBuildService)
+            })
         }
 
 
@@ -64,12 +68,14 @@ internal val KotlinCreateNativeCInteropTasksSideEffect = KotlinCompilationSideEf
                 createCInteropApiElementsKlibArtifact(compilation.target, interop, interopTask)
 
                 // Add the interop library in publication.
-                createKlibArtifact(
-                    compilation,
-                    artifactFile = interopTask.flatMap { it.outputFileProvider },
-                    classifier = "cinterop-${interop.name}",
-                    producingTask = interopTask,
-                )
+                if (compilation.konanTarget.enabledOnCurrentHostForBinariesCompilation()) {
+                    createKlibArtifact(
+                        compilation,
+                        artifactFile = interopTask.flatMap { it.outputFileProvider },
+                        classifier = "cinterop-${interop.name}",
+                        producingTask = interopTask,
+                    )
+                }
 
                 // We cannot add the interop library in an compilation output because in this case
                 // IDE doesn't see this library in module dependencies. So we have to manually add
@@ -86,5 +92,3 @@ internal val KotlinCreateNativeCInteropTasksSideEffect = KotlinCompilationSideEf
         interop.dependencyFiles += project.locateOrCreateCInteropDependencyConfiguration(compilation)
     }
 }
-
-

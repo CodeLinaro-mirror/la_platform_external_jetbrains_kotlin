@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.fir.backend.native.FirNativeKotlinMangler
 import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
 import org.jetbrains.kotlin.fir.pipeline.Fir2KlibMetadataSerializer
 import org.jetbrains.kotlin.ir.util.KotlinMangler
+import org.jetbrains.kotlin.konan.library.KLIB_INTEROP_IR_PROVIDER_IDENTIFIER
 import org.jetbrains.kotlin.library.metadata.KlibMetadataFactories
 import org.jetbrains.kotlin.library.metadata.resolver.KotlinResolvedLibrary
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
@@ -36,7 +37,11 @@ class Fir2IrNativeResultsConverter(testServices: TestServices) : AbstractFir2IrN
     }
 
     override fun resolveLibraries(module: TestModule, compilerConfiguration: CompilerConfiguration): List<KotlinResolvedLibrary> {
-        return resolveLibraries(compilerConfiguration, getAllNativeDependenciesPaths(module, testServices))
+        return resolveLibraries(
+            compilerConfiguration,
+            getAllNativeDependenciesPaths(module, testServices),
+            knownIrProviders = listOf(KLIB_INTEROP_IR_PROVIDER_IDENTIFIER)
+        )
     }
 
     override val klibFactories: KlibMetadataFactories = KlibMetadataFactories(::KonanBuiltIns, DynamicTypeDeserializer)
@@ -48,8 +53,7 @@ class Fir2IrNativeResultsConverter(testServices: TestServices) : AbstractFir2IrN
         fir2IrResult: Fir2IrActualizedResult,
         fir2KlibMetadataSerializer: Fir2KlibMetadataSerializer,
     ): IrBackendInput {
-        val fir2IrComponents = fir2IrResult.components
-        val manglers = fir2IrComponents.manglers
+        val manglers = fir2IrResult.components.manglers
         return IrBackendInput.NativeBackendInput(
             fir2IrResult.irModuleFragment,
             fir2IrResult.pluginContext,
@@ -57,6 +61,7 @@ class Fir2IrNativeResultsConverter(testServices: TestServices) : AbstractFir2IrN
             descriptorMangler = null,
             irMangler = manglers.irMangler,
             firMangler = manglers.firMangler,
+            metadataSerializer = fir2KlibMetadataSerializer
         )
     }
 }

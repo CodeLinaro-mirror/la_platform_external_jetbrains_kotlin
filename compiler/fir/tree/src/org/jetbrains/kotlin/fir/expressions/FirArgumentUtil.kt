@@ -22,19 +22,17 @@ fun buildBinaryArgumentList(left: FirExpression, right: FirExpression): FirArgum
 }
 
 fun buildResolvedArgumentList(
-    mapping: LinkedHashMap<FirExpression, FirValueParameter>,
-    source: KtSourceElement? = null
-): FirResolvedArgumentList =
-    FirResolvedArgumentListImpl(source, mapping)
+    original: FirArgumentList?,
+    mapping: LinkedHashMap<FirExpression, FirValueParameter>
+): FirResolvedArgumentList {
+    return FirResolvedArgumentListImpl(original, mapping)
+}
 
 fun buildArgumentListForErrorCall(
     original: FirArgumentList,
-    mapping: Map<FirExpression, FirValueParameter?>
+    mapping: LinkedHashMap<FirExpression, FirValueParameter?>,
 ): FirArgumentList {
-    return FirResolvedArgumentListForErrorCall(
-        original.source,
-        original.arguments.map { key -> key to mapping[key] }.toMap(LinkedHashMap())
-    )
+    return FirResolvedArgumentListForErrorCall(original, mapping)
 }
 
 object FirEmptyArgumentList : FirAbstractArgumentList() {

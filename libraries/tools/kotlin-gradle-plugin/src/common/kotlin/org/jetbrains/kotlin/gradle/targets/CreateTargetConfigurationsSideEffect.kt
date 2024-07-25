@@ -7,12 +7,15 @@ package org.jetbrains.kotlin.gradle.targets
 
 import org.gradle.api.attributes.Category
 import org.gradle.api.attributes.Usage
+import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.configureSourcesPublicationAttributes
 import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.plugin.mpp.isSourcesPublishableFuture
+import org.jetbrains.kotlin.gradle.plugin.mpp.resources.resourcesPublicationExtension
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
+import org.jetbrains.kotlin.gradle.utils.addSecondaryOutgoingJvmClassesVariant
 import org.jetbrains.kotlin.gradle.utils.maybeCreateConsumable
 import org.jetbrains.kotlin.gradle.utils.maybeCreateDependencyScope
 import org.jetbrains.kotlin.gradle.utils.setAttribute
@@ -33,18 +36,26 @@ internal val CreateTargetConfigurationsSideEffect = KotlinTargetSideEffect { tar
         else -> null
     }
 
+    val apiElementScope = configurations.maybeCreateDependencyScope(mainCompilation.apiConfigurationName)
     configurations.maybeCreateConsumable(target.apiElementsConfigurationName).apply {
         description = "API elements for main."
         isVisible = false
         attributes.setAttribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.producerApiUsage(target))
         attributes.setAttribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
-        extendsFrom(configurations.maybeCreateDependencyScope(mainCompilation.apiConfigurationName))
+        extendsFrom(apiElementScope)
         @Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
         if (mainCompilation is DeprecatedKotlinCompilationToRunnableFiles) {
             val runtimeConfiguration = mainCompilation.internal.configurations.deprecatedRuntimeConfiguration
             runtimeConfiguration?.let { extendsFrom(it) }
         }
         usesPlatformOf(target)
+        if (target.platformType == KotlinPlatformType.jvm) {
+            addSecondaryOutgoingJvmClassesVariant(
+                project,
+                mainCompilation,
+                addArtifactsToVariantCreatedByJavaLibraryPlugin = true
+            )
+        }
     }
 
     @Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
@@ -67,6 +78,20 @@ internal val CreateTargetConfigurationsSideEffect = KotlinTargetSideEffect { tar
         isVisible = false
         configureSourcesPublicationAttributes(target)
         project.launch { isCanBeConsumed = target.internal.isSourcesPublishableFuture.await() }
+    }
+
+    project.multiplatformExtensionOrNull?.resourcesPublicationExtension?.subscribeOnPublishResources(target) {
+        configurations.maybeCreateConsumable(target.internal.resourcesElementsConfigurationName).apply {
+            description = "Resource files of main compilation of ${target.name}."
+            isVisible = false
+            // Publish with dependencies of apiElements configuration, so that transitives are resolved correctly. Don't inherit from
+            // apiElementsConfiguration directly, because it contains klibs in project dependencies.
+            extendsFrom(apiElementScope)
+            // Resources from implementation scope should also be resolved transitively, hence extend from it.
+            extendsFrom(implementationConfiguration)
+
+            configureResourcesPublicationAttributes(target)
+        }
     }
 
     if (target !is KotlinMetadataTarget) {

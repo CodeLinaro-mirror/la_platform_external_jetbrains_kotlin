@@ -8,8 +8,8 @@ package org.jetbrains.kotlin.backend.wasm.ir2wasm
 import org.jetbrains.kotlin.backend.common.ir.returnType
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
 import org.jetbrains.kotlin.backend.wasm.WasmSymbols
+import org.jetbrains.kotlin.backend.wasm.lower.JsExceptionRevealOrigin
 import org.jetbrains.kotlin.backend.wasm.utils.*
-import org.jetbrains.kotlin.backend.wasm.utils.isCanonical
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.ir.*
 import org.jetbrains.kotlin.wasm.ir.source.location.SourceLocation
 
@@ -63,7 +63,7 @@ class BodyGenerator(
     private fun generateAsStatement(statement: IrExpression) {
         generateExpression(statement)
         if (statement.type != wasmSymbols.voidType) {
-            body.buildDrop(statement.getSourceLocation())
+            body.buildDrop(SourceLocation.NoLocation("DROP"))
         }
     }
 
@@ -137,7 +137,7 @@ class BodyGenerator(
 
     override fun visitThrow(expression: IrThrow) {
         generateExpression(expression.value)
-        if (context.backendContext.configuration.getBoolean(JSConfigurationKeys.WASM_USE_TRAPS_INSTEAD_OF_EXCEPTIONS)) {
+        if (context.backendContext.configuration.getBoolean(WasmConfigurationKeys.WASM_USE_TRAPS_INSTEAD_OF_EXCEPTIONS)) {
             body.buildUnreachable(SourceLocation.NoLocation("Unreachable is inserted instead of a `throw` instruction"))
             return
         }
@@ -148,12 +148,96 @@ class BodyGenerator(
     override fun visitTry(aTry: IrTry) {
         assert(aTry.isCanonical(irBuiltIns)) { "expected canonical try/catch" }
 
-        if (context.backendContext.configuration.getBoolean(JSConfigurationKeys.WASM_USE_TRAPS_INSTEAD_OF_EXCEPTIONS)) {
+        if (context.backendContext.configuration.getBoolean(WasmConfigurationKeys.WASM_USE_TRAPS_INSTEAD_OF_EXCEPTIONS)) {
             generateExpression(aTry.tryResult)
             return
         }
 
+        if (context.backendContext.configuration.getBoolean(WasmConfigurationKeys.WASM_USE_NEW_EXCEPTION_PROPOSAL)) {
+            generateTryFollowingNewProposal(aTry)
+        } else {
+            generateTryFollowingOldProposal(aTry)
+        }
+    }
+
+    /**
+     * The typical Kotlin try/catch:
+     *
+     * ```kotlin
+     * try {
+     *    RESULT_EXPRESSION
+     * } catch (e: ExceptionType) {
+     *    CATCH_EXPRESSION
+     * }
+     * ```
+     *
+     * Is translated into:
+     *
+     * ```wat
+     * block $catch_block (BLOCK_TYPE)
+     *     block $try_block (EXCEPTION_TYPE)
+     *         try_table (EXCEPTION_TYPE) catch IDX $try_block
+     *             TRANSLATED_RESULT_EXPRESSION
+     *             br $catch_block
+     *         end
+     *     end
+     *     TRANSLATED_CATCH_EXPRESSION
+     * end
+     * ```
+     *
+     */
+    private fun generateTryFollowingNewProposal(aTry: IrTry) {
         val resultType = context.transformBlockResultType(aTry.type)
+
+        val catchBlock = aTry.catches.single()
+        val exceptionType = context.transformBlockResultType(catchBlock.catchParameter.type)
+
+        body.buildBlock("CATCH_BLOCK", resultType) { catchBlockLabel ->
+            body.buildBlock("TRY_BLOCK", exceptionType) { tryBlockLabel ->
+                body.buildTryTable(
+                    null,
+                    listOf(body.createNewCatch(functionContext.tagIdx, tryBlockLabel)),
+                    exceptionType
+                )
+                generateExpression(aTry.tryResult)
+                body.buildBr(catchBlockLabel, SourceLocation.NoLocation(""))
+                body.buildEnd()
+            }
+
+            with(catchBlock.catchParameter.symbol) {
+                functionContext.defineLocal(this)
+                body.buildSetLocal(functionContext.referenceLocal(this), owner.getSourceLocation())
+            }
+
+            generateExpression(catchBlock.result)
+        }
+    }
+
+    /**
+     * The typical Kotlin try/catch:
+     *
+     * ```kotlin
+     * try {
+     *    RESULT_EXPRESSION
+     * } catch (e: ExceptionType) {
+     *    CATCH_EXPRESSION
+     * }
+     * ```
+     *
+     * Is translated into:
+     *
+     * ```wat
+     * try (BLOCK_TYPE)
+     *     TRANSLATED_RESULT_EXPRESSION
+     * catch IDX
+     *     TRANSLATED_CATCH_EXPRESSION
+     * end
+     * ```
+     *
+     */
+    private fun generateTryFollowingOldProposal(aTry: IrTry) {
+        val resultType = context.transformBlockResultType(aTry.type)
+
         body.buildTry(null, resultType)
         generateExpression(aTry.tryResult)
 
@@ -377,19 +461,29 @@ class BodyGenerator(
 
         // Box intrinsic has an additional klass ID argument.
         // Processing it separately
+        if (call.symbol == wasmSymbols.boxBoolean) {
+            generateBox(call.getValueArgument(0)!!, irBuiltIns.booleanType)
+            return
+        }
         if (call.symbol == wasmSymbols.boxIntrinsic) {
-            generateBox(call.getValueArgument(0)!!, call.getTypeArgument(0)!!)
+            val type = call.getTypeArgument(0)!!
+            if (type == irBuiltIns.booleanType) {
+                generateExpression(call.getValueArgument(0)!!)
+                body.buildCall(context.referenceFunction(context.backendContext.wasmSymbols.getBoxedBoolean), location)
+            } else {
+                generateBox(call.getValueArgument(0)!!, type)
+            }
             return
         }
 
         // Some intrinsics are a special case because we want to remove them completely, including their arguments.
-        if (!backendContext.configuration.getNotNull(JSConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS)) {
+        if (!backendContext.configuration.getNotNull(WasmConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS)) {
             if (call.symbol == wasmSymbols.rangeCheck) {
                 body.buildGetUnit()
                 return
             }
         }
-        if (!backendContext.configuration.getNotNull(JSConfigurationKeys.WASM_ENABLE_ASSERTS)) {
+        if (!backendContext.configuration.getNotNull(WasmConfigurationKeys.WASM_ENABLE_ASSERTS)) {
             if (call.symbol in wasmSymbols.assertFuncs) {
                 body.buildGetUnit()
                 return
@@ -401,12 +495,7 @@ class BodyGenerator(
         call.dispatchReceiver?.let { generateExpression(it) }
         call.extensionReceiver?.let { generateExpression(it) }
         for (i in 0 until call.valueArgumentsCount) {
-            val valueArgument = call.getValueArgument(i)
-            if (valueArgument == null) {
-                generateDefaultInitializerForType(context.transformType(function.valueParameters[i].type), body)
-            } else {
-                generateExpression(valueArgument)
-            }
+            generateExpression(call.getValueArgument(i)!!)
         }
 
         if (tryToGenerateIntrinsicCall(call, function)) {
@@ -665,16 +754,7 @@ class BodyGenerator(
         functionContext.stepOutLastInlinedFunction()
     }
 
-    override fun visitContainerExpression(expression: IrContainerExpression) {
-        val statements = expression.statements
-
-        if (statements.isEmpty()) {
-            if (expression.type == irBuiltIns.unitType) {
-                body.buildGetUnit()
-            }
-            return
-        }
-
+    private fun processContainerExpression(expression: IrContainerExpression) {
         if (expression is IrReturnableBlock) {
             val inlineFunction = expression.symbol.owner.inlineFunction
             val correspondingProperty = (inlineFunction as? IrSimpleFunction)?.correspondingPropertySymbol
@@ -688,6 +768,7 @@ class BodyGenerator(
             )
         }
 
+        val statements = expression.statements
         statements.forEachIndexed { i, statement ->
             if (i != statements.lastIndex) {
                 generateStatement(statement)
@@ -707,6 +788,101 @@ class BodyGenerator(
             body.buildEnd()
             body.commentGroupEnd()
         }
+    }
+
+    override fun visitContainerExpression(expression: IrContainerExpression) {
+        if (expression.statements.isEmpty()) {
+            if (expression.type == irBuiltIns.unitType) {
+                body.buildGetUnit()
+            }
+            return
+        }
+
+        if (context.backendContext.isWasmJsTarget && expression.origin == JsExceptionRevealOrigin.JS_EXCEPTION_REVEAL) {
+            if (context.backendContext.configuration.getBoolean(WasmConfigurationKeys.WASM_USE_NEW_EXCEPTION_PROPOSAL)) {
+                generateTryCatchAllFollowingNewProposal(expression)
+            } else {
+                generateTryCatchAllFollowingOldProposal(expression)
+            }
+        } else {
+            processContainerExpression(expression)
+        }
+    }
+
+    /**
+     *
+     * ```wat
+     * block $catch_block (TRANSLATED_CONTAINER_EXPRESSION_TYPE)
+     *     block $catch_all_block (THROWABLE_TYPE)
+     *         block $try_block
+     *             try_table (THROWABLE_TYPE) catch $catch_all_block catch_all $try_block
+     *                 TRANSLATED_CONTAINER_EXPRESSION
+     *                 br $catch_block
+     *             end
+     *         end
+     *         call $throwJsException
+     *         unreachable
+     *     end
+     *     throw 0
+     * end
+     * ```
+    */
+    private fun generateTryCatchAllFollowingNewProposal(expression: IrContainerExpression) {
+        val resultType = context.transformBlockResultType(expression.type)
+        val throwableType = context.transformBlockResultType(context.backendContext.irBuiltIns.throwableType)
+        val revealLocation = SourceLocation.NoLocation("JS exception reveal")
+
+        body.buildBlock("CATCH_BLOCK", resultType) { catchBlockLabel ->
+            body.buildBlock("CATCH_ALL_BLOCK", throwableType) { catchAllBlockLabel ->
+                body.buildBlock("TRY_BLOCK") { tryBlockLabel ->
+                    body.buildTryTable(
+                        null,
+                        listOf(
+                            body.createNewCatch(functionContext.tagIdx, catchAllBlockLabel),
+                            body.createNewCatchAll(tryBlockLabel)
+                        )
+                    )
+                    processContainerExpression(expression)
+                    body.buildBr(catchBlockLabel, SourceLocation.NoLocation(""))
+                    body.buildEnd()
+                }
+
+                body.buildCall(
+                    symbol = context.referenceFunction(context.backendContext.wasmSymbols.jsRelatedSymbols.throwJsException),
+                    location = revealLocation
+                )
+                body.buildUnreachable(revealLocation)
+            }
+            body.buildThrow(functionContext.tagIdx, revealLocation)
+        }
+    }
+
+    /**
+     *
+     * ```wast
+     * try (TRANSLATED_CONTAINER_EXPRESSION_TYPE)
+     *     TRANSLATED_CONTAINER_EXPRESSION
+     * catch IDX
+     *     rethrow
+     * catch_all
+     *     call $throwJsException
+     *     unreachable
+     * end
+     * ```
+     */
+    private fun generateTryCatchAllFollowingOldProposal(expression: IrContainerExpression) {
+        body.buildTry(null, context.transformBlockResultType(expression.type))
+        processContainerExpression(expression)
+        val revealLocation = SourceLocation.NoLocation("JS exception reveal")
+        body.buildCatch(functionContext.tagIdx)
+        body.buildInstr(WasmOp.RETHROW, revealLocation, WasmImmediate.LabelIdx(0))
+        body.buildCatchAll()
+        body.buildCall(
+            symbol = context.referenceFunction(context.backendContext.wasmSymbols.jsRelatedSymbols.throwJsException),
+            location = revealLocation
+        )
+        body.buildUnreachable(revealLocation)
+        body.buildEnd()
     }
 
     override fun visitBreak(jump: IrBreak) {
@@ -993,6 +1169,6 @@ class BodyGenerator(
         return false
     }
 
-    private fun IrElement.getSourceLocation() = getSourceLocation(functionContext.currentFunction.fileOrNull?.fileEntry)
-    private fun IrElement.getSourceEndLocation() = getSourceLocation(functionContext.currentFunction.fileOrNull?.fileEntry, type = LocationType.END)
+    private fun IrElement.getSourceLocation() = getSourceLocation(functionContext.currentFunction.fileOrNull)
+    private fun IrElement.getSourceEndLocation() = getSourceLocation(functionContext.currentFunction.fileOrNull, type = LocationType.END)
 }

@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.serialization.AbstractVersionRequirementTest
 import org.jetbrains.kotlin.test.ConfigurationKind
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.TestJdkKind
+import org.jetbrains.kotlin.test.services.StandardLibrariesPathProviderForKotlinProject
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
 
@@ -73,7 +74,7 @@ class JsVersionRequirementTest : AbstractVersionRequirementTest() {
     override fun loadModule(directory: File): ModuleDescriptor {
         val environment = createEnvironment(extraDependencies = listOf(File(directory, "lib.meta.js")))
         return TopDownAnalyzerFacadeForJS.analyzeFilesWithGivenTrace(
-            emptyList(), BindingTraceContext(), createModule(environment), environment.configuration, CompilerEnvironment, environment.project
+            emptyList(), BindingTraceContext(environment.project), createModule(environment), environment.configuration, CompilerEnvironment, environment.project
         ).moduleDescriptor
     }
 
@@ -84,7 +85,7 @@ class JsVersionRequirementTest : AbstractVersionRequirementTest() {
         KotlinCoreEnvironment.createForTests(
             testRootDisposable,
             KotlinTestUtils.newConfiguration(ConfigurationKind.ALL, TestJdkKind.MOCK_JDK).apply {
-                put(JSConfigurationKeys.LIBRARIES, extraDependencies.map(File::getPath) + JsConfig.JS_STDLIB)
+                put(JSConfigurationKeys.LIBRARIES, extraDependencies.map(File::getPath) + StandardLibrariesPathProviderForKotlinProject.fullJsStdlib().absolutePath)
                 put(JSConfigurationKeys.META_INFO, true)
 
                 if (languageVersion != null) {

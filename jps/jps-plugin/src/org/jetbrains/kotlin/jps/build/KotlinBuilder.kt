@@ -67,6 +67,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
         val useDependencyGraph = System.getProperty("jps.use.dependency.graph", "false")!!.toBoolean()
         val isKotlinBuilderInDumbMode = System.getProperty("kotlin.jps.dumb.mode", "false")!!.toBoolean()
+        val enableLookupStorageFillingInDumbMode = System.getProperty("kotlin.jps.enable.lookups.in.dumb.mode", "false")!!.toBoolean()
 
         private val classesToLoadByParentFromRegistry =
             System.getProperty("kotlin.jps.classesToLoadByParent")?.split(',')?.map { it.trim() } ?: emptyList()
@@ -205,7 +206,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         val kotlinChunk = kotlinContext.getChunk(chunk) ?: return
         kotlinContext.checkChunkCacheVersion(kotlinChunk)
 
-        if (!kotlinContext.rebuildingAllKotlin && kotlinChunk.isEnabled) {
+        if (!isKotlinBuilderInDumbMode && !kotlinContext.rebuildingAllKotlin && kotlinChunk.isEnabled) {
             markAdditionalFilesForInitialRound(kotlinChunk, chunk, kotlinContext)
         }
 
@@ -464,9 +465,7 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
 
         cleanJsOutputs(context, kotlinChunk, incrementalCaches, kotlinDirtyFilesHolder)
 
-        if (LOG.isDebugEnabled) {
-            LOG.debug("Compiling files: ${kotlinDirtyFilesHolder.allDirtyFiles}")
-        }
+
 
         val reportService = JpsStatisticsReportService.getFromContext(context)
         reportService.reportCompilerArguments(chunk, kotlinChunk)
@@ -492,8 +491,10 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
         val compilationErrors = Utils.ERRORS_DETECTED_KEY[context, false]
         if (compilationErrors) {
             LOG.info("Compiled with errors")
+            JavaBuilderUtil.registerFilesWithErrors(context, messageCollector.filesWithErrors.map(::File))
             return ABORT
         } else {
+            JavaBuilderUtil.registerSuccessfullyCompiled(context, kotlinDirtyFilesHolder.allDirtyFiles)
             LOG.info("Compiled successfully")
         }
 
@@ -552,17 +553,17 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
                 )
             }
 
-            if (!isKotlinBuilderInDumbMode) {
+            if (!isKotlinBuilderInDumbMode || enableLookupStorageFillingInDumbMode) {
                 updateLookupStorage(lookupTracker, kotlinContext.lookupStorageManager, kotlinDirtyFilesHolder)
+            }
 
-                if (!isChunkRebuilding) {
-                    changesCollector.processChangesUsingLookups(
-                        kotlinDirtyFilesHolder.allDirtyFiles,
-                        kotlinContext.lookupStorageManager,
-                        fsOperations,
-                        incrementalCaches.values
-                    )
-                }
+            if (!isKotlinBuilderInDumbMode && !isChunkRebuilding) {
+                changesCollector.processChangesUsingLookups(
+                    kotlinDirtyFilesHolder.allDirtyFiles,
+                    kotlinContext.lookupStorageManager,
+                    fsOperations,
+                    incrementalCaches.values
+                )
             }
         }
 
@@ -640,9 +641,21 @@ class KotlinBuilder : ModuleLevelBuilder(BuilderCategory.SOURCE_PROCESSOR) {
             }
         }
 
+        registerFilesToCompile(dirtyFilesHolder, context)
         val isDoneSomething = representativeTarget.compileModuleChunk(commonArguments, dirtyFilesHolder, environment, buildMetricReporter)
 
         return if (isDoneSomething) environment.outputItemsCollector else null
+    }
+
+    private fun registerFilesToCompile(
+        dirtyFilesHolder: KotlinDirtySourceFilesHolder,
+        context: CompileContext,
+    ) {
+        val allDirtyFiles = dirtyFilesHolder.allDirtyFiles
+        if (LOG.isDebugEnabled) {
+            LOG.debug("Compiling files: $allDirtyFiles")
+        }
+        JavaBuilderUtil.registerFilesToCompile(context, allDirtyFiles)
     }
 
     private fun createCompileEnvironment(

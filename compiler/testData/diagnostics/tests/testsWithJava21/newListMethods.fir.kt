@@ -3,6 +3,8 @@
 // DIAGNOSTICS: -SUPER_CANT_BE_EXTENSION_RECEIVER
 // ^Otherwise only K1 errors are written to .diag file.
 
+import java.util.function.IntFunction
+
 class A<T> : ArrayList<T>() {
     override fun addFirst(t: T) {
         super.addFirst(t)
@@ -22,6 +24,20 @@ class A<T> : ArrayList<T>() {
     override fun removeLast(): T = super.removeLast()
 
     override fun reversed(): List<T> = super.reversed()
+
+    override fun <R> <!OVERRIDE_DEPRECATION!>toArray<!>(generator: IntFunction<Array<R>>): Array<R> {
+        return super.<!DEPRECATION!>toArray<!>(generator)
+    }
+}
+
+abstract class B<T>: List<T> {
+    override fun <!OVERRIDE_DEPRECATION!>getFirst<!>(): T {
+        return super.<!DEPRECATION!>getFirst<!>()
+    }
+
+    override fun <!OVERRIDE_DEPRECATION!>getLast<!>(): T{
+        return super.<!DEPRECATION!>getLast<!>()
+    }
 }
 
 fun foo(x: MutableList<String>, y: ArrayList<String>, z: A<String>) {

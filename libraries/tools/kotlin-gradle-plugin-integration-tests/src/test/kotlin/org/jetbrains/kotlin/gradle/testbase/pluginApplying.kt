@@ -13,7 +13,7 @@ internal fun Path.applyPlugin(pluginId: String, artifactId: String, artifactVers
     val pathFile = toFile()
 
     val groovyBuildScripts = setOf("build.gradle", "build-js.gradle")
-    val kotlinBuildScripts = setOf("build.gradle.kts", "build-js.gradle.kts", "build.gradle.kts.alternative")
+    val kotlinBuildScripts = setOf("build.gradle.kts", "build-js.gradle.kts", "alternative.build.gradle.kts")
     pathFile.walkTopDown()
         .filter { it.name in groovyBuildScripts || it.name in kotlinBuildScripts }
         .forEach { file ->
@@ -65,6 +65,7 @@ private fun String.modifyBuildScript(artifactId: String, artifactVersionProperty
 private fun File.updateBuildGradleKts(pluginId: String, artifactId: String, artifactVersionProperty: String) {
     modify {
         if (it.contains("plugins {")) {
+            if (it.substringAfter("plugins {").contains("""id("$pluginId")""")) return@modify it
             """
             |${it.substringBefore("plugins {")}
             |plugins {
@@ -72,6 +73,7 @@ private fun File.updateBuildGradleKts(pluginId: String, artifactId: String, arti
             |${it.substringAfter("plugins {")}
             """.trimMargin()
         } else if (it.contains("apply(plugin")) {
+            if (it.contains("""apply(plugin = "$pluginId")""")) return@modify it
             it.modifyBuildScript(artifactId, artifactVersionProperty, true).run {
                 """
                 |${substringBefore("apply(plugin")}

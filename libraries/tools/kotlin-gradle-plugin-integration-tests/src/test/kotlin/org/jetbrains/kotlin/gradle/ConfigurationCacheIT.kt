@@ -11,8 +11,12 @@ import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.appendText
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 @DisplayName("Configuration cache")
 class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
@@ -123,6 +127,32 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     }
 
     @NativeGradlePluginTests
+    @DisplayName("Configuration cache works with Kotlin Native bundle and its dependencies downloading")
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_6],
+    )
+    @OsCondition(
+        supportedOn = [OS.LINUX, OS.MAC], // disabled on Windows because of tmp dir problem KT-62761
+        enabledOnCI = [OS.LINUX, OS.MAC],
+    )
+    @GradleTest
+    fun testWithDownloadingKotlinNativeAndDependencies(gradleVersion: GradleVersion, @TempDir konanTempDir: Path) {
+        // with Configuration Cache we currently have such a problem KT-66423
+        val buildOptions = buildOptionsToAvoidKT66423(gradleVersion, konanTempDir)
+        project("native-configuration-cache", gradleVersion, buildOptions = buildOptions) {
+
+            build(":lib:compileCommonMainKotlinMetadata") {
+                assertConfigurationCacheStored()
+            }
+
+            build(":lib:compileCommonMainKotlinMetadata") {
+                assertConfigurationCacheReused()
+            }
+        }
+    }
+
+    @NativeGradlePluginTests
     @GradleTestVersions(
         minVersion = TestVersions.Gradle.G_7_4,
         additionalVersions = [TestVersions.Gradle.G_7_6],
@@ -131,6 +161,70 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     fun testCInteropCommonizer(gradleVersion: GradleVersion) {
         project("native-configuration-cache", gradleVersion) {
             testConfigurationCacheOf(":lib:commonizeCInterop")
+        }
+    }
+
+    @DisplayName("KT-66452: There are no false-positive Configuration Cache failures with native tasks")
+    @NativeGradlePluginTests
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+    )
+    @GradleTest
+    fun testFalsePositiveWithNativeTasks(gradleVersion: GradleVersion) {
+        nativeProject("native-simple-project", gradleVersion) {
+            buildGradleKts.modify {
+                //language=kotlin
+                """
+                |import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+                |import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
+                |
+                |$it
+                |
+                |tasks.register("notCCCompatibleTask") {
+                |    notCompatibleWithConfigurationCache("not really")
+                |}
+                |
+                |tasks.withType<KotlinNativeCompile> {
+                |    dependsOn("notCCCompatibleTask")
+                |}
+                |
+                |tasks.withType<KotlinNativeLink> {
+                |    dependsOn("notCCCompatibleTask")
+                |}
+                """.trimMargin()
+            }
+            build(":commonizeNativeDistribution")
+            build(":compileCommonMainKotlinMetadata")
+            build(":linkLinuxArm64")
+        }
+    }
+
+    @DisplayName("KT-66452: There are no false-positive Configuration Cache failures with cinterop")
+    @NativeGradlePluginTests
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_7_4,
+    )
+    @GradleTest
+    fun testFalsePositiveWithCInteropTask(gradleVersion: GradleVersion) {
+
+        nativeProject("cinterop-with-header", gradleVersion) {
+            buildGradleKts.modify {
+                //language=kotlin
+                """
+                |import org.jetbrains.kotlin.gradle.tasks.CInteropProcess
+                |
+                |$it
+                |
+                |tasks.register("notCCCompatibleTask") {
+                |    notCompatibleWithConfigurationCache("not really")
+                |}
+                |
+                |tasks.withType<CInteropProcess> {
+                |    dependsOn("notCCCompatibleTask")
+                |}
+                """.trimMargin()
+            }
+            build(":cinteropCinteropNative")
         }
     }
 
@@ -278,6 +372,7 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
 }
 
 abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
+
     override val defaultBuildOptions =
         super.defaultBuildOptions.copy(configurationCache = true)
 
@@ -294,4 +389,21 @@ abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
             buildOptions = buildOptions,
         )
     }
+
+    protected fun buildOptionsToAvoidKT66423(gradleVersion: GradleVersion, konanTempDir: Path) =
+        if (gradleVersion >= GradleVersion.version(TestVersions.Gradle.G_8_6)) {
+            defaultBuildOptions.copy(
+                konanDataDir = konanDir,
+                nativeOptions = super.defaultBuildOptions.nativeOptions.copy(
+                    version = System.getProperty("kotlinNativeVersion")
+                )
+            )
+        } else defaultBuildOptions.copy(
+            configurationCache = true,
+            konanDataDir = konanTempDir,
+            nativeOptions = super.defaultBuildOptions.nativeOptions.copy(
+                // set the KGP's default Kotlin Native version, because in CI we don't have K/N versions in maven repo for each build
+                version = null
+            )
+        )
 }

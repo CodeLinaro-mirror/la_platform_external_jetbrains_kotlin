@@ -6,12 +6,14 @@
 package org.jetbrains.kotlin.objcexport.testUtils
 
 import org.jetbrains.kotlin.analysis.api.analyze
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.allDirectDependencies
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCHeader
 import org.jetbrains.kotlin.backend.konan.testUtils.HeaderGenerator
-import org.jetbrains.kotlin.objcexport.KtObjCExportConfiguration
-import org.jetbrains.kotlin.objcexport.KtObjCExportSession
-import org.jetbrains.kotlin.objcexport.translateToObjCHeader
+import org.jetbrains.kotlin.objcexport.*
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.tooling.core.withClosure
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.ParameterContext
 import org.junit.jupiter.api.extension.ParameterResolver
@@ -29,16 +31,34 @@ class AnalysisApiHeaderGeneratorExtension : ParameterResolver {
 
 object AnalysisApiHeaderGenerator : HeaderGenerator {
     override fun generateHeaders(root: File, configuration: HeaderGenerator.Configuration): ObjCHeader {
-        val session = createStandaloneAnalysisApiSession(root.listFiles().orEmpty().filter { it.extension == "kt" })
+        val session = createStandaloneAnalysisApiSession(
+            kotlinSourceModuleName = defaultKotlinSourceModuleName,
+            kotlinFiles = root.listFiles().orEmpty().filter { it.extension == "kt" },
+            dependencyKlibs = configuration.dependencies
+        )
+
         val (module, files) = session.modulesWithFiles.entries.single()
         return analyze(module) {
-            KtObjCExportSession(
+            val exportedLibraries = module.withClosure<KaModule> { currentModule -> currentModule.allDirectDependencies().toList() }
+                .filterIsInstance<KaLibraryModule>()
+                .filter { libraryModule -> libraryModule.binaryRoots.first() in configuration.exportedDependencies }
+                .toSet()
+
+            val exportedLibraryFiles = exportedLibraries
+                .flatMap { libraryModule -> libraryModule.readKtObjCExportFiles() }
+
+            withKtObjCExportSession(
                 KtObjCExportConfiguration(
                     frameworkName = configuration.frameworkName,
-                    generateBaseDeclarationStubs = configuration.generateBaseDeclarationStubs
-                )
+                ),
+                moduleClassifier = { module ->
+                    module == useSiteModule || module is KaLibraryModule && module in exportedLibraries
+                }
             ) {
-                translateToObjCHeader(files.map { it as KtFile })
+                translateToObjCHeader(
+                    files.map { it as KtFile }.map(::KtObjCExportFile) + exportedLibraryFiles,
+                    withObjCBaseDeclarations = configuration.withObjCBaseDeclarationStubs
+                )
             }
         }
     }

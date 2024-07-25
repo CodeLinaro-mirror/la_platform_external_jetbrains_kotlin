@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
-import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactory1
 import org.jetbrains.kotlin.diagnostics.reportOn
@@ -47,7 +46,7 @@ interface PlatformConflictDeclarationsDiagnosticDispatcher : FirSessionComponent
                 conflictingDeclaration is FirClassLikeSymbol<*> &&
                         conflictingDeclaration.getContainingClassSymbol(context.session) == null &&
                         symbols.any { it is FirClassLikeSymbol<*> } -> {
-                    FirErrors.PACKAGE_OR_CLASSIFIER_REDECLARATION
+                    FirErrors.CLASSIFIER_REDECLARATION
                 }
                 else -> {
                     FirErrors.REDECLARATION
@@ -123,7 +122,7 @@ object FirConflictsDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKin
                 conflictingDeclaration.isPrimaryConstructor && symbols.all { it.isPrimaryConstructor }
             ) return@forEach
 
-            if (symbols.singleOrNull()?.let { isExpectAndActual(conflictingDeclaration, it) } == true) {
+            if (symbols.singleOrNull()?.let { isExpectAndNonExpect(conflictingDeclaration, it) } == true) {
                 reporter.reportOn(source, FirErrors.EXPECT_AND_ACTUAL_IN_THE_SAME_MODULE, conflictingDeclaration, context)
                 return@forEach
             }
@@ -155,14 +154,16 @@ class FirNameConflictsTracker : FirNameConflictsTrackerComponent() {
         val file: FirFile?,
     )
 
-    val redeclaredClassifiers = HashMap<ClassId, Set<ClassifierWithFile>>()
+    private val _redeclaredClassifiers: MutableMap<ClassId, Set<ClassifierWithFile>> = HashMap()
+    val redeclaredClassifiers: Map<ClassId, Set<ClassifierWithFile>>
+        get() = _redeclaredClassifiers
 
     override fun registerClassifierRedeclaration(
         classId: ClassId,
         newSymbol: FirClassLikeSymbol<*>, newSymbolFile: FirFile,
         prevSymbol: FirClassLikeSymbol<*>, prevSymbolFile: FirFile?,
     ) {
-        redeclaredClassifiers.merge(
+        _redeclaredClassifiers.merge(
             classId, linkedSetOf(ClassifierWithFile(newSymbol, newSymbolFile), ClassifierWithFile(prevSymbol, prevSymbolFile))
         ) { a, b -> a + b }
     }

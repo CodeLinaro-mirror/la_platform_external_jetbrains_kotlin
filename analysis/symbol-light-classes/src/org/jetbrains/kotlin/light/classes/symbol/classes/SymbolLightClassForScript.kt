@@ -6,15 +6,16 @@
 package org.jetbrains.kotlin.light.classes.symbol.classes
 
 import com.intellij.psi.*
-import org.jetbrains.kotlin.analysis.api.symbols.KtScriptSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.pointers.KtSymbolPointer
+import org.jetbrains.kotlin.analysis.api.symbols.KaScriptSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.symbolPointerOfType
-import org.jetbrains.kotlin.analysis.project.structure.KtModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.asJava.classes.*
 import org.jetbrains.kotlin.asJava.elements.FakeFileForLightClass
 import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.light.classes.symbol.cachedValue
+import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightField
 import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightMethodForScriptDefaultConstructor
 import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightMethodForScriptMain
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.InitializedModifiersBox
@@ -24,13 +25,12 @@ import org.jetbrains.kotlin.psi.KtScript
 
 internal class SymbolLightClassForScript private constructor(
     override val script: KtScript,
-    private val symbolPointer: KtSymbolPointer<KtScriptSymbol>,
-    ktModule: KtModule,
+    private val symbolPointer: KaSymbolPointer<KaScriptSymbol>,
+    ktModule: KaModule,
 ) : KtLightClassForScript, SymbolLightClassBase(ktModule, script.manager) {
-
     internal constructor(
         script: KtScript,
-        ktModule: KtModule,
+        ktModule: KaModule,
     ) : this(
         script,
         script.symbolPointerOfType(),
@@ -59,7 +59,7 @@ internal class SymbolLightClassForScript private constructor(
         result.addScriptDefaultMethods()
 
         symbolPointer.withSymbol(ktModule) { scriptSymbol ->
-            createMethods(scriptSymbol.getDeclaredMemberScope().getCallableSymbols(), result)
+            createMethods(scriptSymbol.declaredMemberScope.callables, result)
         }
         result
     }
@@ -67,7 +67,7 @@ internal class SymbolLightClassForScript private constructor(
     override fun getOwnFields(): List<KtLightField> = cachedValue {
         buildList {
             symbolPointer.withSymbol(ktModule) { scriptSymbol ->
-                addPropertyBackingFields(this@buildList, scriptSymbol)
+                addPropertyBackingFields(this@buildList, scriptSymbol, SymbolLightField.FieldNameGenerator())
             }
         }
     }
@@ -170,6 +170,6 @@ internal class SymbolLightClassForScript private constructor(
 
     override fun getScope(): PsiElement = parent
 
-    override fun isInheritorDeep(baseClass: PsiClass?, classToByPass: PsiClass?): Boolean = false
+    override fun isInheritorDeep(baseClass: PsiClass, classToByPass: PsiClass?): Boolean = false
 
 }

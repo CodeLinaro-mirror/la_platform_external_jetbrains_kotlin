@@ -12,6 +12,13 @@ import org.jetbrains.kotlin.backend.konan.objcexport.*
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.library.impl.javaFile
+import org.jetbrains.kotlin.library.metadata.DeserializedKlibModuleOrigin
+import org.jetbrains.kotlin.library.metadata.KlibModuleOrigin
+import org.jetbrains.kotlin.load.java.components.JavaDeprecationSettings
+import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
+import org.jetbrains.kotlin.storage.LockBasedStorageManager
+import org.jetbrains.kotlin.tooling.core.closure
 import org.junit.jupiter.api.extension.AfterEachCallback
 import org.junit.jupiter.api.extension.ExtensionContext
 import org.junit.jupiter.api.extension.ParameterContext
@@ -46,7 +53,7 @@ private class Fe10HeaderGeneratorImpl(private val disposable: Disposable) : Head
     override fun generateHeaders(root: File, configuration: HeaderGenerator.Configuration): ObjCHeader {
         val headerGenerator = createObjCExportHeaderGenerator(disposable, root, configuration)
 
-        if (configuration.generateBaseDeclarationStubs) {
+        if (configuration.withObjCBaseDeclarationStubs) {
             headerGenerator.translateBaseDeclarations()
         }
 
@@ -57,28 +64,40 @@ private class Fe10HeaderGeneratorImpl(private val disposable: Disposable) : Head
     private fun createObjCExportHeaderGenerator(
         disposable: Disposable, root: File, configuration: HeaderGenerator.Configuration,
     ): ObjCExportHeaderGenerator {
-        val mapper = ObjCExportMapper(
-            unitSuspendFunctionExport = UnitSuspendFunctionObjCExport.DEFAULT
-        )
-
-        val namer = ObjCExportNamerImpl(
-            mapper = mapper,
-            builtIns = DefaultBuiltIns.Instance,
-            local = false,
-            problemCollector = ObjCExportProblemCollector.SILENT,
-            configuration = object : ObjCExportNamer.Configuration {
-                override val topLevelNamePrefix: String get() = configuration.frameworkName
-                override fun getAdditionalPrefix(module: ModuleDescriptor): String? = null
-                override val objcGenerics: Boolean = true
-            }
-        )
-
         val environment: KotlinCoreEnvironment = createKotlinCoreEnvironment(disposable)
 
         val kotlinFiles = root.walkTopDown().filter { it.isFile }.filter { it.extension == "kt" }.toList()
+        val moduleDescriptors = setOf(createModuleDescriptor(environment, kotlinFiles, configuration.dependencies))
+
+        val mapper = ObjCExportMapper(
+            deprecationResolver = DeprecationResolver(
+                storageManager = LockBasedStorageManager.NO_LOCKS,
+                languageVersionSettings = createLanguageVersionSettings(),
+                deprecationSettings = JavaDeprecationSettings
+            ),
+            unitSuspendFunctionExport = UnitSuspendFunctionObjCExport.DEFAULT
+        )
+
+        val exportedModuleDescriptors = moduleDescriptors + moduleDescriptors
+            .closure<ModuleDescriptor> { it.allDependencyModules }
+            .filter { descriptor ->
+                val origin = descriptor.getCapability(KlibModuleOrigin.CAPABILITY) ?: return@filter true
+                origin is DeserializedKlibModuleOrigin &&
+                    origin.library.libraryFile.javaFile().toPath() in configuration.exportedDependencies
+            }
+
+        val namer = ObjCExportNamerImpl(
+            moduleDescriptors = exportedModuleDescriptors,
+            builtIns = DefaultBuiltIns.Instance,
+            mapper = mapper,
+            problemCollector = ObjCExportProblemCollector.SILENT,
+            topLevelNamePrefix = configuration.frameworkName,
+            local = false,
+            objcGenerics = true,
+        )
 
         return ObjCExportHeaderGeneratorImpl(
-            moduleDescriptors = listOf(createModuleDescriptor(environment, kotlinFiles)),
+            moduleDescriptors = exportedModuleDescriptors.toList(),
             mapper = mapper,
             namer = namer,
             problemCollector = ObjCExportProblemCollector.SILENT,

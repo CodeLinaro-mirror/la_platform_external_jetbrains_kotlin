@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -38,7 +38,6 @@ open class FirAnnotationArgumentsTransformer(
     resolvePhase: FirResolvePhase,
     outerBodyResolveContext: BodyResolveContext? = null,
     returnTypeCalculator: ReturnTypeCalculator = ReturnTypeCalculatorForFullBodyResolve.Default,
-    firResolveContextCollector: FirResolveContextCollector? = null,
 ) : FirAbstractBodyResolveTransformerDispatcher(
     session,
     resolvePhase,
@@ -46,7 +45,7 @@ open class FirAnnotationArgumentsTransformer(
     scopeSession,
     outerBodyResolveContext = outerBodyResolveContext,
     returnTypeCalculator = returnTypeCalculator,
-    firResolveContextCollector = firResolveContextCollector,
+    expandTypeAliases = true,
 ) {
     final override val expressionsTransformer: FirExpressionsResolveTransformer = FirExpressionTransformerForAnnotationArguments(this)
 
@@ -55,7 +54,7 @@ open class FirAnnotationArgumentsTransformer(
     private val usualDeclarationTransformer = FirDeclarationsResolveTransformer(this)
 
     @PrivateForInline
-    var isInsideAnnotationArgument = false
+    var isInsideAnnotationArgument: Boolean = false
 
     @OptIn(PrivateForInline::class)
     inline fun <R> insideAnnotationArgument(action: () -> R): R {

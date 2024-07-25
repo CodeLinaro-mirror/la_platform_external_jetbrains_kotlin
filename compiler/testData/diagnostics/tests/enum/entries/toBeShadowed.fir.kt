@@ -1,4 +1,4 @@
-// !LANGUAGE: +EnumEntries -PrioritizedEnumEntries
+// LANGUAGE: +EnumEntries -PrioritizedEnumEntries
 // WITH_STDLIB
 // ISSUE: KT-56587
 
@@ -8,7 +8,7 @@ enum class E05 {
 }
 
 fun test05() {
-    println(<!DEPRECATED_ACCESS_TO_ENTRY_PROPERTY_FROM_ENUM!>E05.entries<!>)
+    println(<!DEPRECATED_ACCESS_TO_ENTRIES_AS_QUALIFIER!>E05.entries<!>)
 }
 
 enum class E07(val entries: String) {

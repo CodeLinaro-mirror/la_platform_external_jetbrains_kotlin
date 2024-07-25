@@ -10,13 +10,17 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.util.PrivateForInline
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContextForProvider
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.createInlineFunctionBodyContext
+import org.jetbrains.kotlin.fir.analysis.checkers.extended.createLambdaBodyContext
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.buildReceiverParameter
+import org.jetbrains.kotlin.fir.declarations.utils.correspondingValueParameterFromPrimaryConstructor
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.resolve.defaultType
+import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
@@ -27,7 +31,7 @@ abstract class AbstractDiagnosticCollectorVisitor(
     @set:PrivateForInline var context: CheckerContextForProvider,
 ) : FirDefaultVisitor<Unit, Nothing?>() {
 
-    protected open fun shouldVisitDeclaration(declaration: FirDeclaration) = true
+    protected open fun shouldVisitDeclaration(declaration: FirDeclaration): Boolean = true
     protected open fun onDeclarationExit(declaration: FirDeclaration) {}
 
     protected open fun visitNestedElements(element: FirElement) {
@@ -122,8 +126,9 @@ abstract class AbstractDiagnosticCollectorVisitor(
         }
     }
 
-    override fun visitErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor, data: Nothing?) =
+    override fun visitErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor, data: Nothing?) {
         visitConstructor(errorPrimaryConstructor, data)
+    }
 
     override fun visitAnonymousFunctionExpression(anonymousFunctionExpression: FirAnonymousFunctionExpression, data: Nothing?) {
         visitAnonymousFunction(anonymousFunctionExpression.anonymousFunction, data)
@@ -131,18 +136,22 @@ abstract class AbstractDiagnosticCollectorVisitor(
 
     override fun visitAnonymousFunction(anonymousFunction: FirAnonymousFunction, data: Nothing?) {
         withAnnotationContainer(anonymousFunction) {
-            val labelName = anonymousFunction.label?.name?.let { Name.identifier(it) }
-            visitWithDeclarationAndReceiver(
-                anonymousFunction,
-                labelName,
-                anonymousFunction.receiverParameter
-            )
+            withLambdaBodyIfApplicable(anonymousFunction) {
+                val labelName = anonymousFunction.label?.name?.let { Name.identifier(it) }
+                visitWithDeclarationAndReceiver(
+                    anonymousFunction,
+                    labelName,
+                    anonymousFunction.receiverParameter
+                )
+            }
         }
     }
 
     override fun visitProperty(property: FirProperty, data: Nothing?) {
-        withAnnotationContainer(property) {
-            visitWithDeclaration(property)
+        withPotentialPropertyFromPrimaryConstructor(property) {
+            withAnnotationContainer(property) {
+                visitWithDeclaration(property)
+            }
         }
     }
 
@@ -228,7 +237,7 @@ abstract class AbstractDiagnosticCollectorVisitor(
         if (resolvedTypeRefType is ConeErrorType) {
             visitTypeRef(resolvedTypeRef, data)
         }
-        if (resolvedTypeRef.source?.kind?.shouldSkipErrorTypeReporting != false) return
+        if (resolvedTypeRef.source?.kind?.shouldSkipErrorTypeReporting == true) return
 
         // Even though we don't visit the children of the resolvedTypeRef we still add it as an annotation container
         // and take care not to add the corresponding delegatedTypeRef. This is so that diagnostics will have access to
@@ -314,6 +323,20 @@ abstract class AbstractDiagnosticCollectorVisitor(
         } finally {
             if (isInline) {
                 context = context.unsetInlineFunctionBodyContext()
+            }
+        }
+    }
+
+    @OptIn(PrivateForInline::class)
+    private inline fun <T> withLambdaBodyIfApplicable(function: FirAnonymousFunction, block: () -> T): T {
+        return try {
+            if (function.isLambda) {
+                context = context.setLambdaBodyContext(createLambdaBodyContext(function, context))
+            }
+            block()
+        } finally {
+            if (function.isLambda) {
+                context = context.unsetLambdaBodyContext()
             }
         }
     }
@@ -439,6 +462,21 @@ abstract class AbstractDiagnosticCollectorVisitor(
                 }
                 context = existingContext
             }
+        }
+    }
+
+    @OptIn(PrivateForInline::class)
+    inline fun <R> withPotentialPropertyFromPrimaryConstructor(property: FirProperty, block: () -> R): R {
+        val existingContext = context
+        property.correspondingValueParameterFromPrimaryConstructor?.let {
+            it.lazyResolveToPhase(FirResolvePhase.ANNOTATION_ARGUMENTS)
+            @OptIn(SymbolInternals::class)
+            addSuppressedDiagnosticsToContext(it.fir)
+        }
+        return try {
+            block()
+        } finally {
+            context = existingContext
         }
     }
 

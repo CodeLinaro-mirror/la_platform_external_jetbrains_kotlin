@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -250,22 +250,25 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val ENABLE_IR_FAKE_OVERRIDE_GENERATION by directive(
-        description = """
-            Enables fake-override generation in FIR2IR using IR f/o generator on JVM. KT-61514
-        """.trimIndent()
-    )
-
-    // String to allow and enforce issue id. Value is not actually used.
-    val IGNORE_CODEGEN_WITH_IR_FAKE_OVERRIDE_GENERATION by stringDirective(
-        description = """
-            Suppresses test if $ENABLE_IR_FAKE_OVERRIDE_GENERATION directive enabled
-        """.trimIndent()
-    )
-
     val JVM_ABI_K1_K2_DIFF by stringDirective(
         description = "Expect difference in JVM ABI between K1 and K2",
         applicability = Global
+    )
+
+    val DISABLE_IR_VISIBILITY_CHECKS by enumDirective<TargetBackend>(
+        description = "Don't check for visibility violations when validating IR on the target backend"
+    )
+
+    val ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING by directive(
+        description = """
+        Check for visibility violation when validating IR after inlining.
+        Equivalent to passing the '-Xverify-ir-visibility-after-inlining' CLI flag.
+        
+        This directive is opt-in rather than opt-out (like $DISABLE_IR_VISIBILITY_CHECKS) because right now most test pass with
+        visibility checks enabled before lowering, but enabling these checks after inlining by default will cause most tests to fail,
+        because some lowerings that are run before inlining generate calls to internal intrinsics (KT-67304), and inlining in general may
+        cause visibility violations until we start generating synthetic accessors (KT-64865).
+        """.trimIndent()
     )
 }
 

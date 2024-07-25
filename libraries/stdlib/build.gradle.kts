@@ -1,20 +1,23 @@
 @file:Suppress("UNUSED_VARIABLE", "NAME_SHADOWING")
 import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinCommonCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.GenerateProjectStructureMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
 import org.jetbrains.kotlin.gradle.targets.js.d8.D8RootPlugin
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinTargetWithNodeJsDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.UsesKotlinJavaToolchain
+import org.jetbrains.kotlin.library.KOTLIN_JS_STDLIB_NAME
+import org.jetbrains.kotlin.library.KOTLIN_WASM_STDLIB_NAME
 import plugins.configureDefaultPublishing
 import plugins.configureKotlinPomAttributes
-import plugins.publishing.*
+import plugins.publishing.configureMultiModuleMavenPublishing
+import plugins.publishing.copyAttributes
 import kotlin.io.path.copyTo
 
 plugins {
@@ -39,6 +42,12 @@ fun outgoingConfiguration(name: String, configure: Action<Configuration> = Actio
         isCanBeConsumed = true
         configure(this)
     }
+
+fun KotlinCommonCompilerOptions.mainCompilationWithK1() {
+    languageVersion = KotlinVersion.KOTLIN_1_9
+    apiVersion = KotlinVersion.KOTLIN_2_0
+    freeCompilerArgs.add("-Xsuppress-api-version-greater-than-language-version-error")
+}
 
 val configurationBuiltins = resolvingConfiguration("builtins") {
     attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.objects.named(LibraryElements.JAR))
@@ -83,9 +92,10 @@ kotlin {
                                 diagnosticNamesArg,
                             )
                         )
+                        mainCompilationWithK1()
                         // workaround for compiling legacy MPP metadata, remove when this compilation is not needed anymore
                         // restate the list of opt-ins
-                        compilerOptions.optIn.addAll(commonOptIns)
+                        optIn.addAll(commonOptIns)
                     }
                 }
             }
@@ -105,22 +115,24 @@ kotlin {
             val main by getting {
                 compileTaskProvider.configure {
                     this as UsesKotlinJavaToolchain
-                    kotlinJavaToolchain.toolchain.use(getToolchainLauncherFor(JdkMajorVersion.JDK_1_6))
+                    kotlinJavaToolchain.toolchain.use(getToolchainLauncherFor(JdkMajorVersion.JDK_11_0))
                     compilerOptions {
                         moduleName = "kotlin-stdlib"
                         jvmTarget = JvmTarget.JVM_1_8
                         // providing exhaustive list of args here
                         freeCompilerArgs.set(
                             listOfNotNull(
+                                "-Xjdk-release=6",
                                 "-Xallow-kotlin-package",
                                 "-Xexpect-actual-classes",
                                 "-Xmultifile-parts-inherit",
                                 "-Xuse-14-inline-classes-mangling-scheme",
-                                "-Xbuiltins-from-sources",
                                 "-Xno-new-java-annotation-targets",
+                                "-Xlink-via-signatures",
                                 diagnosticNamesArg,
                             )
                         )
+                        mainCompilationWithK1()
                     }
                 }
                 defaultSourceSet {
@@ -133,19 +145,22 @@ kotlin {
                 associateWith(main)
                 compileTaskProvider.configure {
                     this as UsesKotlinJavaToolchain
-                    kotlinJavaToolchain.toolchain.use(getToolchainLauncherFor(JdkMajorVersion.JDK_1_7))
+                    kotlinJavaToolchain.toolchain.use(getToolchainLauncherFor(JdkMajorVersion.JDK_11_0))
                     compilerOptions {
                         moduleName = "kotlin-stdlib-jdk7"
                         jvmTarget = JvmTarget.JVM_1_8
                         freeCompilerArgs.set(
                             listOfNotNull(
+                                "-Xjdk-release=7",
                                 "-Xallow-kotlin-package",
+                                "-Xexpect-actual-classes",
                                 "-Xmultifile-parts-inherit",
                                 "-Xno-new-java-annotation-targets",
                                 "-Xexplicit-api=strict",
                                 diagnosticNamesArg,
                             )
                         )
+                        mainCompilationWithK1()
                     }
                 }
             }
@@ -164,6 +179,7 @@ kotlin {
                                 diagnosticNamesArg,
                             )
                         )
+                        mainCompilationWithK1()
                     }
                 }
             }
@@ -217,22 +233,28 @@ kotlin {
         }
         compilations {
             all {
+                @Suppress("DEPRECATION")
                 kotlinOptions {
-                    freeCompilerArgs += "-Xallow-kotlin-package"
+                    freeCompilerArgs += listOf(
+                        "-Xallow-kotlin-package",
+                        "-Xexpect-actual-classes",
+                    )
                 }
             }
-            val main by getting
-            main.apply {
+            val main by getting {
+                @Suppress("DEPRECATION")
                 kotlinOptions {
                     freeCompilerArgs += listOfNotNull(
-                        "-Xir-module-name=kotlin",
-                        "-Xexpect-actual-classes",
+                        "-Xir-module-name=$KOTLIN_JS_STDLIB_NAME",
                         diagnosticNamesArg,
                     )
 
                     if (!kotlinBuildProperties.disableWerror) {
                         allWarningsAsErrors = true
                     }
+                }
+                compileTaskProvider.configure {
+                    compilerOptions.mainCompilationWithK1()
                 }
             }
         }
@@ -244,24 +266,52 @@ kotlin {
         (this as KotlinTargetWithNodeJsDsl).nodejs()
         compilations {
             all {
+                @Suppress("DEPRECATION")
                 kotlinOptions.freeCompilerArgs += listOfNotNull(
                     "-Xallow-kotlin-package",
                     "-Xexpect-actual-classes",
                     diagnosticNamesArg
                 )
             }
-            val main by getting
-            main.apply {
-                kotlinOptions.freeCompilerArgs += "-Xir-module-name=kotlin"
+            @Suppress("DEPRECATION")
+            val main by getting {
+                kotlinOptions.freeCompilerArgs += "-Xir-module-name=$KOTLIN_WASM_STDLIB_NAME"
                 kotlinOptions.allWarningsAsErrors = true
+                compileTaskProvider.configure {
+                    compilerOptions.mainCompilationWithK1()
+                }
             }
         }
     }
-    @OptIn(ExperimentalWasmDsl::class)
+
+    // Please remove this check after bootstrap and replacing @ExperimentalWasmDsl
+    val newExperimentalWasmDslAvailable = runCatching {
+        Class.forName("org.jetbrains.kotlin.gradle.ExperimentalWasmDsl")
+    }.isSuccess
+
+    if (newExperimentalWasmDslAvailable) {
+        logger.warn(
+            """
+            Apparently kotlin bootstrap just happened. And @ExperimentalWasmDsl annotation was moved to a new FQN.
+            Please replace 'org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl' 
+            with 'org.jetbrains.kotlin.gradle.ExperimentalWasmDsl'
+            and remove this check.
+            
+            Please note that the same check exists in kotlin-test module. Fix it there too.
+            """.trimIndent()
+        )
+    }
+
+    @Suppress("OPT_IN_USAGE")
+    // Remove line above and uncomment line below after bootstrap
+    // @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         commonWasmTargetConfiguration()
     }
-    @OptIn(ExperimentalWasmDsl::class)
+
+    @Suppress("OPT_IN_USAGE")
+    // Remove line above and uncomment line below after bootstrap
+    // @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmWasi {
         commonWasmTargetConfiguration()
     }
@@ -277,6 +327,7 @@ kotlin {
         }
         nativeTarget.apply {
             compilations.all {
+                @Suppress("DEPRECATION")
                 kotlinOptions {
                     freeCompilerArgs += listOf(
                         "-Xallow-kotlin-package",
@@ -696,9 +747,11 @@ tasks {
 
     val wasmJsJar by existing(Jar::class) {
         manifestAttributes(manifest, "Main")
+        manifest.attributes(mapOf("Implementation-Title" to "kotlin-stdlib-wasm-js"))
     }
     val wasmWasiJar by existing(Jar::class) {
         manifestAttributes(manifest, "Main")
+        manifest.attributes(mapOf("Implementation-Title" to "kotlin-stdlib-wasm-wasi"))
     }
 
     artifacts {
@@ -746,6 +799,7 @@ tasks {
             exclude("collections/MapTest.kt")
         }
         named("compileTestDevelopmentExecutableKotlinWasm$wasmTarget", KotlinJsIrLink::class) {
+            @Suppress("DEPRECATION")
             kotlinOptions.freeCompilerArgs += listOf("-Xwasm-enable-array-range-checks")
         }
     }

@@ -4,7 +4,6 @@ import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.library.SearchPathResolver.LookupResult
 import org.jetbrains.kotlin.library.SearchPathResolver.SearchRoot
 import org.jetbrains.kotlin.library.impl.createKotlinLibraryComponents
-import org.jetbrains.kotlin.library.impl.isPre_1_4_Library
 import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.util.WithLogger
 import org.jetbrains.kotlin.util.removeSuffixIfPresent
@@ -17,6 +16,7 @@ const val KOTLIN_STDLIB_NAME: String = "stdlib"
 const val KOTLIN_NATIVE_STDLIB_NAME: String = "stdlib"
 const val KOTLIN_JS_STDLIB_NAME: String = "kotlin"
 const val KOTLIN_WASM_STDLIB_NAME: String = "kotlin"
+const val KOTLINTEST_MODULE_NAME: String = "kotlin-test"
 
 interface SearchPathResolver<L : KotlinLibrary> : WithLogger {
     /**
@@ -216,7 +216,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
                     when (val lookupResult = searchRoot.lookUp(given)) {
                         is LookupResult.Found -> lookupResult.library
                         is LookupResult.FoundWithWarning -> {
-                            logger.warning(lookupResult.warningText)
+                            logger.strongWarning(lookupResult.warningText)
                             lookupResult.library
                         }
                         LookupResult.NotFound -> null
@@ -227,15 +227,6 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
             }
         }
         return sequence.filterNotNull()
-    }
-
-    private fun Sequence<File>.filterOutPre_1_4_libraries(): Sequence<File> = this.filter {
-        if (it.isPre_1_4_Library) {
-            logger.warning("KLIB resolver: Skipping '$it'. This is a pre 1.4 library.")
-            false
-        } else {
-            true
-        }
     }
 
     // Default libraries could be resolved several times during findLibraries and resolveDependencies.
@@ -249,14 +240,13 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
             val givenPath = unresolved.path
             try {
                 resolutionSequence(givenPath)
-                    .filterOutPre_1_4_libraries()
                     .flatMap { libraryComponentBuilder(it, isDefaultLink).asSequence() }
                     .map { it.takeIf { libraryMatch(it, unresolved) } }
                     .filterNotNull()
                     .firstOrNull()
                     .let(::ResolvedLibrary)
             } catch (e: Throwable) {
-                logger.error("KLIB resolver: Failed to resolve Kotlin library: $givenPath")
+                logger.error("KLIB resolver: Failed to resolve Kotlin library: $givenPath, due to ${e.message}")
                 throw e
             }
         }.library
@@ -284,7 +274,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
 
     override fun libraryMatch(candidate: L, unresolved: UnresolvedLibrary): Boolean = true
 
-    override fun resolve(givenPath: String) = resolve(UnresolvedLibrary(givenPath, null), false)
+    override fun resolve(givenPath: String) = resolve(RequiredUnresolvedLibrary(givenPath), false)
 
     private val File.klib
         get() = File(this, "klib")
@@ -300,7 +290,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
                 .filter { it.name.startsWith(prefix) }
                 .filterNot { it.name.startsWith('.') }
                 .filterNot { it.name.removeSuffixIfPresent(KLIB_FILE_EXTENSION_WITH_DOT) == KOTLIN_NATIVE_STDLIB_NAME }
-                .map { UnresolvedLibrary(it.absolutePath, null) }
+                .map { RequiredUnresolvedLibrary(it.absolutePath) }
                 .map { resolve(it, isDefaultLink = true) }
         } else emptySequence()
 
@@ -309,7 +299,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
         val result = mutableListOf<L>()
 
         if (!noStdLib) {
-            result.add(resolve(UnresolvedLibrary(KOTLIN_NATIVE_STDLIB_NAME, null), true))
+            result.add(resolve(RequiredUnresolvedLibrary(KOTLIN_NATIVE_STDLIB_NAME), true))
         }
 
         // Endorsed libraries in distHead.
@@ -347,27 +337,18 @@ abstract class KotlinLibraryProperResolverWithAttributes<L : KotlinLibrary>(
 
         val candidateCompilerVersion = candidate.versions.compilerVersion
         val candidateAbiVersion = candidate.versions.abiVersion
-        val candidateLibraryVersion = candidate.versions.libraryVersion
 
         // Rejecting a library at this stage has disadvantages - the diagnostics are not-understandable.
         // Please, don't add checks for other versions here. For example, check for the metadata version should be
         // implemented in KlibDeserializedContainerSource.incompatibility
         if (candidateAbiVersion?.isCompatible() != true) {
-            logger.warning("KLIB resolver: Skipping '$candidatePath'. Incompatible ABI version. The current default is '${KotlinAbiVersion.CURRENT}', found '${candidateAbiVersion}'. The library was produced by '$candidateCompilerVersion' compiler.")
-            return false
-        }
-
-        if (candidateLibraryVersion != unresolved.libraryVersion &&
-            candidateLibraryVersion != null &&
-            unresolved.libraryVersion != null
-        ) {
-            logger.warning("KLIB resolver: Skipping '$candidatePath'. Library versions don't match. Expected '${unresolved.libraryVersion}', found '${candidateLibraryVersion}'.")
+            logger.strongWarning("KLIB resolver: Skipping '$candidatePath'. Incompatible ABI version. The current default is '${KotlinAbiVersion.CURRENT}', found '${candidateAbiVersion}'. The library was produced by '$candidateCompilerVersion' compiler.")
             return false
         }
 
         candidate.irProviderName?.let {
             if (it !in knownIrProviders) {
-                logger.warning("KLIB resolver: Skipping '$candidatePath'. The library requires unknown IR provider: $it")
+                logger.strongWarning("KLIB resolver: Skipping '$candidatePath'. The library requires unknown IR provider: $it")
                 return false
             }
         }
@@ -391,7 +372,6 @@ class SingleKlibComponentResolver(
  * Resolves KLIB libraries by:
  * - expanding the given library path to the real path that may or may not contain ".klib" extension
  * - searching among user-supplied libraries by "unique_name" that matches the given library name
- * - filtering out pre-1.4 libraries (with the old style layout)
  * - filtering out library components that have different ABI version than the ABI version of the current compiler
  * - filtering out libraries with non-default ir_provider.
  *

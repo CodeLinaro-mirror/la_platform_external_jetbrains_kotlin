@@ -44,7 +44,7 @@ object FirOptInLanguageVersionSettingsChecker : FirLanguageVersionSettingsChecke
         val deprecationInfo = symbol.getOwnDeprecation(context.languageVersionSettings)?.all ?: return
         rawReport(
             deprecationInfo.deprecationLevel != DeprecationLevelValue.WARNING,
-            "Opt-in requirement marker $fqNameAsString is deprecated" + deprecationInfo.message?.let { ". $it" }.orEmpty()
+            "Opt-in requirement marker $fqNameAsString is deprecated" + deprecationInfo.getMessage(context.session)?.let { ". $it" }.orEmpty()
         )
     }
 }

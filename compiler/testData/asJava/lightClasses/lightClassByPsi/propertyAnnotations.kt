@@ -1,4 +1,4 @@
-// !GENERATE_PROPERTY_ANNOTATIONS_METHODS
+// GENERATE_PROPERTY_ANNOTATIONS_METHODS
 
 annotation class Anno(val p: String = "")
 
@@ -46,3 +46,9 @@ open class O {
     @Anno("protected")
     protected val protectedProperty = 1
 }
+
+@Anno("const")
+const val constProperty = 1
+
+@Anno("private")
+private val privateProperty = 1

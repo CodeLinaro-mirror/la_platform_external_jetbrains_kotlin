@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisS
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiMode;
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeCreator.AbstractTypeParameterTypeTest;
 import org.jetbrains.kotlin.test.TestMetadata;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -28,39 +27,39 @@ import java.util.regex.Pattern;
 @TestMetadata("analysis/analysis-api/testData/components/typeCreator/typeParameter")
 @TestDataPath("$PROJECT_ROOT")
 public class FirStandaloneNormalAnalysisSourceModuleTypeParameterTypeTestGenerated extends AbstractTypeParameterTypeTest {
-    @NotNull
-    @Override
-    public AnalysisApiTestConfigurator getConfigurator() {
-        return AnalysisApiFirStandaloneModeTestConfiguratorFactory.INSTANCE.createConfigurator(
-            new AnalysisApiTestConfiguratorFactoryData(
-                FrontendKind.Fir,
-                TestModuleKind.Source,
-                AnalysisSessionMode.Normal,
-                AnalysisApiMode.Standalone
-            )
-        );
-    }
+  @NotNull
+  @Override
+  public AnalysisApiTestConfigurator getConfigurator() {
+    return AnalysisApiFirStandaloneModeTestConfiguratorFactory.INSTANCE.createConfigurator(
+      new AnalysisApiTestConfiguratorFactoryData(
+        FrontendKind.Fir,
+        TestModuleKind.Source,
+        AnalysisSessionMode.Normal,
+        AnalysisApiMode.Standalone
+      )
+    );
+  }
 
-    @Test
-    public void testAllFilesPresentInTypeParameter() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/typeCreator/typeParameter"), Pattern.compile("^(.+)\\.kt$"), null, true);
-    }
+  @Test
+  public void testAllFilesPresentInTypeParameter() {
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/typeCreator/typeParameter"), Pattern.compile("^(.+)\\.kt$"), null, true);
+  }
 
-    @Test
-    @TestMetadata("multipleBounds.kt")
-    public void testMultipleBounds() throws Exception {
-        runTest("analysis/analysis-api/testData/components/typeCreator/typeParameter/multipleBounds.kt");
-    }
+  @Test
+  @TestMetadata("multipleBounds.kt")
+  public void testMultipleBounds() {
+    runTest("analysis/analysis-api/testData/components/typeCreator/typeParameter/multipleBounds.kt");
+  }
 
-    @Test
-    @TestMetadata("regular.kt")
-    public void testRegular() throws Exception {
-        runTest("analysis/analysis-api/testData/components/typeCreator/typeParameter/regular.kt");
-    }
+  @Test
+  @TestMetadata("regular.kt")
+  public void testRegular() {
+    runTest("analysis/analysis-api/testData/components/typeCreator/typeParameter/regular.kt");
+  }
 
-    @Test
-    @TestMetadata("reified.kt")
-    public void testReified() throws Exception {
-        runTest("analysis/analysis-api/testData/components/typeCreator/typeParameter/reified.kt");
-    }
+  @Test
+  @TestMetadata("reified.kt")
+  public void testReified() {
+    runTest("analysis/analysis-api/testData/components/typeCreator/typeParameter/reified.kt");
+  }
 }

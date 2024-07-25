@@ -40,9 +40,6 @@ val KotlinBuildProperties.pathToYoutrackModularizedTestData: String?
 val KotlinBuildProperties.pathToSpaceModularizedTestData: String?
     get() = getOrNull("kotlin.fir.modularized.testdata.space") as? String
 
-val KotlinBuildProperties.isObsoleteJdkOverrideEnabled: Boolean
-    get() = getBoolean("kotlin.build.isObsoleteJdkOverrideEnabled", false)
-
 val KotlinBuildProperties.isNativeRuntimeDebugInfoEnabled: Boolean
     get() = getBoolean("kotlin.native.isNativeRuntimeDebugInfoEnabled", false)
 
@@ -61,4 +58,13 @@ val KotlinBuildProperties.useFirTightIC: Boolean
     get() = getBoolean("kotlin.build.useFirIC")
 
 val KotlinBuildProperties.isSwiftExportPluginPublishingEnabled: Boolean
-    get() = getBoolean("kotlin-native.swift-export.enabled")
+    get() = getBoolean("kotlin.native.swift-export.enabled", false)
+
+val KotlinBuildProperties.isApplePrivacyManifestsPluginEnabled: Boolean
+    get() = getBoolean("kotlin.apple.applePrivacyManifestsPlugin", false)
+
+val KotlinBuildProperties.limitTestTasksConcurrency: Boolean
+    get() = getBoolean("kotlin.build.limitTestTasksConcurrency", true)
+
+val KotlinBuildProperties.konanDataDir: String?
+    get() = getOrNull("konan.data.dir") as String?

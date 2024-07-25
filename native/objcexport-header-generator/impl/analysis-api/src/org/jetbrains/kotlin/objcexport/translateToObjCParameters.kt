@@ -1,15 +1,21 @@
+/*
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
+
 package org.jetbrains.kotlin.objcexport
 
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionLikeSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySetterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtTypeParameterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtValueParameterSymbol
+import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySetterSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaTypeParameterSymbol
 import org.jetbrains.kotlin.backend.konan.cKeywords
 import org.jetbrains.kotlin.backend.konan.objcexport.*
+import org.jetbrains.kotlin.name.StandardClassIds
 
-context(KtAnalysisSession, KtObjCExportSession)
-internal fun KtFunctionLikeSymbol.translateToObjCParameters(baseMethodBridge: MethodBridge): List<ObjCParameter> {
+context(KaSession, KtObjCExportSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+internal fun KaFunctionSymbol.translateToObjCParameters(baseMethodBridge: MethodBridge): List<ObjCParameter> {
     fun unifyName(initialName: String, usedNames: Set<String>): String {
         var unique = initialName.toValidObjCSwiftIdentifier()
         while (unique in usedNames || unique in cKeywords) {
@@ -24,13 +30,19 @@ internal fun KtFunctionLikeSymbol.translateToObjCParameters(baseMethodBridge: Me
 
     val usedNames = mutableSetOf<String>()
 
-    valueParametersAssociated.forEach { (bridge: MethodBridgeValueParameter, parameter: KtValueParameterSymbol?) ->
-        val candidateName: String = when (bridge) {
+    valueParametersAssociated.forEach { (bridge: MethodBridgeValueParameter, parameter: KtObjCParameterData?) ->
+        val candidateName = when (bridge) {
             is MethodBridgeValueParameter.Mapped -> {
-                if (parameter == null) throw IllegalStateException("Parameter shouldn't be null")
+                if (parameter == null) return@forEach
                 when {
-                    this is KtPropertySetterSymbol -> "value"
-                    else -> parameter.name.toString()
+                    this is KaPropertySetterSymbol -> {
+                        if (parameter.isReceiver) "receiver"
+                        else "value"
+                    }
+                    else -> {
+                        if (parameter.isReceiver) "receiver"
+                        else parameter.name.toString()
+                    }
                 }
             }
             MethodBridgeValueParameter.ErrorOutParameter -> "error"
@@ -41,8 +53,15 @@ internal fun KtFunctionLikeSymbol.translateToObjCParameters(baseMethodBridge: Me
         usedNames += uniqueName
 
         val type = when (bridge) {
-            is MethodBridgeValueParameter.Mapped ->
-                parameter!!.returnType.translateToObjCType(bridge.bridge)
+            is MethodBridgeValueParameter.Mapped -> {
+                val returnType = parameter!!.type
+                if (parameter.isVararg) {
+                    //vararg is a special case, [parameter.returnType] is T, we need Array<T>
+                    buildClassType(StandardClassIds.Array) { argument(parameter.type) }.translateToObjCType(bridge.bridge)
+                } else {
+                    returnType.translateToObjCType(bridge.bridge)
+                }
+            }
             MethodBridgeValueParameter.ErrorOutParameter ->
                 ObjCPointerType(ObjCNullableReferenceType(ObjCClassType("NSError")), nullable = true)
 
@@ -75,6 +94,6 @@ internal fun KtFunctionLikeSymbol.translateToObjCParameters(baseMethodBridge: Me
 /**
  * Not implemented
  */
-internal fun KtTypeParameterSymbol.getObjCName(): ObjCExportName {
+internal fun KaTypeParameterSymbol.getObjCName(): ObjCExportName {
     TODO()
 }

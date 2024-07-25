@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.contracts.description.LogicOperationKind
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -78,6 +79,11 @@ class FirWhenExhaustivenessTransformer(private val bodyResolveComponents: BodyRe
                 }
                 if (isNotEmpty() && subjectType.isMarkedNullable) {
                     this.add(WhenOnNullableExhaustivenessChecker)
+                }
+                if (isEmpty()) {
+                    // This checker must be the *ONLY* checker when used,
+                    // as it reports WhenMissingCase.Unknown when it fails.
+                    add(WhenSelfTypeExhaustivenessChecker)
                 }
             }
         }
@@ -192,6 +198,10 @@ private sealed class WhenExhaustivenessChecker {
         }
 
         override fun visitWhenBranch(whenBranch: FirWhenBranch, data: D) {
+            // When conditions with guards do not contribute to exhaustiveness.
+            // TODO(KT-63696): enhance exhaustiveness checks to consider guards.
+            if (whenBranch.hasGuard) return
+
             whenBranch.condition.accept(this, data)
         }
 
@@ -271,7 +281,7 @@ private object WhenOnBooleanExhaustivenessChecker : WhenExhaustivenessChecker() 
         override fun visitEqualityOperatorCall(equalityOperatorCall: FirEqualityOperatorCall, data: Flags) {
             if (equalityOperatorCall.operation.let { it == FirOperation.EQ || it == FirOperation.IDENTITY }) {
                 val argument = equalityOperatorCall.arguments[1]
-                if (argument is FirLiteralExpression<*>) {
+                if (argument is FirLiteralExpression) {
                     when (argument.value) {
                         true -> data.containsTrue = true
                         false -> data.containsFalse = true
@@ -423,4 +433,68 @@ private object WhenOnNothingExhaustivenessChecker : WhenExhaustivenessChecker() 
     ) {
         // Nothing has no branches. The null case for `Nothing?` is handled by WhenOnNullableExhaustivenessChecker
     }
+}
+
+/**
+ * Checks if any branches are of the same type, or a super-type, of the subject. Must be the only checker when used, as
+ * the result of the checker is [WhenMissingCase.Unknown] when no matching branch is found.
+ */
+private data object WhenSelfTypeExhaustivenessChecker : WhenExhaustivenessChecker() {
+    override fun isApplicable(subjectType: ConeKotlinType, session: FirSession): Boolean {
+        return true
+    }
+
+    override fun computeMissingCases(
+        whenExpression: FirWhenExpression,
+        subjectType: ConeKotlinType,
+        session: FirSession,
+        destination: MutableCollection<WhenMissingCase>,
+    ) {
+        // This checker should only be used when no other missing cases are being reported.
+        if (destination.isNotEmpty()) return
+
+        /**
+         * If the subject type is nullable and one of the branches allows for a nullable type, the subject can be converted to a non-null
+         * type, so a non-null self-type case is still considered exhaustive.
+         *
+         * ```
+         * // This is exhaustive!
+         * when (x as? String) {
+         *     is CharSequence -> ...
+         *     null -> ...
+         * }
+         * ```
+         */
+        val reported = buildSet {
+            if (WhenOnNullableExhaustivenessChecker.isApplicable(subjectType, session)) {
+                WhenOnNullableExhaustivenessChecker.computeMissingCases(whenExpression, subjectType, session, this)
+            }
+        }
+
+        // If NullIsMissing was reported, this indicates the subject type is a nullable type and no cases handle nullable types.
+        // Thus, the cases are not exhaustive, so exit early with an Unknown missing case.
+        if (reported.isNotEmpty()) {
+            destination.add(WhenMissingCase.Unknown)
+            return
+        }
+
+        // If NullIsMissing was *not* reported, the subject can safely be converted to a not-null type.
+        val convertedSubjectType = subjectType.withNullability(nullability = ConeNullability.NOT_NULL, typeContext = session.typeContext)
+
+        val checkedTypes = mutableSetOf<ConeKotlinType>()
+        whenExpression.accept(ConditionChecker, checkedTypes)
+        if (checkedTypes.none { convertedSubjectType.isSubtypeOf(it, session) }) {
+            // If there are no cases that check for self-type or super-type, report an Unknown missing case,
+            // since we do not want to suggest this sort of check.
+            destination.add(WhenMissingCase.Unknown)
+        }
+    }
+
+    private object ConditionChecker : AbstractConditionChecker<MutableSet<ConeKotlinType>>() {
+        override fun visitTypeOperatorCall(typeOperatorCall: FirTypeOperatorCall, data: MutableSet<ConeKotlinType>) {
+            if (typeOperatorCall.operation != FirOperation.IS) return
+            data.add(typeOperatorCall.conversionTypeRef.coneType)
+        }
+    }
+
 }

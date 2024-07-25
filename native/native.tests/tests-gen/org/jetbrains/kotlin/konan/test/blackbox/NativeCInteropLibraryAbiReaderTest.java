@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.konan.test.blackbox;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.kotlin.test.TestMetadata;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -19,14 +18,14 @@ import java.util.regex.Pattern;
 @TestMetadata("compiler/testData/klib/dump-abi/cinterop")
 @TestDataPath("$PROJECT_ROOT")
 public class NativeCInteropLibraryAbiReaderTest extends AbstractNativeCInteropLibraryAbiReaderTest {
-    @Test
-    public void testAllFilesPresentInCinterop() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/dump-abi/cinterop"), Pattern.compile("^(.+)\\.kt$"), null, true);
-    }
+  @Test
+  public void testAllFilesPresentInCinterop() {
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/dump-abi/cinterop"), Pattern.compile("^(.+)\\.kt$"), null, true);
+  }
 
-    @Test
-    @TestMetadata("interop_class_inheritor.kt")
-    public void testInterop_class_inheritor() throws Exception {
-        runTest("compiler/testData/klib/dump-abi/cinterop/interop_class_inheritor.kt");
-    }
+  @Test
+  @TestMetadata("interop_class_inheritor.kt")
+  public void testInterop_class_inheritor() {
+    runTest("compiler/testData/klib/dump-abi/cinterop/interop_class_inheritor.kt");
+  }
 }

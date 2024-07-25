@@ -5,27 +5,27 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolDeclarationRenderer
 
-import org.jetbrains.kotlin.analysis.api.renderer.declarations.impl.KtDeclarationRendererForDebug.WITH_QUALIFIED_NAMES_DENOTABLE
-import org.jetbrains.kotlin.analysis.api.symbols.KtDeclarationSymbol
+import org.jetbrains.kotlin.analysis.api.renderer.declarations.impl.KaDeclarationRendererForDebug.WITH_QUALIFIED_NAMES_DENOTABLE
+import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.utils.executeOnPooledThreadInReadAction
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtReferenceExpression
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractSymbolRenderingByReferenceTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val renderedString = executeOnPooledThreadInReadAction {
             analyseForTest(mainFile) {
                 val referenceExpression = testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtReferenceExpression>(mainFile)
                 val ktSymbol = referenceExpression.mainReference.resolveToSymbol()
                 testServices.assertions.assertNotNull(ktSymbol)
-                testServices.assertions.assertTrue(ktSymbol is KtDeclarationSymbol)
-                (ktSymbol as KtDeclarationSymbol).render(WITH_QUALIFIED_NAMES_DENOTABLE)
+                testServices.assertions.assertTrue(ktSymbol is KaDeclarationSymbol)
+                (ktSymbol as KaDeclarationSymbol).render(WITH_QUALIFIED_NAMES_DENOTABLE)
             }
         }
 

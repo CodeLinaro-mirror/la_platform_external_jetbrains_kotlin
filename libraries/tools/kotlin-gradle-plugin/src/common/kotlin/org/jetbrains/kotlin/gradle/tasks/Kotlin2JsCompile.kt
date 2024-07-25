@@ -46,11 +46,10 @@ import javax.inject.Inject
 
 @CacheableTask
 abstract class Kotlin2JsCompile @Inject constructor(
-    override val compilerOptions: KotlinJsCompilerOptions,
+    final override val compilerOptions: KotlinJsCompilerOptions,
     objectFactory: ObjectFactory,
     workerExecutor: WorkerExecutor,
 ) : AbstractKotlinCompile<K2JSCompilerArguments>(objectFactory, workerExecutor),
-    KotlinCompilationTask<KotlinJsCompilerOptions>,
     UsesLibraryFilterCachingService,
     UsesBuildFusService,
     KotlinJsCompile,
@@ -61,6 +60,8 @@ abstract class Kotlin2JsCompile @Inject constructor(
         compilerOptions.verbose.convention(logger.isDebugEnabled)
     }
 
+    @Suppress("DEPRECATION")
+    @Deprecated(KOTLIN_OPTIONS_DEPRECATION_MESSAGE)
     override val kotlinOptions: KotlinJsOptions = KotlinJsOptionsCompat(
         { this },
         compilerOptions
@@ -112,6 +113,12 @@ abstract class Kotlin2JsCompile @Inject constructor(
     @get:Input
     abstract override val moduleName: Property<String>
 
+    @get:Internal
+    internal abstract val mainCompilationModuleName: Property<String>
+
+    @get:Internal
+    internal abstract val projectVersion: Property<String>
+
     @get:Nested
     override val multiplatformStructure: K2MultiplatformStructure = objectFactory.newInstance()
 
@@ -120,6 +127,21 @@ abstract class Kotlin2JsCompile @Inject constructor(
     override fun setupCompilerArgs(args: K2JSCompilerArguments, defaultsOnly: Boolean, ignoreClasspathResolutionErrors: Boolean) {
         @Suppress("DEPRECATION_ERROR")
         super.setupCompilerArgs(args, defaultsOnly, ignoreClasspathResolutionErrors)
+    }
+
+    /**
+     * In some cases, test compilations may have both main compilation outputs as directory and klib.
+     * This produces compiler warning about having two similar Klibs as inputs.
+     * We want to avoid such warnings by excluding packed .klib artifact from the main compilation.
+     */
+    private fun FileCollection.filterMainCompilationKlibArtifact(): FileCollection = run {
+        val klibPrefix = mainCompilationModuleName.orNull
+        val version = projectVersion.get()
+        if (klibPrefix != null) {
+            // "unspecified" is default version value when user hasn't explicitly configured the project version
+            val mainCompilationKlibName = if (version != "unspecified") "$klibPrefix-js-$version.klib" else "$klibPrefix-js.klib"
+            filter { it.name != mainCompilationKlibName }
+        } else this
     }
 
     override fun createCompilerArguments(context: CreateCompilerArgumentsContext) = context.create<K2JSCompilerArguments> {
@@ -138,7 +160,7 @@ abstract class Kotlin2JsCompile @Inject constructor(
             args.outputDir = destinationDirectory.get().asFile.normalize().absolutePath
             args.moduleName = compilerOptions.moduleName.get()
 
-            if (compilerOptions.usesK2.get()) {
+            if (compilerOptions.usesK2.get() && multiPlatformEnabled.get()) {
                 args.fragments = multiplatformStructure.fragmentsCompilerArgs
                 args.fragmentRefines = multiplatformStructure.fragmentRefinesCompilerArgs
             }
@@ -164,6 +186,7 @@ abstract class Kotlin2JsCompile @Inject constructor(
             args.libraries = runSafe {
                 libraries
                     .filter { it.exists() && libraryFilter(it) }
+                    .filterMainCompilationKlibArtifact()
                     .map { it.normalize().absolutePath }
                     .toSet()
                     .takeIf { it.isNotEmpty() }
@@ -176,10 +199,12 @@ abstract class Kotlin2JsCompile @Inject constructor(
                 args.sourceMapBaseDirs = sourceMapBaseDir.get().asFile.absolutePath
             }
 
-            if (compilerOptions.usesK2.get()) {
-                args.fragmentSources = multiplatformStructure.fragmentSourcesCompilerArgs(sourceFileFilter)
-            } else {
-                args.commonSources = commonSourceSet.asFileTree.toPathsArray()
+            if (multiPlatformEnabled.get()) {
+                if (compilerOptions.usesK2.get()) {
+                    args.fragmentSources = multiplatformStructure.fragmentSourcesCompilerArgs(sources.files, sourceFileFilter)
+                } else {
+                    args.commonSources = commonSourceSet.asFileTree.toPathsArray()
+                }
             }
 
             args.freeArgs += sources.asFileTree.files.map { it.absolutePath }
@@ -236,6 +261,7 @@ abstract class Kotlin2JsCompile @Inject constructor(
 
         val dependencies = libraries
             .filter { it.exists() && libraryFilter(it) }
+            .filterMainCompilationKlibArtifact()
             .map { it.normalize().absolutePath }
 
         args.libraries = dependencies.distinct().let {

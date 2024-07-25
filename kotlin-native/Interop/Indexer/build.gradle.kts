@@ -6,11 +6,8 @@
 import org.jetbrains.kotlin.tools.lib
 import org.jetbrains.kotlin.tools.solib
 import org.jetbrains.kotlin.*
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import org.jetbrains.kotlin.konan.target.*
-import org.jetbrains.kotlin.konan.target.ClangArgs
-import org.jetbrains.kotlin.konan.target.Family.*
-import org.jetbrains.kotlin.konan.target.HostManager.Companion.hostIsMac
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
@@ -57,7 +54,10 @@ if (libclangextIsEnabled) {
             "__ZN4llvm3omp33getOpenMPContextTraitPropertyNameENS0_13TraitPropertyE",
             "__ZN4llvm3omp33getOpenMPContextTraitSelectorNameENS0_13TraitSelectorE",
             "__ZN4llvm3omp35getOpenMPContextTraitSetForPropertyENS0_13TraitPropertyE",
-            "__ZN4llvm3omp33getOpenMPContextTraitPropertyKindENS0_8TraitSetENS_9StringRefE"
+            "__ZN4llvm3omp33getOpenMPContextTraitPropertyKindENS0_8TraitSetENS_9StringRefE",
+            "__ZN4llvm3omp10OMPContextC2EbNS_6TripleE",
+            "__ZN4llvm3omp33getOpenMPContextTraitPropertyKindENS0_8TraitSetENS0_13TraitSelectorENS_9StringRefE",
+            "__ZN4llvm3omp33getOpenMPContextTraitPropertyNameENS0_13TraitPropertyENS_9StringRefE",
     )
     ldflags.addAll(
             listOf("-Wl,--no-demangle", "-Wl,-search_paths_first", "-Wl,-headerpad_max_install_names", "-Wl,-U,_futimens") +
@@ -139,6 +139,7 @@ sourceSets {
 dependencies {
     api(project(":kotlin-stdlib"))
     api(project(":kotlin-native:Interop:Runtime"))
+    implementation(project(":native:kotlin-native-utils"))
 
     testImplementation(kotlin("test-junit"))
     testImplementation(project(":compiler:util"))
@@ -162,16 +163,21 @@ kotlinNativeInterop {
     }
 }
 
-tasks.withType<KotlinCompile>().configureEach {
-    kotlinOptions {
-        freeCompilerArgs += listOf(
-                "-Xskip-prerelease-check",
-                "-opt-in=kotlinx.cinterop.BetaInteropApi",
-                "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
-                // staticCFunction uses kotlin.reflect.jvm.reflect on its lambda parameter.
-                "-Xlambdas=class",
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions {
+        optIn.addAll(
+                listOf(
+                        "kotlinx.cinterop.BetaInteropApi",
+                        "kotlinx.cinterop.ExperimentalForeignApi",
+                )
         )
-
+        freeCompilerArgs.addAll(
+                listOf(
+                        "-Xskip-prerelease-check",
+                        // staticCFunction uses kotlin.reflect.jvm.reflect on its lambda parameter.
+                        "-Xlambdas=class",
+                )
+        )
     }
 }
 

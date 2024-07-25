@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import java.io.File
 import java.io.IOException
 
-internal class TestExecutable(
+class TestExecutable(
     val executable: Executable,
     val loggedCompilationToolCall: LoggedData.CompilerCall,
     val testNames: Collection<TestName>
@@ -50,16 +50,16 @@ internal class TestExecutable(
     }
 }
 
-internal class TestRun(
+data class TestRun(
     val displayName: String,
     val executable: TestExecutable,
     val runParameters: List<TestRunParameter>,
-    val testCaseId: TestCaseId,
+    val testCase: TestCase,
     val checks: TestRunChecks,
     val expectedFailure: Boolean,
 )
 
-internal sealed interface TestRunParameter {
+sealed interface TestRunParameter {
     fun applyTo(programArgs: MutableList<String>)
 
     sealed class WithFilter : TestRunParameter {
@@ -84,6 +84,14 @@ internal sealed interface TestRunParameter {
         }
 
         override fun testMatches(testName: TestName) = this.testName == testName
+    }
+
+    class WithIgnoredTestFilter(val testName: TestName) : WithFilter() {
+        override fun applyTo(programArgs: MutableList<String>) {
+            programArgs += "--ktest_filter=*-$testName"
+        }
+
+        override fun testMatches(testName: TestName) = this.testName != testName
     }
 
     class WithGTestPatterns(val positivePatterns: Set<String> = setOf("*"), val negativePatterns: Set<String>) : WithFilter() {
@@ -138,6 +146,9 @@ internal inline fun <reified T : TestRunParameter> List<TestRunParameter>.get(on
     firstIsInstanceOrNull<T>()?.let(onFound)
 }
 
+internal inline fun <reified T : TestRunParameter> List<TestRunParameter>.getAll(onFound: T.() -> Unit) {
+    filterIsInstance<T>().forEach(onFound)
+}
 
 // must be in sync with `fromGTestPattern(String)` in kotlin-native/runtime/src/main/kotlin/kotlin/native/internal/test/TestRunner.kt
 internal fun fromGTestPattern(pattern: String): Regex {

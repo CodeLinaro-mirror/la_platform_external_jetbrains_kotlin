@@ -1,87 +1,108 @@
+/*
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
+
 package org.jetbrains.kotlin.objcexport.analysisApiUtils
 
-import org.jetbrains.kotlin.analysis.api.KtAnalysisSession
-import org.jetbrains.kotlin.analysis.api.symbols.KtCallableSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionLikeSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtFunctionSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KtPropertySymbol
-import org.jetbrains.kotlin.analysis.api.types.KtFunctionalType
-import org.jetbrains.kotlin.analysis.api.types.KtType
+import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.symbols.*
+import org.jetbrains.kotlin.analysis.api.types.KaFunctionType
+import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.backend.konan.KonanPrimitiveType
 import org.jetbrains.kotlin.backend.konan.objcexport.*
 import org.jetbrains.kotlin.objcexport.*
 
 /**
- * [org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportMapperKt.bridgeMethodImpl]
+ * This method is tightly bound with [valueParametersAssociated] and order in [MethodBridge.valueParameters] matters.
+ * K1 function descriptor has property [allParameters], but analysis API doesn't so we need to combine manually in exact order:
+ * [KaFunctionSymbol.receiverParameter], [KaFunctionSymbol.valueParameters] and inner class edge case.
+ * Then [valueParametersAssociated] associates parameters according the order.
+ *
+ * See K1 implementation [org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportMapperKt.bridgeMethodImpl]
  */
-context(KtAnalysisSession, KtObjCExportSession)
-internal fun KtFunctionLikeSymbol.getFunctionMethodBridge(): MethodBridge {
+context(KaSession, KtObjCExportSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+internal fun KaFunctionSymbol.getFunctionMethodBridge(): MethodBridge {
 
     val valueParameters = mutableListOf<MethodBridgeValueParameter>()
+    val isInner = (containingDeclaration as? KaNamedClassSymbol)?.isInner ?: false
+
+    this.receiverParameter?.apply {
+        valueParameters += bridgeParameter(this.type)
+    }
 
     this.valueParameters.forEach {
         valueParameters += bridgeParameter(it.returnType)
     }
 
-    if (this is KtFunctionSymbol && isSuspend) {
-        valueParameters += MethodBridgeValueParameter.SuspendCompletion(false)
+    if (isInner) {
+        valueParameters += bridgeParameter(this.returnType)
+    }
+
+    if (isSuspend) {
+        valueParameters += MethodBridgeValueParameter.SuspendCompletion(true)
+    } else if (hasThrowsAnnotation) {
+        // Add error out parameter before tail block parameters. The convention allows this.
+        // Placing it after would trigger https://bugs.swift.org/browse/SR-12201
+        // (see also https://github.com/JetBrains/kotlin-native/issues/3825).
+        val tailBlocksCount = valueParameters.reversed().takeWhile { it.isBlockPointer() }.count()
+        valueParameters.add(valueParameters.size - tailBlocksCount, MethodBridgeValueParameter.ErrorOutParameter)
     }
 
     return MethodBridge(
         bridgeReturnType(),
-        receiverType,
+        bridgeReceiverType,
         valueParameters
     )
 }
 
-context(KtAnalysisSession, KtObjCExportSession)
-internal fun KtPropertySymbol.getPropertyMethodBridge(): MethodBridge {
-    return MethodBridge(
-        bridgeReturnType(),
-        receiverType,
-        emptyList()
-    )
-}
-
-context(KtAnalysisSession)
-private val KtCallableSymbol.receiverType: MethodBridgeReceiver
-    get() = if (isArrayConstructor) {
-        MethodBridgeReceiver.Factory
-    } else if (!isConstructor && isTopLevel) {
-        MethodBridgeReceiver.Static
-    } else {
-        MethodBridgeReceiver.Instance
+context(KaSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+internal val KaCallableSymbol.bridgeReceiverType: MethodBridgeReceiver
+    get() {
+        return if (isArrayConstructor) {
+            MethodBridgeReceiver.Factory
+        } else if (!isConstructor && isTopLevel && !isExtension) {
+            MethodBridgeReceiver.Static
+        } else {
+            MethodBridgeReceiver.Instance
+        }
     }
 
 /**
  * [ObjCExportMapper.bridgeParameter]
  */
-context(KtAnalysisSession, KtObjCExportSession)
-private fun bridgeParameter(type: KtType): MethodBridgeValueParameter {
+context(KaSession, KtObjCExportSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+private fun bridgeParameter(type: KaType): MethodBridgeValueParameter {
     return MethodBridgeValueParameter.Mapped(bridgeType(type))
 }
 
 /**
  * [ObjCExportMapper.bridgeType]
  */
-context(KtAnalysisSession)
+context(KaSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
 private fun bridgeType(
-    type: KtType,
+    type: KaType,
 ): TypeBridge {
     val primitiveObjCValueType = when {
-        type.isBoolean -> ObjCValueType.BOOL
-        type.isChar -> ObjCValueType.UNICHAR
-        type.isByte -> ObjCValueType.CHAR
-        type.isShort -> ObjCValueType.SHORT
-        type.isInt -> ObjCValueType.INT
-        type.isLong -> ObjCValueType.LONG_LONG
-        type.isFloat -> ObjCValueType.FLOAT
-        type.isDouble -> ObjCValueType.DOUBLE
-        type.isUByte -> ObjCValueType.UNSIGNED_CHAR
-        type.isUShort -> ObjCValueType.UNSIGNED_SHORT
-        type.isUInt -> ObjCValueType.UNSIGNED_INT
-        type.isULong -> ObjCValueType.UNSIGNED_LONG_LONG
-        type.isClassTypeWithClassId(KonanPrimitiveType.NON_NULL_NATIVE_PTR.classId) -> ObjCValueType.POINTER
+        type.isBooleanType -> ObjCValueType.BOOL
+        type.isCharType -> ObjCValueType.UNICHAR
+        type.isByteType -> ObjCValueType.CHAR
+        type.isShortType -> ObjCValueType.SHORT
+        type.isIntType -> ObjCValueType.INT
+        type.isLongType -> ObjCValueType.LONG_LONG
+        type.isFloatType -> ObjCValueType.FLOAT
+        type.isDoubleType -> ObjCValueType.DOUBLE
+        type.isUByteType -> ObjCValueType.UNSIGNED_CHAR
+        type.isUShortType -> ObjCValueType.UNSIGNED_SHORT
+        type.isUIntType -> ObjCValueType.UNSIGNED_INT
+        type.isULongType -> ObjCValueType.UNSIGNED_LONG_LONG
+        type.isClassType(KonanPrimitiveType.VECTOR128.classId) && !type.isMarkedNullable ->
+            ObjCValueType.VECTOR_FLOAT_128
+        type.isClassType(KonanPrimitiveType.NON_NULL_NATIVE_PTR.classId) -> ObjCValueType.POINTER
         else -> null
     }
 
@@ -104,13 +125,14 @@ private fun bridgeType(
 /**
  * [ObjCExportMapper.bridgeFunctionType]
  */
-context(KtAnalysisSession)
-private fun bridgeFunctionType(type: KtType): TypeBridge {
+context(KaSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+private fun bridgeFunctionType(type: KaType): TypeBridge {
 
     val numberOfParameters: Int
-    val returnType: KtType
+    val returnType: KaType
 
-    if (type is KtFunctionalType) {
+    if (type is KaFunctionType) {
         numberOfParameters = type.parameterTypes.size
         returnType = type.returnType
     } else {
@@ -118,23 +140,22 @@ private fun bridgeFunctionType(type: KtType): TypeBridge {
         returnType = type
     }
 
-    val returnsVoid = returnType.isUnit || returnType.isNothing
+    val returnsVoid = returnType.isUnitType || returnType.isNothingType
     return BlockPointerBridge(numberOfParameters, returnsVoid)
 }
 
 /**
  * [ObjCExportMapper.bridgeReturnType]
  */
-context(KtAnalysisSession, KtObjCExportSession)
-private fun KtCallableSymbol.bridgeReturnType(): MethodBridge.ReturnValue {
-
-    val convertExceptionsToErrors = false // TODO: Add exception handling and return MethodBridge.ReturnValue.WithError.ZeroForError
+context(KaSession, KtObjCExportSession)
+@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
+private fun KaCallableSymbol.bridgeReturnType(): MethodBridge.ReturnValue {
 
     if (isArrayConstructor) {
         return MethodBridge.ReturnValue.Instance.FactoryResult
     } else if (isConstructor) {
         val result = MethodBridge.ReturnValue.Instance.InitResult
-        if (convertExceptionsToErrors) {
+        if (hasThrowsAnnotation) {
             MethodBridge.ReturnValue.WithError.ZeroForError(result, successMayBeZero = false)
         } else {
             return result
@@ -143,32 +164,22 @@ private fun KtCallableSymbol.bridgeReturnType(): MethodBridge.ReturnValue {
         return MethodBridge.ReturnValue.Suspend
     }
 
-    //TODO: handle hashCode
-//    descriptor.containingDeclaration.let { it is ClassDescriptor && KotlinBuiltIns.isAny(it) } &&
-//            descriptor.name.asString() == "hashCode" -> {
-//        assert(!convertExceptionsToErrors)
-//        MethodBridge.ReturnValue.HashCode
-//    }
-
-    //TODO: handle getter
-//    descriptor is PropertyGetterDescriptor -> {
-//        assert(!convertExceptionsToErrors)
-//        MethodBridge.ReturnValue.Mapped(bridgePropertyType(descriptor.correspondingProperty))
-//    }
-
-    if (returnType.isUnit || returnType.isNothing) {
-        return if (convertExceptionsToErrors) {
-            MethodBridge.ReturnValue.WithError.Success
-        } else {
-            MethodBridge.ReturnValue.Void
-        }
+    if (isHashCode) {
+        return MethodBridge.ReturnValue.HashCode
     }
 
+    if (returnType.isUnitType) {
+        return successOrVoidReturnValue
+    }
+
+    if (returnType.isObjCNothing && this !is KaPropertyAccessorSymbol) {
+        return successOrVoidReturnValue
+    }
 
     val returnTypeBridge = bridgeType(returnType)
     val successReturnValueBridge = MethodBridge.ReturnValue.Mapped(returnTypeBridge)
 
-    return if (convertExceptionsToErrors) {
+    return if (hasThrowsAnnotation) {
         val canReturnZero = !returnTypeBridge.isReferenceOrPointer() || returnType.canBeNull
         MethodBridge.ReturnValue.WithError.ZeroForError(
             successReturnValueBridge,
@@ -186,3 +197,18 @@ private fun TypeBridge.isReferenceOrPointer(): Boolean = when (this) {
     ReferenceBridge, is BlockPointerBridge -> true
     is ValueTypeBridge -> this.objCValueType == ObjCValueType.POINTER
 }
+
+private fun MethodBridgeValueParameter.isBlockPointer(): Boolean = when (this) {
+    is MethodBridgeValueParameter.Mapped -> when (this.bridge) {
+        ReferenceBridge, is ValueTypeBridge -> false
+        is BlockPointerBridge -> true
+    }
+    MethodBridgeValueParameter.ErrorOutParameter -> false
+    is MethodBridgeValueParameter.SuspendCompletion -> true
+}
+
+private val KaCallableSymbol.successOrVoidReturnValue: MethodBridge.ReturnValue
+    get() {
+        return if (hasThrowsAnnotation) MethodBridge.ReturnValue.WithError.Success
+        else MethodBridge.ReturnValue.Void
+    }

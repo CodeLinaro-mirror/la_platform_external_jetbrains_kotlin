@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.mpp.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectActualCheckingCompatibility
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectActualMatchingCompatibility
@@ -41,25 +42,6 @@ interface ExpectActualMatchingContext<T : DeclarationSymbolMarker> : TypeSystemC
     // - stdlib
     // - coroutines
     val shouldCheckDefaultParams: Boolean
-
-    /**
-     * This flag determines, how visibilities for classes/typealiases will be matched
-     * - `false` means that visibilities should be identical
-     * - `true` means that visibility of actual class should be the same or wider comparing to expect visibility
-     *     this means that following actualizations will be additionally allowed:
-     *     - protected -> public
-     *     - internal -> public
-     */
-    val allowClassActualizationWithWiderVisibility: Boolean
-        get() = false
-
-    /**
-     * This flag determines strategy for matching supertypes between expect and actual class
-     *  - `false` means that expect and actual supertypes are matched one by one
-     *  - `true` means that type of actual class should be subtype of each expect supertype of the expect class
-     */
-    val allowTransitiveSupertypesActualization: Boolean
-        get() = false
 
     val RegularClassSymbolMarker.classId: ClassId
     val TypeAliasSymbolMarker.classId: ClassId
@@ -150,9 +132,9 @@ interface ExpectActualMatchingContext<T : DeclarationSymbolMarker> : TypeSystemC
         dynamicTypesEqualToAnything: Boolean = true
     ): Boolean
 
-    fun actualTypeIsSubtypeOfExpectType(
-        expectType: KotlinTypeMarker,
-        actualType: KotlinTypeMarker
+    fun isSubtypeOf(
+        superType: KotlinTypeMarker,
+        subType: KotlinTypeMarker
     ): Boolean
 
     fun RegularClassSymbolMarker.isNotSamInterface(): Boolean
@@ -164,6 +146,7 @@ interface ExpectActualMatchingContext<T : DeclarationSymbolMarker> : TypeSystemC
     val CallableSymbolMarker.hasStableParameterNames: Boolean
 
     val CallableSymbolMarker.isJavaField: Boolean
+    val CallableSymbolMarker.canBeActualizedByJavaField: Boolean
 
     fun onMatchedMembers(
         expectSymbol: DeclarationSymbolMarker,
@@ -273,4 +256,12 @@ interface ExpectActualMatchingContext<T : DeclarationSymbolMarker> : TypeSystemC
         actualTypeRef: TypeRefMarker,
         checker: AnnotationsCheckerCallback,
     )
+
+    companion object {
+        @JvmStatic
+        val abstractMutableListModCountCallableId = CallableId(
+            ClassId(FqName("kotlin.collections"), Name.identifier("AbstractMutableList")),
+            Name.identifier("modCount")
+        )
+    }
 }

@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.sir.bridge;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.kotlin.test.TestMetadata;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -19,44 +18,50 @@ import java.util.regex.Pattern;
 @TestMetadata("native/swift/sir-compiler-bridge/testData")
 @TestDataPath("$PROJECT_ROOT")
 public class SirCompilerBridgeTestGenerated extends AbstractKotlinSirBridgeTest {
-    @Test
-    public void testAllFilesPresentInTestData() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/swift/sir-compiler-bridge/testData"), Pattern.compile("^([^\\.]+)$"), null, false);
-    }
+  @Test
+  public void testAllFilesPresentInTestData() {
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/swift/sir-compiler-bridge/testData"), Pattern.compile("^([^\\.]+)$"), null, false);
+  }
 
-    @Test
-    @TestMetadata("multiple_requests")
-    public void testMultiple_requests() throws Exception {
-        runTest("native/swift/sir-compiler-bridge/testData/multiple_requests/");
-    }
+  @Test
+  @TestMetadata("class_types")
+  public void testClass_types() {
+    runTest("native/swift/sir-compiler-bridge/testData/class_types/");
+  }
 
-    @Test
-    @TestMetadata("primitive_parameters")
-    public void testPrimitive_parameters() throws Exception {
-        runTest("native/swift/sir-compiler-bridge/testData/primitive_parameters/");
-    }
+  @Test
+  @TestMetadata("multiple_requests")
+  public void testMultiple_requests() {
+    runTest("native/swift/sir-compiler-bridge/testData/multiple_requests/");
+  }
 
-    @Test
-    @TestMetadata("primitive_types")
-    public void testPrimitive_types() throws Exception {
-        runTest("native/swift/sir-compiler-bridge/testData/primitive_types/");
-    }
+  @Test
+  @TestMetadata("primitive_parameters")
+  public void testPrimitive_parameters() {
+    runTest("native/swift/sir-compiler-bridge/testData/primitive_parameters/");
+  }
 
-    @Test
-    @TestMetadata("property_accessors")
-    public void testProperty_accessors() throws Exception {
-        runTest("native/swift/sir-compiler-bridge/testData/property_accessors/");
-    }
+  @Test
+  @TestMetadata("primitive_types")
+  public void testPrimitive_types() {
+    runTest("native/swift/sir-compiler-bridge/testData/primitive_types/");
+  }
 
-    @Test
-    @TestMetadata("smoke0")
-    public void testSmoke0() throws Exception {
-        runTest("native/swift/sir-compiler-bridge/testData/smoke0/");
-    }
+  @Test
+  @TestMetadata("property_accessors")
+  public void testProperty_accessors() {
+    runTest("native/swift/sir-compiler-bridge/testData/property_accessors/");
+  }
 
-    @Test
-    @TestMetadata("unsigned_primitive_types")
-    public void testUnsigned_primitive_types() throws Exception {
-        runTest("native/swift/sir-compiler-bridge/testData/unsigned_primitive_types/");
-    }
+  @Test
+  @TestMetadata("smoke0")
+  public void testSmoke0() {
+    runTest("native/swift/sir-compiler-bridge/testData/smoke0/");
+  }
+
+  @Test
+  @TestMetadata("unsigned_primitive_types")
+  public void testUnsigned_primitive_types() {
+    runTest("native/swift/sir-compiler-bridge/testData/unsigned_primitive_types/");
+  }
 }

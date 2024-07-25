@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -46,8 +46,6 @@ import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
 import org.jetbrains.kotlin.js.analyze.TopDownAnalyzerFacadeForJS
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
-import org.jetbrains.kotlin.js.config.WasmTarget
 import org.jetbrains.kotlin.library.metadata.CurrentKlibModuleOrigin
 import org.jetbrains.kotlin.library.metadata.KlibMetadataFactories
 import org.jetbrains.kotlin.library.metadata.KlibModuleOrigin
@@ -58,12 +56,15 @@ import org.jetbrains.kotlin.load.kotlin.ModuleVisibilityManager
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.native.FakeTopDownAnalyzerFacadeForNative
 import org.jetbrains.kotlin.platform.*
-import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.isNative
+import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.resolve.*
+import org.jetbrains.kotlin.resolve.LazyTopDownAnalyzer
+import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
+import org.jetbrains.kotlin.resolve.TargetEnvironment
+import org.jetbrains.kotlin.resolve.TopDownAnalysisMode
 import org.jetbrains.kotlin.resolve.jvm.JavaDescriptorResolver
 import org.jetbrains.kotlin.resolve.lazy.KotlinCodeAnalyzer
 import org.jetbrains.kotlin.resolve.lazy.declarations.FileBasedDeclarationProviderFactory
@@ -79,8 +80,9 @@ import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurato
 import org.jetbrains.kotlin.test.services.configuration.NativeEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.getDependencies
 import org.jetbrains.kotlin.test.util.KtTestUtil
-import org.jetbrains.kotlin.types.typeUtil.closure
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import org.jetbrains.kotlin.utils.closure
+import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import java.io.File
 
 class ClassicFrontendFacade(
@@ -182,7 +184,6 @@ class ClassicFrontendFacade(
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun performJvmModuleResolve(
         module: TestModule,
         project: Project,
@@ -197,7 +198,7 @@ class ClassicFrontendFacade(
         val moduleVisibilityManager = ModuleVisibilityManager.SERVICE.getInstance(project)
         configuration.getList(JVMConfigurationKeys.FRIEND_PATHS).forEach { moduleVisibilityManager.addFriendPath(it) }
 
-        val moduleTrace = NoScopeRecordCliBindingTrace()
+        val moduleTrace = NoScopeRecordCliBindingTrace(project)
         if (module.dependsOnDependencies.isEmpty()) {
             return TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(
                 project,
@@ -253,7 +254,6 @@ class ClassicFrontendFacade(
         return AnalysisResult.success(moduleTrace.bindingContext, moduleDescriptor)
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun performJsModuleResolve(
         project: Project,
         configuration: CompilerConfiguration,
@@ -310,7 +310,6 @@ class ClassicFrontendFacade(
         }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun performJsIrModuleResolve(
         module: TestModule,
         project: Project,
@@ -349,7 +348,7 @@ class ClassicFrontendFacade(
         dependencyDescriptors: List<ModuleDescriptor>,
         friendsDescriptors: List<ModuleDescriptor>,
     ): AnalysisResult {
-        val suffix = when (configuration.get(JSConfigurationKeys.WASM_TARGET, WasmTarget.JS)) {
+        val suffix = when (configuration.get(WasmConfigurationKeys.WASM_TARGET, WasmTarget.JS)) {
             WasmTarget.JS -> "-js"
             WasmTarget.WASI -> "-wasi"
             else -> error("Unexpected wasi target")
@@ -369,7 +368,7 @@ class ClassicFrontendFacade(
         val allDependencies = runtimeKlibs + dependencyDescriptors + friendLibraries + friendsDescriptors + transitiveLibraries
 
         val builtInModuleDescriptor = allDependencies.firstNotNullOfOrNull { it.builtIns }?.builtInsModule
-        val analyzerFacade = TopDownAnalyzerFacadeForWasm.facadeFor(configuration.get(JSConfigurationKeys.WASM_TARGET))
+        val analyzerFacade = TopDownAnalyzerFacadeForWasm.facadeFor(configuration.get(WasmConfigurationKeys.WASM_TARGET))
 
         return analyzerFacade.analyzeFiles(
             files,
@@ -393,7 +392,7 @@ class ClassicFrontendFacade(
         friendsDescriptors: List<ModuleDescriptorImpl>,
         dependsOnDescriptors: List<ModuleDescriptorImpl>,
     ): AnalysisResult {
-        val moduleTrace = NoScopeRecordCliBindingTrace()
+        val moduleTrace = NoScopeRecordCliBindingTrace(project)
         val runtimeKlibsNames = NativeEnvironmentConfigurator.getRuntimePathsForModule(module, testServices)
         val nativeFactories = KlibMetadataFactories(::KonanBuiltIns, NullFlexibleTypeDeserializer)
         val runtimeKlibs = loadKlib(nativeFactories, runtimeKlibsNames, configuration).mapNotNull { it as? ModuleDescriptorImpl }
@@ -405,7 +404,7 @@ class ClassicFrontendFacade(
             friendsDescriptors = friendsDescriptors,
             dependsOnDescriptors = dependsOnDescriptors,
             capabilities = mapOf(
-                // provides `klibModuleOrigin` capability needed in `ModuleDescriptor.isFromInteropLibrary()`
+                // provides `klibModuleOrigin` capability needed in `ModuleDescriptor.isFromCInteropLibrary()`
                 KlibModuleOrigin.CAPABILITY to CurrentKlibModuleOrigin,
             ),
         ) {
@@ -477,7 +476,6 @@ class ClassicFrontendFacade(
         override val refinesModuleInfos: List<ModuleInfo> = _moduleInfos.filter { it.module in module.allExpectedByModules }
     }
 
-    @OptIn(ExperimentalStdlibApi::class)
     private fun createModuleContext(
         module: TestModule,
         project: Project,

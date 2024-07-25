@@ -6,8 +6,6 @@
 package org.jetbrains.kotlin.fir.java.declarations
 
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
@@ -54,6 +52,7 @@ class FirJavaField @FirImplementationDetail constructor(
         private set
 
     init {
+        @OptIn(FirImplementationDetail::class)
         symbol.bind(this)
 
         @OptIn(ResolveStateAccess::class)
@@ -183,8 +182,6 @@ class FirJavaField @FirImplementationDetail constructor(
 
 @FirBuilderDsl
 internal class FirJavaFieldBuilder : FirFieldBuilder() {
-    var modality: Modality? = null
-    lateinit var visibility: Visibility
     var isFromSource: Boolean by Delegates.notNull()
     lateinit var annotationBuilder: () -> List<FirAnnotation>
     var lazyInitializer: Lazy<FirExpression?>? = null

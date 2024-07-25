@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.test.backend.handlers
 
-import com.intellij.rt.execution.junit.FileComparisonFailure
 import org.jetbrains.kotlin.backend.common.serialization.signature.PublicIdSignatureComputer
 import org.jetbrains.kotlin.backend.jvm.JvmSymbols
 import org.jetbrains.kotlin.backend.jvm.ir.hasPlatformDependent
@@ -27,6 +26,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.load.java.lazy.descriptors.isJavaField
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.codegenSuppressionChecker
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
@@ -34,6 +34,7 @@ import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_SIGNATURE
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.MUTE_SIGNATURE_COMPARISON_K2
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.SEPARATE_SIGNATURE_DUMP_FOR_K2
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_IDENTICAL
+import org.jetbrains.kotlin.test.model.AfterAnalysisChecker
 import org.jetbrains.kotlin.test.model.BackendKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
@@ -44,6 +45,7 @@ import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.test.utils.withExtension
 import org.jetbrains.kotlin.utils.Printer
 import org.jetbrains.kotlin.utils.addToStdlib.same
+import org.opentest4j.AssertionFailedError
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -103,11 +105,32 @@ class IrMangledNameAndSignatureDumpHandler(
 
     companion object {
         const val DUMP_EXTENSION = "sig.kt.txt"
+
+        private fun separateSignatureDirectiveNotPresent(testServices: TestServices): Boolean {
+            return SEPARATE_SIGNATURE_DUMP_FOR_K2 !in testServices.moduleStructure.allDirectives
+        }
+    }
+
+    override val additionalAfterAnalysisCheckers: List<Constructor<AfterAnalysisChecker>>
+        get() = listOf(::IdenticalChecker)
+
+    class IdenticalChecker(testServices: TestServices) : SimpleFirIrIdenticalChecker(testServices, trimLines = true) {
+        override val dumpExtension: String
+            get() = DUMP_EXTENSION
+
+        override fun markedAsIdentical(): Boolean {
+            return separateSignatureDirectiveNotPresent(testServices)
+        }
+
+        override fun processClassicFileIfContentIsIdentical(testDataFile: File) {
+            simpleChecker.removeDirectiveFromClassicFileAndAssert(testDataFile, SEPARATE_SIGNATURE_DUMP_FOR_K2)
+        }
     }
 
     private fun computeDumpExtension(): String {
-        return if (testServices.defaultsProvider.defaultFrontend == FrontendKinds.ClassicFrontend ||
-            SEPARATE_SIGNATURE_DUMP_FOR_K2 !in testServices.moduleStructure.allDirectives
+        return if (
+            testServices.defaultsProvider.defaultFrontend == FrontendKinds.ClassicFrontend ||
+            separateSignatureDirectiveNotPresent(testServices)
         ) {
             DUMP_EXTENSION
         } else {
@@ -163,12 +186,15 @@ class IrMangledNameAndSignatureDumpHandler(
     }
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
-        if (dumper.isEmpty()) return
+        if (dumper.isEmpty()) {
+            assertions.assertFileDoesntExist(expectedFile, DUMP_SIGNATURES)
+            return
+        }
         val frontendKind = testServices.defaultsProvider.defaultFrontend
         val muteDirectives = listOfNotNull(
             MUTE_SIGNATURE_COMPARISON_K2.takeIf { frontendKind == FrontendKinds.FIR },
         )
-        testServices.codegenSuppressionChecker.checkMuted<FileComparisonFailure>(muteDirectives) {
+        testServices.codegenSuppressionChecker.checkMuted<AssertionFailedError>(muteDirectives) {
             assertions.assertEqualsToFile(expectedFile, dumper.generateResultingDump())
         }
     }

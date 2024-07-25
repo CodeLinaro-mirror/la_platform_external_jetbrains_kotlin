@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirNameConflictsTr
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.isEffectivelyFinal
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl.Companion.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl.Companion.DEFAULT_STATUS_FOR_SUSPEND_MAIN_FUNCTION
 import org.jetbrains.kotlin.fir.declarations.impl.modifiersRepresentation
@@ -45,7 +44,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.utils.SmartSet
 
-val DEFAULT_STATUS_FOR_NORMAL_MAIN_FUNCTION = DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS
+val DEFAULT_STATUS_FOR_NORMAL_MAIN_FUNCTION: FirResolvedDeclarationStatus = DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS
 
 private val FirNamedFunctionSymbol.hasMainFunctionStatus
     get() = when (resolvedStatus.modifiersRepresentation) {
@@ -86,17 +85,26 @@ private fun FirBasedSymbol<*>.isCollectable(): Boolean {
 private val FirNamedFunctionSymbol.isCollectableAccordingToSource: Boolean
     get() = source?.kind !is KtFakeSourceElementKind || source?.kind == KtFakeSourceElementKind.DataClassGeneratedMembers
 
-private val FirBasedSymbol<*>.resolvedStatus
+internal val FirBasedSymbol<*>.resolvedStatus
     get() = when (this) {
         is FirCallableSymbol<*> -> resolvedStatus
         is FirClassLikeSymbol<*> -> resolvedStatus
         else -> null
     }
 
-internal fun isExpectAndActual(declaration1: FirBasedSymbol<*>, declaration2: FirBasedSymbol<*>): Boolean {
-    val status1 = declaration1.resolvedStatus ?: return false
-    val status2 = declaration2.resolvedStatus ?: return false
-    return (status1.isExpect && status2.isActual) || (status1.isActual && status2.isExpect)
+internal fun isExpectAndNonExpect(first: FirBasedSymbol<*>, second: FirBasedSymbol<*>): Boolean {
+    val firstIsExpect = first.resolvedStatus?.isExpect == true
+    val secondIsExpect = second.resolvedStatus?.isExpect == true
+    /*
+     * this `xor` is equivalent to the following check:
+     * when {
+     *    !firstIsExpect && secondIsExpect -> true
+     *    firstIsExpect && !secondIsExpect -> true
+     *    else -> false
+     * }
+     */
+
+    return firstIsExpect xor secondIsExpect
 }
 
 private class DeclarationBuckets {
@@ -158,8 +166,8 @@ class FirDeclarationCollector<D : FirBasedSymbol<*>>(
 }
 
 fun FirDeclarationCollector<FirBasedSymbol<*>>.collectClassMembers(klass: FirRegularClassSymbol) {
-    val otherDeclarations = mutableMapOf<String, MutableList<FirBasedSymbol<*>>>()
-    val functionDeclarations = mutableMapOf<String, MutableList<FirFunctionSymbol<*>>>()
+    val otherDeclarations = mutableMapOf<String, MutableSet<FirBasedSymbol<*>>>()
+    val functionDeclarations = mutableMapOf<String, MutableSet<FirFunctionSymbol<*>>>()
     val declaredMemberScope = klass.declaredMemberScope(context)
     val unsubstitutedScope = klass.unsubstitutedScope(context)
 
@@ -264,7 +272,7 @@ fun collectConflictingLocalFunctionsFrom(block: FirBlock, context: CheckerContex
     if (collectables.isEmpty()) return emptyMap()
 
     val inspector = FirDeclarationCollector<FirFunctionSymbol<*>>(context)
-    val functionDeclarations = mutableMapOf<String, MutableList<FirFunctionSymbol<*>>>()
+    val functionDeclarations = mutableMapOf<String, MutableSet<FirFunctionSymbol<*>>>()
 
     for (collectable in collectables) {
         when (collectable) {
@@ -287,10 +295,12 @@ fun collectConflictingLocalFunctionsFrom(block: FirBlock, context: CheckerContex
 private fun <D : FirBasedSymbol<*>, S : D> FirDeclarationCollector<D>.collect(
     declaration: S,
     representation: String,
-    map: MutableMap<String, MutableList<S>>,
+    map: MutableMap<String, MutableSet<S>>,
 ) {
-    map.getOrPut(representation, ::mutableListOf).also {
-        it.add(declaration)
+    map.getOrPut(representation, ::mutableSetOf).also {
+        if (!it.add(declaration)) {
+            return@also
+        }
 
         val conflicts = SmartSet.create<FirBasedSymbol<*>>()
         for (otherDeclaration in it) {
@@ -345,7 +355,7 @@ fun FirDeclarationCollector<FirBasedSymbol<*>>.collectTopLevel(file: FirFile, pa
                     conflictingFile
                 )
 
-                session.lookupTracker?.recordLookup(declarationName, file.packageFqName.asString(), declaration.source, file.source)
+                session.lookupTracker?.recordNameLookup(declarationName, file.packageFqName.asString(), declaration.source, file.source)
             }
         }
 
@@ -439,6 +449,16 @@ private fun FirClassLikeSymbol<*>.expandedClassWithConstructorsScope(context: Ch
     }
 }
 
+private fun shouldCheckForMultiplatformRedeclaration(dependency: FirBasedSymbol<*>, dependent: FirBasedSymbol<*>): Boolean {
+    if (dependency.moduleData !in dependent.moduleData.allDependsOnDependencies) return false
+
+    /*
+     * If one of declarations is expect and the other is not expect, ExpectActualChecker will handle this case
+     * All other cases (both are expect or both are not expect) should be reported as declarations conflict
+     */
+    return !isExpectAndNonExpect(dependency, dependent)
+}
+
 private fun FirDeclarationCollector<FirBasedSymbol<*>>.collectTopLevelConflict(
     declaration: FirBasedSymbol<*>,
     declarationPresentation: String,
@@ -448,7 +468,11 @@ private fun FirDeclarationCollector<FirBasedSymbol<*>>.collectTopLevelConflict(
     conflictingFile: FirFile? = null,
 ) {
     conflictingSymbol.lazyResolveToPhase(FirResolvePhase.STATUS)
-    if (conflictingSymbol == declaration || declaration.moduleData != conflictingSymbol.moduleData) return
+    if (conflictingSymbol == declaration) return
+    if (
+        declaration.moduleData != conflictingSymbol.moduleData &&
+        !shouldCheckForMultiplatformRedeclaration(declaration, conflictingSymbol)
+    ) return
     val actualConflictingPresentation = conflictingPresentation ?: FirRedeclarationPresenter.represent(conflictingSymbol)
     if (actualConflictingPresentation != declarationPresentation) return
     val actualConflictingFile =
@@ -496,7 +520,7 @@ private fun FirDeclarationCollector<*>.areNonConflictingCallables(
     declaration: FirBasedSymbol<*>,
     conflicting: FirBasedSymbol<*>,
 ): Boolean {
-    if (isExpectAndActual(declaration, conflicting) && declaration.moduleData != conflicting.moduleData) return true
+    if (isExpectAndNonExpect(declaration, conflicting) && declaration.moduleData != conflicting.moduleData) return true
 
     val declarationIsLowPriority = hasLowPriorityAnnotation(declaration.annotations)
     val conflictingIsLowPriority = hasLowPriorityAnnotation(conflicting.annotations)
@@ -508,10 +532,10 @@ private fun FirDeclarationCollector<*>.areNonConflictingCallables(
     val conflictingIsFinal = conflicting.isEffectivelyFinal(session)
 
     if (declarationIsFinal && conflictingIsFinal) {
-        val declarationIsHidden = declaration.isDeprecationLevelHidden(session.languageVersionSettings)
+        val declarationIsHidden = declaration.isDeprecationLevelHidden(session)
         if (declarationIsHidden) return true
 
-        val conflictingIsHidden = conflicting.isDeprecationLevelHidden(session.languageVersionSettings)
+        val conflictingIsHidden = conflicting.isDeprecationLevelHidden(session)
         if (conflictingIsHidden) return true
     }
 

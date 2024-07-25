@@ -17,7 +17,7 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.phaser.makeIrModulePhase
+import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.config.JvmAnalysisFlags
@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
 import org.jetbrains.kotlin.fileClasses.JvmMultifileClassPartInfo
 import org.jetbrains.kotlin.fileClasses.JvmSimpleFileClassInfo
 import org.jetbrains.kotlin.ir.PsiIrFileEntry
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstKind
@@ -49,13 +50,11 @@ import org.jetbrains.kotlin.resolve.inline.INLINE_ONLY_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import java.io.File
 
-internal val fileClassPhase = makeIrModulePhase(
-    ::FileClassLowering,
+@PhaseDescription(
     name = "FileClass",
     description = "Put file level function and property declaration into a class",
 )
-
-private class FileClassLowering(val context: JvmBackendContext) : FileLoweringPass {
+internal class FileClassLowering(val context: JvmBackendContext) : FileLoweringPass {
     override fun lower(irFile: IrFile) {
         val classes = ArrayList<IrClass>()
         val fileClassMembers = ArrayList<IrDeclaration>()
@@ -98,7 +97,7 @@ private class FileClassLowering(val context: JvmBackendContext) : FileLoweringPa
             else
                 IrDeclarationOrigin.SYNTHETIC_FILE_CLASS
         return context.irFactory.createClass(
-            startOffset = 0,
+            startOffset = if (fileEntry.maxOffset == UNDEFINED_OFFSET) UNDEFINED_OFFSET else 0,
             endOffset = fileEntry.maxOffset,
             origin = fileClassOrigin,
             name = fileClassInfo.fileClassFqName.shortName(),

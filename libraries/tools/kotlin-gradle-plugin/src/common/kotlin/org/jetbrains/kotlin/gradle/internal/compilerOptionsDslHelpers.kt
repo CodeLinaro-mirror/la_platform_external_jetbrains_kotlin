@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.external.DecoratedExternalKotlinTa
 import org.jetbrains.kotlin.gradle.plugin.sources.DefaultLanguageSettingsBuilder
 import org.jetbrains.kotlin.gradle.utils.newInstance
 
-internal fun KotlinMultiplatformExtension.syncCommonOptions(
+internal fun KotlinMultiplatformExtension.syncCommonMultiplatformOptions(
     extensionCompilerOptions: KotlinCommonCompilerOptions
 ) {
     targets.configureEach { target ->
@@ -47,7 +47,7 @@ internal fun KotlinMultiplatformExtension.syncCommonOptions(
 
 internal val KotlinTarget.targetCompilerOptions: KotlinCommonCompilerOptions
     get() = when (this) {
-        is HasConfigurableCompilerOptions<*> -> compilerOptions
+        is HasConfigurableKotlinCompilerOptions<*> -> compilerOptions
         // Required for external targets that do not implement 'HasConfigurableCompilerOptions' interface
         is DecoratedExternalKotlinTarget -> delegate.compilerOptions
         else -> throw IllegalStateException("'KotlinTarget' type ${this.javaClass} does not allow to configure compiler options!")

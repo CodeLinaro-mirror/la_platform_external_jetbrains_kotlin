@@ -34,7 +34,7 @@ fun FirClassLikeDeclaration.getContainingDeclaration(session: FirSession): FirCl
     return null
 }
 
-fun FirClassLikeSymbol<out FirClassLikeDeclaration>.getContainingDeclaration(session: FirSession): FirClassLikeSymbol<out FirClassLikeDeclaration>? {
+fun FirClassLikeSymbol<FirClassLikeDeclaration>.getContainingDeclaration(session: FirSession): FirClassLikeSymbol<FirClassLikeDeclaration>? {
     if (isLocal) {
         return (this as? FirRegularClassSymbol)?.containingClassForLocalAttr?.toFirRegularClassSymbol(session)
     } else {
@@ -48,6 +48,9 @@ fun FirClassLikeSymbol<out FirClassLikeDeclaration>.getContainingDeclaration(ses
     return null
 }
 
+// TODO(KT-66349) Investigate and fix the contract.
+//  - Why aren't we supporting nested `inner` classes?
+//  - Why are we traversing super types?
 fun isValidTypeParameterFromOuterDeclaration(
     typeParameterSymbol: FirTypeParameterSymbol,
     declaration: FirDeclaration?,

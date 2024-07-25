@@ -6,7 +6,7 @@
 // This file was generated automatically. See compiler/fir/tree/tree-generator/Readme.md.
 // DO NOT MODIFY IT MANUALLY.
 
-@file:Suppress("DuplicatedCode", "unused")
+@file:Suppress("DuplicatedCode")
 
 package org.jetbrains.kotlin.fir.expressions.impl
 
@@ -23,25 +23,26 @@ import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.types.ConstantValueKind
 
 @OptIn(UnresolvedExpressionTypeAccess::class)
-internal class FirLiteralExpressionImpl<T> (
+internal class FirLiteralExpressionImpl(
     override val source: KtSourceElement?,
     @property:UnresolvedExpressionTypeAccess
     override var coneTypeOrNull: ConeKotlinType?,
     override var annotations: MutableOrEmptyList<FirAnnotation>,
-    override var kind: ConstantValueKind<T>,
-    override val value: T,
-) : FirLiteralExpression<T>() {
+    override var kind: ConstantValueKind,
+    override val value: Any?,
+    override val prefix: String?,
+) : FirLiteralExpression() {
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         annotations.forEach { it.accept(visitor, data) }
     }
 
-    override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirLiteralExpressionImpl<T> {
+    override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirLiteralExpressionImpl {
         transformAnnotations(transformer, data)
         return this
     }
 
-    override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirLiteralExpressionImpl<T> {
+    override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirLiteralExpressionImpl {
         annotations.transformInplace(transformer, data)
         return this
     }
@@ -54,7 +55,7 @@ internal class FirLiteralExpressionImpl<T> (
         annotations = newAnnotations.toMutableOrEmpty()
     }
 
-    override fun replaceKind(newKind: ConstantValueKind<T>) {
+    override fun replaceKind(newKind: ConstantValueKind) {
         kind = newKind
     }
 }

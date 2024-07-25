@@ -6,36 +6,36 @@
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeProvider
 
 import org.jetbrains.kotlin.analysis.api.analyze
-import org.jetbrains.kotlin.analysis.api.renderer.types.impl.KtTypeRendererForDebug
-import org.jetbrains.kotlin.analysis.api.types.KtType
+import org.jetbrains.kotlin.analysis.api.renderer.types.impl.KaTypeRendererForDebug
+import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.utils.executeOnPooledThreadInReadAction
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import org.jetbrains.kotlin.types.Variance
 
 abstract class AbstractAnalysisApiGetSuperTypesTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val expression = testServices.expressionMarkerProvider.getSelectedElement(mainFile)
         expression as? KtExpression ?: error("unexpected expression kind ${expression::class}")
 
         val actual = executeOnPooledThreadInReadAction {
             analyze(expression) {
-                val expectedType = expression.getKtType() ?: error("expect to get type of expression '${expression.text}'")
-                val directSuperTypes = expectedType.getDirectSuperTypes()
-                val approximatedDirectSuperTypes = expectedType.getDirectSuperTypes(shouldApproximate = true)
-                val allSuperTypes = expectedType.getAllSuperTypes()
-                val approximatedAllSuperTypes = expectedType.getAllSuperTypes(shouldApproximate = true)
+                val expectedType = expression.expressionType ?: error("expect to get type of expression '${expression.text}'")
+                val directSuperTypes = expectedType.directSupertypes.toList()
+                val approximatedDirectSuperTypes = expectedType.directSupertypes(shouldApproximate = true).toList()
+                val allSuperTypes = expectedType.allSupertypes.toList()
+                val approximatedAllSuperTypes = expectedType.allSupertypes(shouldApproximate = true).toList()
 
                 buildString {
-                    fun List<KtType>.print(name: String) {
+                    fun List<KaType>.print(name: String) {
                         appendLine(name)
                         for (type in this) {
-                            appendLine(type.render(KtTypeRendererForDebug.WITH_QUALIFIED_NAMES, position = Variance.INVARIANT))
+                            appendLine(type.render(KaTypeRendererForDebug.WITH_QUALIFIED_NAMES, position = Variance.INVARIANT))
                         }
                         appendLine()
                     }

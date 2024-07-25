@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,11 +8,10 @@ package org.jetbrains.kotlin.generators.tree
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.generators.tree.printer.*
 import org.jetbrains.kotlin.types.Variance
-import org.jetbrains.kotlin.utils.SmartPrinter
 import org.jetbrains.kotlin.utils.withIndent
 
 abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, *>, Field : AbstractField<Field>>(
-    val printer: SmartPrinter,
+    val printer: ImportCollectingPrinter,
 ) {
 
     /**
@@ -43,7 +42,7 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
     /**
      * The superclass for this visitor class.
      */
-    abstract val visitorSuperType: ClassRef<PositionTypeParameterRef>?
+    abstract val visitorSuperTypes: List<ClassRef<PositionTypeParameterRef>>
 
     /**
      * If `true`, visitor methods for generic tree elements will be parameterized correspondingly.
@@ -64,8 +63,7 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
     /**
      * Prints a single visitor method declaration, without body.
      */
-    context(ImportCollector)
-    protected fun SmartPrinter.printVisitMethodDeclaration(
+    protected fun ImportCollectingPrinter.printVisitMethodDeclaration(
         element: Element,
         hasDataParameter: Boolean = true,
         modality: Modality? = null,
@@ -94,7 +92,6 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
         )
     }
 
-    context(ImportCollector)
     protected fun printMethodDeclarationForElement(element: Element, modality: Modality? = null, override: Boolean) {
         printer.run {
             println()
@@ -106,7 +103,6 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
         }
     }
 
-    context(ImportCollector)
     protected open fun printMethodsForElement(element: Element) {
         printer.run {
             val parentInVisitor = parentInVisitor(element)
@@ -114,11 +110,11 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
             printMethodDeclarationForElement(
                 element,
                 modality = when {
-                    visitorSuperType == null && parentInVisitor == null && visitorType.kind == TypeKind.Class -> Modality.ABSTRACT
-                    visitorSuperType == null && parentInVisitor != null && visitorType.kind == TypeKind.Class -> Modality.OPEN
+                    visitorSuperTypes.isEmpty() && parentInVisitor == null && visitorType.kind == TypeKind.Class -> Modality.ABSTRACT
+                    visitorSuperTypes.isEmpty() && parentInVisitor != null && visitorType.kind == TypeKind.Class -> Modality.OPEN
                     else -> null
                 },
-                override = parentInVisitor != null && visitorSuperType != null,
+                override = parentInVisitor != null && visitorSuperTypes.isNotEmpty(),
             )
             if (parentInVisitor != null) {
                 println(" =")
@@ -130,11 +126,9 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
         }
     }
 
-    context(ImportCollector)
-    protected open fun SmartPrinter.printAdditionalMethods() {
+    protected open fun ImportCollectingPrinter.printAdditionalMethods() {
     }
 
-    context(ImportCollector)
     open fun printVisitor(elements: List<Element>) {
         val visitorType = this.visitorType
         printer.run {
@@ -144,9 +138,7 @@ abstract class AbstractVisitorPrinter<Element : AbstractElement<Element, Field, 
                 TypeKind.Class -> print("abstract class ")
             }
             print(visitorType.simpleName, visitorTypeParameters.typeParameters())
-            visitorSuperType?.let {
-                print(" : ", it.render(), it.inheritanceClauseParenthesis())
-            }
+            printInheritanceClause(visitorSuperTypes)
             print(visitorTypeParameters.multipleUpperBoundsList())
             printBlock {
                 printAdditionalMethods()

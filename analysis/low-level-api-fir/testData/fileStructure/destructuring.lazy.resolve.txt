@@ -1,6 +1,6 @@
 FILE: [ResolvedTo(BODY_RESOLVE)] destructuring.kts
-    context(<script>@R|kotlin/script/templates/standard/ScriptTemplateWithArgs|)
     SCRIPT: [ResolvedTo(BODY_RESOLVE)] <script-destructuring.kts>
+        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(BODY_RESOLVE)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final [ResolvedTo(BODY_RESOLVE)] var a: R|kotlin/Int| = Int(-1)
@@ -35,6 +35,8 @@ FILE: [ResolvedTo(BODY_RESOLVE)] destructuring.kts
 
         [ResolvedTo(BODY_RESOLVE)] lval <destruct>: R|MyPair| = R|/pair|
         public final [ResolvedTo(BODY_RESOLVE)] val first: R|kotlin/Int| = R|<local>/<destruct>|.R|/MyPair.component1|()
-
+            public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int|
 
         public final [ResolvedTo(BODY_RESOLVE)] val last: R|kotlin/Int| = R|<local>/<destruct>|.R|/MyPair.component2|()
+            public [ResolvedTo(BODY_RESOLVE)] get(): R|kotlin/Int|
+

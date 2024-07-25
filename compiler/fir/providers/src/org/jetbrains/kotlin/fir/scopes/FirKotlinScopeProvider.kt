@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,10 +15,7 @@ import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
-import org.jetbrains.kotlin.fir.declarations.utils.delegateFields
-import org.jetbrains.kotlin.fir.declarations.utils.isData
-import org.jetbrains.kotlin.fir.declarations.utils.isExpect
-import org.jetbrains.kotlin.fir.declarations.utils.isInline
+import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeRawScopeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
@@ -94,13 +91,26 @@ class FirKotlinScopeProvider(
         }
     }
 
-    override fun getStaticMemberScopeForCallables(
+    override fun getStaticCallableMemberScope(
         klass: FirClass,
         useSiteSession: FirSession,
         scopeSession: ScopeSession
+    ): FirContainingNamesAwareScope? = getStaticCallableMemberScopeImpl(klass, useSiteSession, scopeSession, forBackend = false)
+
+    override fun getStaticCallableMemberScopeForBackend(
+        klass: FirClass,
+        useSiteSession: FirSession,
+        scopeSession: ScopeSession,
+    ): FirContainingNamesAwareScope? = getStaticCallableMemberScopeImpl(klass, useSiteSession, scopeSession, forBackend = true)
+
+    private fun getStaticCallableMemberScopeImpl(
+        klass: FirClass,
+        useSiteSession: FirSession,
+        scopeSession: ScopeSession,
+        forBackend: Boolean
     ): FirContainingNamesAwareScope? {
-        return when (klass.classKind) {
-            ClassKind.ENUM_CLASS -> FirNameAwareOnlyCallablesScope(
+        return when {
+            klass.classKind == ClassKind.ENUM_CLASS -> FirNameAwareOnlyCallablesScope(
                 FirStaticScope(
                     useSiteSession.declaredMemberScope(
                         klass,
@@ -108,6 +118,12 @@ class FirKotlinScopeProvider(
                     )
                 )
             )
+            forBackend -> {
+                val superClass = klass.superConeTypes.firstNotNullOfOrNull {
+                    it.fullyExpandedType(useSiteSession).toRegularClassSymbol(useSiteSession)?.takeIf { it.classKind == ClassKind.CLASS }
+                }?.fir
+                superClass?.staticScopeForBackend(useSiteSession, scopeSession)
+            }
             else -> null
         }
     }
@@ -160,7 +176,7 @@ object FirPlatformDeclarationFilter {
         // Optimization: only check the annotations for functions named "getOrDefault" and "remove",
         // since only two functions with these names in kotlin.collections.Map are currently annotated with @PlatformDependent.
         // This also allows to optimize more heavyweight FirJvmPlatformDeclarationFilter as it uses this function
-        return function.name !in namesToCheck || !function.hasAnnotation(StandardNames.FqNames.platformDependentClassId, session)
+        return function.name !in namesToCheck || !function.symbol.hasAnnotation(StandardNames.FqNames.platformDependentClassId, session)
     }
 
     private val namesToCheck = listOf("getOrDefault", "remove").map(Name::identifier)

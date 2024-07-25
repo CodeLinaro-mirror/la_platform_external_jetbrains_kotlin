@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,14 +8,19 @@ package org.jetbrains.kotlin.fir.renderer
 import org.jetbrains.kotlin.builtins.functions.AllowedToUsedOnlyInK1
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKindExtractor
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.FirAnnotationContainer
+import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.FirPackageDirective
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.contracts.FirEffectDeclaration
 import org.jetbrains.kotlin.fir.contracts.description.ConeContractRenderer
-import org.jetbrains.kotlin.fir.contracts.impl.FirEmptyContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.impl.*
+import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
+import org.jetbrains.kotlin.fir.expressions.impl.FirExpressionStub
+import org.jetbrains.kotlin.fir.expressions.impl.FirLazyDelegatedConstructorCall
+import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
+import org.jetbrains.kotlin.fir.isCatchParameter
 import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.*
@@ -24,6 +29,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
+import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 import java.util.*
 
 class FirRenderer(
@@ -43,7 +49,6 @@ class FirRenderer(
     override val referencedSymbolRenderer: FirSymbolRenderer = FirSymbolRenderer(),
     override val valueParameterRenderer: FirValueParameterRenderer? = FirValueParameterRenderer(),
     override val errorExpressionRenderer: FirErrorExpressionRenderer? = FirErrorExpressionOnlyErrorRenderer(),
-    override val fileAnnotationsContainerRenderer: FirFileAnnotationsContainerRenderer? = null,
     override val resolvedNamedReferenceRenderer: FirResolvedNamedReferenceRenderer = FirResolvedNamedReferenceRendererWithLabel(),
     override val resolvedQualifierRenderer: FirResolvedQualifierRenderer = FirResolvedQualifierRendererWithLabel(),
     private val lineBreakAfterContextReceivers: Boolean = true,
@@ -51,24 +56,24 @@ class FirRenderer(
     override val getClassCallRenderer: FirGetClassCallRenderer = FirGetClassCallRendererForDebugging(),
 ) : FirRendererComponents {
 
-    override val visitor = Visitor()
-    override val printer = FirPrinter(builder)
+    override val visitor: Visitor = Visitor()
+    override val printer: FirPrinter = FirPrinter(builder)
 
     companion object {
-        fun noAnnotationBodiesAccessorAndArguments(): FirRenderer =
-            FirRenderer(
-                annotationRenderer = null, bodyRenderer = null, propertyAccessorRenderer = null,
-                callArgumentsRenderer = FirCallNoArgumentsRenderer()
-            )
+        fun noAnnotationBodiesAccessorAndArguments(): FirRenderer = FirRenderer(
+            annotationRenderer = null,
+            bodyRenderer = null,
+            propertyAccessorRenderer = null,
+            callArgumentsRenderer = FirCallNoArgumentsRenderer(),
+        )
 
-        fun withResolvePhase(): FirRenderer =
-            FirRenderer(
-                resolvePhaseRenderer = FirResolvePhaseRenderer(),
-                fileAnnotationsContainerRenderer = FirFileAnnotationsContainerRenderer(),
-            )
+        fun withResolvePhase(): FirRenderer = FirRenderer(
+            resolvePhaseRenderer = FirResolvePhaseRenderer(),
+        )
 
-        fun withDeclarationAttributes(): FirRenderer =
-            FirRenderer(declarationRenderer = FirDeclarationRendererWithAttributes())
+        fun withDeclarationAttributes(): FirRenderer = FirRenderer(
+            declarationRenderer = FirDeclarationRendererWithAttributes(),
+        )
 
         fun forReadability(): FirRenderer = FirRenderer(
             typeRenderer = ConeTypeRenderer(),
@@ -78,8 +83,8 @@ class FirRenderer(
             propertyAccessorRenderer = null,
             callArgumentsRenderer = FirCallNoArgumentsRenderer(),
             modifierRenderer = FirPartialModifierRenderer(),
-            valueParameterRenderer = FirValueParameterRendererNoDefaultValue(),
-            declarationRenderer = FirDeclarationRenderer("local ")
+            valueParameterRenderer = FirValueParameterRendererForReadability(),
+            declarationRenderer = FirDeclarationRenderer("local "),
         )
     }
 
@@ -100,7 +105,6 @@ class FirRenderer(
         referencedSymbolRenderer.components = this
         valueParameterRenderer?.components = this
         errorExpressionRenderer?.components = this
-        fileAnnotationsContainerRenderer?.components = this
         resolvedNamedReferenceRenderer.components = this
         resolvedQualifierRenderer.components = this
         getClassCallRenderer.components = this
@@ -202,7 +206,7 @@ class FirRenderer(
             printer.println(file.name)
 
             printer.pushIndent()
-            file.annotationsContainer?.let { visitFileAnnotationsContainer(it) }
+            annotationRenderer?.render(file)
             visitPackageDirective(file.packageDirective)
             file.imports.forEach { it.accept(this) }
             file.declarations.forEach { it.accept(this) }
@@ -210,13 +214,17 @@ class FirRenderer(
         }
 
         override fun visitScript(script: FirScript) {
-            renderContexts(script.contextReceivers)
             annotationRenderer?.render(script)
             printer.print("SCRIPT: ")
             declarationRenderer?.renderPhaseAndAttributes(script) ?: resolvePhaseRenderer?.render(script)
             printer.println(script.name)
 
             printer.pushIndent()
+            // following the function convention, although in a compiled script parameters are passed before receivers
+            script.receivers.forEach {
+                it.accept(this)
+                printer.newLine()
+            }
             script.parameters.forEach {
                 it.accept(this)
                 printer.newLine()
@@ -232,17 +240,15 @@ class FirRenderer(
             printer.popIndent()
         }
 
+        override fun visitScriptReceiverParameter(scriptReceiverParameter: FirScriptReceiverParameter) {
+            print("<script receiver parameter>: ")
+            annotationRenderer?.render(scriptReceiverParameter)
+            scriptReceiverParameter.typeRef.accept(this)
+        }
+
         override fun visitCodeFragment(codeFragment: FirCodeFragment) {
             printer.print("CODE FRAGMENT:")
             bodyRenderer?.renderBody(codeFragment.block)
-        }
-
-        override fun visitFileAnnotationsContainer(fileAnnotationsContainer: FirFileAnnotationsContainer) {
-            if (fileAnnotationsContainerRenderer != null) {
-                fileAnnotationsContainerRenderer.render(fileAnnotationsContainer)
-            } else {
-                annotationRenderer?.render(fileAnnotationsContainer)
-            }
         }
 
         override fun visitAnnotation(annotation: FirAnnotation) {
@@ -431,7 +437,9 @@ class FirRenderer(
             bodyRenderer?.renderBody(body, listOfNotNull<FirStatement>(delegatedConstructor))
         }
 
-        override fun visitErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor) = visitConstructor(errorPrimaryConstructor)
+        override fun visitErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor) {
+            visitConstructor(errorPrimaryConstructor)
+        }
 
         override fun visitPropertyAccessor(propertyAccessor: FirPropertyAccessor) {
             annotationRenderer?.render(propertyAccessor)
@@ -445,6 +453,7 @@ class FirRenderer(
         }
 
         override fun visitAnonymousFunctionExpression(anonymousFunctionExpression: FirAnonymousFunctionExpression) {
+            if (anonymousFunctionExpression.isTrailingLambda) print("<L> = ")
             visitAnonymousFunction(anonymousFunctionExpression.anonymousFunction)
         }
 
@@ -699,7 +708,7 @@ class FirRenderer(
             print("LAZY_EXPRESSION")
         }
 
-        override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>) {
+        override fun visitLiteralExpression(literalExpression: FirLiteralExpression) {
             annotationRenderer?.render(literalExpression)
             val kind = literalExpression.kind
             val value = literalExpression.value
@@ -742,11 +751,6 @@ class FirRenderer(
             spreadArgumentExpression.expression.accept(this)
         }
 
-        override fun visitLambdaArgumentExpression(lambdaArgumentExpression: FirLambdaArgumentExpression) {
-            print("<L> = ")
-            lambdaArgumentExpression.expression.accept(this)
-        }
-
         override fun visitVarargArgumentsExpression(varargArgumentsExpression: FirVarargArgumentsExpression) {
             print("vararg(")
             renderSeparated(varargArgumentsExpression.arguments, visitor)
@@ -754,8 +758,17 @@ class FirRenderer(
         }
 
         override fun visitSamConversionExpression(samConversionExpression: FirSamConversionExpression) {
+            val expression = samConversionExpression.expression
+
+            if (expression is FirAnonymousFunctionExpression && expression.isTrailingLambda) {
+                print("<L> = SAM(")
+                expression.anonymousFunction.accept(this)
+                print(")")
+                return
+            }
+
             print("SAM(")
-            samConversionExpression.expression.accept(this)
+            expression.accept(this)
             print(")")
         }
 
@@ -1063,14 +1076,14 @@ class FirRenderer(
             variableAssignment.rValue.accept(visitor)
         }
 
-        override fun visitAugmentedArraySetCall(augmentedArraySetCall: FirAugmentedArraySetCall) {
-            annotationRenderer?.render(augmentedArraySetCall)
+        override fun visitIndexedAccessAugmentedAssignment(indexedAccessAugmentedAssignment: FirIndexedAccessAugmentedAssignment) {
+            annotationRenderer?.render(indexedAccessAugmentedAssignment)
             print("ArraySet:[")
-            augmentedArraySetCall.lhsGetCall.accept(this)
+            indexedAccessAugmentedAssignment.lhsGetCall.accept(this)
             print(" ")
-            print(augmentedArraySetCall.operation.operator)
+            print(indexedAccessAugmentedAssignment.operation.operator)
             print(" ")
-            augmentedArraySetCall.rhs.accept(this)
+            indexedAccessAugmentedAssignment.rhs.accept(this)
             print("]")
         }
 
@@ -1096,13 +1109,13 @@ class FirRenderer(
             print(")")
         }
 
-        override fun visitAssignmentOperatorStatement(assignmentOperatorStatement: FirAssignmentOperatorStatement) {
-            annotationRenderer?.render(assignmentOperatorStatement)
-            print(assignmentOperatorStatement.operation.operator)
+        override fun visitAugmentedAssignment(augmentedAssignment: FirAugmentedAssignment) {
+            annotationRenderer?.render(augmentedAssignment)
+            print(augmentedAssignment.operation.operator)
             print("(")
-            assignmentOperatorStatement.leftArgument.accept(visitor)
+            augmentedAssignment.leftArgument.accept(visitor)
             print(", ")
-            assignmentOperatorStatement.rightArgument.accept(visitor)
+            augmentedAssignment.rightArgument.accept(visitor)
             print(")")
         }
 
@@ -1172,7 +1185,7 @@ class FirRenderer(
         }
 
         override fun visitContractDescription(contractDescription: FirContractDescription) {
-            require(contractDescription is FirEmptyContractDescription)
+            shouldNotBeCalled()
         }
 
         override fun visitPackageDirective(packageDirective: FirPackageDirective) {

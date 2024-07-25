@@ -14,11 +14,13 @@
 #include "GlobalsRegistry.hpp"
 #include "KAssert.h"
 #include "Natives.h"
+#include "ObjCBackRef.hpp"
 #include "ObjectOps.hpp"
 #include "Porting.h"
 #include "ReferenceOps.hpp"
 #include "Runtime.h"
 #include "SafePoint.hpp"
+#include "SpecialRefRegistry.hpp"
 #include "StableRef.hpp"
 #include "ThreadData.hpp"
 #include "ThreadRegistry.hpp"
@@ -511,14 +513,6 @@ extern "C" RUNTIME_NOTHROW void DisposeStablePointer(void* pointer) {
 
     // Can be safely called in any thread state.
     mm::StableRef(static_cast<mm::RawSpecialRef*>(pointer)).dispose();
-}
-
-extern "C" RUNTIME_NOTHROW void DisposeStablePointerFor(MemoryState* memoryState, void* pointer) {
-    if (!pointer)
-        return;
-
-    // Can be safely called in any thread state.
-    mm::StableRef(static_cast<mm::RawSpecialRef*>(pointer)).disposeOn(*mm::FromMemoryState(memoryState)->Get());
 }
 
 extern "C" RUNTIME_NOTHROW OBJ_GETTER(DerefStablePointer, void* pointer) {

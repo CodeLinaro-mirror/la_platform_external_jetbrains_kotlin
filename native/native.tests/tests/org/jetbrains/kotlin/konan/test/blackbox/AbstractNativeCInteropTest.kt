@@ -13,10 +13,12 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.TestCInteropArgs
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCompilerArgs
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationResult
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationResult.Companion.assertSuccess
+import org.jetbrains.kotlin.konan.test.blackbox.support.util.defFileIsSupportedOn
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.getAbsoluteFile
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.dumpMetadata
 import org.jetbrains.kotlin.konan.util.CInteropHints
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEqualsToFile
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Tag
@@ -104,18 +106,15 @@ abstract class AbstractNativeCInteropTest : AbstractNativeCInteropBaseTest() {
                 "Test failed. CInterop compilation result was: $testCompilationResult"
             }
         } else {
-            val metadata = testCompilationResult.assertSuccess().resultingArtifact.dumpMetadata(kotlinNativeClassLoader.classLoader, false, null)
-                .let {
-                    if (ignoreExperimentalForeignApi) {
-                        it.replace("@ExperimentalForeignApi ", "")
-                    } else {
-                        it
-                    }
-                }
-            val expectedContents = goldenFile.readText()
-            assertEquals(StringUtilRt.convertLineSeparators(expectedContents), StringUtilRt.convertLineSeparators(metadata)) {
-                "Test failed. CInterop compilation result was: $testCompilationResult"
-            }
+            val metadata = testCompilationResult.assertSuccess().resultingArtifact
+                .dumpMetadata(kotlinNativeClassLoader.classLoader, false, null)
+
+            val filteredMetadata = if (ignoreExperimentalForeignApi)
+                metadata.lineSequence().filterNot { it.trim() == "@kotlinx/cinterop/ExperimentalForeignApi" }.joinToString("\n")
+            else
+                metadata
+
+            assertEqualsToFile(goldenFile, filteredMetadata)
         }
     }
 
@@ -129,49 +128,30 @@ abstract class AbstractNativeCInteropTest : AbstractNativeCInteropBaseTest() {
             KonanTarget.ANDROID_ARM64 -> "ARM64"
             KonanTarget.ANDROID_X64 -> "X64"
             KonanTarget.ANDROID_X86 -> "CPointerByteVar"
-            KonanTarget.IOS_ARM32 -> "COpaquePointer"
             KonanTarget.IOS_ARM64 -> "CPointerByteVar"
             KonanTarget.IOS_SIMULATOR_ARM64 -> "CPointerByteVar"
             KonanTarget.IOS_X64 -> "X64"
             KonanTarget.LINUX_ARM32_HFP -> "ARM32"
             KonanTarget.LINUX_ARM64 -> "ARM64"
-            KonanTarget.LINUX_MIPS32 -> "COpaquePointer"
-            KonanTarget.LINUX_MIPSEL32 -> "COpaquePointer"
             KonanTarget.LINUX_X64 -> "X64"
             KonanTarget.MACOS_ARM64 -> "CPointerByteVar"
             KonanTarget.MACOS_X64 -> "X64"
             KonanTarget.MINGW_X64 -> "CPointerByteVar"
-            KonanTarget.MINGW_X86 -> "CPointerByteVar"
             KonanTarget.TVOS_ARM64 -> "CPointerByteVar"
             KonanTarget.TVOS_SIMULATOR_ARM64 -> "CPointerByteVar"
             KonanTarget.TVOS_X64 -> "X64"
-            KonanTarget.WASM32 -> "COpaquePointer"
             KonanTarget.WATCHOS_ARM32 -> "CPointerByteVar"
             KonanTarget.WATCHOS_ARM64 -> "CPointerByteVar"
             KonanTarget.WATCHOS_DEVICE_ARM64 -> "CPointerByteVar"
             KonanTarget.WATCHOS_SIMULATOR_ARM64 -> "CPointerByteVar"
             KonanTarget.WATCHOS_X64 -> "X64"
-            KonanTarget.WATCHOS_X86 -> "CPointerByteVar"
-            is KonanTarget.ZEPHYR -> "COpaquePointer"
         }
         return testPathFull.resolve("contents.gold.${goldenFilePart}.txt")
     }
 }
 
 internal fun muteCInteropTestIfNecessary(defFile: File, target: KonanTarget) {
-    if (target.family.isAppleFamily) return
-
-    defFile.readLines().forEach { line ->
-        if (line.startsWith("---")) return
-
-        val parts = line.split('=')
-        if (parts.size == 2
-            && parts[0].trim().equals("language", ignoreCase = true)
-            && parts[1].trim().equals("Objective-C", ignoreCase = true)
-        ) {
-            Assumptions.abort<Nothing>("C-interop tests with Objective-C are not supported at non-Apple targets, def file: $defFile")
-        }
+    if (!defFile.defFileIsSupportedOn(target)) {
+        Assumptions.abort<Nothing>("C-interop tests with Objective-C are not supported at non-Apple targets, def file: $defFile")
     }
 }
-//Assumptions.assumeFalse(defHasObjC && !targets.testTarget.family.isAppleFamily)
-

@@ -78,7 +78,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
 
     @DisplayName("incremental compilation works with dagger")
     @GradleAndroidTest
-    open fun testAndroidDaggerIC(
+    fun testAndroidDaggerIC(
         gradleVersion: GradleVersion,
         agpVersion: String,
         jdkVersion: JdkVersions.ProvidedJdk,
@@ -136,9 +136,10 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
             appProject.buildGradle.modify {
                 //language=Gradle
                 """
-                apply plugin: 'org.jetbrains.kotlin.kapt'
-                $it
-                """.trimIndent()
+                |plugins {
+                |   id("org.jetbrains.kotlin.kapt")
+                |${it.substringAfter("plugins {")}
+                """.trimMargin()
             }
 
             build(":app:testDebugUnitTest")
@@ -160,7 +161,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
 
     @DisplayName("inter-project IC works with kapt")
     @GradleAndroidTest
-    open fun testInterProjectIC(
+    fun testInterProjectIC(
         gradleVersion: GradleVersion,
         agpVersion: String,
         jdkVersion: JdkVersions.ProvidedJdk,

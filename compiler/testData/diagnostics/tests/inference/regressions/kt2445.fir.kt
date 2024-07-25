@@ -1,9 +1,9 @@
-// !DIAGNOSTICS: -UNREACHABLE_CODE
+// DIAGNOSTICS: -UNREACHABLE_CODE
 //KT-2445 Calling method with function with generic parameter causes compile-time exception
 package a
 
 fun main() {
-    <!NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>test<!> <!CANNOT_INFER_PARAMETER_TYPE!>{
+    <!CANNOT_INFER_PARAMETER_TYPE, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>test<!> <!CANNOT_INFER_PARAMETER_TYPE!>{
 
     }<!>
 }

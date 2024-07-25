@@ -1,4 +1,4 @@
-// !CHECK_TYPE
+// CHECK_TYPE
 package a
 
 import checkType
@@ -32,7 +32,7 @@ fun test() {
 
     other(<!ARGUMENT_TYPE_MISMATCH!>11<!>)
 
-    otherGeneric(<!ARGUMENT_TYPE_MISMATCH!>1<!>)
+    <!CANNOT_INFER_PARAMETER_TYPE!>otherGeneric<!>(<!ARGUMENT_TYPE_MISMATCH!>1<!>)
 
     val r = either(1, "")
     r checkType { <!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>_<!><Any>() }

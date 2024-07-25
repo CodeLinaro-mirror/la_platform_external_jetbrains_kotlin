@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -563,7 +563,7 @@ default: 'indy-with-constants' for JVM targets 9 or greater, 'inline' otherwise.
         value = "-Xjdk-release",
         valueDescription = "<version>",
         description = """Compile against the specified JDK API version, similarly to javac's '-release'. This requires JDK 9 or newer.
-The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–21.
+The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–22.
 This also sets the value of '-jvm-target' to be equal to the selected JDK version."""
     )
     var jdkRelease: String? = null
@@ -577,8 +577,9 @@ This also sets the value of '-jvm-target' to be equal to the selected JDK versio
         value = "-Xsam-conversions",
         valueDescription = "{class|indy}",
         description = """Select the code generation scheme for SAM conversions.
--Xsam-conversions=indy          Generate SAM conversions using 'invokedynamic' with 'LambdaMetafactory.metafactory'. Requires '-jvm-target 1.8' or greater.
--Xsam-conversions=class         Generate SAM conversions as explicit classes"""
+-Xsam-conversions=indy          Generate SAM conversions using 'invokedynamic' with 'LambdaMetafactory.metafactory'.
+-Xsam-conversions=class         Generate SAM conversions as explicit classes.
+The default value is 'indy'."""
     )
     var samConversions: String? = null
         set(value) {
@@ -590,9 +591,10 @@ This also sets the value of '-jvm-target' to be equal to the selected JDK versio
         value = "-Xlambdas",
         valueDescription = "{class|indy}",
         description = """Select the code generation scheme for lambdas.
--Xlambdas=indy                  Generate lambdas using 'invokedynamic' with 'LambdaMetafactory.metafactory'. This requires '-jvm-target 1.8' or greater.
+-Xlambdas=indy                  Generate lambdas using 'invokedynamic' with 'LambdaMetafactory.metafactory'.
                                 A lambda object created using 'LambdaMetafactory.metafactory' will have a different 'toString()'.
--Xlambdas=class                 Generate lambdas as explicit classes."""
+-Xlambdas=class                 Generate lambdas as explicit classes.
+The default value is 'indy' if language version is 2.0+, and 'class' otherwise."""
     )
     var lambdas: String? = null
         set(value) {
@@ -676,17 +678,6 @@ Example: -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfile
         }
 
     @Argument(
-        value = "-Xrepeat",
-        valueDescription = "<number>",
-        description = "Debug option: Repeat module compilation <number> times."
-    )
-    var repeatCompileModules: String? = null
-        set(value) {
-            checkFrozen()
-            field = if (value.isNullOrEmpty()) null else value
-        }
-
-    @Argument(
         value = "-Xuse-14-inline-classes-mangling-scheme",
         description = "Use the scheme for inline class mangling from version 1.4 instead of the one from 1.4.30."
     )
@@ -736,16 +727,6 @@ See KT-45671 for more details."""
         description = "Save the IR to metadata (Experimental)."
     )
     var serializeIr: String = "none"
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
-        value = "-Xvalidate-ir",
-        description = "Validate IR before and after lowering."
-    )
-    var validateIr = false
         set(value) {
             checkFrozen()
             field = value
@@ -837,6 +818,16 @@ This option is deprecated and will be deleted in future versions."""
         }
 
     @Argument(
+        value = "-Xuse-inline-scopes-numbers",
+        description = "Use inline scopes numbers for inline marker variables."
+    )
+    var useInlineScopesNumbers: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
         value = "-Xuse-kapt4",
         description = "Enable the experimental KAPT 4."
     )
@@ -856,7 +847,7 @@ This option is deprecated and will be deleted in future versions."""
             result[JvmAnalysisFlags.jvmDefaultMode] = it
         } ?: collector.report(
             CompilerMessageSeverity.ERROR,
-            "Unknown -Xjvm-default mode: $jvmDefault, supported modes: ${JvmDefaultMode.values().map(JvmDefaultMode::description)}"
+            "Unknown -Xjvm-default mode: $jvmDefault, supported modes: ${JvmDefaultMode.entries.map(JvmDefaultMode::description)}"
         )
         result[JvmAnalysisFlags.inheritMultifileParts] = inheritMultifileParts
         result[JvmAnalysisFlags.sanitizeParentheses] = sanitizeParentheses

@@ -5,9 +5,6 @@
 
 package org.jetbrains.kotlin.objcexport.testUtils
 
-import org.jetbrains.kotlin.analysis.api.KtAnalysisApiInternals
-import org.jetbrains.kotlin.analysis.api.lifetime.KtLifetimeTokenProvider
-import org.jetbrains.kotlin.analysis.api.standalone.KtAlwaysAccessibleLifetimeTokenProvider
 import org.jetbrains.kotlin.analysis.api.standalone.StandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.standalone.buildStandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
@@ -16,14 +13,20 @@ import org.jetbrains.kotlin.backend.konan.testUtils.kotlinNativeStdlibPath
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
 import java.io.File
+import java.nio.file.Path
 import kotlin.io.path.Path
+import kotlin.io.path.nameWithoutExtension
+
+const val defaultKotlinSourceModuleName = "testModule"
 
 /**
  * Creates a standalone analysis session from Kotlin source code passed as [kotlinSources]
  */
 fun createStandaloneAnalysisApiSession(
     tempDir: File,
+    kotlinSourceModuleName: String = defaultKotlinSourceModuleName,
     kotlinSources: Map</* File Name */ String, /* Source Code */ String>,
+    dependencyKlibs: List<Path> = emptyList(),
 ): StandaloneAnalysisAPISession {
     val testModuleRoot = tempDir.resolve("testModule")
     testModuleRoot.mkdirs()
@@ -33,35 +36,49 @@ fun createStandaloneAnalysisApiSession(
             writeText(sourceCode)
         }
     }
-    return createStandaloneAnalysisApiSession(listOf(testModuleRoot))
+    return createStandaloneAnalysisApiSession(kotlinSourceModuleName, listOf(testModuleRoot), dependencyKlibs)
 }
 
 /**
  * Creates a standalone analysis session from [kotlinFiles] on disk.
  * The Kotlin/Native stdlib will be provided as dependency
  */
-fun createStandaloneAnalysisApiSession(kotlinFiles: List<File>): StandaloneAnalysisAPISession {
+fun createStandaloneAnalysisApiSession(
+    kotlinSourceModuleName: String = defaultKotlinSourceModuleName,
+    kotlinFiles: List<File>,
+    dependencyKlibs: List<Path> = emptyList(),
+): StandaloneAnalysisAPISession {
     val currentArchitectureTarget = HostManager.host
     val nativePlatform = NativePlatforms.nativePlatformByTargets(listOf(currentArchitectureTarget))
     return buildStandaloneAnalysisAPISession {
-        @OptIn(KtAnalysisApiInternals::class)
-        registerProjectService(KtLifetimeTokenProvider::class.java, KtAlwaysAccessibleLifetimeTokenProvider())
-
         buildKtModuleProvider {
             platform = nativePlatform
-            val kLib = addModule(
+            val stdlibModule = addModule(
                 buildKtLibraryModule {
                     addBinaryRoot(Path(kotlinNativeStdlibPath))
                     platform = nativePlatform
-                    libraryName = "klib"
+                    libraryName = "stdlib"
                 }
             )
+
+            val dependencyKlibModules = dependencyKlibs.map { klib ->
+                buildKtLibraryModule {
+                    addBinaryRoot(klib)
+                    platform = nativePlatform
+                    libraryName = klib.nameWithoutExtension
+                    addRegularDependency(stdlibModule)
+                }
+            }
+
             addModule(
                 buildKtSourceModule {
                     addSourceRoots(kotlinFiles.map { it.toPath() })
-                    addRegularDependency(kLib)
+                    addRegularDependency(stdlibModule)
+                    dependencyKlibModules.forEach { dependencyKlibModule ->
+                        addRegularDependency(dependencyKlibModule)
+                    }
                     platform = nativePlatform
-                    moduleName = "source"
+                    moduleName = kotlinSourceModuleName
                 }
             )
         }

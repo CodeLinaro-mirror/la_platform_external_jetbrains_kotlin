@@ -10,9 +10,12 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.NoTestRunnerExt
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.WithTestRunnerExtras
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunChecks
+import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunParameter
+import org.jetbrains.kotlin.konan.test.blackbox.support.runner.has
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.*
 import org.jetbrains.kotlin.test.directives.model.Directive
+import org.jetbrains.kotlin.test.directives.model.DirectiveApplicability
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
@@ -37,7 +40,7 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
 
             val excludes: Set<File> = settings.get<DisabledTestDataFiles>().filesAndDirectories
             if (testDataDir in excludes)
-                return@computeIfAbsent TestCaseGroup.ALL_DISABLED
+                return@computeIfAbsent TestCaseGroup.AllDisabled
 
             val (excludedTestDataFiles, includedTestDataFiles) = testDataFiles
                 .filter { file -> file.isFile && file.extension == "kt" }
@@ -46,7 +49,10 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
             val disabledTestCaseIds = hashSetOf<TestCaseId>()
             excludedTestDataFiles.mapTo(disabledTestCaseIds, TestCaseId::TestDataFile)
 
-            val testCases = includedTestDataFiles.map { testDataFile -> createTestCase(testDataFile, settings) }
+            val testCases = includedTestDataFiles.mapNotNull { testDataFile -> createTestCase(testDataFile, settings).also {
+                    if (it == null) disabledTestCaseIds += TestCaseId.TestDataFile(testDataFile)
+                }
+            }
 
             val lldbTestCases = testCases.filter { it.kind == TestKind.STANDALONE_LLDB }
             if (lldbTestCases.isNotEmpty()
@@ -61,7 +67,7 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
         }
     }
 
-    private fun createTestCase(testDataFile: File, settings: Settings): TestCase {
+    private fun createTestCase(testDataFile: File, settings: Settings): TestCase? {
         val generatedSourcesDir = computeGeneratedSourcesDir(
             testDataBaseDir = settings.get<TestRoots>().baseDir,
             testDataFile = testDataFile,
@@ -127,6 +133,7 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
             val location = Location(testDataFile, lineNumber)
             val expectFileDirectiveAfterModuleDirective =
                 lastParsedDirective == TestDirectives.MODULE // Only FILE directive may follow MODULE directive.
+            // actually, between module and file should be placed directives with applicability MODULE
 
             val rawDirective = RegisteredDirectivesParser.parseDirective(line)
             if (rawDirective != null) {
@@ -144,11 +151,15 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
                 }
 
                 if (parsedDirective != null) {
-                    when (val directive = parsedDirective.directive) {
-                        TestDirectives.FILE -> {
+                    val directive = parsedDirective.directive
+                    when {
+                        directive == TestDirectives.FILE -> {
                             val newFileName = parseFileName(parsedDirective, location)
                             finishTestFile(forceFinish = false, location)
                             beginTestFile(newFileName)
+                        }
+                        directive.applicability == DirectiveApplicability.Module -> {
+                            currentTestModule?.directives?.add(parsedDirective)
                         }
                         else -> {
                             assertFalse(expectFileDirectiveAfterModuleDirective) {
@@ -194,6 +205,13 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
 
         val registeredDirectives = directivesParser.build()
 
+        if (settings.isDisabledNative(registeredDirectives))
+            return null
+
+        if (testModules.values.any {
+                it.files.any { it.location.extension == "def" && !it.text.defFileContentsIsSupportedOn(settings.get<KotlinNativeTargets>().testTarget) }
+            }) return null
+
         val freeCompilerArgs = parseFreeCompilerArgs(registeredDirectives, location)
         val expectedTimeoutFailure = parseExpectedTimeoutFailure(registeredDirectives)
 
@@ -216,8 +234,10 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
             modules = testModules.values.toSet(),
             freeCompilerArgs = freeCompilerArgs,
             nominalPackageName = nominalPackageName,
+            expectedFailure = settings.isIgnoredTarget(registeredDirectives),
             checks = TestRunChecks(
                 computeExecutionTimeoutCheck(settings, expectedTimeoutFailure),
+                computeTestOutputFiltering(testKind),
                 computeExitCodeCheck(testKind, registeredDirectives, location),
                 computeOutputDataFileCheck(testDataFile, registeredDirectives, location),
                 outputMatcher,
@@ -294,5 +314,9 @@ internal class StandardTestCaseGroupProvider : TestCaseGroupProvider {
             registeredDirectives: RegisteredDirectives,
             location: Location
         ): OutputDataFile? = parseOutputDataFile(baseDir = testDataFile.parentFile, registeredDirectives, location)
+
+        private fun computeTestOutputFiltering(testKind: TestKind): TestFiltering = TestFiltering(
+            if (testKind in listOf(TestKind.REGULAR, TestKind.STANDALONE)) TCTestOutputFilter else TestOutputFilter.NO_FILTERING
+        )
     }
 }

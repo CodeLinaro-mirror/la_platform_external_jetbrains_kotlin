@@ -5,26 +5,26 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeCreator
 
-import org.jetbrains.kotlin.analysis.api.components.buildTypeParameterType
+import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtTypeParameter
-import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import org.jetbrains.kotlin.types.Variance
 
 abstract class AbstractTypeParameterTypeTest : AbstractAnalysisApiBasedTest() {
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val expressionAtCaret = testServices.expressionMarkerProvider.getElementOfTypeAtCaret(mainFile) as KtTypeParameter
 
         val actual = analyseForTest(expressionAtCaret) {
-            val symbol = expressionAtCaret.getTypeParameterSymbol()
+            val symbol = expressionAtCaret.symbol
             val ktType = buildTypeParameterType(symbol)
             buildString {
-                appendLine("expression: ${expressionAtCaret.text}")
-                appendLine("ktType: ${ktType.render(position = Variance.INVARIANT)}")
+                appendLine("${KtTypeParameter::class.simpleName}: ${expressionAtCaret.text}")
+                appendLine("${KaType::class.simpleName}: ${ktType.render(position = Variance.INVARIANT)}")
             }
         }
 

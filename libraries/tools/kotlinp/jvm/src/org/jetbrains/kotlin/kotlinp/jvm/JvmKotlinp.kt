@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.kotlinp.jvm
 
-import kotlinx.metadata.*
-import kotlinx.metadata.jvm.*
+import kotlin.metadata.*
+import kotlin.metadata.jvm.*
 import org.jetbrains.kotlin.kotlinp.*
 
 class JvmKotlinp(settings: Settings) : Kotlinp(settings) {
@@ -193,8 +193,7 @@ class JvmKotlinp(settings: Settings) : Kotlinp(settings) {
     override fun isRaw(type: KmType) = type.isRaw
 
     override fun renderFlexibleTypeUpperBound(flexibleTypeUpperBound: KmFlexibleTypeUpperBound): String? {
-        @Suppress("DEPRECATION_ERROR")
-        return if (flexibleTypeUpperBound.typeFlexibilityId == JvmTypeExtensionVisitor.PLATFORM_TYPE_ID)
+        return if (flexibleTypeUpperBound.typeFlexibilityId == KmFlexibleTypeUpperBound.JVM_PLATFORM_TYPE_ID)
             printString { appendType(flexibleTypeUpperBound.type) }
         else
             null

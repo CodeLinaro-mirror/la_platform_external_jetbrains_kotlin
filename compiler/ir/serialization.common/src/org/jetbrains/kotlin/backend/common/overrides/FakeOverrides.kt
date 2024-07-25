@@ -136,6 +136,9 @@ private class IrLinkerFakeOverrideBuilderStrategy(
                 manglerCompatibleMode
             )
         }
+        property.backingField?.let { backingField ->
+            backingField.correspondingPropertySymbol = property.symbol
+        }
     }
 
     private fun composeSignature(declaration: IrDeclaration, manglerCompatibleMode: Boolean) =
@@ -243,7 +246,7 @@ private class IrLinkerFakeOverrideBuilderStrategy(
 class IrLinkerFakeOverrideProvider(
     linker: FileLocalAwareLinker,
     symbolTable: SymbolTable,
-    mangler: KotlinMangler.IrMangler,
+    val mangler: KotlinMangler.IrMangler,
     typeSystem: IrTypeSystemContext,
     friendModules: Map<String, Collection<String>>,
     private val partialLinkageSupport: PartialLinkageSupportForLinker,
@@ -290,7 +293,7 @@ class IrLinkerFakeOverrideProvider(
 
         if (!platformSpecificClassFilter.needToConstructFakeOverrides(clazz)) return false
 
-        irFakeOverrideBuilder.buildFakeOverridesForClass(clazz, compatibilityMode.oldSignatures)
+        irFakeOverrideBuilder.buildFakeOverridesForClass(clazz, compatibilityMode.legacySignaturesForPrivateAndLocalDeclarations)
 
         return true
     }

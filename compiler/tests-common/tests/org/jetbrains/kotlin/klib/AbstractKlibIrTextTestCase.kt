@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
 import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageSupportForLinker
 import org.jetbrains.kotlin.backend.common.serialization.DeserializationStrategy
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.codegen.CodegenTestCase
@@ -76,7 +77,7 @@ abstract class AbstractKlibIrTextTestCase : CodegenTestCase() {
 
     private fun setupEnvironment(files: List<TestFile>) {
         val configuration = createConfiguration(
-            ConfigurationKind.ALL, TestJdkKind.MOCK_JDK, backend,
+            ConfigurationKind.ALL, TestJdkKind.MOCK_JDK,
             listOf<File>(KtTestUtil.getAnnotationsJar()),
             listOfNotNull(writeJavaFiles(files)),
             files
@@ -137,6 +138,7 @@ abstract class AbstractKlibIrTextTestCase : CodegenTestCase() {
             abiVersion = KotlinAbiVersion.CURRENT,
             jsOutputName = null,
             builtInsPlatform = BuiltInsPlatform.JS,
+            wasmTarget = null,
         )
         return klibDir.canonicalPath
     }
@@ -152,7 +154,7 @@ abstract class AbstractKlibIrTextTestCase : CodegenTestCase() {
         val typeTranslator =
             TypeTranslatorImpl(symbolTable, myEnvironment.configuration.languageVersionSettings, testDescriptor)
         val irBuiltIns = IrBuiltInsOverDescriptors(testDescriptor.builtIns, typeTranslator, symbolTable)
-        val irLinker = JsIrLinker(null, IrMessageLogger.None, irBuiltIns, symbolTable, PartialLinkageSupportForLinker.DISABLED, null)
+        val irLinker = JsIrLinker(null, MessageCollector.NONE, irBuiltIns, symbolTable, PartialLinkageSupportForLinker.DISABLED, null)
         irLinker.deserializeIrModuleHeader(stdlibDescriptor, stdlib)
         val testModule = irLinker.deserializeIrModuleHeader(testDescriptor, klib, { DeserializationStrategy.ALL })
         irLinker.init(null, emptyList())
@@ -215,7 +217,7 @@ abstract class AbstractKlibIrTextTestCase : CodegenTestCase() {
 
         val ktFiles = myFiles.psiFiles
 
-        val messageLogger = IrMessageLogger.None
+        val messageLogger = MessageCollector.NONE
         val psi2Ir = Psi2IrTranslator(
             myEnvironment.configuration.languageVersionSettings,
             Psi2IrConfiguration(ignoreErrors),

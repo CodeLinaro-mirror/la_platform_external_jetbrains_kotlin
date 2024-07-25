@@ -7,15 +7,13 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.test.base
 
 import com.intellij.openapi.command.CommandProcessor
 import org.jetbrains.kotlin.analysis.api.impl.base.test.configurators.AnalysisApiModifiablePsiTestServiceRegistrar
+import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.AnalysisApiServiceRegistrar
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
-import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestServiceRegistrar
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.test.model.TestModule
-import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.testFramework.runWriteAction
 
 /**
@@ -26,19 +24,19 @@ import org.jetbrains.kotlin.test.testFramework.runWriteAction
 abstract class AbstractLowLevelApiModifiablePsiTest : AbstractAnalysisApiBasedTest() {
     override val configurator: AnalysisApiTestConfigurator get() = AnalysisApiFirModifiablePsiSourceTestConfigurator
 
-    abstract fun doTestWithPsiModification(ktFile: KtFile, moduleStructure: TestModuleStructure, testServices: TestServices)
+    abstract fun doTestWithPsiModification(ktFile: KtFile, testServices: TestServices)
 
-    override fun doTestByMainFile(mainFile: KtFile, mainModule: TestModule, testServices: TestServices) {
+    override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         CommandProcessor.getInstance().runUndoTransparentAction {
             runWriteAction {
-                doTestWithPsiModification(mainFile, testServices.moduleStructure, testServices)
+                doTestWithPsiModification(mainFile, testServices)
             }
         }
     }
 }
 
 object AnalysisApiFirModifiablePsiSourceTestConfigurator : AnalysisApiFirSourceTestConfigurator(analyseInDependentSession = false) {
-    override val serviceRegistrars: List<AnalysisApiTestServiceRegistrar> = buildList {
+    override val serviceRegistrars: List<AnalysisApiServiceRegistrar<TestServices>> = buildList {
         addAll(super.serviceRegistrars)
         add(AnalysisApiModifiablePsiTestServiceRegistrar)
     }

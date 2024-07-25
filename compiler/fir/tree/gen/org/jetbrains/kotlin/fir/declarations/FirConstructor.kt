@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
 /**
- * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.constructor]
+ * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.constructor]
  */
 abstract class FirConstructor : FirFunction(), FirTypeParameterRefsOwner, FirContractDescriptionOwner {
     abstract override val source: KtSourceElement?
@@ -41,7 +41,7 @@ abstract class FirConstructor : FirFunction(), FirTypeParameterRefsOwner, FirCon
     abstract override val contextReceivers: List<FirContextReceiver>
     abstract override val controlFlowGraphReference: FirControlFlowGraphReference?
     abstract override val valueParameters: List<FirValueParameter>
-    abstract override val contractDescription: FirContractDescription
+    abstract override val contractDescription: FirContractDescription?
     abstract override val annotations: List<FirAnnotation>
     abstract override val symbol: FirConstructorSymbol
     abstract val delegatedConstructor: FirDelegatedConstructorCall?
@@ -69,7 +69,7 @@ abstract class FirConstructor : FirFunction(), FirTypeParameterRefsOwner, FirCon
 
     abstract override fun replaceValueParameters(newValueParameters: List<FirValueParameter>)
 
-    abstract override fun replaceContractDescription(newContractDescription: FirContractDescription)
+    abstract override fun replaceContractDescription(newContractDescription: FirContractDescription?)
 
     abstract override fun replaceAnnotations(newAnnotations: List<FirAnnotation>)
 

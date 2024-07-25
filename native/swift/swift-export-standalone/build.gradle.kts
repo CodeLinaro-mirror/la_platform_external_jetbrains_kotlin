@@ -1,5 +1,8 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 plugins {
     kotlin("jvm")
+    id("jps-compatible")
 }
 
 description = "Runner for Swift Export"
@@ -13,11 +16,13 @@ dependencies {
 
     implementation(project(":native:swift:sir"))
     implementation(project(":native:swift:sir-compiler-bridge"))
-    implementation(project(":native:swift:sir-passes"))
+    implementation(project(":native:swift:sir-light-classes"))
     implementation(project(":native:swift:sir-printer"))
 
     implementation(project(":analysis:analysis-api"))
     implementation(project(":analysis:analysis-api-standalone"))
+
+    implementation(project(":native:analysis-api-klib-reader"))
 
     testApi(platform(libs.junit.bom))
     testRuntimeOnly(libs.junit.jupiter.engine)
@@ -29,6 +34,10 @@ dependencies {
     testImplementation(projectTests(":analysis:analysis-test-framework"))
     testImplementation(projectTests(":compiler:tests-common"))
     testImplementation(projectTests(":compiler:tests-common-new"))
+
+    if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+        testApi(projectTests(":native:native.tests"))
+    }
 }
 
 sourceSets {
@@ -47,4 +56,16 @@ val test by nativeTest("test", null) {
     useJUnitPlatform { }
 }
 
+if (kotlinBuildProperties.isSwiftExportPluginPublishingEnabled) {
+    publish()
+}
+
+runtimeJar()
+sourcesJar()
+javadocJar()
+
 testsJar()
+
+tasks.withType<KotlinJvmCompile> {
+    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
+}

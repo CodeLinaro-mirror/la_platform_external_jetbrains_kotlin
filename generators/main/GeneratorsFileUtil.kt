@@ -20,15 +20,18 @@ object GeneratorsFileUtil {
      */
      """.trimIndent()
 
+    const val GENERATED_MESSAGE_PREFIX = "// This file was generated automatically. See "
+    const val GENERATED_MESSAGE_SUFFIX = "// DO NOT MODIFY IT MANUALLY."
+
     @OptIn(ExperimentalPathApi::class)
     @JvmStatic
     @JvmOverloads
     @Throws(IOException::class)
-    fun writeFileIfContentChanged(file: File, newText: String, logNotChanged: Boolean = true, forbidGenerationOnTeamcity: Boolean = true) {
+    fun writeFileIfContentChanged(file: File, newText: String, logNotChanged: Boolean = true, forbidGenerationOnTeamcity: Boolean = true): Boolean {
         val parentFile = file.parentFile
         if (!parentFile.exists()) {
             if (forbidGenerationOnTeamcity) {
-                if (failOnTeamCity("Create dir `${parentFile.path}`")) return
+                if (failOnTeamCity("Create dir `${parentFile.path}`")) return false
             }
             if (parentFile.mkdirs()) {
                 println("Directory created: " + parentFile.absolutePath)
@@ -40,10 +43,10 @@ object GeneratorsFileUtil {
             if (logNotChanged) {
                 println("Not changed: " + file.absolutePath)
             }
-            return
+            return false
         }
         if (forbidGenerationOnTeamcity) {
-            if (failOnTeamCity("Write file `${file.toPath()}`")) return
+            if (failOnTeamCity("Write file `${file.toPath()}`")) return false
         }
         val useTempFile = !SystemInfo.isWindows
         val targetFile = file.toPath()
@@ -54,6 +57,7 @@ object GeneratorsFileUtil {
             tempFile.moveTo(targetFile, overwrite = true)
         }
         println("File written: ${targetFile.toAbsolutePath()}")
+        return true
     }
 
     private fun failOnTeamCity(message: String): Boolean {
@@ -93,7 +97,7 @@ object GeneratorsFileUtil {
 
     fun collectPreviouslyGeneratedFiles(generationPath: File): List<File> {
         return generationPath.walkTopDown().filter {
-            it.isFile && it.readText().contains(GENERATED_MESSAGE)
+            it.isFile && it.readText().let { GENERATED_MESSAGE_PREFIX in it && GENERATED_MESSAGE_SUFFIX in it }
         }.toList()
     }
 

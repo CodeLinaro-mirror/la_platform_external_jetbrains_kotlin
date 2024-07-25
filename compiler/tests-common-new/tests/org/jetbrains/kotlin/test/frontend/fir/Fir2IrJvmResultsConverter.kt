@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.test.frontend.fir
 
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
+import org.jetbrains.kotlin.backend.jvm.JvmIrSpecialAnnotationSymbolProvider
 import org.jetbrains.kotlin.backend.jvm.JvmIrTypeSystemContext
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
@@ -15,6 +16,7 @@ import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
+import org.jetbrains.kotlin.fir.backend.utils.extractFirDeclarations
 import org.jetbrains.kotlin.fir.backend.jvm.*
 import org.jetbrains.kotlin.fir.pipeline.convertToIrAndActualize
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
@@ -67,7 +69,7 @@ class Fir2IrJvmResultsConverter(
         val configuration = compilerConfigurationProvider.getCompilerConfiguration(module)
 
         val irMangler = JvmIrMangler
-        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl(), irMangler)
+        val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
 
         // Create and initialize the module and its dependencies
         val project = compilerConfigurationProvider.getProject(module)
@@ -86,19 +88,24 @@ class Fir2IrJvmResultsConverter(
             fir2IrConfiguration,
             module.irGenerationExtensions(testServices),
             irMangler,
-            FirJvmKotlinMangler(),
+            FirJvmKotlinMangler,
             FirJvmVisibilityConverter,
             DefaultBuiltIns.Instance,
-            ::JvmIrTypeSystemContext
+            ::JvmIrTypeSystemContext,
+            JvmIrSpecialAnnotationSymbolProvider,
+            FirJvmBuiltinProviderActualDeclarationExtractor.Companion::initializeIfNeeded,
         )
 
         val backendInput = JvmIrCodegenFactory.JvmIrBackendInput(
             fir2irResult.irModuleFragment,
-            fir2irResult.components.symbolTable,
+            fir2irResult.symbolTable,
             phaseConfig,
             fir2irResult.components.irProviders,
             fir2IrExtensions,
-            FirJvmBackendExtension(fir2irResult.components, actualizedExpectDeclarations = null),
+            FirJvmBackendExtension(
+                fir2irResult.components,
+                fir2irResult.irActualizedResult?.actualizedExpectDeclarations?.extractFirDeclarations(),
+            ),
             fir2irResult.pluginContext,
             notifyCodegenStart = {},
         )
@@ -106,7 +113,7 @@ class Fir2IrJvmResultsConverter(
         val codegenFactory = JvmIrCodegenFactory(configuration, phaseConfig)
         val generationState = GenerationState.Builder(
             project, ClassBuilderFactories.TEST,
-            fir2irResult.irModuleFragment.descriptor, NoScopeRecordCliBindingTrace().bindingContext, configuration
+            fir2irResult.irModuleFragment.descriptor, NoScopeRecordCliBindingTrace(project).bindingContext, configuration
         ).isIrBackend(
             true
         ).jvmBackendClassResolver(

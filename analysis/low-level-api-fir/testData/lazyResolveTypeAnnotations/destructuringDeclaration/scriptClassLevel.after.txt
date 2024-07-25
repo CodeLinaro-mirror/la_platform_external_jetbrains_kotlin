@@ -1,6 +1,6 @@
 FILE: [ResolvedTo(IMPORTS)] scriptClassLevel.kts
-    context(<script>@kotlin.script.templates.standard.ScriptTemplateWithArgs)
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-scriptClassLevel.kts>
+        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] annotation class Anno : R|kotlin/Annotation| {
@@ -33,7 +33,7 @@ FILE: [ResolvedTo(IMPORTS)] scriptClassLevel.kts
 
                 public? final operator [ResolvedTo(RAW_FIR)] fun component2(): Int
 
-                public final [ResolvedTo(RAW_FIR)] fun copy([ResolvedTo(RAW_FIR)] a: Int = this@R|util/Foo.Pair|.R|util/Foo.Pair.a|, [ResolvedTo(RAW_FIR)] b: Int = this@R|util/Foo.Pair|.R|util/Foo.Pair.b|): R|util/Foo.Pair|
+                public? final [ResolvedTo(RAW_FIR)] fun copy([ResolvedTo(RAW_FIR)] a: Int = this@R|util/Foo.Pair|.R|util/Foo.Pair.a|, [ResolvedTo(RAW_FIR)] b: Int = this@R|util/Foo.Pair|.R|util/Foo.Pair.b|): R|util/Foo.Pair|
 
             }
 

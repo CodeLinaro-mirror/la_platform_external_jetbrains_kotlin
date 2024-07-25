@@ -14,7 +14,6 @@ dependencies {
     testApi(project(":compiler:backend"))
     testApi(project(":compiler:cli"))
     testApi(project(":kotlin-sam-with-receiver-compiler-plugin.cli"))
-    testCompileOnly(project(":kotlin-compiler"))
     testImplementation(project(":kotlin-scripting-jvm-host-unshaded"))
 
     testApi(platform(libs.junit.bom))
@@ -31,7 +30,7 @@ dependencies {
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(project(":compiler:fir:fir-serialization"))
-
+    testRuntimeOnly(toolsJar())
 
     testApi(intellijCore())
 }

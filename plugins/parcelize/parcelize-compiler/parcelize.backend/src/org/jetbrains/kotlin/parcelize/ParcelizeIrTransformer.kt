@@ -22,7 +22,6 @@ import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.companionObject
-import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -36,8 +35,9 @@ import org.jetbrains.kotlin.parcelize.ParcelizeNames.WRITE_TO_PARCEL_NAME
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 class ParcelizeIrTransformer(
     context: IrPluginContext,
-    androidSymbols: AndroidSymbols
-) : ParcelizeIrTransformerBase(context, androidSymbols) {
+    androidSymbols: AndroidSymbols,
+    parcelizeAnnotations: List<FqName>
+) : ParcelizeIrTransformerBase(context, androidSymbols, parcelizeAnnotations) {
     private val symbolMap = mutableMapOf<IrSimpleFunctionSymbol, IrSimpleFunctionSymbol>()
 
     fun transform(moduleFragment: IrModuleFragment) {
@@ -62,16 +62,6 @@ class ParcelizeIrTransformer(
                 expression.symbol = symbolMap[expression.symbol] ?: return expression
                 return expression
             }
-
-            private fun IrSimpleFunction.isParcelableCreatorIntrinsic(): Boolean =
-                dispatchReceiverParameter == null
-                        && extensionReceiverParameter == null
-                        && valueParameters.isEmpty()
-                        && isInline
-                        && fqNameWhenAvailable?.asString() == "kotlinx.parcelize.ParcelableCreatorKt.parcelableCreator"
-                        && typeParameters.singleOrNull()?.let {
-                    it.isReified && it.superTypes.singleOrNull()?.classFqName == PARCELABLE_FQN
-                } == true
 
             override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
                 expression.transformChildren(this, null)
@@ -101,7 +91,7 @@ class ParcelizeIrTransformer(
 
         // Sealed classes can be annotated with `@Parcelize`, but that only implies that we
         // should process their immediate subclasses.
-        if (!declaration.isParcelize || declaration.modality == Modality.SEALED)
+        if (!declaration.isParcelize(parcelizeAnnotations) || declaration.modality == Modality.SEALED)
             return
 
         val parcelableProperties = declaration.parcelableProperties

@@ -12,6 +12,7 @@ import kotlin.internal.getProgressionLastElement
 import kotlin.reflect.KClass
 import kotlin.concurrent.AtomicReference
 import kotlinx.cinterop.*
+import kotlinx.cinterop.NativePtr
 
 @ExportForCppRuntime
 @PublishedApi
@@ -212,13 +213,13 @@ internal fun <T: Enum<T>> valuesForEnum(values: Array<T>): Array<T> {
     return result as Array<T>
 }
 
-@PublishedApi
 @TypedIntrinsic(IntrinsicType.CREATE_UNINITIALIZED_INSTANCE)
-internal external fun <T> createUninitializedInstance(): T
+@InternalForKotlinNative
+public external fun <T> createUninitializedInstance(): T
 
-@PublishedApi
 @TypedIntrinsic(IntrinsicType.INIT_INSTANCE)
-internal external fun initInstance(thiz: Any, constructorCall: Any): Unit
+@InternalForKotlinNative
+public external fun initInstance(thiz: Any, constructorCall: Any): Unit
 
 @PublishedApi
 @TypedIntrinsic(IntrinsicType.IS_SUBTYPE)
@@ -264,3 +265,7 @@ internal fun KonanObjectToUtf8Array(value: Any?): ByteArray {
     }
     return string.encodeToByteArray()
 }
+
+@PublishedApi
+@TypedIntrinsic(IntrinsicType.IMMUTABLE_BLOB)
+internal external fun immutableBlobOfImpl(data: String): ImmutableBlob

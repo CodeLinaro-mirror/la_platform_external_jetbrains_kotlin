@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
-import org.jetbrains.kotlin.fir.contracts.impl.FirEmptyContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirTypeParametersOwnerBuilder
@@ -27,6 +26,8 @@ import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -48,11 +49,14 @@ class FirJavaMethod @FirImplementationDetail constructor(
     override val dispatchReceiverType: ConeSimpleKotlinType?,
 ) : FirSimpleFunction() {
     init {
+        @OptIn(FirImplementationDetail::class)
         symbol.bind(this)
 
         @OptIn(ResolveStateAccess::class)
         this.resolveState = resolvePhase.asResolveState()
     }
+
+    private val typeParameterBoundsResolveLock = ReentrantLock()
 
     override val receiverParameter: FirReceiverParameter?
         get() = null
@@ -63,8 +67,8 @@ class FirJavaMethod @FirImplementationDetail constructor(
     override val containerSource: DeserializedContainerSource?
         get() = null
 
-    override val contractDescription: FirContractDescription
-        get() = FirEmptyContractDescription
+    override val contractDescription: FirContractDescription?
+        get() = null
 
     override var controlFlowGraphReference: FirControlFlowGraphReference? = null
 
@@ -76,6 +80,11 @@ class FirJavaMethod @FirImplementationDetail constructor(
     //not used actually, because get 'enhanced' into regular FirSimpleFunction
     override var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
 
+    internal fun withTypeParameterBoundsResolveLock(f: () -> Unit) {
+        // TODO: KT-68587
+        typeParameterBoundsResolveLock.withLock(f)
+    }
+
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         returnTypeRef.accept(visitor, data)
         receiverParameter?.accept(visitor, data)
@@ -83,7 +92,6 @@ class FirJavaMethod @FirImplementationDetail constructor(
         valueParameters.forEach { it.accept(visitor, data) }
         body?.accept(visitor, data)
         status.accept(visitor, data)
-        contractDescription.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
         typeParameters.forEach { it.accept(visitor, data) }
     }
@@ -163,7 +171,8 @@ class FirJavaMethod @FirImplementationDetail constructor(
     override fun replaceBody(newBody: FirBlock?) {
     }
 
-    override fun replaceContractDescription(newContractDescription: FirContractDescription) {
+    override fun replaceContractDescription(newContractDescription: FirContractDescription?) {
+        error("Contract description cannot be replaced for FirJavaMethod")
     }
 
     override fun replaceContextReceivers(newContextReceivers: List<FirContextReceiver>) {

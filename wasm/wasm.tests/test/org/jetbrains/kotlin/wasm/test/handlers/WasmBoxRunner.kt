@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.DISABLE_WASM_EXCEPTION_HANDLING
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.RUN_UNIT_TESTS
+import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.USE_NEW_EXCEPTION_HANDLING_PROPOSAL
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.wasm.test.tools.WasmVM
@@ -42,9 +43,8 @@ class WasmBoxRunner(
                     try {
                         // Use "dynamic import" to catch exception happened during JS & Wasm modules initialization
                         let jsModule = await import('./index.mjs');
-                        let wasmExports = jsModule.default;
-                        ${if (startUnitTests) "wasmExports.startUnitTests();" else ""}
-                        actualResult = wasmExports.box();
+                        ${if (startUnitTests) "jsModule.startUnitTests();" else ""}
+                        actualResult = jsModule.box();
                     } catch(e) {
                         console.log('Failed with exception!')
                         console.log('Message: ' + e.message)
@@ -116,17 +116,19 @@ class WasmBoxRunner(
             val failsIn: List<String> = InTextDirectivesUtils.findListWithPrefixes(testFileText, "// WASM_FAILS_IN: ")
 
             val disableExceptions = DISABLE_WASM_EXCEPTION_HANDLING in testServices.moduleStructure.allDirectives
+            val useNewExceptionProposal = USE_NEW_EXCEPTION_HANDLING_PROPOSAL in testServices.moduleStructure.allDirectives
 
-            val exceptions = vmsToCheck.mapNotNull { vm ->
-                vm.runWithCathedExceptions(
-                    debugMode = debugMode,
-                    disableExceptions = disableExceptions,
-                    failsIn = failsIn,
-                    entryMjs = collectedJsArtifacts.entryPath,
-                    jsFilePaths = jsFilePaths,
-                    workingDirectory = dir,
-                )
-            }
+            val exceptions = vmsToCheck
+                .mapNotNull { vm ->
+                    vm.runWithCaughtExceptions(
+                        debugMode = debugMode,
+                        useNewExceptionHandling = useNewExceptionProposal,
+                        failsIn = failsIn,
+                        entryMjs = collectedJsArtifacts.entryPath,
+                        jsFilePaths = jsFilePaths,
+                        workingDirectory = dir,
+                    )
+                }
 
             processExceptions(exceptions)
 
@@ -142,9 +144,9 @@ class WasmBoxRunner(
     }
 }
 
-internal fun WasmVM.runWithCathedExceptions(
+internal fun WasmVM.runWithCaughtExceptions(
     debugMode: DebugMode,
-    disableExceptions: Boolean,
+    useNewExceptionHandling: Boolean,
     failsIn: List<String>,
     entryMjs: String?,
     jsFilePaths: List<String>,
@@ -158,7 +160,7 @@ internal fun WasmVM.runWithCathedExceptions(
             "./${entryMjs}",
             jsFilePaths,
             workingDirectory = workingDirectory,
-            disableExceptionHandlingIfPossible = disableExceptions,
+            useNewExceptionHandling = useNewExceptionHandling,
         )
         if (shortName in failsIn) {
             return AssertionError("The test expected to fail in ${name}. Please update the testdata.")

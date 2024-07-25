@@ -1,4 +1,4 @@
-// !DIAGNOSTICS: -ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE -UNUSED_VALUE -UNUSED_VARIABLE -UNUSED_PARAMETER -FINAL_UPPER_BOUND
+// DIAGNOSTICS: -ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE -UNUSED_VALUE -UNUSED_VARIABLE -UNUSED_PARAMETER -FINAL_UPPER_BOUND
 // SKIP_TXT
 
 /*
@@ -28,7 +28,7 @@ class B<T>(data: T) : A<T>(data)
 
 fun case1() {
     val tryVal: B<String> =
-    <!TYPE_MISMATCH, TYPE_MISMATCH!>try {
+    <!INITIALIZER_TYPE_MISMATCH!>try {
         throwExceptionA(false)
         A("")
     } catch (e: Exception) {
@@ -55,7 +55,7 @@ class B<T>(data: T) : A<T>(data)
 
 fun case2() {
     val tryVal: A<String> =
-    <!TYPE_MISMATCH, TYPE_MISMATCH!>try {
+    <!INITIALIZER_TYPE_MISMATCH!>try {
         throwExceptionA(false)
         A("")
     } catch (e: Exception) {
@@ -79,7 +79,7 @@ class B<T>(data: T) : A<T>(data)
 
 fun case3() {
     val tryVal: A<Int> =
-    <!TYPE_MISMATCH, TYPE_MISMATCH, TYPE_MISMATCH, TYPE_MISMATCH!>try {
+    <!INITIALIZER_TYPE_MISMATCH!>try {
         throwExceptionA(false)
         A(2)
     } catch (e: ExcA) {

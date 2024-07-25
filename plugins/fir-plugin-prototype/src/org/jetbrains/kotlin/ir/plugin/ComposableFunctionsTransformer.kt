@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,8 +21,6 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
-import org.jetbrains.kotlin.ir.types.impl.IrTypeBase
-import org.jetbrains.kotlin.ir.types.impl.IrTypeProjectionImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -143,9 +141,8 @@ class ComposableFunctionsTransformer(val pluginContext: IrPluginContext) : IrEle
         private fun substituteArgument(typeArgument: IrTypeArgument): IrTypeArgument {
             return when (typeArgument) {
                 is IrStarProjection -> typeArgument
-                is IrTypeProjectionImpl -> typeArgument
-                is IrTypeBase -> substitute(typeArgument) as IrTypeBase
-                else -> error("Unexpected type argument: $typeArgument")
+                is IrType -> substitute(typeArgument)
+                is IrTypeProjection -> typeArgument
             }
         }
     }

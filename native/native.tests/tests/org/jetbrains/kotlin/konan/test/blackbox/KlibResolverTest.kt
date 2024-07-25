@@ -5,14 +5,22 @@
 
 package org.jetbrains.kotlin.konan.test.blackbox
 
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCompilerArgs
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestKind
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestName
+import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.CompilationToolException
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.LibraryCompilation
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationArtifact.KLIB
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationResult.Companion.assertSuccess
+import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestExecutable
+import org.jetbrains.kotlin.library.KLIB_PROPERTY_DEPENDENCY_VERSION
+import org.jetbrains.kotlin.library.KLIB_PROPERTY_LIBRARY_VERSION
 import org.jetbrains.kotlin.library.SearchPathResolver
-import org.junit.jupiter.api.DisplayName
-import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.Test
+import org.jetbrains.kotlin.test.services.JUnit5Assertions
+import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
+import org.jetbrains.kotlin.test.utils.*
+import org.junit.jupiter.api.*
 import org.junit.jupiter.api.parallel.Execution
 import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.api.parallel.Isolated
@@ -63,6 +71,178 @@ class KlibResolverTest : AbstractNativeSimpleTest() {
         }
     }
 
+    @Test
+    fun testWarningAboutRejectedLibraryIsNotSuppressed() {
+        val modules = createModules(
+            Module("lib1"),
+            Module("lib2", "lib1"),
+        )
+
+        // Control compilation -- should finish successfully.
+        modules.compileModules(
+            produceUnpackedKlibs = true,
+            useLibraryNamesInCliArguments = false
+        )
+
+        // Compilation with patched manifest -- should fail.
+        try {
+            modules.compileModules(
+                produceUnpackedKlibs = true,
+                useLibraryNamesInCliArguments = false
+            ) { module, klib ->
+                if (module.name == "lib1") {
+                    patchManifestToBumpAbiVersion(JUnit5Assertions, klib.klibFile)
+                }
+            }
+
+            fail { "Normally unreachable code" }
+        } catch (cte: CompilationToolException) {
+            assertCompilerOutputHasKlibResolverIncompatibleAbiMessages(
+                assertions = JUnit5Assertions,
+                compilerOutput = cte.reason,
+                missingLibrary = "/klib-files.unpacked.paths.transformed/lib1",
+                baseDir = buildDir
+            )
+        }
+    }
+
+    @Test
+    fun testIrProvidersMatch() {
+        testIrProvidersMismatchImpl(irProvidersMismatchSrcDir, TestCompilerArgs.EMPTY)
+    }
+
+    @Test
+    fun testIrProvidersMismatch() {
+        val freeCompilerArgs = TestCompilerArgs(
+            listOf(
+                "-manifest",
+                irProvidersMismatchSrcDir.resolve("manifest.properties").absolutePath
+            )
+        )
+        try {
+            testIrProvidersMismatchImpl(irProvidersMismatchSrcDir, freeCompilerArgs)
+            fail { "Normally unreachable code" }
+        } catch (cte: CompilationToolException) {
+            if (!cte.reason.contains("The library requires unknown IR provider: UNSUPPORTED"))
+                throw cte
+        }
+    }
+
+    @Test
+    fun testDependencyVersionsAreNotEnforced() {
+        val modules = createModules(
+            Module("liba"),
+            Module("libb", "liba"),
+            Module("libc", "liba", "libb"),
+        )
+
+        // Control compilation -- should finish successfully.
+        modules.compileModules(
+            produceUnpackedKlibs = true,
+            useLibraryNamesInCliArguments = false
+        )
+
+        // Compilation with patched manifest -- should finish successfully too.
+        modules.compileModules(
+            produceUnpackedKlibs = true,
+            useLibraryNamesInCliArguments = false,
+        ) { module, klib ->
+            when (module.name) {
+                "liba" -> {
+                    // set the library version = 1.0
+                    patchManifestAsMap(JUnit5Assertions, klib.klibFile) { properties ->
+                        @Suppress("DEPRECATION")
+                        properties[KLIB_PROPERTY_LIBRARY_VERSION] = "1.0"
+                    }
+                }
+                "libb" -> {
+                    // pretend it depends on liba v2.0
+                    patchManifestAsMap(JUnit5Assertions, klib.klibFile) { properties ->
+                        // first, check:
+                        val dependencyVersionPropertyNames: Set<String> =
+                            properties.keys.filter { @Suppress("DEPRECATION") it.startsWith(KLIB_PROPERTY_DEPENDENCY_VERSION) }.toSet()
+
+                        assertTrue(dependencyVersionPropertyNames.isEmpty()) {
+                            "Unexpected properties in manifest: ${dependencyVersionPropertyNames.joinToString()}"
+                        }
+
+                        // then, patch:
+                        @Suppress("DEPRECATION")
+                        properties[KLIB_PROPERTY_DEPENDENCY_VERSION + "_liba"] = "2.0"
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun testDependencyVersionsAreNotAdded() {
+        val modules = createModules(
+            Module("liba"),
+            Module("libb", "liba"),
+        )
+
+        // Control compilation -- should finish successfully.
+        modules.compileModules(
+            produceUnpackedKlibs = true,
+            useLibraryNamesInCliArguments = false
+        )
+
+        // Compilation with patched manifest -- should finish successfully too.
+        modules.compileModules(
+            produceUnpackedKlibs = true,
+            useLibraryNamesInCliArguments = false,
+        ) { module, klib ->
+            when (module.name) {
+                "liba" -> {
+                    // set the library version = 1.0
+                    patchManifestAsMap(JUnit5Assertions, klib.klibFile) { properties ->
+                        @Suppress("DEPRECATION")
+                        properties[KLIB_PROPERTY_LIBRARY_VERSION] = "1.0"
+                    }
+                }
+                "libb" -> {
+                    // check that dependency version is set
+                    patchManifestAsMap(JUnit5Assertions, klib.klibFile) { properties ->
+                        val dependencyVersionPropertyNames: Set<String> =
+                            properties.keys.filter { @Suppress("DEPRECATION") it.startsWith(KLIB_PROPERTY_DEPENDENCY_VERSION) }.toSet()
+
+                        assertTrue(dependencyVersionPropertyNames.isEmpty()) {
+                            "Unexpected properties in manifest: ${dependencyVersionPropertyNames.joinToString()}"
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun testIrProvidersMismatchImpl(srcDir: File, freeCompilerArgs: TestCompilerArgs) {
+        val testCaseKlib = generateTestCaseWithSingleModule(srcDir.resolve("empty.kt"), freeCompilerArgs)
+        val klibResult = LibraryCompilation(
+            settings = testRunSettings,
+            freeCompilerArgs = testCaseKlib.freeCompilerArgs,
+            sourceModules = testCaseKlib.modules,
+            dependencies = listOf(),
+            expectedArtifact = getLibraryArtifact(testCaseKlib, buildDir)
+        ).result.assertSuccess()
+
+        val testCase = generateTestCaseWithSingleFile(
+            sourceFile = srcDir.resolve("irProvidersMismatch.kt"),
+            testKind = TestKind.STANDALONE_NO_TR,
+            extras = TestCase.NoTestRunnerExtras("main"),
+        )
+        // Compile test, NOT respecting possible `mode=TWO_STAGE_MULTI_MODULE`: don't add intermediate LibraryCompilation(kt->klib).
+        // KT-66014: Extract this test from usual Native test run, and run it in scope of new test module
+        val executableResult =
+            compileToExecutableInOneStage(testCase, klibResult.resultingArtifact.asLibraryDependency()).assertSuccess()
+        val testExecutable = TestExecutable(
+            executableResult.resultingArtifact,
+            executableResult.loggedData,
+            listOf(TestName("testIrProvidersMismatch"))
+        )
+        runExecutableAndVerify(testCase, testExecutable)
+    }
+
     private fun createModules(vararg modules: Module): List<Module> {
         val mapping: Map<String, Module> = modules.groupBy(Module::name).mapValues {
             it.value.singleOrNull() ?: error("Duplicated modules: ${it.value}")
@@ -95,13 +275,15 @@ class KlibResolverTest : AbstractNativeSimpleTest() {
 
     private fun List<Module>.compileModules(
         produceUnpackedKlibs: Boolean,
-        useLibraryNamesInCliArguments: Boolean
+        useLibraryNamesInCliArguments: Boolean,
+        transform: ((module: Module, klib: KLIB) -> Unit)? = null
     ) {
         val klibFilesDir = buildDir.resolve(
             listOf(
                 "klib-files",
                 if (produceUnpackedKlibs) "unpacked" else "packed",
-                if (useLibraryNamesInCliArguments) "names" else "paths"
+                if (useLibraryNamesInCliArguments) "names" else "paths",
+                if (transform != null) "transformed" else "non-transformed"
             ).joinToString(".")
         )
         klibFilesDir.mkdirs()
@@ -135,7 +317,8 @@ class KlibResolverTest : AbstractNativeSimpleTest() {
                     expectedArtifact = KLIB(klibFilesDir.resolve(module.computeArtifactPath()))
                 )
 
-                compilation.result.assertSuccess()
+                val klib = compilation.result.assertSuccess().resultingArtifact
+                transform?.invoke(module, klib)
             }
         }
     }
@@ -152,5 +335,6 @@ class KlibResolverTest : AbstractNativeSimpleTest() {
 
     companion object {
         private const val USER_DIR = "user.dir"
+        private val irProvidersMismatchSrcDir = File("native/native.tests/testData/irProvidersMismatch")
     }
 }

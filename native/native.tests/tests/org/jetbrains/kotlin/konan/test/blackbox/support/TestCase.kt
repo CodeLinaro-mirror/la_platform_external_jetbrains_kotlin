@@ -8,19 +8,23 @@
 package org.jetbrains.kotlin.konan.test.blackbox.support
 
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.WithTestRunnerExtras
-import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allDependencies
-import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allDependsOn
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allRegularDependencies
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allDependsOnDependencies
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allFriendDependencies
+import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunChecks
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.*
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
+import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
+import org.jetbrains.kotlin.test.util.joinToArrayString
 import java.io.File
 
 /**
  * Represents a single file that will be supplied to the compiler.
  */
-internal class TestFile<M : TestModule> private constructor(
+class TestFile<M : TestModule> private constructor(
     val location: File,
     val module: M,
     private var state: State
@@ -79,37 +83,66 @@ internal class TestFile<M : TestModule> private constructor(
  * [TestModule.Shared] represents a "shared" module, i.e. the auxiliary module that can be used in multiple [TestCase]s.
  *                     Such module is compiled to KLIB
  */
-internal sealed class TestModule {
+sealed class TestModule {
     abstract val name: String
     abstract val files: Set<TestFile<*>>
 
     data class Exclusive(
         override val name: String,
-        val directDependencySymbols: Set<String>,
-        val directFriendSymbols: Set<String>,
-        val directDependsOnSymbols: Set<String>, // mimics the name from ModuleStructureExtractorImpl, thought later converted to `-Xfragment-refines` parameter
+        val directRegularDependencySymbols: Set<String>,
+        val directFriendDependencySymbols: Set<String>,
+        val directDependsOnDependencySymbols: Set<String>, // mimics the name from ModuleStructureExtractorImpl, thought later converted to `-Xfragment-refines` parameter
+        val directives: MutableList<RegisteredDirectivesParser.ParsedDirective> = mutableListOf()
     ) : TestModule() {
+        init {
+            val intersection = buildSet {
+                addAll(directRegularDependencySymbols intersect directFriendDependencySymbols)
+                addAll(directRegularDependencySymbols intersect directDependsOnDependencySymbols)
+                addAll(directFriendDependencySymbols intersect directDependsOnDependencySymbols)
+            }
+            require(intersection.isEmpty()) {
+                val m = if (intersection.size == 1) "module" else "modules"
+                val names = if (intersection.size == 1) "`${intersection.first()}`" else intersection.joinToArrayString()
+                """Module `$name` depends on $m $names with different kinds simultaneously"""
+            }
+        }
+
         override val files: FailOnDuplicatesSet<TestFile<Exclusive>> = FailOnDuplicatesSet()
 
-        lateinit var directDependencies: Set<TestModule>
-        lateinit var directFriends: Set<TestModule>
-        lateinit var directDependsOn: Set<TestModule>
+        private lateinit var directRegularDependencies: Set<TestModule>
+        private lateinit var directFriendDependencies: Set<TestModule>
+        private lateinit var directDependsOnDependencies: Set<TestModule>
 
         // N.B. The following two properties throw an exception on attempt to resolve cyclic dependencies.
-        val allDependencies: Set<TestModule> by SM.lazyNeighbors({ directDependencies }, { it.allDependencies })
-        val allFriends: Set<TestModule> by SM.lazyNeighbors({ directFriends }, { it.allFriends })
-        val allDependsOn: Set<TestModule> by SM.lazyNeighbors({ directDependsOn }, { it.allDependsOn })
+        val allRegularDependencies: Set<TestModule> by SM.lazyNeighbors({ directRegularDependencies }, { it.allRegularDependencies })
+        val allFriendDependencies: Set<TestModule> by SM.lazyNeighbors({ directFriendDependencies }, { it.allFriendDependencies })
+        val allDependsOnDependencies: Set<TestModule> by SM.lazyNeighbors({ directDependsOnDependencies }, { it.allDependsOnDependencies })
 
         lateinit var testCase: TestCase
+            private set
 
         fun commit() {
             files.forEach { it.commit() }
         }
 
+        /** Initialize all lateinit properties */
+        fun initialize(
+            testCase: TestCase,
+            directRegularDependencies: Set<TestModule>,
+            directFriendDependencies: Set<TestModule>,
+            directDependsOnDependencies: Set<TestModule>
+        ) {
+            this.testCase = testCase
+
+            this.directRegularDependencies = directRegularDependencies
+            this.directFriendDependencies = directFriendDependencies
+            this.directDependsOnDependencies = directDependsOnDependencies
+        }
+
         fun haveSameSymbols(other: Exclusive) =
-            other.directDependencySymbols == directDependencySymbols &&
-                    other.directFriendSymbols == directFriendSymbols &&
-                    other.directDependsOnSymbols == directDependsOnSymbols
+            other.directRegularDependencySymbols == directRegularDependencySymbols &&
+                    other.directFriendDependencySymbols == directFriendDependencySymbols &&
+                    other.directDependsOnDependencySymbols == directDependsOnDependencySymbols
     }
 
     data class Shared(override val name: String) : TestModule() {
@@ -130,21 +163,21 @@ internal sealed class TestModule {
     companion object {
         fun newDefaultModule() = Exclusive(DEFAULT_MODULE_NAME, emptySet(), emptySet(), emptySet())
 
-        val TestModule.allDependencies: Set<TestModule>
+        val TestModule.allRegularDependencies: Set<TestModule>
             get() = when (this) {
-                is Exclusive -> allDependencies
+                is Exclusive -> allRegularDependencies
                 is Shared, is Given -> emptySet()
             }
 
-        val TestModule.allFriends: Set<TestModule>
+        val TestModule.allFriendDependencies: Set<TestModule>
             get() = when (this) {
-                is Exclusive -> allFriends
+                is Exclusive -> allFriendDependencies
                 is Shared, is Given -> emptySet()
             }
 
-        val TestModule.allDependsOn: Set<TestModule>
+        val TestModule.allDependsOnDependencies: Set<TestModule>
             get() = when (this) {
-                is Exclusive -> allDependsOn
+                is Exclusive -> allDependsOnDependencies
                 is Shared, is Given -> emptySet()
             }
 
@@ -157,7 +190,7 @@ internal sealed class TestModule {
  *
  * [testCaseGroupId] - a unique ID of [TestCaseGroup] this [TestCase] belongs to.
  */
-internal interface TestCaseId {
+interface TestCaseId {
     val testCaseGroupId: TestCaseGroupId
 
     data class TestDataFile(val file: File) : TestCaseId {
@@ -181,19 +214,27 @@ internal interface TestCaseId {
  * [nominalPackageName] - the unique package name that was computed for this [TestCase] based on [id].
  *                        Note: It depends on the concrete [TestKind] whether the package name will be enforced for the [TestFile]s or not.
  */
-internal class TestCase(
+class TestCase(
     val id: TestCaseId,
     val kind: TestKind,
     val modules: Set<TestModule.Exclusive>,
     val freeCompilerArgs: TestCompilerArgs,
     val nominalPackageName: PackageName,
-    val checks: TestRunChecks,
+    checks: TestRunChecks,
     val extras: Extras,
     val fileCheckStage: String? = null, // KT-62157: TODO move it to extras
     val expectedFailure: Boolean = false,
 ) {
+    val checks = when (kind) {
+        TestKind.STANDALONE_NO_TR, TestKind.STANDALONE_LLDB -> checks
+        TestKind.REGULAR, TestKind.STANDALONE -> checks.copy(
+            // With these two kinds tests will be run with `--ktest_no_exit_code`, so there must be a TCTestOutputFilter present.
+            testFiltering = TestRunCheck.TestFiltering(TCTestOutputFilter)
+        )
+    }
+
     sealed interface Extras
-    class NoTestRunnerExtras(val entryPoint: String, val inputDataFile: File? = null, val arguments: List<String> = emptyList()) : Extras
+    class NoTestRunnerExtras(val entryPoint: String? = null, val inputDataFile: File? = null, val arguments: List<String> = emptyList()) : Extras
     class WithTestRunnerExtras(val runnerType: TestRunnerType, val ignoredTests: Set<String> = emptySet()) : Extras
 
     init {
@@ -211,14 +252,16 @@ internal class TestCase(
         val allModules = hashSetOf<TestModule>()
         modules.forEach { module ->
             allModules += module
-            allModules += module.allDependencies
-            allModules += module.allDependsOn
+            allModules += module.allRegularDependencies
+            allModules += module.allFriendDependencies
+            allModules += module.allDependsOnDependencies
         }
 
         val rootModules = allModules.toHashSet()
         allModules.forEach { module ->
-            rootModules -= module.allDependencies
-            rootModules -= module.allDependsOn
+            rootModules -= module.allRegularDependencies
+            rootModules -= module.allFriendDependencies
+            rootModules -= module.allDependsOnDependencies
         }
 
         assertTrue(rootModules.isNotEmpty()) { "$id: No root modules in test case." }
@@ -236,7 +279,7 @@ internal class TestCase(
     val sharedModules: Set<TestModule.Shared> by lazy {
         buildSet {
             modules.forEach { module ->
-                module.allDependencies.forEach { dependency ->
+                module.allRegularDependencies.forEach { dependency ->
                     if (dependency is TestModule.Shared) this += dependency
                 }
             }
@@ -265,15 +308,16 @@ internal class TestCase(
 
         modules.forEach { module ->
             module.commit() // Save to the file system and release the memory.
-            module.testCase = this
 
-            module.directDependencies = buildSet {
-                module.directDependencySymbols.mapTo(this, ::findModule)
-                givenModules?.let(this@buildSet::addAll)
-            }
-
-            module.directFriends = module.directFriendSymbols.mapToSet(::findModule)
-            module.directDependsOn = module.directDependsOnSymbols.mapToSet(::findModule)
+            module.initialize(
+                testCase = this,
+                directRegularDependencies = buildSet {
+                    module.directRegularDependencySymbols.mapTo(this, ::findModule)
+                    givenModules?.let(this@buildSet::addAll)
+                },
+                directFriendDependencies = module.directFriendDependencySymbols.mapToSet(::findModule),
+                directDependsOnDependencies = module.directDependsOnDependencySymbols.mapToSet(::findModule)
+            )
         }
     }
 }
@@ -281,7 +325,7 @@ internal class TestCase(
 /**
  * A unique identified of [TestCaseGroup].
  */
-internal interface TestCaseGroupId {
+interface TestCaseGroupId {
     data class TestDataDir(val dir: File) : TestCaseGroupId
     data class Named(val uniqueName: String) : TestCaseGroupId
 }
@@ -292,7 +336,7 @@ internal interface TestCaseGroupId {
  * [TestCase]s inside of the group with similar [TestCompilerArgs] can be compiled to the single
  * executable file to reduce the time spent for compiling and speed-up overall test execution.
  */
-internal interface TestCaseGroup {
+sealed interface TestCaseGroup {
     fun isEnabled(testCaseId: TestCaseId): Boolean
     fun getByName(testCaseId: TestCaseId): TestCase?
 
@@ -321,20 +365,32 @@ internal interface TestCaseGroup {
                     && testCase.sharedModules == sharedModules
                     && testCase.extras<WithTestRunnerExtras>().runnerType == runnerType
         }
+
+        override fun toString() = "TestCaseGroup.Default::${testCasesById.keys.firstNotNullOfOrNull { it.testCaseGroupId }}"
     }
 
-    companion object {
-        val ALL_DISABLED = object : TestCaseGroup {
-            override fun isEnabled(testCaseId: TestCaseId) = false
-            override fun getByName(testCaseId: TestCaseId) = unsupported()
+    data class MetaGroup(val testCaseGroupId: TestCaseGroupId, val testGroups: Set<TestCaseGroup>) : TestCaseGroup {
+        override fun isEnabled(testCaseId: TestCaseId): Boolean = testGroups.all { it.isEnabled(testCaseId) }
 
-            override fun getRegularOnly(
-                freeCompilerArgs: TestCompilerArgs,
-                sharedModules: Set<TestModule.Shared>,
-                runnerType: TestRunnerType
-            ) = unsupported()
+        override fun getByName(testCaseId: TestCaseId): TestCase? = testGroups.firstNotNullOfOrNull { it.getByName(testCaseId) }
 
-            private fun unsupported(): Nothing = fail { "This function should not be called" }
-        }
+        override fun getRegularOnly(
+            freeCompilerArgs: TestCompilerArgs,
+            sharedModules: Set<TestModule.Shared>,
+            runnerType: TestRunnerType,
+        ): Collection<TestCase> = testGroups.flatMap { it.getRegularOnly(freeCompilerArgs, sharedModules, runnerType) }
+    }
+
+    data object AllDisabled : TestCaseGroup {
+        override fun isEnabled(testCaseId: TestCaseId) = false
+        override fun getByName(testCaseId: TestCaseId) = unsupported()
+
+        override fun getRegularOnly(
+            freeCompilerArgs: TestCompilerArgs,
+            sharedModules: Set<TestModule.Shared>,
+            runnerType: TestRunnerType
+        ) = unsupported()
+
+        private fun unsupported(): Nothing = fail { "This function should not be called" }
     }
 }

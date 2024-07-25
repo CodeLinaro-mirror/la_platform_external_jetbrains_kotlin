@@ -130,7 +130,7 @@ class ConeEffectExtractor(
         }
 
         val argument = equalityOperatorCall.arguments[1]
-        val const = argument as? FirLiteralExpression<*> ?: return ConeContractDescriptionError.NotAConstant(argument).asElement()
+        val const = argument as? FirLiteralExpression ?: return ConeContractDescriptionError.NotAConstant(argument).asElement()
         if (const.kind != ConstantValueKind.Null) return ConeContractDescriptionError.IllegalConst(const, onlyNullAllowed = true).asElement()
 
         val arg = equalityOperatorCall.arguments[0].asContractValueExpression()
@@ -155,7 +155,7 @@ class ConeEffectExtractor(
                 ConeContractDescriptionError.IllegalParameter(symbol, "$symbol is not a value parameter")
             )
         val index = valueParameters.indexOf(parameter).takeUnless { it < 0 } ?: return KtErroneousValueParameterReference(
-            ConeContractDescriptionError.IllegalParameter(symbol, "Value paramter $symbol is not found in parameters of outer function")
+            ConeContractDescriptionError.IllegalParameter(symbol, "Value parameter $symbol is not found in parameters of outer function")
         )
         val type = parameter.returnTypeRef.coneType
 
@@ -203,7 +203,7 @@ class ConeEffectExtractor(
         }
     }
 
-    override fun <T> visitLiteralExpression(literalExpression: FirLiteralExpression<T>, data: Nothing?): ConeContractDescriptionElement {
+    override fun visitLiteralExpression(literalExpression: FirLiteralExpression, data: Nothing?): ConeContractDescriptionElement {
         return when (literalExpression.kind) {
             ConstantValueKind.Null -> ConeContractConstantValues.NULL
             ConstantValueKind.Boolean -> when (literalExpression.value as Boolean) {

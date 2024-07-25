@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.light.classes.symbol.source;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.kotlin.test.TestMetadata;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -19,50 +18,50 @@ import java.util.regex.Pattern;
 @TestMetadata("analysis/symbol-light-classes/testData/structure")
 @TestDataPath("$PROJECT_ROOT")
 public class SymbolLightClassesStructureForSourceTestGenerated extends AbstractSymbolLightClassesStructureForSourceTest {
-    @Test
-    public void testAllFilesPresentInStructure() throws Exception {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/symbol-light-classes/testData/structure"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
-    }
+  @Test
+  public void testAllFilesPresentInStructure() {
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/symbol-light-classes/testData/structure"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+  }
 
-    @Test
-    @TestMetadata("Annotations.kt")
-    public void testAnnotations() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/Annotations.kt");
-    }
+  @Test
+  @TestMetadata("Annotations.kt")
+  public void testAnnotations() {
+    runTest("analysis/symbol-light-classes/testData/structure/Annotations.kt");
+  }
 
-    @Test
-    @TestMetadata("Classes.kt")
-    public void testClasses() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/Classes.kt");
-    }
+  @Test
+  @TestMetadata("Classes.kt")
+  public void testClasses() {
+    runTest("analysis/symbol-light-classes/testData/structure/Classes.kt");
+  }
 
-    @Test
-    @TestMetadata("EnumEntries.kt")
-    public void testEnumEntries() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/EnumEntries.kt");
-    }
+  @Test
+  @TestMetadata("EnumEntries.kt")
+  public void testEnumEntries() {
+    runTest("analysis/symbol-light-classes/testData/structure/EnumEntries.kt");
+  }
 
-    @Test
-    @TestMetadata("InterfaceAndClasses.kt")
-    public void testInterfaceAndClasses() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/InterfaceAndClasses.kt");
-    }
+  @Test
+  @TestMetadata("InterfaceAndClasses.kt")
+  public void testInterfaceAndClasses() {
+    runTest("analysis/symbol-light-classes/testData/structure/InterfaceAndClasses.kt");
+  }
 
-    @Test
-    @TestMetadata("Interfaces.kt")
-    public void testInterfaces() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/Interfaces.kt");
-    }
+  @Test
+  @TestMetadata("Interfaces.kt")
+  public void testInterfaces() {
+    runTest("analysis/symbol-light-classes/testData/structure/Interfaces.kt");
+  }
 
-    @Test
-    @TestMetadata("NestedClasses.kt")
-    public void testNestedClasses() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/NestedClasses.kt");
-    }
+  @Test
+  @TestMetadata("NestedClasses.kt")
+  public void testNestedClasses() {
+    runTest("analysis/symbol-light-classes/testData/structure/NestedClasses.kt");
+  }
 
-    @Test
-    @TestMetadata("Objects.kt")
-    public void testObjects() throws Exception {
-        runTest("analysis/symbol-light-classes/testData/structure/Objects.kt");
-    }
+  @Test
+  @TestMetadata("Objects.kt")
+  public void testObjects() {
+    runTest("analysis/symbol-light-classes/testData/structure/Objects.kt");
+  }
 }

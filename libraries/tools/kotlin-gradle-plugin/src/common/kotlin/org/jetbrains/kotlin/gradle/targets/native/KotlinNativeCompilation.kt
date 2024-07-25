@@ -8,12 +8,11 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectContainer
-import org.gradle.api.Project
 import org.gradle.api.tasks.TaskProvider
-import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
-import org.jetbrains.kotlin.gradle.dsl.KotlinNativeCompilerOptions
-import org.jetbrains.kotlin.gradle.plugin.HasCompilerOptions
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
+import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
+import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.KotlinCompilationImpl
 import org.jetbrains.kotlin.gradle.targets.native.NativeCompilerOptions
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
@@ -21,7 +20,7 @@ import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import javax.inject.Inject
 
-@Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
+@Suppress("TYPEALIAS_EXPANSION_DEPRECATION", "DEPRECATION")
 abstract class AbstractKotlinNativeCompilation internal constructor(
     compilation: KotlinCompilationImpl,
     val konanTarget: KonanTarget
@@ -41,20 +40,16 @@ abstract class AbstractKotlinNativeCompilation internal constructor(
     override val compileTaskProvider: TaskProvider<KotlinNativeCompile>
         get() = compilation.compileTaskProvider as TaskProvider<KotlinNativeCompile>
 
-    @Suppress("UNCHECKED_CAST")
-    override val compilerOptions: HasCompilerOptions<KotlinNativeCompilerOptions>
-        get() = compilation.compilerOptions as HasCompilerOptions<KotlinNativeCompilerOptions>
-
-    internal fun compilerOptions(configure: KotlinNativeCompilerOptions.() -> Unit) {
-        compilerOptions.configure(configure)
-    }
-
-    internal fun compilerOptions(configure: Action<KotlinNativeCompilerOptions>) {
-        configure.execute(compilerOptions.options)
-    }
+    @Deprecated(
+        "To configure compilation compiler options use 'compileTaskProvider':\ncompilation.compileTaskProvider.configure{\n" +
+                "    compilerOptions {}\n}"
+    )
+    @Suppress("UNCHECKED_CAST", "DEPRECATION")
+    override val compilerOptions: DeprecatedHasCompilerOptions<KotlinNativeCompilerOptions>
+        get() = compilation.compilerOptions as DeprecatedHasCompilerOptions<KotlinNativeCompilerOptions>
 
     internal val useGenericPluginArtifact: Boolean
-        get() = project.nativeUseEmbeddableCompilerJar
+        get() = project.nativeProperties.isUseEmbeddableCompilerJar.get()
 }
 
 open class KotlinNativeCompilation @Inject internal constructor(
@@ -64,6 +59,11 @@ open class KotlinNativeCompilation @Inject internal constructor(
     final override val target: KotlinNativeTarget
         get() = compilation.target as KotlinNativeTarget
 
+    @Suppress("DEPRECATION")
+    @Deprecated(
+        "To configure compilation compiler options use 'compileTaskProvider':\ncompilation.compileTaskProvider.configure{\n" +
+                "    compilerOptions {}\n}"
+    )
     override val compilerOptions: NativeCompilerOptions
         get() = super.compilerOptions as NativeCompilerOptions
 
@@ -80,13 +80,14 @@ open class KotlinNativeCompilation @Inject internal constructor(
         get() = lowerCamelCaseName(target.disambiguationClassifier, compilation.compilationName, "binaries")
 }
 
+@Suppress("DEPRECATION")
 open class KotlinSharedNativeCompilation @Inject internal constructor(
     val konanTargets: List<KonanTarget>,
     compilation: KotlinCompilationImpl
-) : AbstractKotlinNativeCompilation(compilation, konanTargets.find { it.enabledOnCurrentHost } ?: konanTargets.first()),
+) : AbstractKotlinNativeCompilation(
+    compilation,
+    konanTargets.find { it.enabledOnCurrentHostForKlibCompilation(compilation.project.kotlinPropertiesProvider) } ?: konanTargets.first()
+),
     KotlinMetadataCompilation<KotlinCommonOptions> {
     override val target: KotlinMetadataTarget = compilation.target as KotlinMetadataTarget
 }
-
-internal val Project.nativeUseEmbeddableCompilerJar: Boolean
-    get() = PropertiesProvider(this).nativeUseEmbeddableCompilerJar

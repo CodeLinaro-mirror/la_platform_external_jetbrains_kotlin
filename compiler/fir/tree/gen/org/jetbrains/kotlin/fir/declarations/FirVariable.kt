@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
 /**
- * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.variable]
+ * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.variable]
  */
 sealed class FirVariable : FirCallableDeclaration(), FirStatement {
     abstract override val source: KtSourceElement?
@@ -39,7 +39,7 @@ sealed class FirVariable : FirCallableDeclaration(), FirStatement {
     abstract override val dispatchReceiverType: ConeSimpleKotlinType?
     abstract override val contextReceivers: List<FirContextReceiver>
     abstract val name: Name
-    abstract override val symbol: FirVariableSymbol<out FirVariable>
+    abstract override val symbol: FirVariableSymbol<FirVariable>
     abstract val initializer: FirExpression?
     abstract val delegate: FirExpression?
     abstract val isVar: Boolean

@@ -39,9 +39,9 @@ class FirResolvedToPhaseState private constructor(
     override val resolvePhase: FirResolvePhase
 ) : FirResolveState() {
     companion object {
-        private val phases: List<FirResolvedToPhaseState> = FirResolvePhase.values().map(::FirResolvedToPhaseState)
+        private val phases: List<FirResolvedToPhaseState> = FirResolvePhase.entries.map(::FirResolvedToPhaseState)
 
-        operator fun invoke(phase: FirResolvePhase) = phases[phase.ordinal]
+        operator fun invoke(phase: FirResolvePhase): FirResolvedToPhaseState = phases[phase.ordinal]
     }
 
     override fun toString(): String = "ResolvedTo($resolvePhase)"
@@ -76,7 +76,7 @@ class FirInProcessOfResolvingToPhaseStateWithoutBarrier private constructor(
     override val resolvingTo: FirResolvePhase
 ) : FirInProcessOfResolvingToPhaseState() {
     companion object {
-        private val phases: List<FirInProcessOfResolvingToPhaseState> = FirResolvePhase.values()
+        private val phases: List<FirInProcessOfResolvingToPhaseState> = FirResolvePhase.entries
             .drop(1) // drop FirResolvePhase.RAW_FIR phase
             .map(::FirInProcessOfResolvingToPhaseStateWithoutBarrier)
 
@@ -125,7 +125,7 @@ class FirInProcessOfResolvingToPhaseStateWithBarrier(override val resolvingTo: F
  * @see FirResolveState
  */
 class FirInProcessOfResolvingToJumpingPhaseState(override val resolvingTo: FirResolvePhase) : FirInProcessOfResolvingToPhaseState() {
-    val latch = CountDownLatch(1)
+    val latch: CountDownLatch = CountDownLatch(1)
 
     @Volatile
     var waitingFor: FirInProcessOfResolvingToJumpingPhaseState? = null

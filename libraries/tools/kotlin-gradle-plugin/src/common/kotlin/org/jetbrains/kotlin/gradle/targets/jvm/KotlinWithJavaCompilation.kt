@@ -6,36 +6,30 @@
 @file:Suppress("PackageDirectoryMismatch", "UNCHECKED_CAST") // Old package for compatibility
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
-import org.gradle.api.Action
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.compile.JavaCompile
-import org.jetbrains.kotlin.gradle.dsl.KotlinCommonCompilerOptions
-import org.jetbrains.kotlin.gradle.dsl.KotlinCommonOptions
+import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.KotlinCompilationImpl
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
 import org.jetbrains.kotlin.gradle.utils.named
 import javax.inject.Inject
 
-@Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
+@Suppress("TYPEALIAS_EXPANSION_DEPRECATION", "DEPRECATION")
 open class KotlinWithJavaCompilation<KotlinOptionsType : KotlinCommonOptions, CO : KotlinCommonCompilerOptions> @Inject internal constructor(
     compilation: KotlinCompilationImpl,
     val javaSourceSet: SourceSet,
 ) : DeprecatedAbstractKotlinCompilationToRunnableFiles<KotlinOptionsType>(compilation),
     DeprecatedKotlinCompilationWithResources<KotlinOptionsType> {
 
-    @Suppress("UNCHECKED_CAST")
-    override val compilerOptions: HasCompilerOptions<CO> =
-        compilation.compilerOptions as HasCompilerOptions<CO>
-
-    internal fun compilerOptions(configure: CO.() -> Unit) {
-        compilerOptions.configure(configure)
-    }
-
-    internal fun compilerOptions(configure: Action<CO>) {
-        configure.execute(compilerOptions.options)
-    }
+    @Deprecated(
+        "To configure compilation compiler options use 'compileTaskProvider':\ncompilation.compileTaskProvider.configure{\n" +
+                "    compilerOptions {}\n}"
+    )
+    @Suppress("UNCHECKED_CAST", "DEPRECATION")
+    override val compilerOptions: DeprecatedHasCompilerOptions<CO> =
+        compilation.compilerOptions as DeprecatedHasCompilerOptions<CO>
 
     val compileJavaTaskProvider: TaskProvider<out JavaCompile>
         get() = target.project.tasks.withType(JavaCompile::class.java).named(javaSourceSet.compileJavaTaskName)

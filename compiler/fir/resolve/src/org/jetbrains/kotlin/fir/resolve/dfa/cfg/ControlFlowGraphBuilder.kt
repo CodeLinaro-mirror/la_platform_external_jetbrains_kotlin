@@ -25,7 +25,6 @@ import org.jetbrains.kotlin.fir.util.listMultimapOf
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
-import org.jetbrains.kotlin.utils.getOrPutNullable
 
 data class FirAnonymousFunctionReturnExpressionInfo(val expression: FirExpression, val isExplicit: Boolean)
 
@@ -101,7 +100,7 @@ class ControlFlowGraphBuilder {
                 // lambda@{ x } -> x
                 // lambda@{ class C } -> Unit-returning stub
                 function.isLambda -> {
-                    val lastStatement = fir.statements.lastOrNull()
+                    val lastStatement = function.lastStatement()
 
                     when {
                         // Skip last return statement because otherwise it add Nothing constraint on the lambda return type.
@@ -152,7 +151,7 @@ class ControlFlowGraphBuilder {
         fir: E,
         name: String,
         kind: ControlFlowGraph.Kind,
-        nodes: (E) -> Pair<EnterNode, ExitNode>
+        nodes: (E) -> Pair<EnterNode, ExitNode>,
     ): EnterNode where EnterNode : CFGNode<T>, EnterNode : GraphEnterNodeMarker, ExitNode : CFGNode<T>, ExitNode : GraphExitNodeMarker {
         val graph = ControlFlowGraph(fir as? FirDeclaration, name, kind).also { graphs.push(it) }
         val (enterNode, exitNode) = nodes(fir)
@@ -375,10 +374,6 @@ class ControlFlowGraphBuilder {
     // they may reassign variables and so the data we've gathered about them should be
     // invalidated. So what we do here is merge the data from the lambdas with the data
     // obtained without them: this can only erase statements that are not provably correct.
-    //
-    // TODO: an alternative is to delay computing incoming flow for "branch result exit" nodes
-    //   until the entire "when" is resolved; then either unify each branch's lambdas into its
-    //   exit node, or create N union nodes (1/branch) and point them into the merge node. KT-59730
     private fun mergeDataFlowFromPostponedLambdas(node: CFGNode<*>, callCompleted: Boolean) {
         val currentLevelExits = postponedLambdaExits.pop().exits
         if (currentLevelExits.isEmpty()) return
@@ -453,19 +448,6 @@ class ControlFlowGraphBuilder {
 
     // ----------------------------------- Classes -----------------------------------
 
-    /**
-     * The first in-place initializer is either:
-     * 1. The primary constructor.
-     * 2. The first property or anonymous initializer.
-     */
-    private fun FirClass.firstInPlaceInitializer(): FirDeclaration? {
-        return declarations.find {
-            it is FirControlFlowGraphOwner &&
-                    (it !is FirConstructor || it.isPrimary) &&
-                    it.isUsedInControlFlowGraphBuilderForClass
-        }
-    }
-
     private inline fun List<FirElement>.forEachGraphOwner(block: (FirControlFlowGraphOwner) -> Unit) {
         for (member in this) {
             if (member is FirControlFlowGraphOwner && member.memberShouldHaveGraph) {
@@ -513,19 +495,19 @@ class ControlFlowGraphBuilder {
         }
 
         if (enterNode.previousNodes.isNotEmpty()) {
-            val firstInPlace = klass.firstInPlaceInitializer()
+            // The points through which the class can be entered are:
+            //  1. primary constructor;
+            //  2. this-delegating constructors;
+            //  3. if there is no primary constructor, first in-place initialized member;
+            //  4. if there is no primary constructor and no in-place initialized members, any other constructors.
+            val primaryConstructor = klass.declarations.find { it is FirConstructor && it.isPrimary }
+            val primaryConstructorOrFirstInPlace = primaryConstructor ?: klass.declarations.find {
+                it is FirControlFlowGraphOwner && it !is FirConstructor && it.isUsedInControlFlowGraphBuilderForClass
+            }
             klass.declarations.forEachGraphOwner {
-                // For local classes,
-                //  - the first in-place initializer,
-                //  - all constructors when there are no in-place initializers,
-                //  - or any this-delegating constructors,
-                // should have a forward edge from ClassEnterNode.
-                // Everything else should have a DFG-only forward edge.
-                val kind = when {
-                    firstInPlace == it -> EdgeKind.Forward
-                    it is FirConstructor && (firstInPlace == null || it.delegatedConstructor?.isThis == true) -> EdgeKind.Forward
-                    else -> EdgeKind.DfgForward
-                }
+                val isFirstMember = it == primaryConstructorOrFirstInPlace ||
+                        it is FirConstructor && (primaryConstructorOrFirstInPlace == null || it.delegatedConstructor?.isThis == true)
+                val kind = if (isFirstMember) EdgeKind.Forward else EdgeKind.DfgForward
                 enterToLocalClassesMembers[(it as FirDeclaration).symbol] = enterNode to kind
             }
         }
@@ -545,17 +527,14 @@ class ControlFlowGraphBuilder {
         val exitNode = currentGraph.exitNode as ClassExitNode
         val klass = enterNode.fir
         if ((klass as FirControlFlowGraphOwner).controlFlowGraphReference != null) {
-            // TODO: IDE LL API sometimes attempts to analyze a enum class while already analyzing it, causing
-            //  this graph to be built twice (or more). Not sure what this means. Nothing good, probably.
-            //  In any case, attempting to add more edges to subgraphs will be fatal. KT-59728
             graphs.pop()
             return null to null
         }
 
         val isLocalClass = klass.isLocal
-        var primaryConstructor: ControlFlowGraph? = null
-        val calledInPlace = mutableListOf<ControlFlowGraph>()
+        var primaryConstructor: FirConstructor? = null
         val secondaryConstructors = mutableMapOf<FirConstructor, ControlFlowGraph>()
+        val calledInPlace = mutableListOf<ControlFlowGraph>()
         val calledLater = mutableListOf<ControlFlowGraph>()
         klass.declarations.forEachGraphOwner {
             val graph = it.controlFlowGraphReference?.controlFlowGraph ?: return@forEachGraphOwner
@@ -565,7 +544,7 @@ class ControlFlowGraphBuilder {
                         // The primary constructor is treated as an in-place initializer since it is always called, but a specific
                         // reference needs to be saved to inject into any secondary constructor delegation.
                         calledInPlace.add(graph)
-                        primaryConstructor = graph
+                        primaryConstructor = it
                     }
                     else -> secondaryConstructors[it] = graph
                 }
@@ -578,12 +557,12 @@ class ControlFlowGraphBuilder {
             }
         }
 
-        // Create primary constructor and in-place initializer edges.
+        // Link in-place initializers into a chain.
         val firstInPlaceEnter = calledInPlace.firstOrNull()?.enterNode
         val lastInPlaceExit = calledInPlace.fold<_, CFGNode<*>>(enterNode) { lastNode, graph ->
-            // In local classes, we already have control flow (+ data flow) edge from `enterNode`
-            // to primary constructor or first in-place initializer.
-            if (lastNode !== enterNode || lastNode.previousNodes.isEmpty()) {
+            // In local classes, the CFG edge from enterNode to the first in-place member already exists,
+            // as it is also a DFG edge. See `enterClass`.
+            if (lastNode !== enterNode || !isLocalClass) {
                 addEdgeToSubGraph(lastNode, graph.enterNode)
             }
             graph.exitNode
@@ -601,48 +580,57 @@ class ControlFlowGraphBuilder {
         }
 
         // Create secondary constructor edges.
-        val parentConstructors = mutableMapOf<FirConstructor, FirConstructor?>()
-        fun FirConstructor.parentConstructor(): FirConstructor? = parentConstructors.getOrPutNullable(this) {
-            // Break cycles in some way; there will be errors on delegated constructor calls in that case.
-            parentConstructors[this] = null
-            delegatedConstructor?.takeIf { it.isThis }?.calleeReference
-                ?.toResolvedConstructorSymbol(discardErrorReference = true)?.fir
-                ?.takeIf { parent -> this !in generateSequence(parent) { it.parentConstructor() } }
-        }
+        val constructorDelegation = mutableMapOf<FirConstructor, FirConstructor>()
+        val constructorDelegationLevel = mutableMapOf<FirConstructor, Int>()
 
-        fun getDelegateNodes(ctor: FirConstructor): Pair<CFGNode<FirElement>?, CFGNode<FirElement>?> {
-            val parentConstructor = ctor.parentConstructor()
-            val secondaryGraph = secondaryConstructors[parentConstructor]
-            return when {
-                secondaryGraph != null -> (firstInPlaceEnter ?: secondaryGraph.enterNode) to secondaryGraph.exitNode
-                primaryConstructor != null && primaryConstructor == parentConstructor?.controlFlowGraphReference?.controlFlowGraph -> firstInPlaceEnter to lastInPlaceExit
-                else -> null to null
-            }
+        fun FirConstructor.computeDelegationLevel(): Int = constructorDelegationLevel.getOrPut(this) {
+            // Break cycles in some way; there will be errors on delegated constructor calls in that case.
+            constructorDelegationLevel[this] = -1
+            val delegatesTo = delegatedConstructor?.takeIf { it.isThis }?.calleeReference
+                ?.toResolvedConstructorSymbol(discardErrorReference = true)?.fir ?: return@getOrPut 0
+            val delegatedLevel = delegatesTo.computeDelegationLevel()
+            if (delegatedLevel != -1) constructorDelegation[this] = delegatesTo
+            delegatedLevel + 1
         }
 
         for ((ctor, graph) in secondaryConstructors) {
-            val (delegatedEnter, delegatedExit) = getDelegateNodes(ctor)
-            if (delegatedEnter != null && delegatedExit != null) {
-                // Inject delegated constructor and other in-place initializer sub-graphs after the delegated constructor call node. This
-                // ensures property initialization and use is calculated correctly when there are complex calculations for the arguments to
-                // the delegated constructor.
+            ctor.computeDelegationLevel()
+            val delegatesTo = constructorDelegation[ctor]
+            val delegatedNodeRange = secondaryConstructors[delegatesTo]?.let {
+                // constructor(A) : this(B) <-- class enter -> [constructor(A) enter -> B -> constructor(B) -> rest of constructor(A)]
+                //                                             v-----------------------------/            \--------------------------\
+                // constructor(B) : this(C) <-- class enter -> [constructor(B) enter -> C -> constructor(C) -> rest of constructor(B)]
+                //                                   /---------------------------------------/            \--------\
+                // constructor(C) <-- class enter -> init blocks -> [constructor(C) enter -> rest of constructor(C)]
+                //
+                // The bracketed part is the `ControlFlowGraph` for the corresponding constructor. As can be seen above,
+                // if the constructor being delegated to delegates to another constructor itself, we can use enter/exit node directly,
+                // but if it doesn't, we also need to include the init blocks.
+                val hasParent = delegatesTo in constructorDelegation
+                if (hasParent) it.enterNode to it.exitNode else (firstInPlaceEnter ?: it.enterNode) to it.exitNode
+            } ?: if (delegatesTo != null && primaryConstructor == delegatesTo) firstInPlaceEnter!! to lastInPlaceExit else null
 
+            if (delegatedNodeRange != null) {
+                // In local classes, the CFG edge from enterNode to this constructor already exists,
+                // as it is also a DFG edge. See `enterClass`.
+                if (!isLocalClass) addEdgeToSubGraph(enterNode, graph.enterNode)
+                // class C {
+                //   constructor() : this(x /* before constructor(x) */) { /* after constructor(x) */ }
+                //   constructor(x: ...) {}
+                // }
+                val (delegatedEnter, delegatedExit) = delegatedNodeRange
                 val delegatedConstructorCall = graph.nodes.single { it is DelegatedConstructorCallNode }
-                val edgeLabel = graph.exitNode as FunctionExitNode
-
                 val followingNodes = delegatedConstructorCall.followingNodes.toList()
                 CFGNode.removeAllOutgoingEdges(delegatedConstructorCall)
-
-                if (!isLocalClass) addEdgeToSubGraph(enterNode, graph.enterNode)
-
-                addEdgeToSubGraph(delegatedConstructorCall, delegatedEnter, label = edgeLabel)
+                addEdge(delegatedConstructorCall, delegatedEnter, preferredKind = EdgeKind.CfgForward, propagateDeadness = false)
                 for (node in followingNodes) {
-                    addEdge(delegatedExit, node, preferredKind = EdgeKind.CfgForward, label = edgeLabel)
+                    addEdgeToSubGraph(delegatedExit, node)
                     addEdge(delegatedConstructorCall, node, preferredKind = EdgeKind.DfgForward)
                 }
-            } else if (lastInPlaceExit !== enterNode || lastInPlaceExit.previousNodes.isEmpty()) {
-                // Similarly, if there are no in-place initializers, we already have control flow (+ data flow) edges
-                // from `enterNode` to all non-delegating constructors in local classes.
+            } else if (lastInPlaceExit !== enterNode || !isLocalClass) {
+                // (init blocks if any, else class entry) -> non-delegating or super-delegating constructor.
+                // For local classes, if there are no init blocks, the CFG edge from the class entry already exists,
+                // as it is also a DFG edge. See `enterClass`.
                 addEdgeToSubGraph(lastInPlaceExit, graph.enterNode)
             }
             addEdge(graph.exitNode, exitNode, preferredKind = if (exitNode.isUnion) EdgeKind.Forward else EdgeKind.CfgForward)
@@ -662,7 +650,8 @@ class ControlFlowGraphBuilder {
             addEdgeToSubGraph(exitNode, graph.enterNode)
         }
 
-        enterNode.subGraphs = calledInPlace + secondaryConstructors.values
+        // Make sure constructor graphs are visited in an order such that delegated constructors go before delegating ones.
+        enterNode.subGraphs = calledInPlace + secondaryConstructors.entries.sortedBy { it.key.computeDelegationLevel() }.map { it.value }
         exitNode.subGraphs = calledLater
         return exitNode.takeIf { it.isUnion } to popGraph()
     }
@@ -935,7 +924,7 @@ class ControlFlowGraphBuilder {
 
     fun exitWhenExpression(
         whenExpression: FirWhenExpression,
-        callCompleted: Boolean
+        callCompleted: Boolean,
     ): Pair<WhenExitNode, WhenSyntheticElseBranchNode?> {
         val whenExitNode = whenExitNodes.pop()
         // exit from last condition node still on stack
@@ -1030,7 +1019,7 @@ class ControlFlowGraphBuilder {
     }
 
     fun exitLeftBinaryLogicExpressionArgument(
-        binaryLogicExpression: FirBinaryLogicExpression
+        binaryLogicExpression: FirBinaryLogicExpression,
     ): Pair<CFGNode<FirBinaryLogicExpression>, CFGNode<FirBinaryLogicExpression>> {
         val (leftExitNode, rightEnterNode) = when (binaryLogicExpression.kind) {
             LogicOperationKind.AND ->
@@ -1055,13 +1044,17 @@ class ControlFlowGraphBuilder {
         val leftNode = lastNodes.pop()
         val rhsAlwaysExecuted =
             binaryLogicExpression.leftOperand.booleanLiteralValue == (binaryLogicExpression.kind == LogicOperationKind.AND)
-        addEdge(leftNode, exitNode, propagateDeadness = !rhsAlwaysExecuted, isDead = rhsAlwaysExecuted)
-        addEdge(rightNode, exitNode, propagateDeadness = rhsAlwaysExecuted)
+        if (rhsAlwaysExecuted) {
+            addEdge(rightNode, exitNode)
+        } else {
+            addEdge(leftNode, exitNode, propagateDeadness = true)
+            addEdge(rightNode, exitNode, propagateDeadness = false)
+        }
         lastNodes.push(exitNode)
         return exitNode
     }
 
-    private val FirExpression.booleanLiteralValue: Boolean? get() = (this as? FirLiteralExpression<*>)?.value as? Boolean?
+    private val FirExpression.booleanLiteralValue: Boolean? get() = (this as? FirLiteralExpression)?.value as? Boolean?
 
     // ----------------------------------- Try-catch-finally -----------------------------------
 
@@ -1223,13 +1216,11 @@ class ControlFlowGraphBuilder {
     private fun levelOfNextExceptionCatchingGraph(): Int =
         graphs.all().first { it.kind != ControlFlowGraph.Kind.AnonymousFunctionCalledInPlace }.exitNode.level
 
-    // this is a workaround to make function call dead when call is completed _after_ building its node in the graph
-    // this happens when completing the last call in try/catch blocks
-    // TODO: this doesn't make fully 'right' Nothing node (doesn't support going to catch and pass through finally)
-    //  because doing those afterwards is quite challenging
-    //  it would be much easier if we could build calls after full completion only, at least for Nothing calls
-    //  KT-59726
-    // @returns `true` if node actually returned Nothing
+    /**
+     * this is a workaround to make function call dead when call is completed _after_ building its node in the graph
+     * this happens when completing the last call in try/catch blocks
+     * @returns `true` if node actually returned Nothing
+     */
     private fun completeFunctionCall(node: FunctionCallNode): Boolean {
         if (!node.fir.hasNothingType) return false
         val stub = StubNode(node.owner, node.level)
@@ -1283,7 +1274,7 @@ class ControlFlowGraphBuilder {
 
         if (call is FirFunctionCall) {
             val enterNode = createFunctionCallArgumentsEnterNode(call)
-            val exitNode = createFunctionCallArgumentsExitNode(call, enterNode)
+            val exitNode = createFunctionCallArgumentsExitNode(call, explicitReceiverExitNode = enterNode)
 
             exitFunctionCallArgumentsNodes.push(exitNode)
             addNewSimpleNode(enterNode)
@@ -1299,6 +1290,22 @@ class ControlFlowGraphBuilder {
         val splitNode = argumentListSplitNodes.pop()?.also { addNewSimpleNode(it) }
         val exitNode = exitFunctionCallArgumentsNodes.pop()?.also { addNewSimpleNode(it) }
         return splitNode to exitNode
+    }
+
+    /**
+     * Saves the last node as the currents exit function arguments call
+     * explicit receiver.
+     *
+     * If the exit node is null this function does nothing.
+     * There is no corresponding enterCall for this function.
+     *
+     * This is later used to rewind the implicit receiver stack to the point
+     * before function arguments have been resolved so that casts within the
+     * call arguments do not affect the method resolution.
+     */
+    fun exitCallExplicitReceiver() {
+        val exitNode = exitFunctionCallArgumentsNodes.topOrNull()
+        exitNode?.explicitReceiverExitNode = lastNode
     }
 
     fun exitFunctionCall(functionCall: FirFunctionCall, callCompleted: Boolean): FunctionCallNode {
@@ -1330,7 +1337,7 @@ class ControlFlowGraphBuilder {
         return node
     }
 
-    fun exitLiteralExpression(literalExpression: FirLiteralExpression<*>): LiteralExpressionNode {
+    fun exitLiteralExpression(literalExpression: FirLiteralExpression): LiteralExpressionNode {
         return createLiteralExpressionNode(literalExpression).also { addNewSimpleNode(it) }
     }
 
@@ -1530,7 +1537,7 @@ class ControlFlowGraphBuilder {
         propagateDeadness: Boolean = true,
         isDead: Boolean = false,
         preferredKind: EdgeKind = EdgeKind.Forward,
-        label: EdgeLabel = NormalPath
+        label: EdgeLabel = NormalPath,
     ) {
         val kind = if (isDead || from.isDead || to.isDead) {
             if (preferredKind.isBack) EdgeKind.DeadBackward else EdgeKind.DeadForward
@@ -1538,11 +1545,11 @@ class ControlFlowGraphBuilder {
         CFGNode.addEdge(from, to, kind, propagateDeadness, label)
     }
 
-    private fun addEdgeToSubGraph(from: CFGNode<*>, to: CFGNode<*>, label: EdgeLabel = NormalPath) {
+    private fun addEdgeToSubGraph(from: CFGNode<*>, to: CFGNode<*>) {
         val wasDead = to.isDead
         val isDead = wasDead || from.isDead
         // Can only add control flow since data flow for every node that follows `to` has already been computed.
-        CFGNode.addEdge(from, to, if (isDead) EdgeKind.DeadForward else EdgeKind.CfgForward, propagateDeadness = true, label)
+        CFGNode.addEdge(from, to, if (isDead) EdgeKind.DeadForward else EdgeKind.CfgForward, propagateDeadness = true)
         if (isDead && !wasDead) {
             propagateDeadnessForward(to)
         }
@@ -1612,3 +1619,18 @@ val FirControlFlowGraphOwner.isUsedInControlFlowGraphBuilderForScript: Boolean
 @OptIn(UnresolvedExpressionTypeAccess::class)
 private val FirExpression.hasNothingType: Boolean
     get() = coneTypeOrNull?.isNothing == true
+
+fun FirAnonymousFunction.lastStatement(): FirStatement? {
+    val last = this.body?.statements?.lastOrNull() ?: return null
+
+    fun FirStatement.unwrapBlocks(): FirStatement {
+        return when (this) {
+            is FirBlock -> statements.lastOrNull()?.unwrapBlocks() ?: this
+            else -> this
+        }
+    }
+
+    return last.unwrapBlocks()
+}
+
+

@@ -5,17 +5,17 @@
 
 package org.jetbrains.kotlin.fir.tree.generator.printer
 
-import org.jetbrains.kotlin.fir.tree.generator.context.AbstractFirTreeBuilder
+import org.jetbrains.kotlin.fir.tree.generator.FirTree
 import org.jetbrains.kotlin.fir.tree.generator.firVisitorType
 import org.jetbrains.kotlin.fir.tree.generator.model.Element
 import org.jetbrains.kotlin.fir.tree.generator.model.Field
 import org.jetbrains.kotlin.generators.tree.AbstractVisitorVoidPrinter
 import org.jetbrains.kotlin.generators.tree.ClassRef
 import org.jetbrains.kotlin.generators.tree.PositionTypeParameterRef
-import org.jetbrains.kotlin.utils.SmartPrinter
+import org.jetbrains.kotlin.generators.tree.printer.ImportCollectingPrinter
 
 internal class VisitorVoidPrinter(
-    printer: SmartPrinter,
+    printer: ImportCollectingPrinter,
     override val visitorType: ClassRef<*>,
 ) : AbstractVisitorVoidPrinter<Element, Field>(printer) {
 
@@ -31,5 +31,5 @@ internal class VisitorVoidPrinter(
     override val overriddenVisitMethodsAreFinal: Boolean
         get() = true
 
-    override fun parentInVisitor(element: Element): Element = AbstractFirTreeBuilder.baseFirElement
+    override fun parentInVisitor(element: Element): Element = FirTree.rootElement
 }

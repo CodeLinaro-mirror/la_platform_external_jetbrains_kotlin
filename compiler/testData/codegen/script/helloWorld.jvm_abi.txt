@@ -5,17 +5,8 @@ MODULE main
 				<init>([Ljava/lang/String;)V
 			K2
 				---
-			K1
-				---
-			K2
-				$$result
 			Property: class.metadata.superTypes
 				K1
 					[kotlin/script/templates/standard/ScriptTemplateWithArgs]
 				K2
 					[]
-			Property: class.metadata.contextReceiverTypes
-				K1
-					[]
-				K2
-					[kotlin/script/templates/standard/ScriptTemplateWithArgs]

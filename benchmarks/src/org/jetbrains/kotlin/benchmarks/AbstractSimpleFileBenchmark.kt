@@ -72,7 +72,7 @@ private fun newConfiguration(useNewInference: Boolean): CompilerConfiguration {
     configuration.addJvmClasspathRoot(JDK_PATH)
     configuration.addJvmClasspathRoot(RUNTIME_JAR)
     configuration.configureJdkClasspathRoots()
-    configuration.put(CLIConfigurationKeys.MESSAGE_COLLECTOR_KEY, MessageCollector.NONE)
+    configuration.messageCollector = MessageCollector.NONE
 
     val newInferenceState = if (useNewInference) LanguageFeature.State.ENABLED else LanguageFeature.State.DISABLED
     configuration.languageVersionSettings = LanguageVersionSettingsImpl(
@@ -140,7 +140,7 @@ abstract class AbstractSimpleFileBenchmark {
         val result = TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(
             moduleContext.project,
             listOf(file),
-            NoScopeRecordCliBindingTrace(),
+            NoScopeRecordCliBindingTrace(env.project),
             env.configuration,
             { scope -> JvmPackagePartProvider(LANGUAGE_FEATURE_SETTINGS, scope) }
         )

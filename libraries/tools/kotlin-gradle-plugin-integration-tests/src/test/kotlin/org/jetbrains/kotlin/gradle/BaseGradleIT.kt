@@ -22,13 +22,11 @@ import org.jetbrains.kotlin.konan.target.presetName
 import org.jetbrains.kotlin.test.RunnerWithMuteInDatabase
 import org.junit.After
 import org.junit.AfterClass
-import org.junit.Assume
 import org.junit.Before
 import org.junit.runner.RunWith
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.Paths
 import java.util.*
 import java.util.regex.Pattern
 import javax.xml.parsers.DocumentBuilderFactory
@@ -36,7 +34,7 @@ import kotlin.io.path.absolutePathString
 import kotlin.io.path.isDirectory
 import kotlin.test.*
 
-val SYSTEM_LINE_SEPARATOR: String = System.getProperty("line.separator")
+val SYSTEM_LINE_SEPARATOR: String = System.lineSeparator()
 
 @RunWith(value = RunnerWithMuteInDatabase::class)
 abstract class BaseGradleIT {
@@ -47,8 +45,6 @@ abstract class BaseGradleIT {
 
     open val defaultGradleVersion: GradleVersionRequired
         get() = GradleVersionRequired.None
-
-    val isTeamCityRun = System.getenv("TEAMCITY_VERSION") != null
 
     @Before
     open fun setUp() {
@@ -181,22 +177,6 @@ abstract class BaseGradleIT {
             return wrapper
         }
 
-        fun maybeUpdateSettingsScript(wrapperVersion: String, settingsScript: File) {
-            // enableFeaturePreview("GRADLE_METADATA") is no longer needed when building with Gradle 5.4 or above
-            if (GradleVersion.version(wrapperVersion) >= GradleVersion.version("5.4")) {
-                settingsScript.apply {
-                    if (exists()) {
-                        modify {
-                            it.replace("enableFeaturePreview('GRADLE_METADATA')", "//")
-                        }
-                        modify {
-                            it.replace("enableFeaturePreview(\"GRADLE_METADATA\")", "//")
-                        }
-                    }
-                }
-            }
-        }
-
         private fun createNewWrapperDir(version: String): File =
             createTempDir("GradleWrapper-$version-")
                 .apply {
@@ -233,8 +213,6 @@ abstract class BaseGradleIT {
                 "Could not stop some daemons ${(DaemonRegistry.activeDaemons).joinToString()}"
             }
         }
-
-        fun hostHaveUnsupportedTarget() = Assume.assumeFalse(HostManager.hostIsMac)
     }
 
     // the second parameter is for using with ToolingAPI, that do not like --daemon/--no-daemon  options at all
@@ -369,9 +347,6 @@ abstract class BaseGradleIT {
 
         fun relativize(files: Iterable<File>): List<String> =
             files.map { it.relativeTo(projectDir).path }
-
-        fun relativize(vararg files: File): List<String> =
-            files.map { it.relativeTo(projectDir).path }
     }
 
     class CompiledProject(val project: Project, val output: String, val resultCode: Int)
@@ -416,8 +391,6 @@ abstract class BaseGradleIT {
         if (!projectDir.exists()) {
             setupWorkingDir()
         }
-
-        maybeUpdateSettingsScript(wrapperVersion, gradleSettingsScript())
 
         var result: ProcessRunResult? = null
         try {
@@ -748,9 +721,6 @@ abstract class BaseGradleIT {
     fun CompiledProject.assertCompiledKotlinFiles(expectedFiles: Iterable<File>): CompiledProject =
         assertCompiledKotlinSources(project.relativize(expectedFiles))
 
-    val Project.allKotlinFiles: Iterable<File>
-        get() = projectDir.allKotlinFiles()
-
     fun Project.projectFile(name: String): File =
         projectDir.getFileByName(name)
 
@@ -1058,16 +1028,10 @@ abstract class BaseGradleIT {
         assertTrue(target.isDirectory)
         source.listFiles()?.forEach { copyRecursively(it, target) }
     }
-
-    private fun String.normalizePath() = replace("\\", "/")
 }
 
-fun BaseGradleIT.BuildOptions.withFreeCommandLineArgument(argument: String) = copy(
-    freeCommandLineArgs = freeCommandLineArgs + argument
-)
-
 fun BaseGradleIT.BuildOptions.suppressDeprecationWarningsOn(
-    @Suppress("UNUSED_PARAMETER") reason: String, // just to require specifying a reason for suppressing
+    @Suppress("UNUSED_PARAMETER", "unused") reason: String, // just to require specifying a reason for suppressing
     predicate: (BaseGradleIT.BuildOptions) -> Boolean
 ) =
     if (predicate(this)) {
@@ -1075,14 +1039,6 @@ fun BaseGradleIT.BuildOptions.suppressDeprecationWarningsOn(
     } else {
         this
     }
-
-fun BaseGradleIT.BuildOptions.suppressDeprecationWarningsSinceGradleVersion(
-    gradleVersion: String,
-    currentGradleVersion: String,
-    reason: String
-) = suppressDeprecationWarningsOn(reason) {
-    GradleVersion.version(currentGradleVersion) >= GradleVersion.version(gradleVersion)
-}
 
 private const val MAVEN_LOCAL_URL_PLACEHOLDER = "<mavenLocalUrl>"
 internal const val PLUGIN_MARKER_VERSION_PLACEHOLDER = "<pluginMarkerVersion>"
@@ -1152,4 +1108,25 @@ private object MavenLocalUrlProvider {
         get() = System.getProperty("M2_HOME")?.let { getLocalRepositoryFromXml(File(it, "conf/settings.xml")) }
 
     private val defaultM2RepoPath get() = File(homeDir, ".m2/repository").absolutePath
+}
+
+internal fun BaseGradleIT.Project.embedProject(other: BaseGradleIT.Project, renameTo: String? = null) {
+    setupWorkingDir()
+    other.setupWorkingDir(false)
+    val tempDir = createTempDir(if (isWindows) "" else "BaseGradleIT")
+    val embeddedModuleName = renameTo ?: other.projectName
+    try {
+        other.projectDir.copyRecursively(tempDir)
+        tempDir.copyRecursively(projectDir.resolve(embeddedModuleName))
+    } finally {
+        check(tempDir.deleteRecursively())
+    }
+    testCase.apply {
+        gradleSettingsScript().appendText("\ninclude(\"$embeddedModuleName\")")
+
+        val embeddedBuildScript = gradleBuildScript(embeddedModuleName)
+        if (embeddedBuildScript.extension == "kts") {
+            embeddedBuildScript.modify { it.replace(".version(\"$PLUGIN_MARKER_VERSION_PLACEHOLDER\")", "") }
+        }
+    }
 }

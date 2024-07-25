@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
 /**
- * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTreeBuilder.function]
+ * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.function]
  */
 sealed class FirFunction : FirCallableDeclaration(), FirTargetElement, FirControlFlowGraphOwner, FirStatement {
     abstract override val source: KtSourceElement?
@@ -41,7 +41,7 @@ sealed class FirFunction : FirCallableDeclaration(), FirTargetElement, FirContro
     abstract override val dispatchReceiverType: ConeSimpleKotlinType?
     abstract override val contextReceivers: List<FirContextReceiver>
     abstract override val controlFlowGraphReference: FirControlFlowGraphReference?
-    abstract override val symbol: FirFunctionSymbol<out FirFunction>
+    abstract override val symbol: FirFunctionSymbol<FirFunction>
     abstract val valueParameters: List<FirValueParameter>
     abstract val body: FirBlock?
 

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
 plugins {
     kotlin("jvm")
     id("jps-compatible")
@@ -8,7 +10,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(kotlinxCollectionsImmutable())
     compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
     compileOnly(project(":compiler:psi"))
@@ -17,9 +18,7 @@ dependencies {
     compileOnly(project(":core:compiler.common.jvm"))
     compileOnly(project(":core:compiler.common.js"))
     implementation(project(":analysis:analysis-internal-utils"))
-    implementation(project(":analysis:analysis-api-providers"))
     implementation(project(":analysis:kt-references"))
-    api(project(":analysis:project-structure"))
 
     api(intellijCore())
     api(commonDependency("org.jetbrains.intellij.deps:asm-all"))
@@ -35,8 +34,8 @@ sourceSets {
     "test" { projectDefault() }
 }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    kotlinOptions.freeCompilerArgs += "-Xcontext-receivers"
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
 }
 
 testsJar()

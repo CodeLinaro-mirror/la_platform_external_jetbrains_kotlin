@@ -1,5 +1,4 @@
-// FIR_IDENTICAL
-// !LANGUAGE: +ExpectedTypeFromCast
+// LANGUAGE: +ExpectedTypeFromCast
 
 fun <T> foo(): T = TODO()
 

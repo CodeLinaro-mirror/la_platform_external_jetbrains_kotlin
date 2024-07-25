@@ -16,19 +16,19 @@ import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
+import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
+import org.gradle.kotlin.dsl.apply
 import org.gradle.testfixtures.ProjectBuilder
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.util.*
-import org.jetbrains.kotlin.gradle.util.addBuildEventsListenerRegistryMock
-import org.jetbrains.kotlin.gradle.util.disableLegacyWarning
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import kotlin.test.*
 
 class MppPublicationTest {
 
     private val project = ProjectBuilder.builder().build().also {
-        addBuildEventsListenerRegistryMock(it)
         disableLegacyWarning(it)
     } as ProjectInternal
 
@@ -95,7 +95,8 @@ class MppPublicationTest {
 
         val extraExpectedAttributes = mapOf(               // target disambiguation attribute
             "org.jetbrains.kotlin.platform.type" to "jvm", // is set by default by kgp, when it sets usage as `java-runtime-jars`
-            "org.gradle.libraryelements" to "jar"          // see [KotlinUsages.producerApiUsage]
+            "org.gradle.libraryelements" to "jar",         // see [KotlinUsages.producerApiUsage]
+            "org.gradle.jvm.environment" to "standard-jvm"
         )
 
         val expectedAttributes = javaSourcesElementsAttributes.toMapOfStrings() + extraExpectedAttributes
@@ -266,6 +267,38 @@ class MppPublicationTest {
         )
         val missingConfigurations = expectedConfigurations - project.configurations.names
         if (missingConfigurations.isNotEmpty()) fail("Following configurations are not created: $missingConfigurations")
+    }
+
+    @Test
+    @OptIn(ExperimentalWasmDsl::class)
+    fun `test MavenPublish applied before KotlinMultiplatform KT-28520`() {
+        val project = buildProject {
+
+            apply<MavenPublishPlugin>()
+
+            assertTrue(pluginManager.hasPlugin("maven-publish"), "Expected project has MavenPublish plugin")
+            assertFalse(project.pluginManager.hasPlugin("kotlin-multiplatform"), "Expected project does not have KGP")
+
+            applyMultiplatformPlugin()
+
+            assertTrue(project.pluginManager.hasPlugin("kotlin-multiplatform"), "Expected project has KGP")
+
+            kotlin {
+                jvm()
+
+                linuxX64()
+                mingwX64()
+                macosX64()
+
+                js { browser() }
+
+                wasmJs { browser() }
+                wasmWasi { nodejs() }
+            }
+        }.evaluate()
+
+        assertTrue(project.pluginManager.hasPlugin("maven-publish"), "Expected evaluated project has MavenPublish plugin")
+        assertTrue(project.pluginManager.hasPlugin("kotlin-multiplatform"), "Expected evaluated project has KGP")
     }
 
     private fun SoftwareComponent.attributesOfUsageContext(usageContextName: String): AttributeContainer {

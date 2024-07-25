@@ -1,4 +1,5 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import java.util.Properties
 import java.io.FileReader
 
@@ -47,12 +48,15 @@ sourceSets["main"].kotlin {
     srcDir("../../../shared/src/library/kotlin")
     srcDir("../../../shared/src/main/kotlin")
     srcDir("../../benchmarks/shared/src/main/kotlin/report")
-    srcDir("../../../../native/utils/src")
 }
 
-tasks.withType<KotlinCompile>().configureEach {
-    kotlinOptions.freeCompilerArgs +=
-        listOf("-opt-in=kotlin.RequiresOptIn", "-opt-in=kotlin.ExperimentalStdlibApi")
+tasks.withType<KotlinJvmCompile>().configureEach {
+    compilerOptions.optIn.addAll(
+        listOf(
+                "kotlin.RequiresOptIn",
+                "kotlin.ExperimentalStdlibApi",
+        )
+    )
 }
 
 dependencies {
@@ -82,15 +86,15 @@ dependencies {
 
     // Located in <repo root>/shared and always provided by the composite build.
     //api("org.jetbrains.kotlin:kotlin-native-shared:$konanVersion")
-    implementation("com.github.johnrengelman:shadow:$shadowVersion")
+    implementation("io.github.goooler.shadow:shadow-gradle-plugin:$shadowVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-metadata-klib:$metadataVersion")
 }
 
 afterEvaluate {
-    tasks.withType<KotlinCompile>().configureEach {
-        kotlinOptions {
-            languageVersion = "1.4"
-            apiVersion = "1.4"
+    tasks.withType<KotlinJvmCompile>().configureEach {
+        compilerOptions {
+            languageVersion = KotlinVersion.KOTLIN_1_4
+            apiVersion = KotlinVersion.KOTLIN_1_4
         }
     }
 }

@@ -9,14 +9,11 @@ import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.copyWithNewSource
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
-import org.jetbrains.kotlin.fir.expressions.FirBlock
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
-import org.jetbrains.kotlin.fir.expressions.UnresolvedExpressionTypeAccess
+import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.builder.buildSpreadArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildVarargArgumentsExpression
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.types.*
@@ -34,15 +31,15 @@ internal inline var FirExpression.resultType: ConeKotlinType
 internal fun remapArgumentsWithVararg(
     varargParameter: FirValueParameter,
     varargArrayType: ConeKotlinType,
-    argumentMapping: LinkedHashMap<FirExpression, FirValueParameter>
-): LinkedHashMap<FirExpression, FirValueParameter> {
+    argumentMapping: LinkedHashMap<FirExpression, FirValueParameter>,
+    argumentList: List<FirExpression>,
+): LinkedHashMap<FirExpression, FirValueParameter?> {
     // Create a FirVarargArgumentExpression for the vararg arguments.
     // The order of arguments in the mapping must be preserved for FIR2IR, hence we have to find where the vararg arguments end.
     // FIR2IR uses the mapping order to determine if arguments need to be reordered.
     val varargElementType = varargArrayType.arrayElementType()?.approximateIntegerLiteralType()
-    val argumentList = argumentMapping.keys.toList()
     var indexAfterVarargs = argumentList.size
-    val newArgumentMapping = linkedMapOf<FirExpression, FirValueParameter>()
+    val newArgumentMapping = linkedMapOf<FirExpression, FirValueParameter?>()
     val varargArgument = buildVarargArgumentsExpression {
         coneElementTypeOrNull = varargElementType
         coneTypeOrNull = varargArrayType
@@ -51,13 +48,23 @@ internal fun remapArgumentsWithVararg(
         var firstVarargElementSource: KtSourceElement? = null
 
         for ((i, arg) in argumentList.withIndex()) {
-            val valueParameter = argumentMapping.getValue(arg)
-            // Collect arguments if `arg` is a vararg argument of interest or other vararg arguments.
-            if (valueParameter == varargParameter ||
+            val valueParameter = argumentMapping[arg]
+            if (valueParameter == null) {
+                newArgumentMapping[arg] = null
+            } else if (valueParameter == varargParameter ||
                 // NB: don't pull out of named arguments.
                 (valueParameter.isVararg && arg !is FirNamedArgumentExpression)
             ) {
-                arguments += arg
+                arguments += if (arg is FirNamedArgumentExpression) {
+                    buildSpreadArgumentExpression {
+                        this.source = arg.source
+                        this.expression = arg.expression
+                        this.isNamed = true
+                        this.isFakeSpread = !arg.isSpread
+                    }
+                } else {
+                    arg
+                }
                 startOffset = minOf(startOffset, arg.source?.startOffset ?: Int.MAX_VALUE)
                 endOffset = maxOf(endOffset, arg.source?.endOffset ?: 0)
                 if (firstVarargElementSource == null) firstVarargElementSource = arg.source
@@ -78,7 +85,7 @@ internal fun remapArgumentsWithVararg(
     // Add mapping for arguments after the vararg arguments, if any.
     for (i in indexAfterVarargs until argumentList.size) {
         val arg = argumentList[i]
-        newArgumentMapping[arg] = argumentMapping.getValue(arg)
+        newArgumentMapping[arg] = argumentMapping[arg]
     }
     return newArgumentMapping
 }
@@ -94,7 +101,7 @@ fun FirBlock.writeResultType(session: FirSession) {
     resultType = resultExpression?.coneTypeOrNull ?: session.builtinTypes.unitType.type
 }
 
-fun ConstantValueKind<*>.expectedConeType(session: FirSession): ConeKotlinType {
+fun ConstantValueKind.expectedConeType(session: FirSession): ConeKotlinType {
     fun constructLiteralType(classId: ClassId, isNullable: Boolean = false): ConeKotlinType {
         val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
             ?: return ConeErrorType(ConeSimpleDiagnostic("Missing stdlib class: $classId", DiagnosticKind.MissingStdlibClass))
@@ -120,5 +127,11 @@ fun ConstantValueKind<*>.expectedConeType(session: FirSession): ConeKotlinType {
         ConstantValueKind.IntegerLiteral -> constructLiteralType(StandardClassIds.Int)
         ConstantValueKind.UnsignedIntegerLiteral -> constructLiteralType(StandardClassIds.UInt)
         ConstantValueKind.Error -> error("Unexpected error ConstantValueKind")
+    }
+}
+
+fun FirWhenExpression.replaceReturnTypeIfNotExhaustive(session: FirSession) {
+    if (!isProperlyExhaustive && !usedAsExpression) {
+        resultType = session.builtinTypes.unitType.type
     }
 }

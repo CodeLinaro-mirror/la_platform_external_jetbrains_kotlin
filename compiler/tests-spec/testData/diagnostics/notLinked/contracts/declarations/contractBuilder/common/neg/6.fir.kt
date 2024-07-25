@@ -1,6 +1,6 @@
-// !LANGUAGE: +AllowContractsForNonOverridableMembers +AllowReifiedGenericsInContracts
-// !DIAGNOSTICS: -UNUSED_VARIABLE -UNUSED_PARAMETER -UNREACHABLE_CODE -UNUSED_EXPRESSION
-// !OPT_IN: kotlin.contracts.ExperimentalContracts
+// LANGUAGE: +AllowContractsForNonOverridableMembers +AllowReifiedGenericsInContracts
+// DIAGNOSTICS: -UNUSED_VARIABLE -UNUSED_PARAMETER -UNREACHABLE_CODE -UNUSED_EXPRESSION
+// OPT_IN: kotlin.contracts.ExperimentalContracts
 
 /*
  * KOTLIN DIAGNOSTICS NOT LINKED SPEC TEST (NEGATIVE)
@@ -45,7 +45,7 @@ class case_2(value_5: Boolean, val value_1: Boolean) {
 
     init {
         fun case_2_1(): Boolean {
-            <!CONTRACT_NOT_ALLOWED!>contract<!> { <!ERROR_IN_CONTRACT_DESCRIPTION!>returns(false) implies (value_5)<!> }
+            <!CONTRACT_NOT_ALLOWED!>contract<!> { returns(false) implies (value_5) }
             return !(value_5)
         }
     }

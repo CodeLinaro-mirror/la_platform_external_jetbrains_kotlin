@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.session
 
 import org.jetbrains.annotations.TestOnly
+import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.FirDefaultOverridesBackwardCompatibilityHelper
@@ -13,7 +14,8 @@ import org.jetbrains.kotlin.fir.analysis.FirOverridesBackwardCompatibilityHelper
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.extensions.FirExtensionService
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
-import org.jetbrains.kotlin.fir.resolve.calls.ConeCallConflictResolverFactory
+import org.jetbrains.kotlin.fir.resolve.calls.overloads.ConeCallConflictResolverFactory
+import org.jetbrains.kotlin.fir.scopes.FirDefaultImportProviderHolder
 import org.jetbrains.kotlin.fir.scopes.FirPlatformClassMapper
 import org.jetbrains.kotlin.fir.scopes.impl.FirDelegatedMembersFilter
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
@@ -24,14 +26,11 @@ import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
-import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
-import org.jetbrains.kotlin.resolve.jvm.platform.JvmPlatformAnalyzerServices
 
 object FirSessionFactoryHelper {
     inline fun createSessionWithDependencies(
         moduleName: Name,
         platform: TargetPlatform,
-        analyzerServices: PlatformDependentAnalyzerServices,
         externalSessionProvider: FirProjectSessionProvider?,
         projectEnvironment: AbstractProjectEnvironment,
         languageVersionSettings: LanguageVersionSettings,
@@ -46,7 +45,7 @@ object FirSessionFactoryHelper {
         dependenciesConfigurator: DependencyListForCliModule.Builder.() -> Unit = {},
         noinline sessionConfigurator: FirSessionConfigurator.() -> Unit = {},
     ): FirSession {
-        val binaryModuleData = BinaryModuleData.initialize(moduleName, platform, analyzerServices)
+        val binaryModuleData = BinaryModuleData.initialize(moduleName, platform)
         val dependencyList = DependencyListForCliModule.build(binaryModuleData, init = dependenciesConfigurator)
         val sessionProvider = externalSessionProvider ?: FirProjectSessionProvider()
         val packagePartProvider = projectEnvironment.getPackagePartProvider(librariesScope)
@@ -59,6 +58,7 @@ object FirSessionFactoryHelper {
             librariesScope,
             packagePartProvider,
             languageVersionSettings,
+            predefinedJavaComponents = null,
             registerExtraComponents = {},
         )
 
@@ -68,7 +68,6 @@ object FirSessionFactoryHelper {
             dependencyList.dependsOnDependencies,
             dependencyList.friendsDependencies,
             platform,
-            analyzerServices
         )
         return FirJvmSessionFactory.createModuleBasedSession(
             mainModuleData,
@@ -78,10 +77,12 @@ object FirSessionFactoryHelper {
             { incrementalCompilationContext?.createSymbolProviders(it, mainModuleData, projectEnvironment) },
             extensionRegistrars,
             languageVersionSettings,
+            JvmTarget.DEFAULT,
             lookupTracker,
             enumWhenTracker,
             importTracker,
-            needRegisterJavaElementFinder = needRegisterJavaElementFinder,
+            predefinedJavaComponents = null,
+            needRegisterJavaElementFinder,
             registerExtraComponents = {},
             init = sessionConfigurator,
         )
@@ -97,7 +98,6 @@ object FirSessionFactoryHelper {
                 dependsOnDependencies = emptyList(),
                 friendDependencies = emptyList(),
                 platform = JvmPlatforms.unspecifiedJvmPlatform,
-                analyzerServices = JvmPlatformAnalyzerServices
             )
             registerModuleData(moduleData)
             moduleData.bindSession(this)
@@ -141,5 +141,6 @@ object FirSessionFactoryHelper {
         register(FirOverridesBackwardCompatibilityHelper::class, FirDefaultOverridesBackwardCompatibilityHelper)
         register(FirDelegatedMembersFilter::class, FirDelegatedMembersFilter.Default)
         register(FirPlatformSpecificCastChecker::class, FirPlatformSpecificCastChecker.Default)
+        register(FirDefaultImportProviderHolder::class, FirDefaultImportProviderHolder(CommonPlatformAnalyzerServices))
     }
 }

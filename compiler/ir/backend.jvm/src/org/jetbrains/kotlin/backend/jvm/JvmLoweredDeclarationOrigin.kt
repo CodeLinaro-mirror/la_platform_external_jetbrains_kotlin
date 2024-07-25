@@ -14,9 +14,7 @@ object JvmLoweredDeclarationOrigin {
     val FIELD_FOR_OUTER_THIS by IrDeclarationOriginImpl
     val LAMBDA_IMPL by IrDeclarationOriginImpl
     val FUNCTION_REFERENCE_IMPL by IrDeclarationOriginImpl.Synthetic
-    val SYNTHETIC_ACCESSOR by IrDeclarationOriginImpl.Synthetic
     val SYNTHETIC_ACCESSOR_FOR_HIDDEN_CONSTRUCTOR by IrDeclarationOriginImpl.Synthetic
-    val SYNTHETIC_MARKER_PARAMETER by IrDeclarationOriginImpl.Synthetic
     val TO_ARRAY by IrDeclarationOriginImpl
     val JVM_STATIC_WRAPPER by IrDeclarationOriginImpl
     val JVM_OVERLOADS_WRAPPER by IrDeclarationOriginImpl
@@ -53,7 +51,6 @@ object JvmLoweredDeclarationOrigin {
     val FIELD_FOR_STATIC_CALLABLE_REFERENCE_INSTANCE by IrDeclarationOriginImpl
     val ABSTRACT_BRIDGE_STUB by IrDeclarationOriginImpl
     val INVOKEDYNAMIC_CALL_TARGET by IrDeclarationOriginImpl
-    val INLINE_LAMBDA by IrDeclarationOriginImpl
     val PROXY_FUN_FOR_METAFACTORY by IrDeclarationOriginImpl
     val SYNTHETIC_PROXY_FUN_FOR_METAFACTORY by IrDeclarationOriginImpl.Synthetic
     val DESERIALIZE_LAMBDA_FUN by IrDeclarationOriginImpl.Synthetic

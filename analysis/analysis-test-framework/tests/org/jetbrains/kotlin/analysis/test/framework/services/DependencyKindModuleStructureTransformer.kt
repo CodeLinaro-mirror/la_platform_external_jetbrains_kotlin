@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.analysis.test.framework.services
 
 import org.jetbrains.kotlin.analysis.test.framework.AnalysisApiTestDirectives
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.TestModuleKind
-import org.jetbrains.kotlin.analysis.test.framework.test.configurators.moduleKind
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.explicitTestModuleKind
 import org.jetbrains.kotlin.test.TestInfrastructureInternals
 import org.jetbrains.kotlin.test.model.DependencyDescription
 import org.jetbrains.kotlin.test.model.DependencyKind
@@ -18,10 +18,10 @@ import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.impl.TestModuleStructureImpl
 
 /**
- * This transformer is required for correct work of [getKtModuleFactoryForTestModule][org.jetbrains.kotlin.analysis.test.framework.project.structure.getKtModuleFactoryForTestModule]
+ * This transformer is required for correct work of [getKtModuleFactoryForTestModule][org.jetbrains.kotlin.analysis.test.framework.projectStructure.getKtModuleFactoryForTestModule]
  * to provide correct [DependencyKind] for dependencies
  *
- * @see org.jetbrains.kotlin.analysis.test.framework.project.structure.getKtModuleFactoryForTestModule
+ * @see org.jetbrains.kotlin.analysis.test.framework.projectStructure.getKtModuleFactoryForTestModule
  */
 @OptIn(TestInfrastructureInternals::class)
 object DependencyKindModuleStructureTransformer : ModuleStructureTransformer() {
@@ -46,7 +46,7 @@ object DependencyKindModuleStructureTransformer : ModuleStructureTransformer() {
         moduleMapping: Map<String, TestModule>,
     ): DependencyDescription {
         val dependencyModule = moduleMapping.getValue(dependency.moduleName)
-        val newKind = when (dependencyModule.moduleKind) {
+        val newKind = when (dependencyModule.explicitTestModuleKind) {
             TestModuleKind.Source,
             TestModuleKind.LibrarySource,
             TestModuleKind.ScriptSource,
@@ -54,9 +54,12 @@ object DependencyKindModuleStructureTransformer : ModuleStructureTransformer() {
                 DependencyKind.Source
             }
 
-            TestModuleKind.LibraryBinary -> {
+            TestModuleKind.LibraryBinary,
+            TestModuleKind.LibraryBinaryDecompiled -> {
                 DependencyKind.Binary
             }
+
+            TestModuleKind.NotUnderContentRoot -> error("A not-under-content-root module cannot be a dependency.")
 
             null -> {
                 // There is no explicit module kind, so the dependency already has the right kind

@@ -1,11 +1,10 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.codegen;
 
-import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ArrayUtil;
 import kotlin.collections.CollectionsKt;
@@ -19,6 +18,7 @@ import org.jetbrains.kotlin.codegen.binding.CodegenBinding;
 import org.jetbrains.kotlin.codegen.context.*;
 import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenUtilKt;
 import org.jetbrains.kotlin.codegen.coroutines.SuspendFunctionGenerationStrategy;
+import org.jetbrains.kotlin.codegen.inline.InlineCodegenUtilsKt;
 import org.jetbrains.kotlin.codegen.state.GenerationState;
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper;
 import org.jetbrains.kotlin.codegen.state.TypeMapperUtilsKt;
@@ -55,6 +55,7 @@ import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature;
 import org.jetbrains.kotlin.types.KotlinType;
 import org.jetbrains.kotlin.types.SimpleType;
 import org.jetbrains.kotlin.types.TypeUtils;
+import org.jetbrains.kotlin.utils.exceptions.PlatformExceptionUtilsKt;
 import org.jetbrains.org.objectweb.asm.Label;
 import org.jetbrains.org.objectweb.asm.MethodVisitor;
 import org.jetbrains.org.objectweb.asm.Opcodes;
@@ -955,10 +956,8 @@ public class FunctionCodegen {
             mv.visitMaxs(-1, -1);
             mv.visitEnd();
         }
-        catch (ProcessCanceledException e) {
-            throw e;
-        }
         catch (Throwable e) {
+            PlatformExceptionUtilsKt.rethrowIntellijPlatformExceptionIfNeeded(e);
             String bytecode = renderByteCodeIfAvailable(mv);
             throw new CompilationException(
                     "wrong bytecode generated" +
@@ -1305,7 +1304,7 @@ public class FunctionCodegen {
         if (((ClassDescriptor) container).getModality() == Modality.FINAL) return;
 
         Label end = new Label();
-        int handleIndex = (Type.getArgumentsAndReturnSizes(defaultMethod.getDescriptor()) >> 2) - 2; /*-1 for this, and -1 for handle*/
+        int handleIndex = InlineCodegenUtilsKt.argumentsSize(defaultMethod.getDescriptor(), true) - 1; // last argument
         iv.load(handleIndex, OBJECT_TYPE);
         iv.ifnull(end);
         AsmUtil.genThrow(

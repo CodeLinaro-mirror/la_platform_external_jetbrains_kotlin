@@ -10,6 +10,7 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toPersistentList
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget.*
 import org.jetbrains.kotlin.fir.*
@@ -18,6 +19,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isFromVararg
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.builder.buildExpressionStub
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguouslyResolvedAnnotationFromPlugin
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeCyclicTypeBound
@@ -31,6 +33,7 @@ import org.jetbrains.kotlin.fir.scopes.impl.wrapNestedClassifierScopeWithSubstit
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.fir.visitors.transformSingle
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.util.PrivateForInline
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
@@ -38,7 +41,7 @@ class FirTypeResolveProcessor(
     session: FirSession,
     scopeSession: ScopeSession
 ) : FirTransformerBasedResolveProcessor(session, scopeSession, FirResolvePhase.TYPES) {
-    override val transformer = FirTypeResolveTransformer(session, scopeSession)
+    override val transformer: FirTypeResolveTransformer = FirTypeResolveTransformer(session, scopeSession)
 }
 
 fun <F : FirClassLikeDeclaration> F.runTypeResolvePhaseForLocalClass(
@@ -71,13 +74,13 @@ open class FirTypeResolveTransformer(
      * All current scopes sorted from outermost to innermost.
      */
     @PrivateForInline
-    var scopes = initialScopes.asReversed().toPersistentList()
+    var scopes: PersistentList<FirScope> = initialScopes.asReversed().toPersistentList()
 
     /**
      * Scopes that are accessible statically, i.e. [scopes] minus type parameter scopes.
      */
     @PrivateForInline
-    var staticScopes = scopes
+    var staticScopes: PersistentList<FirScope> = scopes
 
     @set:PrivateForInline
     var scopesBefore: PersistentList<FirScope>? = null
@@ -97,7 +100,7 @@ open class FirTypeResolveTransformer(
         }
     }
 
-    private val typeResolverTransformer: FirSpecificTypeResolverTransformer = FirSpecificTypeResolverTransformer(session)
+    private val typeResolverTransformer: FirSpecificTypeResolverTransformer = FirSpecificTypeResolverTransformer(session, expandTypeAliases = true)
 
     @PrivateForInline
     var currentFile: FirFile? = initialCurrentFile
@@ -156,9 +159,15 @@ open class FirTypeResolveTransformer(
             val result = transformDeclaration(constructor, data) as FirConstructor
 
             if (result.isPrimary) {
+                val shouldAddDefaultStubs = session.languageVersionSettings.getFlag(AnalysisFlags.stdlibCompilation) &&
+                        session.moduleData.isCommon &&
+                        constructor.returnTypeRef.coneType.classId == StandardClassIds.Enum
                 for (valueParameter in result.valueParameters) {
                     if (valueParameter.correspondingProperty != null) {
                         valueParameter.moveOrDeleteIrrelevantAnnotations()
+                    }
+                    if (shouldAddDefaultStubs) {
+                        valueParameter.replaceDefaultValue(buildExpressionStub()) // TODO: Remove when KT-67381 is implemented
                     }
                 }
             }
@@ -173,7 +182,7 @@ open class FirTypeResolveTransformer(
         }
     }
 
-    override fun transformErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor, data: Any?) =
+    override fun transformErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor, data: Any?): FirConstructor =
         transformConstructor(errorPrimaryConstructor, data)
 
     override fun transformTypeAlias(typeAlias: FirTypeAlias, data: Any?): FirTypeAlias = whileAnalysing(session, typeAlias) {
@@ -208,8 +217,8 @@ open class FirTypeResolveTransformer(
                     .transformAnnotations(this, data)
 
                 if (property.isFromVararg == true) {
-                    property.transformTypeToArrayType()
-                    property.backingField?.transformTypeToArrayType()
+                    property.transformTypeToArrayType(session)
+                    property.backingField?.transformTypeToArrayType(session)
                     setAccessorTypesByPropertyType(property)
                 }
 
@@ -339,13 +348,17 @@ open class FirTypeResolveTransformer(
         withDeclaration(valueParameter) {
             valueParameter.transformReturnTypeRef(this, data)
             valueParameter.transformAnnotations(this, data)
-            valueParameter.transformVarargTypeToArrayType()
+            valueParameter.transformVarargTypeToArrayType(session)
             valueParameter
         }
     }
 
     override fun transformBlock(block: FirBlock, data: Any?): FirStatement {
         return block
+    }
+
+    override fun transformArgumentList(argumentList: FirArgumentList, data: Any?): FirArgumentList {
+        return argumentList
     }
 
     override fun transformAnnotation(annotation: FirAnnotation, data: Any?): FirStatement {
