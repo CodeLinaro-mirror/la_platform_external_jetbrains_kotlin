@@ -39,11 +39,14 @@ import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
+import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
 import org.jetbrains.org.objectweb.asm.Type
 
+/**
+ * Adds continuation classes and parameters to suspend functions.
+ */
 @PhaseDescription(
     name = "AddContinuation",
-    description = "Add continuation classes and parameters to suspend functions",
     prerequisite = [SuspendLambdaLowering::class, JvmLocalDeclarationsLowering::class, TailCallOptimizationLowering::class]
 )
 internal class AddContinuationLowering(context: JvmBackendContext) : SuspendLoweringUtils(context), FileLoweringPass {
@@ -402,7 +405,7 @@ private fun IrSimpleFunction.suspendFunctionViewOrStub(context: JvmBackendContex
     ) return this
     // We need to use suspend function originals here, since if we use 'this' here,
     // turing FlowCollector into 'fun interface' leads to AbstractMethodError. See KT-49294.
-    return context.suspendFunctionOriginalToView.getOrPut(suspendFunctionOriginal()) { createSuspendFunctionStub(context) }
+    return suspendFunctionOriginal()::viewOfOriginalSuspendFunction.getOrSetIfNull { createSuspendFunctionStub(context) }
 }
 
 private fun IrSimpleFunction.createSuspendFunctionStub(context: JvmBackendContext): IrSimpleFunction {
@@ -431,7 +434,7 @@ private fun IrSimpleFunction.createSuspendFunctionStub(context: JvmBackendContex
         val index = valueParameters.firstOrNull { it.origin == IrDeclarationOrigin.MASK_FOR_DEFAULT_FUNCTION }?.index
             ?: valueParameters.size
         function.valueParameters += valueParameters.take(index).map {
-            it.copyTo(function, index = it.index, type = it.type.substitute(substitutionMap))
+            it.copyTo(function, type = it.type.substitute(substitutionMap))
         }
         val continuationParameter = function.addValueParameter(
             SUSPEND_FUNCTION_COMPLETION_PARAMETER_NAME,
@@ -439,7 +442,7 @@ private fun IrSimpleFunction.createSuspendFunctionStub(context: JvmBackendContex
             JvmLoweredDeclarationOrigin.CONTINUATION_CLASS
         )
         function.valueParameters += valueParameters.drop(index).map {
-            it.copyTo(function, index = it.index + 1, type = it.type.substitute(substitutionMap))
+            it.copyTo(function, type = it.type.substitute(substitutionMap))
         }
         context.remapMultiFieldValueClassStructure(
             this, function,

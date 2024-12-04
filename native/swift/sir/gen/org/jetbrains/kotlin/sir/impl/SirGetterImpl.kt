@@ -16,7 +16,7 @@ internal class SirGetterImpl(
     override val origin: SirOrigin,
     override val visibility: SirVisibility,
     override val documentation: String?,
-    override val kind: SirCallableKind,
+    override val attributes: MutableList<SirAttribute>,
     override var body: SirFunctionBody?,
 ) : SirGetter() {
     override lateinit var parent: SirDeclarationParent

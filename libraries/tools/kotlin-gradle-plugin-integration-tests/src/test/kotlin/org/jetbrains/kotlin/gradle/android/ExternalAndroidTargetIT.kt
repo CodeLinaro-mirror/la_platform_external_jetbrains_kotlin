@@ -101,11 +101,13 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
         project(
             "externalAndroidTarget-project2project",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = androidVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = androidVersion)
+                .disableIsolatedProjectsButEnableKmpSupportForMaxGradle(gradleVersion),
             buildJdk = jdkVersion.location,
             localRepoDir = localRepoDir
         ) {
-            build("publish", buildOptions = buildOptions.copy(configurationCache = true)) {
+            build("publish", buildOptions = buildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)) {
                 val pomFile = localRepoDir.resolve("app/app-android/1.0/app-android-1.0.pom")
                 assertFileExists(pomFile)
 

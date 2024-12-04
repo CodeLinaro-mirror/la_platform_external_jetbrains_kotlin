@@ -27,14 +27,16 @@ import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.packageFqName
 import org.jetbrains.kotlin.fir.resolve.forEachExpandedType
 import org.jetbrains.kotlin.fir.resolve.fqName
-import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.resolve.AnnotationTargetListForDeprecation
+import org.jetbrains.kotlin.resolve.AnnotationTargetLists
 import org.jetbrains.kotlin.utils.keysToMap
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
+@OptIn(AnnotationTargetListForDeprecation::class)
 object FirAnnotationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) {
     private val deprecatedClassId = FqName("kotlin.Deprecated")
     private val deprecatedSinceKotlinClassId = FqName("kotlin.DeprecatedSinceKotlin")
@@ -174,7 +176,7 @@ object FirAnnotationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) 
         }
 
         if (useSiteTarget != null) {
-            checkAnnotationUseSiteTarget(declaration, annotation, useSiteTarget, context, reporter)
+            checkAnnotationUseSiteTarget(declaration, annotation, useSiteTarget, applicableTargets, context, reporter)
         }
 
         if (check(actualTargets.defaultTargets) || check(actualTargets.canBeSubstituted) || checkWithUseSiteTargets()) {
@@ -185,12 +187,23 @@ object FirAnnotationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) 
         }
 
         val targetDescription = actualTargets.defaultTargets.firstOrNull()?.description ?: "unidentified target"
-        if (useSiteTarget != null) {
+        if (declaration is FirBackingField && actualTargets === AnnotationTargetLists.T_MEMBER_PROPERTY_IN_ANNOTATION &&
+            !context.languageVersionSettings.supportsFeature(LanguageFeature.ForbidFieldAnnotationsOnAnnotationParameters)
+        ) {
+            reporter.reportOn(
+                annotation.source,
+                FirErrors.WRONG_ANNOTATION_TARGET_WARNING,
+                targetDescription,
+                applicableTargets,
+                context
+            )
+        } else if (useSiteTarget != null) {
             reporter.reportOn(
                 annotation.source,
                 FirErrors.WRONG_ANNOTATION_TARGET_WITH_USE_SITE_TARGET,
                 targetDescription,
                 useSiteTarget.renderName,
+                applicableTargets,
                 context
             )
         } else {
@@ -198,6 +211,7 @@ object FirAnnotationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) 
                 annotation.source,
                 FirErrors.WRONG_ANNOTATION_TARGET,
                 targetDescription,
+                applicableTargets,
                 context
             )
         }
@@ -207,6 +221,7 @@ object FirAnnotationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) 
         annotated: FirAnnotationContainer,
         annotation: FirAnnotation,
         target: AnnotationUseSiteTarget,
+        applicableTargets: Set<KotlinTarget>,
         context: CheckerContext,
         reporter: DiagnosticReporter
     ) {
@@ -270,7 +285,12 @@ object FirAnnotationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) 
                 // NB: report once?
                 // annotation with use-site target `receiver` can be only on type reference, but not on declaration
                 reporter.reportOn(
-                    annotation.source, FirErrors.WRONG_ANNOTATION_TARGET_WITH_USE_SITE_TARGET, "declaration", target.renderName, context
+                    annotation.source,
+                    FirErrors.WRONG_ANNOTATION_TARGET_WITH_USE_SITE_TARGET,
+                    "declaration",
+                    target.renderName,
+                    applicableTargets,
+                    context
                 )
             }
         }

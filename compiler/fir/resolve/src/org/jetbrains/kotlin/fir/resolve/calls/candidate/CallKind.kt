@@ -12,8 +12,8 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckHiddenDeclaration,
         CheckVisibility,
         DiscriminateSyntheticProperties,
-        CheckExplicitReceiverConsistency,
         NoTypeArguments,
+        InitializeEmptyArgumentMap,
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
@@ -45,7 +45,6 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckVisibility,
         DiscriminateSyntheticProperties,
         MapArguments,
-        CheckExplicitReceiverConsistency,
         MapTypeArguments,
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
@@ -70,7 +69,6 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CheckHiddenDeclaration,
         CheckVisibility,
         MapArguments,
-        CheckExplicitReceiverConsistency,
         MapTypeArguments,
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
@@ -127,7 +125,6 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
 class ResolutionSequenceBuilder(
     var checkVisibility: Boolean = false,
     var discriminateSynthetics: Boolean = false,
-    var checkExplicitReceiverConsistency: Boolean = false,
     var checkDispatchReceiver: Boolean = false,
     var checkExtensionReceiver: Boolean = false,
     var checkArguments: Boolean = false,
@@ -142,7 +139,6 @@ class ResolutionSequenceBuilder(
             if (checkVisibility) add(CheckVisibility)
             if (discriminateSynthetics) add(DiscriminateSyntheticProperties)
             if (checkArguments) add(MapArguments) else add(InitializeEmptyArgumentMap)
-            if (checkExplicitReceiverConsistency) add(CheckExplicitReceiverConsistency)
             if (mapTypeArguments) add(MapTypeArguments) else add(NoTypeArguments)
             if (checkArguments || checkDispatchReceiver || checkExtensionReceiver) add(CreateFreshTypeVariableSubstitutorStage)
             if (checkDispatchReceiver) add(CheckDispatchReceiver)

@@ -259,6 +259,16 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveCandidatesTestGenerate
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries")
+  @TestDataPath("$PROJECT_ROOT")
+  public class GloballyDuplicateLibraries {
+    @Test
+    public void testAllFilesPresentInGloballyDuplicateLibraries() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/inImport")
   @TestDataPath("$PROJECT_ROOT")
   public class InImport {
@@ -614,6 +624,26 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveCandidatesTestGenerate
       @Test
       public void testAllFilesPresentInMissingDependency() {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency"), Pattern.compile("^(.+)\\.kts$"), null, true);
+      }
+
+      @Nested
+      @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Libraries {
+        @Test
+        public void testAllFilesPresentInLibraries() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries"), Pattern.compile("^(.+)\\.kts$"), null, true);
+        }
+      }
+
+      @Nested
+      @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Sources {
+        @Test
+        public void testAllFilesPresentInSources() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources"), Pattern.compile("^(.+)\\.kts$"), null, true);
+        }
       }
     }
 

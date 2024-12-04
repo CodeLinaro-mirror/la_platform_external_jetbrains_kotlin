@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -14,9 +14,13 @@ import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirFunctionBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.FirTypeParametersOwnerBuilder
+import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirBlock
+import org.jetbrains.kotlin.fir.java.enhancement.FirEmptyJavaAnnotationList
+import org.jetbrains.kotlin.fir.java.enhancement.FirJavaAnnotationList
 import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -26,6 +30,7 @@ import org.jetbrains.kotlin.fir.visitors.transformInplace
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
+import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.contracts.ExperimentalContracts
@@ -37,23 +42,23 @@ class FirJavaMethod @FirImplementationDetail constructor(
     override val source: KtSourceElement?,
     override val moduleData: FirModuleData,
     override val origin: FirDeclarationOrigin.Java,
-    resolvePhase: FirResolvePhase,
     override val attributes: FirDeclarationAttributes,
     override var returnTypeRef: FirTypeRef,
     override val typeParameters: MutableList<FirTypeParameter>,
     override val valueParameters: MutableList<FirValueParameter>,
     override val name: Name,
-    override var status: FirDeclarationStatus,
+    private val originalStatus: FirResolvedDeclarationStatusImpl,
     override val symbol: FirNamedFunctionSymbol,
-    annotationBuilder: () -> List<FirAnnotation>,
+    val annotationList: FirJavaAnnotationList,
     override val dispatchReceiverType: ConeSimpleKotlinType?,
+    val containingClassSymbol: FirClassSymbol<*>,
 ) : FirSimpleFunction() {
     init {
         @OptIn(FirImplementationDetail::class)
         symbol.bind(this)
 
         @OptIn(ResolveStateAccess::class)
-        this.resolveState = resolvePhase.asResolveState()
+        this.resolveState = FirResolvePhase.ANALYZED_DEPENDENCIES.asResolveState()
     }
 
     private val typeParameterBoundsResolveLock = ReentrantLock()
@@ -72,7 +77,14 @@ class FirJavaMethod @FirImplementationDetail constructor(
 
     override var controlFlowGraphReference: FirControlFlowGraphReference? = null
 
-    override val annotations: List<FirAnnotation> by lazy { annotationBuilder() }
+    override val annotations: List<FirAnnotation> get() = annotationList
+
+    // TODO: the lazy deprecationsProvider is a workaround for KT-55387, some non-lazy solution should probably be used instead
+    override val status: FirDeclarationStatus by lazy {
+        applyStatusTransformerExtensions(this, originalStatus) {
+            transformStatus(it, this@FirJavaMethod, containingClassSymbol, isLocal = false)
+        }
+    }
 
     override val contextReceivers: List<FirContextReceiver>
         get() = emptyList()
@@ -98,13 +110,8 @@ class FirJavaMethod @FirImplementationDetail constructor(
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
         transformReturnTypeRef(transformer, data)
-        transformReceiverParameter(transformer, data)
         controlFlowGraphReference = controlFlowGraphReference?.transformSingle(transformer, data)
         transformValueParameters(transformer, data)
-        transformBody(transformer, data)
-        transformStatus(transformer, data)
-        transformContractDescription(transformer, data)
-        transformAnnotations(transformer, data)
         transformTypeParameters(transformer, data)
         return this
     }
@@ -128,7 +135,6 @@ class FirJavaMethod @FirImplementationDetail constructor(
     }
 
     override fun <D> transformStatus(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
-        status = status.transformSingle(transformer, data)
         return this
     }
 
@@ -137,7 +143,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
     }
 
     override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
-        throw AssertionError("Mutating annotations for FirJava* is not supported")
+        shouldNotBeCalled(::replaceAnnotations, ::annotations)
     }
 
     override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
@@ -180,7 +186,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
     }
 
     override fun replaceStatus(newStatus: FirDeclarationStatus) {
-        status = newStatus
+        shouldNotBeCalled(::replaceStatus, ::status)
     }
 }
 
@@ -196,12 +202,13 @@ class FirJavaMethodBuilder : FirFunctionBuilder, FirTypeParametersOwnerBuilder, 
     override var dispatchReceiverType: ConeSimpleKotlinType? = null
     lateinit var name: Name
     lateinit var symbol: FirNamedFunctionSymbol
-    override val annotations: MutableList<FirAnnotation> = mutableListOf()
+    override val annotations: MutableList<FirAnnotation> get() = shouldNotBeCalled()
     override val typeParameters: MutableList<FirTypeParameter> = mutableListOf()
     var isStatic: Boolean by Delegates.notNull()
     override var resolvePhase: FirResolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
     var isFromSource: Boolean by Delegates.notNull()
-    lateinit var annotationBuilder: () -> List<FirAnnotation>
+    var annotationList: FirJavaAnnotationList = FirEmptyJavaAnnotationList
+    lateinit var containingClassSymbol: FirClassSymbol<*>
 
     @Deprecated("Modification of 'deprecation' has no impact for FirJavaFunctionBuilder", level = DeprecationLevel.HIDDEN)
     override var deprecationsProvider: DeprecationsProvider
@@ -234,16 +241,16 @@ class FirJavaMethodBuilder : FirFunctionBuilder, FirTypeParametersOwnerBuilder, 
             source,
             moduleData,
             origin = javaOrigin(isFromSource),
-            resolvePhase,
             attributes,
             returnTypeRef,
             typeParameters,
             valueParameters,
             name,
-            status,
+            status as FirResolvedDeclarationStatusImpl,
             symbol,
-            annotationBuilder,
-            dispatchReceiverType
+            annotationList,
+            dispatchReceiverType,
+            containingClassSymbol,
         )
     }
 }
@@ -253,14 +260,13 @@ inline fun buildJavaMethod(init: FirJavaMethodBuilder.() -> Unit): FirJavaMethod
 }
 
 @OptIn(ExperimentalContracts::class)
-inline fun buildJavaMethodCopy(original: FirSimpleFunction, init: FirJavaMethodBuilder.() -> Unit): FirJavaMethod {
+inline fun buildJavaMethodCopy(original: FirJavaMethod, init: FirJavaMethodBuilder.() -> Unit): FirJavaMethod {
     contract {
         callsInPlace(init, InvocationKind.EXACTLY_ONCE)
     }
     val copyBuilder = FirJavaMethodBuilder()
     copyBuilder.source = original.source
     copyBuilder.moduleData = original.moduleData
-    copyBuilder.resolvePhase = original.resolvePhase
     copyBuilder.attributes = original.attributes.copy()
     copyBuilder.returnTypeRef = original.returnTypeRef
     copyBuilder.valueParameters.addAll(original.valueParameters)
@@ -270,11 +276,8 @@ inline fun buildJavaMethodCopy(original: FirSimpleFunction, init: FirJavaMethodB
     copyBuilder.name = original.name
     copyBuilder.symbol = original.symbol
     copyBuilder.isFromSource = original.origin.fromSource
-    copyBuilder.annotations.addAll(original.annotations)
     copyBuilder.typeParameters.addAll(original.typeParameters)
-    val annotations = original.annotations
-    copyBuilder.annotationBuilder = { annotations }
-    return copyBuilder
-        .apply(init)
-        .build()
+    copyBuilder.annotationList = original.annotationList
+    copyBuilder.containingClassSymbol = original.containingClassSymbol
+    return copyBuilder.apply(init).build()
 }

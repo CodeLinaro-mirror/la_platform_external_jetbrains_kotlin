@@ -32,11 +32,12 @@ import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.scopes.DelicateScopeAPI
 import org.jetbrains.kotlin.fir.scopes.FirContainingNamesAwareScope
 import org.jetbrains.kotlin.fir.scopes.scopeForSupertype
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
+import org.jetbrains.kotlin.fir.types.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitBooleanTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitIntTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitNullableAnyTypeRef
@@ -52,7 +53,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 class FirClassAnySynthesizedMemberScope(
     private val session: FirSession,
     private val declaredMemberScope: FirContainingNamesAwareScope,
-    klass: FirRegularClass,
+    private val klass: FirRegularClass,
     scopeSession: ScopeSession,
 ) : FirContainingNamesAwareScope() {
     private val originForFunctions = when {
@@ -184,6 +185,16 @@ class FirClassAnySynthesizedMemberScope(
         }
         symbol = FirNamedFunctionSymbol(CallableId(lookupTag.classId, name))
         dispatchReceiverType = this@FirClassAnySynthesizedMemberScope.dispatchReceiverType
+    }
+
+    @DelicateScopeAPI
+    override fun withReplacedSessionOrNull(newSession: FirSession, newScopeSession: ScopeSession): FirClassAnySynthesizedMemberScope? {
+        return FirClassAnySynthesizedMemberScope(
+            newSession,
+            declaredMemberScope.withReplacedSessionOrNull(newSession, newScopeSession) ?: declaredMemberScope,
+            klass,
+            newScopeSession
+        )
     }
 
     companion object {

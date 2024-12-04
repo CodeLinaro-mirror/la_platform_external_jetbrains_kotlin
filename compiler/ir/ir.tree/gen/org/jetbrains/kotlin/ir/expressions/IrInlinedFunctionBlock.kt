@@ -8,16 +8,17 @@
 
 package org.jetbrains.kotlin.ir.expressions
 
-import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrFileEntry
+import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 
 /**
  * Generated from: [org.jetbrains.kotlin.ir.generator.IrTree.inlinedFunctionBlock]
  */
 abstract class IrInlinedFunctionBlock : IrBlock() {
-    abstract var inlineCall: IrFunctionAccessExpression
+    abstract var inlineFunctionSymbol: IrFunctionSymbol?
 
-    abstract var inlinedElement: IrElement
+    abstract var fileEntry: IrFileEntry
 
     override fun <R, D> accept(visitor: IrElementVisitor<R, D>, data: D): R =
         visitor.visitInlinedFunctionBlock(this, data)

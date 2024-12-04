@@ -62,7 +62,9 @@ class LanguageVersionSettingsBuilder {
             val languageVersion = maxOf(LanguageVersion.LATEST_STABLE, LanguageVersion.fromVersionString(apiVersion.versionString)!!)
             this.languageVersion = languageVersion
         }
-        val languageVersionDirective = directives.singleOrZeroValue(LanguageSettingsDirectives.LANGUAGE_VERSION)
+        // We can't call singleOrZero here, as the runner can set one value in `defaultDirectives`, and one can be set directly
+        //   in the test. So in such a situation, we need to take the value from the test
+        val languageVersionDirective = directives[LanguageSettingsDirectives.LANGUAGE_VERSION].firstOrNull()
         val allowDangerousLanguageVersionTesting =
             directives.contains(LanguageSettingsDirectives.ALLOW_DANGEROUS_LANGUAGE_VERSION_TESTING)
         if (languageVersionDirective != null) {
@@ -99,6 +101,7 @@ class LanguageVersionSettingsBuilder {
 
         val analysisFlags = listOfNotNull(
             analysisFlag(AnalysisFlags.optIn, directives[LanguageSettingsDirectives.OPT_IN].takeIf { it.isNotEmpty() }),
+            analysisFlag(AnalysisFlags.globallySuppressedDiagnostics, directives[LanguageSettingsDirectives.SUPPRESS_WARNINGS].takeIf { it.isNotEmpty() }),
             analysisFlag(AnalysisFlags.ignoreDataFlowInAssert, trueOrNull(LanguageSettingsDirectives.IGNORE_DATA_FLOW_IN_ASSERT in directives)),
             analysisFlag(AnalysisFlags.explicitApiMode, directives.singleOrZeroValue(LanguageSettingsDirectives.EXPLICIT_API_MODE)),
             analysisFlag(AnalysisFlags.explicitReturnTypes, directives.singleOrZeroValue(LanguageSettingsDirectives.EXPLICIT_RETURN_TYPES_MODE)),

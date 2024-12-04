@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.name.Name
 
@@ -37,7 +36,6 @@ object JsIrBuilder {
             target,
             superQualifierSymbol = superQualifierSymbol,
             typeArgumentsCount = owner.typeParameters.size,
-            valueArgumentsCount = owner.valueParameters.size,
             origin = origin
         ).apply {
             typeArguments?.let {
@@ -67,7 +65,6 @@ object JsIrBuilder {
             owner.returnType,
             target,
             typeArgumentsCount = irClass.typeParameters.size,
-            valueArgumentsCount = owner.valueParameters.size,
         ).apply {
             typeArguments?.let {
                 assert(it.size == typeArgumentsCount)
@@ -92,7 +89,6 @@ object JsIrBuilder {
             target,
             typeArgumentsCount = irClass.typeParameters.size,
             constructorTypeArgumentsCount = owner.typeParameters.size,
-            valueArgumentsCount = owner.valueParameters.size,
             origin = origin
         ).apply {
             typeArguments?.let {
@@ -118,7 +114,6 @@ object JsIrBuilder {
     fun buildValueParameter(
         parent: IrFunction,
         name: String,
-        index: Int,
         type: IrType,
         isAssignable: Boolean = false,
         origin: IrDeclarationOrigin = SYNTHESIZED_DECLARATION
@@ -126,7 +121,6 @@ object JsIrBuilder {
         buildValueParameter(parent) {
             this.origin = origin
             this.name = Name.identifier(name)
-            this.index = index
             this.type = type
             this.isAssignable = isAssignable
         }
@@ -245,7 +239,7 @@ object JsIrBuilder {
         elseBranchStartOffset: Int = UNDEFINED_OFFSET,
         elseBranchEndOffset: Int = elseBranch?.endOffset ?: UNDEFINED_OFFSET,
     ): IrWhen {
-        val element = IrIfThenElseImpl(startOffset, endOffset, type, origin)
+        val element = IrWhenImpl(startOffset, endOffset, type, origin)
         element.branches.add(IrBranchImpl(thenBranchStartOffset, thenBranchEndOffset, cond, thenBranch))
         if (elseBranch != null) {
             val irTrue = IrConstImpl.constTrue(UNDEFINED_OFFSET, UNDEFINED_OFFSET, cond.type)

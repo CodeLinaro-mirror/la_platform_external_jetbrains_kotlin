@@ -6,9 +6,9 @@
 #import <Foundation/NSString.h>
 #import <Foundation/NSValue.h>
 
-@class KotlinByteArray, SerializersModule, KotlinArray<T>, KotlinThrowable, KotlinException, KotlinRuntimeException, KotlinIllegalArgumentException, SerializationException, AbstractPolymorphicSerializer<T>, LongAsStringSerializer, SerialKind, PolymorphicKind, PolymorphicKindOPEN, PolymorphicKindSEALED, PrimitiveKind, PrimitiveKindBOOLEAN, PrimitiveKindBYTE, PrimitiveKindCHAR, PrimitiveKindDOUBLE, PrimitiveKindFLOAT, PrimitiveKindINT, PrimitiveKindLONG, PrimitiveKindSHORT, PrimitiveKindSTRING, SerialKindCONTEXTUAL, SerialKindENUM, StructureKind, StructureKindCLASS, StructureKindLIST, StructureKindMAP, StructureKindOBJECT, KotlinNothing, CompositeDecoderCompanion, AbstractCollectionSerializer<Element, Collection, Builder>, TaggedDecoder<Tag>, TaggedEncoder<Tag>, KotlinBooleanCompanion, KotlinByteCompanion, KotlinCharCompanion, KotlinDoubleCompanion, KotlinFloatCompanion, KotlinIntCompanion, KotlinLongCompanion, KotlinShortCompanion, KotlinStringCompanion, KotlinUByteCompanion, KotlinUIntCompanion, KotlinULongCompanion, KotlinUShortCompanion, KotlinUnit, KotlinDurationCompanion, KotlinDurationUnit, ClassSerialDescriptorBuilder, PolymorphicModuleBuilder<__contravariant Base_>, SerializersModuleBuilder, KotlinIntArray, KotlinByteIterator, KotlinEnumCompanion, KotlinEnum<E>, KotlinKTypeProjection, KotlinIntIterator, KotlinKVariance, KotlinKTypeProjectionCompanion;
+@class AbstractCollectionSerializer<Element, Collection, Builder>, AbstractPolymorphicSerializer<T>, ClassSerialDescriptorBuilder, CompositeDecoderCompanion, KotlinArray<T>, KotlinBooleanCompanion, KotlinByteArray, KotlinByteCompanion, KotlinByteIterator, KotlinCharCompanion, KotlinDoubleCompanion, KotlinDurationCompanion, KotlinDurationUnit, KotlinEnum<E>, KotlinEnumCompanion, KotlinException, KotlinFloatCompanion, KotlinIllegalArgumentException, KotlinIntArray, KotlinIntCompanion, KotlinIntIterator, KotlinKTypeProjection, KotlinKTypeProjectionCompanion, KotlinKVariance, KotlinLongCompanion, KotlinNothing, KotlinRuntimeException, KotlinShortCompanion, KotlinStringCompanion, KotlinThrowable, KotlinUByteCompanion, KotlinUIntCompanion, KotlinULongCompanion, KotlinUShortCompanion, KotlinUnit, LongAsStringSerializer, PolymorphicKind, PolymorphicKindOPEN, PolymorphicKindSEALED, PolymorphicModuleBuilder<__contravariant Base_>, PrimitiveKind, PrimitiveKindBOOLEAN, PrimitiveKindBYTE, PrimitiveKindCHAR, PrimitiveKindDOUBLE, PrimitiveKindFLOAT, PrimitiveKindINT, PrimitiveKindLONG, PrimitiveKindSHORT, PrimitiveKindSTRING, SerialKind, SerialKindCONTEXTUAL, SerialKindENUM, SerializationException, SerializersModule, SerializersModuleBuilder, StructureKind, StructureKindCLASS, StructureKindLIST, StructureKindMAP, StructureKindOBJECT, TaggedDecoder<Tag>, TaggedEncoder<Tag>;
 
-@protocol DeserializationStrategy, SerializationStrategy, SerialFormat, Encoder, SerialDescriptor, Decoder, KSerializer, KotlinKClass, CompositeDecoder, KotlinAnnotation, CompositeEncoder, KotlinIterator, KotlinMapEntry, SerializersModuleCollector, KotlinKType, BinaryFormat, StringFormat, KotlinKDeclarationContainer, KotlinKAnnotatedElement, KotlinKClassifier, KotlinComparable;
+@protocol BinaryFormat, CompositeDecoder, CompositeEncoder, Decoder, DeserializationStrategy, Encoder, KSerializer, KotlinAnnotation, KotlinComparable, KotlinIterator, KotlinKAnnotatedElement, KotlinKClass, KotlinKClassifier, KotlinKDeclarationContainer, KotlinKType, KotlinMapEntry, SerialDescriptor, SerialFormat, SerializationStrategy, SerializersModuleCollector, StringFormat;
 
 NS_ASSUME_NONNULL_BEGIN
 #pragma clang diagnostic push
@@ -1224,10 +1224,6 @@ __attribute__((swift_name("KotlinBoolean.Companion")))
 @property (class, readonly, getter=shared) KotlinBooleanCompanion *shared __attribute__((swift_name("shared")));
 @end
 
-@interface KotlinBooleanCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinByte.Companion")))
 @interface KotlinByteCompanion : Base
@@ -1251,10 +1247,6 @@ __attribute__((swift_name("KotlinByte.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinByteCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinChar.Companion")))
 @interface KotlinCharCompanion : Base
@@ -1273,9 +1265,9 @@ __attribute__((swift_name("KotlinChar.Companion")))
 
 /**
  * @note annotations
- *   kotlin.DeprecatedSinceKotlin(warningSince="1.9")
+ *   kotlin.DeprecatedSinceKotlin(warningSince="1.9", errorSince="2.1")
 */
-@property (readonly) int32_t MAX_RADIX __attribute__((swift_name("MAX_RADIX"))) __attribute__((deprecated("Introduce your own constant with the value of `36")));
+@property (readonly) int32_t MAX_RADIX __attribute__((swift_name("MAX_RADIX"))) __attribute__((unavailable("Introduce your own constant with the value of `36")));
 @property (readonly) unichar MAX_SURROGATE __attribute__((swift_name("MAX_SURROGATE")));
 
 /**
@@ -1294,9 +1286,9 @@ __attribute__((swift_name("KotlinChar.Companion")))
 
 /**
  * @note annotations
- *   kotlin.DeprecatedSinceKotlin(warningSince="1.9")
+ *   kotlin.DeprecatedSinceKotlin(warningSince="1.9", errorSince="2.1")
 */
-@property (readonly) int32_t MIN_RADIX __attribute__((swift_name("MIN_RADIX"))) __attribute__((deprecated("Introduce your own constant with the value of `2`")));
+@property (readonly) int32_t MIN_RADIX __attribute__((swift_name("MIN_RADIX"))) __attribute__((unavailable("Introduce your own constant with the value of `2`")));
 
 /**
  * @note annotations
@@ -1322,10 +1314,6 @@ __attribute__((swift_name("KotlinChar.Companion")))
  *   kotlin.SinceKotlin(version="1.3")
 */
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
-@end
-
-@interface KotlinCharCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1354,10 +1342,6 @@ __attribute__((swift_name("KotlinDouble.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinDoubleCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinFloat.Companion")))
 @interface KotlinFloatCompanion : Base
@@ -1384,10 +1368,6 @@ __attribute__((swift_name("KotlinFloat.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinFloatCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinInt.Companion")))
 @interface KotlinIntCompanion : Base
@@ -1409,10 +1389,6 @@ __attribute__((swift_name("KotlinInt.Companion")))
  *   kotlin.SinceKotlin(version="1.3")
 */
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
-@end
-
-@interface KotlinIntCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1438,10 +1414,6 @@ __attribute__((swift_name("KotlinLong.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinLongCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinShort.Companion")))
 @interface KotlinShortCompanion : Base
@@ -1465,10 +1437,6 @@ __attribute__((swift_name("KotlinShort.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinShortCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinString.Companion")))
 @interface KotlinStringCompanion : Base
@@ -1476,10 +1444,6 @@ __attribute__((swift_name("KotlinString.Companion")))
 + (instancetype)allocWithZone:(struct _NSZone *)zone __attribute__((unavailable));
 + (instancetype)companion __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) KotlinStringCompanion *shared __attribute__((swift_name("shared")));
-@end
-
-@interface KotlinStringCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1495,10 +1459,6 @@ __attribute__((swift_name("KotlinUByte.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinUByteCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinUInt.Companion")))
 @interface KotlinUIntCompanion : Base
@@ -1510,10 +1470,6 @@ __attribute__((swift_name("KotlinUInt.Companion")))
 @property (readonly) uint32_t MIN_VALUE __attribute__((swift_name("MIN_VALUE")));
 @property (readonly) int32_t SIZE_BITS __attribute__((swift_name("SIZE_BITS")));
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
-@end
-
-@interface KotlinUIntCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1529,10 +1485,6 @@ __attribute__((swift_name("KotlinULong.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinULongCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 __attribute__((swift_name("KotlinUShort.Companion")))
 @interface KotlinUShortCompanion : Base
@@ -1546,10 +1498,6 @@ __attribute__((swift_name("KotlinUShort.Companion")))
 @property (readonly) int32_t SIZE_BYTES __attribute__((swift_name("SIZE_BYTES")));
 @end
 
-@interface KotlinUShortCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
 __attribute__((objc_subclassing_restricted))
 @interface KotlinUnit : Base
 + (instancetype)alloc __attribute__((unavailable));
@@ -1557,10 +1505,6 @@ __attribute__((objc_subclassing_restricted))
 + (instancetype)unit __attribute__((swift_name("init()")));
 @property (class, readonly, getter=shared) KotlinUnit *shared __attribute__((swift_name("shared")));
 - (NSString *)description __attribute__((swift_name("description()")));
-@end
-
-@interface KotlinUnit (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -1603,65 +1547,6 @@ __attribute__((swift_name("KotlinDuration.Companion")))
 - (id _Nullable)parseOrNullValue:(NSString *)value __attribute__((swift_name("parseOrNull(value:)")));
 @property (readonly) int64_t INFINITE __attribute__((swift_name("INFINITE")));
 @property (readonly) int64_t ZERO __attribute__((swift_name("ZERO")));
-@end
-
-@interface KotlinDurationCompanion (Extensions)
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-@end
-
-@interface ClassSerialDescriptorBuilder (Extensions)
-- (void)elementElementName:(NSString *)elementName annotations:(NSArray<id<KotlinAnnotation>> *)annotations isOptional:(BOOL)isOptional __attribute__((swift_name("element(elementName:annotations:isOptional:)")));
-@end
-
-@interface AbstractPolymorphicSerializer (Extensions)
-
-/**
- * @note annotations
- *   kotlinx.serialization.InternalSerializationApi
-*/
-- (id<DeserializationStrategy>)findPolymorphicSerializerDecoder:(id<CompositeDecoder>)decoder klassName:(NSString * _Nullable)klassName __attribute__((swift_name("findPolymorphicSerializer(decoder:klassName:)")));
-
-/**
- * @note annotations
- *   kotlinx.serialization.InternalSerializationApi
-*/
-- (id<SerializationStrategy>)findPolymorphicSerializerEncoder:(id<Encoder>)encoder value:(id)value __attribute__((swift_name("findPolymorphicSerializer(encoder:value:)")));
-@end
-
-@interface PolymorphicModuleBuilder (Extensions)
-- (void)subclassClazz:(id<KotlinKClass>)clazz __attribute__((swift_name("subclass(clazz:)")));
-- (void)subclassSerializer:(id<KSerializer>)serializer __attribute__((swift_name("subclass(serializer:)")));
-@end
-
-@interface SerializersModule (Extensions)
-
-/**
- * @note annotations
- *   kotlinx.serialization.ExperimentalSerializationApi
-*/
-- (id<SerialDescriptor> _Nullable)getContextualDescriptorDescriptor:(id<SerialDescriptor>)descriptor __attribute__((swift_name("getContextualDescriptor(descriptor:)")));
-
-/**
- * @note annotations
- *   kotlinx.serialization.ExperimentalSerializationApi
-*/
-- (NSArray<id<SerialDescriptor>> *)getPolymorphicDescriptorsDescriptor:(id<SerialDescriptor>)descriptor __attribute__((swift_name("getPolymorphicDescriptors(descriptor:)")));
-- (SerializersModule *)overwriteWithOther:(SerializersModule *)other __attribute__((swift_name("overwriteWith(other:)")));
-- (SerializersModule *)plusOther:(SerializersModule *)other __attribute__((swift_name("plus(other:)")));
-- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
-- (id<KSerializer>)serializerType:(id<KotlinKType>)type __attribute__((swift_name("serializer(type:)")));
-
-/**
- * @note annotations
- *   kotlinx.serialization.ExperimentalSerializationApi
-*/
-- (id<KSerializer>)serializerKClass:(id<KotlinKClass>)kClass typeArgumentsSerializers:(NSArray<id<KSerializer>> *)typeArgumentsSerializers isNullable:(BOOL)isNullable __attribute__((swift_name("serializer(kClass:typeArgumentsSerializers:isNullable:)")));
-- (id<KSerializer> _Nullable)serializerOrNullType:(id<KotlinKType>)type __attribute__((swift_name("serializerOrNull(type:)")));
-@end
-
-@interface SerializersModuleBuilder (Extensions)
-- (void)contextualSerializer:(id<KSerializer>)serializer __attribute__((swift_name("contextual(serializer:)")));
-- (void)polymorphicBaseClass:(id<KotlinKClass>)baseClass baseSerializer:(id<KSerializer> _Nullable)baseSerializer builderAction:(void (^)(PolymorphicModuleBuilder<id> *))builderAction __attribute__((swift_name("polymorphic(baseClass:baseSerializer:builderAction:)")));
 @end
 
 __attribute__((objc_subclassing_restricted))
@@ -2110,6 +1995,121 @@ __attribute__((swift_name("KotlinKTypeProjection.Companion")))
 */
 - (KotlinKTypeProjection *)invariantType:(id<KotlinKType>)type __attribute__((swift_name("invariant(type:)")));
 @property (readonly) KotlinKTypeProjection *STAR __attribute__((swift_name("STAR")));
+@end
+
+@interface KotlinByteCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinCharCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinDoubleCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinFloatCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinIntCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinLongCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinShortCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinUByteCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinUIntCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinULongCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinUShortCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinUnit (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinDurationCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface ClassSerialDescriptorBuilder (Extensions)
+- (void)elementElementName:(NSString *)elementName annotations:(NSArray<id<KotlinAnnotation>> *)annotations isOptional:(BOOL)isOptional __attribute__((swift_name("element(elementName:annotations:isOptional:)")));
+@end
+
+@interface AbstractPolymorphicSerializer (Extensions)
+
+/**
+ * @note annotations
+ *   kotlinx.serialization.InternalSerializationApi
+*/
+- (id<DeserializationStrategy>)findPolymorphicSerializerDecoder:(id<CompositeDecoder>)decoder klassName:(NSString * _Nullable)klassName __attribute__((swift_name("findPolymorphicSerializer(decoder:klassName:)")));
+
+/**
+ * @note annotations
+ *   kotlinx.serialization.InternalSerializationApi
+*/
+- (id<SerializationStrategy>)findPolymorphicSerializerEncoder:(id<Encoder>)encoder value:(id)value __attribute__((swift_name("findPolymorphicSerializer(encoder:value:)")));
+@end
+
+@interface PolymorphicModuleBuilder (Extensions)
+- (void)subclassClazz:(id<KotlinKClass>)clazz __attribute__((swift_name("subclass(clazz:)")));
+- (void)subclassSerializer:(id<KSerializer>)serializer __attribute__((swift_name("subclass(serializer:)")));
+@end
+
+@interface SerializersModule (Extensions)
+
+/**
+ * @note annotations
+ *   kotlinx.serialization.ExperimentalSerializationApi
+*/
+- (id<SerialDescriptor> _Nullable)getContextualDescriptorDescriptor:(id<SerialDescriptor>)descriptor __attribute__((swift_name("getContextualDescriptor(descriptor:)")));
+
+/**
+ * @note annotations
+ *   kotlinx.serialization.ExperimentalSerializationApi
+*/
+- (NSArray<id<SerialDescriptor>> *)getPolymorphicDescriptorsDescriptor:(id<SerialDescriptor>)descriptor __attribute__((swift_name("getPolymorphicDescriptors(descriptor:)")));
+- (SerializersModule *)overwriteWithOther:(SerializersModule *)other __attribute__((swift_name("overwriteWith(other:)")));
+- (SerializersModule *)plusOther:(SerializersModule *)other __attribute__((swift_name("plus(other:)")));
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+- (id<KSerializer>)serializerType:(id<KotlinKType>)type __attribute__((swift_name("serializer(type:)")));
+
+/**
+ * @note annotations
+ *   kotlinx.serialization.ExperimentalSerializationApi
+*/
+- (id<KSerializer>)serializerKClass:(id<KotlinKClass>)kClass typeArgumentsSerializers:(NSArray<id<KSerializer>> *)typeArgumentsSerializers isNullable:(BOOL)isNullable __attribute__((swift_name("serializer(kClass:typeArgumentsSerializers:isNullable:)")));
+- (id<KSerializer> _Nullable)serializerOrNullType:(id<KotlinKType>)type __attribute__((swift_name("serializerOrNull(type:)")));
+@end
+
+@interface SerializersModuleBuilder (Extensions)
+- (void)contextualSerializer:(id<KSerializer>)serializer __attribute__((swift_name("contextual(serializer:)")));
+- (void)polymorphicBaseClass:(id<KotlinKClass>)baseClass baseSerializer:(id<KSerializer> _Nullable)baseSerializer builderAction:(void (^)(PolymorphicModuleBuilder<id> *))builderAction __attribute__((swift_name("polymorphic(baseClass:baseSerializer:builderAction:)")));
+@end
+
+@interface KotlinStringCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
+@end
+
+@interface KotlinBooleanCompanion (Extensions)
+- (id<KSerializer>)serializer __attribute__((swift_name("serializer()")));
 @end
 
 #pragma pop_macro("_Nullable_result")

@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.ir.interpreter
 
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrErrorExpressionImpl
@@ -19,7 +18,6 @@ import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.defaultType
-import org.jetbrains.kotlin.ir.util.isSubclassOf
 import org.jetbrains.kotlin.ir.util.properties
 import org.jetbrains.kotlin.ir.util.toIrConst
 import org.jetbrains.kotlin.platform.isJs
@@ -60,15 +58,6 @@ class IrInterpreterEnvironment(
         irExceptions.addAll(environment.irExceptions)
         mapOfEnums = environment.mapOfEnums
         mapOfObjects = environment.mapOfObjects
-    }
-
-    constructor(irModule: IrModuleFragment) : this(irModule.irBuiltins) {
-        irExceptions.addAll(
-            irModule.files
-                .flatMap { it.declarations }
-                .filterIsInstance<IrClass>()
-                .filter { it.isSubclassOf(irBuiltIns.throwableClass.owner) }
-        )
     }
 
     fun copyWithNewCallStack(): IrInterpreterEnvironment {
@@ -115,7 +104,7 @@ class IrInterpreterEnvironment(
         val end = original.endOffset
         val type = original.type.makeNotNull()
         return when (state) {
-            is Primitive<*> -> when {
+            is Primitive -> when {
                 configuration.platform.isJs() && state.value is Float -> IrConstImpl.float(start, end, type, state.value)
                 configuration.platform.isJs() && state.value is Double -> IrConstImpl.double(start, end, type, state.value)
                 state.value == null || type.isPrimitiveType() || type.isString() -> state.value.toIrConst(type, start, end)
@@ -128,7 +117,7 @@ class IrInterpreterEnvironment(
             is Complex -> {
                 val stateType = state.irClass.defaultType
                 when {
-                    stateType.isUnsignedType() -> (state.fields.values.single() as Primitive<*>).value.toIrConst(type, start, end)
+                    stateType.isUnsignedType() -> (state.fields.values.single() as Primitive).value.toIrConst(type, start, end)
                     else -> original
                 }
             }

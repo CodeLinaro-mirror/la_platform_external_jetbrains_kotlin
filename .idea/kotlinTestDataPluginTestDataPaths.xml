@@ -61,6 +61,13 @@
             </array>
           </value>
         </entry>
+        <entry key="$PROJECT_DIR$/plugins/js-plain-objects/compiler-plugin/testData/box">
+          <value>
+            <array>
+              <option value="$PROJECT_DIR$/plugins/js-plain-objects/compiler-plugin/build/{out,out-min,out-per-module,out-per-module-min}/codegen/serializationBoxIr/plugins/js-plain-objects/compiler-plugin/testData/box/$TEST_DATA_FILE$_v5.js{.map,}" />
+            </array>
+          </value>
+        </entry>
       </map>
     </option>
     <option name="testDataFiles">
@@ -71,15 +78,14 @@
         <option value="$PROJECT_DIR$/js/js.translator/testData" />
         <option value="$PROJECT_DIR$/compiler/fir/raw-fir/psi2fir/testData" />
         <option value="$PROJECT_DIR$/plugins/allopen/testData" />
-        <option value="$PROJECT_DIR$/plugins/android-extensions/android-extensions-compiler/testData" />
         <option value="$PROJECT_DIR$/plugins/atomicfu/atomicfu-compiler/testData" />
-        <option value="$PROJECT_DIR$/plugins/fir-plugin-prototype/testData" />
         <option value="$PROJECT_DIR$/plugins/imports-dumper/testData" />
         <option value="$PROJECT_DIR$/plugins/jvm-abi-gen/testData" />
         <option value="$PROJECT_DIR$/plugins/kapt3/kapt3-base/testData" />
         <option value="$PROJECT_DIR$/plugins/kapt3/kapt3-cli/testData" />
         <option value="$PROJECT_DIR$/plugins/kapt3/kapt3-compiler/testData" />
         <option value="$PROJECT_DIR$/plugins/noarg/testData" />
+        <option value="$PROJECT_DIR$/plugins/plugin-sandbox/testData" />
         <option value="$PROJECT_DIR$/plugins/parcelize/parcelize-compiler/testData" />
         <option value="$PROJECT_DIR$/plugins/lombok/testData" />
         <option value="$PROJECT_DIR$/plugins/sam-with-receiver/testData" />
@@ -92,6 +98,7 @@
         <option value="$PROJECT_DIR$/native/native.tests/testData" />
         <option value="$PROJECT_DIR$/plugins/plugins-interactions-testing/testData" />
         <option value="$PROJECT_DIR$/plugins/js-plain-objects/compiler-plugin/testData" />
+        <option value="$PROJECT_DIR$/plugins/compose/compiler-hosted/testData" />
       </array>
     </option>
   </component>

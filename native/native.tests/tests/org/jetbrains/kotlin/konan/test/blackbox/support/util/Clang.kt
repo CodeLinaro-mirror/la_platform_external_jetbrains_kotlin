@@ -45,10 +45,17 @@ internal enum class ClangMode {
     C, CXX
 }
 
+private fun AbstractNativeSimpleTest.defaultClangDistribution(): ClangDistribution =
+    if (testRunSettings.configurables.target.family.isAppleFamily) {
+        ClangDistribution.Toolchain
+    } else {
+        ClangDistribution.Llvm
+    }
+
 // FIXME: absoluteTargetToolchain might not work correctly with KONAN_USE_INTERNAL_SERVER because
 // :kotlin-native:dependencies:update is not a dependency of :native:native.tests:test where this test runs
 internal fun AbstractNativeSimpleTest.compileWithClang(
-    clangDistribution: ClangDistribution = ClangDistribution.Llvm,
+    clangDistribution: ClangDistribution = defaultClangDistribution(),
     clangMode: ClangMode = ClangMode.C,
     sourceFiles: List<File>,
     outputFile: File,
@@ -74,7 +81,7 @@ internal fun AbstractNativeSimpleTest.compileWithClang(
         addAll(
             when (clangMode) {
                 ClangMode.C -> clangArgsProvider.clangArgs
-                ClangMode.CXX -> clangArgsProvider.clangXXArgs
+                ClangMode.CXX -> clangArgsProvider.clangXXArgs + "-std=c++17"
             }
         )
         addAll(sourceFiles.map { it.absolutePath })
@@ -91,6 +98,10 @@ internal fun AbstractNativeSimpleTest.compileWithClang(
             // error: argument unused during compilation: '-static-libstdc++'
             add("-Wno-unused-command-line-argument")
             addAll(configurables.linkerKonanFlags)
+        }
+        if (configurables.target.family.isAppleFamily && clangDistribution == ClangDistribution.Llvm && clangMode == ClangMode.CXX) {
+            // Prevent KT-70603 by removing llvm-dev C++ stdlib from the search path
+            addAll(listOf("-stdlib++-isystem", "${configurables.absoluteTargetSysRoot}/usr/include/c++/v1"))
         }
         addAll(additionalClangFlags)
         add("-o")
@@ -137,20 +148,8 @@ internal fun AbstractNativeSimpleTest.compileWithClang(
     }
 }
 
-internal fun createModuleMap(moduleName: String, directory: File, umbrellaHeader: File): File {
-    return directory.resolve("module.modulemap").apply {
-        writeText("""
-            module $moduleName {
-                umbrella header "${umbrellaHeader.absolutePath}"
-                export *
-            }
-            """.trimIndent()
-        )
-    }
-}
-
 internal fun AbstractNativeSimpleTest.compileWithClangToStaticLibrary(
-    clangDistribution: ClangDistribution = ClangDistribution.Llvm,
+    clangDistribution: ClangDistribution = defaultClangDistribution(),
     clangMode: ClangMode = ClangMode.C,
     sourceFiles: List<File>,
     outputFile: File,

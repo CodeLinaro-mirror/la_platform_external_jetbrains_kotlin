@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImplWithShape
 import org.jetbrains.kotlin.ir.util.isLocal
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.superClass
@@ -25,6 +25,9 @@ import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 import org.jetbrains.kotlin.utils.memoryOptimizedFilterNot
 
+/**
+ * Optimization: removes the box parameter from the constructors which don't require it.
+ */
 class ES6ConstructorBoxParameterOptimizationLowering(private val context: JsIrBackendContext) : BodyLoweringPass {
     private val IrClass.needsOfBoxParameter by context.mapping.esClassWhichNeedBoxParameters
 
@@ -59,13 +62,16 @@ class ES6ConstructorBoxParameterOptimizationLowering(private val context: JsIrBa
                     }
                     callee.isEs6ConstructorReplacement && (!callee.parentAsClass.requiredToHaveBoxParameter() || shouldRemoveBoxRelatedDeclarationsAndStatements) -> {
                         val newArgumentsSize = expression.valueArgumentsCount - 1
-                        super.visitCall(IrCallImpl(
+                        super.visitCall(IrCallImplWithShape(
                             expression.startOffset,
                             expression.endOffset,
                             expression.type,
                             expression.symbol,
                             expression.typeArgumentsCount,
                             newArgumentsSize,
+                            expression.targetContextParameterCount,
+                            expression.targetHasDispatchReceiver,
+                            expression.targetHasExtensionReceiver,
                             expression.origin,
                             superQualifierSymbol = expression.superQualifierSymbol
                         ).apply {
@@ -90,6 +96,9 @@ class ES6ConstructorBoxParameterOptimizationLowering(private val context: JsIrBa
     }
 }
 
+/**
+ * Optimization: collects all constructors which require a box parameter.
+ */
 class ES6CollectConstructorsWhichNeedBoxParameters(private val context: JsIrBackendContext) : DeclarationTransformer {
     private var IrClass.needsOfBoxParameter by context.mapping.esClassWhichNeedBoxParameters
 

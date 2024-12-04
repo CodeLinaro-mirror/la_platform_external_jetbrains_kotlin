@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirScopeWithCallableCopyReturnTypeUp
 import org.jetbrains.kotlin.fir.scopes.impl.FirTypeIntersectionScope
 import org.jetbrains.kotlin.fir.scopes.impl.dynamicMembersStorage
 import org.jetbrains.kotlin.fir.scopes.impl.getOrBuildScopeForIntegerConstantOperatorType
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -61,11 +60,11 @@ fun ConeClassLikeType.delegatingConstructorScope(
     derivedClassLookupTag: ConeClassLikeLookupTag,
     outerType: ConeClassLikeType?
 ): FirTypeScope? {
-    val fir = fullyExpandedType(useSiteSession).lookupTag.toSymbol(useSiteSession)?.fir as? FirClass ?: return null
+    val fir = fullyExpandedType(useSiteSession).lookupTag.toClassSymbol(useSiteSession)?.fir ?: return null
 
     val substitutor = when {
         outerType != null -> {
-            val outerFir = outerType.lookupTag.toSymbol(useSiteSession)?.fir as? FirClass ?: return null
+            val outerFir = outerType.lookupTag.toClassSymbol(useSiteSession)?.fir ?: return null
             substitutorByMap(
                 createSubstitutionForScope(outerFir.typeParameters, outerType, useSiteSession),
                 useSiteSession,
@@ -125,7 +124,7 @@ private fun ConeKotlinType.scope(
     is ConeCapturedType -> {
         val supertypes =
             constructor.supertypes?.takeIf { it.isNotEmpty() }
-                ?: listOf(useSiteSession.builtinTypes.anyType.type)
+                ?: listOf(useSiteSession.builtinTypes.anyType.coneType)
         useSiteSession.typeContext.intersectTypes(supertypes).scope(useSiteSession, scopeSession, requiredMembersPhase)
     }
     else -> null
@@ -138,7 +137,7 @@ private fun ConeClassLikeType.classScope(
     memberOwnerLookupTag: ConeClassLikeLookupTag
 ): FirTypeScope? {
     val fullyExpandedType = fullyExpandedType(useSiteSession)
-    val fir = fullyExpandedType.lookupTag.toSymbol(useSiteSession)?.fir as? FirClass ?: return null
+    val fir = fullyExpandedType.lookupTag.toClassSymbol(useSiteSession)?.fir ?: return null
     val substitutor = when {
         attributes.contains(CompilerConeAttributes.RawType) -> ConeRawScopeSubstitutor(useSiteSession)
         else -> substitutorByMap(
@@ -158,10 +157,10 @@ fun FirClass.defaultType(): ConeClassLikeType =
         typeParameters.map {
             ConeTypeParameterTypeImpl(
                 it.symbol.toLookupTag(),
-                isNullable = false
+                isMarkedNullable = false
             )
         }.toTypedArray(),
-        isNullable = false
+        isMarkedNullable = false
     )
 
 fun ClassId.defaultType(parameters: List<FirTypeParameterSymbol>): ConeClassLikeType =
@@ -170,10 +169,10 @@ fun ClassId.defaultType(parameters: List<FirTypeParameterSymbol>): ConeClassLike
         parameters.map {
             ConeTypeParameterTypeImpl(
                 it.toLookupTag(),
-                isNullable = false
+                isMarkedNullable = false
             )
         }.toTypedArray(),
-        isNullable = false,
+        isMarkedNullable = false,
     )
 
 val TYPE_PARAMETER_SCOPE_KEY: ScopeSessionKey<FirTypeParameterSymbol, FirTypeScope> = scopeSessionKey()

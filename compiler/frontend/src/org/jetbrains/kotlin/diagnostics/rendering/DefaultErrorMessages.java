@@ -197,6 +197,9 @@ public class DefaultErrorMessages {
         MAP.put(OPT_IN_USAGE_ERROR, "{1}", TO_STRING, STRING);
         MAP.put(OPT_IN_USAGE_FUTURE_ERROR, "{1}", TO_STRING, STRING);
 
+        MAP.put(OPT_IN_TO_INHERITANCE, "{1}", TO_STRING, STRING);
+        MAP.put(OPT_IN_TO_INHERITANCE_ERROR, "{1}", TO_STRING, STRING);
+
         MAP.put(OPT_IN_OVERRIDE, "{1}", TO_STRING, STRING);
         MAP.put(OPT_IN_OVERRIDE_ERROR, "{1}", TO_STRING, STRING);
 
@@ -214,6 +217,7 @@ public class DefaultErrorMessages {
         MAP.put(OPT_IN_MARKER_ON_OVERRIDE_WARNING, "Opt-in requirement marker annotation on override makes no sense without the same marker on base declaration");
 
         MAP.put(SUBCLASS_OPT_IN_INAPPLICABLE, "@SubclassOptInRequired is inapplicable on {0}", STRING);
+        MAP.put(SUBCLASS_OPT_IN_ARGUMENT_IS_NOT_MARKER, "Annotation ''{0}'' is not annotated with ''@RequiresOptIn''.", TO_STRING);
 
         MAP.put(EXPERIMENTAL_UNSIGNED_LITERALS, "{0}", STRING);
         MAP.put(EXPERIMENTAL_UNSIGNED_LITERALS_ERROR, "{0}", STRING);
@@ -621,11 +625,6 @@ public class DefaultErrorMessages {
         MAP.put(IMPLICIT_BOXING_IN_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} can be unstable because of implicit boxing", RENDER_TYPE, RENDER_TYPE);
         MAP.put(FORBIDDEN_IDENTITY_EQUALS, "Identity equality for arguments of types {0} and {1} is forbidden", RENDER_TYPE, RENDER_TYPE);
         MAP.put(FORBIDDEN_SYNCHRONIZED_BY_VALUE_CLASSES_OR_PRIMITIVES, "Synchronizing by {0} is forbidden", RENDER_TYPE);
-
-        MAP.put(DEPRECATED_BINARY_MOD, "Deprecated convention for ''{0}''. Use ''{1}''", NAME, STRING);
-        MAP.put(FORBIDDEN_BINARY_MOD, "Convention for ''{0}'' is forbidden. Use ''{1}''", NAME, STRING);
-        MAP.put(DEPRECATED_BINARY_MOD_AS_REM, "''%'' is resolved to deprecated ''{0}'' operator. Replace with ''.{0}'' or add operator ''{1}''", NAME, STRING);
-        MAP.put(FORBIDDEN_BINARY_MOD_AS_REM, "''%'' is resolved to forbidden ''{0}'' operator. Replace with ''.{0}'' or add operator ''{1}''", NAME, STRING);
 
         MAP.put(NO_GET_METHOD, "No get method providing array access");
         MAP.put(NO_SET_METHOD, "No set method providing array access");

@@ -54,11 +54,13 @@ object CommonConfigurationKeys {
     val METADATA_KLIB = CompilerConfigurationKey.create<Boolean>("Produce metadata klib")
 
     @JvmField
-    val USE_FIR_EXTENDED_CHECKERS = CompilerConfigurationKey.create<Boolean>("fir extended checkers")
+    val USE_FIR_EXTRA_CHECKERS = CompilerConfigurationKey.create<Boolean>("fir extra checkers")
 
     @JvmField
-    val PARALLEL_BACKEND_THREADS =
-        CompilerConfigurationKey.create<Int>("When using the IR backend, run lowerings by file in N parallel threads")
+    val USE_FIR_EXPERIMENTAL_CHECKERS = CompilerConfigurationKey.create<Boolean>("fir not-public-ready checkers")
+
+    @JvmField
+    val PARALLEL_BACKEND_THREADS = CompilerConfigurationKey.create<Int>("Run codegen phase in parallel with N threads")
 
     @JvmField
     val INCREMENTAL_COMPILATION =

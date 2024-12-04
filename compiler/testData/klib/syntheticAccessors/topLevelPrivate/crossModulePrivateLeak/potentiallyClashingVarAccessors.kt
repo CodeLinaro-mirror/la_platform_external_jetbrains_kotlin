@@ -1,5 +1,3 @@
-// IGNORE_BACKEND: ANY
-
 // MODULE: lib1
 // FILE: file1.kt
 package org.sample

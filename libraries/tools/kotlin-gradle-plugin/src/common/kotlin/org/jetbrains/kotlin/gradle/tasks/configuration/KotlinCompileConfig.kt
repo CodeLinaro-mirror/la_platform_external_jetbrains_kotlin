@@ -13,7 +13,7 @@ import org.gradle.api.artifacts.transform.TransformSpec
 import org.gradle.api.attributes.Attribute
 import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.compilerRunner.GradleCompilerRunner
-import org.jetbrains.kotlin.gradle.dsl.KotlinTopLevelExtension
+import org.jetbrains.kotlin.gradle.dsl.ExplicitApiMode
 import org.jetbrains.kotlin.gradle.incremental.IncrementalModuleInfoBuildService
 import org.jetbrains.kotlin.gradle.internal.ClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.internal.KOTLIN_BUILD_TOOLS_API_IMPL
@@ -68,7 +68,6 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
                 task.incremental = propertiesProvider.incrementalJvm ?: true
                 task.usePreciseJavaTracking = propertiesProvider.usePreciseJavaTracking ?: true
                 task.jvmTargetValidationMode.convention(propertiesProvider.jvmTargetValidationMode).finalizeValueOnRead()
-                task.useKotlinAbiSnapshot.value(propertiesProvider.useKotlinAbiSnapshot).disallowChanges()
 
                 task.classpathSnapshotProperties.useClasspathSnapshot.value(useClasspathSnapshot).disallowChanges()
                 if (useClasspathSnapshot) {
@@ -111,8 +110,12 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
     }
 
 
-    constructor(project: Project, ext: KotlinTopLevelExtension) : super(
-        project, ext
+    constructor(
+        project: Project,
+        explicitApiMode: Provider<ExplicitApiMode>,
+    ) : super(
+        project,
+        explicitApiMode
     )
 
     companion object {
@@ -129,7 +132,7 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
     private fun registerTransformsOnce(
         project: Project,
         jvmToolchain: Provider<DefaultKotlinJavaToolchain>,
-        runKotlinCompilerViaBuildToolsApi: Boolean,
+        runKotlinCompilerViaBuildToolsApi: Provider<Boolean>,
     ) {
         if (project.extensions.extraProperties.has(TRANSFORMS_REGISTERED)) {
             return
@@ -144,7 +147,7 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
         classLoadersCachingService: Provider<ClassLoadersCachingBuildService>,
         classpath: Provider<out Configuration>,
         jvmToolchain: Provider<DefaultKotlinJavaToolchain>,
-        runKotlinCompilerViaBuildToolsApi: Boolean,
+        runKotlinCompilerViaBuildToolsApi: Provider<Boolean>,
         suppressVersionInconsistencyChecks: Boolean,
     ) {
         parameters.gradleUserHomeDir.set(project.gradle.gradleUserHomeDir)
@@ -180,7 +183,7 @@ internal open class BaseKotlinCompileConfig<TASK : KotlinCompile> : AbstractKotl
     private fun registerBuildToolsApiTransformations(
         project: Project,
         jvmToolchain: Provider<DefaultKotlinJavaToolchain>,
-        runKotlinCompilerViaBuildToolsApi: Boolean
+        runKotlinCompilerViaBuildToolsApi: Provider<Boolean>
     ) {
         val classLoadersCachingService = ClassLoadersCachingBuildService.registerIfAbsent(project)
         val classpath = project.configurations.named(BUILD_TOOLS_API_CLASSPATH_CONFIGURATION_NAME)

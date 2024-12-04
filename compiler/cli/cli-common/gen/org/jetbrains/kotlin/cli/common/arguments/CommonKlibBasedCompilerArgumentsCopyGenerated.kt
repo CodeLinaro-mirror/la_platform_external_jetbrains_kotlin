@@ -10,8 +10,10 @@ package org.jetbrains.kotlin.cli.common.arguments
 fun copyCommonKlibBasedCompilerArguments(from: CommonKlibBasedCompilerArguments, to: CommonKlibBasedCompilerArguments): CommonKlibBasedCompilerArguments {
     copyCommonCompilerArguments(from, to)
 
+    to.duplicatedUniqueNameStrategy = from.duplicatedUniqueNameStrategy
     to.enableSignatureClashChecks = from.enableSignatureClashChecks
-    to.experimentalDoubleInlining = from.experimentalDoubleInlining
+    to.irInlinerBeforeKlibSerialization = from.irInlinerBeforeKlibSerialization
+    to.noDoubleInlining = from.noDoubleInlining
     to.normalizeAbsolutePath = from.normalizeAbsolutePath
     to.partialLinkageLogLevel = from.partialLinkageLogLevel
     to.partialLinkageMode = from.partialLinkageMode

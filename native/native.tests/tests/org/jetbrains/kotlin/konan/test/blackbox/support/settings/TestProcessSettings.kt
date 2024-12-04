@@ -14,18 +14,15 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.MutedOption
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.RunnerWithExecutor
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.NoopTestRunner
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.Runner
-import org.jetbrains.kotlin.native.executors.ExecuteRequest
-import org.jetbrains.kotlin.native.executors.RunProcessResult
 import org.jetbrains.kotlin.native.executors.runProcess
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.net.URLClassLoader
 import java.util.*
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * The tested and the host Kotlin/Native targets.
@@ -199,9 +196,9 @@ internal class BaseDirs(val testBuildDir: File)
 /**
  * Timeouts.
  */
-internal class Timeouts(val executionTimeout: Duration) {
+class Timeouts(val executionTimeout: Duration) {
     companion object {
-        val DEFAULT_EXECUTION_TIMEOUT: Duration get() = 30.seconds
+        val DEFAULT_EXECUTION_TIMEOUT: Duration get() = 10.minutes
     }
 }
 
@@ -209,25 +206,21 @@ internal class Timeouts(val executionTimeout: Duration) {
  * Used cache mode.
  */
 sealed class CacheMode {
-    abstract val staticCacheForDistributionLibrariesRootDir: File?
+    abstract val useStaticCacheForDistributionLibraries: Boolean
     abstract val useStaticCacheForUserLibraries: Boolean
     abstract val makePerFileCaches: Boolean
     abstract val useHeaders: Boolean
     abstract val alias: Alias
 
-    val useStaticCacheForDistributionLibraries: Boolean get() = staticCacheForDistributionLibrariesRootDir != null
-
     object WithoutCache : CacheMode() {
-        override val staticCacheForDistributionLibrariesRootDir: File? get() = null
-        override val useStaticCacheForUserLibraries: Boolean get() = false
+        override val useStaticCacheForDistributionLibraries: Boolean = false
+        override val useStaticCacheForUserLibraries: Boolean = false
         override val makePerFileCaches: Boolean = false
         override val useHeaders = false
         override val alias = Alias.NO
     }
 
     class WithStaticCache(
-        distribution: Distribution,
-        kotlinNativeTargets: KotlinNativeTargets,
         optimizationMode: OptimizationMode,
         override val useStaticCacheForUserLibraries: Boolean,
         override val makePerFileCaches: Boolean,
@@ -241,19 +234,7 @@ sealed class CacheMode {
             }
         }
 
-        override val staticCacheForDistributionLibrariesRootDir: File = File(distribution.klib)
-            .resolve("cache")
-            .resolve(
-                computeDistroCacheDirName(
-                    testTarget = kotlinNativeTargets.testTarget,
-                    cacheKind = CACHE_KIND,
-                    debuggable = optimizationMode == OptimizationMode.DEBUG
-                )
-            ).apply {
-                assertTrue(exists()) { "The distribution libraries cache directory is not found: $this" }
-                assertTrue(isDirectory) { "The distribution libraries cache directory is not a directory: $this" }
-                assertTrue(list().orEmpty().isNotEmpty()) { "The distribution libraries cache directory is empty: $this" }
-            }
+        override val useStaticCacheForDistributionLibraries: Boolean = true
 
         companion object {
             private const val CACHE_KIND = "STATIC"
@@ -278,13 +259,6 @@ sealed class CacheMode {
             debuggable: Boolean,
             partialLinkageEnabled: Boolean
         ) = "$testTarget${if (debuggable) "-g" else ""}$cacheKind${if (partialLinkageEnabled) "-pl" else ""}"
-
-        // N.B. The distribution libs are always built with the partial linkage turned off.
-        fun computeDistroCacheDirName(
-            testTarget: KonanTarget,
-            cacheKind: String,
-            debuggable: Boolean,
-        ) = "$testTarget${if (debuggable) "-g" else ""}$cacheKind"
     }
 }
 
@@ -325,8 +299,13 @@ internal enum class TestGroupCreation {
     }
 }
 
-internal enum class BinaryLibraryKind {
+enum class BinaryLibraryKind {
     STATIC, DYNAMIC
+}
+
+enum class KlibIrInlinerMode {
+    OFF,
+    ON,
 }
 
 internal enum class CInterfaceMode(val compilerFlag: String) {

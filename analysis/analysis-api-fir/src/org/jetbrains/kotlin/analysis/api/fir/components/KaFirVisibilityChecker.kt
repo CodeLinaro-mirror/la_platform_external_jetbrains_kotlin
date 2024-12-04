@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFileSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirSafe
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
@@ -48,10 +49,11 @@ internal class KaFirVisibilityChecker(
         require(candidateSymbol is KaFirSymbol<*>)
         require(useSiteFile is KaFirFileSymbol)
 
-        val candidateDeclaration = candidateSymbol.firSymbol.fir as? FirMemberDeclaration ?: return true
         if (candidateSymbol is KaFirPsiJavaClassSymbol) {
             candidateSymbol.isVisibleByPsi(useSiteFile)?.let { return it }
         }
+
+        val candidateDeclaration = candidateSymbol.firSymbol.fir as? FirMemberDeclaration ?: return true
 
         val dispatchReceiverCanBeExplicit = candidateSymbol is KaCallableSymbol && !candidateSymbol.isExtension
         val explicitDispatchReceiver = runIf(dispatchReceiverCanBeExplicit) {
@@ -111,6 +113,11 @@ internal class KaFirVisibilityChecker(
     }
 
     override fun KaCallableSymbol.isVisibleInClass(classSymbol: KaClassSymbol): Boolean = withValidityAssertion {
+        if (this is KaReceiverParameterSymbol) {
+            // Receiver parameters are local
+            return false
+        }
+
         require(this is KaFirSymbol<*>)
         require(classSymbol is KaFirSymbol<*>)
 
@@ -124,6 +131,10 @@ internal class KaFirVisibilityChecker(
     }
 
     override fun isPublicApi(symbol: KaDeclarationSymbol): Boolean = withValidityAssertion {
+        if (symbol is KaReceiverParameterSymbol) {
+            return isPublicApi(symbol.owningCallableSymbol)
+        }
+
         require(symbol is KaFirSymbol<*>)
         val declaration = symbol.firSymbol.fir as? FirMemberDeclaration ?: return false
 

@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.analysis.api.fir
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotation
-import org.jetbrains.kotlin.analysis.api.annotations.KaNamedAnnotationValue
+import org.jetbrains.kotlin.analysis.api.fir.annotations.computeAnnotationArguments
 import org.jetbrains.kotlin.analysis.api.impl.base.annotations.KaAnnotationImpl
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
@@ -16,9 +16,11 @@ import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.getAnnotationsByClassId
 import org.jetbrains.kotlin.fir.declarations.getStringArgument
 import org.jetbrains.kotlin.fir.declarations.toAnnotationClassId
+import org.jetbrains.kotlin.fir.declarations.utils.isOverride
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeUnreportedDuplicateDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
@@ -27,13 +29,16 @@ import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeDiagnosticWithCandidates
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeDiagnosticWithSymbol
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeHiddenCandidateError
+import org.jetbrains.kotlin.fir.resolve.scope
+import org.jetbrains.kotlin.fir.resolve.toClassSymbol
+import org.jetbrains.kotlin.fir.scopes.CallableCopyTypeCalculator
 import org.jetbrains.kotlin.fir.scopes.getDeclaredConstructors
+import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenProperties
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.types.toClassSymbol
-import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
 import org.jetbrains.kotlin.name.JvmStandardClassIds
 import org.jetbrains.kotlin.psi.KtCallElement
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -77,11 +82,7 @@ internal fun ConeDiagnostic.getCandidateSymbols(): Collection<FirBasedSymbol<*>>
         else -> emptyList()
     }
 
-internal fun FirAnnotation.toKaAnnotation(
-    builder: KaSymbolByFirBuilder,
-    index: Int,
-    argumentsFactory: (ClassId?) -> List<KaNamedAnnotationValue>
-): KaAnnotation {
+internal fun FirAnnotation.toKaAnnotation(builder: KaSymbolByFirBuilder): KaAnnotation {
     val constructorSymbol = findAnnotationConstructor(this, builder.rootSession)
         ?.let(builder.functionBuilder::buildConstructorSymbol)
 
@@ -91,9 +92,10 @@ internal fun FirAnnotation.toKaAnnotation(
         classId = classId,
         psi = psi as? KtCallElement,
         useSiteTarget = useSiteTarget,
-        hasArguments = this is FirAnnotationCall && this.arguments.isNotEmpty(),
-        lazyArguments = lazy { argumentsFactory(classId) },
-        index = index,
+        lazyArguments = if (this !is FirAnnotationCall || arguments.isNotEmpty())
+            lazy { computeAnnotationArguments(this, builder) }
+        else
+            lazyOf(emptyList()),
         constructorSymbol = constructorSymbol,
         token = builder.token,
     )
@@ -146,3 +148,21 @@ internal fun FirAnnotationContainer.getJvmNameFromAnnotation(session: FirSession
 
 internal fun FirElement.unwrapSafeCall(): FirElement =
     (this as? FirSafeCallExpression)?.selector ?: this
+
+internal fun FirPropertyAccessorSymbol.isSetterOverride(analysisSession: KaFirSession): Boolean {
+    if (isGetter) return false
+    if (isOverride) return true
+
+    val propertySymbol = fir.propertySymbol
+    if (!propertySymbol.isOverride) return false
+    val session = analysisSession.firSession
+    val containingClassScope = dispatchReceiverType?.scope(
+        session,
+        analysisSession.getScopeSessionFor(session),
+        CallableCopyTypeCalculator.DoNothing,
+        requiredMembersPhase = FirResolvePhase.STATUS,
+    ) ?: return false
+
+    val overriddenProperties = containingClassScope.getDirectOverriddenProperties(propertySymbol)
+    return overriddenProperties.any { it.isVar }
+}

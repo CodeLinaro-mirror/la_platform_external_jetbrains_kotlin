@@ -177,6 +177,18 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         description = "Ignores failures of signature dump comparison for tests with the $DUMP_SIGNATURES directive if the test uses the K2 frontend and the specified backend."
     )
 
+    val SKIP_IR_SERIALIZATION by directive(
+        description = """
+        Skips serializing IR to KLIB when running tests
+        """
+    )
+
+    val SKIP_DESERIALIZED_IR_TEXT_DUMP by directive(
+        description = """
+        Skips ${IrTextDumpHandler::class}, when running a test against the deserialized IR
+        """
+    )
+
     val DUMP_IR_FOR_GIVEN_PHASES by valueDirective<AnyNamedPhase>(
         description = "Dumps backend IR after given lowerings (enables ${PhasedIrDumpHandler::class})",
         parser = { error("Cannot parse value $it for \"DUMP_IR_FOR_GIVEN_PHASES\" directive. All arguments must be specified via code in test system") }
@@ -266,8 +278,33 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         
         This directive is opt-in rather than opt-out (like $DISABLE_IR_VISIBILITY_CHECKS) because right now most test pass with
         visibility checks enabled before lowering, but enabling these checks after inlining by default will cause most tests to fail,
-        because some lowerings that are run before inlining generate calls to internal intrinsics (KT-67304), and inlining in general may
+        because some lowerings that are run before inlining generate calls to internal intrinsics (KT-70295), and inlining in general may
         cause visibility violations until we start generating synthetic accessors (KT-64865).
+        """.trimIndent()
+    )
+
+    val KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY by directive(
+        """
+            Narrow the visibility of generated synthetic accessors to _internal_" +
+            if such accessors are only used in inline functions that are not a part of public ABI
+            Equivalent to passing the '-Xsynthetic-accessors-with-narrowed-visibility' CLI flag.
+        """.trimIndent()
+    )
+
+    val DUMP_KLIB_SYNTHETIC_ACCESSORS by directive(
+        """
+            Enable dumping synthetic accessors and their use-sites immediately generation.
+            This directive makes sense only for KLIB-based backends.
+            Equivalent to passing the '-Xdump-synthetic-accessors-to=<tempDir>/synthetic-accessors' CLI flag.
+        """.trimIndent()
+    )
+
+    val IDENTICAL_KLIB_SYNTHETIC_ACCESSOR_DUMPS by directive(
+        """
+            Normally, there should be different dumps of synthetic accessors generated with and without
+            narrowing visibility (see ${::KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY.name} directive
+            for details). But sometimes these dumps are identical. In such cases with this directive
+            it's possible to have just one dump file.
         """.trimIndent()
     )
 }

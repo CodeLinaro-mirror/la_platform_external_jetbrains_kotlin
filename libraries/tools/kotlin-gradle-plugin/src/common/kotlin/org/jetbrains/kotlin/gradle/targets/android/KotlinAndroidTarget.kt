@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.gradle.dsl.HasConfigurableKotlinCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptionsDefault
 import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.plugin.mpp.publishing.configureSourcesPublicationAttributes
 import org.jetbrains.kotlin.gradle.tasks.DefaultKotlinJavaToolchain
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.gradle.utils.dashSeparatedName
@@ -300,7 +301,7 @@ abstract class KotlinAndroidTarget @Inject constructor(
             description = "Source files of Android ${variantName}."
             isVisible = false
 
-            apiElementsConfiguration.copyAttributesTo(project, dest = this)
+            apiElementsConfiguration.copyAttributesTo(project.providers, dest = this)
             configureSourcesPublicationAttributes(this@KotlinAndroidTarget)
         }
     }
@@ -331,7 +332,6 @@ abstract class KotlinAndroidTarget @Inject constructor(
         attribute: Attribute<*>,
     ): Boolean = attribute.name != "com.android.build.api.attributes.AgpVersionAttr"
 
-    @ExperimentalKotlinGradlePluginApi
     override val compilerOptions: KotlinJvmCompilerOptions = project.objects
         .newInstance<KotlinJvmCompilerOptionsDefault>()
         .apply {

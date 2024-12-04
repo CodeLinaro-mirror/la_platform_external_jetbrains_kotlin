@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.js.test.fir;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
+import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
@@ -19,6 +20,7 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("js/js.translator/testData/box")
 @TestDataPath("$PROJECT_ROOT")
+@Tag("es6")
 public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Test
   public void testAllFilesPresentInBox() {
@@ -28,6 +30,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/annotation")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Annotation {
     @Test
     public void testAllFilesPresentInAnnotation() {
@@ -50,6 +53,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/builtins")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Builtins {
     @Test
     public void testAllFilesPresentInBuiltins() {
@@ -90,6 +94,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/callableReference")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class CallableReference {
     @Test
     public void testAllFilesPresentInCallableReference() {
@@ -99,6 +104,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/callableReference/function")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Function {
       @Test
       public void testAllFilesPresentInFunction() {
@@ -163,6 +169,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/callableReference/property")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Property {
       @Test
       public void testAllFilesPresentInProperty() {
@@ -192,6 +199,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/char")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Char {
     @Test
     public void testAllFilesPresentInChar() {
@@ -286,6 +294,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/classObject")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class ClassObject {
     @Test
     @TestMetadata("accessing.kt")
@@ -374,6 +383,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/closure")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Closure {
     @Test
     public void testAllFilesPresentInClosure() {
@@ -665,6 +675,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/closure/inlineAnonymousFunctions")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class InlineAnonymousFunctions {
       @Test
       public void testAllFilesPresentInInlineAnonymousFunctions() {
@@ -687,6 +698,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
       @TestMetadata("inlineChain.kt")
       public void testInlineChain() {
         runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/inlineChain.kt");
+      }
+
+      @Test
+      @TestMetadata("keywordEscaping.kt")
+      public void testKeywordEscaping() {
+        runTest("js/js.translator/testData/box/closure/inlineAnonymousFunctions/keywordEscaping.kt");
       }
 
       @Test
@@ -724,6 +741,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/coercion")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Coercion {
     @Test
     public void testAllFilesPresentInCoercion() {
@@ -884,6 +902,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/coroutines")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Coroutines {
     @Test
     public void testAllFilesPresentInCoroutines() {
@@ -993,6 +1012,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     }
 
     @Test
+    @TestMetadata("tailCallOptimization.kt")
+    public void testTailCallOptimization() {
+      runTest("js/js.translator/testData/box/coroutines/tailCallOptimization.kt");
+    }
+
+    @Test
     @TestMetadata("tryFinally.kt")
     public void testTryFinally() {
       runTest("js/js.translator/testData/box/coroutines/tryFinally.kt");
@@ -1002,6 +1027,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/crossModuleRef")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class CrossModuleRef {
     @Test
     public void testAllFilesPresentInCrossModuleRef() {
@@ -1108,6 +1134,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/crossModuleRefIR")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class CrossModuleRefIR {
     @Test
     public void testAllFilesPresentInCrossModuleRefIR() {
@@ -1232,6 +1259,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/dataClass")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class DataClass {
     @Test
     public void testAllFilesPresentInDataClass() {
@@ -1290,6 +1318,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/dce")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Dce {
     @Test
     public void testAllFilesPresentInDce() {
@@ -1306,6 +1335,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/defaultArguments")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class DefaultArguments {
     @Test
     public void testAllFilesPresentInDefaultArguments() {
@@ -1454,6 +1484,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/delegateProperty")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class DelegateProperty {
     @Test
     public void testAllFilesPresentInDelegateProperty() {
@@ -1602,6 +1633,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/delegation")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Delegation {
     @Test
     public void testAllFilesPresentInDelegation() {
@@ -1720,6 +1752,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/dynamic")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Dynamic {
     @Test
     public void testAllFilesPresentInDynamic() {
@@ -1874,6 +1907,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/enum")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Enum {
     @Test
     @TestMetadata("accessing.kt")
@@ -1968,6 +2002,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/es6classes")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Es6classes {
     @Test
     public void testAllFilesPresentInEs6classes() {
@@ -2074,6 +2109,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/esModules")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class EsModules {
     @Test
     public void testAllFilesPresentInEsModules() {
@@ -2083,6 +2119,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/crossModuleRef")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class CrossModuleRef {
       @Test
       public void testAllFilesPresentInCrossModuleRef() {
@@ -2189,6 +2226,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/crossModuleRefPerFile")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class CrossModuleRefPerFile {
       @Test
       public void testAllFilesPresentInCrossModuleRefPerFile() {
@@ -2295,6 +2333,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/crossModuleRefPerModule")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class CrossModuleRefPerModule {
       @Test
       public void testAllFilesPresentInCrossModuleRefPerModule() {
@@ -2383,6 +2422,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/export")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Export {
       @Test
       public void testAllFilesPresentInExport() {
@@ -2579,6 +2619,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/incremental")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Incremental {
       @Test
       public void testAllFilesPresentInIncremental() {
@@ -2595,6 +2636,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/inline")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Inline {
       @Test
       public void testAllFilesPresentInInline() {
@@ -2611,6 +2653,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/jsExport")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class JsExport {
       @Test
       public void testAllFilesPresentInJsExport() {
@@ -2669,6 +2712,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/jsModule")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class JsModule {
       @Test
       public void testAllFilesPresentInJsModule() {
@@ -2763,6 +2807,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/jsName")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class JsName {
       @Test
       public void testAllFilesPresentInJsName() {
@@ -2785,6 +2830,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/kotlin.test")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Kotlin_test {
       @Test
       public void testAllFilesPresentInKotlin_test() {
@@ -2849,6 +2895,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/main")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Main {
       @Test
       public void testAllFilesPresentInMain() {
@@ -2907,6 +2954,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/esModules/native")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Native {
       @Test
       public void testAllFilesPresentInNative() {
@@ -2930,6 +2978,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/escapedIdentifiers")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class EscapedIdentifiers {
     @Test
     public void testAllFilesPresentInEscapedIdentifiers() {
@@ -3036,6 +3085,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/examples")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Examples {
     @Test
     public void testAllFilesPresentInExamples() {
@@ -3058,6 +3108,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/export")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Export {
     @Test
     public void testAllFilesPresentInExport() {
@@ -3320,6 +3371,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/expression")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Expression {
     @Test
     public void testAllFilesPresentInExpression() {
@@ -3329,6 +3381,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/cast")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Cast {
       @Test
       public void testAllFilesPresentInCast() {
@@ -3507,6 +3560,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/compareTo")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class CompareTo {
       @Test
       public void testAllFilesPresentInCompareTo() {
@@ -3529,6 +3583,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/dollarParameter")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class DollarParameter {
       @Test
       public void testAllFilesPresentInDollarParameter() {
@@ -3545,6 +3600,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/equals")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Equals {
       @Test
       public void testAllFilesPresentInEquals() {
@@ -3633,6 +3689,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/evaluationOrder")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class EvaluationOrder {
       @Test
       @TestMetadata("2dangerousInExpression.kt")
@@ -3865,6 +3922,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/for")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class For {
       @Test
       public void testAllFilesPresentInFor() {
@@ -3965,6 +4023,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/function")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Function {
       @Test
       @TestMetadata("adderClosure.kt")
@@ -4185,6 +4244,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/identifierClash")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class IdentifierClash {
       @Test
       public void testAllFilesPresentInIdentifierClash() {
@@ -4213,6 +4273,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/identityEquals")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class IdentityEquals {
       @Test
       public void testAllFilesPresentInIdentityEquals() {
@@ -4235,6 +4296,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/if")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class If {
       @Test
       public void testAllFilesPresentInIf() {
@@ -4275,6 +4337,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/invoke")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Invoke {
       @Test
       public void testAllFilesPresentInInvoke() {
@@ -4357,6 +4420,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/misc")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Misc {
       @Test
       public void testAllFilesPresentInMisc() {
@@ -4625,6 +4689,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/stringClass")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class StringClass {
       @Test
       public void testAllFilesPresentInStringClass() {
@@ -4713,6 +4778,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/stringTemplates")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class StringTemplates {
       @Test
       public void testAllFilesPresentInStringTemplates() {
@@ -4741,6 +4807,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/try")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Try {
       @Test
       public void testAllFilesPresentInTry() {
@@ -4823,6 +4890,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/typeCheck")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class TypeCheck {
       @Test
       public void testAllFilesPresentInTypeCheck() {
@@ -4875,6 +4943,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/when")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class When {
       @Test
       public void testAllFilesPresentInWhen() {
@@ -5089,6 +5158,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/expression/while")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class While {
       @Test
       public void testAllFilesPresentInWhile() {
@@ -5130,6 +5200,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/extensionFunction")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class ExtensionFunction {
     @Test
     public void testAllFilesPresentInExtensionFunction() {
@@ -5242,6 +5313,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/extensionProperty")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class ExtensionProperty {
     @Test
     @TestMetadata("absExtension.kt")
@@ -5294,6 +5366,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/incremental")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Incremental {
     @Test
     public void testAllFilesPresentInIncremental() {
@@ -5436,6 +5509,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inheritance")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Inheritance {
     @Test
     @TestMetadata("abstractVarOverride.kt")
@@ -5589,6 +5663,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/inheritance/interfaces")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Interfaces {
       @Test
       @TestMetadata("abstractClassInheritingDefaultMethod.kt")
@@ -5630,6 +5705,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/initialize")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Initialize {
     @Test
     public void testAllFilesPresentInInitialize() {
@@ -5694,6 +5770,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inline")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Inline {
     @Test
     public void testAllFilesPresentInInline() {
@@ -6013,6 +6090,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     }
 
     @Test
+    @TestMetadata("jsCodeInLambda.kt")
+    public void testJsCodeInLambda() {
+      runTest("js/js.translator/testData/box/inline/jsCodeInLambda.kt");
+    }
+
+    @Test
     @TestMetadata("jsCodeVarDeclared.kt")
     public void testJsCodeVarDeclared() {
       runTest("js/js.translator/testData/box/inline/jsCodeVarDeclared.kt");
@@ -6250,6 +6333,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inlineEvaluationOrder")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class InlineEvaluationOrder {
     @Test
     public void testAllFilesPresentInInlineEvaluationOrder() {
@@ -6584,6 +6668,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inlineMultiFile")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class InlineMultiFile {
     @Test
     public void testAllFilesPresentInInlineMultiFile() {
@@ -6774,6 +6859,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inlineMultiModule")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class InlineMultiModule {
     @Test
     public void testAllFilesPresentInInlineMultiModule() {
@@ -6982,6 +7068,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inlineSizeReduction")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class InlineSizeReduction {
     @Test
     public void testAllFilesPresentInInlineSizeReduction() {
@@ -7094,6 +7181,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/inlineStdlib")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class InlineStdlib {
     @Test
     public void testAllFilesPresentInInlineStdlib() {
@@ -7158,6 +7246,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/intrinsics")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Intrinsics {
     @Test
     public void testAllFilesPresentInIntrinsics() {
@@ -7174,6 +7263,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/java")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Java {
     @Test
     public void testAllFilesPresentInJava() {
@@ -7183,6 +7273,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/java/abstractList")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class AbstractList {
       @Test
       public void testAllFilesPresentInAbstractList() {
@@ -7199,6 +7290,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/java/arrayList")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class ArrayList {
       @Test
       @TestMetadata("access.kt")
@@ -7306,6 +7398,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/jsAstOptimizations")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class JsAstOptimizations {
     @Test
     public void testAllFilesPresentInJsAstOptimizations() {
@@ -7340,6 +7433,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/jsCode")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class JsCode {
     @Test
     public void testAllFilesPresentInJsCode() {
@@ -7479,6 +7573,30 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     }
 
     @Test
+    @TestMetadata("lambdaCrossInline.kt")
+    public void testLambdaCrossInline() {
+      runTest("js/js.translator/testData/box/jsCode/lambdaCrossInline.kt");
+    }
+
+    @Test
+    @TestMetadata("lambdaInline.kt")
+    public void testLambdaInline() {
+      runTest("js/js.translator/testData/box/jsCode/lambdaInline.kt");
+    }
+
+    @Test
+    @TestMetadata("lambdaNoInline.kt")
+    public void testLambdaNoInline() {
+      runTest("js/js.translator/testData/box/jsCode/lambdaNoInline.kt");
+    }
+
+    @Test
+    @TestMetadata("lambdaNonLocalReturn.kt")
+    public void testLambdaNonLocalReturn() {
+      runTest("js/js.translator/testData/box/jsCode/lambdaNonLocalReturn.kt");
+    }
+
+    @Test
     @TestMetadata("literal.kt")
     public void testLiteral() {
       runTest("js/js.translator/testData/box/jsCode/literal.kt");
@@ -7560,6 +7678,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/jsExport")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class JsExport {
     @Test
     public void testAllFilesPresentInJsExport() {
@@ -7606,6 +7725,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/jsModule")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class JsModule {
     @Test
     public void testAllFilesPresentInJsModule() {
@@ -7748,6 +7868,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/jsName")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class JsName {
     @Test
     public void testAllFilesPresentInJsName() {
@@ -7884,6 +8005,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/jsQualifier")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class JsQualifier {
     @Test
     public void testAllFilesPresentInJsQualifier() {
@@ -7930,6 +8052,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/keep")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Keep {
     @Test
     public void testAllFilesPresentInKeep() {
@@ -7982,6 +8105,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/kotlin.test")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Kotlin_test {
     @Test
     public void testAllFilesPresentInKotlin_test() {
@@ -8046,6 +8170,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/labels")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Labels {
     @Test
     public void testAllFilesPresentInLabels() {
@@ -8128,6 +8253,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/local")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Local {
     @Test
     public void testAllFilesPresentInLocal() {
@@ -8144,6 +8270,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/main")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Main {
     @Test
     public void testAllFilesPresentInMain() {
@@ -8202,6 +8329,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/multiFile")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class MultiFile {
     @Test
     public void testAllFilesPresentInMultiFile() {
@@ -8254,6 +8382,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/multiModule")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class MultiModule {
     @Test
     public void testAllFilesPresentInMultiModule() {
@@ -8348,6 +8477,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/multiModuleWrappers")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class MultiModuleWrappers {
     @Test
     public void testAllFilesPresentInMultiModuleWrappers() {
@@ -8357,6 +8487,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/multiModuleWrappers/amd")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Amd {
       @Test
       public void testAllFilesPresentInAmd() {
@@ -8385,6 +8516,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/multiModuleWrappers/common_js")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Common_js {
       @Test
       public void testAllFilesPresentInCommon_js() {
@@ -8413,6 +8545,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/multiModuleWrappers/plain")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Plain {
       @Test
       public void testAllFilesPresentInPlain() {
@@ -8441,6 +8574,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/multiModuleWrappers/umd")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Umd {
       @Test
       public void testAllFilesPresentInUmd() {
@@ -8464,6 +8598,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/multiPackage")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class MultiPackage {
     @Test
     public void testAllFilesPresentInMultiPackage() {
@@ -8528,6 +8663,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/multideclaration")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Multideclaration {
     @Test
     public void testAllFilesPresentInMultideclaration() {
@@ -8580,6 +8716,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/nameClashes")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class NameClashes {
     @Test
     public void testAllFilesPresentInNameClashes() {
@@ -8740,6 +8877,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/native")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Native {
     @Test
     @TestMetadata("accessToCompanionObjectFromInlineFun.kt")
@@ -9002,6 +9140,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/nestedTypes")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class NestedTypes {
     @Test
     public void testAllFilesPresentInNestedTypes() {
@@ -9120,6 +9259,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/number")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Number {
     @Test
     public void testAllFilesPresentInNumber() {
@@ -9322,6 +9462,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/objectDeclaration")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class ObjectDeclaration {
     @Test
     public void testAllFilesPresentInObjectDeclaration() {
@@ -9416,6 +9557,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/operatorOverloading")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class OperatorOverloading {
     @Test
     public void testAllFilesPresentInOperatorOverloading() {
@@ -9553,17 +9695,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     public void testUnaryOnIntPropertyAsStatement() {
       runTest("js/js.translator/testData/box/operatorOverloading/unaryOnIntPropertyAsStatement.kt");
     }
-
-    @Test
-    @TestMetadata("usingModInCaseModAssignNotAvailable.kt")
-    public void testUsingModInCaseModAssignNotAvailable() {
-      runTest("js/js.translator/testData/box/operatorOverloading/usingModInCaseModAssignNotAvailable.kt");
-    }
   }
 
   @Nested
   @TestMetadata("js/js.translator/testData/box/package")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Package {
     @Test
     public void testAllFilesPresentInPackage() {
@@ -9604,6 +9741,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/polyfills")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Polyfills {
     @Test
     public void testAllFilesPresentInPolyfills() {
@@ -9613,6 +9751,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/acosh")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Acosh {
       @Test
       @TestMetadata("acoshWithExistedIntrinsic.kt")
@@ -9635,6 +9774,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/asinh")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Asinh {
       @Test
       public void testAllFilesPresentInAsinh() {
@@ -9657,6 +9797,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/atanh")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Atanh {
       @Test
       public void testAllFilesPresentInAtanh() {
@@ -9679,6 +9820,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/clz32")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Clz32 {
       @Test
       public void testAllFilesPresentInClz32() {
@@ -9701,6 +9843,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/cosh")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Cosh {
       @Test
       public void testAllFilesPresentInCosh() {
@@ -9723,6 +9866,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/expm1")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Expm1 {
       @Test
       public void testAllFilesPresentInExpm1() {
@@ -9745,6 +9889,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/fill")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Fill {
       @Test
       public void testAllFilesPresentInFill() {
@@ -9767,6 +9912,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/globalThis")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class GlobalThis {
       @Test
       public void testAllFilesPresentInGlobalThis() {
@@ -9789,6 +9935,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/hypot")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Hypot {
       @Test
       public void testAllFilesPresentInHypot() {
@@ -9811,6 +9958,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/imul")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Imul {
       @Test
       public void testAllFilesPresentInImul() {
@@ -9833,6 +9981,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/isView")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class IsView {
       @Test
       public void testAllFilesPresentInIsView() {
@@ -9855,6 +10004,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/log10")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Log10 {
       @Test
       public void testAllFilesPresentInLog10() {
@@ -9877,6 +10027,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/log1p")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Log1p {
       @Test
       public void testAllFilesPresentInLog1p() {
@@ -9899,6 +10050,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/log2")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Log2 {
       @Test
       public void testAllFilesPresentInLog2() {
@@ -9921,6 +10073,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/sign")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Sign {
       @Test
       public void testAllFilesPresentInSign() {
@@ -9943,6 +10096,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/sinh")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Sinh {
       @Test
       public void testAllFilesPresentInSinh() {
@@ -9965,6 +10119,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/sort")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Sort {
       @Test
       public void testAllFilesPresentInSort() {
@@ -9987,6 +10142,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/tanh")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Tanh {
       @Test
       public void testAllFilesPresentInTanh() {
@@ -10009,6 +10165,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/polyfills/trunc")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class Trunc {
       @Test
       public void testAllFilesPresentInTrunc() {
@@ -10032,6 +10189,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/propertyAccess")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class PropertyAccess {
     @Test
     @TestMetadata("accessToInstanceProperty.kt")
@@ -10192,6 +10350,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/propertyOverride")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class PropertyOverride {
     @Test
     public void testAllFilesPresentInPropertyOverride() {
@@ -10280,6 +10439,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/range")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Range {
     @Test
     public void testAllFilesPresentInRange() {
@@ -10356,6 +10516,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/reflection")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Reflection {
     @Test
     public void testAllFilesPresentInReflection() {
@@ -10516,6 +10677,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/regression")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Regression {
     @Test
     public void testAllFilesPresentInRegression() {
@@ -10561,6 +10723,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/regression/stdlibTestSnippets")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class StdlibTestSnippets {
       @Test
       @TestMetadata("abstractCollectionToArray.kt")
@@ -10601,6 +10764,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Nested
     @TestMetadata("js/js.translator/testData/box/regression/typeChecks")
     @TestDataPath("$PROJECT_ROOT")
+    @Tag("es6")
     public class TypeChecks {
       @Test
       public void testAllFilesPresentInTypeChecks() {
@@ -10636,6 +10800,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/reified")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Reified {
     @Test
     public void testAllFilesPresentInReified() {
@@ -10766,6 +10931,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/rtti")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Rtti {
     @Test
     public void testAllFilesPresentInRtti() {
@@ -10890,6 +11056,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/safeCall")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class SafeCall {
     @Test
     public void testAllFilesPresentInSafeCall() {
@@ -10942,6 +11109,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/simple")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Simple {
     @Test
     public void testAllFilesPresentInSimple() {
@@ -11150,6 +11318,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/standardClasses")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class StandardClasses {
     @Test
     public void testAllFilesPresentInStandardClasses() {
@@ -11268,6 +11437,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/superCall")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class SuperCall {
     @Test
     public void testAllFilesPresentInSuperCall() {
@@ -11314,6 +11484,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/trait")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Trait {
     @Test
     public void testAllFilesPresentInTrait() {
@@ -11378,6 +11549,7 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
   @Nested
   @TestMetadata("js/js.translator/testData/box/vararg")
   @TestDataPath("$PROJECT_ROOT")
+  @Tag("es6")
   public class Vararg {
     @Test
     public void testAllFilesPresentInVararg() {

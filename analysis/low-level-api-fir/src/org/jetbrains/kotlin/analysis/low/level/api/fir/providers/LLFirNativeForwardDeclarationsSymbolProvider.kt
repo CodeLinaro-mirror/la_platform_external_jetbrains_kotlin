@@ -5,23 +5,21 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.providers
 
-import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.KtRealPsiSourceElement
-import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.LLFirKotlinSymbolNamesProvider
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinDeclarationProvider
+import org.jetbrains.kotlin.analysis.api.platform.declarations.createForwardDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinPackageProvider
 import org.jetbrains.kotlin.analysis.api.platform.packages.createForwardDeclarationsPackageProvider
-import org.jetbrains.kotlin.analysis.api.platform.declarations.createForwardDeclarationProvider
-import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLFirModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.LLFirKotlinSymbolNamesProvider
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
-import org.jetbrains.kotlin.fir.deserialization.SingleModuleDataProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolNamesProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProviderInternals
-import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
+import org.jetbrains.kotlin.fir.scopes.kotlinScopeProvider
 import org.jetbrains.kotlin.fir.session.createSyntheticForwardDeclarationClass
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.name.CallableId
@@ -40,15 +38,11 @@ import org.jetbrains.kotlin.psi.KtProperty
  * The declaration found by the [declarationProvider] is written as the symbol's source.
  */
 internal class LLFirNativeForwardDeclarationsSymbolProvider(
-    session: FirSession,
-    moduleDataProvider: SingleModuleDataProvider,
-    private val kotlinScopeProvider: FirKotlinScopeProvider,
+    session: LLFirSession,
     override val declarationProvider: KotlinDeclarationProvider,
     override val packageProvider: KotlinPackageProvider,
-) : LLFirKotlinSymbolProvider(
-    session,
-) {
-    private val moduleData: FirModuleData = moduleDataProvider.getModuleData(path = null)
+) : LLFirKotlinSymbolProvider(session) {
+    private val moduleData: LLFirModuleData get() = session.llFirModuleData
 
     /**
      * Forward declarations are not defined in `kotlin` package
@@ -58,10 +52,14 @@ internal class LLFirNativeForwardDeclarationsSymbolProvider(
     override val symbolNamesProvider: FirSymbolNamesProvider =
         LLFirKotlinSymbolNamesProvider.cached(session, declarationProvider, allowKotlinPackage)
 
-    private val classCache: FirCache<ClassId, FirRegularClassSymbol?, KtClassLikeDeclaration> =
+    private val classCache: FirCache<ClassId, FirRegularClassSymbol?, KtClassLikeDeclaration?> =
         session.firCachesFactory.createCache(
-            createValue = { classId: ClassId, declaration: KtClassLikeDeclaration ->
-                createSyntheticForwardDeclarationClass(classId, moduleData, this.session, kotlinScopeProvider) {
+            createValue = createValue@{ classId: ClassId, contextDeclaration: KtClassLikeDeclaration? ->
+                val declaration = contextDeclaration
+                    ?: declarationProvider.getClassLikeDeclarationByClassId(classId)
+                    ?: return@createValue null
+
+                createSyntheticForwardDeclarationClass(classId, moduleData, this.session, this.session.kotlinScopeProvider) {
                     source = KtRealPsiSourceElement(declaration)
                 }
             }
@@ -78,9 +76,7 @@ internal class LLFirNativeForwardDeclarationsSymbolProvider(
     }
 
     override fun getClassLikeSymbolByClassId(classId: ClassId): FirClassLikeSymbol<*>? {
-        val declaration = declarationProvider.getClassLikeDeclarationByClassId(classId) ?: return null
-        @OptIn(FirSymbolProviderInternals::class)
-        return getClassLikeSymbolByClassId(classId, declaration)
+        return classCache.getValue(classId, null)
     }
 
     // Region: no-op overrides for symbols that don't exist in K/N forward declarations
@@ -129,13 +125,9 @@ internal class LLFirNativeForwardDeclarationsSymbolProvider(
  *
  * @return a new symbol provider or `null` if the module of the passed [session] cannot contain forward declarations
  */
-fun createNativeForwardDeclarationsSymbolProvider(
-    project: Project,
-    session: FirSession,
-    moduleDataProvider: SingleModuleDataProvider,
-    kotlinScopeProvider: FirKotlinScopeProvider,
-): FirSymbolProvider? {
-    val ktModule = session.llFirModuleData.ktModule
+fun createNativeForwardDeclarationsSymbolProvider(session: LLFirSession): FirSymbolProvider? {
+    val ktModule = session.ktModule
+    val project = ktModule.project
     val packageProvider = project.createForwardDeclarationsPackageProvider(ktModule)
     val declarationProvider = project.createForwardDeclarationProvider(ktModule)
 
@@ -146,6 +138,6 @@ fun createNativeForwardDeclarationsSymbolProvider(
     if (packageProvider == null || declarationProvider == null) return null
 
     return LLFirNativeForwardDeclarationsSymbolProvider(
-        session, moduleDataProvider, kotlinScopeProvider, declarationProvider, packageProvider,
+        session, declarationProvider, packageProvider,
     )
 }

@@ -93,6 +93,7 @@ val cacheMap: Map<String, String> = mapOf(
     "https://github.com/webassembly/wabt/releases/download" to "https://cache-redirector.jetbrains.com/github.com/webassembly/wabt/releases/download",
     "https://github.com/webassembly/testsuite/zipball" to "https://cache-redirector.jetbrains.com/github.com/webassembly/testsuite/zipball",
     "https://archive.mozilla.org/pub/firefox/nightly" to "https://cache-redirector.jetbrains.com/archive.mozilla.org/pub/firefox/nightly",
+    "https://github.com/WasmEdge/WasmEdge/releases/download" to "https://cache-redirector.jetbrains.com/github.com/WasmEdge/WasmEdge/releases/download",
     "https://storage.googleapis.com/chromium-v8/official/canary" to "https://cache-redirector.jetbrains.com/storage.googleapis.com/chromium-v8/official/canary",
     "https://oss.sonatype.org/content/repositories/snapshots" to "https://cache-redirector.jetbrains.com/oss.sonatype.org/content/repositories/snapshots",
     "https://download.visualstudio.microsoft.com/download/pr" to "https://cache-redirector.jetbrains.com/download.visualstudio.microsoft.com/download/pr",
@@ -191,7 +192,8 @@ val cacheMap: Map<String, String> = mapOf(
     "https://d2xrhe97vsfxuc.cloudfront.net" to "https://cache-redirector.jetbrains.com/intellij-jbr",
     "https://d2xrhe97vsfxuc.cloudfront.net" to "https://cache-redirector.jetbrains.com/intellij-jdk",
     "https://d2xrhe97vsfxuc.cloudfront.net" to "https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-jbr",
-    "https://d2xrhe97vsfxuc.cloudfront.net" to "https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-jdk"
+    "https://d2xrhe97vsfxuc.cloudfront.net" to "https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-jdk",
+    "https://androidx.dev/snapshots/builds" to "https://cache-redirector.jetbrains.com/androidx.dev/snapshots/builds",
 )
 
 val aliases = mapOf(
@@ -281,13 +283,9 @@ fun URI.isCachedOrLocal() = scheme == "file" ||
         host == "teamcity.jetbrains.com" ||
         host == "buildserver.labs.intellij.net"
 
-// The androidx.dev host is used for Compose runtime snapshots which are not currently supported by cache redirector
-// because of maven-metadata.xml redirect.
-fun URI.isComposeSnapshot() = host == "androidx.dev"
-
 fun RepositoryHandler.findNonCachedRepositories(): List<String> {
     val mavenNonCachedRepos = filterIsInstance<MavenArtifactRepository>()
-        .filterNot { it.url.isCachedOrLocal() || it.url.isComposeSnapshot() }
+        .filterNot { it.url.isCachedOrLocal() }
         .map { it.url.toString() }
 
     val ivyNonCachedRepos = filterIsInstance<IvyArtifactRepository>()

@@ -57,7 +57,7 @@ abstract class FirAbstractInvalidationTest(
     targetBackend: TargetBackend,
     granularity: JsGenerationGranularity,
     workingDirPath: String
-) : AbstractInvalidationTest(targetBackend, granularity, workingDirPath) {
+) : JsAbstractInvalidationTest(targetBackend, granularity, workingDirPath) {
     private fun getFirInfoFile(defaultInfoFile: File): File {
         val firInfoFileName = "${defaultInfoFile.nameWithoutExtension}.fir.${defaultInfoFile.extension}"
         val firInfoFile = defaultInfoFile.parentFile.resolve(firInfoFileName)
@@ -82,7 +82,7 @@ abstract class FirAbstractInvalidationTest(
     ) {
         val outputStream = ByteArrayOutputStream()
         val messageCollector = PrintingMessageCollector(PrintStream(outputStream), MessageRenderer.PLAIN_FULL_PATHS, true)
-        val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
+        val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
 
         val libraries = dependencies.map { it.absolutePath }
         val friendLibraries = friends.map { it.absolutePath }

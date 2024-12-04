@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -73,10 +73,11 @@ class SetterGenerator(session: FirSession) : FirDeclarationGenerationExtension(s
                 return@mapNotNull null
             }
             val function = buildJavaMethod {
+                containingClassSymbol = classSymbol
                 moduleData = field.moduleData
                 returnTypeRef = if (accessors.chain) {
                     buildResolvedTypeRef {
-                        type = classSymbol.defaultType()
+                        coneType = classSymbol.defaultType()
                     }
                 } else {
                     session.builtinTypes.unitType
@@ -93,14 +94,12 @@ class SetterGenerator(session: FirSession) : FirDeclarationGenerationExtension(s
                     containingFunctionSymbol = this@buildJavaMethod.symbol
                     returnTypeRef = field.returnTypeRef
                     name = field.name
-                    annotationBuilder = { emptyList() }
                     isVararg = false
                     isFromSource = true
                 }
 
                 isStatic = false
                 isFromSource = true
-                annotationBuilder = { emptyList() }
             }
             setterName to function
         }.toMap()

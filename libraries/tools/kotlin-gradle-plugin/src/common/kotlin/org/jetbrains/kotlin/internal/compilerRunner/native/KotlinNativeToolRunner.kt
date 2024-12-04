@@ -15,9 +15,14 @@ import org.jetbrains.kotlin.build.report.metrics.BuildMetricsReporter
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
 import org.jetbrains.kotlin.build.report.metrics.measure
+import org.jetbrains.kotlin.buildtools.internal.KotlinBuildToolsInternalJdkUtils
+import org.jetbrains.kotlin.buildtools.internal.getJdkClassesClassLoader
 import org.jetbrains.kotlin.compilerRunner.KotlinCompilerArgumentsLogLevel
 import org.jetbrains.kotlin.gradle.internal.ClassLoadersCachingBuildService
+import org.jetbrains.kotlin.gradle.internal.ParentClassLoaderProvider
 import org.jetbrains.kotlin.gradle.logging.gradleLogLevel
+import org.jetbrains.kotlin.gradle.plugin.statistics.BuildFusService
+import org.jetbrains.kotlin.gradle.plugin.statistics.NativeArgumentMetrics
 import org.jetbrains.kotlin.konan.target.HostManager
 import java.io.IOException
 import java.lang.reflect.InvocationTargetException
@@ -30,6 +35,7 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
     private val metricsReporterProvider: Provider<BuildMetricsReporter<GradleBuildTime, GradleBuildPerformanceMetric>>,
     private val classLoadersCachingBuildServiceProvider: Provider<ClassLoadersCachingBuildService>,
     private val toolSpec: ToolSpec,
+    private val fusMetricsConsumer: Provider<BuildFusService>,
     private val execOperations: ExecOperations,
 ) {
     private val logger = Logging.getLogger(toolSpec.displayName.get())
@@ -39,6 +45,9 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
 
     fun runTool(args: ToolArguments) {
         metricsReporter.measure(GradleBuildTime.RUN_COMPILATION_IN_WORKER) {
+            fusMetricsConsumer.orNull?.let { metricsConsumer ->
+                NativeArgumentMetrics.collectMetrics(args.arguments, metricsConsumer.getFusMetricsConsumer())
+            }
             if (args.shouldRunInProcessMode) {
                 runInProcess(args)
             } else {
@@ -65,7 +74,7 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
                     "@${argFile.toFile().absolutePath}"
                 )
             } else {
-                null to args.arguments
+                null to listOfNotNull(toolSpec.optionalToolName.orNull) + args.arguments
             }
 
             try {
@@ -88,8 +97,9 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
                     spec.mainClass.set(toolSpec.mainClass)
                     spec.classpath = toolSpec.classpath
                     spec.jvmArgs(toolSpec.jvmArgs.get())
-                    spec.systemProperties(toolSpec.systemProperties)
+                    spec.systemProperties(systemProperties)
                     spec.environment(toolSpec.environment)
+                    toolSpec.environmentBlacklist.forEach { spec.environment.remove(it) }
                     spec.args(toolArgsPair.second)
                 }
             } finally {
@@ -104,7 +114,19 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
 
     private fun runInProcess(args: ToolArguments) {
         metricsReporter.measure(GradleBuildTime.NATIVE_IN_PROCESS) {
-            val isolatedClassLoader = classLoadersCachingBuildService.getClassLoader(toolSpec.classpath.files.toList())
+            val isolatedClassLoader = classLoadersCachingBuildService.getClassLoader(
+                toolSpec.classpath.files.toList(),
+                // Required for KotlinNativePaths to properly detect konan home directory
+                object : ParentClassLoaderProvider {
+                    @OptIn(KotlinBuildToolsInternalJdkUtils::class)
+                    private val jdkClassesClassLoader = getJdkClassesClassLoader()
+
+                    override fun getClassLoader(): ClassLoader? = jdkClassesClassLoader
+                    override fun hashCode(): Int = jdkClassesClassLoader.hashCode()
+                    override fun equals(other: Any?): Boolean =
+                        other is ParentClassLoaderProvider && other.getClassLoader() == jdkClassesClassLoader
+                }
+            )
             if (toolSpec.jvmArgs.get().contains("-ea")) isolatedClassLoader.setDefaultAssertionStatus(true)
 
             logger.log(
@@ -117,7 +139,7 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
                 """.trimMargin()
             )
 
-
+            val toolArgs = listOf(toolSpec.displayName.get()) + args.arguments
             try {
                 val mainClass = isolatedClassLoader.loadClass(toolSpec.mainClass.get())
                 val entryPoint = mainClass
@@ -126,7 +148,7 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
                     ?: error("Couldn't find daemon entry point '${toolSpec.daemonEntryPoint.get()}'")
 
                 metricsReporter.measure(GradleBuildTime.RUN_ENTRY_POINT) {
-                    entryPoint.invoke(null, args.arguments.toTypedArray())
+                    entryPoint.invoke(null, toolArgs.toTypedArray())
                 }
             } catch (t: InvocationTargetException) {
                 throw t.targetException
@@ -192,7 +214,7 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
         val shouldPassArgumentsViaArgFile: Provider<Boolean>,
         val systemProperties: Map<String, String> = emptyMap(),
         val environment: Map<String, String> = emptyMap(),
-        val environmentBlacklist: Map<String, String> = emptyMap(),
+        val environmentBlacklist: Set<String> = emptySet(),
     ) {
         val systemPropertiesBlacklist: Set<String> = setOf(
             "java.endorsed.dirs",       // Fix for KT-25887
@@ -218,7 +240,9 @@ internal abstract class KotlinNativeToolRunner @Inject constructor(
         }
 
         fun configureDefaultMaxHeapSize(): ToolSpec {
-            jvmArgs.add("-Xmx3g")
+            if (jvmArgs.get().none { it.startsWith("-Xmx") }) {
+                jvmArgs.add("-Xmx3g")
+            }
 
             return this
         }

@@ -25,7 +25,6 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
 import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
 import org.jetbrains.kotlin.fir.backend.Fir2IrVisibilityConverter
-import org.jetbrains.kotlin.fir.backend.js.FirJsKotlinMangler
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.pipeline.*
@@ -236,12 +235,11 @@ fun transformFirToIr(
         Fir2IrConfiguration.forKlibCompilation(moduleStructure.compilerConfiguration, diagnosticsReporter),
         IrGenerationExtension.getInstances(moduleStructure.project),
         irMangler = JsManglerIr,
-        firMangler = FirJsKotlinMangler,
         visibilityConverter = Fir2IrVisibilityConverter.Default,
         kotlinBuiltIns = builtInsModule ?: DefaultBuiltIns.Instance,
         typeSystemContextProvider = ::IrTypeSystemContextImpl,
         specialAnnotationsProvider = null,
-        extraActualDeclarationExtractorInitializer = { null },
+        extraActualDeclarationExtractorsInitializer = { emptyList() },
     ) { irModuleFragment ->
         (irModuleFragment.descriptor as? FirModuleDescriptor)?.let { it.allDependencyModules = librariesDescriptors }
     }
@@ -276,6 +274,7 @@ fun serializeFirKlib(
         klibPath = outputKlibPath,
         moduleStructure.allDependencies,
         fir2IrActualizedResult.irModuleFragment,
+        fir2IrActualizedResult.irBuiltIns,
         cleanFiles = icData ?: emptyList(),
         nopack = nopack,
         perFile = false,

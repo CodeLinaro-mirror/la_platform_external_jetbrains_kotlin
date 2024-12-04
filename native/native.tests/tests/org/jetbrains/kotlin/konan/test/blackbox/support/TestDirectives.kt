@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.test.services.impl.RegisteredDirectivesParser
 import org.junit.jupiter.api.Assertions
 import java.io.File
+import kotlin.time.Duration
 
 object TestDirectives : SimpleDirectivesContainer() {
     val KIND by enumDirective<TestKind>(
@@ -71,12 +72,17 @@ object TestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val SWIFT_EXPORT_CONFIG by valueDirective(
-        "Specify config for Swift Export in the format %KEY_1%=%VALUE_1%, %KEY_2%=%VALUE_2%",
+    val EXPORT_TO_SWIFT by directive(
+        "Marks module for Swift Export",
         applicability = DirectiveApplicability.Module,
-        parser = {
-            it.split("=").let { Pair(it.first(), it.last()) }
-        }
+    )
+
+    val SWIFT_EXPORT_CONFIG by valueDirective(
+        description = """
+            Specify config for Swift Export in the format %KEY_1%=%VALUE_1%, %KEY_2%=%VALUE_2%. Implicitly marks module for Swift Export
+        """.trimIndent(),
+        applicability = DirectiveApplicability.Module,
+        parser = String::splitByEqualitySymbolIntoPairs
     )
 
     val FILE by stringDirective(
@@ -132,8 +138,8 @@ object TestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val EXPECTED_TIMEOUT_FAILURE by directive(
-        description = "Whether the test is expected to fail on timeout"
+    val EXPECTED_TIMEOUT_FAILURE by stringDirective(
+        description = "Specify the execution timeout; the test is expected to exceed this timeout then"
     )
 
     val FREE_COMPILER_ARGS by stringDirective(
@@ -395,8 +401,15 @@ internal fun parseFileName(parsedDirective: RegisteredDirectivesParser.ParsedDir
     return fileName
 }
 
-internal fun parseExpectedTimeoutFailure(registeredDirectives: RegisteredDirectives): Boolean =
-    EXPECTED_TIMEOUT_FAILURE in registeredDirectives
+internal fun parseExpectedTimeoutFailure(registeredDirectives: RegisteredDirectives, location: Location): Duration? =
+    if (EXPECTED_TIMEOUT_FAILURE in registeredDirectives) {
+        val value = registeredDirectives.singleOrZeroValue(EXPECTED_TIMEOUT_FAILURE)
+            ?: fail { "$location: Exactly one timeout value expected in $EXPECTED_TIMEOUT_FAILURE directive" }
+        Duration.parseOrNull(value)
+            ?: fail { "$location: Unexpected value for timeout: $value" }
+    } else {
+        null
+    }
 
 internal fun parseExpectedExitCode(registeredDirectives: RegisteredDirectives, location: Location): TestRunCheck.ExitCode {
     if (EXIT_CODE !in registeredDirectives)
@@ -474,3 +487,15 @@ internal class Location(private val testDataFile: File, val lineNumber: Int? = n
         if (lineNumber != null) append(':').append(lineNumber + 1)
     }
 }
+
+fun TestModule.Exclusive.shouldBeExportedToSwift(): Boolean = markedExportedToSwift() || swiftExportConfigMap() != null
+
+fun TestModule.Exclusive.swiftExportConfigMap(): Map<String, String>? = @Suppress("UNCHECKED_CAST") (directives
+    .firstOrNull { it.directive.name == TestDirectives.SWIFT_EXPORT_CONFIG.name }
+    ?.values as? List<Pair<String, String>>)
+    ?.toMap()
+
+private fun TestModule.Exclusive.markedExportedToSwift(): Boolean = directives
+    .any { it.directive.name == TestDirectives.EXPORT_TO_SWIFT.name }
+
+private fun String.splitByEqualitySymbolIntoPairs(): Pair<String, String> = split("=").let { Pair(it.first(), it.last()) }

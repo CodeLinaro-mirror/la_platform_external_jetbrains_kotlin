@@ -180,10 +180,6 @@ public class KotlinTestUtils {
             JvmContentRootsKt.addJvmClasspathRoot(configuration, KtTestUtil.findMockJdkRtModified());
             configuration.put(JVMConfigurationKeys.NO_JDK, true);
         }
-        else if (jdkKind == TestJdkKind.ANDROID_API) {
-            JvmContentRootsKt.addJvmClasspathRoot(configuration, KtTestUtil.findAndroidApiJar());
-            configuration.put(JVMConfigurationKeys.NO_JDK, true);
-        }
         else if (jdkKind == TestJdkKind.FULL_JDK_11) {
             configuration.put(JVMConfigurationKeys.JDK_HOME, KtTestUtil.getJdk11Home());
         }
@@ -443,11 +439,11 @@ public class KotlinTestUtils {
     }
 
     public static void runTest(@NotNull TestCase testCase, @NotNull Function0<Unit> test) {
-        MuteWithDatabaseKt.runTest(testCase, test);
+        MuteWithDatabaseJunit4Kt.runTest(testCase, test);
     }
 
     public static void runTestWithThrowable(@NotNull TestCase testCase, @NotNull RunnableWithThrowable test) {
-        MuteWithDatabaseKt.runTest(testCase, () -> {
+        MuteWithDatabaseJunit4Kt.runTest(testCase, () -> {
             try {
                 test.run();
             }
@@ -485,7 +481,7 @@ public class KotlinTestUtils {
 
     private static void runTestImpl(@NotNull DoTest test, @Nullable TestCase testCase, String testDataFilePath) {
         if (testCase != null && !isRunTestOverridden(testCase)) {
-            Function0<Unit> wrapWithMuteInDatabase = MuteWithDatabaseKt.wrapWithMuteInDatabase(testCase, () -> {
+            Function0<Unit> wrapWithMuteInDatabase = MuteWithDatabaseJunit4Kt.wrapWithMuteInDatabase(testCase, () -> {
                 try {
                     test.invoke(testDataFilePath);
                 }

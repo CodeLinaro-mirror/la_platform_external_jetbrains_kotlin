@@ -7,8 +7,7 @@ package org.jetbrains.kotlin.gradle.targets.native.internal
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
-import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.*
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
@@ -30,7 +29,9 @@ import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPro
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 import org.jetbrains.kotlin.gradle.report.GradleBuildMetricsReporter
 import org.jetbrains.kotlin.gradle.report.UsesBuildMetricsService
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeFromToolchainProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.UsesKotlinNativeBundleBuildService
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.gradle.utils.chainedFinalizeValueOnRead
@@ -46,6 +47,7 @@ import javax.inject.Inject
 internal abstract class NativeDistributionCommonizerTask
 @Inject constructor(
     private val objectFactory: ObjectFactory,
+    layout: ProjectLayout,
     providerFactory: ProviderFactory,
 ) : DefaultTask(),
     UsesBuildMetricsService,
@@ -81,7 +83,7 @@ internal abstract class NativeDistributionCommonizerTask
 
     private val kotlinPluginVersion = project.getKotlinPluginVersion()
 
-    @get:OutputDirectory
+    @get:Internal
     internal val rootOutputDirectoryProperty: DirectoryProperty = objectFactory
         .directoryProperty().fileProvider(
             konanHome.map {
@@ -90,6 +92,24 @@ internal abstract class NativeDistributionCommonizerTask
                     .resolve(URLEncoder.encode(kotlinPluginVersion, Charsets.UTF_8.name()))
             }
         )
+
+    /**
+     * With Project Isolation support, each Gradle Project with KMP enabled will have its own [NativeDistributionCommonizerTask] task.
+     * And because Native Distribution can be shared with multiple Gradle Builds, its commonized libraries also can be shared.
+     * So each [NativeDistributionCommonizerTask] can write to the same output directory [rootOutputDirectoryProperty].
+     * But in practice only one task will do actual commonization, other will just wait for it to finish.
+     * And that would make gradle to remember that outptus stored in [rootOutputDirectoryProperty] is associated with the task that did
+     * the job. And will report warning about task that uses commonizer output being implicitly depended on commonizer tasks that did
+     * the commonization.
+     *
+     * To fix that problem [commonizedNativeDistributionLocationFile] was introduced. This file referenced the actual location where
+     * commonized libraries are located. But internal Project tasks can "map" this [commonizedNativeDistributionLocationFile] to avoid
+     * issues with tasks dependencies.
+     */
+    @get:OutputFile
+    internal val commonizedNativeDistributionLocationFile: RegularFileProperty = objectFactory
+        .fileProperty()
+        .value(layout.buildDirectory.file("kotlin/commonizedNativeDistributionLocation.txt"))
 
     private val isCachingEnabled = project.kotlinPropertiesProvider.enableNativeDistributionCommonizationCache
 
@@ -112,7 +132,7 @@ internal abstract class NativeDistributionCommonizerTask
             // That is why we moved setting this property to task registration
             // and added convention for backwards compatibility.
             project.provider {
-                KotlinNativeProvider(
+                KotlinNativeFromToolchainProvider(
                     project,
                     commonizerTargets.flatMap { target -> target.konanTargets }.toSet(),
                     kotlinNativeBundleBuildService,
@@ -132,6 +152,8 @@ internal abstract class NativeDistributionCommonizerTask
 
     @TaskAction
     protected fun run() {
+        commonizedNativeDistributionLocationFile.get().asFile.writeText(rootOutputDirectoryProperty.get().asFile.absolutePath)
+
         val metricsReporter = metrics.get()
 
         addBuildMetricsForTaskAction(metricsReporter = metricsReporter, languageVersion = null) {
@@ -153,14 +175,22 @@ internal abstract class NativeDistributionCommonizerTask
         outputs.upToDateWhen {
             // upToDateWhen executes after configuration phase, but before inputs are calculated,
             // that is why we need to get k/n bundle before commonizerCache.isUpToDate here
-            kotlinNativeProvider.get().kotlinNativeBundleVersion.get()
+            when (val kotlinNativeProvider = kotlinNativeProvider.get()) {
+                is KotlinNativeFromToolchainProvider -> kotlinNativeProvider.kotlinNativeBundleVersion.get()
+                is NoopKotlinNativeProvider ->
+                    logger.error("Unexpected Kotlin/Native provider: $kotlinNativeProvider during commonization task. Please report an issue: https://kotl.in/issue")
+            }
             commonizerCache.isUpToDate(commonizerTargets)
         }
     }
 }
 
 private fun Project.collectAllSharedCommonizerTargetsFromBuild(): Set<SharedCommonizerTarget> {
-    return allprojects.flatMap { project -> project.collectAllSharedCommonizerTargetsFromProject() }.toSet()
+    return if (kotlinPropertiesProvider.kotlinKmpProjectIsolationEnabled) {
+        collectAllSharedCommonizerTargetsFromProject()
+    } else {
+        allprojects.flatMap { project -> project.collectAllSharedCommonizerTargetsFromProject() }.toSet()
+    }
 }
 
 private fun Project.collectAllSharedCommonizerTargetsFromProject(): Set<SharedCommonizerTarget> {

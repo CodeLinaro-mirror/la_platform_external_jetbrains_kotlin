@@ -7,16 +7,19 @@ package org.jetbrains.sir.lightclasses.nodes
 
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.isTopLevel
 import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.builder.buildGetter
 import org.jetbrains.kotlin.sir.builder.buildSetter
 import org.jetbrains.kotlin.sir.providers.SirSession
 import org.jetbrains.kotlin.sir.providers.source.KotlinSource
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
+import org.jetbrains.sir.lightclasses.extensions.*
 import org.jetbrains.sir.lightclasses.extensions.documentation
 import org.jetbrains.sir.lightclasses.extensions.lazyWithSessions
-import org.jetbrains.sir.lightclasses.extensions.sirCallableKind
 import org.jetbrains.sir.lightclasses.extensions.withSessions
+import org.jetbrains.sir.lightclasses.utils.isSubtypeOf
+import org.jetbrains.sir.lightclasses.utils.overridableCandidates
 import org.jetbrains.sir.lightclasses.utils.translateReturnType
 
 internal class SirVariableFromKtSymbol(
@@ -37,17 +40,13 @@ internal class SirVariableFromKtSymbol(
         translateReturnType()
     }
     override val getter: SirGetter by lazy {
-        buildGetter {
-            kind = accessorKind
-        }.also {
+        buildGetter {}.also {
             it.parent = this@SirVariableFromKtSymbol
         }
     }
     override val setter: SirSetter? by lazy {
         if (!ktSymbol.isVal) {
-            buildSetter {
-                kind = accessorKind
-            }.also {
+            buildSetter {}.also {
                 it.parent = this@SirVariableFromKtSymbol
             }
         } else {
@@ -64,7 +63,18 @@ internal class SirVariableFromKtSymbol(
         }
         set(_) = Unit
 
-    private val accessorKind by lazy {
-        ktSymbol.sirCallableKind
-    }
+    override val attributes: MutableList<SirAttribute> = mutableListOf()
+
+    override val isOverride: Boolean
+        get() = isInstance && overridableCandidates.any {
+            this.name == it.name &&
+            (it.setter == null && this.type.isSubtypeOf(it.type) || this.type == it.type) &&
+            this.isInstance == it.isInstance
+        }
+
+    override val isInstance: Boolean
+        get() = !ktSymbol.isTopLevel
+
+    override val modality: SirModality
+        get() = ktSymbol.modality.sirModality
 }

@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.analysis.api.projectStructure
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
@@ -23,8 +24,6 @@ import java.nio.file.Path
  * [KaModule] is a Source Set (or considering a new project model naming a Fragment).
  * Some examples of a module: main source set, test source set, library, JDK.
  */
-@OptIn(ExperimentalSubclassOptIn::class)
-@SubclassOptInRequired(markerClass = KaPlatformInterface::class)
 public interface KaModule {
     /**
      * A list of Regular dependencies. Regular dependency allows the current module to see symbols from the dependent module. In the case
@@ -93,8 +92,6 @@ public interface KaModule {
  *
  * Generally, a main or test Source Set.
  */
-@OptIn(ExperimentalSubclassOptIn::class)
-@SubclassOptInRequired(markerClass = KaPlatformInterface::class)
 public interface KaSourceModule : KaModule {
     public val name: String
 
@@ -124,8 +121,6 @@ public interface KaSourceModule : KaModule {
 /**
  * A module which represents a binary library, e.g. JAR or KLIB.
  */
-@OptIn(ExperimentalSubclassOptIn::class)
-@SubclassOptInRequired(markerClass = KaPlatformInterface::class)
 public interface KaLibraryModule : KaModule {
     public val libraryName: String
 
@@ -139,6 +134,12 @@ public interface KaLibraryModule : KaModule {
      * ```
      */
     public val binaryRoots: Collection<Path>
+
+    /**
+     * A list of binary files in [VirtualFile] form if the library module represents a library in in-memory file system.
+     */
+    @KaExperimentalApi
+    public val binaryVirtualFiles: Collection<VirtualFile>
 
     /**
      * A library source, if any. If current module is a binary JAR, then [librarySources] corresponds to the sources JAR.
@@ -162,8 +163,6 @@ public interface KaLibraryModule : KaModule {
 /**
  * Sources for some [KaLibraryModule].
  */
-@OptIn(ExperimentalSubclassOptIn::class)
-@SubclassOptInRequired(markerClass = KaPlatformInterface::class)
 public interface KaLibrarySourceModule : KaModule {
     public val libraryName: String
 
@@ -196,8 +195,6 @@ public interface KaBuiltinsModule : KaModule {
  * A module for a Kotlin script file.
  */
 @KaExperimentalApi
-@OptIn(ExperimentalSubclassOptIn::class)
-@SubclassOptInRequired(markerClass = KaPlatformInterface::class)
 public interface KaScriptModule : KaModule {
     /**
      * A script PSI.

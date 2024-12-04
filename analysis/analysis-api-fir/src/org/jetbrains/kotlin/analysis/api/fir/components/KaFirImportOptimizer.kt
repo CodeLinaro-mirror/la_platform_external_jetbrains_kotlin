@@ -22,10 +22,8 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.psi
@@ -71,7 +69,7 @@ internal class KaFirImportOptimizer(
         get() = withValidityAssertion {
             when (this) {
                 is KaClassLikeSymbol -> classId?.asSingleFqName()
-                is KaCallableSymbol -> firSymbol.computeImportableName(rootModuleSession)
+                is KaCallableSymbol -> firSymbol.computeImportableName()
                 else -> null
             }
         }
@@ -222,7 +220,7 @@ internal class KaFirImportOptimizer(
 
             private fun importableNameForReferencedSymbol(qualifiedCall: FirQualifiedAccessExpression): FqName? {
                 return qualifiedCall.importableNameForImplicitlyDispatchedCallable()
-                    ?: qualifiedCall.referencedCallableSymbol?.computeImportableName(rootModuleSession)
+                    ?: qualifiedCall.referencedCallableSymbol?.computeImportableName()
             }
 
             /**
@@ -308,7 +306,7 @@ internal class KaFirImportOptimizer(
                             } else if (fqName != qualifiedNameAsFqName) {
                                 // or some kind of top level declaration with potential receiver
                                 this += fqName
-                                val receiverClassType = symbol.receiverParameter?.type as? KaClassType
+                                val receiverClassType = symbol.receiverParameter?.returnType as? KaClassType
                                 val receiverFqName = receiverClassType?.classId?.asSingleFqName()
                                 // import has no receiver for receiver kdoc declaration:
                                 // for receiver case kdoc like `[Foo.bar]`
@@ -407,7 +405,7 @@ private val FirResolvedTypeRef.resolvedClassId: ClassId?
         if (this !is FirErrorTypeRef) {
             // When you call a method from Java with type arguments, in FIR they are currently represented as flexible types.
             // TODO Consider handling other non-ConeLookupTagBasedType types here (see KT-66418)
-            return type.abbreviatedTypeOrSelf.lowerBoundIfFlexible().classId
+            return coneType.abbreviatedTypeOrSelf.lowerBoundIfFlexible().classId
         }
 
         val candidateSymbols = diagnostic.getCandidateSymbols()

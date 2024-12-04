@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.ClassLoweringPass
+import org.jetbrains.kotlin.backend.common.ir.syntheticBodyIsNotSupported
 import org.jetbrains.kotlin.backend.common.lower.SpecialMethodWithDefaultInfo
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irNot
@@ -109,7 +110,6 @@ import org.jetbrains.org.objectweb.asm.commons.Method
  */
 @PhaseDescription(
     name = "Bridge",
-    description = "Generate bridges",
     prerequisite = [JvmInlineClassLowering::class, InheritedDefaultMethodsOnClassesLowering::class]
 )
 internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPass {
@@ -135,7 +135,7 @@ internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPas
             // in order to avoid signature clash with 'remove(int)' method in 'java.util.List'.
             // We should rewrite this static replacement as well ('remove' function itself is handled during special bridge processing).
             val remove = irClass.functions.find {
-                val original = context.inlineClassReplacements.originalFunctionForStaticReplacement[it]
+                val original = it.originalFunctionOfStaticInlineClassReplacement
                 original != null && MethodSignatureMapper.shouldBoxSingleValueParameterForSpecialCaseOfRemove(original)
             }
             if (remove != null) {
@@ -528,8 +528,8 @@ internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPas
                         when (val body = body) {
                             is IrExpressionBody -> +irReturn(body.expression)
                             is IrBlockBody -> body.statements.forEach { +it }
+                            is IrSyntheticBody -> syntheticBodyIsNotSupported(this@rewriteSpecialMethodBody)
                             null -> {}
-                            else -> error("Unsupported method body kind: ${body.render()}")
                         }
                     }
                 }
@@ -605,7 +605,7 @@ internal class BridgeLowering(val context: JvmBackendContext) : ClassLoweringPas
     }.unwrapBlock(), bridge.returnType.upperBound)
 
     private fun getStructure(function: IrSimpleFunction): List<MemoizedMultiFieldValueClassReplacements.RemappedParameter>? {
-        val structure = context.multiFieldValueClassReplacements.bindingNewFunctionToParameterTemplateStructure[function] ?: return null
+        val structure = function.parameterTemplateStructureOfThisNewMfvcBidingFunction ?: return null
         require(structure.sumOf { it.valueParameters.size } == function.explicitParametersCount) {
             "Bad parameters structure: $structure"
         }

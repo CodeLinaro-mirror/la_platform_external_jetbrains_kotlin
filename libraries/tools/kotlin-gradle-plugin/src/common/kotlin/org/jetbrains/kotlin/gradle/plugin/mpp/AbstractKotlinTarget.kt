@@ -13,7 +13,6 @@ import org.gradle.api.publish.maven.MavenPublication
 import org.jetbrains.kotlin.gradle.DeprecatedTargetPresetApi
 import org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.PRESETS_API_IS_DEPRECATED_MESSAGE
-import org.jetbrains.kotlin.gradle.dsl.KotlinCommonCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
@@ -37,11 +36,11 @@ abstract class AbstractKotlinTarget(
 
     override fun getAttributes(): AttributeContainer = attributeContainer
 
-    @Deprecated("Scheduled for removal with Kotlin 2.2")
+    @Deprecated("Scheduled for removal with Kotlin 2.2", level = DeprecationLevel.ERROR)
     override var useDisambiguationClassifierAsSourceSetNamePrefix: Boolean = true
         internal set
 
-    @Deprecated("Scheduled for removal with Kotlin 2.2")
+    @Deprecated("Scheduled for removal with Kotlin 2.2", level = DeprecationLevel.ERROR)
     override var overrideDisambiguationClassifierOnIdeImport: String? = null
         internal set
 
@@ -188,9 +187,9 @@ abstract class AbstractKotlinTarget(
     }
 
     @OptIn(DeprecatedTargetPresetApi::class)
-    @Deprecated(
+    @get:Deprecated(
         PRESETS_API_IS_DEPRECATED_MESSAGE,
-        level = DeprecationLevel.WARNING,
+        level = DeprecationLevel.ERROR,
     )
     override var preset: KotlinTargetPreset<out KotlinTarget>? = null
         internal set

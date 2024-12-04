@@ -140,7 +140,6 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
             type = irReferenceType,
             symbol = irAdapterFun.symbol,
             typeArgumentsCount = irAdapterFun.typeParameters.size,
-            valueArgumentsCount = irAdapterFun.valueParameters.size,
             reflectionTarget = irAdapterFun.symbol,
             origin = IrStatementOrigin.FUN_INTERFACE_CONSTRUCTOR_REFERENCE
         )
@@ -190,7 +189,7 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
 
                 val fnType = functionParameter.type
 
-                val irFnParameter = createAdapterParameter(startOffset, endOffset, functionParameter.name, 0, fnType)
+                val irFnParameter = createAdapterParameter(startOffset, endOffset, functionParameter.name, fnType)
                 val irFnType = irFnParameter.type
 
                 val checkNotNull = context.irBuiltIns.checkNotNullSymbol.descriptor
@@ -293,7 +292,7 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
             val receiver = irDispatchReceiver ?: irExtensionReceiver
             val irAdapterRef = IrFunctionReferenceImpl(
                 startOffset, endOffset, irFunctionalType, irAdapterFun.symbol, irAdapterFun.typeParameters.size,
-                irAdapterFun.valueParameters.size, adapteeSymbol, IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE
+                adapteeSymbol, IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE
             )
             IrBlockImpl(startOffset, endOffset, irFunctionalType, IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE).apply {
                 statements.add(irAdapterFun)
@@ -468,13 +467,13 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
                 val boundReceiverType = callBuilder.original.getBoundReceiverType()
                 if (boundReceiverType != null) {
                     irAdapterFun.extensionReceiverParameter =
-                        createAdapterParameter(startOffset, endOffset, Name.identifier("receiver"), -1, boundReceiverType)
+                        createAdapterParameter(startOffset, endOffset, Name.identifier("receiver"), boundReceiverType)
                 } else {
                     irAdapterFun.extensionReceiverParameter = null
                 }
 
                 irAdapterFun.valueParameters += ktExpectedParameterTypes.mapIndexed { index, ktExpectedParameterType ->
-                    createAdapterParameter(startOffset, endOffset, Name.identifier("p$index"), index, ktExpectedParameterType)
+                    createAdapterParameter(startOffset, endOffset, Name.identifier("p$index"), ktExpectedParameterType)
                 }
             }
         }
@@ -495,7 +494,7 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
         }
     }
 
-    private fun createAdapterParameter(startOffset: Int, endOffset: Int, name: Name, index: Int, type: KotlinType): IrValueParameter =
+    private fun createAdapterParameter(startOffset: Int, endOffset: Int, name: Name, type: KotlinType): IrValueParameter =
         context.irFactory.createValueParameter(
             startOffset = startOffset,
             endOffset = endOffset,
@@ -504,7 +503,6 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
             type = type.toIrType(),
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = index,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
@@ -619,9 +617,11 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
         val originalProperty = propertyDescriptor.original
         val symbols = resolvePropertySymbol(originalProperty, mutable)
 
-        return IrPropertyReferenceImpl(
+        return IrPropertyReferenceImplWithShape(
             startOffset, endOffset, type.toIrType(),
             symbols.propertySymbol,
+            propertyDescriptor.dispatchReceiverParameter != null,
+            propertyDescriptor.extensionReceiverParameter != null,
             if (typeArguments != null) propertyDescriptor.typeParametersCount else 0,
             getFieldForPropertyReference(originalProperty),
             symbols.getterSymbol,
@@ -653,7 +653,6 @@ internal class ReflectionReferencesGenerator(statementGenerator: StatementGenera
         IrFunctionReferenceImpl.fromSymbolDescriptor(
             startOffset, endOffset, type.toIrType(),
             symbol,
-            typeArgumentsCount = descriptor.typeParametersCount,
             reflectionTarget = symbol,
             origin = origin
         ).apply {

@@ -9,25 +9,22 @@ import com.intellij.psi.*
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.jetbrains.kotlin.analysis.api.KaConstantInitializerValue
 import org.jetbrains.kotlin.analysis.api.KaSession
-import org.jetbrains.kotlin.analysis.api.annotations.*
+import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
 import org.jetbrains.kotlin.analysis.api.base.KaConstantValue
-import org.jetbrains.kotlin.analysis.api.symbols.KaBackingFieldSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
-import org.jetbrains.kotlin.analysis.api.symbols.sourcePsiSafe
 import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.light.classes.symbol.*
 import org.jetbrains.kotlin.light.classes.symbol.annotations.*
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
+import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassForNamedClassLike
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.GranularModifiersBox
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.SymbolLightMemberModifierList
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.with
+import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.java.structure.impl.NotEvaluatedConstAware
 import org.jetbrains.kotlin.name.JvmStandardClassIds.TRANSIENT_ANNOTATION_CLASS_ID
 import org.jetbrains.kotlin.name.JvmStandardClassIds.VOLATILE_ANNOTATION_CLASS_ID
@@ -83,13 +80,14 @@ internal class SymbolLightFieldForProperty private constructor(
                 allowErrorTypes = true,
                 typeMappingMode,
                 suppressWildcards = propertySymbol.suppressWildcardMode(),
+                allowNonJvmPlatforms = true,
             )
         } ?: nonExistentType()
     }
 
     private val _isDeprecated: Boolean by lazyPub {
         withPropertySymbol { propertySymbol ->
-            propertySymbol.hasDeprecatedAnnotation(AnnotationUseSiteTarget.FIELD.toOptionalFilter())
+            propertySymbol.hasDeprecatedAnnotation()
         }
     }
 
@@ -103,7 +101,43 @@ internal class SymbolLightFieldForProperty private constructor(
 
     override fun getType(): PsiType = _returnedType
 
-    override fun getName(): String = fieldName
+    private val _name: String by lazyPub {
+        withPropertySymbol { symbol ->
+            val propertyName = symbol.name
+            if (symbol.isJvmField) {
+                return@withPropertySymbol propertyName.asString()
+            }
+
+            val baseFieldName = propertyName.asString() + if (symbol.isDelegatedProperty) {
+                JvmAbi.DELEGATED_PROPERTY_NAME_SUFFIX
+            } else {
+                ""
+            }
+
+            val containingClass = this.containingClass as? SymbolLightClassForNamedClassLike ?: return@withPropertySymbol baseFieldName
+            containingClass.withClassSymbol { classSymbol ->
+                val hasClash = if (isStatic) {
+                    // Class fields are preferred to the companion ones only in the case of JvmField
+                    classSymbol.declaredMemberScope
+                        .callables(propertyName)
+                        .filterIsInstance<KaPropertySymbol>()
+                        .any(KaPropertySymbol::isJvmField)
+                } else {
+                    // Companion object fields are preferred to the class ones
+                    classSymbol.companionObject
+                        ?.declaredMemberScope
+                        ?.callables(propertyName)
+                        ?.filterIsInstance<KaPropertySymbol>()
+                        .orEmpty()
+                        .any()
+                }
+
+                if (hasClash) "$baseFieldName$1" else baseFieldName
+            }
+        }
+    }
+
+    override fun getName(): String = _name
 
     private fun computeModifiers(modifier: String): Map<String, Boolean>? = when (modifier) {
         in GranularModifiersBox.VISIBILITY_MODIFIERS -> {
@@ -133,18 +167,16 @@ internal class SymbolLightFieldForProperty private constructor(
         }
 
         PsiModifier.VOLATILE -> withPropertySymbol { propertySymbol ->
-            val hasAnnotation = propertySymbol.backingFieldSymbol?.hasAnnotation(
+            val hasAnnotation = propertySymbol.backingFieldSymbol?.annotations?.contains(
                 VOLATILE_ANNOTATION_CLASS_ID,
-                AnnotationUseSiteTarget.FIELD.toOptionalFilter(),
             ) == true
 
             mapOf(modifier to hasAnnotation)
         }
 
         PsiModifier.TRANSIENT -> withPropertySymbol { propertySymbol ->
-            val hasAnnotation = propertySymbol.backingFieldSymbol?.hasAnnotation(
+            val hasAnnotation = propertySymbol.backingFieldSymbol?.annotations?.contains(
                 TRANSIENT_ANNOTATION_CLASS_ID,
-                AnnotationUseSiteTarget.FIELD.toOptionalFilter(),
             ) == true
 
             mapOf(modifier to hasAnnotation)
@@ -161,11 +193,9 @@ internal class SymbolLightFieldForProperty private constructor(
                 computer = ::computeModifiers,
             ),
             annotationsBox = GranularAnnotationsBox(
-                annotationsProvider = SymbolAnnotationsProvider(
-                    ktModule = ktModule,
-                    annotatedSymbolPointer = backingFieldSymbolPointer ?: propertySymbolPointer,
-                    annotationUseSiteTargetFilter = AnnotationUseSiteTarget.FIELD.toOptionalFilter(),
-                ),
+                annotationsProvider = (backingFieldSymbolPointer)?.let { pointer ->
+                    SymbolAnnotationsProvider(ktModule = ktModule, annotatedSymbolPointer = pointer)
+                } ?: EmptyAnnotationsProvider,
                 additionalAnnotationsProvider = NullabilityAnnotationsProvider {
                     withPropertySymbol { propertySymbol ->
                         when {

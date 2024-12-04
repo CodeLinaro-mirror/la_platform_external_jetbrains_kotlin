@@ -12,10 +12,8 @@ import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.annotations.KaFirAnnotationListForDeclaration
 import org.jetbrains.kotlin.analysis.api.fir.findPsi
 import org.jetbrains.kotlin.analysis.api.fir.symbols.pointers.KaFirSamConstructorSymbolPointer
-import org.jetbrains.kotlin.analysis.api.fir.utils.cached
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaTypeParameterSymbol
@@ -38,7 +36,7 @@ internal class KaFirSamConstructorSymbol(
     override val analysisSession: KaFirSession,
 ) : KaSamConstructorSymbol(), KaFirSymbol<FirNamedFunctionSymbol> {
     override val token: KaLifetimeToken get() = builder.token
-    override val psi: PsiElement? by cached { firSymbol.findPsi() }
+    override val psi: PsiElement? get() = withValidityAssertion { firSymbol.findPsi() }
 
     override val annotations: KaAnnotationList
         get() = withValidityAssertion {
@@ -51,7 +49,7 @@ internal class KaFirSamConstructorSymbol(
     override val isActual: Boolean get() = withValidityAssertion { firSymbol.isActual }
     override val isExpect: Boolean get() = withValidityAssertion { firSymbol.isExpect }
 
-    override val contextReceivers: List<KaContextReceiver> by cached { firSymbol.createContextReceivers(builder) }
+    override val contextReceivers: List<KaContextReceiver> get() = withValidityAssertion { firSymbol.createContextReceivers(builder) }
     override val modality: KaSymbolModality get() = withValidityAssertion { firSymbol.kaSymbolModality }
     override val compilerVisibility: Visibility get() = withValidityAssertion { firSymbol.visibility }
 
@@ -67,8 +65,6 @@ internal class KaFirSamConstructorSymbol(
 
     override val isExtension: Boolean get() = withValidityAssertion { firSymbol.isExtension }
 
-    override val receiverParameter: KaReceiverParameterSymbol? get() = withValidityAssertion { firSymbol.receiver(builder) }
-
     override val callableId: CallableId? get() = withValidityAssertion { firSymbol.getCallableId() }
 
     override val typeParameters: List<KaTypeParameterSymbol>
@@ -78,4 +74,7 @@ internal class KaFirSamConstructorSymbol(
         val callableId = firSymbol.callableId
         return KaFirSamConstructorSymbolPointer(ClassId(callableId.packageName, callableId.callableName))
     }
+
+    override fun equals(other: Any?): Boolean = symbolEquals(other)
+    override fun hashCode(): Int = symbolHashCode()
 }

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.incremental;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
+import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("js/js.translator/testData/incremental/invalidation")
 @TestDataPath("$PROJECT_ROOT")
+@Tag("legacy-frontend")
 public class JsIrInvalidationPerModuleTestGenerated extends AbstractJsIrInvalidationPerModuleTest {
   @Test
   @TestMetadata("abstractClassWithJsExport")
@@ -109,6 +111,18 @@ public class JsIrInvalidationPerModuleTestGenerated extends AbstractJsIrInvalida
   }
 
   @Test
+  @TestMetadata("crossModuleModifyClassAncestors")
+  public void testCrossModuleModifyClassAncestors() {
+    runTest("js/js.translator/testData/incremental/invalidation/crossModuleModifyClassAncestors/");
+  }
+
+  @Test
+  @TestMetadata("crossModuleObjectInitialization")
+  public void testCrossModuleObjectInitialization() {
+    runTest("js/js.translator/testData/incremental/invalidation/crossModuleObjectInitialization/");
+  }
+
+  @Test
   @TestMetadata("crossModuleReferences")
   public void testCrossModuleReferences() {
     runTest("js/js.translator/testData/incremental/invalidation/crossModuleReferences/");
@@ -190,6 +204,12 @@ public class JsIrInvalidationPerModuleTestGenerated extends AbstractJsIrInvalida
   @TestMetadata("fastPath2")
   public void testFastPath2() {
     runTest("js/js.translator/testData/incremental/invalidation/fastPath2/");
+  }
+
+  @Test
+  @TestMetadata("fileNameCaseClash")
+  public void testFileNameCaseClash() {
+    runTest("js/js.translator/testData/incremental/invalidation/fileNameCaseClash/");
   }
 
   @Test
@@ -406,6 +426,12 @@ public class JsIrInvalidationPerModuleTestGenerated extends AbstractJsIrInvalida
   @TestMetadata("mainModuleInvalidation")
   public void testMainModuleInvalidation() {
     runTest("js/js.translator/testData/incremental/invalidation/mainModuleInvalidation/");
+  }
+
+  @Test
+  @TestMetadata("modifyClassAncestors")
+  public void testModifyClassAncestors() {
+    runTest("js/js.translator/testData/incremental/invalidation/modifyClassAncestors/");
   }
 
   @Test

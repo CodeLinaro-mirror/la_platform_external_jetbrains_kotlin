@@ -12,6 +12,7 @@ import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.language.base.plugins.LifecycleBasePlugin
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptionsHelper
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
@@ -55,7 +56,7 @@ sealed class JsIrBinary(
 
     var generateTs: Boolean = false
 
-    val linkTask: TaskProvider<KotlinJsIrLink> = project.registerTask(linkTaskName, KotlinJsIrLink::class.java, listOf(project))
+    val linkTask: TaskProvider<KotlinJsIrLink> = project.registerTask(linkTaskName, KotlinJsIrLink::class.java, listOf(project, target.platformType))
 
     private val _linkSyncTask: TaskProvider<DefaultIncrementalSyncTask>? =
         if (target.wasmTargetType == KotlinWasmTargetType.WASI) {
@@ -188,6 +189,7 @@ open class Executable(
         )
 }
 
+@OptIn(ExperimentalWasmDsl::class)
 open class ExecutableWasm(
     compilation: KotlinJsIrCompilation,
     name: String,

@@ -39,13 +39,12 @@ object TestReferenceResolveResultRenderer {
      */
     fun KaSession.renderResolvedTo(
         symbols: Collection<KaSymbol>,
-        renderPsiClassName: Boolean = false,
         renderer: KaDeclarationRenderer = KaDeclarationRendererForDebug.WITH_QUALIFIED_NAMES,
         additionalInfo: KaSession.(KaSymbol) -> String? = { null }
     ): String {
         if (symbols.isEmpty()) return UNRESOLVED_REFERENCE_RESULT
 
-        val sortedSymbols = symbols.map { renderResolveResult(it, renderPsiClassName, renderer, additionalInfo) }.sorted()
+        val sortedSymbols = symbols.map { renderResolveResult(it, renderer, additionalInfo) }.sorted()
         if (sortedSymbols.size == 1) {
             return sortedSymbols.single()
         }
@@ -57,7 +56,6 @@ object TestReferenceResolveResultRenderer {
 
     private fun KaSession.renderResolveResult(
         symbol: KaSymbol,
-        renderPsiClassName: Boolean,
         renderer: KaDeclarationRenderer,
         additionalInfo: KaSession.(KaSymbol) -> String?
     ): String {
@@ -66,17 +64,14 @@ object TestReferenceResolveResultRenderer {
                 append("(in $fqName) ")
             }
             when (symbol) {
-                is KaDeclarationSymbol -> {
-                    append(symbol.render(renderer))
-                    if (renderPsiClassName) {
-                        append(" (psi: ${symbol.psi?.let { it::class.simpleName }})")
-                    }
-                }
-                is KaPackageSymbol -> append("package ${symbol.fqName}")
                 is KaReceiverParameterSymbol -> {
                     append("extension receiver with type ")
-                    append(symbol.type.render(renderer.typeRenderer, position = Variance.INVARIANT))
+                    append(symbol.returnType.render(renderer.typeRenderer, position = Variance.INVARIANT))
                 }
+                is KaDeclarationSymbol -> {
+                    append(symbol.render(renderer))
+                }
+                is KaPackageSymbol -> append("package ${symbol.fqName}")
                 else -> error("Unexpected symbol ${symbol::class}")
             }
             additionalInfo(symbol)?.let { append(" [$it]") }

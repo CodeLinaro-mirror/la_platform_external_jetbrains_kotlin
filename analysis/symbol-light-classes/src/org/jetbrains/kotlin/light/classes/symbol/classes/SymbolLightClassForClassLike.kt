@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.analysis.api.symbols.isTopLevel
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.symbols.sourcePsiSafe
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightIdentifier
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.light.classes.symbol.*
@@ -36,9 +35,9 @@ import org.jetbrains.kotlin.psi.debugText.getDebugText
 import org.jetbrains.kotlin.psi.stubs.KotlinClassOrObjectStub
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 
-abstract class SymbolLightClassForClassLike<SType : KaClassSymbol> protected constructor(
-    internal val classOrObjectDeclaration: KtClassOrObject?,
-    internal val classSymbolPointer: KaSymbolPointer<SType>,
+internal abstract class SymbolLightClassForClassLike<SType : KaClassSymbol> protected constructor(
+    val classOrObjectDeclaration: KtClassOrObject?,
+    val classSymbolPointer: KaSymbolPointer<SType>,
     ktModule: KaModule,
     manager: PsiManager,
 ) : SymbolLightClassBase(ktModule, manager),
@@ -58,8 +57,8 @@ abstract class SymbolLightClassForClassLike<SType : KaClassSymbol> protected con
         manager = manager,
     )
 
-    override fun modificationTrackerForClassInnerStuff(): List<ModificationTracker> {
-        return classOrObjectDeclaration?.modificationTrackerForClassInnerStuff() ?: super.modificationTrackerForClassInnerStuff()
+    override fun contentModificationTrackers(): List<ModificationTracker> {
+        return classOrObjectDeclaration?.contentModificationTrackers() ?: super.contentModificationTrackers()
     }
 
     override val kotlinOrigin: KtClassOrObject? get() = classOrObjectDeclaration
@@ -78,9 +77,6 @@ abstract class SymbolLightClassForClassLike<SType : KaClassSymbol> protected con
     override fun isDeprecated(): Boolean = _isDeprecated
 
     abstract override fun getModifierList(): PsiModifierList?
-
-    abstract override fun getOwnFields(): List<KtLightField>
-    abstract override fun getOwnMethods(): List<PsiMethod>
 
     override fun getNameIdentifier(): PsiIdentifier? = KtLightIdentifier(this, classOrObjectDeclaration)
 

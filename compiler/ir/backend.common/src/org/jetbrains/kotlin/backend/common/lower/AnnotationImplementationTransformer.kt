@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrInstanceInitializerCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrNull
@@ -33,6 +34,26 @@ import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 
 val ANNOTATION_IMPLEMENTATION by IrDeclarationOriginImpl.Synthetic
 
+/**
+ * Creates synthetic annotations implementations and uses them in annotations constructor calls.
+ *
+ * For example:
+ *
+ *     annotation class A(val value: String)
+ *     fun f(): A = A("")
+ *
+ * becomes
+ *
+ *     annotation class A(val value: String)
+ *     fun f(): A = annotationImpl$A$0("")
+ *
+ *     class annotationImpl$A$0(override val value: String) : A {
+ *         override fun equals(other: Any?): Boolean = ...
+ *         override fun hashCode(): Int = ...
+ *         override fun toString(): String = ...
+ *         fun annotationType(): Class<*> = A::class.java // (JVM-only)
+ *     }
+ */
 open class AnnotationImplementationLowering(
     val transformer: (IrFile) -> AnnotationImplementationTransformer
 ) : FileLoweringPass {

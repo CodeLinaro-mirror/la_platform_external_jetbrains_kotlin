@@ -23,6 +23,26 @@ class BuilderConfigurator(model: Model) : AbstractSwiftIrTreeBuilderConfigurator
             default(it, "SirVisibility.PUBLIC")
         }
 
+        configureFieldInAllLeafBuilders("isOverride") {
+            default(it, "false")
+        }
+
+        configureFieldInAllLeafBuilders("isInstance") {
+            default(it, "true")
+        }
+
+        configureFieldInAllLeafBuilders("modality") {
+            default(it, "SirModality.UNSPECIFIED")
+        }
+
+        configureFieldInAllLeafBuilders("isConvenience") {
+            default(it, "false")
+        }
+
+        configureFieldInAllLeafBuilders("isRequired") {
+            default(it, "false")
+        }
+
         builder(setter) {
             default("parameterName", "\"newValue\"")
         }

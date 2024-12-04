@@ -26,8 +26,7 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.debugInfoFormatVersion = from.debugInfoFormatVersion
     to.debugPrefixMap = from.debugPrefixMap?.copyOf()
     to.destroyRuntimeMode = from.destroyRuntimeMode
-    to.embedBitcode = from.embedBitcode
-    to.embedBitcodeMarker = from.embedBitcodeMarker
+    to.dumpSyntheticAccessorsTo = from.dumpSyntheticAccessorsTo
     to.emitLazyObjCHeader = from.emitLazyObjCHeader
     to.enableAssertions = from.enableAssertions
     to.exportKDoc = from.exportKDoc
@@ -55,6 +54,8 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.lightDebugString = from.lightDebugString
     to.linkerArguments = from.linkerArguments?.copyOf()
     to.listTargets = from.listTargets
+    to.llvmLTOPasses = from.llvmLTOPasses
+    to.llvmModulePasses = from.llvmModulePasses
     to.llvmVariant = from.llvmVariant
     to.mainPackage = from.mainPackage
     to.makePerFileCache = from.makePerFileCache
@@ -62,6 +63,7 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.manifestNativeTargets = from.manifestNativeTargets?.copyOf()
     to.memoryModel = from.memoryModel
     to.moduleName = from.moduleName
+    to.narrowedSyntheticAccessorsVisibility = from.narrowedSyntheticAccessorsVisibility
     to.nativeLibraries = from.nativeLibraries?.copyOf()
     to.noObjcGenerics = from.noObjcGenerics
     to.nodefaultlibs = from.nodefaultlibs
@@ -81,7 +83,6 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.propertyLazyInitialization = from.propertyLazyInitialization
     to.purgeUserLibs = from.purgeUserLibs
     to.refinesPaths = from.refinesPaths?.copyOf()
-    to.repositories = from.repositories?.copyOf()
     to.runtimeFile = from.runtimeFile
     to.runtimeLogs = from.runtimeLogs
     to.saveDependenciesPath = from.saveDependenciesPath
@@ -97,6 +98,7 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.verifyBitCode = from.verifyBitCode
     to.verifyCompiler = from.verifyCompiler
     to.workerExceptionHandling = from.workerExceptionHandling
+    to.writeDependenciesOfProducedKlibTo = from.writeDependenciesOfProducedKlibTo
 
     return to
 }

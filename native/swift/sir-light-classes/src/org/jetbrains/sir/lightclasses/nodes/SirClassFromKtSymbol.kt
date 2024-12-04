@@ -5,9 +5,10 @@
 
 package org.jetbrains.sir.lightclasses.nodes
 
+import org.jetbrains.kotlin.analysis.api.components.DefaultTypeClassIds
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
-import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.*
+import org.jetbrains.kotlin.analysis.api.types.symbol
 import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.builder.buildGetter
 import org.jetbrains.kotlin.sir.builder.buildInit
@@ -15,13 +16,14 @@ import org.jetbrains.kotlin.sir.builder.buildVariable
 import org.jetbrains.kotlin.sir.providers.SirSession
 import org.jetbrains.kotlin.sir.providers.source.KotlinSource
 import org.jetbrains.kotlin.sir.providers.utils.KotlinRuntimeModule
-import org.jetbrains.kotlin.sir.providers.utils.computeIsOverrideForDesignatedInit
+import org.jetbrains.kotlin.sir.providers.utils.containingModule
 import org.jetbrains.kotlin.sir.providers.utils.updateImport
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
 import org.jetbrains.sir.lightclasses.extensions.documentation
 import org.jetbrains.sir.lightclasses.extensions.lazyWithSessions
 import org.jetbrains.sir.lightclasses.extensions.withSessions
+import org.jetbrains.sir.lightclasses.utils.computeIsOverride
 
 internal class SirClassFromKtSymbol(
     override val ktSymbol: KaNamedClassSymbol,
@@ -35,6 +37,17 @@ internal class SirClassFromKtSymbol(
     override val visibility: SirVisibility by lazy {
         SirVisibility.PUBLIC
     }
+    override val modality: SirModality by lazy {
+        when (ktSymbol.modality) {
+            KaSymbolModality.OPEN -> SirModality.OPEN
+            KaSymbolModality.FINAL -> SirModality.FINAL
+            // In Swift, superclass of open class must be open.
+            // Since Kotlin abstract or sealed class can be a superclass of Kotlin open class,
+            // `open` modality should be used in Swift.
+            KaSymbolModality.SEALED, KaSymbolModality.ABSTRACT -> SirModality.OPEN
+        }
+    }
+
     override val documentation: String? by lazy {
         ktSymbol.documentation()
     }
@@ -53,11 +66,23 @@ internal class SirClassFromKtSymbol(
     }
 
     override val superClass: SirType? by lazyWithSessions {
-        // For now, we support only `class C : Kotlin.Any()` class declarations, and
-        // translate Kotlin.Any to KotlinRuntime.KotlinBase.
-        ktSymbol.containingModule.sirModule().updateImport(SirImport(KotlinRuntimeModule.name))
-        SirNominalType(KotlinRuntimeModule.kotlinBase)
+        ktSymbol.superTypes
+            .mapNotNull { it.symbol as? KaClassSymbol }
+            .firstOrNull { it.classKind == KaClassKind.CLASS }
+            ?.let {
+                if (it.classId == DefaultTypeClassIds.ANY) {
+                    SirNominalType(KotlinRuntimeModule.kotlinBase).also {
+                        ktSymbol.containingModule.sirModule().updateImport(SirImport(KotlinRuntimeModule.name))
+                    }
+                } else {
+                    (it.sirDeclaration() as? SirNamedDeclaration)
+                        ?.also { ktSymbol.containingModule.sirModule().updateImport(SirImport(it.containingModule().name)) }
+                        ?.let { SirNominalType(it) }
+                }
+            }
     }
+
+    override val attributes: MutableList<SirAttribute> = mutableListOf()
 
     private fun childDeclarations(): List<SirDeclaration> = withSessions {
         ktSymbol.combinedDeclaredMemberScope
@@ -67,37 +92,48 @@ internal class SirClassFromKtSymbol(
 
     private fun kotlinBaseInitDeclaration(): SirDeclaration = buildInit {
         origin = SirOrigin.KotlinBaseInitOverride(`for` = KotlinSource(ktSymbol))
-        kind = SirCallableKind.CLASS_METHOD
+        visibility = SirVisibility.PACKAGE // Hide from users, but not from other Swift Export modules.
         isFailable = false
-        initKind = SirInitializerKind.ORDINARY
         isOverride = true
-        parameters.add(SirParameter(argumentName = "__externalRCRef", type = SirNominalType(SirSwiftModule.uint)))
+        parameters.add(
+            SirParameter(
+                argumentName = "__externalRCRef",
+                type = SirNominalType(SirSwiftModule.uint)
+            )
+        )
     }.also { it.parent = this }
 
-    private fun syntheticDeclarations(): List<SirDeclaration> = if (ktSymbol.classKind == KaClassKind.OBJECT)
-        listOf(
+    private fun syntheticDeclarations(): List<SirDeclaration> = when (ktSymbol.classKind) {
+        KaClassKind.OBJECT, KaClassKind.COMPANION_OBJECT -> listOf(
             kotlinBaseInitDeclaration(),
-            buildInit {
-                origin = SirOrigin.PrivateObjectInit(`for` = KotlinSource(ktSymbol))
-                visibility = SirVisibility.PRIVATE
-                kind = SirCallableKind.CLASS_METHOD
-                isFailable = false
-                initKind = SirInitializerKind.ORDINARY
-                isOverride = computeIsOverrideForDesignatedInit(this@SirClassFromKtSymbol, emptyList())
-            },
+            SirObjectSyntheticInit(ktSymbol),
             buildVariable {
                 origin = SirOrigin.ObjectAccessor(`for` = KotlinSource(ktSymbol))
                 visibility = SirVisibility.PUBLIC
                 type = SirNominalType(this@SirClassFromKtSymbol)
                 name = "shared"
-                getter = buildGetter {
-                    kind = SirCallableKind.STATIC_METHOD
-                }
+                isInstance = false
+                modality = SirModality.FINAL
+                getter = buildGetter {}
             }.also {
                 it.getter.parent = it
             }
-        )
-            .map { it.also { it.parent = this } }
-    else
-        listOf(kotlinBaseInitDeclaration())
+        ).onEach { it.parent = this }
+
+        else -> listOf(kotlinBaseInitDeclaration())
+    }
+}
+
+internal class SirObjectSyntheticInit(ktSymbol: KaNamedClassSymbol) : SirInit() {
+    override val origin: SirOrigin = SirOrigin.PrivateObjectInit(`for` = KotlinSource(ktSymbol))
+    override val visibility: SirVisibility = SirVisibility.PRIVATE
+    override val isFailable: Boolean = false
+    override val parameters: List<SirParameter> = emptyList()
+    override val documentation: String? = null
+    override val isRequired: Boolean = false
+    override val isConvenience: Boolean = false
+    override val isOverride: Boolean get() = computeIsOverride()
+    override lateinit var parent: SirDeclarationParent
+    override val attributes: MutableList<SirAttribute> = mutableListOf()
+    override var body: SirFunctionBody? = null
 }

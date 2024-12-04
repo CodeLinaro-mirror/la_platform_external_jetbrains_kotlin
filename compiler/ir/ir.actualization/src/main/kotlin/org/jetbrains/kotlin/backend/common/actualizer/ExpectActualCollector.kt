@@ -48,13 +48,13 @@ internal class ExpectActualCollector(
     private val typeSystemContext: IrTypeSystemContext,
     private val diagnosticsReporter: IrDiagnosticReporter,
     private val expectActualTracker: ExpectActualTracker?,
-    private val extraActualDeclarationExtractor: IrExtraActualDeclarationExtractor?,
+    private val extraActualDeclarationExtractors: List<IrExtraActualDeclarationExtractor>,
 ) {
     fun collectClassActualizationInfo(): ClassActualizationInfo {
         val expectTopLevelDeclarations = ExpectTopLevelDeclarationCollector.collect(dependentFragments)
         val fragmentsWithActuals = dependentFragments.drop(1) + mainFragment
         return ActualDeclarationsCollector.collectActuals(
-            fragmentsWithActuals, expectTopLevelDeclarations, extraActualDeclarationExtractor
+            fragmentsWithActuals, expectTopLevelDeclarations, extraActualDeclarationExtractors
         )
     }
 
@@ -74,7 +74,7 @@ internal class ExpectActualCollector(
 
 data class ClassActualizationInfo(
     // mapping from classId of actual class/typealias to itself/typealias expansion
-    val actualClasses: Map<ClassId, IrClassSymbol>,
+    val actualClasses: ActualClassMapping,
     // mapping from classId to actual typealias
     val actualTypeAliases: Map<ClassId, IrTypeAliasSymbol>,
     val actualTopLevels: Map<CallableId, List<IrSymbol>>,
@@ -82,6 +82,20 @@ data class ClassActualizationInfo(
 ) {
     fun getActualWithoutExpansion(classId: ClassId): IrSymbol? {
         return actualTypeAliases[classId] ?: actualClasses[classId]
+    }
+
+    class ActualClassMapping(private val actualClasses: Map<ClassId, IrClassSymbol>) {
+        /*
+         * expect class may be actualized to another expect class via actual typealias, so
+         *   we need to actualize them recursively until there will be a non-expect class
+         */
+        operator fun get(classId: ClassId?): IrClassSymbol? {
+            val actualized = actualClasses[classId] ?: return null
+            if (actualized.owner.isExpect) {
+                return get(actualized.owner.classIdOrFail)
+            }
+            return actualized
+        }
     }
 }
 
@@ -126,17 +140,17 @@ private class ActualDeclarationsCollector(private val expectTopLevelDeclarations
         fun collectActuals(
             fragments: List<IrModuleFragment>,
             expectTopLevelDeclarations: ExpectTopLevelDeclarations,
-            extraActualDeclarationExtractor: IrExtraActualDeclarationExtractor?,
+            extraActualDeclarationExtractors: List<IrExtraActualDeclarationExtractor>,
         ): ClassActualizationInfo {
             val collector = ActualDeclarationsCollector(expectTopLevelDeclarations)
             for (fragment in fragments) {
                 collector.collect(fragment)
             }
-            if (extraActualDeclarationExtractor != null) {
-                collector.collectExtraActualDeclarations(extraActualDeclarationExtractor)
+            for (extractor in extraActualDeclarationExtractors) {
+                collector.collectExtraActualDeclarations(extractor)
             }
             return ClassActualizationInfo(
-                collector.actualClasses,
+                ClassActualizationInfo.ActualClassMapping(collector.actualClasses),
                 collector.actualTypeAliasesWithoutExpansion,
                 collector.actualTopLevels,
                 collector.actualSymbolsToFile
@@ -297,18 +311,20 @@ private class ExpectActualLinkCollector {
 
         override fun visitFunction(declaration: IrFunction, data: MatchingContext) {
             if (declaration.isExpect) {
-                matchExpectCallable(declaration, declaration.callableId, data)
+                // The function is top level because the visitor doesn't visit function/class children recursively
+                matchExpectTopLevelCallable(declaration, declaration.callableId, data)
             }
         }
 
         override fun visitProperty(declaration: IrProperty, data: MatchingContext) {
             if (declaration.isExpect) {
-                matchExpectCallable(declaration, declaration.callableId, data)
+                // The property is top level because the visitor doesn't visit function/class children recursively
+                matchExpectTopLevelCallable(declaration, declaration.callableId, data)
             }
         }
 
-        private fun matchExpectCallable(declaration: IrDeclarationWithName, callableId: CallableId, context: MatchingContext) {
-            matchAndCheckExpectDeclaration(
+        private fun matchExpectTopLevelCallable(declaration: IrDeclarationWithName, callableId: CallableId, context: MatchingContext) {
+            matchAndCheckExpectTopLevelDeclaration(
                 declaration.symbol,
                 context.classActualizationInfo.actualTopLevels[callableId].orEmpty(),
                 context,
@@ -320,10 +336,10 @@ private class ExpectActualLinkCollector {
             val classId = declaration.classIdOrFail
             val expectClassSymbol = declaration.symbol
             val actualClassLikeSymbol = data.classActualizationInfo.getActualWithoutExpansion(classId)
-            matchAndCheckExpectDeclaration(expectClassSymbol, listOfNotNull(actualClassLikeSymbol), data)
+            matchAndCheckExpectTopLevelDeclaration(expectClassSymbol, listOfNotNull(actualClassLikeSymbol), data)
         }
 
-        private fun matchAndCheckExpectDeclaration(
+        private fun matchAndCheckExpectTopLevelDeclaration(
             expectSymbol: IrSymbol,
             actualSymbols: List<IrSymbol>,
             context: MatchingContext,

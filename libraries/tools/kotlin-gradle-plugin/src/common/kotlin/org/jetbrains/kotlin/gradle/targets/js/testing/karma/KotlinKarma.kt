@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesClientSetti
 import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.internal.MppTestReportHelper
 import org.jetbrains.kotlin.gradle.targets.js.NpmPackageVersion
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.appendConfigsFromDir
@@ -31,7 +30,7 @@ import org.jetbrains.kotlin.gradle.targets.js.dsl.WebpackRulesDsl.Companion.webp
 import org.jetbrains.kotlin.gradle.targets.js.internal.parseNodeJsStackTraceAsJvm
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.targets.js.jsQuoted
-import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsExtension
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.npmProject
 import org.jetbrains.kotlin.gradle.targets.js.testing.*
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
@@ -56,8 +55,7 @@ class KotlinKarma(
     private val platformType = compilation.platformType
 
     @Transient
-    private val nodeJs = project.rootProject.kotlinNodeJsExtension
-    private val nodeRootPackageDir by lazy { nodeJs.rootPackageDirectory }
+    private val nodeJs = project.rootProject.kotlinNodeJsRootExtension
     private val versions = nodeJs.versions
 
     private val config: KarmaConfig = KarmaConfig()
@@ -94,13 +92,13 @@ class KotlinKarma(
         devtool = null,
         export = false,
         progressReporter = true,
-        progressReporterPathFilter = nodeRootPackageDir.getFile(),
         rules = project.objects.webpackRulesContainer(),
         experiments = mutableSetOf("topLevelAwait")
     )
 
     init {
         requiredDependencies.add(versions.karma)
+        requiredDependencies.add(versions.kotlinWebHelpers)
 
         useKotlinReporter()
         useWebpackOutputPlugin()
@@ -152,11 +150,11 @@ class KotlinKarma(
             it.appendLine(
                 """
                 config.plugins = config.plugins || [];
-                config.plugins.push('kotlin-test-js-runner/karma-kotlin-reporter.js');
+                config.plugins.push('kotlin-web-helpers/dist/karma-kotlin-reporter.js');
                 
                 config.loggers = [
                     {
-                        type: 'kotlin-test-js-runner/tc-log-appender.js',
+                        type: 'kotlin-web-helpers/dist/tc-log-appender.js',
                         //default layout
                         layout: { type: 'pattern', pattern: '%[%d{DATETIME}:%p [%c]: %]%m' }
                     }
@@ -176,7 +174,7 @@ class KotlinKarma(
             it.appendLine(
                 """
                 config.plugins = config.plugins || [];
-                config.plugins.push('kotlin-test-js-runner/karma-webpack-output.js');
+                config.plugins.push('kotlin-web-helpers/dist/karma-webpack-output.js');
             """.trimIndent()
             )
         }
@@ -216,21 +214,6 @@ class KotlinKarma(
     fun useChromeCanary() = useChromeLike("ChromeCanary")
 
     fun useChromeCanaryHeadless() = useChromeLike("ChromeCanaryHeadless")
-
-    @Deprecated(
-        "Chrome supports wasm GC by default, so you can use useChromeHeadless",
-        replaceWith = ReplaceWith("useChromeHeadless"),
-        level = DeprecationLevel.ERROR
-    )
-    fun useChromeHeadlessWasmGc() {
-        val chromeCanaryHeadlessWasmGc = "ChromeHeadlessWasmGc"
-
-        config.customLaunchers[chromeCanaryHeadlessWasmGc] = CustomLauncher("ChromeHeadless").apply {
-            flags.add("--js-flags=--experimental-wasm-gc")
-        }
-
-        useChromeLike(chromeCanaryHeadlessWasmGc)
-    }
 
     fun useDebuggableChrome() {
         val debuggableChrome = "DebuggableChrome"
@@ -312,7 +295,7 @@ class KotlinKarma(
                 ${
                     """
                     // https://github.com/webpack/webpack/issues/12951
-                    const PatchSourceMapSource = require('kotlin-test-js-runner/webpack-5-debug');
+                    const PatchSourceMapSource = require('kotlin-web-helpers/dist/webpack-5-debug');
                     config.plugins.push(new PatchSourceMapSource())
                     """
                 }
@@ -358,25 +341,15 @@ class KotlinKarma(
         val file = task.inputFileProperty.getFile()
         val fileString = file.toString()
 
-        config.files.add(npmProject.require("kotlin-test-js-runner/kotlin-test-karma-runner.js"))
+        config.files.add(npmProject.require("kotlin-web-helpers/dist/kotlin-test-karma-runner.js"))
         if (!debug) {
             if (platformType == KotlinPlatformType.wasm) {
-                val wasmFile = file.parentFile.resolve("${file.nameWithoutExtension}.wasm")
-                val wasmFileString = wasmFile.normalize().absolutePath
-                config.files.add(
-                    KarmaFile(
-                        pattern = wasmFileString,
-                        included = false,
-                        served = true,
-                        watched = false
-                    )
-                )
                 config.files.add(
                     createLoadWasm(npmProject.dir.getFile(), file).normalize().absolutePath
                 )
 
-                config.customContextFile = npmProject.require("kotlin-test-js-runner/static/context.html")
-                config.customDebugFile = npmProject.require("kotlin-test-js-runner/static/debug.html")
+                config.customContextFile = npmProject.require("kotlin-web-helpers/dist/static/context.html")
+                config.customDebugFile = npmProject.require("kotlin-web-helpers/dist/static/debug.html")
             } else {
                 config.files.add(fileString)
             }
@@ -394,24 +367,13 @@ class KotlinKarma(
                             config.plugins.push('karma-*'); // default
                         }
                         
-                        config.plugins.push('kotlin-test-js-runner/karma-kotlin-debug-plugin.js');
+                        config.plugins.push('kotlin-web-helpers/dist/karma-kotlin-debug-plugin.js');
                     """.trimIndent()
                 )
             }
 
             config.frameworks.add("karma-kotlin-debug")
         }
-
-        val resources = object {
-            val pattern = file.parentFile.resolve("**/*").normalize().absolutePath
-            val watched = false
-            val included = false
-        }
-
-        config.files.add(
-            resources
-        )
-        config.proxies["/"] = "/base/kotlin/"
 
         if (config.browsers.isEmpty()) {
             error("No browsers configured for $task")
@@ -470,7 +432,7 @@ class KotlinKarma(
         val karmaConfigAbsolutePath = karmaConfJs.absolutePath
         val args = if (debug) {
             nodeJsArgs + listOf(
-                npmProject.require("kotlin-test-js-runner/karma-debug-runner.js"),
+                npmProject.require("kotlin-web-helpers/dist/karma-debug-runner.js"),
                 karmaConfigAbsolutePath
             )
         } else {
@@ -494,12 +456,11 @@ class KotlinKarma(
                 }
             }
 
-            override fun createClient(testResultProcessor: TestResultProcessor, log: Logger, testReporter: MppTestReportHelper) =
+            override fun createClient(testResultProcessor: TestResultProcessor, log: Logger) =
                 object : JSServiceMessagesClient(
                     testResultProcessor,
                     clientSettings,
                     log,
-                    testReporter,
                 ) {
                     val baseTestNameSuffix get() = settings.testNameSuffix
                     override var testNameSuffix: String? = baseTestNameSuffix

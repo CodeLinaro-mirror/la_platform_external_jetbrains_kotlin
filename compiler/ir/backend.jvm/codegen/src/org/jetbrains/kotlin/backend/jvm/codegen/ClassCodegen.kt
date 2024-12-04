@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.PsiSourceManager
 import org.jetbrains.kotlin.ir.builders.declarations.addFunction
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
@@ -197,8 +198,8 @@ class ClassCodegen private constructor(
 
     private fun shouldSkipCodeGenerationAccordingToGenerationFilter(): Boolean {
         val filter = state.generateDeclaredClassFilter
-        val ktFile = irClass.descriptorOrigin.element as? KtFile
-        val ktClass = irClass.psiElement as? KtClassOrObject
+        val ktFile = PsiSourceManager.findPsiElement(irClass, irClass, KtFile::class)
+        val ktClass = PsiSourceManager.findPsiElement(irClass, irClass, KtClassOrObject::class)
         return (ktFile != null && !filter.shouldGeneratePackagePart(ktFile))
                 || (ktClass != null && !filter.shouldGenerateClass(ktClass))
     }
@@ -333,7 +334,7 @@ class ClassCodegen private constructor(
                 av.visit(JvmAnnotationNames.METADATA_MULTIFILE_CLASS_NAME_FIELD_NAME, facadeClassName.internalName)
             }
 
-            if (irClass in context.classNameOverride) {
+            if (irClass.classNameOverride != null) {
                 val isFileClass = isMultifileClassOrPart || kind == KotlinClassHeader.Kind.FILE_FACADE
                 assert(isFileClass) { "JvmPackageName is not supported for classes: ${irClass.render()}" }
                 av.visit(JvmAnnotationNames.METADATA_PACKAGE_NAME_FIELD_NAME, irClass.fqNameWhenAvailable!!.parent().asString())
@@ -359,7 +360,7 @@ class ClassCodegen private constructor(
         val flags = field.computeFieldFlags(context, config.languageVersionSettings)
         val fv = visitor.newField(
             field.descriptorOrigin, flags, fieldName, fieldType.descriptor,
-            fieldSignature, (field.initializer?.expression as? IrConst<*>)?.value
+            fieldSignature, (field.initializer?.expression as? IrConst)?.value
         )
 
         jvmFieldSignatureClashDetector.trackDeclaration(field, RawSignature(fieldName, fieldType.descriptor, MemberKind.FIELD))
@@ -478,7 +479,7 @@ class ClassCodegen private constructor(
         // or constructor, the name and type of the function is recorded as well.
         if (parentClassCodegen != null) {
             // In case there's no primary constructor, it's unclear which constructor should be the enclosing one, so we select the first.
-            val enclosingFunction = if (irClass.attributeOwnerId in context.isEnclosedInConstructor) {
+            val enclosingFunction = if (irClass.isEnclosedInConstructor) {
                 val containerClass = parentClassCodegen!!.irClass
                 containerClass.primaryConstructor
                     ?: containerClass.declarations.firstIsInstanceOrNull<IrConstructor>()
@@ -494,7 +495,7 @@ class ClassCodegen private constructor(
             val innerJavaClassId = klass.mapToJava()
             val innerClass = innerJavaClassId?.internalName ?: typeMapper.classInternalName(klass)
             val outerClass =
-                if (klass.isSamWrapper || klass.isAnnotationImplementation || klass.attributeOwnerId in context.isEnclosedInConstructor)
+                if (klass.isSamWrapper || klass.isAnnotationImplementation || klass.isEnclosedInConstructor)
                     null
                 else {
                     when (val parent = klass.parent) {
@@ -629,7 +630,6 @@ private val Modality.flags: Int
         Modality.ABSTRACT, Modality.SEALED -> Opcodes.ACC_ABSTRACT
         Modality.FINAL -> Opcodes.ACC_FINAL
         Modality.OPEN -> 0
-        else -> throw AssertionError("Unsupported modality $this")
     }
 
 private val DescriptorVisibility.flags: Int

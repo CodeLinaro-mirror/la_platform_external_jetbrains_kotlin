@@ -11,8 +11,10 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileSystem
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.resolution.KaSuccessCallInfo
+import org.jetbrains.kotlin.analysis.api.resolution.singleFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.successfulFunctionCallOrNull
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.psi.KtCallExpression
@@ -35,13 +37,30 @@ internal fun testDataPath(path: String): Path {
     return Paths.get("analysis/analysis-api-standalone/testData/sessionBuilder").resolve(path)
 }
 
-fun KtCallExpression.assertIsCallOf(callableId: CallableId) {
+fun KtCallExpression.assertIsSuccessfulCallOf(
+    callableId: CallableId,
+    additionalCheck: (KaFunctionSymbol) -> Unit = {},
+) {
     analyze(this) {
         val ktCallInfo = resolveToCall()
         Assertions.assertInstanceOf(KaSuccessCallInfo::class.java, ktCallInfo); ktCallInfo as KaSuccessCallInfo
         val symbol = ktCallInfo.successfulFunctionCallOrNull()?.symbol
         Assertions.assertInstanceOf(KaNamedFunctionSymbol::class.java, symbol); symbol as KaNamedFunctionSymbol
         Assertions.assertEquals(callableId, symbol.callableId)
+        additionalCheck.invoke(symbol)
+    }
+}
+
+fun KtCallExpression.assertIsCallOf(
+    callableId: CallableId,
+    additionalCheck: (KaFunctionSymbol) -> Unit = {},
+) {
+    analyze(this) {
+        val ktCallInfo = resolveToCall()
+        val symbol = ktCallInfo?.singleFunctionCallOrNull()?.symbol
+        Assertions.assertInstanceOf(KaNamedFunctionSymbol::class.java, symbol); symbol as KaNamedFunctionSymbol
+        Assertions.assertEquals(callableId, symbol.callableId)
+        additionalCheck.invoke(symbol)
     }
 }
 
@@ -57,6 +76,20 @@ internal fun compileCommonKlib(kLibSourcesRoot: Path): Path {
     MockLibraryUtil.runMetadataCompiler(arguments)
 
     return testKlib
+}
+
+internal fun compileToJar(sourceRoot: Path): Path {
+    val ktFiles = Files.walk(sourceRoot).asSequence().filter { it.extension == "kt" }.toList()
+    val testJar = KtTestUtil.tmpDir("testLibrary").resolve("library.jar").toPath()
+
+    val arguments = buildList {
+        ktFiles.mapTo(this) { it.absolutePathString() }
+        add("-d")
+        add(testJar.absolutePathString())
+    }
+    MockLibraryUtil.runJvmCompiler(arguments)
+
+    return testJar
 }
 
 internal fun createDumbVirtualFile(

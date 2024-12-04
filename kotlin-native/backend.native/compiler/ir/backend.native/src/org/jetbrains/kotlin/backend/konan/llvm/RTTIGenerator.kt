@@ -9,7 +9,8 @@ import llvm.*
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.ir.*
 import org.jetbrains.kotlin.backend.konan.ir.isArray
-import org.jetbrains.kotlin.backend.konan.ir.isFrozen
+import org.jetbrains.kotlin.backend.konan.llvm.objcexport.WritableTypeInfoPointer
+import org.jetbrains.kotlin.backend.konan.llvm.objcexport.generateWritableTypeInfoForSyntheticInterface
 import org.jetbrains.kotlin.backend.konan.lower.FunctionReferenceLowering.Companion.isLoweredFunctionReference
 import org.jetbrains.kotlin.backend.konan.lower.getObjectClassInstanceFunction
 import org.jetbrains.kotlin.builtins.PrimitiveType
@@ -17,10 +18,11 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.objcinterop.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.name.NativeRuntimeNames
 
 internal class RTTIGenerator(
         override val generationState: NativeGenerationState,
-        private val referencedFunctions: Set<IrFunction>?,
+        private val referencedFunctions: Set<IrSimpleFunction>?,
 ) : ContextUtils {
 
     private val acyclicCache = mutableMapOf<IrType, Boolean>()
@@ -54,16 +56,11 @@ internal class RTTIGenerator(
 
     private fun flagsFromClass(irClass: IrClass): Int {
         var result = 0
-        if (irClass.isFrozen(context))
-            result = result or TF_IMMUTABLE
         // TODO: maybe perform deeper analysis to find surely acyclic types.
         if (!irClass.isInterface && !irClass.isAbstract() && !irClass.isAnnotationClass) {
             if (checkAcyclicClass(irClass)) {
                 result = result or TF_ACYCLIC
             }
-        }
-        if (irClass.hasAnnotation(KonanFqNames.leakDetectorCandidate)) {
-            result = result or TF_LEAK_DETECTOR_CANDIDATE
         }
         if (irClass.isInterface)
             result = result or TF_INTERFACE
@@ -72,12 +69,8 @@ internal class RTTIGenerator(
             result = result or TF_SUSPEND_FUNCTION
         }
 
-        if (irClass.hasAnnotation(KonanFqNames.hasFinalizer)) {
+        if (irClass.hasAnnotation(NativeRuntimeNames.Annotations.HasFinalizer)) {
             result = result or TF_HAS_FINALIZER
-        }
-
-        if (irClass.hasAnnotation(KonanFqNames.hasFreezeHook)) {
-            result = result or TF_HAS_FREEZE_HOOK
         }
 
         return result
@@ -101,7 +94,7 @@ internal class RTTIGenerator(
             relativeName: String?,
             flags: Int,
             classId: Int,
-            writableTypeInfo: ConstPointer?,
+            writableTypeInfo: WritableTypeInfoPointer?,
             associatedObjects: ConstPointer?,
             processObjectInMark: ConstPointer?,
             requiredAlignment: Int,
@@ -260,7 +253,7 @@ internal class RTTIGenerator(
                 reflectionInfo.relativeName,
                 flagsFromClass(irClass) or reflectionInfo.reflectionFlags,
                 context.getLayoutBuilder(irClass).classId,
-                llvmDeclarations.writableTypeInfoGlobal?.pointer,
+                llvmDeclarations.writableTypeInfoGlobal,
                 associatedObjects = genAssociatedObjects(irClass),
                 processObjectInMark = when {
                     irClass.symbol == context.ir.symbols.array -> llvm.Kotlin_processArrayInMark.toConstPointer()
@@ -396,7 +389,7 @@ internal class RTTIGenerator(
 
     private val debugRuntimeOrNull: LLVMModuleRef? by lazy {
         context.config.runtimeNativeLibraries.singleOrNull { it.endsWith("debug.bc")}?.let {
-            parseBitcodeFile(llvm.llvmContext, it)
+            parseBitcodeFile(context, context.messageCollector, llvm.llvmContext, it)
         }
     }
 
@@ -473,9 +466,8 @@ internal class RTTIGenerator(
 
         val associatedObjectTableRecords = associatedObjects.map { (key, value) ->
             val function = context.getObjectClassInstanceFunction(value)
-            val llvmFunction = generationState.llvmDeclarations.forFunction(function)
 
-            Struct(runtime.associatedObjectTableRecordType, key.typeInfoPtr, llvmFunction.toConstPointer())
+            Struct(runtime.associatedObjectTableRecordType, key.typeInfoPtr, function.llvmFunction.toConstPointer())
         }
 
         return staticData.placeGlobalConstArray(
@@ -502,7 +494,7 @@ internal class RTTIGenerator(
     // TODO: extract more code common with generate().
     fun generateSyntheticInterfaceImpl(
             irClass: IrClass,
-            methodImpls: Map<IrFunction, ConstPointer>,
+            methodImpls: Map<IrSimpleFunction, ConstPointer>,
             bodyType: ObjectBodyType,
             immutable: Boolean = false
     ): ConstPointer {
@@ -523,14 +515,7 @@ internal class RTTIGenerator(
         val objOffsetsPtr = staticData.placeGlobalConstArray("", llvm.int32Type, objOffsets)
         val objOffsetsCount = objOffsets.size
 
-        val writableTypeInfoType = runtime.writableTypeInfoType
-        val writableTypeInfo = if (writableTypeInfoType == null) {
-            null
-        } else {
-            staticData.createGlobal(writableTypeInfoType, "")
-                    .also { it.setZeroInitializer() }
-                    .pointer
-        }
+        val writableTypeInfo = generateWritableTypeInfoForSyntheticInterface(irClass)
         val vtable = vtable(superClass)
         val typeInfoWithVtableType = llvm.structType(runtime.typeInfoType, vtable.llvmType)
         val typeInfoWithVtableGlobal = staticData.createGlobal(typeInfoWithVtableType, "", isExported = false)
@@ -605,6 +590,11 @@ internal class RTTIGenerator(
         val flags: Int
 
         when {
+            isLoweredFunctionReference(irClass) -> {
+                // TODO: might return null so use fallback here, to be fixed in KT-47194
+                relativeName = generationState.getLocalClassName(irClass) ?: generateDefaultRelativeName(irClass)
+                flags = 0 // Forbid to use package and relative names in KClass.[simpleName|qualifiedName].
+            }
             irClass.isAnonymousObject -> {
                 relativeName = generationState.getLocalClassName(irClass)
                 flags = 0 // Forbid to use package and relative names in KClass.[simpleName|qualifiedName].
@@ -612,11 +602,6 @@ internal class RTTIGenerator(
             irClass.isLocal -> {
                 relativeName = generationState.getLocalClassName(irClass)
                 flags = TF_REFLECTION_SHOW_REL_NAME // Only allow relative name to be used in KClass.simpleName.
-            }
-            isLoweredFunctionReference(irClass) -> {
-                // TODO: might return null so use fallback here, to be fixed in KT-47194
-                relativeName = generationState.getLocalClassName(irClass) ?: generateDefaultRelativeName(irClass)
-                flags = 0 // Forbid to use package and relative names in KClass.[simpleName|qualifiedName].
             }
             else -> {
                 relativeName = generateDefaultRelativeName(irClass)

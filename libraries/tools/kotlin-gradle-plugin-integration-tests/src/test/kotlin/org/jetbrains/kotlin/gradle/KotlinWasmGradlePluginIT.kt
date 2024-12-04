@@ -22,8 +22,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun wasiTarget(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-wasi-test", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
-
             build(":wasmWasiTest") {
                 assertTasksExecuted(":kotlinNodeJsSetup")
                 assertTasksExecuted(":compileKotlinWasmWasi")
@@ -62,8 +60,7 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     fun jsTarget(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-test", gradleVersion) {
             buildGradleKts.modify {
-                transformBuildScriptWithPluginsDsl(it)
-                    .replace("<JsEngine>", "nodejs")
+                it.replace("<JsEngine>", "nodejs")
             }
 
             kotlinSourcesDir("wasmJsTest").resolve("Test.kt").writeText(
@@ -96,8 +93,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun wasiRun(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-wasi-test", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
-
             build(":wasmWasiNodeRun") {
                 assertOutputContains("Hello from Wasi")
             }
@@ -108,7 +103,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun wasiAndJsTarget(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-wasi-js-test", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
 
             build("assemble") {
                 assertTasksExecuted(":app:compileKotlinWasmWasi")
@@ -124,7 +118,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun wasiTargetWithBinaryen(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-wasi-test", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
             buildGradleKts.modify {
                 it.replace("wasmWasi {", "wasmWasi {\napplyBinaryen()\nbinaries.executable()")
             }
@@ -148,7 +141,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun jsTargetWithBinaryen(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-js", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
             buildGradleKts.modify {
                 it.replace("<JsEngine>", "d8")
             }
@@ -195,7 +187,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun jsTargetWithBrowser(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-js", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
             buildGradleKts.modify {
                 it.replace("<JsEngine>", "browser")
             }
@@ -205,9 +196,14 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 assertTasksExecuted(":compileProductionExecutableKotlinWasmJsOptimize")
                 assertTasksExecuted(":wasmJsBrowserDistribution")
 
-                assertFileInProjectExists("build/${Distribution.DIST}/wasmJs/productionExecutable/redefined-wasm-module-name.wasm")
                 assertFileInProjectExists("build/${Distribution.DIST}/wasmJs/productionExecutable/new-mpp-wasm-js.js")
                 assertFileInProjectExists("build/${Distribution.DIST}/wasmJs/productionExecutable/new-mpp-wasm-js.js.map")
+
+                assertTrue("Expected one wasm file") {
+                    projectPath.resolve("build/${Distribution.DIST}/wasmJs/productionExecutable").toFile().listFiles()!!
+                        .filter { it.extension == "wasm" }
+                        .size == 1
+                }
             }
         }
     }
@@ -216,7 +212,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun jsAndWasiTargetsWithDependencyOnWasiOnlyProject(gradleVersion: GradleVersion) {
         project("wasm-wasi-js-with-wasi-only-dependency", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
 
             build("build") {
                 assertTasksExecuted(":lib:compileKotlinWasmWasi")
@@ -230,7 +225,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun wasiLibrary(gradleVersion: GradleVersion) {
         project("wasm-wasi-library", gradleVersion) {
-            buildGradleKts.modify(::transformBuildScriptWithPluginsDsl)
 
             build(":build") {
                 assertTasksExecuted(":compileProductionLibraryKotlinWasmWasi")
@@ -250,7 +244,6 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
 
     @DisplayName("Browser print works with null type")
     @GradleTest
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_7_6)
     @OsCondition(
         supportedOn = [OS.LINUX, OS.MAC, OS.WINDOWS],
         enabledOnCI = []
@@ -354,6 +347,27 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 val kotlinxDatetimePackageJson = moduleDir.resolve("package.json")
 
                 assertFileExists(kotlinxDatetimePackageJson)
+            }
+        }
+    }
+
+    @DisplayName("Browser case works correctly with custom formatters")
+    @GradleTest
+    fun testWasmCustomFormattersUsage(gradleVersion: GradleVersion) {
+        project("wasm-browser-simple-project", gradleVersion) {
+            buildGradleKts.append(
+                //language=Kotlin
+                """
+                |
+                | tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile>().configureEach {
+                |    compilerOptions.freeCompilerArgs.add("-Xwasm-debugger-custom-formatters")
+                | }
+                """.trimMargin()
+            )
+
+            build("wasmJsBrowserDistribution") {
+                assertTasksExecuted(":compileKotlinWasmJs")
+                assertTasksExecuted(":compileProductionExecutableKotlinWasmJs")
             }
         }
     }

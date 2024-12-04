@@ -29,11 +29,12 @@ internal object CheckArguments : ResolutionStage() {
         val argumentMapping = candidate.argumentMapping
         val isInvokeFromExtensionFunctionType = candidate.isInvokeFromExtensionFunctionType
 
-        for ((index, argument) in callInfo.arguments.withIndex()) {
+        for ((index, argument) in candidate.arguments.withIndex()) {
+            val parameter = argumentMapping[argument]
             candidate.resolveArgument(
                 callInfo,
                 argument,
-                argumentMapping[argument],
+                parameter,
                 isReceiver = index == 0 && isInvokeFromExtensionFunctionType,
                 sink = sink,
                 context = context
@@ -62,20 +63,21 @@ internal object CheckArguments : ResolutionStage() {
 
     private fun Candidate.resolveArgument(
         callInfo: CallInfo,
-        argument: FirExpression,
+        atom: ConeResolutionAtom,
         parameter: FirValueParameter?,
         isReceiver: Boolean,
         sink: CheckerSink,
         context: ResolutionContext
     ) {
         // Lambdas and callable references can be unresolved at this point
+        val argument = atom.expression
         @OptIn(UnresolvedExpressionTypeAccess::class)
         argument.coneTypeOrNull.ensureResolvedTypeDeclaration(context.session)
         val expectedType =
             prepareExpectedType(context.session, context.bodyResolveComponents.scopeSession, callInfo, argument, parameter, context)
         ArgumentCheckingProcessor.resolveArgumentExpression(
             this,
-            argument,
+            atom,
             expectedType,
             sink,
             context,
@@ -213,17 +215,17 @@ private fun isSubtypeForSamConversion(
             session, scopeSession, classLikeExpectedFunctionType, shouldCalculateReturnTypesOfFakeOverrides = false
         ) ?: return false
     // Make sure the contributed `invoke` is indeed a wanted functional type by checking if types are compatible.
-    val expectedReturnType = classLikeExpectedFunctionType.returnType(session).lowerBoundIfFlexible()
+    val expectedReturnType = classLikeExpectedFunctionType.returnType(session).unwrapToSimpleTypeUsingLowerBound()
     val returnTypeCompatible =
         // TODO: can we remove is ConeTypeParameterType check here?
-        expectedReturnType.originalIfDefinitelyNotNullable() is ConeTypeParameterType ||
+        expectedReturnType is ConeTypeParameterType ||
                 AbstractTypeChecker.isSubtypeOf(
                     session.typeContext.newTypeCheckerState(
                         errorTypesEqualToAnything = false,
                         stubTypesEqualToAnything = true
                     ),
                     // TODO: can we remove returnTypeCalculatorFrom here
-                    returnTypeCalculator.tryCalculateReturnType(invokeSymbol.fir).type,
+                    returnTypeCalculator.tryCalculateReturnType(invokeSymbol.fir).coneType,
                     expectedReturnType,
                     isFromNullabilityConstraint = false
                 )
@@ -236,9 +238,9 @@ private fun isSubtypeForSamConversion(
     val parameterPairs =
         invokeSymbol.fir.valueParameters.zip(classLikeExpectedFunctionType.valueParameterTypesIncludingReceiver(session))
     return parameterPairs.all { (invokeParameter, expectedParameter) ->
-        val expectedParameterType = expectedParameter.lowerBoundIfFlexible()
+        val expectedParameterType = expectedParameter.unwrapToSimpleTypeUsingLowerBound()
         // TODO: can we remove is ConeTypeParameterType check here?
-        expectedParameterType.originalIfDefinitelyNotNullable() is ConeTypeParameterType ||
+        expectedParameterType is ConeTypeParameterType ||
                 AbstractTypeChecker.isSubtypeOf(
                     session.typeContext.newTypeCheckerState(
                         errorTypesEqualToAnything = false,
@@ -271,7 +273,7 @@ private fun getExpectedTypeWithImplicitIntegerCoercion(
             }?.resolvedReturnType
         }
 
-    return argumentType?.withNullability(candidateExpectedType.nullability, session.typeContext)
+    return argumentType?.withNullabilityOf(candidateExpectedType, session.typeContext)
 }
 
 private fun FirExpression.namedReferenceWithCandidate(): FirNamedReferenceWithCandidate? =

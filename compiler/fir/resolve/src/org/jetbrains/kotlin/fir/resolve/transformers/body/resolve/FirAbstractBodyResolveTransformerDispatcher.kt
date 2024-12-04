@@ -97,7 +97,7 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         }
 
         resolvedTypeRef.coneType.forEachType {
-            it.type.customAnnotations.forEach { typeArgumentAnnotation ->
+            it.customAnnotations.forEach { typeArgumentAnnotation ->
                 typeArgumentAnnotation.accept(this, data)
             }
         }
@@ -254,22 +254,13 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         FirExpressionsResolveTransformer::transformCheckNotNullCall,
     )
 
-    override fun transformBinaryLogicExpression(
-        binaryLogicExpression: FirBinaryLogicExpression,
+    override fun transformBooleanOperatorExpression(
+        booleanOperatorExpression: FirBooleanOperatorExpression,
         data: ResolutionMode,
     ): FirStatement = expressionTransformation(
-        binaryLogicExpression,
+        booleanOperatorExpression,
         data,
-        FirExpressionsResolveTransformer::transformBinaryLogicExpression,
-    )
-
-    override fun transformDesugaredAssignmentValueReferenceExpression(
-        desugaredAssignmentValueReferenceExpression: FirDesugaredAssignmentValueReferenceExpression,
-        data: ResolutionMode,
-    ): FirStatement = expressionTransformation(
-        desugaredAssignmentValueReferenceExpression,
-        data,
-        FirExpressionsResolveTransformer::transformDesugaredAssignmentValueReferenceExpression,
+        FirExpressionsResolveTransformer::transformBooleanOperatorExpression,
     )
 
     override fun transformVariableAssignment(
@@ -359,6 +350,15 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         delegatedConstructorCall,
         data,
         FirExpressionsResolveTransformer::transformDelegatedConstructorCall,
+    )
+
+    override fun transformMultiDelegatedConstructorCall(
+        multiDelegatedConstructorCall: FirMultiDelegatedConstructorCall,
+        data: ResolutionMode,
+    ): FirStatement = expressionTransformation(
+        multiDelegatedConstructorCall,
+        data,
+        FirExpressionsResolveTransformer::transformMultiDelegatedConstructorCall,
     )
 
     override fun transformIndexedAccessAugmentedAssignment(
@@ -578,10 +578,10 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
     override fun transformAnonymousFunctionExpression(
         anonymousFunctionExpression: FirAnonymousFunctionExpression,
         data: ResolutionMode,
-    ): FirStatement = expressionTransformation(
+    ): FirStatement = declarationTransformation(
         anonymousFunctionExpression,
         data,
-        FirExpressionsResolveTransformer::transformAnonymousFunctionExpression,
+        FirDeclarationsResolveTransformer::transformAnonymousFunctionExpression,
     )
 
     override fun transformValueParameter(

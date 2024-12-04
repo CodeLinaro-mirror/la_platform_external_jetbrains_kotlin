@@ -11,9 +11,9 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirElseIfTrueCondition
 import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyExpressionBlock
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
-import org.jetbrains.kotlin.fir.types.isUnitOrFlexibleUnit
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.transformWhenSubjectExpressionUsingSmartcastInfo
+import org.jetbrains.kotlin.fir.resolve.inference.TemporaryInferenceSessionHook
+import org.jetbrains.kotlin.fir.resolve.transformExpressionUsingSmartcastInfo
 import org.jetbrains.kotlin.fir.resolve.transformers.FirSyntheticCallGenerator
 import org.jetbrains.kotlin.fir.resolve.transformers.FirWhenExhaustivenessTransformer
 import org.jetbrains.kotlin.fir.resolve.withExpectedType
@@ -69,7 +69,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirAbstractBodyRes
             context.withWhenSubjectType(subjectType, components) {
                 when {
                     whenExpression.branches.isEmpty() -> {
-                        whenExpression.resultType = session.builtinTypes.unitType.type
+                        whenExpression.resultType = session.builtinTypes.unitType.coneType
                     }
                     whenExpression.isOneBranch() && data.forceFullCompletion && data !is ResolutionMode.WithExpectedType -> {
                         whenExpression = whenExpression.transformBranches(transformer, ResolutionMode.ContextIndependent)
@@ -142,7 +142,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirAbstractBodyRes
         data: ResolutionMode
     ): FirStatement {
         dataFlowAnalyzer.exitWhenSubjectExpression(whenSubjectExpression)
-        return components.transformWhenSubjectExpressionUsingSmartcastInfo(whenSubjectExpression)
+        return components.transformExpressionUsingSmartcastInfo(whenSubjectExpression)
     }
 
     // ------------------------------- Try/catch expressions -------------------------------
@@ -240,7 +240,7 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirAbstractBodyRes
             if (mayBeCoercionToUnitApplied && expectedType?.isUnitOrFlexibleUnit == true)
                 withExpectedType(expectedType, mayBeCoercionToUnitApplied = true)
             else
-                withExpectedType(expectedType?.withNullability(ConeNullability.NULLABLE, session.typeContext))
+                withExpectedType(expectedType?.withNullability(nullable = true, session.typeContext))
         dataFlowAnalyzer.enterElvis(elvisExpression)
         elvisExpression.transformLhs(transformer, resolutionModeForLhs)
         dataFlowAnalyzer.exitElvisLhs(elvisExpression)
@@ -257,7 +257,9 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirAbstractBodyRes
 
         var isLhsNotNull = false
 
-        // TODO Check if the type of the RHS being null can lead to a bug, see KT-61837
+        // TODO: This whole `if` should be probably removed once we get rid of seemingly redundant
+        //  @Exact annotation on the return type of the synthetic function, see KT-55692
+        // TODO: Check if the type of the RHS being null can lead to a bug, see KT-61837
         @OptIn(UnresolvedExpressionTypeAccess::class)
         if (result.rhs.coneTypeOrNull?.isNothing == true) {
             val lhsType = result.lhs.resolvedType
@@ -266,6 +268,14 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirAbstractBodyRes
                 lhsType.makeConeTypeDefinitelyNotNullOrNotNull(session.typeContext)
                     .convertToNonRawVersion()
             result.replaceConeTypeOrNull(newReturnType)
+
+            // For regularly resolved synthetic call, this hook is being called on the whole expression,
+            // thus correctly substituting necessary (fixed or fixed-on-demand) type variables.
+            // But it's not expected to do that on the arguments of such calls,
+            // so in `lhsType` (which above is being transferred to `result`) there might be some type variables left.
+            @OptIn(TemporaryInferenceSessionHook::class)
+            context.inferenceSession.updateExpressionReturnTypeWithCurrentSubstitutorInPCLA(result, data)
+
             isLhsNotNull = true
         }
 
@@ -297,14 +307,14 @@ class FirControlFlowStatementsResolveTransformer(transformer: FirAbstractBodyRes
                     if (!lowerBound.isNullableType()) {
                         this@makeConeFlexibleTypeWithNotNullableLowerBound
                     } else {
-                        ConeFlexibleType(lowerBound.makeConeTypeDefinitelyNotNullOrNotNull(typeContext) as ConeSimpleKotlinType, upperBound)
+                        ConeFlexibleType(lowerBound.makeConeTypeDefinitelyNotNullOrNotNull(typeContext) as ConeRigidType, upperBound)
                     }
                 }
                 is ConeIntersectionType -> ConeIntersectionType(
                     intersectedTypes.map { it.makeConeFlexibleTypeWithNotNullableLowerBound(typeContext) }
                 )
                 is ConeSimpleKotlinType -> ConeFlexibleType(
-                    makeConeTypeDefinitelyNotNullOrNotNull(typeContext) as ConeSimpleKotlinType,
+                    makeConeTypeDefinitelyNotNullOrNotNull(typeContext) as ConeRigidType,
                     this@makeConeFlexibleTypeWithNotNullableLowerBound
                 )
             }

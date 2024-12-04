@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.irCall
+import org.jetbrains.kotlin.ir.util.irError
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
@@ -76,7 +77,6 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
             add(type, OperatorNames.SUB, withLongCoercion(::transformSub))
             add(type, OperatorNames.MUL, withLongCoercion(::transformMul))
             add(type, OperatorNames.DIV, withLongCoercion(::transformDiv))
-            add(type, OperatorNames.MOD, withLongCoercion(::transformRem))
             add(type, OperatorNames.REM, withLongCoercion(::transformRem))
         }
     }
@@ -108,8 +108,10 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
     private fun transformRangeUntil(call: IrFunctionAccessExpression): IrExpression {
         if (call.valueArgumentsCount != 1) return call
         with(call.symbol.owner) {
-            val function = intrinsics.rangeUntilFunctions[dispatchReceiverParameter!!.type to valueParameters[0].type] ?:
-                error("No 'until' function found for descriptor: $this")
+            val function = intrinsics.rangeUntilFunctions[dispatchReceiverParameter!!.type to valueParameters[0].type]
+                ?: irError("No 'until' function found for descriptor") {
+                    withIrEntry("call.symbol.owner", call.symbol.owner)
+                }
             return irCall(call, function).apply {
                 extensionReceiver = dispatchReceiver
                 dispatchReceiver = null
@@ -224,8 +226,7 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
                             call.endOffset,
                             intrinsics.longToDouble.owner.returnType,
                             intrinsics.longToDouble,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = 0
+                            typeArgumentsCount = 0
                         ).apply {
                             dispatchReceiver = arg
                         })
@@ -237,8 +238,7 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
                             call.endOffset,
                             intrinsics.longToFloat.owner.returnType,
                             intrinsics.longToFloat,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = 0
+                            typeArgumentsCount = 0
                         ).apply {
                             dispatchReceiver = arg
                         })
@@ -250,8 +250,7 @@ class NumberOperatorCallsTransformer(context: JsIrBackendContext) : CallsTransfo
                             call.endOffset,
                             intrinsics.jsNumberToLong.owner.returnType,
                             intrinsics.jsNumberToLong,
-                            typeArgumentsCount = 0,
-                            valueArgumentsCount = 1
+                            typeArgumentsCount = 0
                         ).apply {
                             putValueArgument(0, call.dispatchReceiver)
                         }

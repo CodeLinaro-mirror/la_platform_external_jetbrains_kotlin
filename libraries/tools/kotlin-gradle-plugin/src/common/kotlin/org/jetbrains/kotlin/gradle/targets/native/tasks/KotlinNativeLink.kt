@@ -18,8 +18,15 @@ import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
-import org.jetbrains.kotlin.compilerRunner.*
+import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
+import org.jetbrains.kotlin.compilerRunner.KotlinCompilerArgumentsLogLevel
+import org.jetbrains.kotlin.compilerRunner.addBuildMetricsForTaskAction
+import org.jetbrains.kotlin.compilerRunner.getKonanCacheKind
+import org.jetbrains.kotlin.compilerRunner.getKonanCacheOrchestration
+import org.jetbrains.kotlin.compilerRunner.getKonanParallelThreads
+import org.jetbrains.kotlin.compilerRunner.isKonanIncrementalCompilationEnabled
 import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.internal.UsesClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
@@ -27,13 +34,18 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.Create
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.asValidFrameworkName
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.UsesXcodeVersion
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
+import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.report.UsesBuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.native.UsesKonanPropertiesBuildService
+import org.jetbrains.kotlin.gradle.targets.native.internal.*
 import org.jetbrains.kotlin.gradle.targets.native.tasks.CompilerPluginData
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.UsesKotlinNativeBundleBuildService
 import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.internal.compilerRunner.native.KotlinNativeCompilerRunner
+import org.jetbrains.kotlin.internal.compilerRunner.native.KotlinNativeToolRunner
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.project.model.LanguageSettings
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
@@ -54,9 +66,11 @@ constructor(
 ) : AbstractKotlinCompileTool<K2NativeCompilerArguments>(objectFactory),
     UsesKonanPropertiesBuildService,
     UsesBuildMetricsService,
-    UsesXcodeVersion,
+    UsesClassLoadersCachingBuildService,
     KotlinToolTask<KotlinCommonCompilerToolOptions>,
-    UsesKotlinNativeBundleBuildService {
+    UsesKotlinNativeBundleBuildService,
+    UsesBuildFusService
+{
 
     @Deprecated("Visibility will be lifted to private in the future releases")
     @get:Internal
@@ -68,20 +82,31 @@ constructor(
 
     override val destinationDirectory: DirectoryProperty = binary.outputDirectoryProperty
 
+    @Suppress("DEPRECATION")
+    @get:Internal
+    internal val konanTarget = compilation.konanTarget
+
+    // Avoid resolving these dependencies during task graph construction when we can't build the target:
+    @Suppress("DEPRECATION")
+    @get:Internal
+    internal val nativeDependencies = compilation.nativeDependencies
+
+    @Suppress("DEPRECATION")
+    @get:Internal
+    internal val nativeDistributionDependencies = compilation.nativeDistributionDependencies
+
     @get:Classpath
     override val libraries: ConfigurableFileCollection = objectFactory.fileCollection().from(
         {
             // Avoid resolving these dependencies during task graph construction when we can't build the target:
             @Suppress("DEPRECATION")
-            if (konanTarget.enabledOnCurrentHostForBinariesCompilation()) compilation.compileDependencyFiles
+            if (konanTarget.enabledOnCurrentHostForBinariesCompilation()) project.files().from(
+                compilation.nativeDistributionDependencies,
+                compilation.compileDependencyFiles
+            )
             else objectFactory.fileCollection()
         }
     )
-
-    @get:InputFiles
-    @get:Optional
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    internal var excludeOriginalPlatformLibraries: FileCollection? = null
 
     @get:Input
     val outputKind: CompilerOutputKind by lazyConvention { binary.outputKind.compilerOutputKind }
@@ -99,23 +124,17 @@ constructor(
     internal val binaryName: String by lazyConvention { binary.name }
 
     @Suppress("DEPRECATION")
-    @get:Internal
-    internal val konanTarget = compilation.konanTarget
-
-    @Suppress("DEPRECATION")
     @Deprecated("Use toolOptions to configure the task")
     @get:Internal
     val languageSettings: LanguageSettings = compilation.defaultSourceSet.languageSettings
 
     @Suppress("unused")
     @get:Input
-    protected val konanCacheKind: Provider<NativeCacheKind> = objectFactory.providerWithLazyConvention {
-        project.getKonanCacheKind(konanTarget)
-    }
+    protected val konanCacheKind: Provider<NativeCacheKind> = project.getKonanCacheKind(konanTarget)
 
     @Suppress("unused")
     @get:Input
-    internal val useEmbeddableCompilerJar: Provider<Boolean> = project.nativeProperties.isUseEmbeddableCompilerJar
+    internal val useEmbeddableCompilerJar: Provider<Boolean> = project.nativeProperties.shouldUseEmbeddableCompilerJar
 
     @Suppress("unused", "UNCHECKED_CAST")
     @Deprecated(
@@ -181,15 +200,16 @@ constructor(
     @get:Input
     val target: String = compilation.konanTarget.name
 
-    @Deprecated("Use 'embedBitcodeMode' provider instead.", ReplaceWith("embedBitcodeMode.get()"))
+    @Suppress("DEPRECATION")
+    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, replaceWith = ReplaceWith(""))
     @get:Internal
     val embedBitcode: BitcodeEmbeddingMode
         get() = embedBitcodeMode.get()
 
     @get:Input
     @get:Optional
-    val embedBitcodeMode: Provider<BitcodeEmbeddingMode> =
-        (binary as? Framework)?.embedBitcodeMode ?: objectFactory.property()
+    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE)
+    val embedBitcodeMode: Provider<BitcodeEmbeddingMode> = objectFactory.property()
 
     @get:Internal
     val apiFiles: ConfigurableFileCollection = objectFactory.fileCollection()
@@ -199,17 +219,20 @@ constructor(
         ExternalDependenciesBuilder(project, compilation).buildCompilerArgs()
     }
 
-    private val cacheBuilderSettings by lazy {
-        CacheBuilder.Settings.createWithProject(
-            kotlinNativeProvider.get().bundleDirectory.getFile().absolutePath,
-            kotlinNativeProvider.get().konanDataDir.orNull,
-            project,
-            binary,
-            konanTarget,
-            toolOptions,
-            externalDependenciesArgs
+    private val cacheBuilderSettings
+        get() = CacheBuilder.Settings(
+            konanHome = kotlinNativeProvider.flatMap { it.bundleDirectory }.map { File(it) },
+            konanCacheKind = project.getKonanCacheKind(konanTarget),
+            gradleUserHomeDir = project.gradle.gradleUserHomeDir,
+            konanTarget = konanTarget,
+            toolOptions = toolOptions,
+            externalDependenciesArgs = externalDependenciesArgs,
+            debuggable = binary.debuggable,
+            optimized = binary.optimized,
+            konanDataDir = kotlinNativeProvider.flatMap { it.konanDataDir.map { File(it) } },
+            kotlinCompilerArgumentsLogLevel = kotlinCompilerArgumentsLogLevel,
+            forceDisableRunningInProcess = forceDisableRunningInProcess,
         )
-    }
 
     private class CacheSettings(
         val orchestration: NativeCacheOrchestration, val kind: NativeCacheKind,
@@ -219,7 +242,7 @@ constructor(
 
     private val cacheSettings by lazy {
         CacheSettings(
-            project.getKonanCacheOrchestration(), project.getKonanCacheKind(konanTarget),
+            project.getKonanCacheOrchestration(), project.getKonanCacheKind(konanTarget).get(),
             project.isKonanIncrementalCompilationEnabled(), project.getKonanParallelThreads(),
             project.gradle.gradleUserHomeDir, project.layout.buildDirectory.get().asFile
         )
@@ -244,16 +267,10 @@ constructor(
             args.pluginOptions = compilerPlugins.flatMap { it.options.arguments }.toTypedArray()
             args.generateTestRunner = processTests
             args.mainPackage = entryPoint
-
-            when (bitcodeEmbeddingMode()) {
-                BitcodeEmbeddingMode.BITCODE -> args.embedBitcode = true
-                BitcodeEmbeddingMode.MARKER -> args.embedBitcodeMarker = true
-                BitcodeEmbeddingMode.DISABLE -> Unit
-            }
-
             args.singleLinkerArguments = (linkerOpts + additionalLinkerOpts).toTypedArray()
             args.binaryOptions = binaryOptions.map { (key, value) -> "$key=$value" }.toTypedArray()
             args.staticFramework = isStaticFramework
+            args.konanDataDir = kotlinNativeProvider.get().konanDataDir.orNull
 
             KotlinCommonCompilerToolOptionsHelper.fillCompilerArguments(toolOptions, args)
         }
@@ -264,7 +281,7 @@ constructor(
 
         dependencyClasspath { args ->
             args.libraries = runSafe {
-                libraries.exclude(excludeOriginalPlatformLibraries).files.filterKlibsPassedToCompiler()
+                libraries.exclude(originalPlatformLibraries()).files.filterKlibsPassedToCompiler()
             }?.toPathsArray()
             args.exportedLibraries = runSafe { exportLibraries.files.filterKlibsPassedToCompiler() }?.toPathsArray()
             args.friendModules = runSafe { friendModule.files.toList().takeIf { it.isNotEmpty() } }
@@ -272,9 +289,11 @@ constructor(
         }
 
         sources { args ->
-            args.includes = sources.asFileTree.files.toPathsArray()
+            args.includes = sourceFiles.files.toPathsArray()
         }
     }
+
+    internal fun originalPlatformLibraries() = objectFactory.fileCollection().from(nativeDependencies)
 
     private fun validatedExportedLibraries() {
         if (exportLibrariesResolvedConfiguration == null) return
@@ -357,9 +376,8 @@ constructor(
             // For KT-66452 we need to get rid of invocation of 'Task.project'.
             // That is why we moved setting this property to task registration
             // and added convention for backwards compatibility.
-            project.provider {
-                KotlinNativeProvider(project, konanTarget, kotlinNativeBundleBuildService)
-            })
+            NoopKotlinNativeProvider(project)
+        )
 
     @Deprecated(
         message = "This property will be removed in future releases. Don't use it in your code.",
@@ -371,13 +389,29 @@ constructor(
         message = "This property will be removed in future releases. Don't use it in your code.",
     )
     @get:Internal
-    val konanHome: Provider<String> = kotlinNativeProvider.map { it.bundleDirectory.get().asFile.absolutePath }
+    val konanHome: Provider<String> = kotlinNativeProvider.flatMap { it.bundleDirectory }
 
-    private val runnerSettings = KotlinNativeCompilerRunner.Settings.of(
-        kotlinNativeProvider.get().bundleDirectory.getFile().absolutePath,
-        kotlinNativeProvider.get().konanDataDir.orNull,
-        project
-    )
+    @get:Internal
+    internal abstract val kotlinCompilerArgumentsLogLevel: Property<KotlinCompilerArgumentsLogLevel>
+
+    private val actualNativeHomeDirectory = project.nativeProperties.actualNativeHomeDirectory
+    private val runnerJvmArgs = project.nativeProperties.jvmArgs
+    private val forceDisableRunningInProcess = project.nativeProperties.forceDisableRunningInProcess
+    private val useXcodeMessageStyle = project.useXcodeMessageStyle
+
+    @get:Internal
+    internal val nativeCompilerRunner
+        get() = objectFactory.KotlinNativeCompilerRunner(
+            metrics,
+            classLoadersCachingService,
+            forceDisableRunningInProcess,
+            useXcodeMessageStyle,
+            useEmbeddableCompilerJar,
+            actualNativeHomeDirectory,
+            runnerJvmArgs,
+            konanPropertiesService,
+            buildFusService
+        )
 
     @TaskAction
     fun compile() {
@@ -416,10 +450,9 @@ constructor(
                             )
                         }
                         val cacheBuilder = CacheBuilder(
-                            objectFactory = objectFactory,
                             settings = cacheBuilderSettings,
                             konanPropertiesService = konanPropertiesService.get(),
-                            metricsReporter = metricsReporter
+                            nativeCompilerRunner = nativeCompilerRunner,
                         )
                         addAll(cacheBuilder.buildCompilerArgs(resolvedConfiguration))
                     }
@@ -429,18 +462,17 @@ constructor(
             val arguments = createCompilerArguments()
             val buildArguments = ArgumentUtils.convertArgumentsToStringList(arguments) + additionalOptions
 
-            objectFactory.KotlinNativeCompilerRunner(
-                settings = runnerSettings,
-                metricsReporter = metricsReporter
-            ).run(buildArguments)
+            nativeCompilerRunner.runTool(
+                KotlinNativeToolRunner.ToolArguments(
+                    shouldRunInProcessMode = !forceDisableRunningInProcess.get(),
+                    compilerArgumentsLogLevel = kotlinCompilerArgumentsLogLevel.get(),
+                    arguments = buildArguments
+                )
+            )
         }
     }
 
     private inline fun <reified T : Any> lazyConvention(noinline lazyConventionValue: () -> T): Provider<T> {
         return objectFactory.providerWithLazyConvention(lazyConventionValue)
-    }
-
-    private fun bitcodeEmbeddingMode(): BitcodeEmbeddingMode {
-        return XcodeUtils.bitcodeEmbeddingMode(outputKind, embedBitcodeMode.orNull, xcodeVersion, konanTarget, debuggable)
     }
 }

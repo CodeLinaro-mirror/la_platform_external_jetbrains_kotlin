@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.analysis.api.types.KaType
@@ -58,7 +59,15 @@ public interface KaTypeProvider {
     public val KaType.enhancedTypeOrSelf: KaType?
         get() = withValidityAssertion { enhancedType ?: this }
 
-    public val KaNamedClassSymbol.defaultType: KaType
+    /**
+     * Returns the representation of [this] in terms of [KaType].
+     *
+     * @see KaTypeCreator
+     */
+    public val KaClassifierSymbol.defaultType: KaType
+
+    @Deprecated("Use `defaultType` from `KaClassifierSymbol` directly", level = DeprecationLevel.HIDDEN)
+    public val KaNamedClassSymbol.defaultType: KaType get() = defaultType
 
     @Deprecated("Use 'defaultType' instead.", replaceWith = ReplaceWith("defaultType"))
     public fun KaNamedClassSymbol.buildSelfClassType(): KaType = defaultType
@@ -194,95 +203,113 @@ public interface KaTypeProvider {
 
 @Suppress("PropertyName")
 public abstract class KaBuiltinTypes : KaLifetimeOwner {
+    /** The [Int] class type. */
     public abstract val int: KaType
 
     @Deprecated("Use 'int' instead.", replaceWith = ReplaceWith("int"))
     public val INT: KaType
         get() = int
 
+    /** The [Long] class type. */
     public abstract val long: KaType
 
     @Deprecated("Use 'long' instead.", replaceWith = ReplaceWith("long"))
     public val LONG: KaType
         get() = long
 
+    /** The [Short] class type. */
     public abstract val short: KaType
 
     @Deprecated("Use 'short' instead.", replaceWith = ReplaceWith("short"))
     public val SHORT: KaType
         get() = short
 
+    /** The [Byte] class type. */
     public abstract val byte: KaType
 
     @Deprecated("Use 'byte' instead.", replaceWith = ReplaceWith("byte"))
     public val BYTE: KaType
         get() = byte
 
+    /** The [Float] class type. */
     public abstract val float: KaType
 
     @Deprecated("Use 'float' instead.", replaceWith = ReplaceWith("float"))
     public val FLOAT: KaType
         get() = float
 
+    /** The [Double] class type. */
     public abstract val double: KaType
 
     @Deprecated("Use 'double' instead.", replaceWith = ReplaceWith("double"))
     public val DOUBLE: KaType
         get() = double
 
+    /** The [Boolean] class type. */
     public abstract val boolean: KaType
 
     @Deprecated("Use 'boolean' instead.", replaceWith = ReplaceWith("boolean"))
     public val BOOLEAN: KaType
         get() = boolean
 
+    /** The [Char] class type. */
     public abstract val char: KaType
 
     @Deprecated("Use 'char' instead.", replaceWith = ReplaceWith("char"))
     public val CHAR: KaType
         get() = char
 
+    /** The [String] class type. */
     public abstract val string: KaType
 
     @Deprecated("Use 'string' instead.", replaceWith = ReplaceWith("string"))
     public val STRING: KaType
         get() = string
 
+    /** The [Unit] class type. */
     public abstract val unit: KaType
 
     @Deprecated("Use 'unit' instead.", replaceWith = ReplaceWith("unit"))
     public val UNIT: KaType
         get() = unit
 
+    /** The [Nothing] class type. */
     public abstract val nothing: KaType
 
     @Deprecated("Use 'nothing' instead.", replaceWith = ReplaceWith("nothing"))
     public val NOTHING: KaType
         get() = nothing
 
+    /** The [Any] class type. */
     public abstract val any: KaType
 
     @Deprecated("Use 'any' instead.", replaceWith = ReplaceWith("any"))
     public val ANY: KaType
         get() = any
 
+    /** The [Throwable] class type. */
     public abstract val throwable: KaType
 
     @Deprecated("Use 'throwable' instead.", replaceWith = ReplaceWith("throwable"))
     public val THROWABLE: KaType
         get() = throwable
 
+    /** The `Any?` type. */
     public abstract val nullableAny: KaType
 
     @Deprecated("Use 'nullableAny' instead.", replaceWith = ReplaceWith("nullableAny"))
     public val NULLABLE_ANY: KaType
         get() = nullableAny
 
+    /** The `Nothing?` type. */
     public abstract val nullableNothing: KaType
 
     @Deprecated("Use 'nullableNothing' instead.", replaceWith = ReplaceWith("nullableNothing"))
     public val NULLABLE_NOTHING: KaType
         get() = nullableNothing
+
+    /** The [Annotation] type. */
+    public abstract val annotationType: KaType
 }
 
 @Deprecated("Use 'KaBuiltinTypes' instead.", replaceWith = ReplaceWith("KaBuiltinTypes"))

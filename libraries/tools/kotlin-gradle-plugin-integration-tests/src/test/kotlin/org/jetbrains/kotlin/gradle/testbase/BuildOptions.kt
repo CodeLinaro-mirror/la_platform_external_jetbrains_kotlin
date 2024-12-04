@@ -9,11 +9,14 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.internal.logging.LoggingConfigurationBuildOptions.StacktraceOption
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.gradle.BaseGradleIT
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.NativeCacheKind
+import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.report.BuildReportType
+import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
+import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.junit.jupiter.api.condition.OS
 import java.nio.file.Path
 import java.util.*
@@ -26,13 +29,12 @@ data class BuildOptions(
     val stacktraceMode: String? = StacktraceOption.FULL_STACKTRACE_LONG_OPTION,
     val kotlinVersion: String = TestVersions.Kotlin.CURRENT,
     val warningMode: WarningMode = WarningMode.Fail,
-    val configurationCache: Boolean? = false, //null value is only for cases, when project isolation is used without configuration cache. Otherwise Gradle runner will throw exception "The configuration cache cannot be disabled when isolated projects is enabled."
-    val projectIsolation: Boolean = false,
-    val configurationCacheProblems: BaseGradleIT.ConfigurationCacheProblems = BaseGradleIT.ConfigurationCacheProblems.FAIL,
+    val configurationCache: ConfigurationCacheValue = ConfigurationCacheValue.AUTO,
+    val isolatedProjects: IsolatedProjectsMode = IsolatedProjectsMode.DISABLED,
+    val configurationCacheProblems: ConfigurationCacheProblems = ConfigurationCacheProblems.FAIL,
     val parallel: Boolean = true,
     val incremental: Boolean? = null,
     val useGradleClasspathSnapshot: Boolean? = null,
-    val useICClasspathSnapshot: Boolean? = null,
     val maxWorkers: Int = (Runtime.getRuntime().availableProcessors() / 4 - 1).coerceAtLeast(2),
     // On Windows OS enabling watch-fs prevents deleting temp directory, which fails the tests
     val fileSystemWatchEnabled: Boolean = !OS.WINDOWS.isCurrentOs,
@@ -58,7 +60,48 @@ data class BuildOptions(
     val konanDataDir: Path? = konanDir, // null can be used only if you are using custom 'kotlin.native.home' or 'org.jetbrains.kotlin.native.home' property instead of konanDir
     val kotlinUserHome: Path? = testKitDir.resolve(".kotlin"),
     val compilerArgumentsLogLevel: String? = "info",
+    val kmpIsolatedProjectsSupport: KmpIsolatedProjectsSupport? = null,
 ) {
+    enum class ConfigurationCacheValue {
+
+        /** Explicitly/forcefully disable Configuration Cache */
+        DISABLED,
+
+        /** Explicitly/forcefully enable Configuration Cache */
+        ENABLED,
+
+        /** AUTO means unspecified by default, but enabled on macOS with Gradle >= 8.0 */
+        AUTO,
+
+        /** Gradle, depending on its version, will decide whether to enable Configuration Cache */
+        UNSPECIFIED;
+
+        fun toBooleanFlag(gradleVersion: GradleVersion): Boolean? = when (this) {
+            DISABLED -> false
+            ENABLED -> true
+            AUTO -> if (HostManager.hostIsMac && gradleVersion >= GradleVersion.version("8.0")) true else null
+            UNSPECIFIED -> null
+        }
+    }
+
+    enum class IsolatedProjectsMode {
+
+        /** Enable Gradle Isolated Projects For [TestVersions.Gradle.MAX_SUPPORTED]; Disabled in other cases */
+        AUTO,
+
+        /** Always disable Isolated Projects */
+        DISABLED,
+
+        /** Always enable Isolated Projects */
+        ENABLED;
+
+        fun toBooleanFlag(gradleVersion: GradleVersion) = when (this) {
+            AUTO -> gradleVersion >= GradleVersion.version(TestVersions.Gradle.MAX_SUPPORTED)
+            DISABLED -> false
+            ENABLED -> true
+        }
+    }
+
     val isK2ByDefault
         get() = KotlinVersion.DEFAULT >= KotlinVersion.KOTLIN_2_0
 
@@ -91,6 +134,7 @@ data class BuildOptions(
         val cocoapodsPlatform: String? = null,
         val cocoapodsConfiguration: String? = null,
         val cocoapodsArchs: String? = null,
+        val swiftExportEnabled: Boolean? = null,
         val distributionType: String? = null,
         val distributionDownloadFromMaven: Boolean? = true,
         val reinstall: Boolean? = null,
@@ -120,13 +164,15 @@ data class BuildOptions(
             WarningMode.None -> arguments.add("--warning-mode=none")
         }
 
-        if (configurationCache != null) {
-            arguments.add("-Dorg.gradle.unsafe.configuration-cache=$configurationCache")
+        val configurationCacheFlag = configurationCache.toBooleanFlag(gradleVersion)
+        if (configurationCacheFlag != null) {
+            arguments.add("-Dorg.gradle.unsafe.configuration-cache=$configurationCacheFlag")
             arguments.add("-Dorg.gradle.unsafe.configuration-cache-problems=${configurationCacheProblems.name.lowercase(Locale.getDefault())}")
         }
 
         if (gradleVersion >= GradleVersion.version("7.1")) {
-            arguments.add("-Dorg.gradle.unsafe.isolated-projects=$projectIsolation")
+            val isolatedProjectsFlag = isolatedProjects.toBooleanFlag(gradleVersion)
+            arguments.add("-Dorg.gradle.unsafe.isolated-projects=$isolatedProjectsFlag")
         }
         if (parallel) {
             arguments.add("--parallel")
@@ -140,7 +186,6 @@ data class BuildOptions(
         }
 
         useGradleClasspathSnapshot?.let { arguments.add("-Pkotlin.incremental.useClasspathSnapshot=$it") }
-        useICClasspathSnapshot?.let { arguments.add("-Pkotlin.incremental.classpath.snapshot.enabled=$it") }
 
         if (fileSystemWatchEnabled) {
             arguments.add("--watch-fs")
@@ -237,6 +282,10 @@ data class BuildOptions(
             arguments.add("-Pkotlin.internal.compiler.arguments.log.level=$compilerArgumentsLogLevel")
         }
 
+        if (kmpIsolatedProjectsSupport != null) {
+            arguments.add("-Pkotlin.kmp.isolated-projects.support=${kmpIsolatedProjectsSupport.name.toLowerCaseAsciiOnly()}")
+        }
+
         arguments.addAll(freeArgs)
 
         return arguments.toList()
@@ -262,7 +311,9 @@ data class BuildOptions(
         nativeOptions.cocoapodsConfiguration?.let {
             arguments.add("-Pkotlin.native.cocoapods.configuration=${it}")
         }
-
+        nativeOptions.swiftExportEnabled?.let {
+            arguments.add("-Pkotlin.experimental.swift-export.enabled=${it}")
+        }
         nativeOptions.distributionDownloadFromMaven?.let {
             arguments.add("-Pkotlin.native.distribution.downloadFromMaven=${it}")
         }
@@ -287,6 +338,10 @@ data class BuildOptions(
         nativeOptions.incremental?.let {
             arguments.add("-Pkotlin.incremental.native=${it}")
         }
+    }
+
+    enum class ConfigurationCacheProblems {
+        FAIL, WARN
     }
 }
 
@@ -320,3 +375,23 @@ fun BuildOptions.withBundledKotlinNative() = copy(
         version = null
     )
 )
+
+// TODO: KT-70416 :resolveIdeDependencies doesn't support Configuration Cache & Project Isolation
+fun BuildOptions.disableConfigurationCache_KT70416() = copy(configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED)
+
+fun BuildOptions.disableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = KmpIsolatedProjectsSupport.DISABLE)
+fun BuildOptions.enableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = KmpIsolatedProjectsSupport.ENABLE)
+
+// TODO: KT-71130 flip projectIsolation by default to AUTO, as soon as KT-71130 is completely fixed
+fun BuildOptions.autoIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.AUTO)
+fun BuildOptions.disableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.DISABLED)
+fun BuildOptions.enableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.ENABLED)
+
+/** Should be used when test data doesn't support isolated projects completely,
+ *  but tests can be run to verify KMP Isolated Projects support feature flag */
+fun BuildOptions.disableIsolatedProjectsButEnableKmpSupportForMaxGradle(gradleVersion: GradleVersion) =
+    if (gradleVersion >= GradleVersion.version(TestVersions.Gradle.MAX_SUPPORTED)) {
+        disableIsolatedProjects().enableKmpIsolatedProjectSupport()
+    } else {
+        disableIsolatedProjects().disableKmpIsolatedProjectSupport()
+    }

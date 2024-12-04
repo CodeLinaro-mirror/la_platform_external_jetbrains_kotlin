@@ -18,6 +18,7 @@ class Npm : NpmApiExecution<NpmEnvironment> {
         return listOf(
             nodeJs
                 .rootPackageDir
+                .getFile()
                 .resolve(NpmProject.PACKAGE_JSON)
         )
     }
@@ -64,7 +65,7 @@ class Npm : NpmApiExecution<NpmEnvironment> {
         packageManagerEnvironment: NpmEnvironment,
         cliArgs: List<String>,
     ) {
-        val nodeJsWorldDir = nodeJs.rootPackageDir
+        val nodeJsWorldDir = nodeJs.rootPackageDir.getFile()
 
         npmExec(
             services,
@@ -125,7 +126,7 @@ class Npm : NpmApiExecution<NpmEnvironment> {
         val rootPackageJson = PackageJson(rootProjectName, rootProjectVersion)
         rootPackageJson.private = true
 
-        val npmProjectWorkspaces = npmProjects.map { it.npmProjectDir.getFile().relativeTo(nodeJsWorldDir).path }
+        val npmProjectWorkspaces = npmProjects.map { it.npmProjectDir.getFile().relativeTo(nodeJsWorldDir).invariantSeparatorsPath }
         val importedProjectWorkspaces =
             NpmImportedPackagesVersionResolver(npmProjects, nodeJsWorldDir).resolveAndUpdatePackages()
 

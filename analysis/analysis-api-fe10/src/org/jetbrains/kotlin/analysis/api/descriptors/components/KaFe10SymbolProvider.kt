@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.bas
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.*
-import org.jetbrains.kotlin.analysis.api.impl.base.components.AbstractKaSymbolProvider
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSymbolProvider
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.descriptors.findClassAcrossModuleDependencies
@@ -26,8 +26,8 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
 
 internal class KaFe10SymbolProvider(
-    override val analysisSessionProvider: () -> KaFe10Session
-) : AbstractKaSymbolProvider<KaFe10Session>(), KaFe10SessionComponent {
+    override val analysisSessionProvider: () -> KaFe10Session,
+) : KaBaseSymbolProvider<KaFe10Session>(), KaFe10SessionComponent {
     override val rootPackageSymbol: KaPackageSymbol
         get() = withValidityAssertion {
             KaFe10PackageSymbol(FqName.ROOT, analysisContext)
@@ -51,7 +51,7 @@ internal class KaFe10SymbolProvider(
     override val KtNamedFunction.symbol: KaFunctionSymbol
         get() = withValidityAssertion {
             return if (hasBody() && (funKeyword == null || nameIdentifier == null)) {
-                anonymousSymbol
+                KaFe10PsiAnonymousFunctionSymbol(this, analysisContext)
             } else {
                 KaFe10PsiNamedFunctionSymbol(this, analysisContext)
             }
@@ -69,9 +69,6 @@ internal class KaFe10SymbolProvider(
     override val KtEnumEntry.symbol: KaEnumEntrySymbol
         get() = withValidityAssertion { KaFe10PsiEnumEntrySymbol(this, analysisContext) }
 
-    override val KtNamedFunction.anonymousSymbol: KaAnonymousFunctionSymbol
-        get() = withValidityAssertion { KaFe10PsiAnonymousFunctionSymbol(this, analysisContext) }
-
     override val KtFunctionLiteral.symbol: KaAnonymousFunctionSymbol
         get() = withValidityAssertion { KaFe10PsiLiteralAnonymousFunctionSymbol(this, analysisContext) }
 
@@ -88,16 +85,19 @@ internal class KaFe10SymbolProvider(
         get() = withValidityAssertion { KaFe10PsiAnonymousObjectSymbol(objectDeclaration, analysisContext) }
 
     override val KtObjectDeclaration.symbol: KaClassSymbol
-        get() = withValidityAssertion { KaFe10PsiNamedClassSymbol(this, analysisContext) }
+        get() = withValidityAssertion {
+            if (isObjectLiteral())
+                KaFe10PsiAnonymousObjectSymbol(this, analysisContext)
+            else
+                KaFe10PsiNamedClassSymbol(this, analysisContext)
+        }
 
     override val KtClassOrObject.classSymbol: KaClassSymbol?
         get() = withValidityAssertion {
-            return if (this is KtEnumEntry) {
-                null
-            } else if (this is KtObjectDeclaration && isObjectLiteral()) {
-                KaFe10PsiAnonymousObjectSymbol(this, analysisContext)
-            } else {
-                KaFe10PsiNamedClassSymbol(this, analysisContext)
+            when (this) {
+                is KtEnumEntry -> null
+                is KtObjectDeclaration -> symbol
+                else -> KaFe10PsiNamedClassSymbol(this, analysisContext)
             }
         }
 

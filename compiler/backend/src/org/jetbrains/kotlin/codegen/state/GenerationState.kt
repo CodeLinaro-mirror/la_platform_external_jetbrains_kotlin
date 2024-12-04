@@ -54,6 +54,7 @@ import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.TypeApproximator
 import org.jetbrains.org.objectweb.asm.Type
 import java.io.File
+import java.lang.reflect.InvocationTargetException
 
 class GenerationState private constructor(
     val project: Project,
@@ -139,18 +140,20 @@ class GenerationState private constructor(
         fun codegenFactory(v: CodegenFactory) =
             apply { codegenFactory = v }
 
-        fun build() =
-            GenerationState(
+
+        fun build(): GenerationState {
+            return GenerationState(
                 project, builderFactory, module, bindingContext, configuration,
                 generateDeclaredClassFilter, targetId,
                 moduleName, outDirectory, onIndependentPartCompilationEnd,
                 jvmBackendClassResolver, isIrBackend, ignoreErrors,
-                diagnosticReporter ?: DiagnosticReporterFactory.createReporter(),
+                diagnosticReporter ?: DiagnosticReporterFactory.createReporter(configuration.messageCollector),
                 isIncrementalCompilation
             ).also {
                 it.files = files
                 it.codegenFactory = codegenFactory
             }
+        }
     }
 
     abstract class GenerateClassFilter {
@@ -249,9 +252,7 @@ class GenerationState private constructor(
     val samWrapperClasses: SamWrapperClasses = SamWrapperClasses(this)
     val globalInlineContext: GlobalInlineContext = GlobalInlineContext()
     val mappingsClassesForWhenByEnum: MappingsClassesForWhenByEnum = MappingsClassesForWhenByEnum(this)
-    val jvmRuntimeTypes: JvmRuntimeTypes = JvmRuntimeTypes(
-        module, languageVersionSettings, config.generateOptimizedCallableReferenceSuperClasses
-    )
+    val jvmRuntimeTypes: JvmRuntimeTypes = JvmRuntimeTypes(module, languageVersionSettings)
     val factory: ClassFileFactory
     private var duplicateSignatureFactory: BuilderFactoryForDuplicateSignatureDiagnostics? = null
 
@@ -328,10 +329,15 @@ class GenerationState private constructor(
 
     @Suppress("UNCHECKED_CAST", "DEPRECATION_ERROR")
     private fun loadClassBuilderInterceptors(): List<org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension> {
-        // Using Class.forName here because we're in the old JVM backend, and we need to load extensions declared in the JVM IR backend.
-        val adapted = Class.forName("org.jetbrains.kotlin.backend.jvm.extensions.ClassBuilderExtensionAdapter")
-            .getDeclaredMethod("getExtensions", Project::class.java)
-            .invoke(null, project) as List<org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension>
+        val adapted = try {
+            // Using Class.forName here because we're in the old JVM backend, and we need to load extensions declared in the JVM IR backend.
+            Class.forName("org.jetbrains.kotlin.backend.jvm.extensions.ClassBuilderExtensionAdapter")
+                .getDeclaredMethod("getExtensions", Project::class.java)
+                .invoke(null, project) as List<org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension>
+        } catch (e: InvocationTargetException) {
+            // Unwrap and rethrow any exception that happens. It's important e.g. in case of ProcessCanceledException.
+            throw e.targetException
+        }
 
         return org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension.getInstances(project) + adapted
     }

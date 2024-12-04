@@ -6,8 +6,12 @@
 package org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base
 
 import com.intellij.psi.impl.compiled.ClsElementImpl
-import org.jetbrains.kotlin.analysis.api.*
-import org.jetbrains.kotlin.analysis.api.annotations.*
+import org.jetbrains.kotlin.analysis.api.KaConstantInitializerValue
+import org.jetbrains.kotlin.analysis.api.KaInitializerValue
+import org.jetbrains.kotlin.analysis.api.KaNonConstantInitializerValue
+import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotation
+import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
+import org.jetbrains.kotlin.analysis.api.annotations.KaNamedAnnotationValue
 import org.jetbrains.kotlin.analysis.api.base.KaConstantValue
 import org.jetbrains.kotlin.analysis.api.base.KaContextReceiver
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
@@ -15,9 +19,6 @@ import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KaFe10FileSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KaFe10PackageSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.*
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.*
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.KaFe10PsiDefaultPropertyGetterSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.KaFe10PsiDefaultPropertySetterSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.KaFe10PsiDefaultSetterParameterSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.KaFe10PsiSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.types.*
 import org.jetbrains.kotlin.analysis.api.impl.base.*
@@ -300,8 +301,8 @@ internal fun KotlinType.toKtType(analysisContext: Fe10AnalysisContext): KaType {
             }
 
             return when (val typeDeclaration = typeConstructor.declarationDescriptor) {
-                is FunctionClassDescriptor -> KaFe10FunctionalType(unwrappedType, typeDeclaration, analysisContext)
-                is ClassDescriptor -> KaFe10UsualClassType(unwrappedType, typeDeclaration, analysisContext)
+                is FunctionClassDescriptor -> KaFe10FunctionType(unwrappedType, typeDeclaration, analysisContext)
+                is ClassifierDescriptorWithTypeParameters -> KaFe10UsualClassType(unwrappedType, typeDeclaration, analysisContext)
                 else -> {
                     val errorType =
                         ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_CLASS_TYPE, typeConstructor, typeDeclaration.toString())
@@ -310,7 +311,6 @@ internal fun KotlinType.toKtType(analysisContext: Fe10AnalysisContext): KaType {
             }
 
         }
-        else -> error("Unexpected type $this")
     }
 }
 
@@ -413,6 +413,10 @@ internal val DeclarationDescriptor.kaSymbolModality: KaSymbolModality
     }
 
 internal fun ConstantValue<*>.toKtConstantValue(): KaConstantValue {
+    return toKtConstantValueOrNull() ?: error("Unexpected constant value $value")
+}
+
+internal fun ConstantValue<*>.toKtConstantValueOrNull(): KaConstantValue? {
     return when (this) {
         is ErrorValue.ErrorValueWithMessage -> KaErrorConstantValueImpl(message, sourcePsi = null)
         is BooleanValue -> KaBooleanConstantValueImpl(value, sourcePsi = null)
@@ -429,7 +433,7 @@ internal fun ConstantValue<*>.toKtConstantValue(): KaConstantValue {
         is UIntValue -> KaUnsignedIntConstantValueImpl(value.toUInt(), sourcePsi = null)
         is ULongValue -> KaUnsignedLongConstantValueImpl(value.toULong(), sourcePsi = null)
         is UShortValue -> KaUnsignedShortConstantValueImpl(value.toUShort(), sourcePsi = null)
-        else -> error("Unexpected constant value $value")
+        else -> null
     }
 }
 
@@ -497,9 +501,7 @@ internal fun ConstantValue<*>.toKaAnnotationValue(analysisContext: Fe10AnalysisC
                     value.annotationClass?.classId,
                     psi = null,
                     useSiteTarget = null,
-                    hasArguments = value.allValueArguments.isNotEmpty(),
                     lazyArguments = lazy { value.getKtNamedAnnotationArguments(analysisContext) },
-                    index = null,
                     constructorSymbol = null,
                     token = token
                 ),
@@ -680,17 +682,12 @@ internal fun createKtInitializerValue(
     return KaNonConstantInitializerValue(initializer)
 }
 
-internal fun AnnotationDescriptor.toKaAnnotation(
-    analysisContext: Fe10AnalysisContext,
-    index: Int,
-): KaAnnotation {
+internal fun AnnotationDescriptor.toKaAnnotation(analysisContext: Fe10AnalysisContext): KaAnnotation {
     return KaAnnotationImpl(
         classId = classIdForAnnotation,
         psi = psi,
         useSiteTarget = useSiteTarget,
-        hasArguments = allValueArguments.isNotEmpty(),
         lazyArguments = lazy { getKtNamedAnnotationArguments(analysisContext) },
-        index = index,
         constructorSymbol = null,
         token = analysisContext.token
     )

@@ -7,28 +7,27 @@ package org.jetbrains.kotlin.swiftexport.standalone
 
 import com.intellij.openapi.util.io.FileUtil
 import org.jetbrains.kotlin.konan.target.Distribution
-import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeSwiftExportTest
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase
-import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationArtifact
+import org.jetbrains.kotlin.konan.test.blackbox.support.swiftExportConfigMap
+import org.jetbrains.kotlin.konan.test.blackbox.support.util.flatMapToSet
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import java.io.File
 import kotlin.io.path.*
-import kotlin.test.assertSame
 
-abstract class AbstractKlibBasedSwiftRunnerTest : AbstractNativeSwiftExportTest() {
+abstract class AbstractKlibBasedSwiftRunnerTest : AbstractSwiftExportTest() {
 
     private val tmpdir = FileUtil.createTempDirectory("SwiftExportIntegrationTests", null, false)
 
     override fun runCompiledTest(
         testPathFull: File,
         testCase: TestCase,
-        swiftExportOutput: SwiftExportModule,
+        swiftExportOutputs: Set<SwiftExportModule>,
         swiftModules: Set<TestCompilationArtifact.Swift.Module>,
         kotlinBinaryLibrary: TestCompilationArtifact.BinaryLibrary,
     ) {
-        val flattenModules = setOfNotNull(swiftExportOutput, swiftExportOutput.dependencies.firstOrNull())
+        val flattenModules = swiftExportOutputs.flatMapToSet { it.dependencies.toSet() + it }
 
         flattenModules.forEach {
             when (it) {
@@ -68,11 +67,8 @@ abstract class AbstractKlibBasedSwiftRunnerTest : AbstractNativeSwiftExportTest(
         var unsupportedDeclarationReporterKind = UnsupportedDeclarationReporterKind.Silent
         var multipleModulesHandlingStrategy = MultipleModulesHandlingStrategy.OneToOneModuleMapping
 
-        @Suppress("UNCHECKED_CAST") val discoveredConfig: Map<String, String> = (module
-            .directives
-            .firstOrNull { it.directive.name == TestDirectives.SWIFT_EXPORT_CONFIG.name }
-            ?.values as? List<Pair<String, String>>)
-            ?.toMap()
+        val discoveredConfig: Map<String, String> = module
+            .swiftExportConfigMap()
             ?.filter { (key, value) ->
                 when (key) {
                     "unsupportedDeclarationsReporterKind" -> {

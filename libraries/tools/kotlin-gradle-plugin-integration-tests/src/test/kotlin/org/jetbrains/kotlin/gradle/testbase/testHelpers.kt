@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.testbase
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
 import org.jetbrains.kotlin.gradle.util.isTeamCityRun
 import java.nio.file.Paths
 import java.nio.file.attribute.PosixFilePermission
@@ -21,7 +22,7 @@ import kotlin.test.fail
  *
  * To run task with the same build option as test - use `run.sh` (or `run.bat`) script.
  */
-fun TestProject.makeSnapshotTo(destinationPath: String) {
+fun TestProject.makeSnapshotTo(destinationPath: String, buildOptions: BuildOptions = this.buildOptions) {
     if (isTeamCityRun) fail("Please remove `makeSnapshotTo()` call from test. It is utility for local debugging only!")
 
     val dest = Paths
@@ -34,12 +35,28 @@ fun TestProject.makeSnapshotTo(destinationPath: String) {
         }
 
     projectPath.copyRecursively(dest)
-    dest.resolve("gradle.properties").append(
-        """
-            kotlin_version=${buildOptions.kotlinVersion}
-            test_fixes_version=${TestVersions.Kotlin.CURRENT}
-            """.trimIndent()
-    )
+
+    val gradlePropertiesFile = dest.resolve("gradle.properties")
+    val gradlePropertiesFromBuildOptions = buildOptions.asGradleProperties(gradleVersion).toMutableMap()
+    if (gradlePropertiesFile.exists()) {
+        val propertiesRegex = """^\s*(\S+)=(.*)""".toRegex()
+        val content = gradlePropertiesFile.readLines()
+            .map {
+                val trimmedLine = it.trimStart()
+                val match = propertiesRegex.matchEntire(trimmedLine) ?: return@map trimmedLine
+                val (key, value) = match.destructured
+                val overriddenValue = gradlePropertiesFromBuildOptions.remove(key)
+                if (overriddenValue != null && value != overriddenValue) {
+                    "# $trimmedLine // overridden by buildOptions with\n$key=$overriddenValue\n"
+                } else {
+                    "${trimmedLine}\n"
+                }
+            }
+        gradlePropertiesFile.writeLines(content)
+    }
+
+    val gradlePropertiesContent = gradlePropertiesFromBuildOptions.entries.joinToString("\n") { "${it.key}=${it.value}" }
+    gradlePropertiesFile.appendText("# Gradle Properties from project's buildOptions\n$gradlePropertiesContent")
 
     dest.resolve("run.sh").run {
         writeText(
@@ -86,6 +103,15 @@ fun TestProject.makeSnapshotTo(destinationPath: String) {
     projectRoot.resolve("gradlew.bat").run {
         copyTo(dest.resolve(fileName))
     }
+}
+
+private fun BuildOptions.asGradleProperties(gradleVersion: GradleVersion): Map<String, String> {
+    val propertyRegex = """^-[DP](.+)=(.*)""".toRegex()
+    return toArguments(gradleVersion)
+        .mapNotNull {
+            val match = propertyRegex.matchEntire(it) ?: return@mapNotNull null
+            match.groupValues[1] to match.groupValues[2]
+        }.toMap()
 }
 
 private fun TestProject.formatEnvironmentForScript(envCommand: String): String {
@@ -175,13 +201,6 @@ internal fun TestProject.addArchivesBaseNameCompat(
             |}
             """.trimMargin()
         )
-    } else if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_7_1)) {
-        buildGradle.appendText(
-            """
-            |
-            |archivesBaseName = '$archivesBaseName'
-            """.trimMargin()
-        )
     } else {
         buildGradle.appendText(
             """
@@ -227,3 +246,13 @@ internal fun TestProject.enablePassedTestLogging(level: LogLevel = DEFAULT_LOG_L
         """.trimIndent()
     )
 }
+
+internal val TestProject.kmpIsolatedProjectsSupportEnabled: Boolean
+    get() {
+        val mode = buildOptions.kmpIsolatedProjectsSupport
+        return when (mode) {
+            KmpIsolatedProjectsSupport.ENABLE -> true
+            KmpIsolatedProjectsSupport.DISABLE -> false
+            KmpIsolatedProjectsSupport.AUTO, null -> buildOptions.isolatedProjects.toBooleanFlag(gradleVersion)
+        }
+    }

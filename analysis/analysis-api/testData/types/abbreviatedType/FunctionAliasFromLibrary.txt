@@ -1,5 +1,17 @@
 KaFunctionType:
-  abbreviatedType: null
+  abbreviation: KaUsualClassType:
+    abbreviation: null
+    annotations: []
+    classId: library1/FunctionAlias
+    nullability: NON_NULLABLE
+    qualifiers: [
+      qualifier:
+        name: FunctionAlias
+        symbol: KaTypeAliasSymbol(library1/FunctionAlias)
+        typeArguments: []
+    ]
+    symbol: KaTypeAliasSymbol(library1/FunctionAlias)
+    typeArguments: []
   annotations: []
   arity: 1
   classId: kotlin/Function1
@@ -11,7 +23,7 @@ KaFunctionType:
   nullability: NON_NULLABLE
   parameterTypes: [
     KaUsualClassType:
-      abbreviatedType: null
+      abbreviation: null
       annotations: []
       classId: kotlin/String
       nullability: NON_NULLABLE
@@ -30,7 +42,7 @@ KaFunctionType:
       symbol: KaNamedClassSymbol(kotlin/Function1)
       typeArguments: [
         KaUsualClassType:
-          abbreviatedType: null
+          abbreviation: null
           annotations: []
           classId: kotlin/String
           nullability: NON_NULLABLE
@@ -43,7 +55,7 @@ KaFunctionType:
           symbol: KaNamedClassSymbol(kotlin/String)
           typeArguments: []
         KaUsualClassType:
-          abbreviatedType: null
+          abbreviation: null
           annotations: []
           classId: kotlin/Int
           nullability: NON_NULLABLE
@@ -59,7 +71,7 @@ KaFunctionType:
   ]
   receiverType: null
   returnType: KaUsualClassType:
-    abbreviatedType: null
+    abbreviation: null
     annotations: []
     classId: kotlin/Int
     nullability: NON_NULLABLE
@@ -74,7 +86,7 @@ KaFunctionType:
   symbol: KaNamedClassSymbol(kotlin/Function1)
   typeArguments: [
     KaUsualClassType:
-      abbreviatedType: null
+      abbreviation: null
       annotations: []
       classId: kotlin/String
       nullability: NON_NULLABLE
@@ -87,7 +99,7 @@ KaFunctionType:
       symbol: KaNamedClassSymbol(kotlin/String)
       typeArguments: []
     KaUsualClassType:
-      abbreviatedType: null
+      abbreviation: null
       annotations: []
       classId: kotlin/Int
       nullability: NON_NULLABLE
@@ -102,4 +114,4 @@ KaFunctionType:
   ]
 
 Rendered type:
-(kotlin.String) -> kotlin.Int
+library1.FunctionAlias

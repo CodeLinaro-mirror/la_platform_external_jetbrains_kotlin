@@ -6,11 +6,11 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.IrValidationContext
+import org.jetbrains.kotlin.backend.common.IrValidatorConfig
 import org.jetbrains.kotlin.backend.common.phaser.IrValidationAfterLoweringPhase
 import org.jetbrains.kotlin.backend.common.phaser.IrValidationBeforeLoweringPhase
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnonymousInitializer
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -21,35 +21,30 @@ import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 
-@PhaseDescription(
-    name = "JvmValidateIrBeforeLowering",
-    description = "Validate IR before lowering"
-)
+@PhaseDescription(name = "JvmValidateIrBeforeLowering")
 internal class JvmIrValidationBeforeLoweringPhase(
     context: JvmBackendContext
 ) : IrValidationBeforeLoweringPhase<JvmBackendContext>(context) {
-    override fun IrValidationContext.validate(irModule: IrModuleFragment, phaseName: String) {
-        performBasicIrValidation(
-            irModule,
-            context.irBuiltIns,
-            phaseName,
+    override val defaultValidationConfig: IrValidatorConfig
+        get() = super.defaultValidationConfig.copy(
             checkProperties = true,
-            checkTypes = false, // TODO: Re-enable checking types (KT-68663)
-            checkVisibilities = context.configuration.getBoolean(CommonConfigurationKeys.ENABLE_IR_VISIBILITY_CHECKS),
+            checkCrossFileFieldUsage = false,
+            checkAllKotlinFieldsArePrivate = false,
         )
-    }
 }
 
-@PhaseDescription(
-    name = "JvmValidateIrAfterLowering",
-    description = "Validate IR after lowering"
-)
+@PhaseDescription(name = "JvmValidateIrAfterLowering")
 internal class JvmIrValidationAfterLoweringPhase(
     context: JvmBackendContext
 ) : IrValidationAfterLoweringPhase<JvmBackendContext>(context) {
-    override fun IrValidationContext.validate(irModule: IrModuleFragment, phaseName: String) {
-        performBasicIrValidation(irModule, context.irBuiltIns, phaseName, checkProperties = true)
+    override val defaultValidationConfig: IrValidatorConfig
+        get() = super.defaultValidationConfig.copy(
+            checkProperties = true,
+            checkCrossFileFieldUsage = false,
+            checkAllKotlinFieldsArePrivate = false,
+        )
 
+    override fun IrValidationContext.additionalValidation(irModule: IrModuleFragment, phaseName: String) {
         for (file in irModule.files) {
             for (declaration in file.declarations) {
                 if (declaration !is IrClass) {

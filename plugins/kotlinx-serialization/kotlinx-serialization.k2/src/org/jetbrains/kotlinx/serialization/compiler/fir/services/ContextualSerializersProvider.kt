@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.extensions.FirExtensionSessionComponent
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.ClassId
@@ -62,16 +63,26 @@ class ContextualSerializersProvider(session: FirSession) : FirExtensionSessionCo
         return additionalSerializersInScopeCache.getValue(file)
     }
 
+    private fun FirExpression.unwrapArguments(): List<FirExpression> = when (this) {
+        is FirArrayLiteral -> arguments
+        is FirVarargArgumentsExpression -> arguments
+        else -> emptyList()
+    }
+
     private fun getKClassListFromFileAnnotation(file: FirFile, annotationClassId: ClassId): List<ConeKotlinType> {
         val annotation = file.symbol.resolvedAnnotationsWithArguments.getAnnotationByClassId(
             annotationClassId, session
         ) ?: return emptyList()
-        val arguments = when (val argument = annotation.argumentMapping.mapping.values.firstOrNull()) {
-            is FirArrayLiteral -> argument.arguments
-            is FirVarargArgumentsExpression -> argument.arguments
-            else -> return emptyList()
+        val annotationArgument = annotation.argumentMapping.mapping.values.firstOrNull()
+        val arguments = annotationArgument?.unwrapArguments() ?: return emptyList()
+        val classes: List<FirGetClassCall> = arguments.flatMap {
+            when (it) {
+                is FirGetClassCall -> listOf(it)
+                is FirSpreadArgumentExpression -> it.expression.unwrapArguments().filterIsInstance<FirGetClassCall>()
+                else -> emptyList()
+            }
         }
-        return arguments.mapNotNull { (it as? FirGetClassCall)?.getTargetType() }
+        return classes.mapNotNull { it.getTargetType()?.fullyExpandedType(session) }
     }
 }
 
@@ -87,7 +98,7 @@ fun findTypeSerializerOrContextUnchecked(type: ConeKotlinType, c: CheckerContext
     val provider = session.contextualSerializersProvider
     provider.getAdditionalSerializersInScopeForFile(currentFile)[classSymbol to type.isMarkedNullable]?.let { return it }
     if (type.isMarkedNullable) {
-        return findTypeSerializerOrContextUnchecked(type.withNullability(ConeNullability.NOT_NULL, session.typeContext), c)
+        return findTypeSerializerOrContextUnchecked(type.withNullability(nullable = false, session.typeContext), c)
     }
     if (type in provider.getContextualKClassListForFile(currentFile)) {
         return session.dependencySerializationInfoProvider.getClassFromSerializationPackage(SpecialBuiltins.Names.contextSerializer)

@@ -2,7 +2,6 @@ import org.gradle.crypto.checksum.Checksum
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockMismatchReport
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
-import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 
 buildscript {
     // a workaround for kotlin compiler classpath in kotlin project: sometimes gradle substitutes
@@ -10,10 +9,12 @@ buildscript {
     // see also configureCompilerClasspath@
     val bootstrapCompilerClasspath by configurations.creating
     val bootstrapBuildToolsApiClasspath by configurations.creating
+    val gradlePluginsBuildToolsApiClasspath by configurations.creating
 
     dependencies {
         bootstrapCompilerClasspath(kotlin("compiler-embeddable", bootstrapKotlinVersion))
         bootstrapBuildToolsApiClasspath(kotlin("build-tools-impl", bootstrapKotlinVersion))
+        gradlePluginsBuildToolsApiClasspath(kotlin("build-tools-impl", libs.versions.kotlin.`for`.gradle.plugins.compilation.get()))
 
         classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
     }
@@ -40,7 +41,7 @@ plugins {
     id("idea-rt-hack")
     id("resolve-dependencies")
     id("org.gradle.crypto.checksum") version "1.4.0"
-    id("org.jetbrains.kotlinx.binary-compatibility-validator") version "0.13.1" apply false
+    alias(libs.plugins.kotlinx.bcv) apply false
     signing
     id("org.jetbrains.kotlin.jvm") apply false
     id("org.jetbrains.kotlin.plugin.serialization") apply false
@@ -100,7 +101,7 @@ if (!project.hasProperty("versions.kotlin-native")) {
     extra["versions.kotlin-native"] = if (kotlinBuildProperties.isKotlinNativeEnabled) {
         kotlinBuildProperties.defaultSnapshotVersion
     } else {
-        "2.0.20-dev-4770"
+        "2.1.20-dev-106"
     }
 }
 
@@ -141,6 +142,7 @@ val commonCompilerModules = arrayOf(
     ":compiler:cli-common",
     ":compiler:resolution.common",
     ":compiler:resolution.common.jvm",
+    ":compiler:backend.common.jvm",
     ":core:metadata",
     ":core:metadata.jvm",
     ":core:deserialization.common",
@@ -299,6 +301,8 @@ val projectsUsedInIntelliJKotlinPlugin =
                 ":plugins:parcelize:parcelize-compiler:parcelize.k2",
                 ":plugins:parcelize:parcelize-runtime",
 
+                ":plugins:compose-compiler-plugin:compiler-hosted",
+
                 ":kotlin-sam-with-receiver-compiler-plugin.cli",
                 ":kotlin-sam-with-receiver-compiler-plugin.common",
                 ":kotlin-sam-with-receiver-compiler-plugin.k1",
@@ -309,6 +313,11 @@ val projectsUsedInIntelliJKotlinPlugin =
                 ":kotlinx-serialization-compiler-plugin.k1",
                 ":kotlinx-serialization-compiler-plugin.k2",
                 ":kotlinx-serialization-compiler-plugin.backend",
+
+                ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.cli",
+                ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.common",
+                ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.k2",
+                ":plugins:js-plain-objects:compiler-plugin:js-plain-objects.backend",
 
                 ":kotlin-lombok-compiler-plugin.cli",
                 ":kotlin-lombok-compiler-plugin.common",
@@ -345,6 +354,16 @@ val projectsUsedInIntelliJKotlinPlugin =
                 ":native:objcexport-header-generator",
                 ":native:objcexport-header-generator-analysis-api",
                 ":native:objcexport-header-generator-k1",
+            ) +
+            arrayOf(
+                ":native:swift:sir",
+                ":native:swift:sir-light-classes",
+                ":native:swift:sir-printer",
+                ":native:swift:sir-providers",
+                ":native:swift:swift-export-ide",
+            ) +
+            arrayOf(
+                ":analysis:analysis-tools:deprecated-k1-frontend-internals-for-ide-generated",
             )
 
 extra["projectsUsedInIntelliJKotlinPlugin"] = projectsUsedInIntelliJKotlinPlugin
@@ -400,6 +419,8 @@ extra["kotlinJpsPluginMavenDependenciesNonTransitiveLibs"] = listOf(
 extra["compilerArtifactsForIde"] = listOfNotNull(
     ":prepare:ide-plugin-dependencies:android-extensions-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:allopen-compiler-plugin-for-ide",
+    ":prepare:ide-plugin-dependencies:compose-compiler-plugin-for-ide",
+    ":prepare:ide-plugin-dependencies:js-plain-objects-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:scripting-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:incremental-compilation-impl-tests-for-ide",
     ":prepare:ide-plugin-dependencies:js-ir-runtime-for-ide",
@@ -417,6 +438,7 @@ extra["compilerArtifactsForIde"] = listOfNotNull(
     ":prepare:ide-plugin-dependencies:parcelize-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:lombok-compiler-plugin-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-objcexport-header-generator-for-ide",
+    ":prepare:ide-plugin-dependencies:kotlin-swift-export-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-compiler-tests-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-compiler-testdata-for-ide",
     ":prepare:ide-plugin-dependencies:low-level-api-fir-for-ide",
@@ -465,11 +487,11 @@ extra["compilerArtifactsForIde"] = listOfNotNull(
 val coreLibProjects by extra {
     listOfNotNull(
         ":kotlin-stdlib",
-        ":kotlin-stdlib-common",
         ":kotlin-stdlib-jdk7",
         ":kotlin-stdlib-jdk8",
         ":kotlin-test",
-        ":kotlin-reflect"
+        ":kotlin-reflect",
+        ":kotlin-metadata-jvm",
     )
 }
 val mppProjects by extra {
@@ -533,7 +555,7 @@ allprojects {
         afterEvaluate {
             configurations.all {
                 // Remove kotlin-compiler from dependencies during Idea import. KTI-1598
-                dependencies.removeIf { (it as? ProjectDependency)?.dependencyProject?.path == ":kotlin-compiler" }.ifTrue {
+                if (dependencies.removeIf { (it as? ProjectDependency)?.dependencyProject?.path == ":kotlin-compiler" }) {
                     logger.warn("Removed :kotlin-compiler project dependency from $this")
                 }
             }
@@ -650,13 +672,6 @@ allprojects {
         }
 
         mavenCentral()
-
-        @Suppress("DEPRECATION")
-        jcenter {
-            content {
-                includeVersionByRegex("net\\.rubygrapefruit", ".+", "0\\.14")
-            }
-        }
     }
 }
 
@@ -719,26 +734,30 @@ tasks {
         delete = setOf(artifactsDir)
     }
 
-    listOf("clean", "assemble", "install", "publish").forEach { taskName ->
-        register("coreLibs${taskName.capitalize()}") {
-            for (projectName in coreLibProjects) {
-                if (projectName.startsWith(":kotlin-test:") && (taskName == "install" || taskName == "publish")) continue
-                dependsOn("$projectName:$taskName")
-            }
+    fun aggregateLibsTask(name: String, projectTask: String, projects: List<String>) =
+        register(name) {
+            projects.forEach { dependsOn("$it:$projectTask") }
         }
-    }
 
-    register("coreLibsTest") {
-        (coreLibProjects + listOfNotNull(
+    val coreLibsPublishable = coreLibProjects + listOf(":kotlin-stdlib-common")
+    val coreLibsBuildable = coreLibProjects + listOf(":kotlin-stdlib-jvm-minimal-for-test", ":kotlin-stdlib-js-ir-minimal-for-test")
+
+    aggregateLibsTask("coreLibsClean", "clean",
+        (coreLibProjects + coreLibsBuildable + coreLibsPublishable).distinct() +
+            ":kotlin-stdlib:samples"
+    )
+
+    aggregateLibsTask("coreLibsAssemble", "assemble", coreLibsBuildable)
+    aggregateLibsTask("coreLibsInstall", "install", coreLibsPublishable)
+    aggregateLibsTask("coreLibsPublish", "publish", coreLibsPublishable)
+    aggregateLibsTask("coreLibsTest", "check",
+        coreLibsBuildable + listOfNotNull(
             ":kotlin-stdlib:samples",
             ":kotlin-test:kotlin-test-js-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
-            ":kotlin-metadata-jvm",
             ":tools:binary-compatibility-validator",
             ":tools:jdk-api-validator",
-        )).forEach {
-            dependsOn("$it:check")
-        }
-    }
+        )
+    )
 
     register("gradlePluginTest") {
         gradlePluginProjects.forEach {
@@ -772,19 +791,12 @@ tasks {
         )
     }
 
-    register("jsCompilerTest") {
-        dependsOn(":js:js.tests:jsTest")
-        dependsOn(":js:js.tests:runMocha")
-        dependsOn(":kotlin-test-js-runner:test")
-    }
-
     register("jsFirCompilerTest") {
         dependsOn(":js:js.tests:jsFirTest")
     }
 
     register("jsIrCompilerTest") {
         dependsOn(":js:js.tests:jsIrTest")
-        dependsOn(":js:js.tests:jsStdlibApiTest")
     }
 
     register("wasmCompilerTest") {
@@ -813,6 +825,7 @@ tasks {
         dependsOn(":native:native.tests:driver:check")
         dependsOn(":native:native.tests:stress:check")
         dependsOn(":native:native.tests:klib-compatibility:check")
+        dependsOn(":tools:binary-compatibility-validator:check")
         dependsOn(":native:objcexport-header-generator:check")
         dependsOn(":native:swift:swift-export-standalone:test")
     }
@@ -824,6 +837,7 @@ tasks {
             dependsOn(":kotlin-native:Interop:Indexer:check")
             dependsOn(":kotlin-native:Interop:StubGenerator:check")
             dependsOn(":kotlin-native:backend.native:check")
+            dependsOn(":kotlin-native:tools:kdumputil:check")
         }
     }
 
@@ -837,6 +851,7 @@ tasks {
 
     register("nightlyFirCompilerTest") {
         dependsOn(":compiler:fir:fir2ir:nightlyTests")
+        dependsOn(":compiler:fastJarFSLongTests")
     }
 
     register("scriptingJvmTest") {
@@ -871,12 +886,12 @@ tasks {
 
     register("compilerTest") {
         dependsOn("jvmCompilerTest")
-        dependsOn("jsCompilerTest")
         dependsOn("miscCompilerTest")
     }
 
     register("miscCompilerTest") {
         dependsOn(":compiler:test")
+        dependsOn(":compiler:tests-integration:test")
         dependsOn("incrementalCompilationTest")
         dependsOn("scriptingTest")
         dependsOn("jvmCompilerIntegrationTest")
@@ -908,8 +923,8 @@ tasks {
         dependsOn(":kotlin-allopen-compiler-plugin:test")
         dependsOn(":kotlin-assignment-compiler-plugin:test")
         dependsOn(":kotlin-atomicfu-compiler-plugin:test")
-        dependsOn(":plugins:fir-plugin-prototype:test")
-        dependsOn(":plugins:fir-plugin-prototype:fir-plugin-ic-test:test")
+        dependsOn(":plugins:plugin-sandbox:test")
+        dependsOn(":plugins:plugin-sandbox:plugin-sandbox-ic-test:test")
         dependsOn(":kotlin-imports-dumper-compiler-plugin:test")
         dependsOn(":plugins:jvm-abi-gen:test")
         dependsOn(":plugins:js-plain-objects:compiler-plugin:test")
@@ -1104,15 +1119,16 @@ val zipCompilerWithSignature by secureZipTask(zipCompiler)
 
 configure<IdeaModel> {
     module {
-        excludeDirs = files(
-            project.layout.buildDirectory,
-            commonLocalDataDir,
-            ".gradle",
-            "dependencies",
-            "dist",
-            "tmp",
-            "intellij"
-        ).toSet()
+        excludeDirs.addAll(
+            files(
+                commonLocalDataDir,
+                ".kotlin",
+                "test.output",
+                "dist",
+                "tmp",
+                "intellij",
+            )
+        )
     }
 }
 

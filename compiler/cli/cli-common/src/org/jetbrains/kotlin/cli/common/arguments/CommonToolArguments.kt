@@ -92,6 +92,20 @@ abstract class CommonToolArguments : Freezable(), Serializable {
             field = value
         }
 
+    @GradleOption(
+        value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
+        gradleInputType = GradleInputTypes.INPUT,
+    )
+    @Argument(
+        value = "-Wextra",
+        description = "Enable extra checkers for K2."
+    )
+    var extraWarnings = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
     var internalArguments: List<InternalArgument> = emptyList()
         set(value) {
             checkFrozen()
@@ -114,3 +128,10 @@ val KProperty1<out CommonCompilerArguments, *>.cliArgument: String
         val argumentAnnotation = javaField.getAnnotation<Argument>(Argument::class.java)
         return argumentAnnotation.value
     }
+
+/**
+ * Returns a string of the form "argument=value" where "argument" is the [Argument.value] of this compiler argument.
+ */
+fun KProperty1<out CommonCompilerArguments, *>.cliArgument(value: String): String {
+    return "$cliArgument=$value"
+}

@@ -23,10 +23,7 @@ import androidx.compose.compiler.plugins.kotlin.ComposeClassIds
 import androidx.compose.compiler.plugins.kotlin.FeatureFlags
 import androidx.compose.compiler.plugins.kotlin.ModuleMetrics
 import androidx.compose.compiler.plugins.kotlin.analysis.StabilityInferencer
-import androidx.compose.compiler.plugins.kotlin.lower.decoys.CreateDecoysTransformer
-import androidx.compose.compiler.plugins.kotlin.lower.decoys.isDecoy
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureFactory
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrImplementationDetail
@@ -47,12 +44,7 @@ import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeWith
-import org.jetbrains.kotlin.ir.util.DeepCopySymbolRemapper
-import org.jetbrains.kotlin.ir.util.SYNTHETIC_OFFSET
-import org.jetbrains.kotlin.ir.util.fqNameForIrSerialization
-import org.jetbrains.kotlin.ir.util.functions
-import org.jetbrains.kotlin.ir.util.isVararg
-import org.jetbrains.kotlin.ir.util.patchDeclarationParents
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.FqName
@@ -86,54 +78,27 @@ import org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI
  */
 class WrapJsComposableLambdaLowering(
     context: IrPluginContext,
-    symbolRemapper: DeepCopySymbolRemapper,
     metrics: ModuleMetrics,
-    signatureBuilder: IdSignatureFactory?,
     stabilityInferencer: StabilityInferencer,
-    private val decoysEnabled: Boolean,
     featureFlags: FeatureFlags,
 ) : AbstractComposeLowering(
     context,
-    symbolRemapper,
     metrics,
     stabilityInferencer,
     featureFlags,
 ) {
     private val rememberFunSymbol by lazy {
         val composerParamTransformer = ComposerParamTransformer(
-            context, symbolRemapper, stabilityInferencer, decoysEnabled, metrics, featureFlags
+            context, stabilityInferencer, metrics, featureFlags
         )
-        symbolRemapper.getReferencedSimpleFunction(
-            getTopLevelFunctions(ComposeCallableIds.remember).map { it.owner }.first {
+        getTopLevelFunctions(ComposeCallableIds.remember)
+            .map { it.owner }
+            .first {
                 it.valueParameters.size == 2 && !it.valueParameters.first().isVararg
-            }.symbol
-        ).owner.let {
-            if (!decoysEnabled || signatureBuilder == null) {
+            }.symbol.owner
+            .let {
                 composerParamTransformer.visitSimpleFunction(it) as IrSimpleFunction
-            } else {
-                // If a module didn't have any explicit remember calls,
-                // so `fun remember` wasn't transformed yet, then we have to transform it now.
-                val createDecoysTransformer = CreateDecoysTransformer(
-                    context,
-                    symbolRemapper,
-                    signatureBuilder,
-                    stabilityInferencer,
-                    metrics,
-                    featureFlags,
-                )
-                with(createDecoysTransformer) {
-                    if (!it.isDecoy()) {
-                        visitSimpleFunction(it) as IrSimpleFunction
-                        updateParents()
-                        composerParamTransformer.visitSimpleFunction(
-                            it.getComposableForDecoy().owner as IrSimpleFunction
-                        ) as IrSimpleFunction
-                    } else {
-                        it.getComposableForDecoy().owner as IrSimpleFunction
-                    }
-                }
-            }
-        }.symbol
+            }.symbol
     }
 
     override fun lower(module: IrModuleFragment) {
@@ -146,7 +111,7 @@ class WrapJsComposableLambdaLowering(
         return when (expression.symbol.owner.fqNameForIrSerialization) {
             ComposeCallableIds.composableLambda.asSingleFqName() -> {
                 transformComposableLambdaCall(
-                    originalCall = original,
+                    originalCall = original.deepCopyWithoutPatchingParents(), // To avoid duplicated IR nodes, since we reuse the call's args
                     currentComposer = original.getValueArgument(0),
                     lambda = original.getValueArgument(
                         original.valueArgumentsCount - 1
@@ -155,8 +120,8 @@ class WrapJsComposableLambdaLowering(
             }
             ComposeCallableIds.rememberComposableLambda.asSingleFqName() -> {
                 transformComposableLambdaCall(
-                    originalCall = original,
-                    currentComposer =  original.getValueArgument(3),
+                    originalCall = original.deepCopyWithoutPatchingParents(), // To avoid duplicated IR nodes, since we reuse the call's args
+                    currentComposer = original.getValueArgument(3),
                     lambda = original.getValueArgument(2) as IrFunctionExpression
                 )
             }
@@ -169,25 +134,23 @@ class WrapJsComposableLambdaLowering(
 
     private fun functionReferenceForComposableLambda(
         lambda: IrFunctionExpression,
-        dispatchReceiver: IrExpression
+        dispatchReceiver: IrExpression,
     ): IrFunctionReferenceImpl {
         val argumentsCount = lambda.function.valueParameters.size +
-            if (lambda.function.extensionReceiverParameter != null) 1 else 0
+                if (lambda.function.extensionReceiverParameter != null) 1 else 0
 
-        val invokeSymbol = symbolRemapper.getReferencedClass(
-            getTopLevelClass(ComposeClassIds.ComposableLambda)
-        ).functions.single {
-            it.owner.name.asString() == "invoke" &&
-                argumentsCount == it.owner.valueParameters.size
-        }
+        val invokeSymbol = getTopLevelClass(ComposeClassIds.ComposableLambda)
+            .functions.single {
+                it.owner.name.asString() == "invoke" &&
+                        argumentsCount == it.owner.valueParameters.size
+            }
 
         return IrFunctionReferenceImpl(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             type = lambda.type,
             symbol = invokeSymbol,
-            typeArgumentsCount = invokeSymbol.owner.typeParameters.size,
-            valueArgumentsCount = invokeSymbol.owner.valueParameters.size
+            typeArgumentsCount = invokeSymbol.owner.typeParameters.size
         ).also { reference ->
             reference.dispatchReceiver = dispatchReceiver
         }
@@ -196,7 +159,7 @@ class WrapJsComposableLambdaLowering(
     private fun transformComposableLambdaCall(
         originalCall: IrCall,
         currentComposer: IrExpression?,
-        lambda: IrFunctionExpression
+        lambda: IrFunctionExpression,
     ): IrExpression {
         val composableLambdaVar = irTemporary(originalCall, "dispatchReceiver")
         // create dispatchReceiver::invoke function reference
@@ -217,8 +180,7 @@ class WrapJsComposableLambdaLowering(
             endOffset = SYNTHETIC_OFFSET,
             type = lambda.type,
             symbol = rememberFunSymbol,
-            typeArgumentsCount = 1,
-            valueArgumentsCount = 4
+            typeArgumentsCount = 1
         ).apply {
             putTypeArgument(0, lambda.type)
             putValueArgument(0, irGet(composableLambdaVar)) // key1
@@ -242,7 +204,7 @@ class WrapJsComposableLambdaLowering(
 
     private fun transformComposableLambdaInstanceCall(originalCall: IrCall): IrExpression {
         val lambda = originalCall.getValueArgument(originalCall.valueArgumentsCount - 1)
-            as IrFunctionExpression
+                as IrFunctionExpression
 
         // create composableLambdaInstance::invoke function reference
         return functionReferenceForComposableLambda(lambda, originalCall)
@@ -257,8 +219,7 @@ class WrapJsComposableLambdaLowering(
             endOffset = SYNTHETIC_OFFSET,
             type = returnType,
             symbol = runSymbol,
-            typeArgumentsCount = 1,
-            valueArgumentsCount = 1
+            typeArgumentsCount = 1
         ).apply {
             putTypeArgument(0, returnType)
             putValueArgument(0, runBlock)
@@ -269,7 +230,7 @@ class WrapJsComposableLambdaLowering(
     private fun createLambda0(
         returnType: IrType,
         functionSymbol: IrSimpleFunctionSymbol = IrSimpleFunctionSymbolImpl(),
-        statements: List<IrStatement>
+        statements: List<IrStatement>,
     ): IrFunctionExpressionImpl {
         return IrFunctionExpressionImpl(
             startOffset = SYNTHETIC_OFFSET,

@@ -8,12 +8,16 @@ package org.jetbrains.kotlin.gradle
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.appendText
 import kotlin.io.path.deleteIfExists
+import kotlin.io.path.writeText
+import kotlin.io.path.deleteRecursively
 import kotlin.streams.toList
 import kotlin.test.assertTrue
 
@@ -40,19 +44,115 @@ class FusStatisticsIT : KGPBaseTest() {
     @DisplayName("for dokka")
     @GradleTest
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+        additionalVersions = [TestVersions.Gradle.G_8_0],
     )
     fun testDokka(gradleVersion: GradleVersion) {
         project(
             "simpleProject",
             gradleVersion,
+            // TODO: KT-70336 dokka doesn't support Configuration Cache
+            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED)
         ) {
-            applyDokka()
+            applyDokka(TestVersions.ThirdPartyDependencies.DOKKA)
             build("compileKotlin", "dokkaHtml", "-Pkotlin.session.logger.root.path=$projectPath") {
                 assertFileContains(
                     fusStatisticsPath,
                     "ENABLED_DOKKA",
                     "ENABLED_DOKKA_HTML"
+                )
+            }
+        }
+    }
+
+    @JvmGradlePluginTests
+    @DisplayName("for dokka v2 html doc")
+    @GradleTest
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_8_0],
+    )
+    fun testDokkaV2HtmlDoc(gradleVersion: GradleVersion) {
+        val expectedDokkaFusMetrics = arrayOf(
+            "ENABLED_DOKKA",
+            "ENABLE_DOKKA_GENERATE_TASK",
+            "ENABLE_DOKKA_GENERATE_PUBLICATION_HTML_TASK",
+            "ENABLE_LINK_DOKKA_GENERATE_TASK"
+        )
+        testDokkaPlugin(gradleVersion, "org.jetbrains.dokka", expectedDokkaFusMetrics)
+    }
+
+    @JvmGradlePluginTests
+    @DisplayName("for dokka v2 javadoc")
+    @GradleTest
+    @GradleTestVersions(
+        additionalVersions = [TestVersions.Gradle.G_8_0],
+    )
+    fun testDokkaV2Javadoc(gradleVersion: GradleVersion) {
+        val expectedDokkaFusMetrics = arrayOf(
+            "ENABLED_DOKKA_JAVADOC",
+            "ENABLE_DOKKA_GENERATE_TASK",
+            "ENABLE_DOKKA_GENERATE_PUBLICATION_JAVADOC_TASK",
+        )
+        testDokkaPlugin(gradleVersion, "org.jetbrains.dokka-javadoc", expectedDokkaFusMetrics)
+    }
+
+    private fun testDokkaPlugin(gradleVersion: GradleVersion, pluginName: String, expectedDokkaFusMetrics: Array<String>) {
+        project(
+            "simpleProject",
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
+        ) {
+            settingsGradle.replaceText(
+                "repositories {",
+                """
+                    repositories {
+                         maven { url "https://maven.pkg.jetbrains.space/kotlin/p/dokka/dev/" }
+                """.trimIndent()
+            )
+
+            //for templating-plugin and dokka-base plugins
+            buildGradle.replaceText(
+                "repositories {",
+                """
+                    repositories {
+                         maven { url "https://maven.pkg.jetbrains.space/kotlin/p/dokka/dev/" }
+                """.trimIndent()
+            )
+
+            //apply Dokka plugins
+            buildGradle.replaceText(
+                "plugins {",
+                """
+                plugins {
+                    id("$pluginName") version "${TestVersions.ThirdPartyDependencies.DOKKA_V2}"
+                """.trimIndent()
+            )
+
+            build(
+                "compileKotlin",
+                "dokkaGenerate",
+                "-Porg.jetbrains.dokka.experimental.gradle.pluginMode=V2Enabled",
+                "-Pkotlin.session.logger.root.path=$projectPath",
+            ) {
+                assertConfigurationCacheStored()
+                assertFileContains(
+                    fusStatisticsPath,
+                    *expectedDokkaFusMetrics
+                )
+            }
+
+            projectPath.resolve("kotlin-profile").deleteRecursively()
+            build("clean")
+
+            build(
+                "compileKotlin",
+                "dokkaGenerate",
+                "-Porg.jetbrains.dokka.experimental.gradle.pluginMode=V2Enabled",
+                "-Pkotlin.session.logger.root.path=$projectPath"
+            ) {
+                assertConfigurationCacheReused()
+                assertFileContains(
+                    fusStatisticsPath,
+                    *expectedDokkaFusMetrics
                 )
             }
         }
@@ -126,7 +226,7 @@ class FusStatisticsIT : KGPBaseTest() {
         enabledOnCI = [OS.LINUX, OS.MAC], //Fails on windows KT-65227
     )
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0]
+        additionalVersions = [TestVersions.Gradle.G_8_0]
     )
     fun testProjectWithBuildSrcForGradleVersion7(gradleVersion: GradleVersion) {
         //KT-64022 there are a different build instances in buildSrc and rest project:
@@ -152,7 +252,6 @@ class FusStatisticsIT : KGPBaseTest() {
         enabledOnCI = [OS.LINUX, OS.MAC], //Fails on windows KT-65227
     )
     @GradleTestVersions(
-        minVersion = TestVersions.Gradle.G_7_6,
         maxVersion = TestVersions.Gradle.G_8_0
     )
     fun testProjectWithIncludedBuild(gradleVersion: GradleVersion) {
@@ -162,7 +261,7 @@ class FusStatisticsIT : KGPBaseTest() {
         project(
             "instantExecutionWithIncludedBuildPlugin",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(configurationCache = true)
+            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
         ) {
             build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
                 Files.list(projectPath.resolve("kotlin-profile")).forEach {
@@ -185,7 +284,7 @@ class FusStatisticsIT : KGPBaseTest() {
     @DisplayName("for failed build")
     @GradleTest
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+        additionalVersions = [TestVersions.Gradle.G_8_0],
     )
     fun testFusStatisticsForFailedBuild(gradleVersion: GradleVersion) {
         project(
@@ -213,7 +312,7 @@ class FusStatisticsIT : KGPBaseTest() {
     @DisplayName("fus metric for multiproject")
     @GradleTest
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+        additionalVersions = [TestVersions.Gradle.G_8_0],
     )
     @JvmGradlePluginTests
     fun testFusStatisticsForMultiproject(gradleVersion: GradleVersion) {
@@ -239,30 +338,29 @@ class FusStatisticsIT : KGPBaseTest() {
     @DisplayName("general fields with configuration cache")
     @GradleTest
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+        additionalVersions = [TestVersions.Gradle.G_8_0],
     )
     fun testFusStatisticsWithConfigurationCache(gradleVersion: GradleVersion) {
-        testFusStatisticsWithConfigurationCache(gradleVersion, false)
+        testFusStatisticsWithConfigurationCache(gradleVersion, IsolatedProjectsMode.DISABLED)
     }
 
     @JvmGradlePluginTests
     @DisplayName("general fields with configuration cache and project isolation")
     @GradleTest
     @GradleTestVersions(
-        minVersion = TestVersions.Gradle.G_7_1,
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+        additionalVersions = [TestVersions.Gradle.G_8_0],
     )
     fun testFusStatisticsWithConfigurationCacheAndProjectIsolation(gradleVersion: GradleVersion) {
-        testFusStatisticsWithConfigurationCache(gradleVersion, true)
+        testFusStatisticsWithConfigurationCache(gradleVersion, IsolatedProjectsMode.ENABLED)
     }
 
-    fun testFusStatisticsWithConfigurationCache(gradleVersion: GradleVersion, isProjectIsolationEnabled: Boolean) {
+    fun testFusStatisticsWithConfigurationCache(gradleVersion: GradleVersion, isProjectIsolationEnabled: IsolatedProjectsMode) {
         project(
             "simpleProject",
             gradleVersion,
             buildOptions = defaultBuildOptions.copy(
-                configurationCache = true,
-                projectIsolation = isProjectIsolationEnabled,
+                configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED,
+                isolatedProjects = isProjectIsolationEnabled,
                 buildReport = listOf(BuildReportType.FILE)
             ),
         ) {
@@ -278,7 +376,7 @@ class FusStatisticsIT : KGPBaseTest() {
                     "NUMBER_OF_SUBPROJECTS=1",
                     "COMPILATIONS_COUNT=1",
                     "GRADLE_CONFIGURATION_CACHE_ENABLED=true",
-                    "GRADLE_PROJECT_ISOLATION_ENABLED=$isProjectIsolationEnabled",
+                    "GRADLE_PROJECT_ISOLATION_ENABLED=${isProjectIsolationEnabled.toBooleanFlag(gradleVersion)}",
                 )
             }
 
@@ -305,7 +403,7 @@ class FusStatisticsIT : KGPBaseTest() {
     @DisplayName("configuration type metrics")
     @GradleTest
     @GradleTestVersions(
-        additionalVersions = [TestVersions.Gradle.G_7_6, TestVersions.Gradle.G_8_0],
+        additionalVersions = [TestVersions.Gradle.G_8_0],
     )
     fun testConfigurationTypeFusMetrics(gradleVersion: GradleVersion) {
         project("simpleProject", gradleVersion) {
@@ -335,13 +433,97 @@ class FusStatisticsIT : KGPBaseTest() {
         }
     }
 
-    private fun TestProject.applyDokka() {
+    @JvmGradlePluginTests
+    @GradleTest
+    @GradleTestVersions(additionalVersions = [TestVersions.Gradle.G_8_1])
+    fun testKotlinxPlugins(gradleVersion: GradleVersion) {
+        project(
+            "simpleProject", gradleVersion,
+            buildOptions = defaultBuildOptions.suppressDeprecationWarningsSinceGradleVersion(
+                TestVersions.Gradle.G_8_2,
+                gradleVersion,
+                "Kover produces Gradle deprecation"
+            )
+        ) {
+            buildGradle.replaceText(
+                "plugins {",
+                """
+                    plugins {
+                        id("org.jetbrains.kotlinx.atomicfu") version "${TestVersions.ThirdPartyDependencies.KOTLINX_ATOMICFU}"
+                        id("org.jetbrains.kotlinx.kover") version "${TestVersions.ThirdPartyDependencies.KOTLINX_KOVER}"
+                        id("org.jetbrains.kotlinx.binary-compatibility-validator") version "${TestVersions.ThirdPartyDependencies.KOTLINX_BINARY_COMPATIBILITY_VALIDATOR}"
+                        id("org.jetbrains.kotlin.plugin.serialization") version "${'$'}kotlin_version"
+                    """.trimIndent()
+            )
+            build("assemble", "-Pkotlin.session.logger.root.path=$projectPath") {
+                assertFileContains(
+                    fusStatisticsPath,
+                    "KOTLINX_KOVER_GRADLE_PLUGIN_ENABLED=true",
+                    "KOTLINX_SERIALIZATION_GRADLE_PLUGIN_ENABLED=true",
+                    "KOTLINX_ATOMICFU_GRADLE_PLUGIN_ENABLED=true",
+                    "KOTLINX_BINARY_COMPATIBILITY_GRADLE_PLUGIN_ENABLED=true",
+                )
+            }
+        }
+    }
+
+    @MppGradlePluginTests
+    @GradleTest
+    fun testWasmIncrementalStatisticCollection(gradleVersion: GradleVersion) {
+        project(
+            "new-mpp-wasm-test", gradleVersion
+        ) {
+            gradleProperties.writeText("kotlin.incremental.wasm=true")
+
+            buildGradleKts.modify {
+                it
+                    .replace("wasmJs {", "wasmJs {\nbinaries.executable()")
+                    .replace("<JsEngine>", "nodejs")
+            }
+
+            build("compileDevelopmentExecutableKotlinWasmJs", "-Pkotlin.session.logger.root.path=$projectPath") {
+                assertTasksExecuted(":compileDevelopmentExecutableKotlinWasmJs")
+                assertFileContains(
+                    fusStatisticsPath,
+                    "WASM_IR_INCREMENTAL=true",
+                )
+            }
+        }
+    }
+
+    @DisplayName("native compiler arguments")
+    @GradleTest
+    @NativeGradlePluginTests
+    fun testNativeCompilerArguments(gradleVersion: GradleVersion) {
+        nativeProject("native-incremental-simple", gradleVersion) {
+            buildGradleKts.appendText(
+                """
+                |
+                |kotlin {
+                |    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile>().configureEach {
+                |        kotlinOptions {
+                |            freeCompilerArgs += listOf("-Xbinary=gc=noop")
+                |        }
+                |    }
+                |}
+                """.trimMargin())
+
+            build("linkDebugExecutableHost", "-Pkotlin.session.logger.root.path=$projectPath") {
+                assertFileContains(
+                    fusStatisticsPath,
+                    "ENABLED_NOOP_GC=true",
+                )
+            }
+        }
+    }
+
+    private fun TestProject.applyDokka(version: String) {
         buildGradle.replaceText(
             "plugins {",
             """
-                    plugins {
-                        id("org.jetbrains.dokka") version "1.8.10"
-                    """.trimIndent()
+            plugins {
+                id("org.jetbrains.dokka") version "$version"
+            """.trimIndent()
         )
     }
 

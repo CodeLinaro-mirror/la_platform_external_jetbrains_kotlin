@@ -29,18 +29,25 @@ import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 internal interface KaFirSymbol<out S : FirBasedSymbol<*>> : KaSymbol, KaLifetimeOwner {
+    /**
+     * The underlying [FirBasedSymbol] which is used to provide other property implementations.
+     */
     val firSymbol: S
+
     val analysisSession: KaFirSession
     val builder: KaSymbolByFirBuilder get() = analysisSession.firSymbolBuilder
 
     override val token: KaLifetimeToken get() = analysisSession.token
-    override val origin: KaSymbolOrigin get() = withValidityAssertion { firSymbol.fir.ktSymbolOrigin() }
+    override val origin: KaSymbolOrigin get() = withValidityAssertion { symbolOrigin() }
 }
 
-internal fun KaFirSymbol<*>.symbolEquals(other: Any?): Boolean {
-    if (other !is KaFirSymbol<*>) return false
-    return this.firSymbol == other.firSymbol
+internal fun KaFirSymbol<*>.symbolEquals(other: Any?): Boolean = when {
+    this === other -> true
+    other == null || this::class != other::class -> false
+    else -> this.firSymbol == (other as KaFirSymbol<*>).firSymbol
 }
+
+internal fun KaFirSymbol<*>.symbolOrigin(): KaSymbolOrigin = firSymbol.fir.ktSymbolOrigin()
 
 internal fun KaFirSymbol<*>.symbolHashCode(): Int = firSymbol.hashCode()
 
@@ -50,14 +57,15 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KaSymbolOrigin = when (ori
             KtFakeSourceElementKind.ImplicitConstructor,
             KtFakeSourceElementKind.DataClassGeneratedMembers, /* Valid for copy() / componentX(), should we change it? */
             KtFakeSourceElementKind.EnumGeneratedDeclaration,
-            KtFakeSourceElementKind.ItLambdaParameter -> KaSymbolOrigin.SOURCE_MEMBER_GENERATED
+            KtFakeSourceElementKind.ItLambdaParameter,
+                -> KaSymbolOrigin.SOURCE_MEMBER_GENERATED
 
             else -> KaSymbolOrigin.SOURCE
         }
     }
 
     FirDeclarationOrigin.Precompiled -> KaSymbolOrigin.SOURCE
-    FirDeclarationOrigin.Library, FirDeclarationOrigin.BuiltIns -> KaSymbolOrigin.LIBRARY
+    FirDeclarationOrigin.Library, FirDeclarationOrigin.BuiltIns, FirDeclarationOrigin.BuiltInsFallback -> KaSymbolOrigin.LIBRARY
     is FirDeclarationOrigin.Java.Source -> KaSymbolOrigin.JAVA_SOURCE
     is FirDeclarationOrigin.Java.Library -> KaSymbolOrigin.JAVA_LIBRARY
     FirDeclarationOrigin.SamConstructor -> KaSymbolOrigin.SAM_CONSTRUCTOR
@@ -71,6 +79,7 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KaSymbolOrigin = when (ori
             this is FirValueParameter && this.containingFunctionSymbol.origin is FirDeclarationOrigin.Synthetic -> KaSymbolOrigin.SOURCE_MEMBER_GENERATED
             this is FirSyntheticProperty || this is FirSyntheticPropertyAccessor -> KaSymbolOrigin.JAVA_SYNTHETIC_PROPERTY
             origin is FirDeclarationOrigin.Synthetic.ForwardDeclaration -> KaSymbolOrigin.NATIVE_FORWARD_DECLARATION
+            origin is FirDeclarationOrigin.Synthetic.ScriptTopLevelDestructuringDeclarationContainer -> KaSymbolOrigin.SOURCE
 
             else -> errorWithAttachment("Invalid FirDeclarationOrigin ${origin::class.simpleName}") {
                 withFirEntry("firToGetOrigin", this@ktSymbolOrigin)

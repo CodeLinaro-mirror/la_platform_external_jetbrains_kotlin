@@ -9,6 +9,7 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.test.TestMetadata
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -59,9 +60,72 @@ class ComposeIT : KGPBaseTest() {
                     ":compileDebugKotlin",
                     "-P plugin:androidx.compose.compiler.plugins.kotlin:generateFunctionKeyMetaClasses=false," +
                             "plugin:androidx.compose.compiler.plugins.kotlin:sourceInformation=false," +
-                            "plugin:androidx.compose.compiler.plugins.kotlin:traceMarkersEnabled=false",
+                            "plugin:androidx.compose.compiler.plugins.kotlin:traceMarkersEnabled=true",
                     LogLevel.INFO
                 )
+            }
+        }
+    }
+
+    @DisplayName("Should conditionally suggest to migrate to new compose plugin")
+    @AndroidTestVersions(
+        maxVersion = TestVersions.AGP.AGP_86,
+        additionalVersions = [TestVersions.AGP.AGP_85]
+    )
+    @AndroidGradlePluginTests
+    @GradleAndroidTest
+    @TestMetadata("AndroidSimpleApp")
+    fun testAndroidComposeSuggestion(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        providedJdk: JdkVersions.ProvidedJdk
+    ) {
+        project(
+            projectName = "AndroidSimpleApp",
+            gradleVersion = gradleVersion,
+            buildJdk = providedJdk.location,
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion)
+        ) {
+            buildGradle.modify { originalBuildScript ->
+                """
+                |$originalBuildScript
+                |
+                |dependencies {
+                |    implementation "androidx.compose.runtime:runtime:1.6.4"
+                |}
+                |
+                |android.buildFeatures.compose = true
+                |
+                """.trimMargin()
+            }
+
+            gradleProperties.appendText(
+                """
+                android.useAndroidX=true
+                """.trimIndent()
+            )
+
+            buildAndFail("assembleDebug") {
+                when (agpVersion) {
+                    TestVersions.AgpCompatibilityMatrix.AGP_73.version,
+                    TestVersions.AgpCompatibilityMatrix.AGP_74.version,
+                    TestVersions.AgpCompatibilityMatrix.AGP_80.version,
+                    TestVersions.AgpCompatibilityMatrix.AGP_81.version,
+                    TestVersions.AgpCompatibilityMatrix.AGP_82.version,
+                    TestVersions.AgpCompatibilityMatrix.AGP_83.version,
+                    TestVersions.AgpCompatibilityMatrix.AGP_84.version,
+                        -> {
+                        assertOutputContains(APPLY_COMPOSE_SUGGESTION)
+                    }
+                    else -> {
+                        // This error should come from AGP side
+                        assertOutputContains(
+                            "Starting in Kotlin 2.0, the Compose Compiler Gradle plugin is required\n" +
+                                    "  when compose is enabled. See the following link for more information:\n" +
+                                    "  https://d.android.com/r/studio-ui/compose-compiler"
+                        )
+                    }
+                }
             }
         }
     }
@@ -268,6 +332,7 @@ class ComposeIT : KGPBaseTest() {
 
     @DisplayName("Run Compose compiler with the latest runtime")
     @GradleAndroidTest
+    @AndroidTestVersions(minVersion = TestVersions.AGP.MAX_SUPPORTED)
     @OtherGradlePluginTests
     @TestMetadata("AndroidSimpleApp")
     fun testComposePluginWithRuntimeLatest(

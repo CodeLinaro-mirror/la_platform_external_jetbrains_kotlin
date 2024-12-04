@@ -101,8 +101,6 @@ fun createStdLibVersionedDocTask(version: String, isLatest: Boolean) =
                 noJdkLink.set(true)
 
                 displayName.set("Common")
-                sourceRoots.from("$kotlin_root/core/builtins/native")
-                sourceRoots.from("$kotlin_root/core/builtins/src/")
 
                 sourceRoots.from("$kotlin_stdlib_dir/common/src")
                 sourceRoots.from("$kotlin_stdlib_dir/src")
@@ -117,6 +115,8 @@ fun createStdLibVersionedDocTask(version: String, isLatest: Boolean) =
                 dependsOn("common")
 
                 sourceRoots.from("$kotlin_stdlib_dir/jvm/src")
+
+                sourceRoots.from("$kotlin_stdlib_dir/jvm/builtins")
 
                 sourceRoots.from("$kotlin_stdlib_dir/jvm/runtime/kotlin/jvm/annotations")
                 sourceRoots.from("$kotlin_stdlib_dir/jvm/runtime/kotlin/jvm/JvmClassMapping.kt")
@@ -148,20 +148,12 @@ fun createStdLibVersionedDocTask(version: String, isLatest: Boolean) =
                 listOf(
                     "Annotation.kt",
                     "Any.kt",
-                    "Array.kt",
                     "CharSequence.kt",
                     "Comparable.kt",
                     "Iterator.kt",
                     "Nothing.kt",
                     "Number.kt",
-                ).forEach { sourceRoots.from("$kotlin_root/core/builtins/native/kotlin/$it") }
-
-                listOf(
-                    "annotation/Annotations.kt",
-                    "Function.kt",
-                    "internal/InternalAnnotations.kt",
-                    "Unit.kt",
-                ).forEach { sourceRoots.from("$kotlin_root/core/builtins/src/kotlin/$it") }
+                ).forEach { sourceRoots.from("$kotlin_stdlib_dir/jvm/builtins/$it") }
 
                 perPackageOption("org.w3c") {
                     reportUndocumented.set(false)
@@ -286,7 +278,7 @@ fun createKotlinTestVersionedDocTask(version: String, isLatest: Boolean) =
 
         val kotlinTestIncludeMd = file("$kotlin_root/libraries/kotlin.test/Module.md")
 
-        val kotlinTestCommonClasspath = fileTree("$kotlin_libs/kotlin-test-common")
+        val kotlinTestCommonClasspath = fileTree("$kotlin_libs/kotlin-stdlib-common")
         val kotlinTestJunitClasspath = fileTree("$kotlin_libs/kotlin-test-junit")
         val kotlinTestJunit5Classpath = fileTree("$kotlin_libs/kotlin-test-junit5")
         val kotlinTestTestngClasspath = fileTree("$kotlin_libs/kotlin-test-testng")

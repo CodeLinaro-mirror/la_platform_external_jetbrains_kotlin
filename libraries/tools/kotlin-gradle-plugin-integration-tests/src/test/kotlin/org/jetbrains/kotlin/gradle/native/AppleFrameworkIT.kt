@@ -9,7 +9,6 @@ import org.gradle.api.JavaVersion
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
-import org.jetbrains.kotlin.gradle.testbase.TestVersions.Gradle
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
@@ -21,7 +20,6 @@ import kotlin.io.path.*
 
 @OsCondition(supportedOn = [OS.MAC], enabledOnCI = [OS.MAC])
 @DisplayName("Tests for K/N with Apple Framework")
-@GradleTestVersions(minVersion = Gradle.G_7_0)
 @NativeGradlePluginTests
 class AppleFrameworkIT : KGPBaseTest() {
 
@@ -44,7 +42,7 @@ class AppleFrameworkIT : KGPBaseTest() {
                 "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/builtProductsDir").toString(),
             )
 
-            build("assembleDebugAppleFrameworkForXcodeIosArm64", environmentVariables = environmentVariables) {
+            build("assembleDebugAppleFrameworkForXcodeIosArm64", "symbolicLinkToAssembleDebugAppleFrameworkForXcodeIosArm64", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeIosArm64")
                 assertSymlinkInProjectPointsToProjectPath(
                     "shared/build/builtProductsDir/sdk.framework",
@@ -65,7 +63,7 @@ class AppleFrameworkIT : KGPBaseTest() {
 
             build("clean")
 
-            build("assembleCustomDebugAppleFrameworkForXcodeIosArm64", environmentVariables = environmentVariables) {
+            build("assembleCustomDebugAppleFrameworkForXcodeIosArm64", "symbolicLinkToAssembleCustomDebugAppleFrameworkForXcodeIosArm64",  environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:assembleCustomDebugAppleFrameworkForXcodeIosArm64")
                 assertSymlinkInProjectPointsToProjectPath(
                     "shared/build/builtProductsDir/lib.framework",
@@ -81,6 +79,7 @@ class AppleFrameworkIT : KGPBaseTest() {
 
             build(
                 "assembleWithoutSymbolicLinkDebugAppleFrameworkForXcodeIosArm64",
+                "symbolicLinkToAssembleWithoutSymbolicLinkDebugAppleFrameworkForXcodeIosArm64",
                 "-Pkotlin.apple.createSymbolicLinkToFrameworkInBuiltProductsDir=false",
                 environmentVariables = environmentVariables
             ) {
@@ -110,7 +109,7 @@ class AppleFrameworkIT : KGPBaseTest() {
                 "ARCHS" to "arm64 x86_64",
                 "TARGET_BUILD_DIR" to "no use",
                 "FRAMEWORKS_FOLDER_PATH" to "no use",
-                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/xcode-frameworks/Release/iphonesimulator").toString(),
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/builtProductsDir").toString(),
             )
             build("assembleReleaseAppleFrameworkForXcode", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:linkReleaseFrameworkIosSimulatorArm64")
@@ -145,7 +144,7 @@ class AppleFrameworkIT : KGPBaseTest() {
                 "EXPANDED_CODE_SIGN_IDENTITY" to "-",
                 "TARGET_BUILD_DIR" to testBuildDir.toString(),
                 "FRAMEWORKS_FOLDER_PATH" to "build/xcode-derived",
-                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/xcode-frameworks/debug/macosx").toString(),
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/builtProductsDir").toString(),
             )
             build(":shared:embedAndSignAppleFrameworkForXcode", environmentVariables = environmentVariables) {
                 assertTasksExecuted(":shared:assembleDebugAppleFrameworkForXcodeMacosX64")
@@ -378,7 +377,7 @@ class AppleFrameworkIT : KGPBaseTest() {
                 "ARCHS" to "arm64",
                 "TARGET_BUILD_DIR" to "no use",
                 "FRAMEWORKS_FOLDER_PATH" to "no use",
-                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/xcode-frameworks/debug/iphoneos123").toString(),
+                "BUILT_PRODUCTS_DIR" to projectPath.resolve("shared/build/builtProductsDir").toString(),
             )
 
             subProject("shared").buildGradleKts.modify {
@@ -399,6 +398,7 @@ class AppleFrameworkIT : KGPBaseTest() {
 
     @DisplayName("Configuration errors reported to Xcode when embedAndSign task requested")
     @OptIn(EnvironmentalVariablesOverride::class)
+    @GradleTestVersions(additionalVersions = [TestVersions.Gradle.G_8_1])
     @GradleTest
     fun shouldReportConfErrorsToXcodeWhenRequestedByEmbedAndSign(
         gradleVersion: GradleVersion,
@@ -577,7 +577,11 @@ class AppleFrameworkIT : KGPBaseTest() {
         nativeProject(
             "appleGradlePluginConsumesAppleFrameworks",
             gradleVersion,
-            buildJdk = providedJdk.location
+            buildJdk = providedJdk.location,
+            buildOptions = defaultBuildOptions.copy(
+                // Apple plugin doesn't support configuration cache
+                configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED,
+            )
         ) {
             fun dependencyInsight(configuration: String) = arrayOf(
                 ":iosApp:dependencyInsight", "--configuration", configuration, "--dependency", "iosLib"
@@ -607,13 +611,12 @@ class AppleFrameworkIT : KGPBaseTest() {
     // Should always be green because the CI Xcode version must be supported
     @DisplayName("Xcode version too high diagnostic isn't emitted")
     @GradleTest
-    @GradleTestVersions(minVersion = Gradle.G_7_4)
     fun testXcodeVersionTooHighDiagnosticNotEmitted(gradleVersion: GradleVersion) {
         nativeProject(
             "sharedAppleFramework",
             gradleVersion,
             // enable CC to make sure that external process isn't run during configuration
-            buildOptions = defaultBuildOptions.copy(configurationCache = true),
+            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED),
         ) {
             build(":shared:linkReleaseFrameworkIosSimulatorArm64") {
                 assertNoDiagnostic(KotlinToolingDiagnostics.XcodeVersionTooHighWarning)

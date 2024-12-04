@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.toFirRegularClass
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.serialization.FirElementAwareStringTable
 import org.jetbrains.kotlin.fir.serialization.FirElementSerializer
 import org.jetbrains.kotlin.fir.serialization.TypeApproximatorForMetadataSerializer
@@ -58,7 +58,7 @@ fun makeFirMetadataSerializerForIrClass(
         localDelegatedProperties,
         approximator,
         components,
-        FirJvmElementAwareStringTable(context.defaultTypeMapper, components, context.isEnclosedInConstructor.toList())
+        FirJvmElementAwareStringTable(context.defaultTypeMapper, components)
     )
     return FirMetadataSerializer(
         context.state.globalSerializationBindings,
@@ -87,7 +87,7 @@ fun makeLocalFirMetadataSerializerForMetadataSource(
 
     val stringTable = object : JvmStringTable(null), FirElementAwareStringTable {
         override fun getLocalClassIdReplacement(firClass: FirClass): ClassId =
-            ((firClass as? FirRegularClass)?.containingClassForLocal()?.toFirRegularClass(session) ?: firClass)
+            ((firClass as? FirRegularClass)?.containingClassForLocal()?.toRegularClassSymbol(session)?.fir ?: firClass)
                 .symbol.classId
     }
 
@@ -326,7 +326,7 @@ private fun ConeKotlinType.collectTypeParameters(c: MutableCollection<FirTypePar
             upperBound.collectTypeParameters(c)
         }
         is ConeClassLikeType ->
-            for (projection in type.typeArguments) {
+            for (projection in typeArguments) {
                 if (projection is ConeKotlinTypeProjection) {
                     projection.type.collectTypeParameters(c)
                 }

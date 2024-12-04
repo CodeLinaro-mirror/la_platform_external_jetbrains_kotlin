@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.js.test.converters
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContextImpl
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.messageCollector
@@ -37,26 +38,26 @@ import org.jetbrains.kotlin.test.services.libraryProvider
 
 class JsIrDeserializerFacade(
     testServices: TestServices,
-    private val firstTimeCompilation: Boolean,
+    private val firstTimeCompilation: Boolean = true,
 ) : DeserializerFacade<BinaryArtifacts.KLib, IrBackendInput>(testServices, ArtifactKinds.KLib, BackendKinds.IrBackend) {
 
     override fun shouldRunAnalysis(module: TestModule): Boolean {
-        return module.backendKind == outputKind && JsEnvironmentConfigurator.isMainModule(module, testServices)
+        return module.backendKind == outputKind
     }
 
     override fun transform(module: TestModule, inputArtifact: BinaryArtifacts.KLib): IrBackendInput? {
-        require(JsEnvironmentConfigurator.isMainModule(module, testServices))
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
 
         // Enforce PL with the ERROR log level to fail any tests where PL detected any incompatibilities.
         configuration.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.ERROR))
 
         val (moduleInfo, pluginContext) = loadIrFromKlib(module, configuration)
+        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
         return IrBackendInput.JsIrDeserializedFromKlibBackendInput(
             moduleInfo,
             irPluginContext = pluginContext,
-            diagnosticReporter = DiagnosticReporterFactory.createReporter(),
+            diagnosticReporter = DiagnosticReporterFactory.createReporter(messageCollector),
             klib = inputArtifact.outputFile,
         )
     }

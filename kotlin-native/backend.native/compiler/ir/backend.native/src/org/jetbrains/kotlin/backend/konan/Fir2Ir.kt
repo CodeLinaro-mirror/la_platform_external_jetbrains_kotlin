@@ -15,27 +15,21 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.konan.KonanBuiltIns
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.descriptors.isEmpty
 import org.jetbrains.kotlin.descriptors.konan.isNativeStdlib
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
-import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.backend.*
-import org.jetbrains.kotlin.fir.backend.native.FirNativeKotlinMangler
-import org.jetbrains.kotlin.fir.backend.native.interop.isExternalObjCClassProperty
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.declarations.utils.isLateInit
+import org.jetbrains.kotlin.fir.backend.DelicateDeclarationStorageApi
+import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
+import org.jetbrains.kotlin.fir.backend.Fir2IrPluginContext
+import org.jetbrains.kotlin.fir.backend.Fir2IrVisibilityConverter
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.pipeline.convertToIrAndActualize
-import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
-import org.jetbrains.kotlin.ir.declarations.IrOverridableDeclaration
-import org.jetbrains.kotlin.ir.objcinterop.IrObjCOverridabilityCondition
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContextImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
@@ -46,23 +40,6 @@ import org.jetbrains.kotlin.name.NativeForwardDeclarationKind
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 
 internal val KlibFactories = KlibMetadataFactories(::KonanBuiltIns, DynamicTypeDeserializer)
-
-internal object NativeFir2IrExtensions : Fir2IrExtensions {
-    override val irNeedsDeserialization = false
-    override val parametersAreAssignable: Boolean get() = false
-    override val externalOverridabilityConditions = listOf(IrObjCOverridabilityCondition)
-    override fun deserializeToplevelClass(irClass: IrClass, components: Fir2IrComponents) = false
-    override fun findInjectedValue(calleeReference: FirReference, conversionScope: Fir2IrConversionScope) = null
-    override fun hasBackingField(property: FirProperty, session: FirSession): Boolean =
-            if (property.isExternalObjCClassProperty(session))
-                property.isLateInit
-            else
-                Fir2IrExtensions.Default.hasBackingField(property, session)
-
-    override fun isTrueStatic(declaration: FirCallableDeclaration, session: FirSession): Boolean = false
-    override fun initializeIrBuiltInsAndSymbolTable(irBuiltIns: IrBuiltIns, symbolTable: SymbolTable) {}
-    override fun shouldGenerateDelegatedMember(delegateMemberCandidate: IrOverridableDeclaration<*>): Boolean = true
-}
 
 internal fun PhaseContext.fir2Ir(
         input: FirOutput.Full,
@@ -93,7 +70,8 @@ internal fun PhaseContext.fir2Ir(
         // Yes, just to all of them.
         moduleDescriptor.setDependencies(ArrayList(librariesDescriptors))
     }
-    val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
+    val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+    val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
 
     val fir2IrConfiguration = Fir2IrConfiguration.forKlibCompilation(configuration, diagnosticsReporter)
     val actualizedResult = input.firResult.convertToIrAndActualize(
@@ -101,11 +79,10 @@ internal fun PhaseContext.fir2Ir(
             fir2IrConfiguration,
             IrGenerationExtension.getInstances(config.project),
             irMangler = KonanManglerIr,
-            firMangler = FirNativeKotlinMangler,
             visibilityConverter = Fir2IrVisibilityConverter.Default,
             kotlinBuiltIns = builtInsModule ?: DefaultBuiltIns.Instance,
             specialAnnotationsProvider = null,
-            extraActualDeclarationExtractorInitializer = { null },
+            extraActualDeclarationExtractorsInitializer = { emptyList() },
             typeSystemContextProvider = ::IrTypeSystemContextImpl,
     ).also {
         (it.irModuleFragment.descriptor as? FirModuleDescriptor)?.let { it.allDependencyModules = librariesDescriptors }

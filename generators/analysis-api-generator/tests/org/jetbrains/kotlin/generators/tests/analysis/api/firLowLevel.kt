@@ -6,34 +6,12 @@
 package org.jetbrains.kotlin.generators.tests.analysis.api
 
 import org.jetbrains.kotlin.analysis.low.level.api.fir.*
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.AbstractFirOutOfContentRootContextCollectionTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.AbstractFirSourceContextCollectionTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.AbstractScriptContextCollectionTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.AbstractScriptDiagnosticTraversalCounterTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.AbstractSourceDiagnosticTraversalCounterTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractDiagnosticCompilerTestDataTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirBlackBoxCodegenBasedTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirDiagnosticCompilerTestDataSpecTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataSpecTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirPreresolvedReversedScriptDiagnosticCompilerTestDataTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirReversedBlackBoxCodegenBasedTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.AbstractLLFirScriptDiagnosticCompilerTestDataTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.*
+import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.*
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractErrorResistanceTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractOutOfContentRootLazyDeclarationResolveScopeBasedTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractOutOfContentRootWholeFileResolvePhaseTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractScriptLazyDeclarationResolveScopeBasedTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractScriptWholeFileResolvePhaseTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractSourceLazyDeclarationResolveScopeBasedTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.AbstractSourceWholeFileResolvePhaseTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.resolve.extensions.AbstractResolveExtensionDisposalAfterModificationEventTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractCodeFragmentContextModificationLLFirSessionInvalidationTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractGlobalModuleStateModificationLLFirSessionInvalidationTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractGlobalSourceModuleStateModificationLLFirSessionInvalidationTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractGlobalSourceOutOfBlockModificationLLFirSessionInvalidationTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractModuleOutOfBlockModificationLLFirSessionInvalidationTest
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.AbstractModuleStateModificationLLFirSessionInvalidationTest
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.*
 import org.jetbrains.kotlin.generators.TestGroup
 import org.jetbrains.kotlin.generators.TestGroupSuite
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
@@ -58,6 +36,14 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
     }
 
     testGroup("analysis/low-level-api-fir/tests", "analysis/low-level-api-fir/testData") {
+        testClass<AbstractSourceLazyAnnotationsResolveTest> {
+            model("lazyAnnotations", pattern = TestGeneratorUtil.KT)
+        }
+
+        testClass<AbstractScriptLazyAnnotationsResolveTest> {
+            model("lazyAnnotations", pattern = TestGeneratorUtil.KTS)
+        }
+
         testClass<AbstractFirSourceLazyDeclarationResolveTest> {
             model("lazyResolve", pattern = TestGeneratorUtil.KT)
         }
@@ -104,6 +90,10 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractBuiltinsBinaryLazyDeclarationResolveTest> {
             model("lazyResolveBuiltinsBinary")
+        }
+
+        testClass<AbstractFirSourceLazyDeclarationResolveByReferenceTest> {
+            model("lazyResolveByReference")
         }
 
         testClass<AbstractSourceLazyDeclarationResolveScopeBasedTest> {
@@ -310,6 +300,11 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
         testClass<AbstractResolveExtensionDisposalAfterModificationEventTest> {
             model("resolveExtensionDisposal")
         }
+
+        testClass<AbstractFirClassByPsiClassProviderTest> {
+            model("firClassByPsiClass")
+        }
+
     }
 
     testGroup("analysis/low-level-api-fir/tests", "analysis/analysis-api/testData") {
@@ -340,12 +335,40 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
         "analysis/low-level-api-fir/tests",
         "plugins/scripting/scripting-tests/testData",
     ) {
-        testClass<AbstractLLFirScriptDiagnosticCompilerTestDataTest> {
-            model("diagnostics/testScripts", pattern = TestGeneratorUtil.KTS)
+        run {
+            fun TestGroup.TestClass.scriptDiagnosticsInit() {
+                model(
+                    "diagnostics/testScripts",
+                    pattern = TestGeneratorUtil.KTS,
+                    excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN,
+                )
+            }
+
+            testClass<AbstractLLFirScriptDiagnosticCompilerTestDataTest> {
+                scriptDiagnosticsInit()
+            }
+
+            testClass<AbstractLLFirPreresolvedReversedScriptDiagnosticCompilerTestDataTest>() {
+                scriptDiagnosticsInit()
+            }
         }
 
-        testClass<AbstractLLFirPreresolvedReversedScriptDiagnosticCompilerTestDataTest>() {
-            model("diagnostics/testScripts", pattern = TestGeneratorUtil.KTS)
+        run {
+            fun TestGroup.TestClass.scriptCustomDefBackBoxInit() {
+                model(
+                    "codegen/testScripts",
+                    excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN,
+                    pattern = KT_OR_KTS,
+                )
+            }
+
+            testClass<AbstractLLFirCustomDefScriptBlackBoxCodegenBasedTest> {
+                scriptCustomDefBackBoxInit()
+            }
+
+            testClass<AbstractLLFirReversedCustomDefScriptBlackBoxCodegenBasedTest>() {
+                scriptCustomDefBackBoxInit()
+            }
         }
     }
 
@@ -380,6 +403,7 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
                 "codegen/box",
                 excludeDirs = listOf(
                     "script", // script is excluded until KT-60127 is implemented
+                    "multiplatform/k1",
                 )
             )
         }
@@ -389,6 +413,7 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
                 "codegen/box",
                 excludeDirs = listOf(
                     "script", // script is excluded until KT-60127 is implemented
+                    "multiplatform/k1",
                 )
             )
         }
@@ -399,6 +424,20 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractLLFirReversedBlackBoxCodegenBasedTest>(suiteTestClassName = "LLFirReversedBlackBoxModernJdkCodegenBasedTestGenerated") {
             model("codegen/boxModernJdk")
+        }
+
+        run {
+            fun TestGroup.TestClass.scriptBlackBoxInit() {
+                model("codegen/script", pattern = TestGeneratorUtil.KTS)
+            }
+
+            testClass<AbstractLLFirScriptBlackBoxCodegenBasedTest> {
+                scriptBlackBoxInit()
+            }
+
+            testClass<AbstractLLFirReversedScriptBlackBoxCodegenBasedTest> {
+                scriptBlackBoxInit()
+            }
         }
     }
 
@@ -444,6 +483,38 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractCodeFragmentContextModificationLLFirSessionInvalidationTest> {
             model("sessions/sessionInvalidation")
+        }
+    }
+
+    testGroup(testsRoot = "analysis/low-level-api-fir/tests", testDataRoot = "plugins/kotlinx-serialization/testData") {
+        run {
+            fun TestGroup.TestClass.diagnosticsModelInit() {
+                model("diagnostics", excludedPattern = TestGeneratorUtil.KT_OR_KTS_WITH_FIR_PREFIX)
+                model("firMembers")
+            }
+
+            testClass<AbstractLLFirSerializationDiagnosticTest> {
+                diagnosticsModelInit()
+            }
+
+            testClass<AbstractLLFirReversedSerializationDiagnosticTest> {
+                diagnosticsModelInit()
+            }
+        }
+
+        run {
+            fun TestGroup.TestClass.blackBoxModelInit() {
+                model("boxIr")
+                model("codegen")
+            }
+
+            testClass<AbstractLLFirSerializationBlackBoxCodegenBasedTest> {
+                blackBoxModelInit()
+            }
+
+            testClass<AbstractLLFirReversedSerializationBlackBoxCodegenBasedTest> {
+                blackBoxModelInit()
+            }
         }
     }
 }

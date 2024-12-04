@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.gradle.targets.native.toolchain
 
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Input
@@ -17,25 +16,11 @@ import org.jetbrains.kotlin.gradle.plugin.KOTLIN_NATIVE_BUNDLE_CONFIGURATION_NAM
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.utils.NativeCompilerDownloader
 import org.jetbrains.kotlin.gradle.utils.property
+import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import java.io.File
 
-/**
- * This is a nested provider for all native tasks
- */
-internal class KotlinNativeProvider(
-    project: Project,
-    konanTargets: Set<KonanTarget>,
-    kotlinNativeBundleBuildService: Provider<KotlinNativeBundleBuildService>,
-    enableDependenciesDownloading: Boolean = true,
-) {
-    constructor(
-        project: Project,
-        konanTarget: KonanTarget,
-        kotlinNativeBundleBuildService: Provider<KotlinNativeBundleBuildService>,
-    ) : this(project, setOf(konanTarget), kotlinNativeBundleBuildService)
-
-    private val providerFactory = project.providers
-
+internal sealed class KotlinNativeProvider(project: Project) {
     @get:Internal
     val konanDataDir: Provider<String?> = project.nativeProperties.konanDataDir.map {
         @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")
@@ -46,8 +31,31 @@ internal class KotlinNativeProvider(
     val toolchainEnabled: Provider<Boolean> = project.nativeProperties.isToolchainEnabled
 
     @get:Internal
-    val bundleDirectory: DirectoryProperty = project.objects.directoryProperty()
-        .fileProvider(project.nativeProperties.actualNativeHomeDirectory)
+    //Using DirectoryProperty causes the native directory to be included in the configuration cache input.
+    internal val bundleDirectory: Provider<String> = project.nativeProperties.actualNativeHomeDirectory.map { it.absolutePath }
+}
+
+/**
+ * This Kotlin Native provider is a stub for the cases, when Kotlin Native tasks are not supported to be built.
+ */
+internal class NoopKotlinNativeProvider(project: Project) : KotlinNativeProvider(project)
+
+/**
+ * This Kotlin Native provider is used to get a kotlin native bundle from provided K/N toolchain.
+ */
+internal class KotlinNativeFromToolchainProvider(
+    project: Project,
+    konanTargets: Set<KonanTarget>,
+    kotlinNativeBundleBuildService: Provider<KotlinNativeBundleBuildService>,
+    enableDependenciesDownloading: Boolean = true,
+) : KotlinNativeProvider(project) {
+    constructor(
+        project: Project,
+        konanTarget: KonanTarget,
+        kotlinNativeBundleBuildService: Provider<KotlinNativeBundleBuildService>,
+    ) : this(project, setOf(konanTarget), kotlinNativeBundleBuildService)
+
+    private val providerFactory = project.providers
 
     @get:Internal
     val overriddenKonanHome: Provider<String> = project.nativeProperties.userProvidedNativeHome
@@ -68,7 +76,7 @@ internal class KotlinNativeProvider(
                 project,
                 kotlinNativeCompilerConfiguration,
                 kotlinNativeVersion,
-                bundleDir.asFile,
+                File(bundleDir),
                 reinstallFlag,
                 konanTargets,
                 overriddenKonanHome.orNull
@@ -84,7 +92,7 @@ internal class KotlinNativeProvider(
                 if (toolchainEnabled.get() && enableDependenciesDownloading) {
                     kotlinNativeBundleBuildService.get()
                         .downloadNativeDependencies(
-                            bundleDir.asFile,
+                            File(bundleDir),
                             konanDataDir.orNull,
                             konanTargets,
                             project.logger
@@ -111,3 +119,16 @@ internal class KotlinNativeProvider(
             }
         )
 }
+
+internal fun UsesKotlinNativeBundleBuildService.chooseKotlinNativeProvider(enabledOnCurrenHost: Boolean, konanTarget: KonanTarget, ): KotlinNativeProvider {
+    if (enabledOnCurrenHost) {
+        return KotlinNativeFromToolchainProvider(project, konanTarget, kotlinNativeBundleBuildService)
+    } else {
+        return NoopKotlinNativeProvider(project)
+    }
+}
+
+internal val KotlinNativeProvider.konanDistribution
+    get() = bundleDirectory.map {
+        Distribution(it)
+    }

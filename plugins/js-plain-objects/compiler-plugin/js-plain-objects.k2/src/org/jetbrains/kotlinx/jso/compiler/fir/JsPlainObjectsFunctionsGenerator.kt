@@ -9,32 +9,31 @@ import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.fir.FirFunctionTarget
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-import org.jetbrains.kotlin.fir.declarations.builder.*
+import org.jetbrains.kotlin.fir.declarations.builder.buildRegularClass
+import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.builder.buildTypeParameterCopy
+import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.builder.*
+import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpression
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
 import org.jetbrains.kotlin.fir.extensions.NestedClassGenerationContext
 import org.jetbrains.kotlin.fir.extensions.predicateBasedProvider
-import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
+import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.kotlinScopeProvider
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.*
-import org.jetbrains.kotlin.fir.toEffectiveVisibility
-import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.name.CallableId
@@ -136,7 +135,7 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
     }
 
     override fun getCallableNamesForClass(classSymbol: FirClassSymbol<*>, context: MemberGenerationContext): Set<Name> {
-        val outerClass = classSymbol.getContainingClassSymbol(session)
+        val outerClass = classSymbol.getContainingClassSymbol()
         return when {
             classSymbol.isCompanion && outerClass?.isJsPlainObject == true -> setOf(OperatorNameConventions.INVOKE)
             classSymbol.isJsPlainObject -> setOf(StandardNames.DATA_CLASS_COPY)
@@ -172,7 +171,7 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
         jsPlainObjectInterface: FirRegularClassSymbol,
     ): FirSimpleFunction {
         return createJsPlainObjectsFunction(callableId, parent, jsPlainObjectInterface) {
-            runIf(resolvedReturnTypeRef.type.isNullable) {
+            runIf(resolvedReturnTypeRef.coneType.isMarkedOrFlexiblyNullable) {
                 buildPropertyAccessExpression {
                     calleeReference = buildResolvedNamedReference {
                         name = StandardIds.VOID_PROPERTY_NAME
@@ -241,12 +240,12 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
                         containingDeclarationSymbol = functionalSymbol
                     }
                     typeParameterSubstitutionMap[it] = ConeTypeParameterTypeImpl(
-                        typeParameter.symbol.toLookupTag(), isNullable = false
+                        typeParameter.symbol.toLookupTag(), isMarkedNullable = false
                     )
                     typeParameter
                 }
 
-                val localTypeParameterSubstitutor = ConeSubstitutorByMap.create(typeParameterSubstitutionMap, session).also {
+                val localTypeParameterSubstitutor = substitutorByMap(typeParameterSubstitutionMap, session).also {
                     typeParameterSubstitutor = it
                 }
 
@@ -275,7 +274,7 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
                     moduleData = session.moduleData
                     origin = JsPlainObjectsPluginKey.origin
                     returnTypeRef = typeParameterSubstitutor?.let { subst ->
-                        typeRef.withReplacedConeType(subst.substituteOrNull(typeRef.type))
+                        typeRef.withReplacedConeType(subst.substituteOrNull(typeRef.coneType))
                     } ?: typeRef
                     name = it.name
                     symbol = FirValueParameterSymbol(it.name)

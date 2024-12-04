@@ -6,14 +6,19 @@
 package org.jetbrains.kotlin.fir.backend.utils
 
 import org.jetbrains.kotlin.fir.FirElement
+import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.utils.isStatic
 import org.jetbrains.kotlin.fir.expressions.FirComponentCall
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutorByMap
+import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
@@ -117,7 +122,7 @@ internal fun FirQualifiedAccessExpression.buildSubstitutorByCalledCallable(c: Fi
         val typeProjection = typeArguments.getOrNull(index) as? FirTypeProjectionWithVariance ?: continue
         map[typeParameter.symbol] = typeProjection.typeRef.coneType
     }
-    return ConeSubstitutorByMap.create(map, c.session)
+    return substitutorByMap(map, c.session)
 }
 
 internal inline fun <R> convertCatching(element: FirElement, conversionScope: Fir2IrConversionScope? = null, block: () -> R): R {
@@ -152,13 +157,6 @@ fun IrType.getArrayElementType(builtins: Fir2IrBuiltinSymbolsContainer): IrType 
     }
 }
 
-fun IrType.toArrayOrPrimitiveArrayType(builtins: Fir2IrBuiltinSymbolsContainer): IrType {
-    return when {
-        isPrimitiveType() -> builtins.primitiveArrayForType[this]?.defaultType ?: error("$this not in primitiveArrayForType")
-        else -> builtins.arrayClass.typeWith(this)
-    }
-}
-
 val IrClassSymbol.defaultTypeWithoutArguments: IrSimpleType
     get() = IrSimpleTypeImpl(
         classifier = this,
@@ -166,3 +164,11 @@ val IrClassSymbol.defaultTypeWithoutArguments: IrSimpleType
         arguments = emptyList(),
         annotations = emptyList()
     )
+
+val FirCallableSymbol<*>.isInlineClassProperty: Boolean
+    get() {
+        if (this !is FirPropertySymbol || dispatchReceiverType == null || receiverParameter != null || resolvedContextReceivers.isNotEmpty()) return false
+        val containingClass = getContainingClassSymbol() as? FirRegularClassSymbol ?: return false
+        val inlineClassRepresentation = containingClass.fir.inlineClassRepresentation ?: return false
+        return inlineClassRepresentation.underlyingPropertyName == this.name
+    }

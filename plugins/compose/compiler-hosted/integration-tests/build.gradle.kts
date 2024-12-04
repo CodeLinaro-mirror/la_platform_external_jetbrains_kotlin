@@ -10,7 +10,7 @@ repositories {
     if (!kotlinBuildProperties.isTeamcityBuild) {
         androidXMavenLocal(androidXMavenLocalPath)
     }
-    androidxSnapshotRepo(libs.versions.compose.snapshot.id.get())
+    androidxSnapshotRepo(composeRuntimeSnapshot.versions.snapshot.id.get())
     composeGoogleMaven(libs.versions.compose.stable.get())
 }
 
@@ -73,8 +73,9 @@ kotlin {
                 implementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-coroutines-test-jvm"))
 
                 // runtime tests
-                implementation(composeRuntime())
-                implementation(composeRuntimeTestUtils())
+                implementationArtifactOnly(composeRuntime())
+                implementationArtifactOnly(composeRuntimeTestUtils())
+                implementation(libs.androidx.collections)
 
                 // other compose
                 implementationArtifactOnly(compose("foundation", "foundation"))
@@ -99,6 +100,7 @@ tasks.withType(Test::class.java).configureEach {
     this.jvmArgs("--add-opens=jdk.jdi/com.sun.tools.jdi=ALL-UNNAMED")
     // ensure that debugger tests don't launch a separate window
     this.systemProperty("java.awt.headless", "true")
+    this.environment("CI", kotlinBuildProperties.isTeamcityBuild)
     // runtime tests are executed in this module with compiler built from source (see androidx.compose.compiler.plugins.kotlin.RuntimeTests)
     this.inputs.dir(File(rootDir, "plugins/compose/compiler-hosted/runtime-tests/src")).withPathSensitivity(PathSensitivity.RELATIVE)
 }

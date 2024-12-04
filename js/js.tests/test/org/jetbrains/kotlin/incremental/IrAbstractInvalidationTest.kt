@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.incremental
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.js.klib.generateIrForKlibSerialization
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.ir.backend.js.*
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsGenerationGranularity
@@ -70,7 +71,7 @@ abstract class IrAbstractInvalidationTest(
     targetBackend: TargetBackend,
     granularity: JsGenerationGranularity,
     workingDirPath: String
-) : AbstractInvalidationTest(targetBackend, granularity, workingDirPath) {
+) : JsAbstractInvalidationTest(targetBackend, granularity, workingDirPath) {
     override fun buildKlib(
         configuration: CompilerConfiguration,
         moduleName: String,
@@ -94,7 +95,7 @@ abstract class IrAbstractInvalidationTest(
 
         val moduleSourceFiles = (sourceModule.mainModule as MainModule.SourceFiles).files
         val icData = sourceModule.compilerConfiguration.incrementalDataProvider?.getSerializedData(moduleSourceFiles) ?: emptyList()
-        val (moduleFragment, _) = generateIrForKlibSerialization(
+        val (moduleFragment, irPluginContext) = generateIrForKlibSerialization(
             environment.project,
             moduleSourceFiles,
             configuration,
@@ -113,7 +114,8 @@ abstract class IrAbstractInvalidationTest(
             jsOutputName = moduleName,
             icData = icData,
             moduleFragment = moduleFragment,
-            diagnosticReporter = DiagnosticReporterFactory.createPendingReporter(),
+            irBuiltIns = irPluginContext.irBuiltIns,
+            diagnosticReporter = DiagnosticReporterFactory.createPendingReporter(configuration.messageCollector),
         )
     }
 }

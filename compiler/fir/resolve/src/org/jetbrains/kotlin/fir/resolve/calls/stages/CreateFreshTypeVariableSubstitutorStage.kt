@@ -18,9 +18,12 @@ import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.inference.ConeTypeParameterBasedTypeVariable
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeDeclaredUpperBoundConstraintPosition
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeExplicitTypeParameterConstraintPosition
+import org.jetbrains.kotlin.fir.resolve.substitution.ChainedSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
+import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.impl.toConeType
+import org.jetbrains.kotlin.fir.scopes.impl.typeAliasConstructorSubstitutor
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
@@ -70,7 +73,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
                 is FirStarProjection -> csBuilder.addEqualityConstraint(
                     freshVariable.defaultType,
                     typeParameter.symbol.resolvedBounds.firstOrNull()?.coneType
-                        ?: context.session.builtinTypes.nullableAnyType.type,
+                        ?: context.session.builtinTypes.nullableAnyType.coneType,
                     SimpleConstraintSystemConstraintPosition
                 )
                 else -> assert(typeArgument is FirPlaceholderProjection) {
@@ -139,9 +142,9 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
     ): ConeKotlinType {
         return if (typeParameter.shouldBeFlexible(session.typeContext)) {
             when (type) {
-                is ConeSimpleKotlinType -> ConeFlexibleType(
-                    type.withNullability(ConeNullability.NOT_NULL, session.typeContext),
-                    type.withNullability(ConeNullability.NULLABLE, session.typeContext)
+                is ConeRigidType -> ConeFlexibleType(
+                    type.withNullability(nullable = false, session.typeContext),
+                    type.withNullability(nullable = true, session.typeContext)
                 )
                 /*
                  * ConeFlexibleTypes have to be handled here
@@ -153,8 +156,8 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
                  * but better safe than sorry when dealing with raw types)
                  */
                 is ConeFlexibleType -> ConeFlexibleType(
-                    type.lowerBound.withNullability(ConeNullability.NOT_NULL, session.typeContext),
-                    type.upperBound.withNullability(ConeNullability.NULLABLE, session.typeContext)
+                    type.lowerBound.withNullability(nullable = false, session.typeContext),
+                    type.upperBound.withNullability(nullable = true, session.typeContext)
                 )
             }
         } else {
@@ -178,7 +181,7 @@ internal object CreateFreshTypeVariableSubstitutorStage : ResolutionStage() {
 private fun createToFreshVariableSubstitutorAndAddInitialConstraints(
     declaration: FirTypeParameterRefsOwner,
     csBuilder: ConstraintSystemOperation,
-    session: FirSession
+    session: FirSession,
 ): Pair<ConeSubstitutor, List<ConeTypeVariable>> {
 
     val typeParameters = declaration.typeParameters
@@ -186,6 +189,14 @@ private fun createToFreshVariableSubstitutorAndAddInitialConstraints(
     val freshTypeVariables = typeParameters.map { ConeTypeParameterBasedTypeVariable(it.symbol) }
 
     val toFreshVariables = substitutorByMap(freshTypeVariables.associate { it.typeParameterSymbol to it.defaultType }, session)
+        .let {
+            val typeAliasConstructorSubstitutor = (declaration as? FirConstructor)?.typeAliasConstructorSubstitutor
+            if (typeAliasConstructorSubstitutor != null) {
+                ChainedSubstitutor(typeAliasConstructorSubstitutor, it)
+            } else {
+                it
+            }
+        }
 
     for (freshVariable in freshTypeVariables) {
         csBuilder.registerVariable(freshVariable)
@@ -195,7 +206,7 @@ private fun createToFreshVariableSubstitutorAndAddInitialConstraints(
         upperBound: ConeKotlinType//,
         //position: DeclaredUpperBoundConstraintPosition
     ) {
-        if ((upperBound.lowerBoundIfFlexible() as? ConeClassLikeType)?.lookupTag?.classId == StandardClassIds.Any &&
+        if (upperBound.lowerBoundIfFlexible().classLikeLookupTagIfAny?.classId == StandardClassIds.Any &&
             upperBound.upperBoundIfFlexible().isMarkedNullable
         ) {
             return

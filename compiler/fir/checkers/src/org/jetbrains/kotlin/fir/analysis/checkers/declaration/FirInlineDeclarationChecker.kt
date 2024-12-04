@@ -16,7 +16,8 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticFactory2
 import org.jetbrains.kotlin.diagnostics.reportOn
-import org.jetbrains.kotlin.fir.* import org.jetbrains.kotlin.fir.analysis.checkers.*
+import org.jetbrains.kotlin.fir.*
+import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.isDataClassCopy
 import org.jetbrains.kotlin.fir.analysis.checkers.getDirectOverriddenSymbols
@@ -29,6 +30,8 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.symbol
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.resolve.toClassLikeSymbol
+import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.publishedApiEffectiveVisibility
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
@@ -117,7 +120,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
                     )
                 accessedDataCopyVisibility != null &&
                         shouldReportNonPublicCallFromPublicInline(accessedDataCopyVisibility, declarationVisibility) ->
-                    reporter.reportOn(source, FirErrors.NON_PUBLIC_DATA_COPY_CALL_FROM_PUBLIC_INLINE, context)
+                    reporter.reportOn(source, FirErrors.NON_PUBLIC_DATA_COPY_CALL_FROM_PUBLIC_INLINE, inlineFunction.symbol, context)
                 else -> checkPrivateClassMemberAccess(accessedSymbol, source, context, reporter)
             }
             return AccessedDeclarationVisibilityData(
@@ -147,6 +150,17 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
                 return FirErrors.NON_PUBLIC_INLINE_CALL_FROM_PUBLIC_INLINE
             }
 
+            if (accessedSymbol is FirPropertySymbol) {
+                if (context.callsOrAssignments.elementAtOrNull(context.callsOrAssignments.lastIndex - 1)
+                        .let { it is FirVariableAssignment && it.lValue == accessExpression } &&
+                    accessedSymbol.setterSymbol?.isInline == true
+                ) {
+                    return FirErrors.NON_PUBLIC_INLINE_CALL_FROM_PUBLIC_INLINE
+                } else if (accessedSymbol.getterSymbol?.isInline == true) {
+                    return FirErrors.NON_PUBLIC_INLINE_CALL_FROM_PUBLIC_INLINE
+                }
+            }
+
             return FirErrors.NON_PUBLIC_CALL_FROM_PUBLIC_INLINE
         }
 
@@ -159,7 +173,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
 
         private fun FirStatement.localDispatchReceiver(context: CheckerContext): ConeKotlinType? =
             (this as? FirQualifiedAccessExpression)?.dispatchReceiver?.resolvedType?.takeIf {
-                (it.toSymbol(context.session) as? FirClassLikeSymbol<*>)?.effectiveVisibility == EffectiveVisibility.Local
+                it.toClassLikeSymbol(context.session)?.effectiveVisibility == EffectiveVisibility.Local
             }
 
         internal data class AccessedDeclarationVisibilityData(
@@ -431,7 +445,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
                 reporter.reportOn(param.source, FirErrors.INLINE_SUSPEND_FUNCTION_TYPE_UNSUPPORTED, context)
             }
 
-            if (coneType.isNullable && isFunctionalType) {
+            if (coneType.isMarkedNullable && isFunctionalType) {
                 reporter.reportOn(
                     param.source,
                     FirErrors.NULLABLE_INLINE_PARAMETER,
@@ -494,7 +508,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
         if (declaration.containingClassLookupTag() == null) return true
         if (effectiveVisibility == EffectiveVisibility.PrivateInClass) return true
 
-        if (!declaration.isEffectivelyFinal(context)) {
+        if (!declaration.isEffectivelyFinal()) {
             // For primary constructor parameters there's INLINE_PROPERTY_WITH_BACKING_FIELD already
             if (declaration.source?.kind != KtFakeSourceElementKind.PropertyFromParameter) {
                 reporter.reportOn(declaration.source, FirErrors.DECLARATION_CANT_BE_INLINED, context)
@@ -582,7 +596,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
 private fun FirValueParameter.isInlinable(session: FirSession): Boolean {
     if (isNoinline) return false
     val fullyExpandedType = returnTypeRef.coneType.fullyExpandedType(session)
-    return fullyExpandedType.isNonKFunctionType(session) && !fullyExpandedType.isNullable
+    return !fullyExpandedType.isMarkedNullable && fullyExpandedType.functionTypeKind(session)?.isInlineable == true
 }
 
 fun createInlineFunctionBodyContext(function: FirFunction, session: FirSession): FirInlineDeclarationChecker.InlineFunctionBodyContext {
@@ -597,6 +611,6 @@ fun createInlineFunctionBodyContext(function: FirFunction, session: FirSession):
 }
 
 fun FirBasedSymbol<*>.unwrapDataClassCopyWithPrimaryConstructorOrNull(session: FirSession): FirCallableSymbol<*>? =
-    (this as? FirCallableSymbol<*>)?.containingClassLookupTag()?.toSymbol(session)?.let { it as? FirClassSymbol<*> }
+    (this as? FirCallableSymbol<*>)?.containingClassLookupTag()?.toClassSymbol(session)
         ?.takeIf { containingClass -> isDataClassCopy(containingClass, session) }
         ?.primaryConstructorSymbol(session)

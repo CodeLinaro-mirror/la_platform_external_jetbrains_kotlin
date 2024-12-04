@@ -5,7 +5,10 @@
 
 package org.jetbrains.kotlin.fir.types
 
-import org.jetbrains.kotlin.fir.renderer.*
+import org.jetbrains.kotlin.fir.renderer.ConeIdRendererForDiagnostics
+import org.jetbrains.kotlin.fir.renderer.ConeIdShortRenderer
+import org.jetbrains.kotlin.fir.renderer.ConeTypeRendererForDebugging
+import org.jetbrains.kotlin.fir.renderer.ConeTypeRendererForReadability
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.Variance
@@ -13,10 +16,53 @@ import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.utils.SmartSet
 import org.jetbrains.kotlin.utils.addToStdlib.popLast
 
-val ConeKotlinType.isNullable: Boolean get() = nullability != ConeNullability.NOT_NULL
-val ConeKotlinType.isMarkedNullable: Boolean get() = nullability == ConeNullability.NULLABLE
+/**
+ * Returns `true` if the type is flexible and either bound [isMarkedNullable] or if the type itself [isMarkedNullable].
+ */
+val ConeKotlinType.isMarkedOrFlexiblyNullable: Boolean
+    get() = when (this) {
+        is ConeFlexibleType -> upperBound.isMarkedNullable
+        is ConeRigidType -> isMarkedNullable
+    }
+
+@Deprecated(
+    "`isMarkedOrFlexiblyNullable` on non-flexible types is the same as `isMarkedNullable`. Also consider using `canBeNull()`.",
+    level = DeprecationLevel.ERROR
+)
+val ConeRigidType.isMarkedOrFlexiblyNullable: Boolean get() = isMarkedNullable
+
+/**
+ * Returns `true` if the type is marked as nullable.
+ *
+ * Note that a return value of `true` implies that this type can be `null`, however, the inverse isn't true.
+ *
+ * A type resolving to a typealias not marked as nullable can contain `null` if the typealias expands to a nullable type.
+ * A type parameter type not marked as nullable can contain `null` if the type has a nullable upper bound.
+ *
+ * For a comprehensive check if a type can be `null`, consider using `canBeNull()`.
+ */
+val ConeKotlinType.isMarkedNullable: Boolean
+    get() = when (this) {
+        is ConeLookupTagBasedType -> isMarkedNullable
+        is ConeFlexibleType -> lowerBound.isMarkedNullable && upperBound.isMarkedNullable
+        is ConeCapturedType -> isMarkedNullable
+        is ConeIntegerLiteralType -> isMarkedNullable
+        is ConeTypeVariableType -> isMarkedNullable
+        is ConeDefinitelyNotNullType -> false
+        is ConeIntersectionType -> false
+        is ConeStubType -> isMarkedNullable
+    }
+
+val ConeKotlinType.hasFlexibleMarkedNullability: Boolean
+    get() = this is ConeFlexibleType && lowerBound.isMarkedNullable != upperBound.isMarkedNullable
 
 val ConeKotlinType.classId: ClassId? get() = (this as? ConeClassLikeType)?.lookupTag?.classId
+
+val ConeKotlinType.lookupTagIfAny: ConeClassifierLookupTag?
+    get() = (this as? ConeLookupTagBasedType)?.lookupTag
+
+val ConeKotlinType.classLikeLookupTagIfAny: ConeClassLikeLookupTag?
+    get() = (this as? ConeClassLikeType)?.lookupTag
 
 /**
  * Recursively visits each [ConeKotlinType] inside (including itself) and performs the given action.
@@ -72,24 +118,19 @@ fun ConeKotlinType.unwrapLowerBound(): ConeSimpleKotlinType {
     }
 }
 
-fun ConeKotlinType.upperBoundIfFlexible(): ConeSimpleKotlinType {
+fun ConeKotlinType.upperBoundIfFlexible(): ConeRigidType {
     return when (this) {
         is ConeSimpleKotlinType -> this
         is ConeFlexibleType -> upperBound
+        is ConeDefinitelyNotNullType -> this
     }
 }
 
-fun ConeKotlinType.lowerBoundIfFlexible(): ConeSimpleKotlinType {
+fun ConeKotlinType.lowerBoundIfFlexible(): ConeRigidType {
     return when (this) {
         is ConeSimpleKotlinType -> this
         is ConeFlexibleType -> lowerBound
-    }
-}
-
-fun ConeSimpleKotlinType.originalIfDefinitelyNotNullable(): ConeSimpleKotlinType {
-    return when (this) {
-        is ConeDefinitelyNotNullType -> original
-        else -> this
+        is ConeDefinitelyNotNullType -> this
     }
 }
 
@@ -97,12 +138,12 @@ fun ConeIntersectionType.withUpperBound(upperBound: ConeKotlinType): ConeInterse
     return ConeIntersectionType(intersectedTypes, upperBoundForApproximation = upperBound)
 }
 
-fun ConeIntersectionType.mapTypes(func: (ConeKotlinType) -> ConeKotlinType): ConeIntersectionType {
+inline fun ConeIntersectionType.mapTypes(func: (ConeKotlinType) -> ConeKotlinType): ConeIntersectionType {
     return ConeIntersectionType(intersectedTypes.map(func), upperBoundForApproximation?.let(func))
 }
 
 fun ConeClassLikeType.withArguments(typeArguments: Array<out ConeTypeProjection>): ConeClassLikeType = when (this) {
-    is ConeClassLikeTypeImpl -> ConeClassLikeTypeImpl(lookupTag, typeArguments, isNullable, attributes)
+    is ConeClassLikeTypeImpl -> ConeClassLikeTypeImpl(lookupTag, typeArguments, isMarkedNullable, attributes)
     is ConeErrorType -> this
     else -> error("Unknown cone type: ${this::class}")
 }
@@ -151,7 +192,7 @@ fun ConeKotlinType.hasError(): Boolean = contains { it is ConeErrorType }
 
 fun ConeKotlinType.hasCapture(): Boolean = contains { it is ConeCapturedType }
 
-fun ConeSimpleKotlinType.getConstructor(): TypeConstructorMarker {
+fun ConeRigidType.getConstructor(): TypeConstructorMarker {
     return when (this) {
         is ConeLookupTagBasedType -> this.lookupTag
         is ConeCapturedType -> this.constructor

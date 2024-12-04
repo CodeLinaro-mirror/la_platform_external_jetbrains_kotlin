@@ -49,6 +49,12 @@ public class FirJsPlainObjectsIrJsBoxTestGenerated extends AbstractFirJsPlainObj
   }
 
   @Test
+  @TestMetadata("reservedKeywordsAsPropery.kt")
+  public void testReservedKeywordsAsPropery() {
+    runTest("plugins/js-plain-objects/compiler-plugin/testData/box/reservedKeywordsAsPropery.kt");
+  }
+
+  @Test
   @TestMetadata("simple.kt")
   public void testSimple() {
     runTest("plugins/js-plain-objects/compiler-plugin/testData/box/simple.kt");
@@ -61,9 +67,21 @@ public class FirJsPlainObjectsIrJsBoxTestGenerated extends AbstractFirJsPlainObj
   }
 
   @Test
+  @TestMetadata("suspendFunction.kt")
+  public void testSuspendFunction() {
+    runTest("plugins/js-plain-objects/compiler-plugin/testData/box/suspendFunction.kt");
+  }
+
+  @Test
   @TestMetadata("with-inheritance.kt")
   public void testWith_inheritance() {
     runTest("plugins/js-plain-objects/compiler-plugin/testData/box/with-inheritance.kt");
+  }
+
+  @Test
+  @TestMetadata("with-marker-interfaces.kt")
+  public void testWith_marker_interfaces() {
+    runTest("plugins/js-plain-objects/compiler-plugin/testData/box/with-marker-interfaces.kt");
   }
 
   @Test

@@ -21,6 +21,7 @@ public interface KaCallableReceiverRenderer {
         printer: PrettyPrinter,
     )
 
+    @KaExperimentalApi
     public object AS_TYPE_WITH_IN_APPROXIMATION : KaCallableReceiverRenderer {
         override fun renderReceiver(
             analysisSession: KaSession,
@@ -35,7 +36,7 @@ public interface KaCallableReceiverRenderer {
                     },
                     {
                         val receiverType = declarationRenderer.declarationTypeApproximator
-                            .approximateType(analysisSession, symbol.type, Variance.IN_VARIANCE)
+                            .approximateType(analysisSession, symbol.returnType, Variance.IN_VARIANCE)
 
                         declarationRenderer.typeRenderer.renderType(analysisSession, receiverType, printer)
                     },

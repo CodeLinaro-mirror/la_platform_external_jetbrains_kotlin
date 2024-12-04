@@ -37,7 +37,7 @@ open class IrInterpreterBackendHandler(testServices: TestServices) : AbstractIrH
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {}
 
     override fun processModule(module: TestModule, info: IrBackendInput) {
-        val evaluator = Evaluator(IrInterpreter(info.irModuleFragment.irBuiltins), globalMetadataInfoHandler)
+        val evaluator = Evaluator(IrInterpreter(info.irPluginContext.irBuiltIns), globalMetadataInfoHandler)
         for ((irFile, testFile) in matchIrFileWithTestFile(info.irModuleFragment, module)) {
             evaluator.evaluate(irFile, testFile)
         }
@@ -51,7 +51,7 @@ private class Evaluator(private val interpreter: IrInterpreter, private val glob
                 if (this == original) return this
                 val isError = this is IrErrorExpression
                 val message = when (this) {
-                    is IrConst<*> -> this.value.toString()
+                    is IrConst -> this.value.toString()
                     is IrErrorExpression -> this.description
                     else -> TODO("unsupported type ${this::class.java}")
                 }
@@ -74,7 +74,7 @@ private class Evaluator(private val interpreter: IrInterpreter, private val glob
                     val default = parameter.defaultValue?.expression as? IrCall ?: return@forEachIndexed
                     val callWithNewOffsets = IrCallImpl(
                         expression.startOffset, expression.endOffset, default.type, default.symbol,
-                        default.typeArgumentsCount, default.valueArgumentsCount, default.origin, default.superQualifierSymbol
+                        default.typeArgumentsCount, default.origin, default.superQualifierSymbol
                     )
                     callWithNewOffsets.copyTypeAndValueArgumentsFrom(default)
                     interpreter.interpret(callWithNewOffsets, irFile)
@@ -88,7 +88,7 @@ private class Evaluator(private val interpreter: IrInterpreter, private val glob
             override fun visitField(declaration: IrField): IrStatement {
                 val initializer = declaration.initializer
                 val expression = initializer?.expression ?: return declaration
-                if (expression is IrConst<*>) return declaration
+                if (expression is IrConst) return declaration
 
                 val isConst = declaration.correspondingPropertySymbol?.owner?.isConst == true
                 if (isConst) {

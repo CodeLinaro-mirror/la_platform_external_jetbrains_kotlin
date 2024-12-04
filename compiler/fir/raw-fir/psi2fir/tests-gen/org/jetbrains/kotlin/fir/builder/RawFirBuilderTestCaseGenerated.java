@@ -46,6 +46,11 @@ public class RawFirBuilderTestCaseGenerated extends AbstractRawFirBuilderTestCas
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotation.kt");
     }
 
+    @TestMetadata("annotationOnDelegatedInterface.kt")
+    public void testAnnotationOnDelegatedInterface() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnDelegatedInterface.kt");
+    }
+
     @TestMetadata("annotationOnField.kt")
     public void testAnnotationOnField() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnField.kt");
@@ -704,9 +709,19 @@ public class RawFirBuilderTestCaseGenerated extends AbstractRawFirBuilderTestCas
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/nullability.kt");
     }
 
+    @TestMetadata("parenthesizedSafeCallsAndOperators.kt")
+    public void testParenthesizedSafeCallsAndOperators() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/parenthesizedSafeCallsAndOperators.kt");
+    }
+
     @TestMetadata("qualifierWithTypeArguments.kt")
     public void testQualifierWithTypeArguments() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/qualifierWithTypeArguments.kt");
+    }
+
+    @TestMetadata("safeCallsImplicitWithInvoke.kt")
+    public void testSafeCallsImplicitWithInvoke() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/expressions/safeCallsImplicitWithInvoke.kt");
     }
 
     @TestMetadata("safeCallsWithAssignment.kt")

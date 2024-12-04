@@ -55,8 +55,8 @@ fun case_4(x: Boolean?) {
         x ?: return
     }
 
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean?")!>x<!>
-    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean?")!>x<!><!UNSAFE_CALL!>.<!>equals(10)
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean? & kotlin.Boolean")!>x<!>
+    <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Boolean? & kotlin.Boolean")!>x<!>.equals(10)
 }
 
 /*
@@ -205,7 +205,7 @@ fun case_17(x: Boolean?, y: Boolean?) {
             false -> x!!
             null -> if (true) if (true) if (true) if (true) if (true) when (y) {
                 <!SENSELESS_COMPARISON!>true<!> -> when (y) {
-                    else -> if (true) if (true) if (true) if (true) if (true) x!! else x!! else x!! else x!! else x!! else x!!
+                    <!REDUNDANT_ELSE_IN_WHEN!>else<!> -> if (true) if (true) if (true) if (true) if (true) x!! else x!! else x!! else x!! else x!! else x!!
                 }
                 <!SENSELESS_COMPARISON!>false<!> -> x!!
                 <!SENSELESS_COMPARISON!>null<!> -> if (true) if (true) if (true) if (true) if (true) x!! else x!! else x!! else x!! else x!! else x!!

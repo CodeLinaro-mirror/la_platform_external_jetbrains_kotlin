@@ -13,10 +13,6 @@ import org.jetbrains.kotlin.analysis.api.descriptors.KaFe10Session
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.KaFe10SessionComponent
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.base.KaFe10Symbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.*
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.classId
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getSymbolDescriptor
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.isInterfaceLike
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtType
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.getResolutionScope
 import org.jetbrains.kotlin.analysis.api.descriptors.types.base.KaFe10Type
 import org.jetbrains.kotlin.analysis.api.descriptors.utils.PublicApproximatorConfiguration
@@ -24,7 +20,7 @@ import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.nameOrAnonymous
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
@@ -54,7 +50,7 @@ import org.jetbrains.kotlin.types.typeUtil.isNothing
 import org.jetbrains.kotlin.util.containingNonLocalDeclaration
 
 internal class KaFe10TypeProvider(
-    override val analysisSessionProvider: () -> KaFe10Session
+    override val analysisSessionProvider: () -> KaFe10Session,
 ) : KaSessionComponent<KaFe10Session>(), KaTypeProvider, KaFe10SessionComponent {
     @Suppress("SpellCheckingInspection")
     private val typeApproximator by lazy {
@@ -85,9 +81,9 @@ internal class KaFe10TypeProvider(
             return enhancement?.toKtType(analysisContext)
         }
 
-    override val KaNamedClassSymbol.defaultType: KaType
+    override val KaClassifierSymbol.defaultType: KaType
         get() = withValidityAssertion {
-            val kotlinType = (getSymbolDescriptor(this) as? ClassDescriptor)?.defaultType
+            val kotlinType = (getSymbolDescriptor(this) as? ClassifierDescriptor)?.defaultType
                 ?: ErrorUtils.createErrorType(ErrorTypeKind.UNRESOLVED_CLASS_TYPE, nameOrAnonymous.toString())
             return kotlinType.toKtType(analysisContext)
         }
@@ -235,7 +231,7 @@ internal class KaFe10TypeProvider(
     private fun areBoundsCompatible(
         upperBounds: Set<KotlinType>,
         lowerBounds: Set<KotlinType>,
-        checkedTypeParameters: MutableSet<TypeParameterDescriptor> = mutableSetOf()
+        checkedTypeParameters: MutableSet<TypeParameterDescriptor> = mutableSetOf(),
     ): Boolean {
         val upperBoundClasses = upperBounds.mapNotNull { getBoundClass(it) }.toSet()
 
@@ -361,7 +357,7 @@ internal class KaFe10TypeProvider(
     }
 
     private fun KotlinType.toTypeArgumentMapping(
-        envMapping: Map<TypeParameterDescriptor, BoundTypeArgument> = emptyMap()
+        envMapping: Map<TypeParameterDescriptor, BoundTypeArgument> = emptyMap(),
     ): TypeArgumentMapping? {
         val typeParameterOwner = constructor.declarationDescriptor as? ClassifierDescriptorWithTypeParameters ?: return null
 
@@ -396,7 +392,7 @@ internal class KaFe10TypeProvider(
 
     private data class TypeArgumentMapping(
         val owner: ClassifierDescriptorWithTypeParameters,
-        val mapping: Map<TypeParameterDescriptor, BoundTypeArgument>
+        val mapping: Map<TypeParameterDescriptor, BoundTypeArgument>,
     )
 
     private data class BoundTypeArgument(val type: KotlinType, val variance: Variance)
@@ -508,4 +504,6 @@ private class KaFe10BuiltinTypes(private val analysisContext: Fe10AnalysisContex
     override val nullableNothing: KaType
         get() = withValidityAssertion { analysisContext.builtIns.nullableNothingType.toKtType(analysisContext) }
 
+    override val annotationType: KaType
+        get() = withValidityAssertion { analysisContext.builtIns.annotationType.toKtType(analysisContext) }
 }

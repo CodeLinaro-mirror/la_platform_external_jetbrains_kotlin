@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,8 +9,8 @@ import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
-import org.jetbrains.kotlin.codegen.JvmCodegenUtil
 import org.jetbrains.kotlin.codegen.replaceValueParametersIn
+import org.jetbrains.kotlin.codegen.sanitizeNameIfNeeded
 import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter
 import org.jetbrains.kotlin.codegen.signature.JvmSignatureWriter
 import org.jetbrains.kotlin.codegen.state.extractTypeMappingModeFromAnnotation
@@ -98,10 +98,11 @@ class MethodSignatureMapper(private val context: JvmBackendContext, private val 
         return mangleMemberNameIfRequired(function.name.asString(), function)
     }
 
-    private fun IrType.isJavaLangRecord() = getClass()!!.hasEqualFqName(JAVA_LANG_RECORD_FQ_NAME)
+    private fun IrType.isJavaLangRecord(): Boolean =
+        getClass()?.hasEqualFqName(JAVA_LANG_RECORD_FQ_NAME) == true
 
     private fun mangleMemberNameIfRequired(name: String, function: IrSimpleFunction): String {
-        val newName = JvmCodegenUtil.sanitizeNameIfNeeded(name, context.config.languageVersionSettings)
+        val newName = sanitizeNameIfNeeded(name, context.config.languageVersionSettings)
 
         val suffix = if (function.isTopLevel) {
             if (function.isInvisibleInMultifilePart()) function.parentAsClass.name.asString() else null
@@ -150,9 +151,6 @@ class MethodSignatureMapper(private val context: JvmBackendContext, private val 
         (if (function is IrLazyFunctionBase)
             getJvmModuleNameForDeserialized(function)
         else null) ?: context.state.moduleName
-
-    private fun IrSimpleFunction.isPublishedApi(): Boolean =
-        propertyIfAccessor.annotations.hasAnnotation(StandardNames.FqNames.publishedApi)
 
     fun mapReturnType(declaration: IrDeclaration, sw: JvmSignatureWriter? = null, materialized: Boolean = true): Type {
         if (declaration !is IrFunction) {
@@ -293,8 +291,6 @@ class MethodSignatureMapper(private val context: JvmBackendContext, private val 
                     toIrBasedDescriptor()
                 else
                     IrBasedSimpleFunctionDescriptorWithOriginalOverrides(this, context)
-            else ->
-                throw AssertionError("Unexpected function kind: $this")
         }
 
     private class IrBasedSimpleFunctionDescriptorWithOriginalOverrides(
@@ -362,7 +358,7 @@ class MethodSignatureMapper(private val context: JvmBackendContext, private val 
 
         private fun IrAnnotationContainer.getSuppressWildcardsAnnotationValue(): Boolean? =
             getAnnotation(JVM_SUPPRESS_WILDCARDS_ANNOTATION_FQ_NAME)?.run {
-                if (valueArgumentsCount > 0) (getValueArgument(0) as? IrConst<*>)?.value as? Boolean ?: true else null
+                if (valueArgumentsCount > 0) (getValueArgument(0) as? IrConst)?.value as? Boolean ?: true else null
             }
     }
 
@@ -518,8 +514,6 @@ class MethodSignatureMapper(private val context: JvmBackendContext, private val 
                 irFun
             is IrSimpleFunction ->
                 findSuperDeclaration(irFun, false, context.config.jvmDefaultMode)
-            else ->
-                throw AssertionError("Simple function or constructor expected: ${irFun.render()}")
         }
 
         val irParentClass = irNonFakeFun.parent as? IrClass

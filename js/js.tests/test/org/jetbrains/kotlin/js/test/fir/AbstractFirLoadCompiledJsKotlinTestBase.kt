@@ -5,7 +5,8 @@
 
 package org.jetbrains.kotlin.js.test.fir
 
-import org.jetbrains.kotlin.js.test.converters.FirJsKlibBackendFacade
+import org.jetbrains.kotlin.js.test.converters.FirJsKlibSerializerFacade
+import org.jetbrains.kotlin.js.test.converters.JsIrInliningFacade
 import org.jetbrains.kotlin.js.test.ir.commonConfigurationForJsCodegenTest
 import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
@@ -30,7 +31,8 @@ abstract class AbstractFirLoadCompiledJsKotlinTestBase<F : ResultingArtifact.Fro
             frontendKind,
             frontendFacade,
             frontendToBackendConverter,
-            ::FirJsKlibBackendFacade,
+            ::JsIrInliningFacade,
+            ::FirJsKlibSerializerFacade,
         )
 
         configureKlibArtifactsHandlersStep {

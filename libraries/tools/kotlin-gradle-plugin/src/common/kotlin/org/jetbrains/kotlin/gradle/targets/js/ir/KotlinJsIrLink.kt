@@ -15,10 +15,11 @@ import org.gradle.work.NormalizeLineEndings
 import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptionsDefault
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.ContributeCompilerArgumentsContext
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.statistics.CompileKotlinJsIrLinkMetrics
+import org.jetbrains.kotlin.gradle.plugin.statistics.CompileKotlinWasmIrLinkMetrics
 import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode.DEVELOPMENT
@@ -30,6 +31,7 @@ import javax.inject.Inject
 @CacheableTask
 abstract class KotlinJsIrLink @Inject constructor(
     project: Project,
+    target: KotlinPlatformType,
     objectFactory: ObjectFactory,
     workerExecutor: WorkerExecutor,
 ) : Kotlin2JsCompile(
@@ -63,6 +65,9 @@ abstract class KotlinJsIrLink @Inject constructor(
 
     @get:Input
     var incrementalJsIr: Boolean = propertiesProvider.incrementalJsIr
+
+    @get:Input
+    var incrementalWasm: Boolean = propertiesProvider.incrementalWasm
 
     @get:Input
     val outputGranularity: KotlinJsIrOutputGranularity = propertiesProvider.jsIrOutputGranularity
@@ -104,7 +109,6 @@ abstract class KotlinJsIrLink @Inject constructor(
 
     override fun contributeAdditionalCompilerArguments(context: ContributeCompilerArgumentsContext<K2JSCompilerArguments>) {
         context.primitive { args ->
-            args.irOnly = true
             args.irProduceJs = true
 
             // moduleName can start with @ for group of NPM packages
@@ -120,15 +124,28 @@ abstract class KotlinJsIrLink @Inject constructor(
             if (usingCacheDirectory()) {
                 args.cacheDirectory = rootCacheDirectory.get().asFile.also { it.mkdirs() }.absolutePath
             }
+
+            if (isWasmPlatform && modeProperty.get() == DEVELOPMENT) {
+                args.debuggerCustomFormatters = true
+            }
         }
     }
 
+    private val isWasmPlatform: Boolean =
+        target == KotlinPlatformType.wasm
+
     override fun processArgsBeforeCompile(args: K2JSCompilerArguments) {
-        buildFusService.orNull?.reportFusMetrics {
-            CompileKotlinJsIrLinkMetrics.collectMetrics(args, incrementalJsIr, it)
+        if (!isWasmPlatform) {
+            buildFusService.orNull?.reportFusMetrics {
+                CompileKotlinJsIrLinkMetrics.collectMetrics(args, incrementalJsIr, it)
+            }
+        } else {
+            buildFusService.orNull?.reportFusMetrics {
+                CompileKotlinWasmIrLinkMetrics.collectMetrics(incrementalWasm, it)
+            }
         }
     }
 
     private fun usingCacheDirectory() =
-        incrementalJsIr && modeProperty.get() == DEVELOPMENT
+        (if (isWasmPlatform) incrementalWasm else incrementalJsIr) && modeProperty.get() == DEVELOPMENT
 }

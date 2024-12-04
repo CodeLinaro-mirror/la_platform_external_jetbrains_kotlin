@@ -25,7 +25,7 @@ internal abstract class AbstractKaFirSubstitutor<T : ConeSubstitutor>(
 
     override fun substituteOrNull(type: KaType): KaType? = withValidityAssertion {
         require(type is KaFirType)
-        substitutor.substituteOrNull(type.coneType)?.type?.let { builder.typeBuilder.buildKtType(it) }
+        substitutor.substituteOrNull(type.coneType)?.let { builder.typeBuilder.buildKtType(it) }
     }
 }
 
@@ -41,10 +41,8 @@ internal class KaFirMapBackedSubstitutor(
     override fun getAsMap(): Map<KaTypeParameterSymbol, KaType> = withValidityAssertion {
         val result = mutableMapOf<KaTypeParameterSymbol, KaType>()
         for ((typeParameter, type) in substitutor.substitution) {
-            val typeParameterSymbol = builder.classifierBuilder.buildTypeParameterSymbolByLookupTag(typeParameter.toLookupTag())
-            if (typeParameterSymbol != null) {
-                result[typeParameterSymbol] = builder.typeBuilder.buildKtType(type)
-            }
+            val typeParameterSymbol = builder.classifierBuilder.buildTypeParameterSymbol(typeParameter)
+            result[typeParameterSymbol] = builder.typeBuilder.buildKtType(type)
         }
 
         return result

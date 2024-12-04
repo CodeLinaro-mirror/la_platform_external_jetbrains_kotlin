@@ -52,27 +52,6 @@ class PhaseConfig(
     override val checkConditions: Boolean = false,
     override val checkStickyConditions: Boolean = false
 ) : PhaseConfigurationService {
-    @Deprecated("Provided for binary compatibility", level = DeprecationLevel.HIDDEN)
-    constructor(
-        compoundPhase: CompilerPhase<*, *, *>,
-        phases: Map<String, AnyNamedPhase> = compoundPhase.toPhaseMap(),
-        initiallyEnabled: Set<AnyNamedPhase> = phases.values.toSet(),
-        verbose: Set<AnyNamedPhase> = emptySet(),
-        toDumpStateBefore: Set<AnyNamedPhase> = emptySet(),
-        toDumpStateAfter: Set<AnyNamedPhase> = emptySet(),
-        dumpToDirectory: String? = null,
-        dumpOnlyFqName: String? = null,
-        toValidateStateBefore: Set<AnyNamedPhase> = emptySet(),
-        toValidateStateAfter: Set<AnyNamedPhase> = emptySet(),
-        @Suppress("UNUSED_PARAMETER") namesOfElementsExcludedFromDumping: Set<String> = emptySet(),
-        needProfiling: Boolean = false,
-        checkConditions: Boolean = false,
-        checkStickyConditions: Boolean = false,
-    ) : this(
-        compoundPhase, phases, initiallyEnabled, verbose, toDumpStateBefore, toDumpStateAfter, dumpToDirectory, dumpOnlyFqName,
-        toValidateStateBefore, toValidateStateAfter, needProfiling, checkConditions, checkStickyConditions
-    )
-
     fun toBuilder() = PhaseConfigBuilder(compoundPhase).also {
         it.enabled.addAll(initiallyEnabled)
         it.verbose.addAll(verbose)
@@ -117,15 +96,13 @@ class PhaseConfig(
     }
 
     fun list() {
-        compoundPhase.getNamedSubphases().forEach { (depth, phase) ->
-            val disabled = if (phase !in enabled) " (Disabled)" else ""
-            val verbose = if (phase in verbose) " (Verbose)" else ""
-
-            println(
-                "%1$-50s %2$-50s %3$-10s".format(
-                    "${"    ".repeat(depth)}${phase.name}", phase.description, "$disabled$verbose"
-                )
-            )
+        for ((depth, phase) in compoundPhase.getNamedSubphases()) {
+            println(buildString {
+                append("    ".repeat(depth))
+                append(phase.name)
+                if (phase !in enabled) append(" (Disabled)")
+                if (phase in verbose) append(" (Verbose)")
+            })
         }
     }
 

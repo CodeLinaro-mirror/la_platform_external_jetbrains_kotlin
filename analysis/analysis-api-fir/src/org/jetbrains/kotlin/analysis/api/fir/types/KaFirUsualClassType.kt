@@ -5,20 +5,24 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.types
 
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
+import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationList
+import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.KaSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.annotations.KaFirAnnotationListForType
 import org.jetbrains.kotlin.analysis.api.fir.types.qualifiers.UsualClassTypeQualifierBuilder
 import org.jetbrains.kotlin.analysis.api.fir.utils.buildAbbreviatedType
-import org.jetbrains.kotlin.analysis.api.fir.utils.cached
+import org.jetbrains.kotlin.analysis.api.fir.utils.createPointer
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassLikeSymbol
-import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
-import org.jetbrains.kotlin.analysis.api.types.KaTypeProjection
-import org.jetbrains.kotlin.analysis.api.types.KaUsualClassType
+import org.jetbrains.kotlin.analysis.api.types.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
+import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
+import org.jetbrains.kotlin.fir.types.isSomeFunctionType
 import org.jetbrains.kotlin.fir.types.renderForDebugging
 import org.jetbrains.kotlin.name.ClassId
 
@@ -36,23 +40,50 @@ internal class KaFirUsualClassType(
                 ?: errorWithFirSpecificEntries("Class was not found", coneType = coneType)
         }
 
-    override val qualifiers by cached {
-        UsualClassTypeQualifierBuilder.buildQualifiers(coneType, builder)
-    }
+    override val qualifiers: List<KaResolvedClassTypeQualifier>
+        get() = withValidityAssertion {
+            UsualClassTypeQualifierBuilder.buildQualifiers(coneType, builder)
+        }
 
     override val typeArguments: List<KaTypeProjection> get() = withValidityAssertion { qualifiers.last().typeArguments }
 
-    override val annotations: KaAnnotationList by cached {
-        KaFirAnnotationListForType.create(coneType, builder)
-    }
+    override val annotations: KaAnnotationList
+        get() = withValidityAssertion {
+            KaFirAnnotationListForType.create(coneType, builder)
+        }
 
-    override val nullability: KaTypeNullability get() = withValidityAssertion { coneType.nullability.asKtNullability() }
+    override val nullability: KaTypeNullability get() = withValidityAssertion { KaTypeNullability.create(coneType.isMarkedNullable) }
 
-    override val abbreviatedType: KaUsualClassType? by cached {
-        builder.buildAbbreviatedType(coneType)
-    }
+    override val abbreviation: KaUsualClassType?
+        get() = withValidityAssertion {
+            builder.buildAbbreviatedType(coneType)
+        }
 
     override fun equals(other: Any?) = typeEquals(other)
     override fun hashCode() = typeHashcode()
     override fun toString() = coneType.renderForDebugging()
+
+    @KaExperimentalApi
+    override fun createPointer(): KaTypePointer<KaUsualClassType> = withValidityAssertion {
+        return KaFirUsualClassTypePointer(coneType, builder)
+    }
+}
+
+private class KaFirUsualClassTypePointer(
+    coneType: ConeClassLikeTypeImpl,
+    builder: KaSymbolByFirBuilder,
+) : KaTypePointer<KaUsualClassType> {
+    private val coneTypePointer = coneType.createPointer(builder)
+
+    @KaImplementationDetail
+    override fun restore(session: KaSession): KaUsualClassType? = session.withValidityAssertion {
+        requireIsInstance<KaFirSession>(session)
+
+        val coneType = coneTypePointer.restore(session) ?: return null
+        if (coneType.isSomeFunctionType(session.firResolveSession.useSiteFirSession)) {
+            return null
+        }
+
+        return KaFirUsualClassType(coneType, session.firSymbolBuilder)
+    }
 }

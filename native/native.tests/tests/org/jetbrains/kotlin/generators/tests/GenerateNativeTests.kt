@@ -9,22 +9,29 @@ import org.jetbrains.kotlin.generators.TestGroup
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.model.AnnotationModel
 import org.jetbrains.kotlin.generators.model.annotation
+import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.konan.test.blackbox.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.ClassLevelProperty
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedHostTarget
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedProperty
+import org.jetbrains.kotlin.konan.test.blackbox.support.KLIB_IR_INLINER
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.*
 import org.jetbrains.kotlin.konan.test.diagnostics.*
 import org.jetbrains.kotlin.konan.test.irtext.AbstractClassicNativeIrTextTest
 import org.jetbrains.kotlin.konan.test.irtext.AbstractFirLightTreeNativeIrTextTest
 import org.jetbrains.kotlin.konan.test.irtext.AbstractFirPsiNativeIrTextTest
+import org.jetbrains.kotlin.konan.test.klib.AbstractFirKlibCrossCompilationIdentityTest
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 import org.junit.jupiter.api.Tag
+import java.io.File
 
 fun main() {
     System.setProperty("java.awt.headless", "true")
+    val k1BoxTestDir = listOf("multiplatform/k1")
     val k2BoxTestDir = listOf("multiplatform/k2")
+
+    generateSources()
 
     generateTestGroupSuiteWithJUnit5 {
         // Former konan local tests
@@ -76,7 +83,7 @@ fun main() {
                     provider<UseExtTestCaseGroupProvider>()
                 )
             ) {
-                model("box", targetBackend = TargetBackend.NATIVE)
+                model("box", targetBackend = TargetBackend.NATIVE, excludeDirs = k1BoxTestDir)
                 model("boxInline", targetBackend = TargetBackend.NATIVE)
             }
             testClass<AbstractNativeCodegenBoxTest>(
@@ -87,7 +94,7 @@ fun main() {
                     *noPartialLinkage()
                 )
             ) {
-                model("box", targetBackend = TargetBackend.NATIVE)
+                model("box", targetBackend = TargetBackend.NATIVE, excludeDirs = k1BoxTestDir)
                 model("boxInline", targetBackend = TargetBackend.NATIVE)
             }
         }
@@ -167,6 +174,21 @@ fun main() {
             }
         }
 
+        // 1st phase IR Inliner tests (IR inliner is invoked before K2 Klib Serializer)
+        testGroup("native/native.tests/klib-ir-inliner/tests-gen", "compiler/testData/codegen") {
+            testClass<AbstractNativeCodegenBoxTest>(
+                suiteTestClassName = "FirNativeCodegenBoxWithInlinedFunInKlibTestGenerated",
+                annotations = listOf(
+                    *frontendFir(),
+                    klibIrInliner(),
+                    provider<UseExtTestCaseGroupProvider>()
+                )
+            ) {
+                model("box", targetBackend = TargetBackend.NATIVE, excludeDirs = k1BoxTestDir)
+                model("boxInline", targetBackend = TargetBackend.NATIVE, excludeDirs = k1BoxTestDir)
+            }
+        }
+
         // KLIB evolution tests.
         testGroup("native/native.tests/tests-gen", "compiler/testData/klib/evolution") {
             testClass<AbstractNativeKlibEvolutionTest>(
@@ -186,22 +208,32 @@ fun main() {
 
         // KLIB synthetic accessor tests.
         testGroup("native/native.tests/tests-gen", "compiler/testData/klib/syntheticAccessors") {
-            testClass<AbstractNativeKlibSyntheticAccessorTest>(
-                suiteTestClassName = "ClassicNativeKlibSyntheticAccessorTestGenerated",
-                annotations = listOf(
-                    *klibSyntheticAccessors(),
-                )
-            ) {
-                model(targetBackend = TargetBackend.NATIVE)
-            }
-            testClass<AbstractNativeKlibSyntheticAccessorTest>(
-                suiteTestClassName = "FirNativeKlibSyntheticAccessorTestGenerated",
+            testClass<AbstractNativeKlibSyntheticAccessorInPhase1Test>(
                 annotations = listOf(
                     *klibSyntheticAccessors(),
                     *frontendFir(),
                 )
             ) {
                 model(targetBackend = TargetBackend.NATIVE)
+            }
+            testClass<AbstractNativeKlibSyntheticAccessorInPhase2Test>(
+                annotations = listOf(
+                    *klibSyntheticAccessors(),
+                    *frontendFir(),
+                )
+            ) {
+                model(targetBackend = TargetBackend.NATIVE)
+            }
+        }
+
+        // KLIB cross-compilation tests.
+        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/cross-compilation/identity") {
+            testClass<AbstractFirKlibCrossCompilationIdentityTest>(
+                annotations = listOf(
+                    *frontendFir(),
+                )
+            ) {
+                model()
             }
         }
 
@@ -224,7 +256,10 @@ fun main() {
                 model("builtins/builtinsDefs", pattern = "^([^_](.+))$", recursive = false)
             }
             testClass<AbstractNativeCInteropKT39120Test>(
-                suiteTestClassName = "CInteropKT39120TestGenerated"
+                suiteTestClassName = "CInteropKT39120TestGenerated",
+                annotations = listOf(
+                    *frontendFir()
+                ),
             ) {
                 model("KT-39120/defs", pattern = "^([^_](.+))$", recursive = false)
             }
@@ -399,12 +434,18 @@ fun main() {
         }
 
         // Atomicfu compiler plugin native tests.
-        testGroup("plugins/atomicfu/atomicfu-compiler/test", "plugins/atomicfu/atomicfu-compiler/testData/nativeBox") {
-            testClass<AbstractNativeBlackBoxTest>(
+        testGroup("plugins/atomicfu/atomicfu-compiler/test", "plugins/atomicfu/atomicfu-compiler/testData/box") {
+            testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "AtomicfuNativeTestGenerated",
-                annotations = listOf(*atomicfuNative(), provider<UseStandardTestCaseGroupProvider>())
+                annotations = listOf(*atomicfuNative(), provider<UseExtTestCaseGroupProvider>())
             ) {
-                model()
+                model(targetBackend = TargetBackend.NATIVE)
+            }
+            testClass<AbstractNativeCodegenBoxTest>(
+                suiteTestClassName = "AtomicfuNativeFirTestGenerated",
+                annotations = listOf(*atomicfuNative(), *frontendFir(), provider<UseExtTestCaseGroupProvider>())
+            ) {
+                model(targetBackend = TargetBackend.NATIVE)
             }
         }
 
@@ -527,18 +568,6 @@ fun main() {
                 }
             }
         }
-        // Swift Export
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/SwiftExport") {
-            testClass<AbstractNativeSwiftExportExecutionTest>(
-                suiteTestClassName = "SwiftExportExecutionTestGenerated",
-                annotations = listOf(
-                    *frontendFir(),
-                    provider<UseStandardTestCaseGroupProvider>(),
-                ),
-            ) {
-                model(pattern = "^([^_](.+))$", recursive = false)
-            }
-        }
         // Stress tests
         testGroup("native/native.tests/stress/tests-gen", "native/native.tests/stress/testData") {
             testClass<AbstractNativeBlackBoxTest>(
@@ -586,6 +615,93 @@ fun main() {
     }
 }
 
+private fun generateSources() {
+    generateKt62920StressTest()
+}
+
+private fun generateKt62920StressTest() {
+    val rootDir = File("native/native.tests/stress/testData")
+    rootDir.resolve("kt62920.kt").writeText(buildString {
+        val maxStage = 1000
+        val threadsCount = 10
+        // workaround hack: please keep the string below indented, otherwise the `testCompareAll()` incorrectly handles the "// FILE:" directive
+        appendLine(
+            """
+            // This file is generated by ${TestGeneratorUtil.getMainClassName()}. DO NOT MODIFY MANUALLY
+            // KIND: STANDALONE_NO_TR
+            // MODULE: cinterop
+            // FILE: objclib.def
+            language = Objective-C
+            ---
+            #include <objc/NSObject.h>
+
+            void useObject(id) {}
+
+            // MODULE: main(cinterop)
+            // FILE: main.kt
+            @file:OptIn(kotlin.ExperimentalStdlibApi::class, kotlinx.cinterop.ExperimentalForeignApi::class)
+
+            import objclib.*
+
+            import kotlin.concurrent.AtomicInt
+            import kotlin.concurrent.AtomicIntArray
+            import kotlin.native.concurrent.*
+            """.trimIndent()
+        )
+
+        // Define all the classes
+        (1..maxStage).forEach {
+            appendLine("class C$it")
+        }
+
+        // Actual test procedure
+        appendLine(
+            """
+            const val MAX_STAGE = $maxStage
+
+            val canRunStage = AtomicInt(0)
+            val hasRunStage = AtomicIntArray(MAX_STAGE + 1)
+
+            fun test() {
+                hasRunStage.getAndIncrement(0)
+            """.trimIndent()
+        )
+
+        // Define all test cases
+        (1..maxStage).forEach {
+            appendLine(
+                """
+
+                while (canRunStage.value != $it) {}
+                useObject(C$it())
+                hasRunStage.getAndIncrement($it)
+                """.replaceIndent("    ")
+            )
+        }
+
+        // Close the test procedure. And define test entry point.
+        appendLine(
+            """
+            }
+
+            fun main() {
+                val workers = Array($threadsCount) { Worker.start() }
+
+                workers.forEach { it.executeAfter(0, ::test) }
+
+                while (hasRunStage[0] != workers.size) {}
+                (1..MAX_STAGE).forEach { stage ->
+                    canRunStage.value = stage
+                    while (hasRunStage[stage] != workers.size) {}
+                }
+
+                workers.forEach { it.requestTermination().result }
+            }
+            """.trimIndent()
+        )
+    })
+}
+
 inline fun <reified T : Annotation> provider() = annotation(T::class.java)
 
 private fun forceDebugMode() = annotation(
@@ -620,6 +736,7 @@ fun frontendFir() = arrayOf(
     annotation(FirPipeline::class.java)
 )
 
+private fun klibIrInliner() = annotation(Tag::class.java, KLIB_IR_INLINER)
 private fun klib() = annotation(Tag::class.java, "klib")
 private fun debugger() = annotation(Tag::class.java, "debugger")
 private fun infrastructure() = annotation(Tag::class.java, "infrastructure")
@@ -641,6 +758,11 @@ private fun klibSyntheticAccessors() = arrayOf(
         EnforcedProperty::class.java,
         "property" to ClassLevelProperty.TEST_KIND,
         "propertyValue" to "STANDALONE"
+    ),
+    annotation(
+        EnforcedProperty::class.java,
+        "property" to ClassLevelProperty.CACHE_MODE,
+        "propertyValue" to "NO"
     ),
     provider<UseExtTestCaseGroupProvider>(),
 )

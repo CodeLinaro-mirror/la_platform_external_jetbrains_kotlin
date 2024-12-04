@@ -50,9 +50,9 @@ internal class SymbolLightSimpleMethod(
 ) {
     private val _name: String by lazyPub {
         withFunctionSymbol { functionSymbol ->
-            functionSymbol.computeJvmMethodName(
-                functionSymbol.name.asString(),
-                this@SymbolLightSimpleMethod.containingClass,
+            computeJvmMethodName(
+                symbol = functionSymbol,
+                defaultName = functionSymbol.name.asString(),
             )
         }
     }
@@ -233,9 +233,16 @@ internal class SymbolLightSimpleMethod(
                 typeMappingMode,
                 this@SymbolLightSimpleMethod.containingClass.isAnnotationType,
                 suppressWildcards = suppressWildcards(),
+                forceValueClassResolution = canHaveValueClassInSignature(),
+                allowNonJvmPlatforms = true,
             )
         } ?: nonExistentType()
     }
+
+    /**
+     * @see org.jetbrains.kotlin.light.classes.symbol.methods.canHaveValueClassInSignature
+     */
+    fun canHaveValueClassInSignature(): Boolean = isTopLevel || withFunctionSymbol { it.hasJvmNameAnnotation() }
 
     override fun getReturnType(): PsiType = _returnedType
 }

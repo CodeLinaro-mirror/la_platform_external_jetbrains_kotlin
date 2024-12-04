@@ -17,6 +17,8 @@ import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
 import org.jetbrains.kotlin.fir.references.impl.FirSimpleNamedReference
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.resolve.shortName
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.FirSpecificTypeResolverTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.ScopeClassDeclaration
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBodyResolveTransformerDispatcher
@@ -29,7 +31,6 @@ import org.jetbrains.kotlin.fir.scopes.getProperties
 import org.jetbrains.kotlin.fir.scopes.getSingleClassifier
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildPlaceholderProjection
 import org.jetbrains.kotlin.fir.types.builder.buildStarProjection
@@ -124,11 +125,11 @@ abstract class AbstractFirSpecificAnnotationResolveTransformer(
             return checkNotNullCall
         }
 
-        override fun transformBinaryLogicExpression(
-            binaryLogicExpression: FirBinaryLogicExpression,
+        override fun transformBooleanOperatorExpression(
+            booleanOperatorExpression: FirBooleanOperatorExpression,
             data: ResolutionMode,
         ): FirStatement {
-            return binaryLogicExpression
+            return booleanOperatorExpression
         }
 
         override fun transformVariableAssignment(
@@ -227,7 +228,7 @@ abstract class AbstractFirSpecificAnnotationResolveTransformer(
                     source = receiver.source
                     packageFqName = symbol.classId.packageFqName
                     relativeClassFqName = symbol.classId.relativeClassName
-                    coneTypeOrNull = session.builtinTypes.unitType.type
+                    coneTypeOrNull = session.builtinTypes.unitType.coneType
                     this.symbol = symbol
                     isFullyQualified = segments.isNotEmpty()
                 }
@@ -333,13 +334,13 @@ abstract class AbstractFirSpecificAnnotationResolveTransformer(
 
         val requiredAnnotationsWithArguments = session.annotationPlatformSupport.requiredAnnotationsWithArguments
 
-        if (transformedAnnotationType.coneTypeSafe<ConeClassLikeType>()?.lookupTag?.classId in requiredAnnotationsWithArguments) {
+        if (transformedAnnotationType.coneType.classLikeLookupTagIfAny?.classId in requiredAnnotationsWithArguments) {
             argumentsTransformer.transformAnnotation(annotationCall, ResolutionMode.ContextDependent)
         }
     }
 
     private fun resolveAnnotationsOnAnnotationIfNeeded(annotationTypeRef: FirResolvedTypeRef) {
-        val symbol = annotationTypeRef.coneType.toSymbol(session) as? FirRegularClassSymbol ?: return
+        val symbol = annotationTypeRef.coneType.classLikeLookupTagIfAny?.toRegularClassSymbol(session) ?: return
         computationSession.resolveAnnotationsOnAnnotationIfNeeded(symbol, scopeSession)
     }
 
@@ -348,18 +349,18 @@ abstract class AbstractFirSpecificAnnotationResolveTransformer(
     }
 
     fun shouldRunAnnotationResolve(typeRef: FirUserTypeRef): Boolean {
-        val name = typeRef.qualifier.last().name
+        val name = typeRef.shortName
         if (metaAnnotationsFromPlugins.isNotEmpty()) return true
         return name in session.annotationPlatformSupport.requiredAnnotationsShortClassNames || annotationsFromPlugins.any { it.shortName() == name }
     }
 
     private fun FirResolvedTypeRef.requiredToSave(): Boolean {
-        val classId = type.classId ?: return false
+        val classId = coneType.classId ?: return false
         return when {
             classId in session.annotationPlatformSupport.requiredAnnotations -> true
             classId.asSingleFqName() in annotationsFromPlugins -> true
             metaAnnotationsFromPlugins.isEmpty() -> false
-            else -> type.markedWithMetaAnnotation(session, metaAnnotationsFromPlugins)
+            else -> coneType.markedWithMetaAnnotation(session, metaAnnotationsFromPlugins)
         }
     }
 
@@ -391,13 +392,15 @@ abstract class AbstractFirSpecificAnnotationResolveTransformer(
     ) {
         withRegularClass(regularClass) {
             if (!shouldTransformDeclaration(regularClass)) return
-            computationSession.recordThatAnnotationsAreResolved(regularClass)
-            transformDeclaration(regularClass, null).also {
-                transformChildren(regularClass) {
-                    transformChildren()
-                }
-                afterChildrenTransform()
+            if (!computationSession.annotationResolutionWasAlreadyStarted(regularClass)) {
+                computationSession.recordThatAnnotationResolutionStarted(regularClass)
+                transformDeclaration(regularClass, null)
+                computationSession.recordThatAnnotationsAreResolved(regularClass)
             }
+            transformChildren(regularClass) {
+                transformChildren()
+            }
+            afterChildrenTransform()
         }
     }
 
@@ -658,7 +661,6 @@ abstract class AbstractFirSpecificAnnotationResolveTransformer(
             }
             is FirStarProjection -> buildStarProjection { source = original.source }
             is FirPlaceholderProjection -> buildPlaceholderProjection { source = original.source }
-            else -> shouldNotBeCalled()
         }
     }
 }

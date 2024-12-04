@@ -1,4 +1,4 @@
-Assertion failed
+---
 assert(if (a < b) a == b else if (b < a) b == a else false)
            | | |                  | | |  | |  |
            | | |                  | | |  | |  2
@@ -10,8 +10,8 @@ assert(if (a < b) a == b else if (b < a) b == a else false)
            | | 1
            | false
            2
-
-Assertion failed
+---
+---
 assert(if (a < b) a == b else if (b < a) b == a else false)
            | | |  | |  |
            | | |  | |  2
@@ -20,8 +20,8 @@ assert(if (a < b) a == b else if (b < a) b == a else false)
            | | 2
            | true
            1
-
-Assertion failed
+---
+---
 assert(if (a < b) a == b else if (b < a) b == a else false)
            | | |                  | | |
            | | |                  | | 1
@@ -30,8 +30,8 @@ assert(if (a < b) a == b else if (b < a) b == a else false)
            | | 1
            | false
            1
-
-Assertion failed
+---
+---
 assert(a + (if (a < b) a else b) + b == a)
        | |      | | |  |         | | |  |
        | |      | | |  |         | | |  1
@@ -44,8 +44,8 @@ assert(a + (if (a < b) a else b) + b == a)
        | |      1
        | 2
        1
-
-Assertion failed
+---
+---
 assert(a + (if (a < b) a else b) + b == a)
        | |      | | |         |  | | |  |
        | |      | | |         |  | | |  2
@@ -58,8 +58,8 @@ assert(a + (if (a < b) a else b) + b == a)
        | |      2
        | 3
        2
-
-Assertion failed
+---
+---
 assert(
     when {
         a < b -> a == b
@@ -67,6 +67,7 @@ assert(
         | | 1
         | false
         2
+
         b < a -> b == a
         | | |    | |  |
         | | |    | |  2
@@ -75,11 +76,12 @@ assert(
         | | 2
         | true
         1
+
         else -> false
     }
 )
-
-Assertion failed
+---
+---
 assert(
     when {
         a < b -> a == b
@@ -90,12 +92,13 @@ assert(
         | | 2
         | true
         1
+
         b < a -> b == a
         else -> false
     }
 )
-
-Assertion failed
+---
+---
 assert(
     when {
         a < b -> a == b
@@ -103,25 +106,29 @@ assert(
         | | 1
         | false
         1
+
         b < a -> b == a
         | | |
         | | 1
         | false
         1
+
         else -> false
     }
 )
-
-Assertion failed
+---
+---
 assert(
     initial && when {
     |
     true
+
         a < b -> a == b
         | | |
         | | 1
         | false
         2
+
         b < a -> b == a
         | | |    | |  |
         | | |    | |  2
@@ -130,15 +137,17 @@ assert(
         | | 2
         | true
         1
+
         else -> false
     }
 )
-
-Assertion failed
+---
+---
 assert(
     initial && when {
     |
     true
+
         a < b -> a == b
         | | |    | |  |
         | | |    | |  2
@@ -147,37 +156,43 @@ assert(
         | | 2
         | true
         1
+
         b < a -> b == a
         else -> false
     }
 )
-
-Assertion failed
+---
+---
 assert(
     initial && when {
     |
     true
+
         a < b -> a == b
         | | |
         | | 1
         | false
         1
+
         b < a -> b == a
         | | |
         | | 1
         | false
         1
+
         else -> false
     }
 )
-
-Assertion failed
+---
+---
 assert(
     initial && when {
     |
     false
+
         a < b -> a == b
         b < a -> b == a
         else -> false
     }
 )
+---

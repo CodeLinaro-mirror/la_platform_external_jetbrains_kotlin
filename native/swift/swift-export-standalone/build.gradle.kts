@@ -5,7 +5,7 @@ plugins {
     id("jps-compatible")
 }
 
-description = "Runner for Swift Export"
+description = "Standalone Runner for Swift Export"
 
 kotlin {
     explicitApi()
@@ -56,9 +56,7 @@ val test by nativeTest("test", null) {
     useJUnitPlatform { }
 }
 
-if (kotlinBuildProperties.isSwiftExportPluginPublishingEnabled) {
-    publish()
-}
+publish()
 
 runtimeJar()
 sourcesJar()

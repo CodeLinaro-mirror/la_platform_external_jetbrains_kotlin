@@ -16,12 +16,31 @@ sealed class MppDependencyProjectStructureMetadataExtractor {
     companion object Factory
 }
 
-internal class ProjectMppDependencyProjectStructureMetadataExtractor(
-    val projectPath: String,
+internal abstract class AbstractProjectMppDependencyProjectStructureMetadataExtractor(
+    val projectPath: String?,
+) : MppDependencyProjectStructureMetadataExtractor()
+
+@Deprecated(
+    message = "This class is not compatible with gradle project Isolation",
+    replaceWith = ReplaceWith("ProjectMppDependencyProjectStructureMetadataExtractor")
+)
+internal class ProjectMppDependencyProjectStructureMetadataExtractorDeprecated(
+    projectPath: String,
     private val projectStructureMetadataProvider: () -> KotlinProjectStructureMetadata?,
-) : MppDependencyProjectStructureMetadataExtractor() {
+) : AbstractProjectMppDependencyProjectStructureMetadataExtractor(projectPath) {
 
     override fun getProjectStructureMetadata(): KotlinProjectStructureMetadata? = projectStructureMetadataProvider()
+}
+
+internal class ProjectMppDependencyProjectStructureMetadataExtractor(
+    private val projectStructureMetadataFile: File?,
+) : AbstractProjectMppDependencyProjectStructureMetadataExtractor(null) {
+
+    override fun getProjectStructureMetadata(): KotlinProjectStructureMetadata? {
+        return projectStructureMetadataFile?.let {
+            parseKotlinSourceSetMetadataFromJson(projectStructureMetadataFile.readText())
+        }
+    }
 }
 
 internal open class JarMppDependencyProjectStructureMetadataExtractor(

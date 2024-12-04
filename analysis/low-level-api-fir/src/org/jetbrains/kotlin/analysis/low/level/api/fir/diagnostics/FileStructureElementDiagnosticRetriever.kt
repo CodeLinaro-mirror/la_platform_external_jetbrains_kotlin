@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.DiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics.fir.PersistenceContextCollector
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics.fir.PersistentCheckerContextFactory
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.visitScriptDependentElements
@@ -14,12 +15,10 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContextForProvider
 import org.jetbrains.kotlin.fir.analysis.collectors.DiagnosticCollectorComponents
 import org.jetbrains.kotlin.fir.correspondingProperty
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.declarations.FirScript
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirPrimaryConstructor
 import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.util.withSourceCodeAnalysisExceptionUnwrapping
 
 /**
@@ -33,7 +32,9 @@ internal sealed class FileStructureElementDiagnosticRetriever(
     private val file: FirFile,
     private val moduleComponents: LLFirModuleResolveComponents,
 ) {
-    fun retrieve(collector: FileStructureElementDiagnosticsCollector): FileStructureElementDiagnosticList {
+    fun retrieve(filter: DiagnosticCheckerFilter): FileStructureElementDiagnosticList {
+        forceBodyResolve()
+
         val sessionHolder = SessionHolderImpl(moduleComponents.session, moduleComponents.scopeSessionProvider.getScopeSession())
         val context = if (declaration is FirFile) {
             PersistentCheckerContextFactory.createEmptyPersistenceCheckerContext(sessionHolder)
@@ -42,13 +43,36 @@ internal sealed class FileStructureElementDiagnosticRetriever(
         }
 
         return withSourceCodeAnalysisExceptionUnwrapping {
-            collector.collectForStructureElement(declaration) { components ->
+            collectForStructureElement(declaration, filter) { components ->
                 createVisitor(context, components)
             }
         }
     }
 
     abstract fun createVisitor(context: CheckerContextForProvider, components: DiagnosticCollectorComponents): LLFirDiagnosticVisitor
+
+    /**
+     * Declarations-containers may analyze its members, so we have to resole them explicitly as
+     * not all of them are pre-resolved during [declaration] resolution.
+     * For instance, functions and classes are not a part of the container body resolution.
+     */
+    private fun forceBodyResolve() {
+        declaration.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
+
+        val additionalDeclarationsToResolve = when (declaration) {
+            is FirFile -> declaration.declarations.let { declarations ->
+                (declarations.firstOrNull() as? FirScript)?.declarations ?: declarations
+            }
+
+            is FirRegularClass -> declaration.declarations
+            is FirScript -> declaration.declarations
+            else -> emptyList()
+        }
+
+        additionalDeclarationsToResolve.forEach {
+            it.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
+        }
+    }
 }
 
 internal class ClassDiagnosticRetriever(

@@ -48,7 +48,6 @@ import org.jetbrains.kotlin.gradle.utils.newInstance
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
-import org.jetbrains.kotlin.konan.target.KonanTarget.*
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.capitalizeAsciiOnly
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import java.io.File
@@ -76,8 +75,8 @@ internal class CocoapodsBuildDirs(private val layout: ProjectLayout) {
         return root.map { it.dir("fat-frameworks/${buildType.getName()}") }
     }
 
-    fun buildSettings(pod: Provider<CocoapodsDependency>, sdk: Provider<String>): Provider<RegularFile> {
-        return dir("buildSettings").map { it.file("build-settings-${sdk.get()}-${pod.get().schemeName}.properties") }
+    fun buildSettings(pod: Provider<CocoapodsDependency>, appleTarget: Provider<AppleTarget>): Provider<RegularFile> {
+        return dir("buildSettings").map { it.file("build-settings-${appleTarget.get().targetName}-${pod.get().schemeName}.properties") }
     }
 
     private fun dir(pathFromRoot: String): Provider<Directory> = root.map { it.dir(pathFromRoot) }
@@ -100,35 +99,23 @@ private val Family.toPodGenTaskName: String
 private val Family.toPodInstallSyntheticTaskName: String
     get() = lowerCamelCaseName(KotlinCocoapodsPlugin.POD_INSTALL_TASK_NAME, "synthetic", platformLiteral)
 
-private fun String.toSetupBuildTaskName(pod: CocoapodsDependency): String = lowerCamelCaseName(
+private fun AppleTarget.toSetupBuildTaskName(pod: CocoapodsDependency): String = lowerCamelCaseName(
     KotlinCocoapodsPlugin.POD_SETUP_BUILD_TASK_NAME,
     pod.schemeName.asValidTaskName(),
-    this
+    targetName,
 )
 
-private fun String.toBuildDependenciesTaskName(pod: CocoapodsDependency): String = lowerCamelCaseName(
+private fun AppleTarget.toBuildDependenciesTaskName(pod: CocoapodsDependency): String = lowerCamelCaseName(
     KotlinCocoapodsPlugin.POD_BUILD_TASK_NAME,
     pod.schemeName.asValidTaskName(),
-    this
+    targetName,
 )
-
-private val KotlinNativeTarget.toValidSDK: String
-    get() = when (konanTarget) {
-        IOS_X64, IOS_SIMULATOR_ARM64 -> "iphonesimulator"
-        IOS_ARM64 -> "iphoneos"
-        WATCHOS_X64, WATCHOS_SIMULATOR_ARM64 -> "watchsimulator"
-        WATCHOS_ARM32, WATCHOS_ARM64, WATCHOS_DEVICE_ARM64 -> "watchos"
-        TVOS_X64, TVOS_SIMULATOR_ARM64 -> "appletvsimulator"
-        TVOS_ARM64 -> "appletvos"
-        MACOS_X64, MACOS_ARM64 -> "macosx"
-        else -> throw IllegalArgumentException("Bad target ${konanTarget.name}.")
-    }
 
 private fun Project.getPodBuildTaskProvider(
     target: KotlinNativeTarget,
     pod: CocoapodsDependency
 ): Provider<PodBuildTask> {
-    return providerOfTask(target.toValidSDK.toBuildDependenciesTaskName(pod))
+    return providerOfTask(target.appleTarget.toBuildDependenciesTaskName(pod))
 }
 
 internal val PodBuildSettingsProperties.frameworkSearchPaths: List<String>
@@ -158,18 +145,14 @@ internal fun String.splitQuotedArgs(): List<String> =
         it.value.replace("\"", "")
     }.toList()
 
-internal fun KotlinMultiplatformExtension.supportedTargets() = targets
-    .withType(KotlinNativeTarget::class.java)
-    .matching { it.konanTarget.family.isAppleFamily }
-
 
 open class KotlinCocoapodsPlugin : Plugin<Project> {
 
     private fun KotlinMultiplatformExtension.targetsForPlatform(requestedPlatform: KonanTarget) =
-        supportedTargets().matching { it.konanTarget == requestedPlatform }
+        supportedAppleTargets().matching { it.konanTarget == requestedPlatform }
 
     private fun createDefaultFrameworks(kotlinExtension: KotlinMultiplatformExtension) {
-        kotlinExtension.supportedTargets().all { target ->
+        kotlinExtension.supportedAppleTargets().all { target ->
             target.binaries.framework(POD_FRAMEWORK_PREFIX) {
                 baseName = project.name.asValidFrameworkName()
             }
@@ -322,7 +305,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                 // to avoid showing it in the `tasks` output.
             }
 
-            kotlinExtension.supportedTargets().all { target ->
+            kotlinExtension.supportedAppleTargets().all { target ->
                 val cinterops = target.compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME).cinterops
                 cinterops.create(pod.moduleName) { interop ->
                     project.tasks.configureByName<CInteropProcess>(interop.interopProcessingTaskName) { interopTask ->
@@ -558,36 +541,36 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
             }
             schemeNames.add(pod.schemeName)
 
-            val sdks = mutableSetOf<String>()
+            val appleTargets = mutableSetOf<AppleTarget>()
 
-            kotlinExtension.supportedTargets().all loop@{ target ->
+            kotlinExtension.supportedAppleTargets().all loop@{ target ->
 
-                val sdk = target.toValidSDK
+                val appleTarget = target.appleTarget
 
-                if (sdk in sdks) {
+                if (appleTarget in appleTargets) {
                     return@loop
                 }
-                sdks += sdk
+                appleTargets += appleTarget
 
                 val family = target.konanTarget.family
                 val podInstallTaskProvider = locateOrRegisterPodInstallSyntheticTask(project, cocoapodsExtension, family)
 
-                val podSetupBuildTaskProvider = project.registerTask<PodSetupBuildTask>(sdk.toSetupBuildTaskName(pod)) { task ->
+                val podSetupBuildTaskProvider = project.registerTask<PodSetupBuildTask>(appleTarget.toSetupBuildTaskName(pod)) { task ->
                     task.group = TASK_GROUP
                     task.description = "Collect environment variables from .xcworkspace file"
                     task.pod.set(pod)
-                    task.sdk.set(sdk)
+                    task.appleTarget.set(appleTarget)
                     task.podsXcodeProjDir.set(podInstallTaskProvider.map { it.podsXcodeProjDirProvider.get() })
                     task.frameworkName.set(cocoapodsExtension.podFrameworkName)
                     task.dependsOn(podInstallTaskProvider)
                 }
 
-                project.registerTask<PodBuildTask>(sdk.toBuildDependenciesTaskName(pod)) { task ->
+                project.registerTask<PodBuildTask>(appleTarget.toBuildDependenciesTaskName(pod)) { task ->
                     task.group = TASK_GROUP
                     task.description = "Calls `xcodebuild` on xcworkspace for the pod scheme"
                     task.buildSettingsFile.set(podSetupBuildTaskProvider.flatMap { it.buildSettingsFile })
                     task.pod.set(pod)
-                    task.sdk.set(sdk)
+                    task.appleTarget.set(appleTarget)
                     task.family.set(family)
                     task.podsXcodeProjDir.fileProvider(podSetupBuildTaskProvider.flatMap { it.podsXcodeProjDir })
                     task.dependsOn(podSetupBuildTaskProvider)
@@ -606,7 +589,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
             task.description = "Called on Gradle sync, depends on Cinterop tasks for every used pod"
             task.dependsOn(podInstallTaskProvider)
 
-            kotlinExtension.supportedTargets().all { target ->
+            kotlinExtension.supportedAppleTargets().all { target ->
                 target.compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME).cinterops.all { interop ->
                     task.dependsOn(interop.interopProcessingTaskName)
                 }
@@ -619,7 +602,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
     }
 
     private fun configureLinkingOptions(project: Project, cocoapodsExtension: CocoapodsExtension) {
-        project.multiplatformExtension.supportedTargets().all { target ->
+        project.multiplatformExtension.supportedAppleTargets().all { target ->
             target.binaries.all { binary ->
                 val testExecutable = binary is TestExecutable
                 val podFramework = binary is Framework && binary.name.startsWith(POD_FRAMEWORK_PREFIX)
@@ -671,7 +654,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
     ): TaskProvider<XCFrameworkTask> =
         with(project) {
             registerTask(lowerCamelCaseName(POD_FRAMEWORK_PREFIX, "publish", buildType.getName(), "XCFramework")) { task ->
-                multiplatformExtension.supportedTargets().all { target ->
+                multiplatformExtension.supportedAppleTargets().all { target ->
                     target.binaries.matching { it.buildType == buildType && it.name.startsWith(POD_FRAMEWORK_PREFIX) }
                         .withType(Framework::class.java) { framework ->
                             task.from(framework)
@@ -730,7 +713,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         buildType: NativeBuildType
     ) =
         with(project) {
-            multiplatformExtension.supportedTargets().all { target ->
+            multiplatformExtension.supportedAppleTargets().all { target ->
                 target.binaries.matching { it.buildType == buildType && it.name.startsWith(POD_FRAMEWORK_PREFIX) }
                     .withType(Framework::class.java) { framework ->
 
@@ -810,7 +793,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
     }
 
     private fun Project.buildSettingsFileProvider(pod: CocoapodsDependency, target: KotlinNativeTarget): Provider<RegularFile> {
-        return layout.cocoapodsBuildDirs.buildSettings(provider { pod }, provider { target.toValidSDK })
+        return layout.cocoapodsBuildDirs.buildSettings(provider { pod }, provider { target.appleTarget })
     }
 
     private val KotlinMultiplatformExtension?.cocoapodsExtensionOrNull: CocoapodsExtension?

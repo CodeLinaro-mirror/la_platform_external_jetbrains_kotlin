@@ -1,6 +1,8 @@
 @file:Suppress("HasPlatformType")
 
 import org.gradle.internal.jvm.Jvm
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.attributes.KlibPackaging
 import java.util.regex.Pattern.quote
 
 description = "Kotlin Compiler"
@@ -126,7 +128,8 @@ val distCompilerPluginProjects = listOf(
     ":kotlinx-serialization-compiler-plugin",
     ":kotlin-lombok-compiler-plugin",
     ":kotlin-assignment-compiler-plugin",
-    ":kotlin-scripting-compiler"
+    ":kotlin-scripting-compiler",
+    ":plugins:compose-compiler-plugin:compiler",
 )
 val distCompilerPluginProjectsCompat = listOf(
     ":kotlinx-serialization-compiler-plugin",
@@ -173,9 +176,10 @@ dependencies {
     distLibraryProjects.forEach {
         libraries(project(it)) { isTransitive = false }
     }
-
-    distCompilerPluginProjects.forEach {
-        compilerPlugins(project(it)) { isTransitive = false }
+    if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+        distCompilerPluginProjects.forEach {
+            compilerPlugins(project(it)) { isTransitive = false }
+        }
     }
     distCompilerPluginProjectsCompat.forEach {
         compilerPluginsCompat(
@@ -198,8 +202,6 @@ dependencies {
     if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
         sources(kotlinStdlib(classifier = "sources"))
         sources("org.jetbrains.kotlin:kotlin-reflect:$bootstrapKotlinVersion:sources")
-        distCommonContents(kotlinStdlib(classifier = "common"))
-        distCommonContents(kotlinStdlib(classifier = "common-sources"))
     } else {
         sources(project(":kotlin-stdlib", configuration = "distSources"))
         sources(project(":kotlin-stdlib", configuration = "distJsSourcesJar"))
@@ -215,13 +217,15 @@ dependencies {
 
     buildNumber(project(":prepare:build.version", configuration = "buildVersion"))
 
-    fatJarContents(kotlinBuiltins())
+    if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+        fatJarContents(kotlinBuiltins())
+    }
     fatJarContents(commonDependency("javax.inject"))
     fatJarContents(commonDependency("org.jline", "jline"))
     fatJarContents(commonDependency("org.fusesource.jansi", "jansi"))
     fatJarContents(protobufFull())
     fatJarContents(commonDependency("com.google.code.findbugs", "jsr305"))
-    fatJarContents(commonDependency("io.javaslang", "javaslang"))
+    fatJarContents(libs.vavr)
     fatJarContents(commonDependency("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm")) { isTransitive = false }
 
     fatJarContents(intellijCore())
@@ -229,7 +233,7 @@ dependencies {
     fatJarContents(commonDependency("org.jetbrains.intellij.deps.jna:jna-platform")) { isTransitive = false }
     fatJarContents(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
     fatJarContents(commonDependency("org.lz4:lz4-java")) { isTransitive = false }
-    fatJarContents(commonDependency("org.jetbrains.intellij.deps:asm-all")) { isTransitive = false }
+    fatJarContents(libs.intellij.asm) { isTransitive = false }
     fatJarContents(libs.guava) { isTransitive = false }
     //Gson is needed for kotlin-build-statistics. Build statistics could be enabled for JPS and Gradle builds. Gson will come from inteliij or KGP.
     proguardLibraries(commonDependency("com.google.code.gson:gson")) { isTransitive = false}
@@ -246,7 +250,11 @@ dependencies {
 val librariesKotlinTestFiles = files(
     listOf(null, "junit", "junit5", "testng", "js").map { suffix ->
         listOf(null, "sources").map { classifier ->
-            configurations.detachedConfiguration(dependencies.create(kotlinTest(suffix, classifier))).apply { isTransitive = false }
+            configurations.detachedConfiguration(dependencies.create(kotlinTest(suffix, classifier))).apply {
+                isTransitive = false
+                @OptIn(ExperimentalKotlinGradlePluginApi::class)
+                attributes.attribute(KlibPackaging.ATTRIBUTE, objects.named(KlibPackaging.PACKED))
+            }
         }
     }
 )
@@ -311,6 +319,7 @@ val proguard by task<CacheableProguardTask> {
             !net/sf/cglib/**,
             !META-INF/maven**,
             **.class,**.properties,**.kt,**.kotlin_*,**.jnilib,**.so,**.dll,**.txt,**.caps,
+            custom-formatters.js,
             META-INF/services/**,META-INF/native/**,META-INF/extensions/**,META-INF/MANIFEST.MF,
             messages/**""".trimIndent()),
         packCompiler.map { it.outputs.files.singleFile }
@@ -433,6 +442,7 @@ val distCommon = distTask<Sync>("distCommon") {
         rename { name ->
             name
                 .replace("-metadata.jar", "-common.jar")
+                .replace("-metadata.klib", "-common.klib")
                 .replace("-metadata-sources.jar", "-common-sources.jar")
         }
     }

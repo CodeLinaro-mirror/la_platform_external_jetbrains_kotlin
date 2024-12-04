@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.jvm.addModularRootIfNotNull
 import org.jetbrains.kotlin.cli.jvm.config.*
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
@@ -43,7 +44,6 @@ import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ENABLE_JV
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.JDK_RELEASE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LINK_VIA_SIGNATURES_K1
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_NEW_JAVA_ANNOTATION_TARGETS
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_OPTIMIZED_CALLABLE_REFERENCES
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.NO_UNIFIED_NULL_CHECKS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.OLD_INNER_CLASSES_LOGIC
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.PARAMETERS_METADATA
@@ -139,7 +139,6 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
             TestJdkKind.FULL_JDK -> getJdkHomeFromProperty {
                 runIf(JavaVersion.current() >= JavaVersion.compose(9)) { File(System.getProperty("java.home")) }
             }
-            TestJdkKind.ANDROID_API -> null
         }
 
         inline fun getJdkHomeFromProperty(onNull: () -> File?): File? {
@@ -156,7 +155,6 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         fun getJdkClasspathRoot(jdkKind: TestJdkKind): File? = when (jdkKind) {
             TestJdkKind.MOCK_JDK -> KtTestUtil.findMockJdkRtJar()
             TestJdkKind.MODIFIED_MOCK_JDK -> KtTestUtil.findMockJdkRtModified()
-            TestJdkKind.ANDROID_API -> KtTestUtil.findAndroidApiJar()
             TestJdkKind.FULL_JDK_11 -> null
             TestJdkKind.FULL_JDK_17 -> null
             TestJdkKind.FULL_JDK_21 -> null
@@ -178,7 +176,6 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         register(USE_OLD_INLINE_CLASSES_MANGLING_SCHEME, JVMConfigurationKeys.USE_OLD_INLINE_CLASSES_MANGLING_SCHEME)
         register(ENABLE_JVM_PREVIEW, JVMConfigurationKeys.ENABLE_JVM_PREVIEW)
         register(EMIT_JVM_TYPE_ANNOTATIONS, JVMConfigurationKeys.EMIT_JVM_TYPE_ANNOTATIONS)
-        register(NO_OPTIMIZED_CALLABLE_REFERENCES, JVMConfigurationKeys.NO_OPTIMIZED_CALLABLE_REFERENCES)
         register(DISABLE_PARAM_ASSERTIONS, JVMConfigurationKeys.DISABLE_PARAM_ASSERTIONS)
         register(DISABLE_CALL_ASSERTIONS, JVMConfigurationKeys.DISABLE_CALL_ASSERTIONS)
         register(NO_UNIFIED_NULL_CHECKS, JVMConfigurationKeys.NO_UNIFIED_NULL_CHECKS)
@@ -202,12 +199,16 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         configureDefaultJvmTarget(configuration)
         val registeredDirectives = module.directives
 
+        if (ConfigurationDirectives.WITH_KOTLIN_JVM_ANNOTATIONS in module.directives) {
+            configuration.addJvmClasspathRoot(ForTestCompileRuntime.jvmAnnotationsForTests())
+        }
+
         val jdkKind = extractJdkKind(registeredDirectives)
         getJdkHome(jdkKind)?.let { configuration.put(JVMConfigurationKeys.JDK_HOME, it) }
         getJdkClasspathRoot(jdkKind)?.let { configuration.addJvmClasspathRoot(it) }
 
         when (jdkKind) {
-            TestJdkKind.MOCK_JDK, TestJdkKind.MODIFIED_MOCK_JDK, TestJdkKind.ANDROID_API -> {
+            TestJdkKind.MOCK_JDK, TestJdkKind.MODIFIED_MOCK_JDK -> {
                 configuration.put(JVMConfigurationKeys.NO_JDK, true)
             }
 
@@ -358,8 +359,6 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
     }
 
     private fun CompilerConfiguration.registerModuleDependencies(module: TestModule) {
-        addJvmClasspathRoots(module.allDependencies.filter { it.kind == DependencyKind.Binary }.toFileList())
-
         val isJava9Module = module.files.any(TestFile::isModuleInfoJavaFile)
         for (dependency in module.allDependencies.filter { it.kind == DependencyKind.Binary }.toFileList()) {
             if (isJava9Module) {

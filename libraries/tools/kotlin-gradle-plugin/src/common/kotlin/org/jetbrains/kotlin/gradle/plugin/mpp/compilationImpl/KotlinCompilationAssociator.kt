@@ -56,26 +56,16 @@ internal object DefaultKotlinCompilationAssociator : KotlinCompilationAssociator
         )
 
         // Adding declared dependencies
-        auxiliary.compileDependencyConfigurationName.addAllDependenciesFromOtherConfigurations(
-            project,
-            main.apiConfigurationName,
-            main.implementationConfigurationName,
-            main.compileOnlyConfigurationName
-        )
-
-        auxiliary.runtimeDependencyConfigurationName?.addAllDependenciesFromOtherConfigurations(
-            project,
-            main.apiConfigurationName,
-            main.implementationConfigurationName,
-            main.runtimeOnlyConfigurationName
-        )
+        auxiliary.apiConfigurationName.addAllDependenciesFromOtherConfigurations(project, main.apiConfigurationName)
+        auxiliary.implementationConfigurationName.addAllDependenciesFromOtherConfigurations(project, main.implementationConfigurationName)
+        auxiliary.compileOnlyConfigurationName.addAllDependenciesFromOtherConfigurations(project, main.compileOnlyConfigurationName)
+        auxiliary.runtimeOnlyConfigurationName.addAllDependenciesFromOtherConfigurations(project, main.runtimeOnlyConfigurationName)
     }
 }
 
 internal object KotlinNativeCompilationAssociator : KotlinCompilationAssociator {
     override fun associate(target: KotlinTarget, auxiliary: InternalKotlinCompilation<*>, main: InternalKotlinCompilation<*>) {
-        auxiliary.compileDependencyFiles +=
-            main.output.classesDirs + target.project.filesProvider { main.compileDependencyFiles }
+        auxiliary.compileDependencyFiles += main.output.classesDirs
 
         target.project.configurations.named(auxiliary.implementationConfigurationName).configure { configuration ->
             configuration.extendsFrom(target.project.configurations.findByName(main.implementationConfigurationName))

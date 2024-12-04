@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.isEnumEntries
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
@@ -44,9 +45,9 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
                 return
             }
             for (upperBound in typeParameter.symbol.resolvedBounds) {
-                if (!upperBound.type.isExportable(context.session)) {
+                if (!upperBound.coneType.isExportable(context.session)) {
                     val source = upperBound.source ?: typeParameter.source ?: declaration.source
-                    reporter.reportOn(source, FirJsErrors.NON_EXPORTABLE_TYPE, "upper bound", upperBound.type, context)
+                    reporter.reportOn(source, FirJsErrors.NON_EXPORTABLE_TYPE, "upper bound", upperBound.coneType, context)
                 }
             }
         }
@@ -126,7 +127,7 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
                     return
                 }
 
-                val containingClass = declaration.getContainingClassSymbol(context.session) as? FirClassSymbol<*>
+                val containingClass = declaration.getContainingClassSymbol() as? FirClassSymbol<*>
                 val enumEntriesProperty = containingClass?.let(declaration::isEnumEntries) ?: false
                 val returnType = declaration.returnTypeRef.coneType
                 if (!enumEntriesProperty && !returnType.isExportable(context.session)) {
@@ -238,7 +239,7 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
             return isExportableArgs
         }
 
-        val nonNullable = expandedType.withNullability(ConeNullability.NOT_NULL, session.typeContext)
+        val nonNullable = expandedType.withNullability(nullable = false, session.typeContext)
         val isPrimitiveExportableType = nonNullable.isAny || nonNullable.isNullableAny
                 || nonNullable is ConeDynamicType || nonNullable.isPrimitiveExportableConeKotlinType
 

@@ -7,16 +7,18 @@ package org.jetbrains.kotlin.fir.analysis.diagnostics
 
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers
 import org.jetbrains.kotlin.diagnostics.WhenMissingCase
-import org.jetbrains.kotlin.diagnostics.rendering.ContextDependentRenderer
-import org.jetbrains.kotlin.diagnostics.rendering.ContextIndependentParameterRenderer
-import org.jetbrains.kotlin.diagnostics.rendering.Renderer
-import org.jetbrains.kotlin.diagnostics.rendering.RenderingContext
+import org.jetbrains.kotlin.diagnostics.rendering.*
 import org.jetbrains.kotlin.fir.FirModuleData
+import org.jetbrains.kotlin.fir.analysis.checkers.getParameterNameFromAnnotation
 import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.utils.*
-import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.UnsafeExpressionUtility
+import org.jetbrains.kotlin.fir.expressions.toReferenceUnsafe
+import org.jetbrains.kotlin.fir.expressions.unwrapSmartcastExpression
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
@@ -25,12 +27,7 @@ import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.*
-import org.jetbrains.kotlin.fir.types.ConeIntersectionType
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.types.forEachType
-import org.jetbrains.kotlin.fir.types.getConstructor
-import org.jetbrains.kotlin.fir.types.lowerBoundIfFlexible
-import org.jetbrains.kotlin.fir.types.renderReadableWithFqNames
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.metadata.deserialization.VersionRequirement
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -41,9 +38,7 @@ object FirDiagnosticRenderers {
     @OptIn(SymbolInternals::class)
     val SYMBOL = Renderer { symbol: FirBasedSymbol<*> ->
         when (symbol) {
-            is FirClassLikeSymbol<*>,
-            is FirCallableSymbol<*>,
-            -> FirRenderer(
+            is FirClassLikeSymbol, is FirCallableSymbol -> FirRenderer(
                 typeRenderer = ConeTypeRendererForReadability { ConeIdShortRenderer() },
                 idRenderer = ConeIdShortRenderer(),
                 classMemberRenderer = FirNoClassMemberRenderer(),
@@ -53,7 +48,7 @@ object FirDiagnosticRenderers {
                 modifierRenderer = FirPartialModifierRenderer(),
                 valueParameterRenderer = FirValueParameterRendererForReadability(),
                 declarationRenderer = FirDeclarationRenderer("local "),
-                annotationRenderer = FirAnnotationRendererForReadability(),
+                annotationRenderer = null,
                 lineBreakAfterContextReceivers = false,
                 renderFieldAnnotationSeparately = false,
             ).renderElementAsString(symbol.fir, trim = true)
@@ -110,12 +105,20 @@ object FirDiagnosticRenderers {
     }
 
     val DECLARATION_NAME = Renderer { symbol: FirBasedSymbol<*> ->
-        val name = when (symbol) {
-            is FirCallableSymbol<*> -> symbol.name
-            is FirClassLikeSymbol<*> -> symbol.classId.shortClassName
+        when (symbol) {
+            is FirValueParameterSymbol -> symbol.getParameterNameFromAnnotation() ?: symbol.name.asString()
+            is FirCallableSymbol<*> -> symbol.name.asString()
+            is FirClassLikeSymbol<*> -> symbol.classId.shortClassName.asString()
             else -> return@Renderer "???"
         }
-        name.asString()
+    }
+
+    val DECLARATION_FQ_NAME = Renderer { symbol: FirBasedSymbol<*> ->
+        when (symbol) {
+            is FirCallableSymbol<*> -> symbol.name.asString()
+            is FirClassLikeSymbol<*> -> symbol.classId.asFqNameString()
+            else -> return@Renderer "???"
+        }
     }
 
     val RENDER_CLASS_OR_OBJECT_QUOTED = Renderer { classSymbol: FirClassSymbol<*> ->
@@ -168,9 +171,11 @@ object FirDiagnosticRenderers {
 
                 val constructors = buildSet {
                     coneTypes.forEach {
-                        it.forEachType {
-                            if (it !is ConeIntersectionType) {
-                                add(it.lowerBoundIfFlexible().getConstructor())
+                        it.forEachType { typeWithinIt ->
+                            val lowerBound = typeWithinIt.lowerBoundIfFlexible()
+
+                            if (lowerBound !is ConeIntersectionType) {
+                                add(lowerBound.getConstructor())
                             }
                         }
                     }
@@ -278,4 +283,46 @@ object FirDiagnosticRenderers {
     val SYMBOL_WITH_CONTAINING_DECLARATION = Renderer { symbol: FirCallableSymbol<*> ->
         "'${SYMBOL.render(symbol)}' defined in ${NAME_OF_CONTAINING_DECLARATION_OR_FILE.render(symbol.callableId)}"
     }
+
+    val SYMBOL_KIND = Renderer { symbol: FirBasedSymbol<*> ->
+        when (symbol) {
+            is FirPropertyAccessorSymbol -> "property accessor"
+            is FirConstructorSymbol -> "constructor"
+            is FirFunctionSymbol -> "function"
+            is FirPropertySymbol -> "property"
+            is FirBackingFieldSymbol -> "backing field"
+            is FirDelegateFieldSymbol -> "delegate field"
+            is FirEnumEntrySymbol -> "enum entry"
+            is FirFieldSymbol -> "field"
+            is FirValueParameterSymbol -> "value parameter"
+            is FirFileSymbol -> "file"
+            is FirAnonymousInitializerSymbol -> "initializer"
+            is FirTypeParameterSymbol -> "type parameter"
+            is FirRegularClassSymbol -> when (symbol.classKind) {
+                ClassKind.CLASS -> "class"
+                ClassKind.INTERFACE -> "interface"
+                ClassKind.ENUM_CLASS -> "enum class"
+                ClassKind.ENUM_ENTRY -> "enum entry"
+                ClassKind.ANNOTATION_CLASS -> "annotation class"
+                ClassKind.OBJECT -> "object"
+            }
+            is FirAnonymousObjectSymbol -> "anonymous object"
+            is FirTypeAliasSymbol -> "type alias"
+            else -> "declaration"
+        }
+    }
+
+    val KOTLIN_TARGETS = Renderer { targets: Collection<KotlinTarget> ->
+        targets.joinToString { it.description }
+    }
+}
+
+fun <T> DiagnosticParameterRenderer<T>.joinToString(
+    separator: CharSequence = ", ",
+    prefix: CharSequence = "",
+    postfix: CharSequence = "",
+    limit: Int = -1,
+    truncated: CharSequence = "...",
+): DiagnosticParameterRenderer<Iterable<T>> = ContextDependentRenderer { types: Iterable<T>, ctx ->
+    types.joinToString(separator, prefix, postfix, limit, truncated) { render(it, ctx) }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.functions
@@ -35,14 +36,11 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
 /**
- * This phase moves interface members with default implementations to the
- * associated companion DefaultImpls with bridges, as appropriate. It then
- * performs a traversal of any other code in this interface and redirects calls
- * to the interface to the companion, if functions were moved completely.
+ * Moves interface members with default implementations to the associated DefaultImpls classes with bridges. It then performs a traversal
+ * of any other code in this interface and redirects calls to the interface to the DefaultImpls, if functions were moved completely.
  */
 @PhaseDescription(
     name = "Interface",
-    description = "Move default implementations of interface members to DefaultImpls class",
     prerequisite = [JvmDefaultParameterInjector::class]
 )
 internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTransformerVoid(), ClassLoweringPass {
@@ -296,7 +294,7 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
             if (newFunction != null) {
                 with(expression) {
                     IrFunctionReferenceImpl(
-                        startOffset, endOffset, type, newFunction.symbol, newFunction.typeParameters.size, newFunction.valueParameters.size,
+                        startOffset, endOffset, type, newFunction.symbol, newFunction.typeParameters.size,
                         expression.reflectionTarget, origin
                     ).apply {
                         copyFromWithPlaceholderTypeArguments(expression, context.irBuiltIns)

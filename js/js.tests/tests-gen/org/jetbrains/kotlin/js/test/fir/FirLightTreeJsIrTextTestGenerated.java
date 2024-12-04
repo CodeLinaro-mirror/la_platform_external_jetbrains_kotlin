@@ -562,6 +562,18 @@ public class FirLightTreeJsIrTextTestGenerated extends AbstractFirLightTreeJsIrT
       }
 
       @Test
+      @TestMetadata("annotationRetentions.kt")
+      public void testAnnotationRetentions() {
+        runTest("compiler/testData/ir/irText/declarations/annotations/annotationRetentions.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationRetentionsMultiModule.kt")
+      public void testAnnotationRetentionsMultiModule() {
+        runTest("compiler/testData/ir/irText/declarations/annotations/annotationRetentionsMultiModule.kt");
+      }
+
+      @Test
       @TestMetadata("annotationsInAnnotationArguments.kt")
       public void testAnnotationsInAnnotationArguments() {
         runTest("compiler/testData/ir/irText/declarations/annotations/annotationsInAnnotationArguments.kt");
@@ -715,6 +727,12 @@ public class FirLightTreeJsIrTextTestGenerated extends AbstractFirLightTreeJsIrT
       @TestMetadata("receiverParameterWithAnnotations.kt")
       public void testReceiverParameterWithAnnotations() {
         runTest("compiler/testData/ir/irText/declarations/annotations/receiverParameterWithAnnotations.kt");
+      }
+
+      @Test
+      @TestMetadata("specialAnnotationsMetadata.kt")
+      public void testSpecialAnnotationsMetadata() {
+        runTest("compiler/testData/ir/irText/declarations/annotations/specialAnnotationsMetadata.kt");
       }
 
       @Test
@@ -1014,6 +1032,12 @@ public class FirLightTreeJsIrTextTestGenerated extends AbstractFirLightTreeJsIrT
         @TestMetadata("expectedEnumClass.kt")
         public void testExpectedEnumClass() {
           runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectedEnumClass.kt");
+        }
+
+        @Test
+        @TestMetadata("expectedFun.kt")
+        public void testExpectedFun() {
+          runTest("compiler/testData/ir/irText/declarations/multiplatform/k2/expectedFun.kt");
         }
 
         @Test
@@ -2013,6 +2037,12 @@ public class FirLightTreeJsIrTextTestGenerated extends AbstractFirLightTreeJsIrT
     }
 
     @Test
+    @TestMetadata("varargListOfJsStatement.kt")
+    public void testVarargListOfJsStatement() {
+      runTest("compiler/testData/ir/irText/expressions/varargListOfJsStatement.kt");
+    }
+
+    @Test
     @TestMetadata("varargWithImplicitCast.kt")
     public void testVarargWithImplicitCast() {
       runTest("compiler/testData/ir/irText/expressions/varargWithImplicitCast.kt");
@@ -2366,6 +2396,12 @@ public class FirLightTreeJsIrTextTestGenerated extends AbstractFirLightTreeJsIrT
     @Test
     public void testAllFilesPresentInFakeOverrides() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/fakeOverrides"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    }
+
+    @Test
+    @TestMetadata("capturedTypeInFakeOverride.kt")
+    public void testCapturedTypeInFakeOverride() {
+      runTest("compiler/testData/ir/irText/fakeOverrides/capturedTypeInFakeOverride.kt");
     }
 
     @Test
@@ -3376,12 +3412,6 @@ public class FirLightTreeJsIrTextTestGenerated extends AbstractFirLightTreeJsIrT
     @TestMetadata("intersectionType3.kt")
     public void testIntersectionType3() {
       runTest("compiler/testData/ir/irText/types/intersectionType3.kt");
-    }
-
-    @Test
-    @TestMetadata("intersectionTypeInSamType.kt")
-    public void testIntersectionTypeInSamType() {
-      runTest("compiler/testData/ir/irText/types/intersectionTypeInSamType.kt");
     }
 
     @Test

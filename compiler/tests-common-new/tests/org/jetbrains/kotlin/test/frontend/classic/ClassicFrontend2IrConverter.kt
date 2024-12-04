@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.cli.js.klib.generateIrForKlibSerialization
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.KlibMetadataIncrementalSerializer
@@ -23,8 +24,6 @@ import org.jetbrains.kotlin.ir.backend.js.sortDependencies
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrMangler
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
-import org.jetbrains.kotlin.js.config.ErrorTolerancePolicy
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
@@ -64,12 +63,13 @@ class ClassicFrontend2IrConverter(
 
         val phaseConfig = configuration.get(CLIConfigurationKeys.PHASE_CONFIG)
         val codegenFactory = JvmIrCodegenFactory(configuration, phaseConfig)
+        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
         val state = GenerationState.Builder(
             project, ClassBuilderFactories.TEST, analysisResult.moduleDescriptor, analysisResult.bindingContext,
             configuration
         ).isIrBackend(true)
             .ignoreErrors(CodegenTestDirectives.IGNORE_ERRORS in module.directives)
-            .diagnosticReporter(DiagnosticReporterFactory.createReporter())
+            .diagnosticReporter(DiagnosticReporterFactory.createReporter(messageCollector))
             .build()
 
         val conversionResult =
@@ -81,7 +81,6 @@ class ClassicFrontend2IrConverter(
             sourceFiles = emptyList(),
             descriptorMangler = conversionResult.symbolTable.signaturer!!.mangler,
             irMangler = JvmIrMangler,
-            firMangler = null,
         )
     }
 
@@ -107,8 +106,7 @@ class ClassicFrontend2IrConverter(
             testServices.libraryProvider.getDescriptorByCompiledLibrary(it)
         }
 
-        val errorPolicy = configuration.get(JSConfigurationKeys.ERROR_TOLERANCE_POLICY) ?: ErrorTolerancePolicy.DEFAULT
-        val hasErrors = TopDownAnalyzerFacadeForJSIR.checkForErrors(sourceFiles, analysisResult.bindingContext, errorPolicy)
+        val hasErrors = TopDownAnalyzerFacadeForJSIR.checkForErrors(sourceFiles, analysisResult.bindingContext)
         val metadataSerializer = KlibMetadataIncrementalSerializer(
             sourceFiles,
             configuration,
@@ -117,17 +115,17 @@ class ClassicFrontend2IrConverter(
             moduleFragment.descriptor,
             hasErrors,
         )
+        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
         @OptIn(ObsoleteDescriptorBasedAPI::class)
         return IrBackendInput.JsIrAfterFrontendBackendInput(
             moduleFragment,
             pluginContext,
             icData,
-            diagnosticReporter = DiagnosticReporterFactory.createReporter(),
+            diagnosticReporter = DiagnosticReporterFactory.createReporter(messageCollector),
             hasErrors,
             descriptorMangler = (pluginContext.symbolTable as SymbolTable).signaturer!!.mangler,
             irMangler = JsManglerIr,
-            firMangler = null,
             metadataSerializer = metadataSerializer,
         )
     }
@@ -154,9 +152,8 @@ class ClassicFrontend2IrConverter(
             testServices.libraryProvider.getDescriptorByCompiledLibrary(it)
         }
 
-        val errorPolicy = configuration.get(JSConfigurationKeys.ERROR_TOLERANCE_POLICY) ?: ErrorTolerancePolicy.DEFAULT
         val analyzerFacade = TopDownAnalyzerFacadeForWasm.facadeFor(configuration.get(WasmConfigurationKeys.WASM_TARGET))
-        val hasErrors = analyzerFacade.checkForErrors(sourceFiles, analysisResult.bindingContext, errorPolicy)
+        val hasErrors = analyzerFacade.checkForErrors(sourceFiles, analysisResult.bindingContext)
         val metadataSerializer = KlibMetadataIncrementalSerializer(
             sourceFiles,
             configuration,
@@ -165,17 +162,17 @@ class ClassicFrontend2IrConverter(
             moduleFragment.descriptor,
             hasErrors,
         )
+        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
         @OptIn(ObsoleteDescriptorBasedAPI::class)
         return IrBackendInput.WasmAfterFrontendBackendInput(
             moduleFragment,
             pluginContext,
             icData,
-            diagnosticReporter = DiagnosticReporterFactory.createReporter(),
+            diagnosticReporter = DiagnosticReporterFactory.createReporter(messageCollector),
             hasErrors,
             descriptorMangler = (pluginContext.symbolTable as SymbolTable).signaturer!!.mangler,
             irMangler = JsManglerIr,
-            firMangler = null,
             metadataSerializer = metadataSerializer,
         )
     }

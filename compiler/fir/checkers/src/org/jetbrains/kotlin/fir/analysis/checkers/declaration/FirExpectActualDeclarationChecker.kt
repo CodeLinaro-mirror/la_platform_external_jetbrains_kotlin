@@ -60,7 +60,6 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
 
         if (declaration.isExpect) {
             checkExpectDeclarationModifiers(declaration, context, reporter)
-            checkOptInAnnotation(declaration, declaration.symbol, context, reporter)
         }
         val matchingCompatibilityToMembersMap = declaration.symbol.expectForActual.orEmpty()
         if ((ExpectActualMatchingCompatibility.MatchedSuccessfully in matchingCompatibilityToMembersMap || declaration.hasActualModifier()) &&
@@ -173,7 +172,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
 
         when {
             checkingCompatibility is ExpectActualCheckingCompatibility.ClassScopes -> {
-                reportClassScopesIncompatibility(symbol, expectedSingleCandidate, declaration, checkingCompatibility, reporter, source, context)
+                reportClassScopesIncompatibility(symbol, expectedSingleCandidate, checkingCompatibility, reporter, source, context)
             }
 
             ExpectActualMatchingCompatibility.MatchedSuccessfully !in matchingCompatibilityToMembersMap ||
@@ -204,25 +203,19 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
                     )
                 }
             }
-
-            else -> {}
-        }
-        if (expectedSingleCandidate != null) {
-            checkOptInAnnotation(declaration, expectedSingleCandidate, context, reporter)
         }
     }
 
     private fun reportClassScopesIncompatibility(
         symbol: FirBasedSymbol<FirDeclaration>,
         expectedSingleCandidate: FirBasedSymbol<*>?,
-        declaration: FirMemberDeclaration,
         checkingCompatibility: ExpectActualCheckingCompatibility.ClassScopes<FirBasedSymbol<*>>,
         reporter: DiagnosticReporter,
         source: KtSourceElement?,
         context: CheckerContext,
     ) {
         require((symbol is FirRegularClassSymbol || symbol is FirTypeAliasSymbol) && expectedSingleCandidate is FirRegularClassSymbol) {
-            "Incompatible.ClassScopes is only possible for a class or a typealias: $declaration"
+            "Incompatible.ClassScopes is only possible for a class or a typealias: $symbol $expectedSingleCandidate"
         }
 
         // Do not report "expected members have no actual ones" for those expected members, for which there's a clear
@@ -363,7 +356,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
             KtFakeSourceElementKind.DataClassGeneratedMembers -> false
             KtFakeSourceElementKind.EnumGeneratedDeclaration -> false
             KtFakeSourceElementKind.ImplicitConstructor -> false
-            else -> hasModifier(KtTokens.ACTUAL_KEYWORD) || hasModifier(KtTokens.IMPL_KEYWORD)
+            else -> hasModifier(KtTokens.ACTUAL_KEYWORD)
         }
     }
 
@@ -375,20 +368,4 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
             symbol is FirPropertySymbol &&
             symbol.receiverParameter == null &&
             actualContainingClass.primaryConstructorSymbol(platformSession)?.valueParameterSymbols?.singleOrNull()?.name == symbol.name
-
-    private fun checkOptInAnnotation(
-        declaration: FirMemberDeclaration,
-        expectDeclarationSymbol: FirBasedSymbol<*>,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
-    ) {
-        if (context.languageVersionSettings.supportsFeature(LanguageFeature.MultiplatformRestrictions) &&
-            declaration is FirClass &&
-            declaration.classKind == ClassKind.ANNOTATION_CLASS &&
-            !expectDeclarationSymbol.hasAnnotation(StandardClassIds.Annotations.OptionalExpectation, context.session) &&
-            declaration.hasAnnotation(OptInNames.REQUIRES_OPT_IN_CLASS_ID, context.session)
-        ) {
-            reporter.reportOn(declaration.source, FirErrors.EXPECT_ACTUAL_OPT_IN_ANNOTATION, context)
-        }
-    }
 }

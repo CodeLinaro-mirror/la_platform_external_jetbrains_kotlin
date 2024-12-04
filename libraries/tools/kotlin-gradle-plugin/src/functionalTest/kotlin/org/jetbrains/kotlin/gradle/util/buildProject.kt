@@ -7,23 +7,27 @@ package org.jetbrains.kotlin.gradle.util
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.LibraryExtension
+import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.artifacts.verification.DependencyVerificationMode
 import org.gradle.api.internal.project.ProjectInternal
-import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.plugins.ExtraPropertiesExtension
 import org.gradle.testfixtures.ProjectBuilder
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformSourceSetConventions
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
+import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_INTRANSITIVE_METADATA_CONFIGURATION
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension
 import org.jetbrains.kotlin.gradle.plugin.getExtension
+import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.SwiftExportExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.resolve.KotlinTargetResourcesResolutionStrategy
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.KotlinArtifactsExtensionImpl
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.kotlinArtifactsExtension
-import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
 import org.jetbrains.kotlin.gradle.utils.getFile
 import org.jetbrains.kotlin.konan.target.XcodeVersion
 
@@ -34,7 +38,10 @@ fun buildProject(
     .builder()
     .apply(projectBuilder)
     .build()
-    .also { disableDownloadingKonanFromMavenCentral(it) }
+    .also {
+        disableDownloadingKonanFromMavenCentral(it)
+        it.enableDependencyVerification(false)
+    }
     .apply(configureProject)
     .let { it as ProjectInternal }
 
@@ -45,7 +52,6 @@ fun buildProjectWithMPP(
 ) = buildProject(projectBuilder) {
     preApplyCode()
     project.applyMultiplatformPlugin()
-    disableLegacyWarning(project)
     code()
 }
 
@@ -96,7 +102,6 @@ fun Project.androidApplication(code: ApplicationExtension.() -> Unit) {
 }
 
 fun Project.applyMultiplatformPlugin(): KotlinMultiplatformExtension {
-    disableLegacyWarning(project)
     plugins.apply("kotlin-multiplatform")
     return extensions.getByName("kotlin") as KotlinMultiplatformExtension
 }
@@ -107,7 +112,11 @@ fun Project.applyCocoapodsPlugin() {
 }
 
 fun KotlinMultiplatformExtension.cocoapods(code: CocoapodsExtension.() -> Unit) {
-    getExtension<CocoapodsExtension>("cocoapods")!!.apply(code)
+    requireNotNull(getExtension<CocoapodsExtension>("cocoapods")).apply(code)
+}
+
+fun KotlinMultiplatformExtension.swiftExport(code: SwiftExportExtension.() -> Unit) {
+    requireNotNull(getExtension<SwiftExportExtension>("swiftExport")).apply(code)
 }
 
 val Project.propertiesExtension: ExtraPropertiesExtension
@@ -133,6 +142,11 @@ fun Project.enableDefaultStdlibDependency(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_STDLIB_DEFAULT_DEPENDENCY, enabled.toString())
 }
 
+fun Project.enableDefaultJsDomApiDependency(enabled: Boolean = true) {
+    project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_JS_STDLIB_DOM_API_INCLUDED, enabled.toString())
+}
+
+
 fun Project.enableSwiftExport(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_SWIFT_EXPORT_ENABLED, enabled.toString())
 }
@@ -155,4 +169,16 @@ fun Project.mockXcodeVersion(version: XcodeVersion = XcodeVersion.maxTested) {
 
 fun Project.enableSecondaryJvmClassesVariant(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_JVM_ADD_CLASSES_VARIANT, enabled.toString())
+}
+
+fun Project.enableKmpProjectIsolationSupport(enabled: Boolean = true) {
+    if (enabled) {
+        project.propertiesExtension.set(KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT, KmpIsolatedProjectsSupport.ENABLE)
+    } else {
+        project.propertiesExtension.set(KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT, KmpIsolatedProjectsSupport.DISABLE)
+    }
+}
+
+fun Project.enableNonPackedKlibsUsage(enabled: Boolean = true) {
+    project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_USE_NON_PACKED_KLIBS, enabled.toString())
 }

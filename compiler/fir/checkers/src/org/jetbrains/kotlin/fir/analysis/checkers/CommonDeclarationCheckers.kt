@@ -24,6 +24,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirExposedVisibilityDeclarationChecker,
             FirCyclicTypeBoundsChecker,
             FirExpectActualDeclarationChecker,
+            FirRequiresOptInOnExpectChecker,
             FirAmbiguousAnonymousTypeChecker,
             FirExplicitApiDeclarationChecker,
             FirAnnotationChecker,
@@ -46,6 +47,8 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
             FirKClassWithIncorrectTypeArgumentChecker,
             FirImplicitNothingReturnTypeChecker,
             FirDynamicReceiverChecker,
+            FirExtensionShadowedByMemberChecker.Regular,
+            FirExtensionShadowedByMemberChecker.ForExpectDeclaration,
         )
 
     override val functionCheckers: Set<FirFunctionChecker>

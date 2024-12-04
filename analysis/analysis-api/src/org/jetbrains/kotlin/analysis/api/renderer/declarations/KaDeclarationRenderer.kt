@@ -103,6 +103,7 @@ public class KaDeclarationRenderer private constructor(
             is KaBackingFieldSymbol -> backingFieldRenderer.renderSymbol(analysisSession, symbol, this, printer)
             is KaEnumEntrySymbol -> enumEntryRenderer.renderSymbol(analysisSession, symbol, this, printer)
             is KaValueParameterSymbol -> valueParameterRenderer.renderSymbol(analysisSession, symbol, this, printer)
+            is KaReceiverParameterSymbol -> {}
             is KaJavaFieldSymbol -> javaFieldRenderer.renderSymbol(analysisSession, symbol, this, printer)
             is KaLocalVariableSymbol -> localVariableRenderer.renderSymbol(analysisSession, symbol, this, printer)
             is KaKotlinPropertySymbol -> kotlinPropertyRenderer.renderSymbol(analysisSession, symbol, this, printer)
@@ -180,11 +181,13 @@ public class KaDeclarationRenderer private constructor(
         }
     }
 
+    @KaExperimentalApi
     public companion object {
         public operator fun invoke(action: Builder.() -> Unit): KaDeclarationRenderer =
             Builder().apply(action).build()
     }
 
+    @KaExperimentalApi
     public open class Builder {
         public lateinit var returnTypeFilter: KaCallableReturnTypeFilter
         public lateinit var nameRenderer: KaDeclarationNameRenderer

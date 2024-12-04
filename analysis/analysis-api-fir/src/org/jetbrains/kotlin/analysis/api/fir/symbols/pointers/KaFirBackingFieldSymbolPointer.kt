@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.analysis.api.fir.symbols.pointers
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
-import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaBackingFieldSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaKotlinPropertySymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
@@ -24,8 +23,7 @@ internal class KaFirBackingFieldSymbolPointer(
             propertySymbolPointer.restoreSymbol()
         } ?: return null
 
-        check(propertySymbol is KaFirKotlinPropertySymbol)
-        return analysisSession.firSymbolBuilder.variableBuilder.buildBackingFieldSymbolByProperty(propertySymbol.firSymbol)
+        return propertySymbol.backingFieldSymbol
     }
 
     override fun pointsToTheSameSymbolAs(other: KaSymbolPointer<KaSymbol>): Boolean = this === other ||

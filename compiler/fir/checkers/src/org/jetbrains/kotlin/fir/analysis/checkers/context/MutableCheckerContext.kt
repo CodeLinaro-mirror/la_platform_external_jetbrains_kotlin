@@ -11,7 +11,7 @@ import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirInlineDeclarationChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.createInlineFunctionBodyContext
-import org.jetbrains.kotlin.fir.analysis.checkers.extended.FirAnonymousUnusedParamChecker
+import org.jetbrains.kotlin.fir.analysis.checkers.extra.FirAnonymousUnusedParamChecker
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirFunction
@@ -43,18 +43,18 @@ class MutableCheckerContext private constructor(
 ) : CheckerContextForProvider(sessionHolder, returnTypeCalculator, allInfosSuppressed, allWarningsSuppressed, allErrorsSuppressed) {
     constructor(sessionHolder: SessionHolder, returnTypeCalculator: ReturnTypeCalculator) : this(
         PersistentImplicitReceiverStack(),
-        mutableListOf(),
-        mutableListOf(),
-        mutableListOf(),
-        mutableListOf(),
-        mutableListOf(),
+        containingDeclarations = mutableListOf(),
+        callsOrAssignments = mutableListOf(),
+        getClassCalls = mutableListOf(),
+        annotationContainers = mutableListOf(),
+        containingElements = mutableListOf(),
         isContractBody = false,
         inlineFunctionBodyContext = null,
         lambdaBodyContext = null,
         containingFile = null,
         sessionHolder,
         returnTypeCalculator,
-        persistentSetOf(),
+        suppressedDiagnostics = getGloballySuppressedDiagnostics(sessionHolder.session),
         allInfosSuppressed = false,
         allWarningsSuppressed = false,
         allErrorsSuppressed = false

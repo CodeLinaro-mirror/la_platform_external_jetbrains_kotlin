@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrVarargImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.constructors
@@ -102,8 +103,7 @@ private class VarargTransformer(
             expression.endOffset,
             arrayInfo.primitiveArrayType,
             concatFun,
-            typeArgumentsCount = 0,
-            valueArgumentsCount = 1
+            typeArgumentsCount = 0
         ).apply {
             putValueArgument(0, arrayLiteral)
         }
@@ -134,8 +134,7 @@ private class VarargTransformer(
                 expression.endOffset,
                 arrayInfo.primitiveArrayType,
                 copyFunction,
-                typeArgumentsCount = 1,
-                valueArgumentsCount = 1
+                typeArgumentsCount = 1
             ).apply {
                 putTypeArgument(0, arrayInfo.primitiveArrayType)
                 putValueArgument(0, segment)
@@ -197,8 +196,7 @@ private fun List<IrExpression>.toArrayLiteral(context: JsIrBackendContext, type:
     return IrCallImpl(
         startOffset, endOffset,
         type, intrinsic,
-        typeArgumentsCount = if (intrinsic.owner.typeParameters.isNotEmpty()) 1 else 0,
-        valueArgumentsCount = 1
+        typeArgumentsCount = if (intrinsic.owner.typeParameters.isNotEmpty()) 1 else 0
     ).apply {
         if (typeArgumentsCount == 1) {
             putTypeArgument(0, varargElementType)

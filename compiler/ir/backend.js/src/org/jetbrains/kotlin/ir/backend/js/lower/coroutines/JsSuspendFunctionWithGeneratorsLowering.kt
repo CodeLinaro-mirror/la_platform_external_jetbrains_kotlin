@@ -18,15 +18,16 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.utils.addToStdlib.butIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 
 private val SUSPEND_FUNCTION_AS_GENERATOR by IrDeclarationOriginImpl
 
+/**
+ * Transforms suspend function into a GeneratorCoroutineImpl instance and ES2015 generator.
+ */
 class JsSuspendFunctionWithGeneratorsLowering(private val context: JsIrBackendContext) : DeclarationTransformer {
     private val getContinuationSymbol = context.ir.symbols.getContinuation
     private val jsYieldFunctionSymbol = context.intrinsics.jsYieldFunctionSymbol
@@ -121,7 +122,6 @@ class JsSuspendFunctionWithGeneratorsLowering(private val context: JsIrBackendCo
                     it.putValueArgument(0, irCall(generatorFunction.symbol).apply {
                         dispatchReceiver = function.dispatchReceiverParameter?.let(::irGet)
                         extensionReceiver = function.extensionReceiverParameter?.let(::irGet)
-                        contextReceiversCount = function.contextReceiverParametersCount
                         function.valueParameters.forEachIndexed { i, v -> putValueArgument(i, irGet(v)) }
                     })
                     it.putValueArgument(1, irCall(getContinuationSymbol))

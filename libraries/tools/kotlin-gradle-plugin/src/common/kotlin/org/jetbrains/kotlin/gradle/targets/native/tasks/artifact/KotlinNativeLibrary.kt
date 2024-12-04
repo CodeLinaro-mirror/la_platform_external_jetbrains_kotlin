@@ -11,10 +11,11 @@ import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.plugins.ExtensionAware
 import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeOutputKind
 import org.jetbrains.kotlin.gradle.plugin.mpp.enabledOnCurrentHostForBinariesCompilation
-import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.chooseKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
@@ -87,7 +88,8 @@ class KotlinNativeLibraryImpl(
             ) { task ->
                 task.description = "Assemble ${kind.description} '$artifactName' for a target '${target.name}'."
                 task.destinationDir.set(project.layout.buildDirectory.dir("$outDir/${target.visibleName}/${buildType.visibleName}"))
-                task.enabled = target.enabledOnCurrentHostForBinariesCompilation()
+                val enabledOnCurrentHost = target.enabledOnCurrentHostForBinariesCompilation()
+                task.enabled = enabledOnCurrentHost
                 task.baseName.set(artifactName)
                 task.optimized.set(buildType.optimized)
                 task.debuggable.set(buildType.debuggable)
@@ -98,9 +100,10 @@ class KotlinNativeLibraryImpl(
                 @Suppress("DEPRECATION")
                 task.kotlinOptions(kotlinOptionsFn)
                 task.toolOptions(toolOptionsConfigure)
-                task.kotlinNativeProvider.set(project.provider {
-                    KotlinNativeProvider(project, task.konanTarget, task.kotlinNativeBundleBuildService)
-                })
+                task.kotlinNativeProvider.set(task.chooseKotlinNativeProvider(enabledOnCurrentHost, task.konanTarget))
+                task.kotlinCompilerArgumentsLogLevel
+                    .value(project.kotlinPropertiesProvider.kotlinCompilerArgumentsLogLevel)
+                    .finalizeValueOnRead()
             }
             resultTask.dependsOn(targetTask)
         }

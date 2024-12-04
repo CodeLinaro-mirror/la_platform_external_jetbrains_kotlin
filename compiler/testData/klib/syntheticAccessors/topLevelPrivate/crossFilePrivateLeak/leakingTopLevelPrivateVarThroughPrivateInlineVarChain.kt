@@ -1,5 +1,3 @@
-// IGNORE_BACKEND: ANY
-
 // FILE: a.kt
 private var privateVar = 12
 

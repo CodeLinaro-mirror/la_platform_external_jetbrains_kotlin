@@ -12,7 +12,7 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrCallImplWithShape
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrSetFieldImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -146,13 +146,17 @@ internal class AccessorPropertyLValue(
 
     override fun load(): IrExpression =
         callReceiver.adjustForCallee(getterDescriptor!!).call { dispatchReceiverValue, extensionReceiverValue, contextReceiverValues ->
-            IrCallImpl(
+            IrCallImplWithShape(
                 startOffset, endOffset,
                 type,
-                getter!!, typeArgumentsCount,
-                contextReceiverValues.size,
-                origin,
-                superQualifier
+                getter!!,
+                typeArgumentsCount = typeArgumentsCount,
+                valueArgumentsCount = contextReceiverValues.size,
+                contextParameterCount = contextReceiverValues.size,
+                hasDispatchReceiver = dispatchReceiverValue != null,
+                hasExtensionReceiver = extensionReceiverValue != null,
+                origin = origin,
+                superQualifierSymbol = superQualifier
             ).apply {
                 context.callToSubstitutedDescriptorMap[this] = getterDescriptor
                 putTypeArguments()
@@ -172,13 +176,17 @@ internal class AccessorPropertyLValue(
                 context.typeTranslator.translateType(it)
             } ?: context.irBuiltIns.unitType
 
-            IrCallImpl(
+            IrCallImplWithShape(
                 startOffset, endOffset,
                 returnType,
-                setter!!, typeArgumentsCount,
-                1 + contextReceiverValues.size,
-                origin,
-                superQualifier
+                setter!!,
+                typeArgumentsCount = typeArgumentsCount,
+                valueArgumentsCount = 1 + contextReceiverValues.size,
+                contextParameterCount = contextReceiverValues.size,
+                hasDispatchReceiver = dispatchReceiverValue != null,
+                hasExtensionReceiver = extensionReceiverValue != null,
+                origin = origin,
+                superQualifierSymbol = superQualifier
             ).apply {
                 context.callToSubstitutedDescriptorMap[this] = setterDescriptor
                 putTypeArguments()
