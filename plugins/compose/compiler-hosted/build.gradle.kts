@@ -2,14 +2,17 @@ plugins {
     kotlin("jvm")
 }
 
-val composeVersion = "1.7.0-alpha07"
 repositories {
-    google {
-        content {
-            includeGroup("androidx.collection")
-            includeVersion("androidx.compose.runtime", "runtime", composeVersion)
-            includeVersion("androidx.compose.runtime", "runtime-desktop", composeVersion)
-        }
+    if (!kotlinBuildProperties.isTeamcityBuild) {
+        androidXMavenLocal(androidXMavenLocalPath)
+    }
+    androidxSnapshotRepo(composeRuntimeSnapshot.versions.snapshot.id.get())
+    composeGoogleMaven(libs.versions.compose.stable.get())
+}
+
+fun DependencyHandler.testImplementationArtifactOnly(dependency: String) {
+    testImplementation(dependency) {
+        isTransitive = false
     }
 }
 
@@ -41,7 +44,19 @@ dependencies {
     testApi(project(":compiler:plugin-api"))
     testImplementation(projectTests(":compiler:tests-common-new"))
 
-    testImplementation("androidx.compose.runtime:runtime:$composeVersion")
+    // runtime tests
+    testImplementation(composeRuntime()) { isTransitive = false }
+    testImplementation(composeRuntimeTestUtils()) { isTransitive = false }
+    testImplementation(libs.androidx.collections)
+
+    // other compose
+    testImplementationArtifactOnly(compose("foundation", "foundation"))
+    testImplementationArtifactOnly(compose("foundation", "foundation-layout"))
+    testImplementationArtifactOnly(compose("animation", "animation"))
+    testImplementationArtifactOnly(compose("ui", "ui"))
+    testImplementationArtifactOnly(compose("ui", "ui-graphics"))
+    testImplementationArtifactOnly(compose("ui", "ui-text"))
+    testImplementationArtifactOnly(compose("ui", "ui-unit"))
 
     testCompileOnly(toolsJarApi())
     testRuntimeOnly(toolsJar())

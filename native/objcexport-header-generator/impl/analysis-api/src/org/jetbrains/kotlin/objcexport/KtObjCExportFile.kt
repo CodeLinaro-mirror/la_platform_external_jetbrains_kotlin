@@ -12,17 +12,14 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.native.analysis.api.*
-import org.jetbrains.kotlin.objcexport.analysisApiUtils.getAllClassOrObjectSymbols
+import org.jetbrains.kotlin.objcexport.analysisApiUtils.getAllVisibleInObjClassifiers
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.tooling.core.withClosure
 
 interface KtObjCExportFile {
     val fileName: String
     val packageFqName: FqName
 
-    context(KaSession)
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    fun resolve(): KtResolvedObjCExportFile
+    fun KaSession.resolve(): KtResolvedObjCExportFile
 }
 
 /**
@@ -88,14 +85,12 @@ private class KtPsiObjCExportFile(
     /**
      * See [KtResolvedObjCExportFile]
      */
-    context(KaSession)
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    override fun resolve(): KtResolvedObjCExportFile {
+    override fun KaSession.resolve(): KtResolvedObjCExportFile {
         val symbol = file.symbol
         return KtResolvedObjCExportFile(
             fileName = fileName,
             packageFqName = packageFqName,
-            classifierSymbols = symbol.getAllClassOrObjectSymbols(),
+            classifierSymbols = getAllVisibleInObjClassifiers(symbol),
             callableSymbols = symbol.fileScope.callables.toList()
         )
     }
@@ -123,20 +118,16 @@ private class KtKlibObjCExportFile(
         return result
     }
 
-    context(KaSession)
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    override fun resolve(): KtResolvedObjCExportFile {
+    override fun KaSession.resolve(): KtResolvedObjCExportFile {
         val classifierAddresses = addresses.filterIsInstance<KlibClassAddress>()
         val callableAddresses = addresses.filterIsInstance<KlibCallableAddress>()
+        val symbols = classifierAddresses.mapNotNull { classAddress -> classAddress.getClassOrObjectSymbol() }
+        val classifiers = getAllVisibleInObjClassifiers(symbols)
 
         return KtResolvedObjCExportFile(
             fileName = fileName,
             packageFqName = packageFqName,
-            classifierSymbols = classifierAddresses
-                .mapNotNull { classAddress -> classAddress.getClassOrObjectSymbol() }
-                .withClosure<KaClassSymbol> { symbol ->
-                    symbol.memberScope.classifiers.filterIsInstance<KaClassSymbol>().asIterable()
-                }.toList(),
+            classifierSymbols = classifiers,
             callableSymbols = callableAddresses.flatMap { address ->
                 address.getCallableSymbols()
             }

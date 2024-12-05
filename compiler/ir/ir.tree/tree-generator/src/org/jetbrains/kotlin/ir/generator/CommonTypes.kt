@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.generators.tree.PositionTypeParameterRef
 import org.jetbrains.kotlin.generators.tree.TypeKind
 import org.jetbrains.kotlin.generators.tree.type
 import org.jetbrains.kotlin.ir.generator.Packages.declarations
-import org.jetbrains.kotlin.ir.generator.Packages.descriptors
 import org.jetbrains.kotlin.ir.generator.Packages.exprs
 import org.jetbrains.kotlin.ir.generator.Packages.symbols
 import org.jetbrains.kotlin.ir.generator.Packages.symbolsImpl
@@ -31,17 +30,22 @@ object Packages {
     const val util = "org.jetbrains.kotlin.ir.util"
 }
 
+val anyType = type<Any>()
 val elementBaseType = type(tree, "IrElementBase", TypeKind.Class)
 val statementOriginType = type(exprs, "IrStatementOrigin")
 val elementVisitorType = type(visitors, "IrElementVisitor")
+val irVisitorType = type(visitors, "IrVisitor", TypeKind.Class)
+val irVisitorVoidType = type(visitors, "IrVisitorVoid", TypeKind.Class)
 val elementVisitorVoidType = type(visitors, "IrElementVisitorVoid")
 val elementTransformerType = type(visitors, "IrElementTransformer")
 val elementTransformerVoidType = type(visitors, "IrElementTransformerVoid", TypeKind.Class)
-val typeTransformerType = type(visitors, "IrTypeTransformer")
-val typeTransformerVoidType = type(visitors, "IrTypeTransformerVoid", TypeKind.Class)
+val irTransformerType = type(visitors, "IrTransformer", TypeKind.Class)
+val typeVisitorType = type(visitors, "IrTypeVisitor", TypeKind.Class)
+val typeVisitorVoidType = type(visitors, "IrTypeVisitorVoid", TypeKind.Class)
 val irTypeType = type(types, "IrType")
 val irSimpleTypeType = type(types, "IrSimpleType", TypeKind.Class)
 val irTypeAbbreviationType = type(types, "IrTypeAbbreviation")
+val irTypeProjectionType = type(types, "IrTypeProjection")
 val irFactoryType = type(declarations, "IrFactory")
 val stageControllerType = type(declarations, "StageController", TypeKind.Class)
 val idSignatureType = type(util, "IdSignature", TypeKind.Class)

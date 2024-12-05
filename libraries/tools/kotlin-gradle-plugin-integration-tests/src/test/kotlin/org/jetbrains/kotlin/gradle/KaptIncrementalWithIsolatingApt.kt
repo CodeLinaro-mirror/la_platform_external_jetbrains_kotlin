@@ -165,7 +165,7 @@ open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
     }
 
     @DisplayName("KT-33617: sources in compile classpath jars")
-    @JdkVersions(versions = [JavaVersion.VERSION_11])
+    @JdkVersions(versions = [JavaVersion.VERSION_17])
     @GradleWithJdkTest
     fun testSourcesInCompileClasspathJars(
         gradleVersion: GradleVersion,
@@ -220,11 +220,19 @@ open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
             val classpathTypeSource = subProject("lib").run {
                 projectPath.createDirectory()
                 buildGradle.writeText(
+                    //language=groovy
                     """
-                    plugins {
-                        id 'java'
-                    }
-                    """.trimIndent()
+                    |plugins {
+                    |    id 'java'
+                    |}
+                    |
+                    |
+                    |java {
+                    |    toolchain {
+                    |        languageVersion = JavaLanguageVersion.of(8)
+                    |    }
+                    |}
+                    """.trimMargin()
                 )
                 val source = javaSourcesDir()
                     .resolve(
@@ -257,6 +265,7 @@ open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
                 "$KAPT3_STUBS_PATH/bar/UseBKt.java",
                 "$KAPT3_STUBS_PATH/baz/UtilKt.java",
                 "$KAPT3_STUBS_PATH/baz/UtilKt.java",
+                "$KAPT3_STUBS_PATH/jvmName/Math.java",
                 "$KAPT3_STUBS_PATH/error/NonExistentClass.java"
             )
 
@@ -351,6 +360,12 @@ open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
                     """
                     plugins {
                         id 'java'
+                    }
+                    
+                    java {
+                        toolchain {
+                            languageVersion = JavaLanguageVersion.of(8)
+                        }
                     }
                     
                     """.trimIndent()

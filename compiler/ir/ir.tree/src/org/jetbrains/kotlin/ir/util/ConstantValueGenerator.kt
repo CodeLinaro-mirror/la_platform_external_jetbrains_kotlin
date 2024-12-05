@@ -182,11 +182,14 @@ abstract class ConstantValueGenerator(
 
         val (startOffset, endOffset) = extractAnnotationOffsets(annotationDescriptor)
 
-        val irCall = IrConstructorCallImpl(
+        val irCall = IrConstructorCallImplWithShape(
             startOffset, endOffset,
             annotationType.toIrType(),
             primaryConstructorSymbol,
             valueArgumentsCount = primaryConstructorDescriptor.valueParameters.size,
+            contextParameterCount = primaryConstructorDescriptor.contextReceiverParameters.size,
+            hasDispatchReceiver = primaryConstructorDescriptor.dispatchReceiverParameter != null,
+            hasExtensionReceiver = primaryConstructorDescriptor.extensionReceiverParameter != null,
             typeArgumentsCount = annotationClassDescriptor.declaredTypeParameters.size,
             constructorTypeArgumentsCount = 0,
             source = annotationDescriptor.source

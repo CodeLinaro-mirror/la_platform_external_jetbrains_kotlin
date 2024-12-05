@@ -37,9 +37,7 @@ dependencies {
     implementation(project(":kotlin-scripting-common"))
     implementation(project(":kotlin-assignment-compiler-plugin.k2"))
     implementation(project(":kotlin-assignment-compiler-plugin.cli"))
-
-    // We cannot use the latest version `3.1.5` because it doesn't support Java 8.
-    implementation("com.github.ben-manes.caffeine:caffeine:2.9.3")
+    implementation(libs.caffeine)
 
     api(intellijCore())
 
@@ -63,13 +61,14 @@ dependencies {
     testImplementation(project(":analysis:symbol-light-classes"))
     testImplementation(projectTests(":plugins:scripting:scripting-tests"))
     testImplementation(project(":kotlin-scripting-common"))
+    testImplementation(projectTests(":kotlinx-serialization-compiler-plugin"))
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
 
 
     // We use 'api' instead of 'implementation' because other modules might be using these jars indirectly
-    testApi(project(":plugins:fir-plugin-prototype"))
-    testApi(projectTests(":plugins:fir-plugin-prototype"))
+    testApi(project(":plugins:plugin-sandbox"))
+    testApi(projectTests(":plugins:plugin-sandbox"))
 
     scriptingTestDefinition(projectTests(":plugins:scripting:test-script-definition"))
 }

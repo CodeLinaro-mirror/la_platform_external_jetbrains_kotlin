@@ -15,9 +15,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.extractArgumentsTypeRefAndSource
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.resolve.createParametersSubstitutor
-import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.mapParametersToArgumentsOf
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.chain
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -27,17 +25,16 @@ import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.types.Variance
 
-object FirProjectionRelationChecker : FirTypeRefChecker(MppCheckerKind.Common) {
-    override fun check(typeRef: FirTypeRef, context: CheckerContext, reporter: DiagnosticReporter) {
+object FirProjectionRelationChecker : FirResolvedTypeRefChecker(MppCheckerKind.Common) {
+    override fun check(typeRef: FirResolvedTypeRef, context: CheckerContext, reporter: DiagnosticReporter) {
         if (typeRef.source?.kind?.shouldSkipErrorTypeReporting != false) return
-        val type = typeRef.coneTypeSafe<ConeClassLikeType>()?.abbreviatedTypeOrSelf
-        val fullyExpandedType = type?.fullyExpandedType(context.session) ?: return
+        val type = typeRef.coneType.abbreviatedTypeOrSelf
+        val fullyExpandedType = type.fullyExpandedType(context.session)
 
         val potentiallyProblematicArguments = collectPotentiallyProblematicArguments(typeRef, context.session)
 
         for (argumentData in potentiallyProblematicArguments) {
-            val declaration = argumentData.constructor.toRegularClassSymbol(context.session)
-                ?: error("Shouldn't be here")
+            val declaration = argumentData.constructor.toRegularClassSymbol(context.session) ?: continue
             val proto = declaration.typeParameterSymbols[argumentData.index]
             val actual = argumentData.projection
             val protoVariance = proto.variance
@@ -167,7 +164,7 @@ object FirProjectionRelationChecker : FirTypeRefChecker(MppCheckerKind.Common) {
             }
 
             val substitutedArgument = previousSubstitutor.substituteArgument(argument, index) ?: continue
-            val source = (argument.type as? ConeTypeParameterType)?.toSymbol(session)?.let { parametersToSources[it] }
+            val source = unsubstitutedType.toSymbol(session)?.let { parametersToSources[it] }
                 ?: error("Should have calculated")
             result += TypeArgumentData(substitutedType, index, substitutedArgument, source)
         }

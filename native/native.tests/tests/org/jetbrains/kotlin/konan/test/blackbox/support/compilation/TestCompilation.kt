@@ -63,6 +63,17 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
             doCompile()
     }
 
+    /**
+     * IR validation options passed to the compiler.
+     */
+    protected open val irValidationCompilerOptions = listOf(
+        // Enable basic IR validation before all lowerings (IrValidationBeforeLoweringPhase)
+        // and after all lowerings (IrValidationAfterLoweringPhase).
+        "-Xverify-ir=error",
+        // Additionally, validate IR after each compilation phase
+        "-Xphases-to-validate-after=all"
+    )
+
     private fun ArgsBuilder.applyCommonArgs() {
         add("-kotlin-home", home.dir.absolutePath)
         add("-target", targets.testTarget.name)
@@ -70,12 +81,7 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
         if (freeCompilerArgs.assertionsMode.assertionsEnabledWith(optimizationMode))
             add("-enable-assertions")
 
-        // Enable basic IR validation before all lowerings (IrValidationBeforeLoweringPhase)
-        // and after all lowerings (IrValidationAfterLoweringPhase).
-        add("-Xverify-ir=error")
-
-        // Additionally, validate IR after each compilation phase
-        add("-Xphases-to-validate-after=all")
+        add(irValidationCompilerOptions)
 
         // We use dev distribution for tests as it provides a full set of testing utilities,
         // which might not be available in user distribution.
@@ -94,9 +100,12 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
             // For LibraryCompilation any backend-related options are useless.
             // All this would "soon" change, when 1-stage testing would be stopped, and SourceBasedCompilation would have only one subclass:
             // LibraryCompilation. Three others (Executable, ObjCFramework, BinaryLibrary) would go to separate hierarchy: KLibBasedCompilation.
-            cacheMode.staticCacheForDistributionLibrariesRootDir
-                ?.takeIf { tryPassSystemCacheDirectory}
-                ?.let { cacheRootDir -> add("-Xcache-directory=$cacheRootDir") }
+            if (cacheMode.useStaticCacheForDistributionLibraries && tryPassSystemCacheDirectory) {
+                // Instead of directly passing system cache directory (which depends on a lot of different compiler options),
+                // just pass auto cacheable directory which will force the compiler to select and use proper system cache directory.
+                add("-Xauto-cache-from=${this@BasicCompilation.home.librariesDir}")
+                add("-Xbackend-threads=1") // The tests are run in parallel already, don't add more here.
+            }
             add(dependencies.uniqueCacheDirs) { libraryCacheDir -> "-Xcache-directory=${libraryCacheDir.path}" }
         }
     }
@@ -127,6 +136,35 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
 
     private fun ArgsBuilder.applySources() {
         addFlattenedTwice(sourceModules, { it.files }) { it.location.path }
+    }
+
+    // Explicitly set the IR module name when no test grouping is performed.
+    private fun ArgsBuilder.applyModuleName() {
+        if ("-module-name" in this)
+            return // Don't overwrite the specially passed module name.
+
+        val mainSourceModule: TestModule? = when {
+            // Single test module -> single IR module.
+            sourceModules.size == 1 -> sourceModules.first()
+
+            // There can be test modules representing KMP-common modules that do not materialize
+            // into separate IR modules. So, it's necessary to exclude them.
+            else -> buildSet {
+                addAll(sourceModules)
+                removeAll(sourceModules.flatMapToSet { it.allDependsOnDependencies })
+            }.singleOrNull()
+        }
+
+        if (mainSourceModule !is TestModule.Exclusive)
+            return
+
+        val testKind = mainSourceModule.testCase.kind
+        if (testKind == TestKind.STANDALONE ||
+            testKind == TestKind.STANDALONE_NO_TR ||
+            testKind == TestKind.STANDALONE_LLDB
+        ) {
+            add("-module-name", mainSourceModule.name)
+        }
     }
 
     protected open fun postCompileCheck() = Unit
@@ -187,6 +225,7 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
         applyDependencies(this)
         applyFreeArgs()
         applyCompilerPlugins()
+        applyModuleName()
         applySources()
     }
 }
@@ -301,7 +340,7 @@ internal class LibraryCompilation(
     }
 }
 
-internal class ObjCFrameworkCompilation(
+class ObjCFrameworkCompilation(
     settings: Settings,
     freeCompilerArgs: TestCompilerArgs,
     sourceModules: Collection<TestModule>,
@@ -347,7 +386,7 @@ internal class ObjCFrameworkCompilation(
     }
 }
 
-internal class BinaryLibraryCompilation(
+class BinaryLibraryCompilation(
     settings: Settings,
     freeCompilerArgs: TestCompilerArgs,
     sourceModules: Collection<TestModule>,
@@ -476,7 +515,7 @@ internal class CInteropCompilation(
     }
 }
 
-internal class SwiftCompilation<T : TestCompilationArtifact>(
+class SwiftCompilation<T : TestCompilationArtifact>(
     testRunSettings: Settings,
     sources: List<File>,
     expectedArtifact: T,
@@ -625,6 +664,7 @@ class ExecutableCompilation(
         }
         applyPartialLinkageArgs(partialLinkageConfig)
         applyFileCheckArgs(expectedArtifact.fileCheckStage, expectedArtifact.fileCheckDump)
+        applyDumpSyntheticAccessorsArgs(expectedArtifact)
         super.applySpecificArgs(argsBuilder)
     }
 
@@ -664,10 +704,17 @@ class ExecutableCompilation(
                 add("-Xsave-llvm-ir-after=$it")
                 add("-Xsave-llvm-ir-directory=${fileCheckDump!!.parent}")
             }
+
+        internal fun ArgsBuilder.applyDumpSyntheticAccessorsArgs(executable: Executable) {
+            val syntheticAccessorsDumpDir = executable.syntheticAccessorsDumpDir
+            if (syntheticAccessorsDumpDir != null) {
+                add("-Xdump-synthetic-accessors-to=${syntheticAccessorsDumpDir.path}")
+            }
+        }
     }
 }
 
-internal class StaticCacheCompilation(
+class StaticCacheCompilation(
     settings: Settings,
     freeCompilerArgs: TestCompilerArgs,
     private val options: Options,
@@ -763,10 +810,17 @@ internal class TestBundleCompilation(
 
     private val partialLinkageConfig: UsedPartialLinkageConfig = settings.get()
 
+    override val irValidationCompilerOptions: List<String> = listOf(
+        "-Xverify-ir=warning",
+        "-Xphases-to-validate-after=all"
+    )
+
     override fun applySpecificArgs(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
         add(
             "-produce", "test_bundle",
             "-linker-option", "-F" + settings.get<XCTestRunner>().frameworksPath,
+            // FIXME: KT-70202: new linker fails with SIGBUS
+            "-linker-option", "-ld_classic",
             "-output", expectedArtifact.bundleDir.path,
             "-Xbinary=bundleId=com.jetbrains.kotlin.${expectedArtifact.bundleDir.nameWithoutExtension}"
         )

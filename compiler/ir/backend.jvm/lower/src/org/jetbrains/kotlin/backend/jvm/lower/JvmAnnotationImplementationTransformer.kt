@@ -31,10 +31,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
-@PhaseDescription(
-    name = "AnnotationImplementation",
-    description = "Create synthetic annotations implementations and use them in annotations constructor calls"
-)
+@PhaseDescription(name = "AnnotationImplementation")
 internal class JvmAnnotationImplementationLowering(context: JvmBackendContext) : AnnotationImplementationLowering(
     { JvmAnnotationImplementationTransformer(context, it) }
 )
@@ -245,7 +242,7 @@ class JvmAnnotationImplementationTransformer(private val jvmContext: JvmBackendC
                 SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, listOf(
                     IrDelegatingConstructorCallImpl(
                         SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, irBuiltIns.unitType, irBuiltIns.anyClass.constructors.single(),
-                        typeArgumentsCount = 0, valueArgumentsCount = 0
+                        typeArgumentsCount = 0,
                     )
                 )
             )

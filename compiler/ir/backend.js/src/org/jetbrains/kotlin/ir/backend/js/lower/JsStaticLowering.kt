@@ -14,10 +14,12 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildProperty
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
-import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.JsStandardClassIds
 
+/**
+ * Make for each `@JsStatic` declaration inside the companion object a proxy declaration inside its parent class static scope.
+ */
 class JsStaticLowering(private val context: JsIrBackendContext) : DeclarationTransformer {
     override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? {
         if (declaration.parentClassOrNull?.isCompanion != true || !declaration.isJsStaticDeclaration()) return null
@@ -26,7 +28,9 @@ class JsStaticLowering(private val context: JsIrBackendContext) : DeclarationTra
         val proxyDeclaration = when (declaration) {
             is IrSimpleFunction -> declaration.takeIf { it.correspondingPropertySymbol == null }?.generateStaticMethodProxy(containingClass)
             is IrProperty -> declaration.generateStaticPropertyProxy(containingClass)
-            else -> error("Unexpected declaration type: ${declaration::class.simpleName}")
+            else -> irError("Unexpected declaration type") {
+                withIrEntry("declaration", declaration)
+            }
         } ?: return null
 
         containingClass.declarations.add(proxyDeclaration)

@@ -5,17 +5,24 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.types
 
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.KaNonPublicApi
+import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationList
+import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.KaSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.annotations.KaFirAnnotationListForType
-import org.jetbrains.kotlin.analysis.api.fir.utils.cached
+import org.jetbrains.kotlin.analysis.api.fir.utils.createPointer
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.types.KaErrorType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
+import org.jetbrains.kotlin.analysis.api.types.KaTypePointer
 import org.jetbrains.kotlin.analysis.api.types.KaUsualClassType
+import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.fir.diagnostics.ConeCannotInferTypeParameterType
+import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithNullability
 import org.jetbrains.kotlin.fir.diagnostics.ConeTypeVariableTypeIsNotInferred
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.renderForDebugging
@@ -24,9 +31,15 @@ internal class KaFirErrorType(
     override val coneType: ConeErrorType,
     private val builder: KaSymbolByFirBuilder,
 ) : KaErrorType, KaFirType {
+
     override val token: KaLifetimeToken get() = builder.token
 
-    override val nullability: KaTypeNullability get() = withValidityAssertion { coneType.nullability.asKtNullability() }
+    override val nullability: KaTypeNullability
+        get() = withValidityAssertion {
+            val diagnostic = coneType.diagnostic as? ConeDiagnosticWithNullability
+                ?: return@withValidityAssertion KaTypeNullability.UNKNOWN
+            KaTypeNullability.create(diagnostic.isNullable)
+        }
 
     @KaNonPublicApi
     override val errorMessage: String
@@ -42,14 +55,35 @@ internal class KaFirErrorType(
             }
         }
 
-    override val annotations: KaAnnotationList by cached {
-        KaFirAnnotationListForType.create(coneType, builder)
-    }
+    override val annotations: KaAnnotationList
+        get() = withValidityAssertion {
+            KaFirAnnotationListForType.create(coneType, builder)
+        }
 
-    override val abbreviatedType: KaUsualClassType?
+    override val abbreviation: KaUsualClassType?
         get() = withValidityAssertion { null }
 
     override fun equals(other: Any?) = typeEquals(other)
     override fun hashCode() = typeHashcode()
     override fun toString() = coneType.renderForDebugging()
+
+    @KaExperimentalApi
+    override fun createPointer(): KaTypePointer<KaErrorType> = withValidityAssertion {
+        return KaFirErrorTypePointer(coneType, builder)
+    }
+}
+
+private class KaFirErrorTypePointer(
+    coneType: ConeErrorType,
+    builder: KaSymbolByFirBuilder,
+) : KaTypePointer<KaErrorType> {
+    private val coneTypePointer = coneType.createPointer(builder)
+
+    @KaImplementationDetail
+    override fun restore(session: KaSession): KaErrorType? = session.withValidityAssertion {
+        requireIsInstance<KaFirSession>(session)
+
+        val coneType = coneTypePointer.restore(session) ?: return null
+        return KaFirErrorType(coneType, session.firSymbolBuilder)
+    }
 }

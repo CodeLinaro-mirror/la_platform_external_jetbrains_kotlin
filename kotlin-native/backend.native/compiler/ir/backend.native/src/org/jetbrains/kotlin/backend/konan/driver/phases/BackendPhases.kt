@@ -17,7 +17,11 @@ import org.jetbrains.kotlin.backend.konan.lower.ExpectToActualDefaultValueCopier
 import org.jetbrains.kotlin.backend.konan.lower.SpecialBackendChecksTraversal
 import org.jetbrains.kotlin.backend.konan.makeEntryPoint
 import org.jetbrains.kotlin.backend.konan.objcexport.createTestBundle
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.impl.PackageFragmentDescriptorImpl
+import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.declarations.IrFile
@@ -32,6 +36,7 @@ import org.jetbrains.kotlin.resolve.scopes.MemberScope
 
 internal data class SpecialBackendChecksInput(
         val irModule: IrModuleFragment,
+        val irBuiltIns: IrBuiltIns,
         val symbols: KonanSymbols,
 ) : KotlinBackendIrHolder {
     override val kotlinIr: IrElement
@@ -40,45 +45,58 @@ internal data class SpecialBackendChecksInput(
 
 internal val SpecialBackendChecksPhase = createSimpleNamedCompilerPhase<PsiToIrContext, SpecialBackendChecksInput>(
         "SpecialBackendChecks",
-        "Special backend checks",
         preactions = getDefaultIrActions(),
         postactions = getDefaultIrActions(),
 ) { context, input ->
-    SpecialBackendChecksTraversal(context, input.symbols, input.irModule.irBuiltins).lower(input.irModule)
+    SpecialBackendChecksTraversal(context, input.symbols, input.irBuiltIns).lower(input.irModule)
 }
 
 internal val K2SpecialBackendChecksPhase = createSimpleNamedCompilerPhase<PhaseContext, Fir2IrOutput>(
         "SpecialBackendChecks",
-        "Special backend checks",
 ) { context, input ->
     val moduleFragment = input.fir2irActualizedResult.irModuleFragment
     SpecialBackendChecksTraversal(
             context,
             input.symbols,
-            moduleFragment.irBuiltins
+            input.fir2irActualizedResult.irBuiltIns,
     ).lower(moduleFragment)
 }
 
-internal val CopyDefaultValuesToActualPhase = createSimpleNamedCompilerPhase<PhaseContext, IrModuleFragment>(
+internal val KlibIrInlinerPhase = createSimpleNamedCompilerPhase<PhaseContext, Fir2IrOutput, Fir2IrOutput>(
+        "KlibIrInlinerPhase",
+        outputIfNotEnabled = { _, _, _, input -> input }
+) { context, input ->
+    // TODO: KT-68756: Invoke lowering prefix and IR Inliner
+    input
+}
+
+internal val CopyDefaultValuesToActualPhase = createSimpleNamedCompilerPhase<PhaseContext, PsiToIrOutput>(
         name = "CopyDefaultValuesToActual",
-        description = "Copy default values from expect to actual declarations",
         preactions = getDefaultIrActions(),
         postactions = getDefaultIrActions(),
 ) { _, input ->
-    ExpectToActualDefaultValueCopier(input).process()
+    ExpectToActualDefaultValueCopier(input.irModule, input.irBuiltIns).process()
 }
 
-internal fun <T : PsiToIrContext> PhaseEngine<T>.runSpecialBackendChecks(irModule: IrModuleFragment, symbols: KonanSymbols) {
-    runPhase(SpecialBackendChecksPhase, SpecialBackendChecksInput(irModule, symbols))
+internal fun <T : PsiToIrContext> PhaseEngine<T>.runSpecialBackendChecks(irModule: IrModuleFragment, irBuiltIns: IrBuiltIns, symbols: KonanSymbols) {
+    runPhase(SpecialBackendChecksPhase, SpecialBackendChecksInput(irModule, irBuiltIns, symbols))
 }
 
 internal fun <T : PhaseContext> PhaseEngine<T>.runK2SpecialBackendChecks(fir2IrOutput: Fir2IrOutput) {
     runPhase(K2SpecialBackendChecksPhase, fir2IrOutput)
 }
 
+internal fun <T : PhaseContext> PhaseEngine<T>.runIrInliner(fir2IrOutput: Fir2IrOutput, environment: KotlinCoreEnvironment): Fir2IrOutput {
+    val languageVersionSettings = environment.configuration.get(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS)
+    return runPhase(
+            KlibIrInlinerPhase,
+            fir2IrOutput,
+            disable = languageVersionSettings?.supportsFeature(LanguageFeature.IrInlinerBeforeKlibSerialization) != true
+    )
+}
+
 internal val EntryPointPhase = createSimpleNamedCompilerPhase<NativeGenerationState, IrModuleFragment>(
         name = "addEntryPoint",
-        description = "Add entry point for program",
         preactions = getDefaultIrActions(),
         postactions = getDefaultIrActions(),
 ) { context, module ->
@@ -97,7 +115,6 @@ internal val EntryPointPhase = createSimpleNamedCompilerPhase<NativeGenerationSt
 
 internal val CreateTestBundlePhase = createSimpleNamedCompilerPhase<PhaseContext, FrontendPhaseOutput.Full>(
         "CreateTestBundlePhase",
-        "Create XCTest bundle"
 ) { context, input ->
     val config = context.config
     val output = OutputFiles(config.outputPath, config.target, config.produce).mainFile

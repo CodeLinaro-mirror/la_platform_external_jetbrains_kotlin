@@ -1,5 +1,3 @@
-// IGNORE_BACKEND: ANY
-
 // FILE: file1.kt
 package org.sample
 

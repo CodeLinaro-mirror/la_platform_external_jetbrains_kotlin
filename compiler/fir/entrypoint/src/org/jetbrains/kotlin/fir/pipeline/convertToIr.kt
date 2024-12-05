@@ -7,11 +7,15 @@ package org.jetbrains.kotlin.fir.pipeline
 
 import org.jetbrains.kotlin.backend.common.CodegenUtil
 import org.jetbrains.kotlin.backend.common.IrSpecialAnnotationsProvider
+import org.jetbrains.kotlin.backend.common.IrValidatorConfig
 import org.jetbrains.kotlin.backend.common.actualizer.*
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.backend.common.validateIr
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.IrVerificationMode
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirSession
@@ -20,7 +24,6 @@ import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.backend.generators.Fir2IrDataClassGeneratedMemberBodyGenerator
 import org.jetbrains.kotlin.fir.backend.utils.generatedBuiltinsDeclarationsFileName
 import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyClass
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
@@ -74,12 +77,11 @@ fun FirResult.convertToIrAndActualize(
     fir2IrConfiguration: Fir2IrConfiguration,
     irGeneratorExtensions: Collection<IrGenerationExtension>,
     irMangler: KotlinMangler.IrMangler,
-    firMangler: FirMangler,
     visibilityConverter: Fir2IrVisibilityConverter,
     kotlinBuiltIns: KotlinBuiltIns,
     typeSystemContextProvider: (IrBuiltIns) -> IrTypeSystemContext,
     specialAnnotationsProvider: IrSpecialAnnotationsProvider?,
-    extraActualDeclarationExtractorInitializer: (Fir2IrComponents) -> IrExtraActualDeclarationExtractor?,
+    extraActualDeclarationExtractorsInitializer: (Fir2IrComponents) -> List<IrExtraActualDeclarationExtractor>,
     irModuleFragmentPostCompute: (IrModuleFragment) -> Unit = { _ -> },
 ): Fir2IrActualizedResult {
     val pipeline = Fir2IrPipeline(
@@ -88,12 +90,11 @@ fun FirResult.convertToIrAndActualize(
         fir2IrConfiguration,
         irGeneratorExtensions,
         irMangler,
-        firMangler,
         visibilityConverter,
         kotlinBuiltIns,
         typeSystemContextProvider,
         specialAnnotationsProvider,
-        extraActualDeclarationExtractorInitializer,
+        extraActualDeclarationExtractorsInitializer,
         irModuleFragmentPostCompute
     )
     return pipeline.convertToIrAndActualize()
@@ -105,12 +106,11 @@ private class Fir2IrPipeline(
     val fir2IrConfiguration: Fir2IrConfiguration,
     val irGeneratorExtensions: Collection<IrGenerationExtension>,
     val irMangler: KotlinMangler.IrMangler,
-    val firMangler: FirMangler,
     val visibilityConverter: Fir2IrVisibilityConverter,
     val kotlinBuiltIns: KotlinBuiltIns,
     val typeSystemContextProvider: (IrBuiltIns) -> IrTypeSystemContext,
     val specialAnnotationsProvider: IrSpecialAnnotationsProvider?,
-    val extraActualDeclarationExtractorInitializer: (Fir2IrComponents) -> IrExtraActualDeclarationExtractor?,
+    val extraActualDeclarationExtractorsInitializer: (Fir2IrComponents) -> List<IrExtraActualDeclarationExtractor>,
     val irModuleFragmentPostCompute: (IrModuleFragment) -> Unit,
 ) {
     private class Fir2IrConversionResult(
@@ -131,7 +131,7 @@ private class Fir2IrPipeline(
     }
 
     private fun runFir2IrConversion(): Fir2IrConversionResult {
-        val commonMemberStorage = Fir2IrCommonMemberStorage(firMangler)
+        val commonMemberStorage = Fir2IrCommonMemberStorage()
 
         val firProvidersWithGeneratedFiles: MutableMap<FirModuleData, FirProviderWithGeneratedFiles> = mutableMapOf()
         for (firOutput in outputs) {
@@ -148,7 +148,6 @@ private class Fir2IrPipeline(
                 it.session,
                 it.scopeSession,
                 it.fir,
-                IrFactoryImpl,
                 fir2IrExtensions,
                 fir2IrConfiguration,
                 visibilityConverter,
@@ -169,9 +168,6 @@ private class Fir2IrPipeline(
         val mainIrFragment = fragments.last()
         val (irBuiltIns, symbolTable) = createBuiltInsAndSymbolTable(componentsStorage, syntheticIrBuiltinsSymbolsContainer)
 
-        mainIrFragment.initializeIrBuiltins(irBuiltIns)
-        dependentIrFragments.forEach { it.initializeIrBuiltins(irBuiltIns) }
-
         val irTypeSystemContext = typeSystemContextProvider(irBuiltIns)
 
         return Fir2IrConversionResult(
@@ -189,11 +185,7 @@ private class Fir2IrPipeline(
         componentsStorage: Fir2IrComponentsStorage,
         syntheticIrBuiltinsSymbolsContainer: Fir2IrSyntheticIrBuiltinsSymbolsContainer,
     ): Pair<IrBuiltIns, SymbolTable> {
-        val irBuiltIns = IrBuiltInsOverFir(
-            componentsStorage,
-            FirModuleDescriptor.createSourceModuleDescriptor(componentsStorage.session, kotlinBuiltIns),
-            syntheticIrBuiltinsSymbolsContainer,
-        )
+        val irBuiltIns = IrBuiltInsOverFir(componentsStorage, syntheticIrBuiltinsSymbolsContainer)
         val symbolTable = SymbolTable(signaturer = null, IrFactoryImpl, lock = componentsStorage.lock)
 
         fir2IrExtensions.initializeIrBuiltInsAndSymbolTable(irBuiltIns, symbolTable)
@@ -216,6 +208,14 @@ private class Fir2IrPipeline(
 
         val expectActualMap = irActualizer?.actualizeCallablesAndMergeModules() ?: IrExpectActualMap()
 
+        val pluginContext = Fir2IrPluginContext(componentsStorage, irBuiltIns, componentsStorage.moduleDescriptor, symbolTable)
+        if (fir2IrConfiguration.diagnosticReporter.hasErrors) {
+            irActualizer?.runChecksAndFinalize(expectActualMap)
+            return Fir2IrActualizedResult(
+                mainIrFragment, componentsStorage, pluginContext, irActualizedResult = null, irBuiltIns, symbolTable
+            )
+        }
+
         val fakeOverrideResolver = SpecialFakeOverrideSymbolsResolver(expectActualMap)
         resolveFakeOverrideSymbols(fakeOverrideResolver)
         delegatedMembersGenerationStrategy.updateMetadataSources(
@@ -235,8 +235,7 @@ private class Fir2IrPipeline(
 
         removeGeneratedBuiltinsDeclarationsIfNeeded()
 
-        val pluginContext = Fir2IrPluginContext(componentsStorage, irBuiltIns, componentsStorage.moduleDescriptor, symbolTable)
-        pluginContext.applyIrGenerationExtensions(mainIrFragment, irGeneratorExtensions)
+        pluginContext.applyIrGenerationExtensions(fir2IrConfiguration, mainIrFragment, irGeneratorExtensions)
 
         return Fir2IrActualizedResult(mainIrFragment, componentsStorage, pluginContext, actualizationResult, irBuiltIns, symbolTable)
     }
@@ -254,7 +253,7 @@ private class Fir2IrPipeline(
                 fir2IrConfiguration.expectActualTracker,
                 mainIrFragment,
                 dependentIrFragments,
-                this@Fir2IrPipeline.extraActualDeclarationExtractorInitializer(componentsStorage),
+                this@Fir2IrPipeline.extraActualDeclarationExtractorsInitializer(componentsStorage),
             )
         }
 
@@ -293,7 +292,10 @@ private class Fir2IrPipeline(
     ): Pair<Fir2IrFakeOverrideStrategy, Fir2IrDelegatedMembersGenerationStrategy> {
         val (fakeOverrideBuilder, delegatedMembersGenerationStrategy) = createFakeOverrideBuilder(irActualizer)
         buildFakeOverrides(fakeOverrideBuilder)
-        delegatedMembersGenerationStrategy.generateDelegatedBodies()
+        if (!componentsStorage.configuration.skipBodies) {
+            delegatedMembersGenerationStrategy.generateDelegatedBodies()
+        }
+
         val fakeOverrideStrategy = fakeOverrideBuilder.strategy as Fir2IrFakeOverrideStrategy
         return fakeOverrideStrategy to delegatedMembersGenerationStrategy
     }
@@ -301,6 +303,8 @@ private class Fir2IrPipeline(
     private fun Fir2IrConversionResult.buildFakeOverrides(fakeOverrideBuilder: IrFakeOverrideBuilder) {
         val temporaryResolver = SpecialFakeOverrideSymbolsResolver(IrExpectActualMap())
         fakeOverrideBuilder.buildForAll(dependentIrFragments + mainIrFragment, temporaryResolver)
+        @OptIn(Fir2IrSymbolsMappingForLazyClasses.SymbolRemapperInternals::class)
+        componentsStorage.symbolsMappingForLazyClasses.initializeRemapper(temporaryResolver)
     }
 
     private fun Fir2IrConversionResult.resolveFakeOverrideSymbols(fakeOverrideResolver: SpecialFakeOverrideSymbolsResolver) {
@@ -311,12 +315,15 @@ private class Fir2IrPipeline(
             mainIrFragment.transform(SpecialFakeOverrideSymbolsActualizedByFieldsTransformer(expectActualMap), null)
         }
 
+        // TODO: remove this and create a correct remapper from the beginnning: KT-70907
         @OptIn(Fir2IrSymbolsMappingForLazyClasses.SymbolRemapperInternals::class)
-        componentsStorage.symbolsMappingForLazyClasses.initializeSymbolMap(fakeOverrideResolver)
+        componentsStorage.symbolsMappingForLazyClasses.unregisterRemapper()
+        @OptIn(Fir2IrSymbolsMappingForLazyClasses.SymbolRemapperInternals::class)
+        componentsStorage.symbolsMappingForLazyClasses.initializeRemapper(fakeOverrideResolver)
     }
 
     private fun Fir2IrConversionResult.evaluateConstants() {
-        Fir2IrConverter.evaluateConstants(mainIrFragment, componentsStorage)
+        Fir2IrConverter.evaluateConstants(mainIrFragment, componentsStorage, irBuiltIns)
     }
 
     // ------------------------------------------------------ f/o building helpers ------------------------------------------------------
@@ -421,12 +428,45 @@ private class Fir2IrPipeline(
     }
 }
 
+private fun IrPluginContext.runMandatoryIrValidation(
+    extension: IrGenerationExtension?,
+    module: IrModuleFragment,
+    fir2IrConfiguration: Fir2IrConfiguration,
+) {
+    if (!fir2IrConfiguration.validateIrAfterPlugins) return
+    // TODO(KT-71138): Replace with IrVerificationMode.ERROR in Kotlin 2.2
+    validateIr(fir2IrConfiguration.messageCollector, IrVerificationMode.WARNING) {
+        customMessagePrefix = if (extension == null) {
+            "The frontend generated invalid IR. This is a compiler bug, please report it to https://kotl.in/issue."
+        } else {
+            "The compiler plugin '${extension.javaClass.name}' generated invalid IR. Please report this bug to the plugin vendor."
+        }
+        performBasicIrValidation(
+            module,
+            irBuiltIns,
+            phaseName = "",
+            IrValidatorConfig(
+                // Invalid parents and duplicated IR nodes don't always result in broken KLIBs,
+                // so we disable them not to cause too much breakage.
+                checkTreeConsistency = false,
+                // Cross-file field accesses, though, do result in invalid KLIBs, so report them as early as possible.
+                checkCrossFileFieldUsage = true,
+                // FIXME(KT-71243): This should be true, but currently the ExplicitBackingFields feature de-facto allows specifying
+                //  non-private visibilities for fields.
+                checkAllKotlinFieldsArePrivate = !fir2IrConfiguration.languageVersionSettings.supportsFeature(LanguageFeature.ExplicitBackingFields),
+            )
+        )
+    }
+}
+
 fun IrPluginContext.applyIrGenerationExtensions(
+    fir2IrConfiguration: Fir2IrConfiguration,
     irModuleFragment: IrModuleFragment,
     irGenerationExtensions: Collection<IrGenerationExtension>,
 ) {
-    if (irGenerationExtensions.isEmpty()) return
+    runMandatoryIrValidation(null, irModuleFragment, fir2IrConfiguration)
     for (extension in irGenerationExtensions) {
         extension.generate(irModuleFragment, this)
+        runMandatoryIrValidation(extension, irModuleFragment, fir2IrConfiguration)
     }
 }

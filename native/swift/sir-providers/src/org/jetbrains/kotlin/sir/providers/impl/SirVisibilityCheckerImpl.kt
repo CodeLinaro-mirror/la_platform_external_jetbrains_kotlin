@@ -7,11 +7,15 @@ package org.jetbrains.kotlin.sir.providers.impl
 
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.components.DefaultTypeClassIds
 import org.jetbrains.kotlin.analysis.api.symbols.*
+import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
+import org.jetbrains.kotlin.analysis.api.types.symbol
 import org.jetbrains.kotlin.sir.SirVisibility
 import org.jetbrains.kotlin.sir.providers.SirVisibilityChecker
 import org.jetbrains.kotlin.sir.providers.utils.UnsupportedDeclarationReporter
+import org.jetbrains.kotlin.sir.providers.utils.isAbstract
 
 public class SirVisibilityCheckerImpl(
     private val unsupportedDeclarationReporter: UnsupportedDeclarationReporter,
@@ -24,19 +28,23 @@ public class SirVisibilityCheckerImpl(
                 ktSymbol.isConsumableBySirBuilder(ktAnalysisSession)
             }
             is KaConstructorSymbol -> {
+                if ((ktSymbol.containingSymbol as? KaClassSymbol)?.modality?.isAbstract() != false) {
+                    // Hide abstract class constructors from users, but not from other Swift Export modules.
+                    return SirVisibility.PACKAGE
+                }
+
                 true
             }
             is KaNamedFunctionSymbol -> {
                 ktSymbol.isConsumableBySirBuilder()
             }
             is KaVariableSymbol -> {
-                true
+                ktSymbol.isConsumableBySirBuilder()
             }
             is KaTypeAliasSymbol -> ktSymbol.expandedType.fullyExpandedType
-                .takeIf { !it.isMarkedNullable }
-                ?.let {
+                .let {
                     it.isPrimitive || it.isNothingType || it.isVisible(ktAnalysisSession)
-                } ?: false
+                }
             else -> false
         }
         return if (isConsumable) SirVisibility.PUBLIC else SirVisibility.PRIVATE
@@ -66,14 +74,22 @@ public class SirVisibilityCheckerImpl(
         return true
     }
 
+    private fun KaVariableSymbol.isConsumableBySirBuilder(): Boolean {
+        if (isExtension) {
+            unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "extension properties are not supported yet.")
+            return false
+        }
+        return true
+    }
+
     private fun KaNamedClassSymbol.isConsumableBySirBuilder(ktAnalysisSession: KaSession): Boolean =
         with(ktAnalysisSession) {
-            if (!((classKind == KaClassKind.CLASS) || classKind == KaClassKind.OBJECT)) {
+            if (classKind != KaClassKind.CLASS && classKind != KaClassKind.OBJECT && classKind != KaClassKind.COMPANION_OBJECT) {
                 unsupportedDeclarationReporter
                     .report(this@isConsumableBySirBuilder, "${classKind.name.lowercase()} classifiers are not supported yet.")
                 return@with false
             }
-            if (isData) {
+            if (isData && classKind != KaClassKind.OBJECT) {
                 unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "data classes are not supported yet.")
                 return@with false
             }
@@ -81,18 +97,28 @@ public class SirVisibilityCheckerImpl(
                 unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "inner classes are not supported yet.")
                 return@with false
             }
-            if (!(superTypes.count() == 1 && superTypes.first().isAnyType)) {
-                unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "inheritance is not supported yet.")
+            if (superTypes.any { it.symbol.let { it?.classId != DefaultTypeClassIds.ANY && it?.sirVisibility(ktAnalysisSession) != SirVisibility.PUBLIC } }) {
+                unsupportedDeclarationReporter
+                    .report(this@isConsumableBySirBuilder, "inheritance from non-classes is not supported yet.")
+                return@with false
+            }
+            if (!typeParameters.isEmpty() || superTypes.any { (it as? KaClassType)?.typeArguments?.isEmpty() == false }) {
+                unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "generics are not supported yet.")
+                return@with false
+            }
+            if (classId == DefaultTypeClassIds.ANY) {
+                unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "${classId} is not supported yet.")
                 return@with false
             }
             if (isInline) {
                 unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "inline classes are not supported yet.")
                 return@with false
             }
-            if (modality != KaSymbolModality.FINAL) {
-                unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "non-final classes are not supported yet.")
+            if (modality == KaSymbolModality.SEALED) {
+                unsupportedDeclarationReporter.report(this@isConsumableBySirBuilder, "sealed classes are not supported yet.")
                 return@with false
             }
+
             return true
         }
 

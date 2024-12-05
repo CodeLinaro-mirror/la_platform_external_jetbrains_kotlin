@@ -115,6 +115,7 @@ private class ExtTestDataFile(
     private val testMode = settings.get<TestMode>()
     private val cacheMode = settings.get<CacheMode>()
     private val optimizationMode = settings.get<OptimizationMode>()
+    private val klibIrInlinerMode = settings.get<KlibIrInlinerMode>()
 
     private val structure by lazy {
         val allSourceTransformers: ExternalSourceTransformers = if (customSourceTransformers.isNullOrEmpty())
@@ -135,13 +136,17 @@ private class ExtTestDataFile(
         val optIns = structure.directives.multiValues(OPT_IN_DIRECTIVE)
         val optInsForSourceCode = optIns subtract OPT_INS_PURELY_FOR_COMPILER
         val optInsForCompiler = optIns intersect OPT_INS_PURELY_FOR_COMPILER
+        val extraLanguageSettings = buildSet {
+            if (klibIrInlinerMode == KlibIrInlinerMode.ON)
+                add("+${LanguageFeature.IrInlinerBeforeKlibSerialization.name}")
+        }
 
         ExtTestDataFileSettings(
             languageSettings = structure.directives.multiValues(LANGUAGE_DIRECTIVE) {
                 // It is already on by default, but passing it explicitly turns on a special "compatibility mode" in FE,
                 // which is not desirable.
                 it != "+NewInference"
-            },
+            } + extraLanguageSettings,
             optInsForSourceCode = optInsForSourceCode + structure.directives.multiValues(USE_EXPERIMENTAL_DIRECTIVE),
             optInsForCompiler = optInsForCompiler,
             generatedSourcesDir = computeGeneratedSourcesDir(
@@ -158,7 +163,7 @@ private class ExtTestDataFile(
     }
 
     val isRelevant: Boolean =
-        isCompatibleTarget(TargetBackend.NATIVE, testDataFile) // Checks TARGET_BACKEND/DONT_TARGET_EXACT_BACKEND directives.
+        isCompatibleTarget(TargetBackend.NATIVE, testDataFile, /*separatedDirectiveValues=*/true) // Checks TARGET_BACKEND/DONT_TARGET_EXACT_BACKEND directives.
                 && !settings.isDisabledNative(structure.directives)
                 && INCOMPATIBLE_DIRECTIVES.none { it in structure.directives }
                 && structure.directives[API_VERSION_DIRECTIVE] !in INCOMPATIBLE_API_VERSIONS
@@ -817,7 +822,7 @@ private class ExtTestDataFileStructureFactory(parentDisposable: Disposable) : Te
 
         @OptIn(ObsoleteTestInfrastructure::class)
         private val generatedFiles = TestFiles.createTestFiles(
-            /* testFileName = */ DEFAULT_FILE_NAME,
+            /* testFileName = */ originalTestDataFile.name,
             /* expectedText = */ originalTestDataFile.readText(),
             /* factory = */ testFileFactory,
             /* preserveLocations = */ true

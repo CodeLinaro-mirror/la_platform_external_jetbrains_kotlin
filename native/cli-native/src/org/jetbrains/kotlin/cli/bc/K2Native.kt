@@ -29,8 +29,6 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.util.profile
 import org.jetbrains.kotlin.utils.KotlinPaths
 
-
-
 class K2Native : CLICompiler<K2NativeCompilerArguments>() {
 
     override fun MutableList<String>.addPlatformOptions(arguments: K2NativeCompilerArguments) {}
@@ -110,7 +108,19 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
         configuration.put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
         configuration.put(KlibConfigurationKeys.PRODUCE_KLIB_SIGNATURES_CLASH_CHECKS, arguments.enableSignatureClashChecks)
 
-        configuration.put(KlibConfigurationKeys.EXPERIMENTAL_DOUBLE_INLINING, arguments.experimentalDoubleInlining)
+        configuration.put(KlibConfigurationKeys.NO_DOUBLE_INLINING, arguments.noDoubleInlining)
+        arguments.dumpSyntheticAccessorsTo?.let { configuration.put(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_DUMP_DIR, it) }
+        configuration.put(
+            KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY,
+            arguments.narrowedSyntheticAccessorsVisibility
+        )
+        configuration.put(
+            KlibConfigurationKeys.DUPLICATED_UNIQUE_NAME_STRATEGY,
+            DuplicatedUniqueNameStrategy.parseOrDefault(
+                arguments.duplicatedUniqueNameStrategy,
+                default = if (arguments.metadataKlib) DuplicatedUniqueNameStrategy.ALLOW_ALL_WITH_WARNING else DuplicatedUniqueNameStrategy.DENY
+            )
+        )
 
         return environment
     }
@@ -146,6 +156,9 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 configuration.get(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS)?.let {
                     spawnedConfiguration.put(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS, it)
                 }
+                configuration.get(KonanConfigKeys.OVERRIDE_KONAN_PROPERTIES)?.let {
+                    spawnedConfiguration.put(KonanConfigKeys.OVERRIDE_KONAN_PROPERTIES, it)
+                }
                 spawnedConfiguration.setupConfiguration()
                 val spawnedEnvironment = prepareEnvironment(spawnedArguments, spawnedConfiguration, rootDisposable)
                 runKonanDriver(spawnedConfiguration, spawnedEnvironment, rootDisposable)
@@ -155,8 +168,21 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
     }
 
     private val K2NativeCompilerArguments.isUsefulWithoutFreeArgs: Boolean
-        get() = listTargets || listPhases || checkDependencies || !includes.isNullOrEmpty() ||
-                libraryToAddToCache != null || !exportedLibraries.isNullOrEmpty() || !compileFromBitcode.isNullOrEmpty()
+        get() {
+            if (listTargets || listPhases || checkDependencies) {
+                return true
+            }
+            // A little hack: produce == null is assumed to be treated as produce == "program" later in the pipeline.
+            val producingExecutable = produce == null || produce == "program"
+            // KT-68673: It is legal to store entry point in one of the libraries.
+            if (producingExecutable && libraries?.isNotEmpty() == true) {
+                return true
+            }
+            return !includes.isNullOrEmpty()
+                    || !exportedLibraries.isNullOrEmpty()
+                    || libraryToAddToCache != null
+                    || !compileFromBitcode.isNullOrEmpty()
+        }
 
     // It is executed before doExecute().
     override fun setupPlatformSpecificArgumentsAndServices(

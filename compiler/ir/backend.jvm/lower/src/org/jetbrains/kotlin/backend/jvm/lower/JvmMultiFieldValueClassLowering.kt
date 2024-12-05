@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.ir.inline
+import org.jetbrains.kotlin.backend.common.ir.isTmpForInline
 import org.jetbrains.kotlin.backend.common.lower.irCatch
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.common.pop
@@ -30,6 +31,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrDelegatingConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrEnumConstructorCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
@@ -42,10 +44,10 @@ import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addIfNotNull
 
-@PhaseDescription(
-    name = "MultiFieldValueClasses",
-    description = "Lower multi-field value classes",
-)
+/**
+ * Supports the experimental [multi-field value classes](https://github.com/Kotlin/KEEP/issues/340) feature.
+ */
+@PhaseDescription(name = "MultiFieldValueClasses")
 internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : JvmValueClassAbstractLowering(context) {
     override fun lower(irFile: IrFile) {
         if (context.config.supportMultiFieldValueClasses) {
@@ -527,10 +529,10 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
             val implementationStructure = if (isFakeOverride) {
                 val superDeclaration = replacement.allOverridden().singleOrNull { it.body != null }
                     ?: error("${this.render()} is fake override and has no implementation")
-                replacements.bindingNewFunctionToParameterTemplateStructure[superDeclaration]
+                superDeclaration.parameterTemplateStructureOfThisNewMfvcBidingFunction
                     ?: superDeclaration.explicitParameters.map { RegularMapping(it) }
             } else {
-                replacements.bindingNewFunctionToParameterTemplateStructure[replacement]
+                replacement.parameterTemplateStructureOfThisNewMfvcBidingFunction
                     ?: error("${replacement.render()} must have MFVC structure")
             }
             copyTypeParametersFrom(source) // without static type parameters
@@ -551,12 +553,11 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
                 "Static replacement must have no extension receiver but ${replacement.extensionReceiverParameter!!.render()} found"
             }
             val structure = buildList(implementationStructure.size) {
-                var valueParameterIndex = 0
                 add(RegularMapping(dispatchReceiverParameter!!))
                 val valueParametersAsMutableList = mutableListOf<IrValueParameter>()
                 for (expectedParameterStructure in implementationStructure.asSequence().drop(this.size)) {
                     fun IrValueParameter.copy() =
-                        copyTo(this@apply, type = type.substitute(substitutionMap), index = valueParameterIndex++)
+                        copyTo(this@apply, type = type.substitute(substitutionMap))
 
                     val parameterStructure = when (expectedParameterStructure) {
                         is RegularMapping -> RegularMapping(expectedParameterStructure.valueParameter.copy())
@@ -571,7 +572,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
                 }
                 valueParameters = valueParametersAsMutableList
             }
-            replacements.bindingNewFunctionToParameterTemplateStructure[this] = structure
+            this.parameterTemplateStructureOfThisNewMfvcBidingFunction = structure
             annotations = source.annotations
             parent = source.parent
             // We need to ensure that this bridge has the same attribute owner as its static inline class replacement, since this
@@ -629,7 +630,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
     }
 
     override fun addBindingsFor(original: IrFunction, replacement: IrFunction) {
-        val parametersStructure = replacements.bindingOldFunctionToParameterTemplateStructure[original]!!
+        val parametersStructure = original.parameterTemplateStructureOfThisOldMfvcBidingFunction!!
         require(parametersStructure.size == original.explicitParameters.size) {
             "Wrong value parameters structure: $parametersStructure"
         }
@@ -665,7 +666,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
     ) {
         for (i in old2newList.indices) {
             val (param, newParamList) = old2newList[i]
-            val defaultValue = replacements.oldMfvcDefaultArguments[param] ?: continue
+            val defaultValue = param.oldMfvcDefaultArgument ?: continue
             val structure = parametersStructure[i]
             if (structure is MultiFieldValueClassMapping) {
                 val fakeFunction = context.irFactory.buildFun {
@@ -805,7 +806,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
             buildReplacement(function, expression, replacement) {
                 IrFunctionReferenceImpl(
                     expression.startOffset, expression.endOffset,
-                    expression.type, replacement.symbol, function.typeParameters.size, replacement.valueParameters.size,
+                    expression.type, replacement.symbol, function.typeParameters.size,
                     expression.reflectionTarget, expression.origin
                 ).copyAttributes(expression)
             }
@@ -836,8 +837,8 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
             }
             extensionReceiverParameter = (originalFunction.dispatchReceiverParameter ?: originalFunction.extensionReceiverParameter)
                 ?.let { it.copyTo(this, type = it.type.substitute(substitutionMap)) }
-            valueParameters = originalFunction.valueParameters.mapIndexed { index, param ->
-                param.copyTo(this, index = index, type = param.type.substitute(substitutionMap))
+            valueParameters = originalFunction.valueParameters.map { param ->
+                param.copyTo(this, type = param.type.substitute(substitutionMap))
             }
             withinScope(this) {
                 body = makeBody(this)
@@ -851,7 +852,6 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
             type = expression.type,
             symbol = wrapper.symbol,
             typeArgumentsCount = expression.typeArgumentsCount,
-            valueArgumentsCount = expression.valueArgumentsCount,
             reflectionTarget = expression.reflectionTarget,
             origin = expression.origin,
         ).apply {
@@ -919,7 +919,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
                     is IrEnumConstructorCall -> { constructorSymbol ->
                         IrEnumConstructorCallImpl(
                             expression.startOffset, expression.endOffset, expression.type, constructorSymbol,
-                            expression.typeArgumentsCount, expression.valueArgumentsCount
+                            expression.typeArgumentsCount,
                         )
                     }
                     else -> error("Unknown constructor call type:\n${expression.dump()}")
@@ -1015,7 +1015,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
         },
     ): IrMemberAccessExpression<*> {
         val parameter2expression = typedArgumentList(originalFunction, original)
-        val structure = replacements.bindingOldFunctionToParameterTemplateStructure[originalFunction]!!
+        val structure = originalFunction.parameterTemplateStructureOfThisOldMfvcBidingFunction!!
         require(parameter2expression.size == structure.size)
         require(structure.sumOf { it.valueParameters.size } == replacement.explicitParametersCount)
         val newArguments: List<IrExpression?> =
@@ -1182,11 +1182,8 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
             }
         }.unwrapBlock()
 
-    private val IrDeclarationOrigin.isTemporary
-        get() =
-            this == IrDeclarationOrigin.IR_TEMPORARY_VARIABLE
-                    || this == IrDeclarationOrigin.IR_TEMPORARY_VARIABLE_FOR_INLINED_EXTENSION_RECEIVER
-                    || this == IrDeclarationOrigin.IR_TEMPORARY_VARIABLE_FOR_INLINED_PARAMETER
+    private val IrVariable.isTemporary
+        get() = this.origin == IrDeclarationOrigin.IR_TEMPORARY_VARIABLE || this.isTmpForInline
 
     override fun visitVariable(declaration: IrVariable): IrStatement {
         val initializer = declaration.initializer
@@ -1194,7 +1191,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
             val irClass = declaration.type.erasedUpperBound
             val rootNode = replacements.getRootMfvcNode(irClass)
             return context.createJvmIrBuilder(getCurrentScopeSymbol(), declaration).irBlock {
-                val origin = if (declaration.origin.isTemporary) {
+                val origin = if (declaration.isTemporary) {
                     JvmLoweredDeclarationOrigin.TEMPORARY_MULTI_FIELD_VALUE_CLASS_VARIABLE
                 } else {
                     JvmLoweredDeclarationOrigin.MULTI_FIELD_VALUE_CLASS_REPRESENTATION_VARIABLE

@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.gradle.plugin.tasks
+package org.jetbrains.kotlin.gradle.plugin.konan.tasks
 
 import kotlinBuildProperties
 import org.gradle.api.DefaultTask
@@ -11,102 +11,139 @@ import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.ProjectLayout
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.internal.file.FileOperations
+import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.services.ServiceReference
 import org.gradle.api.tasks.*
-import org.gradle.kotlin.dsl.property
 import org.gradle.process.ExecOperations
 import org.gradle.workers.WorkAction
 import org.gradle.workers.WorkParameters
 import org.gradle.workers.WorkerExecutor
+import org.jetbrains.kotlin.PlatformInfo
 import org.jetbrains.kotlin.gradle.plugin.konan.*
-import org.jetbrains.kotlin.konan.target.KonanTarget
-import java.util.concurrent.ConcurrentHashMap
+import org.jetbrains.kotlin.konan.target.AbstractToolConfig
+import org.jetbrains.kotlin.nativeDistribution.NativeDistributionProperty
+import org.jetbrains.kotlin.nativeDistribution.nativeDistributionProperty
 import javax.inject.Inject
+
+private val load0 = Runtime::class.java.getDeclaredMethod("load0", Class::class.java, String::class.java).also {
+    it.isAccessible = true
+}
+
+private abstract class KonanInteropInProcessAction @Inject constructor() : WorkAction<KonanInteropInProcessAction.Parameters> {
+    interface Parameters : WorkParameters {
+        val isolatedClassLoadersService: Property<KonanCliRunnerIsolatedClassLoadersService>
+        val compilerDistribution: NativeDistributionProperty
+        val target: Property<String>
+        val args: ListProperty<String>
+    }
+
+    override fun execute() {
+        val dist = parameters.compilerDistribution.get()
+        object : AbstractToolConfig(dist.root.asFile.absolutePath, parameters.target.get(), emptyMap()) {
+            override fun loadLibclang() {
+                // Load libclang into the system class loader. This is needed to allow developers to make changes
+                // in the tooling infrastructure without having to stop the daemon (otherwise libclang might end up
+                // loaded in two different class loaders which is not allowed by the JVM).
+                load0.invoke(Runtime.getRuntime(), String::class.java, libclang)
+            }
+        }.prepare()
+        parameters.isolatedClassLoadersService.get().getClassLoader(parameters.compilerDistribution.get().compilerClasspath.files).runKonanTool(
+                toolName = "cinterop",
+                args = parameters.args.get(),
+                useArgFile = false,
+        )
+    }
+}
+
+
+private abstract class KonanInteropOutOfProcessAction @Inject constructor(
+        private val execOperations: ExecOperations,
+) : WorkAction<KonanInteropOutOfProcessAction.Parameters> {
+    interface Parameters : WorkParameters {
+        val compilerDistribution: NativeDistributionProperty
+        val args: ListProperty<String>
+    }
+
+    override fun execute() {
+        val cinterop = parameters.compilerDistribution.get().cinterop
+        execOperations.exec {
+            if (PlatformInfo.isWindows()) {
+                commandLine("cmd.exe", "/d", "/c", cinterop, *parameters.args.get().toTypedArray())
+            } else {
+                commandLine(cinterop, *parameters.args.get().toTypedArray())
+            }
+        }.assertNormalExitValue()
+    }
+}
 
 /**
  * A task executing cinterop tool with the given args and compiling the stubs produced by this tool.
  */
-abstract class KonanInteropTask @Inject constructor(
+@CacheableTask
+open class KonanInteropTask @Inject constructor(
+        objectFactory: ObjectFactory,
         private val workerExecutor: WorkerExecutor,
         private val layout: ProjectLayout,
-        private val fileOperations: FileOperations,
-        private val execOperations: ExecOperations,
-): DefaultTask() {
-    init {
-        this.notCompatibleWithConfigurationCache("Unsupported inputs")
-    }
-
+) : DefaultTask() {
     @get:Input
-    abstract val konanTarget: Property<KonanTarget>
+    val target: Property<String> = objectFactory.property(String::class.java)
 
     @get:OutputDirectory
-    abstract val outputDirectory: DirectoryProperty
+    val outputDirectory: DirectoryProperty = objectFactory.directoryProperty()
 
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val klibFiles: ConfigurableFileCollection
+    val klibFiles: ConfigurableFileCollection = objectFactory.fileCollection()
 
     @get:Input
-    abstract val extraOpts: ListProperty<String>
-
-    @get:Internal
-    val enableParallel: Property<Boolean> = project.objects.property<Boolean>().convention(false)
+    val extraOpts: ListProperty<String> = objectFactory.listProperty(String::class.java)
 
     @get:InputFile
-    abstract val defFile: RegularFileProperty
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    val defFile: RegularFileProperty = objectFactory.fileProperty()
 
-    @get:Input
-    abstract val compilerOpts: ListProperty<String>
+    @get:Internal("Depends upon the compiler classpath, native libraries (for StubGenerator) and konan.properties (compilation flags + dependencies)")
+    val compilerDistribution: NativeDistributionProperty = objectFactory.nativeDistributionProperty()
 
-    @get:Input
-    abstract val compilerDistributionPath: Property<String>
+    @get:Classpath
+    @Suppress("unused")
+    protected val compilerClasspath = compilerDistribution.map { it.compilerClasspath }
 
-    internal interface RunToolParameters: WorkParameters {
-        var taskName: String
-        var args: List<String>
-    }
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.NONE)
+    @Suppress("unused") // used only by Gradle machinery via reflection.
+    protected val indexerLibs = compilerDistribution.map { it.nativeLibs } // Only really needs to depend on stuff used by the StubGenerator
 
-    internal abstract class RunTool @Inject constructor() : WorkAction<RunToolParameters> {
-        override fun execute() {
-            val toolRunner = interchangeBox.remove(parameters.taskName) ?: error(":(")
-            toolRunner.run(parameters.args)
-        }
-    }
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    @Suppress("unused") // used only by Gradle machinery via reflection.
+    protected val konanProperties = compilerDistribution.map { it.konanProperties }
 
-    @get:Internal
-    val isolatedClassLoadersService = KonanCliRunnerIsolatedClassLoadersService.attachingToTask(this)
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    @Suppress("unused") // used only by Gradle machinery via reflection.
+    protected val stdlib = compilerDistribution.map { it.stdlib }
 
+    @get:ServiceReference
+    protected val isolatedClassLoadersService = project.gradle.sharedServices.registerIsolatedClassLoadersServiceIfAbsent()
+
+    // This does not affect the result, only the way the result is built.
     private val allowRunningCInteropInProcess = project.kotlinBuildProperties.getBoolean("kotlin.native.allowRunningCinteropInProcess")
 
     @TaskAction
     fun run() {
-        val interopRunner = KonanCliInteropRunner(
-                fileOperations,
-                execOperations,
-                logger,
-                layout,
-                isolatedClassLoadersService,
-                compilerDistributionPath.get(),
-                konanTarget.get(),
-                allowRunningCInteropInProcess
-        )
+        outputDirectory.get().asFile.prepareAsOutput()
 
-        outputDirectory.asFile.get().mkdirs()
         val args = buildList {
             add("-nopack")
             add("-o")
             add(outputDirectory.asFile.get().canonicalPath)
             add("-target")
-            add(konanTarget.get().visibleName)
+            add(target.get())
             add("-def")
             add(defFile.asFile.get().canonicalPath)
-
-            compilerOpts.get().forEach {
-                add("-compiler-option")
-                add(it)
-            }
 
             klibFiles.forEach {
                 add("-library")
@@ -114,18 +151,24 @@ abstract class KonanInteropTask @Inject constructor(
             }
 
             addAll(extraOpts.get())
+
+            add("-Xproject-dir")
+            add(layout.projectDirectory.asFile.absolutePath)
         }
-        if (enableParallel.get()) {
-            val workQueue = workerExecutor.noIsolation()
-            interchangeBox[this.path] = interopRunner
-            workQueue.submit(RunTool::class.java) {
-                taskName = path
-                this.args = args
+        val workQueue = workerExecutor.noIsolation()
+
+        if (allowRunningCInteropInProcess) {
+            workQueue.submit(KonanInteropInProcessAction::class.java) {
+                this.isolatedClassLoadersService.set(this@KonanInteropTask.isolatedClassLoadersService)
+                this.compilerDistribution.set(this@KonanInteropTask.compilerDistribution)
+                this.target.set(this@KonanInteropTask.target)
+                this.args.addAll(args)
             }
         } else {
-            interopRunner.run(args)
+            workQueue.submit(KonanInteropOutOfProcessAction::class.java) {
+                this.compilerDistribution.set(this@KonanInteropTask.compilerDistribution)
+                this.args.addAll(args)
+            }
         }
     }
 }
-
-internal val interchangeBox = ConcurrentHashMap<String, KonanCliInteropRunner>()

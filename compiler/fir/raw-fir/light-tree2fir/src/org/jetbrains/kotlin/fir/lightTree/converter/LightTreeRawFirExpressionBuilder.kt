@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusIm
 import org.jetbrains.kotlin.fir.diagnostics.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.*
-import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.expressions.impl.buildSingleExpressionBlock
 import org.jetbrains.kotlin.fir.lightTree.fir.ValueParameter
@@ -48,6 +47,7 @@ import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.psi.psiUtil.UNWRAPPABLE_TOKEN_TYPES
 import org.jetbrains.kotlin.psi.stubs.elements.KtConstantExpressionElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtNameReferenceExpressionElementType
 import org.jetbrains.kotlin.types.expressions.OperatorConventions
@@ -345,6 +345,7 @@ class LightTreeRawFirExpressionBuilder(
                     firOperation,
                     leftArgAsFir.annotations,
                     rightArg,
+                    leftArgNode?.tokenType in UNWRAPPABLE_TOKEN_TYPES,
                 ) {
                     getAsFirExpression<FirExpression>(
                         this,
@@ -498,7 +499,7 @@ class LightTreeRawFirExpressionBuilder(
             }
         }
 
-        val result = firExpression ?: buildErrorExpression(null, ConeNotAnnotationContainer("???"))
+        val result = firExpression ?: buildErrorExpression(annotatedExpression.toFirSourceElement(), ConeNotAnnotationContainer("???"))
         require(result is FirAnnotationContainer)
         result.replaceAnnotations(result.annotations.smartPlus(firAnnotationList))
         return result
@@ -675,7 +676,7 @@ class LightTreeRawFirExpressionBuilder(
 
         val source = callSuffix.toFirSourceElement()
 
-        val (calleeReference, explicitReceiver, isImplicitInvoke) = when {
+        val (calleeReference, receiverForInvoke) = when {
             name != null -> CalleeAndReceiver(
                 buildSimpleNamedReference {
                     this.source = callSuffix.getFirstChildExpressionUnwrapped()?.toFirSourceElement() ?: source
@@ -699,7 +700,6 @@ class LightTreeRawFirExpressionBuilder(
                         this.name = OperatorNameConventions.INVOKE
                     },
                     additionalArgument!!,
-                    isImplicitInvoke = true
                 )
             }
 
@@ -712,7 +712,7 @@ class LightTreeRawFirExpressionBuilder(
         }
 
         val builder: FirQualifiedAccessExpressionBuilder = if (hasArguments) {
-            val builder = if (isImplicitInvoke) FirImplicitInvokeCallBuilder() else FirFunctionCallBuilder()
+            val builder = if (receiverForInvoke != null) FirImplicitInvokeCallBuilder() else FirFunctionCallBuilder()
             builder.apply {
                 this.source = source
                 this.calleeReference = calleeReference
@@ -728,9 +728,9 @@ class LightTreeRawFirExpressionBuilder(
             }
         }
         return builder.apply {
-            this.explicitReceiver = explicitReceiver
+            this.explicitReceiver = receiverForInvoke
             typeArguments += firTypeArguments
-        }.build()
+        }.build().pullUpSafeCallIfNecessary()
     }
 
     /**

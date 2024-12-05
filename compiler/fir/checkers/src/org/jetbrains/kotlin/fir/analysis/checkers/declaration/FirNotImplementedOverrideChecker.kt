@@ -30,7 +30,7 @@ import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.delegatedWrapperData
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
-import org.jetbrains.kotlin.fir.resolve.toSymbol
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.scopes.MemberWithBaseScope
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenMembersWithBaseScope
 import org.jetbrains.kotlin.fir.scopes.impl.filterOutOverriddenFunctions
@@ -82,12 +82,7 @@ object FirNotImplementedOverrideChecker : FirClassChecker(MppCheckerKind.Platfor
                 val delegatedTo = delegatedWrapperData.wrapped.unwrapFakeOverrides().symbol
 
                 if (symbol.multipleDelegatesWithTheSameSignature == true) {
-                    if (directOverriddenMembersWithBaseScope.isNotEmpty() &&
-                        // We should report here if either 2+ members or single member with non-enhancement origin
-                        directOverriddenMembersWithBaseScope.singleOrNull()?.member?.origin != FirDeclarationOrigin.Enhancement
-                    ) {
-                        manyImplementationsDelegationSymbols.add(symbol)
-                    }
+                    manyImplementationsDelegationSymbols.add(symbol)
                 }
 
                 val firstFinal = filteredOverriddenMembers.firstOrNull { it.isFinal }
@@ -189,13 +184,13 @@ object FirNotImplementedOverrideChecker : FirClassChecker(MppCheckerKind.Platfor
                     it.modality == Modality.ABSTRACT
                 }
             if (implIntersections.any {
-                    (it.containingClassLookupTag()?.toSymbol(context.session) as? FirRegularClassSymbol)?.classKind == ClassKind.CLASS
+                    it.containingClassLookupTag()?.toRegularClassSymbol(context.session)?.classKind == ClassKind.CLASS
                 }
             ) {
                 reporter.reportOn(source, MANY_IMPL_MEMBER_NOT_IMPLEMENTED, classSymbol, notImplementedIntersectionSymbol, context)
             } else {
                 if (canHaveAbstractDeclarations && abstractIntersections.any {
-                        (it.containingClassLookupTag()?.toSymbol(context.session) as? FirRegularClassSymbol)?.classKind == ClassKind.CLASS
+                        it.containingClassLookupTag()?.toRegularClassSymbol(context.session)?.classKind == ClassKind.CLASS
                     }
                 ) {
                     return
@@ -215,5 +210,5 @@ object FirNotImplementedOverrideChecker : FirClassChecker(MppCheckerKind.Platfor
     }
 
     private fun FirCallableSymbol<*>.isFromInterfaceOrEnum(context: CheckerContext): Boolean =
-        (getContainingClassSymbol(context.session) as? FirRegularClassSymbol)?.let { it.isInterface || it.isEnumClass } == true
+        (getContainingClassSymbol() as? FirRegularClassSymbol)?.let { it.isInterface || it.isEnumClass } == true
 }

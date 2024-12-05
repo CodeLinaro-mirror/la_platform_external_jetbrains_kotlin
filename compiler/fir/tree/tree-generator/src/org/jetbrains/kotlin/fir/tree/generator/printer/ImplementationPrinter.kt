@@ -129,8 +129,6 @@ internal class ImplementationPrinter(
                                             is ListField -> {
                                                 println(field.name, field.call(), "forEach { it.accept(visitor, data) }")
                                             }
-
-                                            else -> throw IllegalStateException()
                                         }
                                     }
                                 }
@@ -272,6 +270,12 @@ internal class ImplementationPrinter(
                 }
                 print(" {")
                 if (!field.isMutable) {
+                    if (field.name == "coneTypeOrNull") {
+                        println()
+                        withIndent {
+                            println("require(newConeTypeOrNull == coneTypeOrNull) { \"\${javaClass.simpleName}.replaceConeTypeOrNull() called with invalid type '\${newConeTypeOrNull}'. Current type is '\$coneTypeOrNull'\" }")
+                        }
+                    }
                     println("}")
                     return
                 }

@@ -8,12 +8,14 @@ package org.jetbrains.kotlin
 import kotlinBuildProperties
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.file.FileTree
 import org.gradle.api.file.RelativePath
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.kotlin.dsl.register
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.nativeDistribution.nativeDistribution
 import java.io.File
 
 /**
@@ -46,7 +48,7 @@ fun Project.setupMergeCrossBundleTask(): TaskProvider<Task>? {
     // Host dist is unpacked straight to kotlin-native/dist
     val unpackHostDist = setupTaskToUnpackDistToCurrentDist(
             distName = "Host",
-            source = hostDistFile,
+            source = if (PlatformInfo.isWindows()) zipTree(hostDistFile) else tarTree(hostDistFile),
             dependency = checkPreconditions,
             // Licenses are configured separately in bundlePrebuilt/bundleRegular tasks, which will depend
             // on mergeCrossBundle (look for 'configurePackingLicensesToBundle' in kotlin-native/build.gradle)
@@ -55,7 +57,7 @@ fun Project.setupMergeCrossBundleTask(): TaskProvider<Task>? {
 
     val unpackDarwinDist = setupTaskToUnpackDistToCurrentDist(
             distName = "Darwin",
-            source = darwinDistFile,
+            source = tarTree(darwinDistFile),
             dependency = checkPreconditions,
             includes = getDarwinOnlyTargets().map { "*/klib/platform/${it.name}/**" }
     )
@@ -67,16 +69,16 @@ fun Project.setupMergeCrossBundleTask(): TaskProvider<Task>? {
 
 private fun Project.setupTaskToUnpackDistToCurrentDist(
         distName: String,
-        source: File,
+        source: FileTree,
         dependency: TaskProvider<*>,
         includes: Collection<String>? = null,
         excludes: Collection<String>? = null,
 ): TaskProvider<Copy> = tasks.register<Copy>("unpack${distName}Dist") {
-    from(tarTree(source)) {
+    from(source) {
         if (includes != null) include(includes)
         if (excludes != null) exclude(excludes)
     }
-    into(kotlinNativeDist)
+    into(nativeDistribution.map { it.root })
     dependsOn(dependency)
 
     // this incantation makes it so that we will have something like build/unpackedDonorDarwinDist/<contents of dist>

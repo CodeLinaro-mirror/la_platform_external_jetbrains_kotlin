@@ -5,6 +5,9 @@
 
 package org.jetbrains.kotlin.cli.common.arguments
 
+import org.jetbrains.kotlin.config.DuplicatedUniqueNameStrategy
+import org.jetbrains.kotlin.config.LanguageFeature
+
 abstract class CommonKlibBasedCompilerArguments : CommonCompilerArguments() {
     companion object {
         @JvmStatic
@@ -56,12 +59,40 @@ abstract class CommonKlibBasedCompilerArguments : CommonCompilerArguments() {
         }
 
     @Argument(
-        value = "-Xklib-double-inlining",
-        description = "Turn on experimental double-inlining mode.\nWarning: This feature is unstable."
+        value = "-Xklib-no-double-inlining",
+        description = "Turn off double-inlining mode."
     )
-    var experimentalDoubleInlining = false
+    var noDoubleInlining = false
         set(value) {
             checkFrozen()
             field = value
         }
+
+    @Argument(
+        value = "-Xklib-duplicated-unique-name-strategy",
+        valueDescription = "{${DuplicatedUniqueNameStrategy.ALL_ALIASES}}",
+        description = "Klib dependencies usage strategy when multiple KLIBs has same `unique_name` property value."
+    )
+    var duplicatedUniqueNameStrategy: String? = null
+        set(value) {
+            checkFrozen()
+            field = if (value.isNullOrEmpty()) null else value
+        }
+
+    @Argument(
+        value = "-Xklib-ir-inliner",
+        description = "Enable experimental support to invoke IR Inliner before Klib serialization."
+    )
+    var irInlinerBeforeKlibSerialization = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    override fun configureExtraLanguageFeatures(map: HashMap<LanguageFeature, LanguageFeature.State>) {
+        super.configureExtraLanguageFeatures(map)
+        if (irInlinerBeforeKlibSerialization) {
+            map[LanguageFeature.IrInlinerBeforeKlibSerialization] = LanguageFeature.State.ENABLED
+        }
+    }
 }

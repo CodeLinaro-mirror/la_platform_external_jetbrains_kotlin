@@ -9,14 +9,17 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.isInfix
+import org.jetbrains.kotlin.fir.declarations.utils.isOperator
+import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.*
-import org.jetbrains.kotlin.fir.resolve.inference.*
+import org.jetbrains.kotlin.fir.resolve.inference.csBuilder
+import org.jetbrains.kotlin.fir.resolve.inference.isAnyOfDelegateOperators
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeArgumentConstraintPosition
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeExplicitTypeParameterConstraintPosition
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
@@ -50,30 +53,6 @@ abstract class ResolutionStage {
     abstract suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext)
 }
 
-internal object CheckExplicitReceiverConsistency : ResolutionStage() {
-    override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
-        val receiverKind = candidate.explicitReceiverKind
-        val explicitReceiver = callInfo.explicitReceiver
-        when (receiverKind) {
-            NO_EXPLICIT_RECEIVER -> {
-                if (explicitReceiver != null && explicitReceiver !is FirResolvedQualifier && !explicitReceiver.isSuperReferenceExpression()) {
-                    return sink.yieldDiagnostic(InapplicableWrongReceiver(actualType = explicitReceiver.resolvedType))
-                }
-            }
-            EXTENSION_RECEIVER, DISPATCH_RECEIVER -> {
-                if (explicitReceiver == null) {
-                    return sink.yieldDiagnostic(InapplicableWrongReceiver())
-                }
-            }
-            BOTH_RECEIVERS -> {
-                if (explicitReceiver == null) {
-                    return sink.yieldDiagnostic(InapplicableWrongReceiver())
-                }
-            }
-        }
-    }
-}
-
 object CheckExtensionReceiver : ResolutionStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val callSite = callInfo.callSite
@@ -89,13 +68,13 @@ object CheckExtensionReceiver : ResolutionStage() {
         }
 
         val expectedReceiverType = candidate.getExpectedReceiverType() ?: return
-        val expectedType = candidate.substitutor.substituteOrSelf(expectedReceiverType.type)
+        val expectedType = candidate.substitutor.substituteOrSelf(expectedReceiverType)
 
         // Probably, we should add an assertion here since we check consistency on the level of scope tower levels
         if (candidate.givenExtensionReceiverOptions.isEmpty()) return
 
         val preparedReceivers = candidate.givenExtensionReceiverOptions.map {
-            candidate.prepareReceivers(it, expectedType, context)
+            prepareReceivers(it, expectedType, context)
         }
 
         if (preparedReceivers.size == 1) {
@@ -121,11 +100,11 @@ object CheckExtensionReceiver : ResolutionStage() {
         sink: CheckerSink,
         context: ResolutionContext
     ) {
-        val receiver = receivers.single()
+        val (atom, type) = receivers.single()
         ArgumentCheckingProcessor.resolvePlainArgumentType(
             candidate,
-            receiver.expression,
-            argumentType = receiver.type,
+            atom,
+            argumentType = type,
             expectedType = expectedType,
             sink = sink,
             context = context,
@@ -134,7 +113,8 @@ object CheckExtensionReceiver : ResolutionStage() {
             sourceForReceiver = candidate.callInfo.callSite.source
         )
 
-        candidate.chosenExtensionReceiver = receiver.expression
+        // TODO: store atoms for receivers in candidate
+        candidate.chosenExtensionReceiver = atom
 
         sink.yieldIfNeed()
     }
@@ -145,22 +125,28 @@ object CheckExtensionReceiver : ResolutionStage() {
     }
 }
 
-private fun Candidate.prepareReceivers(
-    argumentExtensionReceiver: FirExpression,
+private fun prepareReceivers(
+    argumentExtensionReceiver: ConeResolutionAtom,
     expectedType: ConeKotlinType,
     context: ResolutionContext,
 ): ReceiverDescription {
     val argumentType = captureFromTypeParameterUpperBoundIfNeeded(
-        argumentType = argumentExtensionReceiver.resolvedType,
+        argumentType = argumentExtensionReceiver.expression.resolvedType,
         expectedType = expectedType,
         session = context.session
     ).let { prepareCapturedType(it, context) }
+        .let {
+            when (it) {
+                is ConeIntegerConstantOperatorType -> it.possibleTypes.first()
+                else -> it
+            }
+        }
 
     return ReceiverDescription(argumentExtensionReceiver, argumentType)
 }
 
-private class ReceiverDescription(
-    val expression: FirExpression,
+private data class ReceiverDescription(
+    val atom: ConeResolutionAtom,
     val type: ConeKotlinType,
 )
 
@@ -174,7 +160,7 @@ object CheckDispatchReceiver : ResolutionStage() {
             }
         }
 
-        val dispatchReceiverValueType = candidate.dispatchReceiver?.resolvedType ?: return
+        val dispatchReceiverValueType = candidate.dispatchReceiver?.expression?.resolvedType ?: return
 
         val isReceiverNullable = !AbstractNullabilityChecker.isSubtypeOfAny(context.session.typeContext, dispatchReceiverValueType)
 
@@ -211,7 +197,7 @@ object CheckDispatchReceiver : ResolutionStage() {
                 )
             )
         } else if (isReceiverNullable) {
-            sink.yieldDiagnostic(UnsafeCall(dispatchReceiverValueType))
+            sink.yieldDiagnostic(InapplicableNullableReceiver(dispatchReceiverValueType))
         }
     }
 }
@@ -233,7 +219,7 @@ object CheckContextReceivers : ResolutionStage() {
                     ?: towerDataElement.contextReceiverGroup?.map { it.receiverExpression }
             }
 
-        val resultingContextReceiverArguments = mutableListOf<FirExpression>()
+        val resultingContextReceiverArguments = mutableListOf<ConeResolutionAtom>()
         for (expectedType in contextReceiverExpectedTypes) {
             val matchingReceivers = candidate.findClosestMatchingReceivers(expectedType, receiverGroups, context)
             when (matchingReceivers.size) {
@@ -243,7 +229,7 @@ object CheckContextReceivers : ResolutionStage() {
                 }
                 1 -> {
                     val matchingReceiver = matchingReceivers.single()
-                    resultingContextReceiverArguments.add(matchingReceiver.expression)
+                    resultingContextReceiverArguments.add(matchingReceiver.atom)
                     candidate.system.addSubtypeConstraint(matchingReceiver.type, expectedType, SimpleConstraintSystemConstraintPosition)
                 }
                 else -> {
@@ -298,7 +284,7 @@ private fun Candidate.findClosestMatchingReceivers(
     for (receiverGroup in receiverGroups) {
         val currentResult =
             receiverGroup
-                .map { prepareReceivers(it, expectedType, context) }
+                .map { prepareReceivers(ConeResolutionAtom.createRawAtom(it), expectedType, context) }
                 .filter { system.isSubtypeConstraintCompatible(it.type, expectedType, SimpleConstraintSystemConstraintPosition) }
 
         if (currentResult.isNotEmpty()) return currentResult
@@ -330,8 +316,8 @@ object CheckDslScopeViolation : ResolutionStage() {
                 }
             }
         }
-        checkReceiver(candidate.dispatchReceiver)
-        checkReceiver(candidate.chosenExtensionReceiver)
+        checkReceiver(candidate.dispatchReceiver?.expression)
+        checkReceiver(candidate.chosenExtensionReceiver?.expression)
 
         // For value of builtin functional type with implicit extension receiver, the receiver is passed as the first argument rather than
         // an extension receiver of the `invoke` call. Hence, we need to specially handle this case.
@@ -360,10 +346,13 @@ object CheckDslScopeViolation : ResolutionStage() {
         // ```
         // `useX()` is a call to `invoke` with `useX` as the dispatch receiver. In the FIR tree, extension receiver is represented as an
         // implicit `this` expression passed as the first argument.
-        if (candidate.dispatchReceiver?.resolvedType?.fullyExpandedType(context.session)?.isSomeFunctionType(context.session) == true &&
-            (candidate.symbol as? FirNamedFunctionSymbol)?.name == OperatorNameConventions.INVOKE
+        if (
+            candidate.dispatchReceiver?.expression?.resolvedType
+                ?.fullyExpandedType(context.session)
+                ?.isSomeFunctionType(context.session) == true
+            && (candidate.symbol as? FirNamedFunctionSymbol)?.name == OperatorNameConventions.INVOKE
         ) {
-            val firstArg = candidate.argumentMapping.keys.firstOrNull() as? FirThisReceiverExpression ?: return
+            val firstArg = candidate.argumentMapping.keys.firstOrNull()?.expression as? FirThisReceiverExpression ?: return
             if (!firstArg.isImplicit) return
             checkImpl(
                 candidate,
@@ -471,7 +460,7 @@ object CheckDslScopeViolation : ResolutionStage() {
     private fun MutableSet<ClassId>.collectDslMarkerAnnotations(context: ResolutionContext, annotations: Collection<FirAnnotation>) {
         for (annotation in annotations) {
             val annotationClass =
-                annotation.annotationTypeRef.coneType.fullyExpandedType(context.session).toSymbol(context.session) as? FirClassSymbol
+                annotation.annotationTypeRef.coneType.fullyExpandedType(context.session).toClassSymbol(context.session)
                     ?: continue
             if (annotationClass.hasAnnotation(dslMarkerClassId, context.session)) {
                 add(annotationClass.classId)
@@ -485,34 +474,41 @@ private fun FirExpression?.isSuperCall(): Boolean {
     return calleeReference is FirSuperReference
 }
 
-private fun FirExpression.isSuperReferenceExpression(): Boolean {
-    return if (this is FirQualifiedAccessExpression) {
-        val calleeReference = calleeReference
-        calleeReference is FirSuperReference
-    } else false
-}
-
 internal object MapArguments : ResolutionStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val symbol = candidate.symbol as? FirFunctionSymbol<*> ?: return sink.reportDiagnostic(HiddenCandidate)
         val function = symbol.fir
+        val arguments = callInfo.arguments.map { ConeResolutionAtom.createRawAtom(it) }
         val mapping = context.bodyResolveComponents.mapArguments(
-            callInfo.arguments,
+            arguments,
             function,
             candidate.originScope,
             callSiteIsOperatorCall = (callInfo.callSite as? FirFunctionCall)?.origin == FirFunctionCallOrigin.Operator
         )
-        candidate.initializeArgumentMapping(mapping.toArgumentToParameterMapping())
+        candidate.initializeArgumentMapping(
+            arguments.unwrapNamedArgumentsForDynamicCall(function),
+            mapping.toArgumentToParameterMapping()
+        )
         candidate.numDefaults = mapping.numDefaults()
-
         mapping.diagnostics.forEach(sink::reportDiagnostic)
         sink.yieldIfNeed()
+    }
+
+    private fun List<ConeResolutionAtom>.unwrapNamedArgumentsForDynamicCall(function: FirFunction): List<ConeResolutionAtom> {
+        if (function.origin != FirDeclarationOrigin.DynamicScope) return this
+        return map {
+            if (it is ConeResolutionAtomWithSingleChild && it.expression is FirNamedArgumentExpression) {
+                it.subAtom ?: error("SubAtom for named argument is null")
+            } else {
+                it
+            }
+        }
     }
 }
 
 internal val Candidate.isInvokeFromExtensionFunctionType: Boolean
     get() = explicitReceiverKind == DISPATCH_RECEIVER
-            && dispatchReceiver?.resolvedType?.fullyExpandedType(this.callInfo.session)?.isExtensionFunctionType == true
+            && dispatchReceiver?.expression?.resolvedType?.fullyExpandedType(this.callInfo.session)?.isExtensionFunctionType == true
             && (symbol as? FirNamedFunctionSymbol)?.name == OperatorNameConventions.INVOKE
 
 internal fun Candidate.shouldHaveLowPriorityDueToSAM(bodyResolveComponents: BodyResolveComponents): Boolean {
@@ -563,7 +559,7 @@ internal object EagerResolveOfCallableReferences : ResolutionStage() {
                     check(atom.resultingReference is FirErrorReferenceWithCandidate)
                     if (AbstractTypeChecker.RUN_SLOW_ASSERTIONS) check(atom in candidate.postponedAtoms)
 
-                    sink.yieldDiagnostic(UnsuccessfulCallableReferenceAtom)
+                    sink.yieldDiagnostic(UnsuccessfulCallableReferenceArgument)
                 } else when (applicability) {
                     CandidateApplicability.RESOLVED_NEED_PRESERVE_COMPATIBILITY ->
                         sink.reportDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
@@ -584,19 +580,28 @@ internal object DiscriminateSyntheticProperties : ResolutionStage() {
 }
 
 internal object CheckVisibility : ResolutionStage() {
+    private suspend fun CheckerSink.yieldVisibilityError(callInfo: CallInfo) {
+        // The containing declarations structure with the code fragment is always the following:
+        // FirFile
+        //     FirCodeFragment
+        //         ....
+        // See also PsiRawFirBuilder
+        yieldDiagnostic(if (callInfo.containingDeclarations.getOrNull(1) is FirCodeFragment) FragmentVisibilityError else VisibilityError)
+    }
+
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val visibilityChecker = callInfo.session.visibilityChecker
         val symbol = candidate.symbol
         val declaration = symbol.fir
         if (declaration is FirMemberDeclaration && declaration !is FirConstructor) {
             if (!visibilityChecker.isVisible(declaration, candidate)) {
-                sink.yieldDiagnostic(VisibilityError)
+                sink.yieldVisibilityError(callInfo)
                 return
             }
         }
 
         if (declaration is FirConstructor) {
-            val classSymbol = declaration.returnTypeRef.coneTypeUnsafe<ConeClassLikeType>().lookupTag.toSymbol(context.session)
+            val classSymbol = declaration.returnTypeRef.coneType.classLikeLookupTagIfAny?.toSymbol(context.session)
 
             if (classSymbol is FirRegularClassSymbol) {
                 if (classSymbol.fir.classKind.isSingleton) {
@@ -609,14 +614,14 @@ internal object CheckVisibility : ResolutionStage() {
                     dispatchReceiver = null
                 )
                 if (!visible) {
-                    sink.yieldDiagnostic(VisibilityError)
+                    sink.yieldVisibilityError(callInfo)
                 }
             }
 
             val typeAlias = declaration.typeAliasForConstructor
             if (typeAlias != null) {
                 if (!visibilityChecker.isVisible(typeAlias.fir, candidate)) {
-                    sink.yieldDiagnostic(VisibilityError)
+                    sink.yieldVisibilityError(callInfo)
                 }
             }
         }
@@ -697,8 +702,7 @@ internal object CheckCallModifiers : ResolutionStage() {
 internal object CheckHiddenDeclaration : ResolutionStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         val symbol = candidate.symbol as? FirCallableSymbol<*> ?: return
-        /** Actual declarations are checked by [FirDeprecationChecker] */
-        if (symbol.isActual) return
+
         if (symbol.isDeprecatedHidden(context, callInfo) ||
             (symbol is FirConstructorSymbol && symbol.typeAliasForConstructor?.isDeprecatedHidden(context, callInfo) == true) ||
             isHiddenForThisCallSite(symbol, callInfo, candidate, context.session, sink)
@@ -764,9 +768,9 @@ private val DYNAMIC_EXTENSION_ANNOTATION_CLASS_ID: ClassId = ClassId.topLevel(DY
 internal object ProcessDynamicExtensionAnnotation : ResolutionStage() {
     override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
         if (candidate.symbol.origin === FirDeclarationOrigin.DynamicScope) return
-        val extensionReceiver = candidate.chosenExtensionReceiver ?: return
+        val extensionReceiver = candidate.chosenExtensionReceiver?.expression ?: return
         val argumentIsDynamic = extensionReceiver.resolvedType is ConeDynamicType
-        val parameterIsDynamic = (candidate.symbol as? FirCallableSymbol)?.resolvedReceiverTypeRef?.type is ConeDynamicType
+        val parameterIsDynamic = (candidate.symbol as? FirCallableSymbol)?.resolvedReceiverTypeRef?.coneType is ConeDynamicType
         if (parameterIsDynamic != argumentIsDynamic ||
             parameterIsDynamic && !candidate.symbol.hasAnnotation(DYNAMIC_EXTENSION_ANNOTATION_CLASS_ID, context.session)
         ) {
@@ -843,14 +847,14 @@ internal object CheckLambdaAgainstTypeVariableContradiction : ResolutionStage() 
 
         // We use Function<Nothing> as our representative type for "some function type".
         val lambdaType = StandardClassIds.Function
-            .constructClassLikeType(arrayOf(context.session.builtinTypes.nothingType.type))
+            .constructClassLikeType(arrayOf(context.session.builtinTypes.nothingType.coneType))
 
         var shouldReportError = false
 
         // We don't add the constraint to the system in the end, we only check for contradictions and roll back the transaction.
         // This ensures we don't get any issues if a different function type constraint is added later, e.g., during completion.
         csBuilder.runTransaction {
-            addSubtypeConstraint(lambdaType, expectedType, ConeArgumentConstraintPosition(fir))
+            addSubtypeConstraint(lambdaType, expectedType, ConeArgumentConstraintPosition(anonymousFunction))
             shouldReportError = hasContradiction
             false
         }

@@ -579,7 +579,9 @@ private inline fun <T : JsNode> T.addSourceInfoIfNeed(
     val sourceMapsInfo = context.staticContext.backendContext.sourceMapsInfo ?: return
     val originalName = useNameOf?.originalNameForUseInSourceMap(sourceMapsInfo.namesPolicy)
     val location = context.getStartLocationForIrElement(node, originalName) ?: return
-    val isNodeFromCurrentModule = context.currentFile.module.descriptor == context.staticContext.backendContext.module
+    val isNodeFromCurrentModule = context.currentInlineFunction?.fileOrNull?.module?.descriptor?.let { moduleOfCurrentFunction ->
+        moduleOfCurrentFunction == context.staticContext.backendContext.module
+    } ?: true
 
     // TODO maybe it's better to fix in JsExpressionStatement
     val locationTarget = if (this is JsExpressionStatement) this.expression else this
@@ -677,8 +679,17 @@ private val nameMappingOriginAllowList = setOf(
 
 private fun IrClass?.canUseSuperRef(context: JsGenerationContext, superClass: IrClass): Boolean {
     val currentFunction = context.currentFunction ?: return false
+
+    // Account for lambda expressions as well.
+    val currentFunctionsIncludingParents = currentFunction.parentDeclarationsWithSelf.filterIsInstance<IrFunction>()
+
+    fun IrFunction.isCoroutine(): Boolean =
+        parentClassOrNull?.superClass?.symbol == context.staticContext.backendContext.coroutineSymbols.coroutineImpl
+
     return this != null &&
             context.staticContext.backendContext.es6mode &&
             !superClass.isInterface &&
-            !isInner && !isLocal && !currentFunction.isEs6ConstructorReplacement && currentFunction.parentClassOrNull?.superClass?.symbol != context.staticContext.backendContext.coroutineSymbols.coroutineImpl
+            !isInner &&
+            !isLocal &&
+            currentFunctionsIncludingParents.none { it.isEs6ConstructorReplacement || it.isCoroutine() }
 }

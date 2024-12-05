@@ -5,16 +5,13 @@
 
 package org.jetbrains.kotlin.objcexport
 
-import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.symbols.KaVariableSymbol
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportPropertyName
 
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-fun KaVariableSymbol.getObjCPropertyName(): ObjCExportPropertyName {
-    val resolveObjCNameAnnotation = resolveObjCNameAnnotation()
-    val stringName = name.asString()
+fun ObjCExportContext.getObjCPropertyName(symbol: KaVariableSymbol): ObjCExportPropertyName {
+    val resolveObjCNameAnnotation = symbol.resolveObjCNameAnnotation()
+    val stringName = exportSession.exportSessionSymbolName(symbol)
     val propertyName = stringName.mangleIfReservedObjCName()
 
     return ObjCExportPropertyName(

@@ -50,8 +50,6 @@ import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.modules.TargetId
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.platform.CommonPlatforms
-import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.progress.CompilationCanceledException
 import java.io.File
 
@@ -178,7 +176,7 @@ open class IncrementalFirJvmCompilerRunner(
                 }
             }
 
-            val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
+            val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
             val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
             val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, diagnosticsReporter)
 
@@ -196,26 +194,20 @@ open class IncrementalFirJvmCompilerRunner(
                     val dirtySourcesByModuleName = sourcesByModuleName.mapValues { (_, sources) ->
                         sources.filterTo(mutableSetOf()) { dirtySources.any { df -> df.path == it.path } }
                     }
-                    val groupedSource = GroupedKtSources(
+                    val groupedSources = GroupedKtSources(
                         commonSources = allCommonSourceFiles.filter { dirtySources.any { df -> df.path == it.path } },
                         platformSources = allPlatformSourceFiles.filter { dirtySources.any { df -> df.path == it.path } },
                         sourcesByModuleName = dirtySourcesByModuleName
                     )
-                    val compilerInput = ModuleCompilerInput(
-                        targetId,
-                        groupedSource,
-                        CommonPlatforms.defaultCommonPlatform,
-                        JvmPlatforms.unspecifiedJvmPlatform,
-                        configuration
-                    )
 
                     val analysisResults =
-                        compileModuleToAnalyzedFir(
-                            compilerInput,
+                        @OptIn(IncrementalCompilationApi::class) compileModuleToAnalyzedFirViaLightTreeIncrementally(
                             projectEnvironment,
-                            emptyList(),
-                            incrementalExcludesScope,
+                            messageCollector,
+                            configuration,
+                            ModuleCompilerInput(targetId, groupedSources, configuration),
                             diagnosticsReporter,
+                            incrementalExcludesScope,
                         )
 
                     // TODO: consider what to do if many compilations find a main class

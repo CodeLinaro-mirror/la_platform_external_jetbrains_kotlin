@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector
 import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
 import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.utils.delegateFields
@@ -160,11 +161,12 @@ internal class KaFirScopeProvider(
         val useSiteSession = analysisSession.firSession
         val scopeSession = getScopeSession()
 
+        // Create use site scope to handle signature enhancement properly
         fun getBaseUseSiteScope() = JavaScopeProvider.getUseSiteMemberScope(
             firJavaClass,
             useSiteSession,
             scopeSession,
-            memberRequiredPhase = FirResolvePhase.TYPES,
+            memberRequiredPhase = FirResolvePhase.STATUS,
         )
 
         fun getStaticScope() = JavaScopeProvider.getStaticScope(firJavaClass, useSiteSession, scopeSession)
@@ -274,7 +276,9 @@ internal class KaFirScopeProvider(
                 useCaching = true,
             )
 
-            val ktScopesWithKinds = createScopesWithKind(firImportingScopes.withIndex())
+            val firImportingScopesIndexed = firImportingScopes.asReversed().withIndex()
+
+            val ktScopesWithKinds = createScopesWithKind(firImportingScopesIndexed)
             return KaBaseScopeContext(ktScopesWithKinds, implicitReceivers = emptyList(), token)
         }
 
@@ -411,6 +415,17 @@ private class FirTypeScopeWithSyntheticProperties(
     override fun processPropertiesByName(name: Name, processor: (FirVariableSymbol<*>) -> Unit) {
         typeScope.processPropertiesByName(name, processor)
         syntheticPropertiesScope.processPropertiesByName(name, processor)
+    }
+
+    @DelicateScopeAPI
+    override fun withReplacedSessionOrNull(newSession: FirSession, newScopeSession: ScopeSession): FirTypeScopeWithSyntheticProperties? {
+        val newTypeScope = typeScope.withReplacedSessionOrNull(newSession, newScopeSession)
+        val newSyntheticPropertiesScope = syntheticPropertiesScope.withReplacedSessionOrNull(newSession, newScopeSession)
+        if (newTypeScope == null && newSyntheticPropertiesScope == null) return null
+        return FirTypeScopeWithSyntheticProperties(
+            newTypeScope ?: typeScope,
+            newSyntheticPropertiesScope ?: syntheticPropertiesScope,
+        )
     }
 }
 

@@ -76,6 +76,12 @@ public class SourceGetOrBuildFirTestGenerated extends AbstractSourceGetOrBuildFi
     }
 
     @Test
+    @TestMetadata("annotationInsideWhereClass.kt")
+    public void testAnnotationInsideWhereClass() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/annotationInsideWhereClass.kt");
+    }
+
+    @Test
     @TestMetadata("annotationInsideWhereFunction.kt")
     public void testAnnotationInsideWhereFunction() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/annotationInsideWhereFunction.kt");
@@ -1152,6 +1158,18 @@ public class SourceGetOrBuildFirTestGenerated extends AbstractSourceGetOrBuildFi
     public void testQualifiedPartOfQualifiedCallWithNestedClasses() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/qualifiedExpressions/qualifiedPartOfQualifiedCallWithNestedClasses.kt");
     }
+
+    @Test
+    @TestMetadata("refPartOfQualifiedTypeCall.kt")
+    public void testRefPartOfQualifiedTypeCall() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/qualifiedExpressions/refPartOfQualifiedTypeCall.kt");
+    }
+
+    @Test
+    @TestMetadata("typedQualifiedPartOfQualifiedCall.kt")
+    public void testTypedQualifiedPartOfQualifiedCall() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/qualifiedExpressions/typedQualifiedPartOfQualifiedCall.kt");
+    }
   }
 
   @Nested
@@ -1173,6 +1191,12 @@ public class SourceGetOrBuildFirTestGenerated extends AbstractSourceGetOrBuildFi
     @TestMetadata("functionalTypeArgument.kt")
     public void testFunctionalTypeArgument() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/functionalTypeArgument.kt");
+    }
+
+    @Test
+    @TestMetadata("functionalTypeInsideAlias.kt")
+    public void testFunctionalTypeInsideAlias() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/functionalTypeInsideAlias.kt");
     }
 
     @Test
@@ -1323,6 +1347,12 @@ public class SourceGetOrBuildFirTestGenerated extends AbstractSourceGetOrBuildFi
     @TestMetadata("unresolvedTypeConsturctorResolvedTypeArgument.kt")
     public void testUnresolvedTypeConsturctorResolvedTypeArgument() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/unresolvedTypeConsturctorResolvedTypeArgument.kt");
+    }
+
+    @Test
+    @TestMetadata("whereClass.kt")
+    public void testWhereClass() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/whereClass.kt");
     }
 
     @Test

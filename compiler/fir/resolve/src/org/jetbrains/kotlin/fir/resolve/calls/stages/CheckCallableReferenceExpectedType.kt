@@ -44,7 +44,9 @@ internal object CheckCallableReferenceExpectedType : ResolutionStage() {
         if (candidate.symbol !is FirCallableSymbol<*>) return
 
         val resultingReceiverType = when (callInfo.lhs) {
-            is DoubleColonLHS.Type -> callInfo.lhs.type.takeIf { callInfo.explicitReceiver !is FirResolvedQualifier }
+            is DoubleColonLHS.Type -> callInfo.lhs.type.takeIf {
+                callInfo.explicitReceiver?.unwrapSmartcastExpression() !is FirResolvedQualifier
+            }
             else -> null
         }
 
@@ -158,11 +160,11 @@ private fun buildResultingTypeAndAdaptation(
                 //     - see testData/diagnostics/tests/inference/callableReferences/conversionLastStatementInLambda.kt
                 val hasSyntheticOuterCall = candidate.callInfo.hasSyntheticOuterCall
                 if (callableReferenceAdaptation.coercionStrategy != CoercionStrategy.COERCION_TO_UNIT ||
-                    hasSyntheticOuterCall && returnTypeWithoutCoercion.unwrapFlexibleAndDefinitelyNotNull() is ConeTypeParameterType
+                    hasSyntheticOuterCall && returnTypeWithoutCoercion.unwrapToSimpleTypeUsingLowerBound() is ConeTypeParameterType
                 ) {
                     returnTypeWithoutCoercion
                 } else {
-                    context.session.builtinTypes.unitType.type
+                    context.session.builtinTypes.unitType.coneType
                 }
             }
 
@@ -179,7 +181,7 @@ private fun buildResultingTypeAndAdaptation(
             ) to callableReferenceAdaptation
         }
         is FirVariable -> {
-            val returnType = returnTypeRef.type
+            val returnType = returnTypeRef.coneType
             val isMutable = fir.canBeMutableReference(candidate)
             val propertyType = when {
                 isMutable && returnType.hasCapture() ->
@@ -191,7 +193,6 @@ private fun buildResultingTypeAndAdaptation(
             }
             createKPropertyType(receiverType, propertyType, isMutable) to null
         }
-        else -> ConeErrorType(ConeUnsupportedCallableReferenceTarget(candidate)) to null
     }
 }
 
@@ -227,12 +228,13 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
      */
     var defaults = 0
     var varargMappingState = VarargMappingState.UNMAPPED
-    val mappedArguments = linkedMapOf<FirValueParameter, ResolvedCallArgument>()
-    val mappedVarargElements = linkedMapOf<FirValueParameter, MutableList<FirExpression>>()
+    val mappedArguments = linkedMapOf<FirValueParameter, ResolvedCallArgument<ConeResolutionAtom>>()
+    val mappedVarargElements = linkedMapOf<FirValueParameter, MutableList<ConeResolutionAtom>>()
     val mappedArgumentTypes = arrayOfNulls<ConeKotlinType?>(fakeArguments.size)
 
     for ((valueParameter, resolvedArgument) in argumentMapping.parameterToCallArgumentMap) {
-        for (fakeArgument in resolvedArgument.arguments) {
+        for (fakeArgumentAtom in resolvedArgument.arguments) {
+            val fakeArgument = fakeArgumentAtom.expression
             val index = fakeArgument.index
             val substitutedParameter = function.valueParameters.getOrNull(function.indexOf(valueParameter)) ?: continue
 
@@ -249,10 +251,10 @@ private fun BodyResolveComponents.getCallableReferenceAdaptation(
                 when (newVarargMappingState) {
                     VarargMappingState.MAPPED_WITH_ARRAY -> {
                         // If we've already mapped an argument to this value parameter, it'll always be a type mismatch.
-                        mappedArguments[valueParameter] = ResolvedCallArgument.SimpleArgument(fakeArgument)
+                        mappedArguments[valueParameter] = ResolvedCallArgument.SimpleArgument(fakeArgumentAtom)
                     }
                     VarargMappingState.MAPPED_WITH_PLAIN_ARGS -> {
-                        mappedVarargElements.getOrPut(valueParameter) { ArrayList() }.add(fakeArgument)
+                        mappedVarargElements.getOrPut(valueParameter) { ArrayList() }.add(fakeArgumentAtom)
                     }
                     VarargMappingState.UNMAPPED -> {
                     }
@@ -384,7 +386,7 @@ private fun createFakeArgumentsForReference(
     expectedArgumentCount: Int,
     inputTypes: List<ConeKotlinType>,
     unboundReceiverCount: Int
-): List<FirExpression> {
+): List<ConeResolutionAtom> {
     var afterVararg = false
     var varargComponentType: ConeKotlinType? = null
     var vararg = false
@@ -404,7 +406,7 @@ private fun createFakeArgumentsForReference(
             varargComponentType = inputType
             vararg = true
         }
-        if (name != null) {
+        val argument = if (name != null) {
             buildNamedArgumentExpression {
                 expression = FirFakeArgumentForCallableReference(index)
                 this.name = name
@@ -413,6 +415,7 @@ private fun createFakeArgumentsForReference(
         } else {
             FirFakeArgumentForCallableReference(index)
         }
+        ConeResolutionAtom.createRawAtom(argument)
     }
 }
 

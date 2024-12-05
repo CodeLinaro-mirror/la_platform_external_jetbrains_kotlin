@@ -13,6 +13,8 @@ import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
 import org.jetbrains.kotlin.ir.declarations.IrFile
+import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
+import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.util.DeclarationParentsVisitor
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.render
@@ -22,12 +24,34 @@ import org.jetbrains.kotlin.ir.visitors.acceptVoid
 
 typealias ReportIrValidationError = (IrFile?, IrElement, String, List<IrElement>) -> Unit
 
-internal data class IrValidatorConfig(
-    val checkTypes: Boolean = true,
+data class IrValidatorConfig(
+    val checkTreeConsistency: Boolean = true,
+    val checkTypes: Boolean = false,
     val checkProperties: Boolean = false,
-    val checkScopes: Boolean = false, // TODO: Consider setting to true by default and deleting
+    val checkValueScopes: Boolean = false,
+    val checkTypeParameterScopes: Boolean = false,
+    val checkCrossFileFieldUsage: Boolean = false,
+    val checkAllKotlinFieldsArePrivate: Boolean = false,
     val checkVisibilities: Boolean = false,
+    val checkInlineFunctionUseSites: InlineFunctionUseSiteChecker? = null,
 )
+
+fun interface InlineFunctionUseSiteChecker {
+    /**
+     * Check if the given use site of the inline function is permitted at the current phase of IR validation.
+     *
+     * Example 1: Check use sites after inlining all private functions.
+     *   It is permitted to have only use sites of non-private functions in the whole IR tree. So, for a use site
+     *   of a private inline function we should return `false` if it is met in the IR. For any other use site
+     *   we should return `true` (== permitted).
+     *
+     * Example 2: Check use sites after inlining all functions.
+     *   Normally, no use sites of inline functions should remain in the whole IR tree. So, if we met one we shall
+     *   return `false` (== not permitted). However, there are a few exceptions that are temporarily permitted.
+     *   For example, `inline external` intrinsics in Native (KT-66734).
+     */
+    fun isPermitted(inlineFunctionUseSite: IrMemberAccessExpression<IrFunctionSymbol>): Boolean
+}
 
 private class IrValidator(
     irBuiltIns: IrBuiltIns,
@@ -41,11 +65,20 @@ private class IrValidator(
     override fun visitFile(declaration: IrFile) {
         currentFile = declaration
         super.visitFile(declaration)
-        if (config.checkScopes) {
-            ScopeValidator(this::error, parentChain).check(declaration)
+        if (config.checkValueScopes) {
+            IrValueScopeValidator(this::error, parentChain).check(declaration)
+        }
+        if (config.checkTypeParameterScopes) {
+            IrTypeParameterScopeValidator(this::error, parentChain).check(declaration)
+        }
+        if (config.checkCrossFileFieldUsage || config.checkAllKotlinFieldsArePrivate) {
+            declaration.acceptVoid(IrFieldValidator(declaration, config, reportError))
         }
         if (config.checkVisibilities) {
             declaration.acceptVoid(IrVisibilityChecker(declaration.module, declaration, reportError))
+        }
+        config.checkInlineFunctionUseSites?.let {
+            declaration.acceptVoid(NoInlineFunctionUseSitesValidator(declaration, reportError, it))
         }
     }
 
@@ -120,16 +153,9 @@ class DuplicateIrNodeError(element: IrElement) : IrValidationError(element.rende
 private fun performBasicIrValidation(
     element: IrElement,
     irBuiltIns: IrBuiltIns,
-    checkProperties: Boolean = false,
-    checkTypes: Boolean = false,
-    checkVisibilities: Boolean = false,
+    validatorConfig: IrValidatorConfig,
     reportError: ReportIrValidationError,
 ) {
-    val validatorConfig = IrValidatorConfig(
-        checkTypes = checkTypes,
-        checkProperties = checkProperties,
-        checkVisibilities = checkVisibilities,
-    )
     val validator = IrValidator(irBuiltIns, validatorConfig, reportError)
     try {
         element.acceptVoid(validator)
@@ -137,7 +163,9 @@ private fun performBasicIrValidation(
         // Performing other checks may cause e.g. infinite recursion.
         return
     }
-    element.checkDeclarationParents(reportError)
+    if (validatorConfig.checkTreeConsistency) {
+        element.checkDeclarationParents(reportError)
+    }
 }
 
 /**
@@ -145,6 +173,11 @@ private fun performBasicIrValidation(
  * (if the verification mode passed to [validateIr] is [IrVerificationMode.ERROR])
  */
 sealed interface IrValidationContext {
+
+    /**
+     * A string that each validation error will begin with.
+     */
+    var customMessagePrefix: String?
 
     /**
      * Logs the validation error into the underlying [MessageCollector].
@@ -176,17 +209,9 @@ sealed interface IrValidationContext {
         fragment: IrElement,
         irBuiltIns: IrBuiltIns,
         phaseName: String,
-        checkProperties: Boolean = false,
-        checkTypes: Boolean = false,
-        checkVisibilities: Boolean = false,
+        config: IrValidatorConfig,
     ) {
-        performBasicIrValidation(
-            fragment,
-            irBuiltIns,
-            checkProperties,
-            checkTypes,
-            checkVisibilities,
-        ) { file, element, message, parentChain ->
+        performBasicIrValidation(fragment, irBuiltIns, config) { file, element, message, parentChain ->
             reportIrValidationError(file, element, message, phaseName, parentChain)
         }
     }
@@ -196,6 +221,8 @@ private class IrValidationContextImpl(
     private val messageCollector: MessageCollector,
     private val mode: IrVerificationMode
 ) : IrValidationContext {
+
+    override var customMessagePrefix: String? = null
 
     private var hasValidationErrors: Boolean = false
 
@@ -216,8 +243,14 @@ private class IrValidationContextImpl(
         messageCollector.report(
             severity,
             buildString {
-                append("[IR VALIDATION] ")
-                append(phaseMessage)
+                val customMessagePrefix = customMessagePrefix
+                if (customMessagePrefix == null) {
+                    append("[IR VALIDATION] ")
+                    append(phaseMessage)
+                } else {
+                    append(customMessagePrefix)
+                    append(" ")
+                }
                 appendLine(message)
                 append(element.render())
                 for ((i, parent) in parentChain.asReversed().withIndex()) {

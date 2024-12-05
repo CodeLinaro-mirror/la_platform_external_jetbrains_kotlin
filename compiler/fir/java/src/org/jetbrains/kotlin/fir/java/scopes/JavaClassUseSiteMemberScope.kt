@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,14 +21,12 @@ import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.synthetic.buildSyntheticProperty
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.java.SyntheticPropertiesCacheKey
-import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
-import org.jetbrains.kotlin.fir.java.declarations.FirJavaMethod
-import org.jetbrains.kotlin.fir.java.declarations.buildJavaMethodCopy
-import org.jetbrains.kotlin.fir.java.declarations.buildJavaValueParameterCopy
+import org.jetbrains.kotlin.fir.java.declarations.*
 import org.jetbrains.kotlin.fir.java.resolveIfJavaType
 import org.jetbrains.kotlin.fir.java.symbols.FirJavaOverriddenSyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.java.syntheticPropertiesStorage
 import org.jetbrains.kotlin.fir.java.toConeKotlinTypeProbablyFlexible
+import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.scopes.*
@@ -51,6 +49,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.name.withClassId
 import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.expressions.OperatorConventions
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
@@ -78,7 +77,7 @@ class JavaClassUseSiteMemberScope(
     private val klass: FirJavaClass,
     session: FirSession,
     superTypeScopes: List<FirTypeScope>,
-    declaredMemberScope: FirContainingNamesAwareScope
+    declaredMemberScope: FirContainingNamesAwareScope,
 ) : AbstractFirUseSiteMemberScope(
     klass.symbol.toLookupTag(),
     session,
@@ -202,7 +201,7 @@ class JavaClassUseSiteMemberScope(
 
     private fun FirPropertySymbol.createOverridePropertyIfExists(
         scope: FirScope,
-        takeModalityFromGetter: Boolean
+        takeModalityFromGetter: Boolean,
     ): FirSyntheticPropertySymbol? {
         val getterSymbol = this.findGetterOverride(scope) ?: return null
         val setterSymbol =
@@ -416,7 +415,7 @@ class JavaClassUseSiteMemberScope(
             valueParameters.clear()
             valueParameters.addAll(fir.valueParameters.dropLast(1))
             returnTypeRef = buildResolvedTypeRef {
-                type = continuationParameterType.typeArguments[0].type ?: return this@replaceWithWrapperSymbolIfNeeded
+                coneType = continuationParameterType.typeArguments[0].type ?: return this@replaceWithWrapperSymbolIfNeeded
             }
             (status as FirDeclarationStatusImpl).isSuspend = true
             symbol = FirNamedFunctionSymbol(callableId)
@@ -463,7 +462,7 @@ class JavaClassUseSiteMemberScope(
     private fun processSpecialFunctions(
         name: Name,
         functionsFromSupertypes: MembersByScope<FirNamedFunctionSymbol>, // candidates for override
-        destination: MutableCollection<FirNamedFunctionSymbol>
+        destination: MutableCollection<FirNamedFunctionSymbol>,
     ) {
         val functionsFromSupertypesToSaveInCache = mutableListOf<ResultOfIntersection<FirNamedFunctionSymbol>>()
         // The special override checker is needed for the case when we're trying to consider e.g. explicitly defined `Long toLong()`
@@ -552,7 +551,7 @@ class JavaClassUseSiteMemberScope(
         name: Name,
         destination: MutableCollection<FirNamedFunctionSymbol>,
         resultOfIntersection: ResultOfIntersection<FirNamedFunctionSymbol>,
-        explicitlyDeclaredFunction: FirNamedFunctionSymbol?
+        explicitlyDeclaredFunction: FirNamedFunctionSymbol?,
     ): Boolean {
         // E.g. contains(String) or contains(T)
         val relevantFunctionFromSupertypes = resultOfIntersection.overriddenMembers.firstOrNull { (member, scope) ->
@@ -593,7 +592,7 @@ class JavaClassUseSiteMemberScope(
                 if (!parameterFromSupertype.returnTypeRef.coneType.lowerBoundIfFlexible().isAny) {
                     allParametersAreAny = false
                 }
-                buildJavaValueParameterCopy(overrideParameter) {
+                buildJavaValueParameterCopy(overrideParameter as FirJavaValueParameter) {
                     this@buildJavaValueParameterCopy.returnTypeRef = parameterFromSupertype.returnTypeRef
                 }
             }
@@ -638,7 +637,7 @@ class JavaClassUseSiteMemberScope(
     }
 
     private fun FirNamedFunctionSymbol.hasSameJvmDescriptor(
-        builtinWithErasedParameters: FirNamedFunctionSymbol
+        builtinWithErasedParameters: FirNamedFunctionSymbol,
     ): Boolean {
         val ownDescriptor = fir.computeJvmDescriptor(includeReturnType = false)
         val otherDescriptor = builtinWithErasedParameters.fir.computeJvmDescriptor(includeReturnType = false)
@@ -674,7 +673,7 @@ class JavaClassUseSiteMemberScope(
         naturalName: Name,
         resultOfIntersectionWithNaturalName: ResultOfIntersection<FirNamedFunctionSymbol>,
         destination: MutableCollection<FirNamedFunctionSymbol>,
-        functionsFromSupertypesToSaveInCache: MutableList<ResultOfIntersection<FirNamedFunctionSymbol>>
+        functionsFromSupertypesToSaveInCache: MutableList<ResultOfIntersection<FirNamedFunctionSymbol>>,
     ): Boolean {
         // The JVM name of the function, e.g., byteValue or charAt
         val jvmName = resultOfIntersectionWithNaturalName.overriddenMembers.firstNotNullOfOrNull {
@@ -736,9 +735,11 @@ class JavaClassUseSiteMemberScope(
                     symbol = newSymbol
                     dispatchReceiverType = klass.defaultType()
 
-                    // Technically, it should only be an operator if it matches an operator naming convention,
-                    // but always setting it doesn't seem to hurt.
-                    status = original.status.copy(isOperator = true)
+                    status = if (OperatorConventions.isConventionName(naturalName)) {
+                        original.status.copy(isOperator = true)
+                    } else {
+                        original.status
+                    }
                 }
             } else {
                 buildSimpleFunctionCopy(original) {
@@ -981,7 +982,7 @@ class JavaClassUseSiteMemberScope(
             this is FirJavaClass -> superConeTypes.any { type ->
                 type.toFir(session)?.hasKotlinSuper(session, visited) == true
             }
-            isInterface || origin == FirDeclarationOrigin.BuiltIns -> false
+            isInterface || origin.isBuiltIns -> false
             else -> true
         }
 
@@ -996,5 +997,15 @@ class JavaClassUseSiteMemberScope(
 
     override fun toString(): String {
         return "Java use site scope of ${ownerClassLookupTag.classId}"
+    }
+
+    @DelicateScopeAPI
+    override fun withReplacedSessionOrNull(newSession: FirSession, newScopeSession: ScopeSession): JavaClassUseSiteMemberScope {
+        return JavaClassUseSiteMemberScope(
+            klass,
+            newSession,
+            superTypeScopes.withReplacedSessionOrNull(newSession, newScopeSession) ?: superTypeScopes,
+            declaredMemberScope.withReplacedSessionOrNull(newSession, newScopeSession) ?: declaredMemberScope
+        )
     }
 }

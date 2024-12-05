@@ -30,8 +30,6 @@ import java.lang.management.ManagementFactory
 import java.nio.file.Files
 import java.nio.file.Path
 
-private const val SWIFT_EXPORT_EMBEDDABLE = ":native:swift:swift-export-embeddable"
-
 val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-assignment",
     ":compose-compiler-gradle-plugin",
@@ -84,29 +82,19 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-scripting-jvm",
     ":kotlin-scripting-compiler-embeddable",
     ":kotlin-scripting-compiler-impl-embeddable",
-    ":kotlin-test-js-runner",
     ":native:kotlin-klib-commonizer-embeddable",
     ":native:kotlin-klib-commonizer-api",
-    SWIFT_EXPORT_EMBEDDABLE,
+    ":native:swift:swift-export-embeddable",
     ":compiler:build-tools:kotlin-build-statistics",
     ":compiler:build-tools:kotlin-build-tools-api",
     ":compiler:build-tools:kotlin-build-tools-impl",
+    ":libraries:tools:gradle:fus-statistics-gradle-plugin",
+    ":kotlin-util-klib-metadata",
 )
-
-private fun Task.processDependent(dependent: String, action: () -> Unit) {
-    val isSwiftExportEmbeddable = dependent == SWIFT_EXPORT_EMBEDDABLE
-    val isSwiftExportPluginPublishingEnabled = project.kotlinBuildProperties.isSwiftExportPluginPublishingEnabled
-
-    if (!isSwiftExportEmbeddable || isSwiftExportPluginPublishingEnabled) {
-        action.invoke()
-    }
-}
 
 fun Task.dependsOnKotlinGradlePluginInstall() {
     kotlinGradlePluginAndItsRequired.forEach { dependency ->
-        processDependent(dependency) {
-            dependsOn("${dependency}:install")
-        }
+        dependsOn("${dependency}:install")
     }
 }
 
@@ -117,10 +105,8 @@ fun Task.dependsOnKotlinGradlePluginPublish() {
             it != ":plugins:compose-compiler-plugin:compiler"
         }
         .forEach { dependency ->
-            processDependent(dependency) {
-                project.rootProject.tasks.findByPath("${dependency}:publish")?.let { task ->
-                    dependsOn(task)
-                }
+            project.rootProject.tasks.findByPath("${dependency}:publish")?.let { task ->
+                dependsOn(task)
             }
         }
 }
@@ -137,7 +123,6 @@ enum class JUnitMode {
 fun Project.projectTest(
     taskName: String = "test",
     parallel: Boolean = false,
-    shortenTempRootName: Boolean = false,
     jUnitMode: JUnitMode = JUnitMode.JUnit4,
     maxHeapSizeMb: Int? = null,
     minHeapSizeMb: Int? = null,
@@ -276,7 +261,7 @@ fun Project.projectTest(
                 (teamcity?.get("teamcity.build.tempDir") as? String)
                     ?: System.getProperty("java.io.tmpdir")
             systemTempRoot.let {
-                val prefix = (projectName + "Project_" + taskName + "_").takeUnless { shortenTempRootName }
+                val prefix = "${projectName}Project_${taskName}_"
                 subProjectTempRoot = Files.createTempDirectory(File(systemTempRoot).toPath(), prefix)
                 systemProperty("java.io.tmpdir", subProjectTempRoot.toString())
             }
@@ -302,9 +287,11 @@ fun Project.projectTest(
                     ?: forks.coerceIn(1, Runtime.getRuntime().availableProcessors())
         }
 
-        defineJDKEnvVariables.forEach { version ->
-            val jdkHome = project.getToolchainJdkHomeFor(version).orNull ?: error("Can't find toolchain for $version")
-            environment(version.envName, jdkHome)
+        if (!kotlinBuildProperties.isTeamcityBuild) {
+            defineJDKEnvVariables.forEach { version ->
+                val jdkHome = project.getToolchainJdkHomeFor(version).orNull ?: error("Can't find toolchain for $version")
+                environment(version.envName, jdkHome)
+            }
         }
     }.apply { configure(body) }
 }
@@ -331,96 +318,6 @@ inline fun <reified T : Task> Project.getOrCreateTask(taskName: String, noinline
     if (tasks.names.contains(taskName)) tasks.named(taskName, T::class.java).apply { configure(body) }
     else tasks.register(taskName, T::class.java, body)
 
-object TaskUtils {
-    fun useAndroidSdk(task: Task) {
-        task.useAndroidConfiguration(systemPropertyName = "android.sdk", configName = "androidSdk")
-    }
-
-    fun useAndroidJar(task: Task) {
-        task.useAndroidConfiguration(systemPropertyName = "android.jar", configName = "androidJar")
-    }
-
-    fun useAndroidEmulator(task: Task) {
-        task.useAndroidConfiguration(systemPropertyName = "android.sdk", configName = "androidEmulator")
-    }
-}
-
-private fun Task.useAndroidConfiguration(systemPropertyName: String, configName: String) {
-    val configuration = with(project) {
-        configurations.getOrCreate(configName)
-            .also {
-                if (it.allDependencies.matching { dep ->
-                        dep is ProjectDependency &&
-                                dep.targetConfiguration == configName &&
-                                dep.dependencyProject.path == ":dependencies:android-sdk"
-                    }.count() == 0) {
-                    dependencies.add(
-                        configName,
-                        dependencies.project(":dependencies:android-sdk", configuration = configName)
-                    )
-                }
-            }
-    }
-
-    dependsOn(configuration)
-
-    if (this is Test) {
-        val androidFilePath = configuration.singleFile.canonicalPath
-        doFirst {
-            systemProperty(systemPropertyName, androidFilePath)
-        }
-    }
-}
-
-fun Task.useAndroidSdk() {
-    TaskUtils.useAndroidSdk(this)
-}
-
-fun Task.useAndroidJar() {
-    TaskUtils.useAndroidJar(this)
-}
-
-fun Task.acceptAndroidSdkLicenses() {
-    val androidSdkConfiguration = project.configurations["androidSdk"]
-    val androidSdk = project.objects.fileProperty().apply { set { androidSdkConfiguration.singleFile } }
-
-    dependsOn(androidSdkConfiguration)
-
-    doFirst {
-        val sdkLicensesDir = androidSdk.get().asFile.resolve("licenses").also {
-            if (!it.exists()) it.mkdirs()
-        }
-
-        val sdkLicenses = listOf(
-            "8933bad161af4178b1185d1a37fbf41ea5269c55",
-            "d56f5187479451eabf01fb78af6dfcb131a6481e",
-            "24333f8a63b6825ea9c5514f83c2829b004d1fee",
-        )
-        val sdkPreviewLicense = "84831b9409646a918e30573bab4c9c91346d8abd"
-
-        val sdkLicenseFile = sdkLicensesDir.resolve("android-sdk-license")
-        if (!sdkLicenseFile.exists()) {
-            sdkLicenseFile.createNewFile()
-            sdkLicenseFile.writeText(
-                sdkLicenses.joinToString(separator = System.lineSeparator())
-            )
-        } else {
-            sdkLicenses
-                .subtract(sdkLicenseFile.readText().lines().toSet())
-                .forEach { sdkLicenseFile.appendText("$it${System.lineSeparator()}") }
-        }
-
-        val sdkPreviewLicenseFile = sdkLicensesDir.resolve("android-sdk-preview-license")
-        if (!sdkPreviewLicenseFile.exists()) {
-            sdkPreviewLicenseFile.writeText(sdkPreviewLicense)
-        } else {
-            if (sdkPreviewLicense != sdkPreviewLicenseFile.readText().trim()) {
-                sdkPreviewLicenseFile.writeText(sdkPreviewLicense)
-            }
-        }
-    }
-}
-
 fun Project.confugureFirPluginAnnotationsDependency(testTask: TaskProvider<Test>) {
     val firPluginJvmAnnotations: Configuration by configurations.creating
     val firPluginJsAnnotations: Configuration by configurations.creating {
@@ -431,8 +328,8 @@ fun Project.confugureFirPluginAnnotationsDependency(testTask: TaskProvider<Test>
     }
 
     dependencies {
-        firPluginJvmAnnotations(project(":plugins:fir-plugin-prototype:plugin-annotations")) { isTransitive = false }
-        firPluginJsAnnotations(project(":plugins:fir-plugin-prototype:plugin-annotations")) { isTransitive = false }
+        firPluginJvmAnnotations(project(":plugins:plugin-sandbox:plugin-annotations")) { isTransitive = false }
+        firPluginJsAnnotations(project(":plugins:plugin-sandbox:plugin-annotations")) { isTransitive = false }
     }
 
     testTask.configure {

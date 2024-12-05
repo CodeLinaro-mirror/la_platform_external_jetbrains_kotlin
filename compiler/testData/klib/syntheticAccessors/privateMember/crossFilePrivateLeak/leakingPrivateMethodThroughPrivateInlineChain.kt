@@ -1,5 +1,3 @@
-// IGNORE_BACKEND: ANY
-
 // FILE: A.kt
 class A {
     private fun privateMethod() = "OK"

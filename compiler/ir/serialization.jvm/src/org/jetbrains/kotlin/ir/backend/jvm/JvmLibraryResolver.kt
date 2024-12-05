@@ -18,20 +18,16 @@ import org.jetbrains.kotlin.util.Logger
 val jvmLibrariesProvidedByDefault = setOf("stdlib", "kotlin")
 
 class JvmLibraryResolver(
-    repositories: List<String>,
     directLibs: List<String>,
     distributionKlib: String?,
-    localKotlinDir: String?,
     skipCurrentDir: Boolean,
     logger: Logger
 ) : KotlinLibraryProperResolverWithAttributes<KotlinLibrary>(
-    repositories,
-    directLibs,
-    distributionKlib,
-    localKotlinDir,
-    skipCurrentDir,
-    logger,
-    emptyList()
+    directLibs = directLibs,
+    distributionKlib = distributionKlib,
+    skipCurrentDir = skipCurrentDir,
+    logger = logger,
+    knownIrProviders = emptyList()
 ) {
     // Stick with the default KotlinLibrary for now.
     override fun libraryComponentBuilder(file: File, isDefault: Boolean) = createKotlinLibraryComponents(file, isDefault)
@@ -47,10 +43,8 @@ fun jvmResolveLibraries(libraries: List<String>, logger: Logger): KotlinLibraryR
     val libraryAbsolutePaths = libraries.map { File(it).absolutePath }
     // Configure the resolver to only work with absolute paths for now.
     val libraryResolver = JvmLibraryResolver(
-        repositories = emptyList(),
         directLibs = libraryAbsolutePaths,
         distributionKlib = null,
-        localKotlinDir = null,
         skipCurrentDir = false,
         logger = logger
     ).libraryResolver()

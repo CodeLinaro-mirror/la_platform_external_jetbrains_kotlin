@@ -24,7 +24,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeFlexibleType
 import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.isMarkedNullable
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -210,6 +209,17 @@ class FirDelegatedMemberScope(
 
     override fun getCallableNames(): Set<Name> = callableNamesLazy
     override fun getClassifierNames(): Set<Name> = classifierNamesLazy
+
+    @DelicateScopeAPI
+    override fun withReplacedSessionOrNull(newSession: FirSession, newScopeSession: ScopeSession): FirDelegatedMemberScope {
+        return FirDelegatedMemberScope(
+            newSession,
+            newScopeSession,
+            containingClass,
+            declaredMemberScope.withReplacedSessionOrNull(newSession, newScopeSession) ?: declaredMemberScope,
+            delegateFields
+        )
+    }
 }
 
 private object MultipleDelegatesWithTheSameSignatureKey : FirDeclarationDataKey()

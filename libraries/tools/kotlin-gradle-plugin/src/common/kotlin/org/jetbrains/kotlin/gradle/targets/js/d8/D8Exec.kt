@@ -9,10 +9,12 @@ import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.*
 import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 
+@ExperimentalWasmDsl
 @DisableCachingByDefault
 open class D8Exec : AbstractExecTask<D8Exec>(D8Exec::class.java) {
     init {
@@ -53,16 +55,18 @@ open class D8Exec : AbstractExecTask<D8Exec>(D8Exec::class.java) {
         fun create(
             compilation: KotlinJsIrCompilation,
             name: String,
-            configuration: D8Exec.() -> Unit = {}
+            configuration: D8Exec.() -> Unit = {},
         ): TaskProvider<D8Exec> {
             val target = compilation.target
             val project = target.project
-            val d8 = D8RootPlugin.apply(project.rootProject)
+            val d8 = D8Plugin.applyWithEnvSpec(project)
             return project.registerTask(
                 name
             ) {
-                it.executable = d8.requireConfigured().executable
-                it.dependsOn(d8.setupTaskProvider)
+                it.executable = d8.produceEnv(project.providers).get().executable
+                with(d8) {
+                    it.dependsOn(project.d8SetupTaskProvider)
+                }
                 it.dependsOn(compilation.compileTaskProvider)
                 it.configuration()
             }

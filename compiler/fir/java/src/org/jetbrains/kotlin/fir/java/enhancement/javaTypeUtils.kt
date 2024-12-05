@@ -8,11 +8,9 @@ package org.jetbrains.kotlin.fir.java.enhancement
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.declarations.FirClassLikeDeclaration
 import org.jetbrains.kotlin.fir.languageVersionSettings
-import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
-import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
+import org.jetbrains.kotlin.fir.resolve.toClassLikeSymbol
+import org.jetbrains.kotlin.fir.types.ConeClassifierLookupTag
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.load.java.typeEnhancement.*
 import org.jetbrains.kotlin.name.ClassId
@@ -85,7 +83,7 @@ private fun ClassId.mutableToReadOnly(): ClassId? {
     return JavaToKotlinClassMap.mutableToReadOnly(this)
 }
 
-private fun ConeSimpleKotlinType.enhanceInflexibleType(
+private fun ConeRigidType.enhanceInflexibleType(
     session: FirSession,
     position: TypeComponentPosition,
     qualifiers: IndexedJavaTypeQualifiers,
@@ -93,7 +91,7 @@ private fun ConeSimpleKotlinType.enhanceInflexibleType(
     subtreeSizes: List<Int>,
     isFromDefinitelyNotNullType: Boolean,
     convertErrorToWarning: Boolean,
-): ConeSimpleKotlinType? {
+): ConeRigidType? {
     if (this is ConeDefinitelyNotNullType) {
         return original.enhanceInflexibleType(session, position, qualifiers, index, subtreeSizes, isFromDefinitelyNotNullType = true, convertErrorToWarning)
     }
@@ -132,7 +130,7 @@ private fun ConeSimpleKotlinType.enhanceInflexibleType(
 
         if (enhancedTag != lookupTag) {
             // Handle case when mutability was enhanced and nullability was enhanced for warning.
-            enhancedTag.constructType(enhanced.typeArguments, isNullable, newAttributes)
+            enhancedTag.constructType(enhanced.typeArguments, isMarkedNullable, newAttributes)
         } else {
             this.withAttributes(newAttributes).withArguments(enhanced.typeArguments)
         }.applyIf(isFromDefinitelyNotNullType) {
@@ -166,11 +164,11 @@ private fun ConeLookupTagBasedType.enhanceInflexibleType(
     nullabilityFromQualifiers: NullabilityQualifier?,
     enhancedTag: ConeClassifierLookupTag,
     convertNestedErrorsToWarnings: Boolean,
-): ConeSimpleKotlinType? {
+): ConeRigidType? {
     val enhancedIsNullable = when (nullabilityFromQualifiers) {
         NullabilityQualifier.NULLABLE -> true
         NullabilityQualifier.NOT_NULL -> false
-        else -> isNullable
+        else -> isMarkedNullable
     }
 
     var globalArgIndex = index + 1
@@ -178,13 +176,13 @@ private fun ConeLookupTagBasedType.enhanceInflexibleType(
         val currentArgGlobalIndex = globalArgIndex.also { globalArgIndex += subtreeSizes[it] }
         if (arg.type == null && qualifiers(currentArgGlobalIndex).nullability == NullabilityQualifier.FORCE_FLEXIBILITY) {
             // Given `C<T extends @Nullable V>`, unannotated `C<?>` is `C<out (V..V?)>`.
-            val typeParameters = (this.lookupTag.toSymbol(session)?.fir as? FirClassLikeDeclaration)?.typeParameters
+            val typeParameters = this.lookupTag.toClassLikeSymbol(session)?.fir?.typeParameters
             if (typeParameters != null) {
                 val bound = typeParameters[currentArgLocalIndex].symbol.fir.bounds.first().coneType
                 return@mapIndexed ConeKotlinTypeProjectionOut(
                     ConeFlexibleType(
-                        bound.lowerBoundIfFlexible().withNullability(ConeNullability.NOT_NULL, session.typeContext),
-                        bound.upperBoundIfFlexible().withNullability(ConeNullability.NULLABLE, session.typeContext)
+                        bound.lowerBoundIfFlexible().withNullability(nullable = false, session.typeContext),
+                        bound.upperBoundIfFlexible().withNullability(nullable = true, session.typeContext)
                     )
                 )
             }
@@ -202,7 +200,7 @@ private fun ConeLookupTagBasedType.enhanceInflexibleType(
     }
 
     val shouldAddAttribute = nullabilityFromQualifiers == NullabilityQualifier.NOT_NULL && !hasEnhancedNullability
-    if (lookupTag == enhancedTag && enhancedIsNullable == isNullable && !shouldAddAttribute && enhancedArguments.all { it == null }) {
+    if (lookupTag == enhancedTag && enhancedIsNullable == isMarkedNullable && !shouldAddAttribute && enhancedArguments.all { it == null }) {
         return null // absolutely no changes
     }
 

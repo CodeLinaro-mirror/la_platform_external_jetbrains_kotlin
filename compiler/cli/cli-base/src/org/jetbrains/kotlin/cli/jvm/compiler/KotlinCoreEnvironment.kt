@@ -55,8 +55,7 @@ import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
 import org.jetbrains.kotlin.cli.common.extensions.ScriptEvaluationExtension
 import org.jetbrains.kotlin.cli.common.extensions.ShellExtension
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.toBooleanLenient
 import org.jetbrains.kotlin.cli.jvm.config.*
@@ -65,7 +64,6 @@ import org.jetbrains.kotlin.cli.jvm.javac.JavacWrapperRegistrar
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleFinder
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
 import org.jetbrains.kotlin.codegen.extensions.ClassFileFactoryFinalizerExtension
-import org.jetbrains.kotlin.codegen.extensions.ExpressionCodegenExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.compiler.plugin.registerInProject
@@ -124,18 +122,34 @@ class KotlinCoreEnvironment private constructor(
 
             setIdeaIoUseFallback()
 
-            if (configuration.getBoolean(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM)) {
-                messageCollector.report(
-                    STRONG_WARNING,
-                    "Using new faster version of JAR FS: it should make your build faster, but the new implementation is experimental"
-                )
+            val useFastJarFSFlag: Boolean? = configuration.get(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM)
+            val useK2 =
+                configuration.getBoolean(CommonConfigurationKeys.USE_FIR) || configuration.languageVersionSettings.languageVersion.usesK2
+
+            when {
+                useFastJarFSFlag == true && !useK2 -> {
+                    messageCollector.report(
+                        STRONG_WARNING,
+                        "Using new faster version of JAR FS: it should make your build faster, " +
+                                "but the new implementation is not thoroughly tested with language versions below 2.0"
+                    )
+                }
+                useFastJarFSFlag == false && useK2 -> {
+                    messageCollector.report(
+                        INFO,
+                        "Using outdated version of JAR FS: it might make your build slower"
+                    )
+                }
             }
+
+            // We enable FastJarFS by default since K2
+            val useFastJarFS = useFastJarFSFlag ?: useK2
 
             jarFileSystem = when {
                 configuration.getBoolean(JVMConfigurationKeys.USE_PSI_CLASS_FILES_READING) -> {
                     applicationEnvironment.jarFileSystem
                 }
-                configuration.getBoolean(JVMConfigurationKeys.USE_FAST_JAR_FILE_SYSTEM) || configuration.getBoolean(CommonConfigurationKeys.USE_FIR) -> {
+                useFastJarFS -> {
                     val fastJarFs = applicationEnvironment.fastJarFileSystem
                     if (fastJarFs == null) {
                         messageCollector.report(
@@ -259,8 +273,8 @@ class KotlinCoreEnvironment private constructor(
             initialRoots.partition { (file) -> file.isDirectory || file.extension != JavaFileType.DEFAULT_EXTENSION }
 
         // REPL and kapt2 update classpath dynamically
-        rootsIndex = JvmDependenciesDynamicCompoundIndex().apply {
-            addIndex(JvmDependenciesIndexImpl(roots))
+        rootsIndex = JvmDependenciesDynamicCompoundIndex(shouldOnlyFindFirstClass = true).apply {
+            addIndex(JvmDependenciesIndexImpl(roots, shouldOnlyFindFirstClass = true))
             updateClasspathFromRootsIndex(this)
         }
 
@@ -276,9 +290,9 @@ class KotlinCoreEnvironment private constructor(
             CliJavaModuleResolver(classpathRootsResolver.javaModuleGraph, javaModules, javaModuleFinder.systemModules.toList(), project)
         )
 
-        val finderFactory = CliVirtualFileFinderFactory(rootsIndex, releaseTarget != null)
-        project.registerService(MetadataFinderFactory::class.java, finderFactory)
-        project.registerService(VirtualFileFinderFactory::class.java, finderFactory)
+        val fileFinderFactory = CliVirtualFileFinderFactory(rootsIndex, releaseTarget != null)
+        project.registerService(VirtualFileFinderFactory::class.java, fileFinderFactory)
+        project.registerService(MetadataFinderFactory::class.java, CliMetadataFinderFactory(fileFinderFactory))
 
         project.putUserData(APPEND_JAVA_SOURCE_ROOTS_HANDLER_KEY, fun(roots: List<File>) {
             updateClasspath(roots.map { JavaSourceRoot(it, null) })
@@ -698,7 +712,6 @@ class KotlinCoreEnvironment private constructor(
         @OptIn(InternalNonStableExtensionPoints::class)
         @Suppress("MemberVisibilityCanPrivate") // made public for CLI Android Lint
         fun registerPluginExtensionPoints(project: MockProject) {
-            ExpressionCodegenExtension.registerExtensionPoint(project)
             SyntheticResolveExtension.registerExtensionPoint(project)
             SyntheticJavaResolveExtension.registerExtensionPoint(project)
             @Suppress("DEPRECATION_ERROR")

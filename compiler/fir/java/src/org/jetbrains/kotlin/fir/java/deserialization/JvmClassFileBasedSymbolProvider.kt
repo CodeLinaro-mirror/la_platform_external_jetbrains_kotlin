@@ -15,18 +15,19 @@ import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.getDeprecationsProvider
 import org.jetbrains.kotlin.fir.deserialization.*
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.java.FirJavaAwareSymbolProvider
 import org.jetbrains.kotlin.fir.java.FirJavaFacade
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.languageVersionSettings
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeDynamicUnsupported
 import org.jetbrains.kotlin.fir.resolve.transformers.setLazyPublishedVisibility
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.types.ConeFlexibleType
-import org.jetbrains.kotlin.fir.types.ConeRawType
-import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.load.kotlin.*
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.metadata.ProtoBuf
+import org.jetbrains.kotlin.metadata.ProtoBuf.Type
 import org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmFlags
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
@@ -53,11 +54,11 @@ class JvmClassFileBasedSymbolProvider(
     kotlinScopeProvider: FirKotlinScopeProvider,
     private val packagePartProvider: PackagePartProvider,
     private val kotlinClassFinder: KotlinClassFinder,
-    private val javaFacade: FirJavaFacade,
+    override val javaFacade: FirJavaFacade,
     defaultDeserializationOrigin: FirDeclarationOrigin = FirDeclarationOrigin.Library
 ) : AbstractFirDeserializedSymbolProvider(
     session, moduleDataProvider, kotlinScopeProvider, defaultDeserializationOrigin, BuiltInSerializerProtocol
-) {
+), FirJavaAwareSymbolProvider {
     private val annotationsLoader = AnnotationsLoader(session, kotlinClassFinder)
     private val ownMetadataVersion: JvmMetadataVersion = session.languageVersionSettings.languageVersion.toMetadataVersion()
 
@@ -104,7 +105,7 @@ class JvmClassFileBasedSymbolProvider(
                 packageFqName, packageProto, nameResolver, moduleData,
                 JvmBinaryAnnotationDeserializer(session, kotlinClass, kotlinClassFinder, byteContent),
                 JavaAwareFlexibleTypeFactory,
-                FirJvmConstDeserializer(session, facadeBinaryClass ?: kotlinClass, BuiltInSerializerProtocol),
+                FirJvmConstDeserializer(facadeBinaryClass ?: kotlinClass, BuiltInSerializerProtocol),
                 source
             ),
         )
@@ -113,12 +114,18 @@ class JvmClassFileBasedSymbolProvider(
     private object JavaAwareFlexibleTypeFactory : FirTypeDeserializer.FlexibleTypeFactory {
         override fun createFlexibleType(
             proto: ProtoBuf.Type,
-            lowerBound: ConeSimpleKotlinType,
-            upperBound: ConeSimpleKotlinType,
+            lowerBound: ConeRigidType,
+            upperBound: ConeRigidType,
         ): ConeFlexibleType = when (proto.hasExtension(JvmProtoBuf.isRaw)) {
             true -> ConeRawType.create(lowerBound, upperBound)
-            false -> ConeFlexibleType(lowerBound, upperBound)
+            false -> FirTypeDeserializer.FlexibleTypeFactory.Default.createFlexibleType(proto, lowerBound, upperBound)
         }
+
+        override fun createDynamicType(
+            proto: Type,
+            lowerBound: ConeRigidType,
+            upperBound: ConeRigidType,
+        ): ConeKotlinType = FirTypeDeserializer.FlexibleTypeFactory.Default.createDynamicType(proto, lowerBound, upperBound)
     }
 
     override fun computePackageSetWithNonClassDeclarations(): Set<String> = packagePartProvider.computePackageSetWithNonClassDeclarations()

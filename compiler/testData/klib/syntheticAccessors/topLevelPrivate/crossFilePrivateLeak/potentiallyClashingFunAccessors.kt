@@ -1,5 +1,3 @@
-// IGNORE_BACKEND: NATIVE
-
 // FILE: file1.kt
 package org.sample
 

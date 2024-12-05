@@ -6,24 +6,23 @@
 package org.jetbrains.kotlin.js.testOld.klib
 
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.compatibility.binary.AbstractKlibBinaryCompatibilityTest
 import org.jetbrains.kotlin.compatibility.binary.TestFile
 import org.jetbrains.kotlin.compatibility.binary.TestModule
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.js.testOld.V8IrJsTestChecker
+import org.jetbrains.kotlin.js.testOld.utils.runJsCompiler
 import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.test.Directives
 import org.jetbrains.kotlin.test.KotlinBaseTest
+import org.junit.jupiter.api.Tag
 import java.io.File
 
+@Tag("legacy-frontend")
 abstract class AbstractClassicJsKlibEvolutionTest : AbstractJsKlibEvolutionTest(CompilerType.K1)
+
 abstract class AbstractFirJsKlibEvolutionTest : AbstractJsKlibEvolutionTest(CompilerType.K2) {
     // Const evaluation tests muted for FIR because FIR does const propagation.
     override fun isIgnoredTest(filePath: String): Boolean {
@@ -92,17 +91,15 @@ abstract class AbstractJsKlibEvolutionTest(val compilerType: CompilerType) : Abs
     }
 
     override fun produceKlib(module: TestModule, version: Int) {
-        val args = K2JSCompilerArguments().apply {
+        runJsCompiler {
             freeArgs = createFiles(module.versionFiles(version))
             libraries = module.dependenciesToLibrariesArg(version = version)
             outputDir = workingDir.normalize().absolutePath
             moduleName = module.name(version)
             irProduceKlibFile = true
-            irOnly = true
             irModuleName = module.name
             compilerType.setup(this)
         }
-        K2JSCompiler().exec(TestMessageCollector(), Services.EMPTY, args)
     }
 
     override fun produceProgram(module: TestModule) {
@@ -113,18 +110,16 @@ abstract class AbstractJsKlibEvolutionTest(val compilerType: CompilerType) : Abs
 
         produceKlib(module, version = 2)
 
-        val args = K2JSCompilerArguments().apply {
+        runJsCompiler {
             libraries = module.dependenciesToLibrariesArg(version = 2)
             includes = File(workingDir, module.name(version = 2).klib).absolutePath
             outputDir = jsOutDir.normalize().absolutePath
             moduleName = module.name
             irProduceJs = true
-            irOnly = true
             irModuleName = module.name
             compilerType.setup(this)
             partialLinkageMode = "disable" // Don't use partial linkage for KLIB evolution tests.
         }
-        K2JSCompiler().exec(TestMessageCollector(), Services.EMPTY, args)
     }
 
     override fun runProgram(module: TestModule, expectedResult: String) {
@@ -149,12 +144,4 @@ abstract class AbstractJsKlibEvolutionTest(val compilerType: CompilerType) : Abs
             fun $RUNNER_FUNCTION() = $TEST_FUNCTION()
         """
     }
-}
-
-private class TestMessageCollector : MessageCollector {
-    override fun clear() {}
-    override fun report(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?) {
-        if (severity.isError) error(message)
-    }
-    override fun hasErrors(): Boolean = error("Unsupported operation")
 }

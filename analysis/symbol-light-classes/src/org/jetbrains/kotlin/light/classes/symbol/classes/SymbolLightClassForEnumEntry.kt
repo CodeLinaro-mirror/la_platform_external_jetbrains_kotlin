@@ -6,13 +6,11 @@
 package org.jetbrains.kotlin.light.classes.symbol.classes
 
 import com.intellij.psi.*
-import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
+import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
 import org.jetbrains.kotlin.asJava.classes.KotlinSuperTypeListBuilder
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.asJava.elements.KtLightField
 import org.jetbrains.kotlin.asJava.elements.KtLightIdentifier
-import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.light.classes.symbol.annotations.ReferenceInformationHolder
 import org.jetbrains.kotlin.light.classes.symbol.cachedValue
 import org.jetbrains.kotlin.light.classes.symbol.codeReferences.SymbolLightPsiJavaCodeReferenceElementWithNoReference
@@ -82,7 +80,9 @@ internal class SymbolLightClassForEnumEntry(
             symbol.returnType.asPsiType(
                 this@SymbolLightClassForEnumEntry,
                 allowErrorTypes = true,
-                KaTypeMappingMode.SUPER_TYPE
+                KaTypeMappingMode.SUPER_TYPE,
+                forceValueClassResolution = false,
+                allowNonJvmPlatforms = true,
             ) as? PsiClassType
         } ?: return@lazyPub null
 
@@ -108,9 +108,9 @@ internal class SymbolLightClassForEnumEntry(
 
     override fun getScope(): PsiElement = parent
 
-    override fun getOwnFields(): List<KtLightField> = cachedValue {
+    override fun getOwnFields(): List<PsiField> = cachedValue {
         enumConstant.withEnumEntrySymbol { enumEntrySymbol ->
-            val result = mutableListOf<KtLightField>()
+            val result = mutableListOf<PsiField>()
 
             // Then, add instance fields: properties from parameters, and then member properties
             enumEntrySymbol.enumEntryInitializer?.let { initializer ->
@@ -130,9 +130,9 @@ internal class SymbolLightClassForEnumEntry(
         }
     }
 
-    override fun getOwnMethods(): List<KtLightMethod> = cachedValue {
+    override fun getOwnMethods(): List<PsiMethod> = cachedValue {
         enumConstant.withEnumEntrySymbol { enumEntrySymbol ->
-            val result = mutableListOf<KtLightMethod>()
+            val result = mutableListOf<PsiMethod>()
 
             enumEntrySymbol.enumEntryInitializer?.let { initializer ->
                 val declaredMemberScope = initializer.declaredMemberScope

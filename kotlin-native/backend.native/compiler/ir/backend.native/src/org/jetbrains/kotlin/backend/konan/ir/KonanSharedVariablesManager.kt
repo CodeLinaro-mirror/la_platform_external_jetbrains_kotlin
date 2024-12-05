@@ -1,6 +1,6 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the LICENSE file.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.konan.ir
@@ -14,10 +14,7 @@ import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
 import org.jetbrains.kotlin.ir.expressions.IrGetValue
 import org.jetbrains.kotlin.ir.expressions.IrSetValue
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
+import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrVariableSymbolImpl
 import org.jetbrains.kotlin.ir.types.typeWith
@@ -61,7 +58,7 @@ internal class KonanSharedVariablesManager(val context: KonanBackendContext) : S
         val sharedVariableInitialization =
                 IrCallImpl(initializer.startOffset, initializer.endOffset,
                         context.irBuiltIns.unitType, elementProperty.setter!!.symbol,
-                        elementProperty.setter!!.typeParameters.size, elementProperty.setter!!.valueParameters.size)
+                        elementProperty.setter!!.typeParameters.size)
         sharedVariableInitialization.dispatchReceiver =
                 IrGetValueImpl(initializer.startOffset, initializer.endOffset,
                         sharedVariableDeclaration.type, sharedVariableDeclaration.symbol)
@@ -77,7 +74,7 @@ internal class KonanSharedVariablesManager(val context: KonanBackendContext) : S
     override fun getSharedValue(sharedVariableSymbol: IrValueSymbol, originalGet: IrGetValue) =
             IrCallImpl(originalGet.startOffset, originalGet.endOffset,
                     originalGet.type, elementProperty.getter!!.symbol,
-                    elementProperty.getter!!.typeParameters.size, elementProperty.getter!!.valueParameters.size).apply {
+                    elementProperty.getter!!.typeParameters.size).apply {
                 dispatchReceiver = IrGetValueImpl(
                         originalGet.startOffset, originalGet.endOffset,
                         sharedVariableSymbol.owner.type, sharedVariableSymbol
@@ -86,8 +83,8 @@ internal class KonanSharedVariablesManager(val context: KonanBackendContext) : S
 
     override fun setSharedValue(sharedVariableSymbol: IrValueSymbol, originalSet: IrSetValue) =
             IrCallImpl(originalSet.startOffset, originalSet.endOffset, context.irBuiltIns.unitType,
-                    elementProperty.setter!!.symbol, elementProperty.setter!!.typeParameters.size,
-                    elementProperty.setter!!.valueParameters.size).apply {
+                    elementProperty.setter!!.symbol, elementProperty.setter!!.typeParameters.size
+            ).apply {
                 dispatchReceiver = IrGetValueImpl(
                         originalSet.startOffset, originalSet.endOffset,
                         sharedVariableSymbol.owner.type, sharedVariableSymbol

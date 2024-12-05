@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilat
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.defFileIsSupportedOn
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.getAbsoluteFile
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.dumpMetadata
+import org.jetbrains.kotlin.konan.test.blackbox.support.util.has32BitPointers
 import org.jetbrains.kotlin.konan.util.CInteropHints
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEqualsToFile
@@ -76,7 +77,11 @@ abstract class AbstractNativeCInteropTest : AbstractNativeCInteropBaseTest() {
             this is AbstractNativeCInteropFModulesTest &&
                     targets.testTarget.family == Family.ANDROID
         )
+
         val testPathFull = getAbsoluteFile(testPath)
+        // FIXME: Modular filtering with stdarg.h is currently skipped - KT-71400
+        Assumptions.assumeFalse(testPathFull.endsWith("builtinsDefs/modulesA"))
+
         val testDataDir = testPathFull.parentFile.parentFile
         val includeFolder = testDataDir.resolve("include")
         val defFile = testPathFull.resolve(defFileName)
@@ -114,6 +119,13 @@ abstract class AbstractNativeCInteropTest : AbstractNativeCInteropBaseTest() {
             else
                 metadata
 
+            if (filteredMetadata.contains("@kotlinx/cinterop/ObjCMethod")) {
+                // The golden data is 64-bit-specific because it contains Obj-C method encodings
+                // which depend on pointer size.
+                // Mute such tests:
+                Assumptions.assumeFalse(targets.testTarget.has32BitPointers())
+                // https://youtrack.jetbrains.com/issue/KT-70980 tracks improving this.
+            }
             assertEqualsToFile(goldenFile, filteredMetadata)
         }
     }

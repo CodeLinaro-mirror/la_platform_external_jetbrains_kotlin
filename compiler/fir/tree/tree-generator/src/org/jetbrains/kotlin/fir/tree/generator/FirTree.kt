@@ -183,7 +183,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(block)
     }
 
-    val binaryLogicExpression: Element by element(Expression) {
+    val booleanOperatorExpression: Element by element(Expression) {
         needTransformOtherChildren()
 
         parent(expression)
@@ -380,7 +380,7 @@ object FirTree : AbstractFirTreeBuilder() {
 
         +field("isPrefix", boolean)
         +field("operationName", nameType)
-        +field("expression", expression)
+        +field("expression", expression, withReplace = true)
         +field("operationSource", sourceElementType, nullable = true)
     }
 
@@ -481,7 +481,7 @@ object FirTree : AbstractFirTreeBuilder() {
     val anonymousFunctionExpression: Element by element(Expression) {
         parent(expression)
 
-        +field(anonymousFunction, withTransform = true)
+        +field(anonymousFunction, withTransform = true, withReplace = true)
         +field("isTrailingLambda", boolean, withReplace = true) {
             replaceOptInAnnotation = rawFirApi
         }
@@ -617,6 +617,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(resolvable)
         parent(call)
         parent(contextReceiverArgumentListOwner)
+        parent(expression)
 
         +field("constructedTypeRef", typeRef, withReplace = true)
         +field("dispatchReceiver", expression, nullable = true, withReplace = true, withTransform = true)
@@ -709,9 +710,7 @@ object FirTree : AbstractFirTreeBuilder() {
 
         +field("body", block, nullable = true, withReplace = true)
         +declaredSymbol(anonymousInitializerSymbolType)
-        // the containing declaration is nullable, because it is not immediately clear how to obtain it in all places in the fir builder
-        // TODO: review and consider making not-nullable (KT-64195)
-        +referencedSymbol("containingDeclarationSymbol", firBasedSymbolType.withArgs(TypeRef.Star), nullable = true) {
+        +referencedSymbol("containingDeclarationSymbol", firBasedSymbolType.withArgs(TypeRef.Star)) {
             withBindThis = false
         }
     }
@@ -984,6 +983,7 @@ object FirTree : AbstractFirTreeBuilder() {
         +field("relativeClassFqName", fqNameType, nullable = true)
         +field("classId", classIdType, nullable = true)
         +referencedSymbol("symbol", classLikeSymbolType, nullable = true)
+        +field("explicitParent", resolvedQualifier, nullable = true)
         +field("isNullableLHSForCallableReference", boolean, withReplace = true)
         +field("resolvedToCompanionObject", boolean, withReplace = true)
         +field("canBeValue", boolean, withReplace = true)
@@ -1082,7 +1082,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(resolvedNamedReference)
 
         +listField("inferredTypeArguments", coneKotlinTypeType)
-        +field("mappedArguments", callableReferenceMappedArgumentsType)
+        +field("mappedArguments", callableReferenceMappedArgumentsType.withArgs(expression))
     }
 
     val delegateFieldReference: Element by element(Reference) {
@@ -1128,7 +1128,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(typeRef)
         parent(typeRefMarkerType)
 
-        +field("type", coneKotlinTypeType)
+        +field("coneType", coneKotlinTypeType)
         +field("delegatedTypeRef", typeRef, nullable = true, isChild = false)
     }
 
@@ -1216,7 +1216,7 @@ object FirTree : AbstractFirTreeBuilder() {
         +field("usedAsExpression", boolean)
     }
 
-    val typeProjection: Element by element(TypeRefElement)
+    val typeProjection: Element by sealedElement(TypeRefElement)
 
     val typeProjectionWithVariance: Element by element(TypeRefElement) {
         parent(typeProjection)

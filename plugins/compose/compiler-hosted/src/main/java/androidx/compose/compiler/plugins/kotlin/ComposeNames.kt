@@ -9,6 +9,7 @@ object ComposeNames {
     val FORCE_PARAMETER = Name.identifier("\$force")
     val STABILITY_FLAG = Name.identifier("\$stable")
     val STABILITY_PROP_FLAG = Name.identifier("\$stableprop")
+    val STABILITY_GETTER_FLAG = "\$stableprop_getter"
     val DEFAULT_PARAMETER = Name.identifier("\$default")
     val JOINKEY = Name.identifier("joinKey")
     val STARTRESTARTGROUP = Name.identifier("startRestartGroup")
@@ -26,4 +27,5 @@ object ComposeNames {
     val REMEMBER_COMPOSABLE_LAMBDA = "rememberComposableLambda"
     val REMEMBER_COMPOSABLE_LAMBDAN = "rememberComposableLambdaN"
     val DEFAULT_IMPLS = Name.identifier("ComposeDefaultImpls")
+    val SHOULD_EXECUTE = Name.identifier("shouldExecute")
 }

@@ -18,7 +18,7 @@ repositories {
     if (!kotlinBuildProperties.isTeamcityBuild) {
         androidXMavenLocal(androidXMavenLocalPath)
     }
-    androidxSnapshotRepo(libs.versions.compose.snapshot.id.get())
+    androidxSnapshotRepo(composeRuntimeSnapshot.versions.snapshot.id.get())
     composeGoogleMaven(libs.versions.compose.stable.get())
 }
 
@@ -50,8 +50,9 @@ kotlin {
                 implementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-coroutines-test-jvm"))
 
                 // external deps
-                implementation(composeRuntime())
-                implementation(composeRuntimeTestUtils())
+                implementation(composeRuntime()) { isTransitive = false }
+                implementation(composeRuntimeTestUtils()) { isTransitive = false }
+                implementation(libs.androidx.collections)
             }
         }
     }

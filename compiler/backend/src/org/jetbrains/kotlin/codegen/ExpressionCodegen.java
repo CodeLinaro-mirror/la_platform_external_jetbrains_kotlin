@@ -28,7 +28,6 @@ import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenForLambda;
 import org.jetbrains.kotlin.codegen.coroutines.CoroutineCodegenUtilKt;
 import org.jetbrains.kotlin.codegen.coroutines.ResolvedCallWithRealDescriptor;
 import org.jetbrains.kotlin.codegen.coroutines.SuspensionPointKind;
-import org.jetbrains.kotlin.codegen.extensions.ExpressionCodegenExtension;
 import org.jetbrains.kotlin.codegen.inline.*;
 import org.jetbrains.kotlin.codegen.intrinsics.*;
 import org.jetbrains.kotlin.codegen.pseudoInsns.PseudoInsnsKt;
@@ -1936,18 +1935,6 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
                 return StackValue.underlyingValueOfInlineClass(typeMapper.mapType(propertyType), propertyType, receiver);
             }
 
-            Collection<ExpressionCodegenExtension> codegenExtensions = ExpressionCodegenExtension.Companion.getInstances(state.getProject());
-            if (!codegenExtensions.isEmpty() && resolvedCall != null) {
-                ExpressionCodegenExtension.Context context = new ExpressionCodegenExtension.Context(this, typeMapper, v);
-                KotlinType returnType = propertyDescriptor.getReturnType();
-                for (ExpressionCodegenExtension extension : codegenExtensions) {
-                    if (returnType != null) {
-                        StackValue value = extension.applyProperty(receiver, resolvedCall, context);
-                        if (value != null) return value;
-                    }
-                }
-            }
-
             boolean directToField = isSyntheticField && contextKind() != OwnerKind.DEFAULT_IMPLS;
             ClassDescriptor superCallTarget = resolvedCall == null ? null : getSuperCallTarget(resolvedCall.getCall());
 
@@ -2569,15 +2556,6 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
         fd = context.getAccessorForSuperCallIfNeeded(fd, superCallTarget, state);
 
-        Collection<ExpressionCodegenExtension> codegenExtensions = ExpressionCodegenExtension.Companion.getInstances(state.getProject());
-        if (!codegenExtensions.isEmpty()) {
-            ExpressionCodegenExtension.Context context = new ExpressionCodegenExtension.Context(this, typeMapper, v);
-            for (ExpressionCodegenExtension extension : codegenExtensions) {
-                StackValue stackValue = extension.applyFunction(receiver, resolvedCall, context);
-                if (stackValue != null) return stackValue;
-            }
-        }
-
         Callable callable = resolveToCallable(fd, superCallTarget != null, resolvedCall);
 
         return callable.invokeMethodWithArguments(resolvedCall, receiver, this);
@@ -2782,13 +2760,9 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
 
         KotlinType returnType = resolvedCall.getResultingDescriptor().getReturnType();
         if (returnType != null && KotlinBuiltIns.isNothing(returnType)) {
-            if (state.getConfig().getUseKotlinNothingValueException()) {
-                v.anew(Type.getObjectType("kotlin/KotlinNothingValueException"));
-                v.dup();
-                v.invokespecial("kotlin/KotlinNothingValueException", "<init>", "()V", false);
-            } else {
-                v.aconst(null);
-            }
+            v.anew(Type.getObjectType("kotlin/KotlinNothingValueException"));
+            v.dup();
+            v.invokespecial("kotlin/KotlinNothingValueException", "<init>", "()V", false);
             v.athrow();
         }
     }

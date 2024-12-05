@@ -77,6 +77,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
   }
 
   @Test
+  @TestMetadata("annotationInAnnotation_collectionLiteral_badSpread.kt")
+  public void testAnnotationInAnnotation_collectionLiteral_badSpread() {
+    runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/annotationInAnnotation_collectionLiteral_badSpread.kt");
+  }
+
+  @Test
   @TestMetadata("annotationInAnnotation_multipleAnnotations_arrayOf.kt")
   public void testAnnotationInAnnotation_multipleAnnotations_arrayOf() {
     runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/annotationInAnnotation_multipleAnnotations_arrayOf.kt");
@@ -329,6 +335,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
   }
 
   @Test
+  @TestMetadata("constructorCallWithSubstitution.kt")
+  public void testConstructorCallWithSubstitution() {
+    runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/constructorCallWithSubstitution.kt");
+  }
+
+  @Test
   @TestMetadata("CtrlClickResolve.kt")
   public void testCtrlClickResolve() {
     runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/CtrlClickResolve.kt");
@@ -374,6 +386,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
   @TestMetadata("delegatedConstructorApplicable.kt")
   public void testDelegatedConstructorApplicable() {
     runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/delegatedConstructorApplicable.kt");
+  }
+
+  @Test
+  @TestMetadata("delegatedConstructorCallWithSubstitution.kt")
+  public void testDelegatedConstructorCallWithSubstitution() {
+    runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/delegatedConstructorCallWithSubstitution.kt");
   }
 
   @Test
@@ -536,6 +554,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
   @TestMetadata("functionCallWithNonTrailingLambdaArgument.kt")
   public void testFunctionCallWithNonTrailingLambdaArgument() {
     runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/functionCallWithNonTrailingLambdaArgument.kt");
+  }
+
+  @Test
+  @TestMetadata("functionCallWithNonTrailingLambdaArgument2.kt")
+  public void testFunctionCallWithNonTrailingLambdaArgument2() {
+    runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/functionCallWithNonTrailingLambdaArgument2.kt");
   }
 
   @Test
@@ -1133,6 +1157,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
   }
 
   @Test
+  @TestMetadata("shadowedProperty.kt")
+  public void testShadowedProperty() {
+    runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/shadowedProperty.kt");
+  }
+
+  @Test
   @TestMetadata("smartCastExplicitDispatchReceiver.kt")
   public void testSmartCastExplicitDispatchReceiver() {
     runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/smartCastExplicitDispatchReceiver.kt");
@@ -1618,6 +1648,30 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     }
 
     @Test
+    @TestMetadata("buildList_implicit.kt")
+    public void testBuildList_implicit() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_implicit.kt");
+    }
+
+    @Test
+    @TestMetadata("buildList_let.kt")
+    public void testBuildList_let() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_let.kt");
+    }
+
+    @Test
+    @TestMetadata("buildList_otherList.kt")
+    public void testBuildList_otherList() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_otherList.kt");
+    }
+
+    @Test
+    @TestMetadata("buildList_this.kt")
+    public void testBuildList_this() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/buildList_this.kt");
+    }
+
+    @Test
     @TestMetadata("constructor.kt")
     public void testConstructor() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences/constructor.kt");
@@ -1900,6 +1954,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
       @TestMetadata("TypeAnnotation.kt")
       public void testTypeAnnotation() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/codeFragment/typeCodeFragment/TypeAnnotation.kt");
+      }
+
+      @Test
+      @TestMetadata("TypeParameter.kt")
+      public void testTypeParameter() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/codeFragment/typeCodeFragment/TypeParameter.kt");
       }
     }
   }
@@ -2395,6 +2455,28 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries")
+  @TestDataPath("$PROJECT_ROOT")
+  public class GloballyDuplicateLibraries {
+    @Test
+    public void testAllFilesPresentInGloballyDuplicateLibraries() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries"), Pattern.compile("^(.+)\\.kt$"), null, true, "withTestCompilerPluginEnabled");
+    }
+
+    @Test
+    @TestMetadata("functionCallsInIndependentModulesWithGloballyDuplicateJavaLibrary.kt")
+    public void testFunctionCallsInIndependentModulesWithGloballyDuplicateJavaLibrary() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries/functionCallsInIndependentModulesWithGloballyDuplicateJavaLibrary.kt");
+    }
+
+    @Test
+    @TestMetadata("functionCallsInIndependentModulesWithGloballyDuplicateLibrary.kt")
+    public void testFunctionCallsInIndependentModulesWithGloballyDuplicateLibrary() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries/functionCallsInIndependentModulesWithGloballyDuplicateLibrary.kt");
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/inImport")
   @TestDataPath("$PROJECT_ROOT")
   public class InImport {
@@ -2820,6 +2902,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     }
 
     @Test
+    @TestMetadata("defaultJavaConstructorWithTypeParameter.kt")
+    public void testDefaultJavaConstructorWithTypeParameter() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/defaultJavaConstructorWithTypeParameter.kt");
+    }
+
+    @Test
     @TestMetadata("JavaAnnotationParameter.kt")
     public void testJavaAnnotationParameter() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/JavaAnnotationParameter.kt");
@@ -2853,6 +2941,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     @TestMetadata("JavaReference.kt")
     public void testJavaReference() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/JavaReference.kt");
+    }
+
+    @Test
+    @TestMetadata("JavaSameSourceLibrary.kt")
+    public void testJavaSameSourceLibrary() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/java/JavaSameSourceLibrary.kt");
     }
 
     @Test
@@ -3021,6 +3115,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
       }
 
       @Test
+      @TestMetadata("KT-69047.kt")
+      public void testKT_69047() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/extensions/KT-69047.kt");
+      }
+
+      @Test
       @TestMetadata("nonExtensions.kt")
       public void testNonExtensions() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/extensions/nonExtensions.kt");
@@ -3113,6 +3213,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
       }
 
       @Test
+      @TestMetadata("KT-64190.kt")
+      public void testKT_64190() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/imports/KT-64190.kt");
+      }
+
+      @Test
       @TestMetadata("SameNameClassesFromStarImports.kt")
       public void testSameNameClassesFromStarImports() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/imports/SameNameClassesFromStarImports.kt");
@@ -3144,6 +3250,18 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
       @TestMetadata("FunctionQualifiedWithKotlinSubclass.kt")
       public void testFunctionQualifiedWithKotlinSubclass() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/javaDeclarations/FunctionQualifiedWithKotlinSubclass.kt");
+      }
+
+      @Test
+      @TestMetadata("KT-69128.kt")
+      public void testKT_69128() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/javaDeclarations/KT-69128.kt");
+      }
+
+      @Test
+      @TestMetadata("KT-69736.kt")
+      public void testKT_69736() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/kDoc/javaDeclarations/KT-69736.kt");
       }
 
       @Test
@@ -4091,6 +4209,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
       }
 
       @Test
+      @TestMetadata("gtAndGenericAmbiguity.kt")
+      public void testGtAndGenericAmbiguity() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/operators/compareTo/gtAndGenericAmbiguity.kt");
+      }
+
+      @Test
       @TestMetadata("gtEq.kt")
       public void testGtEq() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/operators/compareTo/gtEq.kt");
@@ -4366,94 +4490,228 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency"), Pattern.compile("^(.+)\\.kt$"), null, true, "withTestCompilerPluginEnabled");
       }
 
-      @Test
-      @TestMetadata("ListAliasUnresolvedListAlias.kt")
-      public void testListAliasUnresolvedListAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/ListAliasUnresolvedListAlias.kt");
+      @Nested
+      @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Libraries {
+        @Test
+        public void testAllFilesPresentInLibraries() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries"), Pattern.compile("^(.+)\\.kt$"), null, true, "withTestCompilerPluginEnabled");
+        }
+
+        @Test
+        @TestMetadata("FunctionListAliasUnresolvedFunctionAlias.kt")
+        public void testFunctionListAliasUnresolvedFunctionAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/FunctionListAliasUnresolvedFunctionAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("FunctionListAliasUnresolvedListAlias.kt")
+        public void testFunctionListAliasUnresolvedListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/FunctionListAliasUnresolvedListAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("ListAliasUnresolvedListAlias.kt")
+        public void testListAliasUnresolvedListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/ListAliasUnresolvedListAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("ListAliasUnresolvedStringAlias.kt")
+        public void testListAliasUnresolvedStringAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/ListAliasUnresolvedStringAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("MyString.kt")
+        public void testMyString() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/MyString.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedAsymmetricAliasOnlyResolveAsymmetricAlias.kt")
+        public void testNestedAsymmetricAliasOnlyResolveAsymmetricAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedAsymmetricAliasOnlyResolveAsymmetricAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedAsymmetricAliasOnlyResolveAsymmetricAlias2.kt")
+        public void testNestedAsymmetricAliasOnlyResolveAsymmetricAlias2() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedAsymmetricAliasOnlyResolveAsymmetricAlias2.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedAsymmetricAliasOnlyResolveBaseAliases.kt")
+        public void testNestedAsymmetricAliasOnlyResolveBaseAliases() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedAsymmetricAliasOnlyResolveBaseAliases.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedAsymmetricAliasUnresolvedAsymmetricAlias.kt")
+        public void testNestedAsymmetricAliasUnresolvedAsymmetricAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedAsymmetricAliasUnresolvedAsymmetricAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedAsymmetricAliasUnresolvedAsymmetricAlias2.kt")
+        public void testNestedAsymmetricAliasUnresolvedAsymmetricAlias2() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedAsymmetricAliasUnresolvedAsymmetricAlias2.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedAsymmetricAliasUnresolvedBaseAliases.kt")
+        public void testNestedAsymmetricAliasUnresolvedBaseAliases() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedAsymmetricAliasUnresolvedBaseAliases.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesOnlyResolveListAlias.kt")
+        public void testNestedCollectionAliasesOnlyResolveListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedCollectionAliasesOnlyResolveListAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesOnlyResolveSetAlias.kt")
+        public void testNestedCollectionAliasesOnlyResolveSetAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedCollectionAliasesOnlyResolveSetAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesOnlyResolveStringAlias.kt")
+        public void testNestedCollectionAliasesOnlyResolveStringAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedCollectionAliasesOnlyResolveStringAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesUnresolvedListAlias.kt")
+        public void testNestedCollectionAliasesUnresolvedListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedCollectionAliasesUnresolvedListAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesUnresolvedSetAlias.kt")
+        public void testNestedCollectionAliasesUnresolvedSetAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedCollectionAliasesUnresolvedSetAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesUnresolvedStringAlias.kt")
+        public void testNestedCollectionAliasesUnresolvedStringAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/libraries/NestedCollectionAliasesUnresolvedStringAlias.kt");
+        }
       }
 
-      @Test
-      @TestMetadata("ListAliasUnresolvedStringAlias.kt")
-      public void testListAliasUnresolvedStringAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/ListAliasUnresolvedStringAlias.kt");
-      }
+      @Nested
+      @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Sources {
+        @Test
+        public void testAllFilesPresentInSources() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources"), Pattern.compile("^(.+)\\.kt$"), null, true, "withTestCompilerPluginEnabled");
+        }
 
-      @Test
-      @TestMetadata("MyString.kt")
-      public void testMyString() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/MyString.kt");
-      }
+        @Test
+        @TestMetadata("FunctionListAliasUnresolvedFunctionAlias.kt")
+        public void testFunctionListAliasUnresolvedFunctionAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/FunctionListAliasUnresolvedFunctionAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedAsymmetricAliasOnlyResolveAsymmetricAlias.kt")
-      public void testNestedAsymmetricAliasOnlyResolveAsymmetricAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedAsymmetricAliasOnlyResolveAsymmetricAlias.kt");
-      }
+        @Test
+        @TestMetadata("FunctionListAliasUnresolvedListAlias.kt")
+        public void testFunctionListAliasUnresolvedListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/FunctionListAliasUnresolvedListAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedAsymmetricAliasOnlyResolveAsymmetricAlias2.kt")
-      public void testNestedAsymmetricAliasOnlyResolveAsymmetricAlias2() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedAsymmetricAliasOnlyResolveAsymmetricAlias2.kt");
-      }
+        @Test
+        @TestMetadata("ListAliasUnresolvedListAlias.kt")
+        public void testListAliasUnresolvedListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/ListAliasUnresolvedListAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedAsymmetricAliasOnlyResolveBaseAliases.kt")
-      public void testNestedAsymmetricAliasOnlyResolveBaseAliases() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedAsymmetricAliasOnlyResolveBaseAliases.kt");
-      }
+        @Test
+        @TestMetadata("ListAliasUnresolvedStringAlias.kt")
+        public void testListAliasUnresolvedStringAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/ListAliasUnresolvedStringAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedAsymmetricAliasUnresolvedAsymmetricAlias.kt")
-      public void testNestedAsymmetricAliasUnresolvedAsymmetricAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedAsymmetricAliasUnresolvedAsymmetricAlias.kt");
-      }
+        @Test
+        @TestMetadata("MyString.kt")
+        public void testMyString() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/MyString.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedAsymmetricAliasUnresolvedAsymmetricAlias2.kt")
-      public void testNestedAsymmetricAliasUnresolvedAsymmetricAlias2() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedAsymmetricAliasUnresolvedAsymmetricAlias2.kt");
-      }
+        @Test
+        @TestMetadata("NestedAsymmetricAliasOnlyResolveAsymmetricAlias.kt")
+        public void testNestedAsymmetricAliasOnlyResolveAsymmetricAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedAsymmetricAliasOnlyResolveAsymmetricAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedAsymmetricAliasUnresolvedBaseAliases.kt")
-      public void testNestedAsymmetricAliasUnresolvedBaseAliases() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedAsymmetricAliasUnresolvedBaseAliases.kt");
-      }
+        @Test
+        @TestMetadata("NestedAsymmetricAliasOnlyResolveAsymmetricAlias2.kt")
+        public void testNestedAsymmetricAliasOnlyResolveAsymmetricAlias2() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedAsymmetricAliasOnlyResolveAsymmetricAlias2.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedCollectionAliasesOnlyResolveListAlias.kt")
-      public void testNestedCollectionAliasesOnlyResolveListAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedCollectionAliasesOnlyResolveListAlias.kt");
-      }
+        @Test
+        @TestMetadata("NestedAsymmetricAliasOnlyResolveBaseAliases.kt")
+        public void testNestedAsymmetricAliasOnlyResolveBaseAliases() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedAsymmetricAliasOnlyResolveBaseAliases.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedCollectionAliasesOnlyResolveSetAlias.kt")
-      public void testNestedCollectionAliasesOnlyResolveSetAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedCollectionAliasesOnlyResolveSetAlias.kt");
-      }
+        @Test
+        @TestMetadata("NestedAsymmetricAliasUnresolvedAsymmetricAlias.kt")
+        public void testNestedAsymmetricAliasUnresolvedAsymmetricAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedAsymmetricAliasUnresolvedAsymmetricAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedCollectionAliasesOnlyResolveStringAlias.kt")
-      public void testNestedCollectionAliasesOnlyResolveStringAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedCollectionAliasesOnlyResolveStringAlias.kt");
-      }
+        @Test
+        @TestMetadata("NestedAsymmetricAliasUnresolvedAsymmetricAlias2.kt")
+        public void testNestedAsymmetricAliasUnresolvedAsymmetricAlias2() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedAsymmetricAliasUnresolvedAsymmetricAlias2.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedCollectionAliasesUnresolvedListAlias.kt")
-      public void testNestedCollectionAliasesUnresolvedListAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedCollectionAliasesUnresolvedListAlias.kt");
-      }
+        @Test
+        @TestMetadata("NestedAsymmetricAliasUnresolvedBaseAliases.kt")
+        public void testNestedAsymmetricAliasUnresolvedBaseAliases() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedAsymmetricAliasUnresolvedBaseAliases.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedCollectionAliasesUnresolvedSetAlias.kt")
-      public void testNestedCollectionAliasesUnresolvedSetAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedCollectionAliasesUnresolvedSetAlias.kt");
-      }
+        @Test
+        @TestMetadata("NestedCollectionAliasesOnlyResolveListAlias.kt")
+        public void testNestedCollectionAliasesOnlyResolveListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedCollectionAliasesOnlyResolveListAlias.kt");
+        }
 
-      @Test
-      @TestMetadata("NestedCollectionAliasesUnresolvedStringAlias.kt")
-      public void testNestedCollectionAliasesUnresolvedStringAlias() {
-        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/NestedCollectionAliasesUnresolvedStringAlias.kt");
+        @Test
+        @TestMetadata("NestedCollectionAliasesOnlyResolveSetAlias.kt")
+        public void testNestedCollectionAliasesOnlyResolveSetAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedCollectionAliasesOnlyResolveSetAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesOnlyResolveStringAlias.kt")
+        public void testNestedCollectionAliasesOnlyResolveStringAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedCollectionAliasesOnlyResolveStringAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesUnresolvedListAlias.kt")
+        public void testNestedCollectionAliasesUnresolvedListAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedCollectionAliasesUnresolvedListAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesUnresolvedSetAlias.kt")
+        public void testNestedCollectionAliasesUnresolvedSetAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedCollectionAliasesUnresolvedSetAlias.kt");
+        }
+
+        @Test
+        @TestMetadata("NestedCollectionAliasesUnresolvedStringAlias.kt")
+        public void testNestedCollectionAliasesUnresolvedStringAlias() {
+          runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/typeAlias/missingDependency/sources/NestedCollectionAliasesUnresolvedStringAlias.kt");
+        }
       }
     }
 
@@ -4844,6 +5102,18 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     }
 
     @Test
+    @TestMetadata("callWithUnresolvedReturnType.kt")
+    public void testCallWithUnresolvedReturnType() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/callWithUnresolvedReturnType.kt");
+    }
+
+    @Test
+    @TestMetadata("callWithUnresolvedTypeBound.kt")
+    public void testCallWithUnresolvedTypeBound() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/callWithUnresolvedTypeBound.kt");
+    }
+
+    @Test
     @TestMetadata("ClassNameBeforeDot.kt")
     public void testClassNameBeforeDot() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/ClassNameBeforeDot.kt");
@@ -4880,6 +5150,30 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     }
 
     @Test
+    @TestMetadata("constructorCallWithSubstitution.kt")
+    public void testConstructorCallWithSubstitution() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/constructorCallWithSubstitution.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorCallWithSubstitutionMissedType.kt")
+    public void testConstructorCallWithSubstitutionMissedType() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/constructorCallWithSubstitutionMissedType.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorCallWithSubstitutionMissedTypeWithBound.kt")
+    public void testConstructorCallWithSubstitutionMissedTypeWithBound() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/constructorCallWithSubstitutionMissedTypeWithBound.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorCallWithSubstitutionWrongBound.kt")
+    public void testConstructorCallWithSubstitutionWrongBound() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/constructorCallWithSubstitutionWrongBound.kt");
+    }
+
+    @Test
     @TestMetadata("CoroutineSuspensionPoint.kt")
     public void testCoroutineSuspensionPoint() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/CoroutineSuspensionPoint.kt");
@@ -4895,6 +5189,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     @TestMetadata("defaultValueThatCallsPreviousParameter.kt")
     public void testDefaultValueThatCallsPreviousParameter() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/defaultValueThatCallsPreviousParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("delegatedConstructorCallWithSubstitution.kt")
+    public void testDelegatedConstructorCallWithSubstitution() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/delegatedConstructorCallWithSubstitution.kt");
     }
 
     @Test
@@ -4994,6 +5294,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     }
 
     @Test
+    @TestMetadata("functionCallWithNonTrailingLambdaArgument.kt")
+    public void testFunctionCallWithNonTrailingLambdaArgument() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/functionCallWithNonTrailingLambdaArgument.kt");
+    }
+
+    @Test
     @TestMetadata("functionCallWithTooFewTypeArguments.kt")
     public void testFunctionCallWithTooFewTypeArguments() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/functionCallWithTooFewTypeArguments.kt");
@@ -5015,6 +5321,18 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     @TestMetadata("functionCallWithTooManyTypeArguments2.kt")
     public void testFunctionCallWithTooManyTypeArguments2() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/functionCallWithTooManyTypeArguments2.kt");
+    }
+
+    @Test
+    @TestMetadata("functionReceiverSubstitution.kt")
+    public void testFunctionReceiverSubstitution() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/functionReceiverSubstitution.kt");
+    }
+
+    @Test
+    @TestMetadata("functionReceiverSubstitutionWithConflict.kt")
+    public void testFunctionReceiverSubstitutionWithConflict() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/functionReceiverSubstitutionWithConflict.kt");
     }
 
     @Test
@@ -5156,6 +5474,18 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     }
 
     @Test
+    @TestMetadata("MissingTypeArgumentBeforeDot.kt")
+    public void testMissingTypeArgumentBeforeDot() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/MissingTypeArgumentBeforeDot.kt");
+    }
+
+    @Test
+    @TestMetadata("MissingTypeArgumentBeforeDotQualified.kt")
+    public void testMissingTypeArgumentBeforeDotQualified() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/MissingTypeArgumentBeforeDotQualified.kt");
+    }
+
+    @Test
     @TestMetadata("NoSelectorInDotQualifiedCall.kt")
     public void testNoSelectorInDotQualifiedCall() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/NoSelectorInDotQualifiedCall.kt");
@@ -5201,6 +5531,18 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
     @TestMetadata("PropertyPlaceInClassObjectInObject.kt")
     public void testPropertyPlaceInClassObjectInObject() {
       runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/PropertyPlaceInClassObjectInObject.kt");
+    }
+
+    @Test
+    @TestMetadata("propertyReceiverSubstitution.kt")
+    public void testPropertyReceiverSubstitution() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/propertyReceiverSubstitution.kt");
+    }
+
+    @Test
+    @TestMetadata("propertyReceiverSubstitutionWithConflict.kt")
+    public void testPropertyReceiverSubstitutionWithConflict() {
+      runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/propertyReceiverSubstitutionWithConflict.kt");
     }
 
     @Test
@@ -5432,6 +5774,12 @@ public class FirStandaloneNormalAnalysisSourceModuleResolveReferenceTestGenerate
       @TestMetadata("ClassNameSecondQualifierBeforeOneUnsresolvedClassWithTwoResolvedWithDot.kt")
       public void testClassNameSecondQualifierBeforeOneUnsresolvedClassWithTwoResolvedWithDot() {
         runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameSecondQualifierBeforeOneUnsresolvedClassWithTwoResolvedWithDot.kt");
+      }
+
+      @Test
+      @TestMetadata("GenericClassNameBeforeOneUnresolvedClass.kt")
+      public void testGenericClassNameBeforeOneUnresolvedClass() {
+        runTest("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/partiallyUnresolvedTypeQualifier/GenericClassNameBeforeOneUnresolvedClass.kt");
       }
     }
   }

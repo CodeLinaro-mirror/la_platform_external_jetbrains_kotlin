@@ -67,6 +67,8 @@ public abstract class KaTypeAliasSymbol : KaClassLikeSymbol(),
     KaNamedSymbol,
     KaTypeParameterOwnerSymbol
 {
+    final override val modality: KaSymbolModality
+        get() = withValidityAssertion { KaSymbolModality.FINAL }
 
     /**
      * Returns type from right-hand site of type alias
@@ -83,6 +85,20 @@ public typealias KtTypeAliasSymbol = KaTypeAliasSymbol
 public sealed class KaClassSymbol : KaClassLikeSymbol(), KaDeclarationContainerSymbol {
 
     public abstract val classKind: KaClassKind
+
+    /**
+     * A list of the direct supertypes. If the class has no explicit supertypes, the supertype will be [Any], or a special supertype such as
+     * [Enum] for enum classes.
+     *
+     * Type parameters are included in supertype type arguments in an unsubstituted form. For example, if we have `class A<T> : B<T>`,
+     * [superTypes] for `A` contains `B<T>` as a type, with an unsubstituted [KaTypeParameterType][org.jetbrains.kotlin.analysis.api.types.KaTypeParameterType]
+     * `T`.
+     *
+     * For a list of all supertypes, consider using [KaType.allSupertypes][org.jetbrains.kotlin.analysis.api.components.KaTypeProvider.allSupertypes]
+     * on [KaNamedClassSymbol.defaultType][org.jetbrains.kotlin.analysis.api.components.KaTypeProvider.defaultType]. To check whether
+     * this symbol is a subtype of another symbol, consider using [KaClassSymbol.isSubClassOf][org.jetbrains.kotlin.analysis.api.components.KaSymbolRelationProvider.isSubClassOf],
+     * or [KaType.isSubtypeOf][org.jetbrains.kotlin.analysis.api.components.KaTypeRelationChecker.isSubtypeOf].
+     */
     public abstract val superTypes: List<KaType>
 
     abstract override fun createPointer(): KaSymbolPointer<KaClassSymbol>
@@ -98,6 +114,13 @@ public abstract class KaAnonymousObjectSymbol : KaClassSymbol() {
     final override val classKind: KaClassKind get() = withValidityAssertion { KaClassKind.ANONYMOUS_OBJECT }
     final override val classId: ClassId? get() = withValidityAssertion { null }
     final override val location: KaSymbolLocation get() = withValidityAssertion { KaSymbolLocation.LOCAL }
+    final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
+
+    @KaExperimentalApi
+    final override val compilerVisibility: Visibility get() = withValidityAssertion { Visibilities.Local }
+
+    final override val isExpect: Boolean get() = withValidityAssertion { false }
+    final override val isActual: Boolean get() = withValidityAssertion { false }
 
     final override val name: Name? get() = withValidityAssertion { null }
 

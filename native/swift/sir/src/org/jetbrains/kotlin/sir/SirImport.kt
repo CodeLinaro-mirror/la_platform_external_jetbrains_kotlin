@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.sir
 
 class SirImport(
     val moduleName: String,
-    val isExported: Boolean = false,
+    val mode: Mode? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -20,5 +20,10 @@ class SirImport(
 
     override fun hashCode(): Int {
         return moduleName.hashCode()
+    }
+
+    enum class Mode {
+        ImplementationOnly,
+        Exported,
     }
 }

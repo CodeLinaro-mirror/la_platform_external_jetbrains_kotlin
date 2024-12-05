@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.analysis.api.resolution.KaCompoundArrayAccessCall
 import org.jetbrains.kotlin.analysis.api.resolution.KaCompoundVariableAccessCall
 import org.jetbrains.kotlin.analysis.api.resolution.KaErrorCallInfo
 import org.jetbrains.kotlin.analysis.api.resolution.KaInapplicableCallCandidateInfo
+import org.jetbrains.kotlin.analysis.api.resolution.KaSuccessCallInfo
 import org.jetbrains.kotlin.analysis.api.resolution.calls
 import org.jetbrains.kotlin.analysis.api.resolution.symbol
 import org.jetbrains.kotlin.analysis.api.scopes.KaScope
@@ -56,12 +57,11 @@ internal fun KaSession.stringRepresentation(any: Any?): String = with(any) {
                     is KaPropertyGetterSymbol -> callableId ?: "<getter>"
                     is KaPropertySetterSymbol -> callableId ?: "<setter>"
                     is KaAnonymousFunctionSymbol -> "<anonymous function>"
-                    else -> error("unexpected symbol kind in KaCall: ${this@with::class}")
                 }
             )
             append("(")
             (this@with as? KaNamedFunctionSymbol)?.receiverParameter?.let { receiver ->
-                append("<extension receiver>: ${receiver.type.render()}")
+                append("<extension receiver>: ${receiver.returnType.render()}")
                 if (valueParameters.isNotEmpty()) append(", ")
             }
 
@@ -75,6 +75,7 @@ internal fun KaSession.stringRepresentation(any: Any?): String = with(any) {
             append(": ${returnType.render()}")
         }
         is KaValueParameterSymbol -> "${if (isVararg) "vararg " else ""}$name: ${returnType.render()}"
+        is KaReceiverParameterSymbol -> DebugSymbolRenderer().render(useSiteSession, this)
         is KaTypeParameterSymbol -> this.nameOrAnonymous.asString()
         is KaEnumEntrySymbol -> callableId?.toString() ?: name.asString()
         is KaVariableSymbol -> "${if (isVal) "val" else "var"} $name: ${returnType.render()}"
@@ -242,12 +243,18 @@ internal fun KaSession.assertStableResult(testServices: TestServices, firstInfo:
     }
 
     assertions.assertEquals(firstInfo::class, secondInfo::class)
-    if (firstInfo is KaErrorCallInfo) {
-        assertStableResult(
-            testServices = testServices,
-            firstDiagnostic = firstInfo.diagnostic,
-            secondDiagnostic = (secondInfo as KaErrorCallInfo).diagnostic,
-        )
+    when (firstInfo) {
+        is KaErrorCallInfo -> {
+            assertStableResult(
+                testServices = testServices,
+                firstDiagnostic = firstInfo.diagnostic,
+                secondDiagnostic = (secondInfo as KaErrorCallInfo).diagnostic,
+            )
+        }
+
+        is KaSuccessCallInfo -> {
+            assertConsistency(testServices, firstInfo.call)
+        }
     }
 
     val firstCalls = sortedCalls(firstInfo.calls)
@@ -266,6 +273,26 @@ internal fun KaSession.assertStableResult(testServices: TestServices, firstCall:
     val symbolsFromFirstCall = firstCall.symbols()
     val symbolsFromSecondCall = secondCall.symbols()
     assertions.assertEquals(symbolsFromFirstCall, symbolsFromSecondCall)
+}
+
+internal fun KaSession.assertConsistency(testServices: TestServices, call: KaCall) {
+    if (call !is KaCallableMemberCall<*, *>) return
+
+    val assertions = testServices.assertions
+    val typeArgumentsMapping = call.typeArgumentsMapping
+    val symbol = call.symbol
+
+    val typeParameters = symbol.typeParameters
+    for (parameterSymbol in typeParameters) {
+        val mappedType = typeArgumentsMapping[parameterSymbol]
+        assertions.assertNotNull(mappedType) {
+            "Type argument for type parameter $parameterSymbol is not found in $typeArgumentsMapping"
+        }
+    }
+
+    assertions.assertEquals(typeParameters.size, typeArgumentsMapping.size) {
+        "Extra elements found in ${call::typeArgumentsMapping.name}:\n${typeArgumentsMapping.keys - typeParameters}"
+    }
 }
 
 internal fun KaSession.assertStableResult(

@@ -12,9 +12,9 @@ import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.KaSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.buildSymbol
 import org.jetbrains.kotlin.analysis.api.fir.getCandidateSymbols
-import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPackageSymbol
 import org.jetbrains.kotlin.analysis.api.fir.unwrapSafeCall
 import org.jetbrains.kotlin.analysis.api.fir.utils.processEqualsFunctions
+import org.jetbrains.kotlin.analysis.api.symbols.KaPackageSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.throwUnexpectedFirElementError
@@ -33,7 +33,7 @@ import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.references.*
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnmatchedTypeArgumentsError
-import org.jetbrains.kotlin.fir.resolve.providers.toSymbol
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.FirImportResolveTransformer
 import org.jetbrains.kotlin.fir.scopes.impl.FirExplicitSimpleImportingScope
@@ -79,8 +79,8 @@ internal object FirReferenceResolveHelper {
     }
 
     private fun FirResolvedTypeRef.getDeclaredType() =
-        if (this.delegatedTypeRef?.source?.kind == KtFakeSourceElementKind.ArrayTypeFromVarargParameter) type.arrayElementType()
-        else type
+        if (this.delegatedTypeRef?.source?.kind == KtFakeSourceElementKind.ArrayTypeFromVarargParameter) coneType.arrayElementType()
+        else coneType
 
     private fun ClassId.toTargetPsi(
         session: FirSession,
@@ -137,7 +137,7 @@ internal object FirReferenceResolveHelper {
         expression: KtSimpleNameExpression,
         symbolBuilder: KaSymbolByFirBuilder,
         forQualifiedType: Boolean,
-    ): KaFirPackageSymbol? {
+    ): KaPackageSymbol? {
         return symbolBuilder.createPackageSymbolIfOneExists(getQualifierSelected(expression, forQualifiedType))
     }
 
@@ -176,18 +176,20 @@ internal object FirReferenceResolveHelper {
         return refs
     }
 
-    private fun KtSimpleNameExpression.isPartOfQualifiedExpression(): Boolean {
-        var parent = parent
-        while (parent is KtDotQualifiedExpression) {
-            if (parent.selectorExpression !== this) return true
-            parent = parent.parent
-        }
-        return false
-    }
-
+    /**
+     * Returns `false` when [this] points to the last qualifier in a [KtUserType]
+     * expression, and `true` otherwise.
+     *
+     * For example, if the type is `First.Second.Third`, it will yield `false` for `Third`, and `true` for `First` and `Second`.
+     *
+     * N.B. If the type is incomplete and looks like `First.Second.Third.` (note the last dot),
+     * then this function yields `false` for `Third`.
+     */
     private fun KtSimpleNameExpression.isPartOfUserTypeRefQualifier(): Boolean {
         var parent = parent
         while (parent is KtUserType) {
+            if (parent.referenceExpression == null) break
+
             if (parent.referenceExpression !== this) return true
             parent = parent.parent
         }
@@ -297,7 +299,7 @@ internal object FirReferenceResolveHelper {
             // FirConstructor.originalConstructorIfTypeAlias but that doesn't seem to help here as it
             // is null for the constructors we get.
             val constructedType = fir.constructedTypeRef.coneType.abbreviatedTypeOrSelf
-            val constructorReturnType = fir.calleeReference.toResolvedConstructorSymbol()?.resolvedReturnTypeRef?.type
+            val constructorReturnType = fir.calleeReference.toResolvedConstructorSymbol()?.resolvedReturnTypeRef?.coneType
             if (constructedType.classId != constructorReturnType?.classId) {
                 return getSymbolsForResolvedTypeRef(fir.constructedTypeRef as FirResolvedTypeRef, expression, session, symbolBuilder)
             }
@@ -308,7 +310,7 @@ internal object FirReferenceResolveHelper {
     private fun getSymbolsForPackageDirective(
         expression: KtSimpleNameExpression,
         symbolBuilder: KaSymbolByFirBuilder,
-    ): List<KaFirPackageSymbol> {
+    ): List<KaPackageSymbol> {
         return listOfNotNull(getPackageSymbolFor(expression, symbolBuilder, forQualifiedType = false))
     }
 
@@ -521,9 +523,9 @@ internal object FirReferenceResolveHelper {
         val ktTypeElementFromFirType = unwrapType(fir.psi)
 
         val classifiersToSkip = expression.parents.takeWhile { it != ktTypeElementFromFirType }.count()
-        var classifier: FirClassLikeSymbol<*>? = fir.type.toRegularClassSymbol(session)
+        var classifier: FirClassLikeSymbol<*>? = fir.coneType.toRegularClassSymbol(session)
         repeat(classifiersToSkip) {
-            classifier = classifier?.getContainingClassSymbol(session)
+            classifier = classifier?.getContainingClassSymbol()
         }
 
         val firClassSymbol = classifier
@@ -741,7 +743,7 @@ internal object FirReferenceResolveHelper {
         } ?: return null
 
         val qualifiersToDrop = countQualifiersToDrop(wholeType, qualifierToResolve)
-        return wholeTypeFir.type.classId?.dropLastNestedClasses(qualifiersToDrop)
+        return wholeTypeFir.coneType.classId?.dropLastNestedClasses(qualifiersToDrop)
     }
 
     /**

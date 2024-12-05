@@ -17,11 +17,13 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilat
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationDependencyType.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.*
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
+import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.utils.addIfNotNull
 import java.io.File
 
-internal class TestCompilationFactory {
+class TestCompilationFactory {
     private val cachedKlibCompilations = ThreadSafeCache<KlibCacheKey, KlibCompilations>()
     private val cachedExecutableCompilations = ThreadSafeCache<ExecutableCacheKey, TestCompilation<Executable>>()
     private val cachedObjCFrameworkCompilations = ThreadSafeCache<ObjCFrameworkCacheKey, ObjCFrameworkCompilation>()
@@ -35,9 +37,9 @@ internal class TestCompilationFactory {
     private data class TestBundleCacheKey(val sourceModules: Set<TestModule>)
 
     // A pair of compilations for a KLIB itself and for its static cache that are created together.
-    private data class KlibCompilations(val klib: TestCompilation<KLIB>, val staticCache: TestCompilation<KLIBStaticCache>?, val headerCache: TestCompilation<KLIBStaticCache>?)
+    data class KlibCompilations(val klib: TestCompilation<KLIB>, val staticCache: TestCompilation<KLIBStaticCache>?, val headerCache: TestCompilation<KLIBStaticCache>?)
 
-    private data class CompilationDependencies(
+    data class CompilationDependencies(
         private val klibDependencies: List<CompiledDependency<KLIB>>,
         private val staticCacheDependencies: List<CompiledDependency<KLIBStaticCache>>,
         private val staticCacheHeaderDependencies: List<CompiledDependency<KLIBStaticCache>>
@@ -61,7 +63,7 @@ internal class TestCompilationFactory {
             (klibDependencies.asSequence() + staticCacheDependencies + listOfNotNull(includedKlib, includedKlibStaticCache)).asIterable()
     }
 
-    private sealed interface ProduceStaticCache {
+    sealed interface ProduceStaticCache {
         object No : ProduceStaticCache
 
         sealed class Yes(val options: StaticCacheCompilation.Options) : ProduceStaticCache {
@@ -162,7 +164,8 @@ internal class TestCompilationFactory {
         val fileCheckStage = testCases.map { it.fileCheckStage }.singleOrNull()
         if (fileCheckStage != null)
             require(testCases.size == 1) { "FILECHECK-enabled test must be standalone" }
-        val executableArtifact = Executable(settings.artifactFileForExecutable(rootModules), fileCheckStage)
+        val hasSyntheticAccessorsDump = CodegenTestDirectives.DUMP_KLIB_SYNTHETIC_ACCESSORS in settings.get<RegisteredDirectives>()
+        val executableArtifact = Executable(settings.artifactFileForExecutable(rootModules), fileCheckStage, hasSyntheticAccessorsDump)
 
         val (
             dependenciesToCompileExecutable: Iterable<CompiledDependency<*>>,
@@ -250,7 +253,7 @@ internal class TestCompilationFactory {
             }
         }
 
-    private fun modulesToKlib(
+    fun modulesToKlib(
         sourceModules: Set<TestModule>,
         freeCompilerArgs: TestCompilerArgs,
         produceStaticCache: ProduceStaticCache,
@@ -360,7 +363,7 @@ internal class TestCompilationFactory {
         }
     }
 
-    private fun collectDependencies(
+    fun collectDependencies(
         sourceModules: Set<TestModule>,
         freeCompilerArgs: TestCompilerArgs,
         settings: Settings

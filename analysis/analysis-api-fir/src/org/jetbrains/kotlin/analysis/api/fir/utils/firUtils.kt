@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.KaSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.evaluate.FirAnnotationValueConverter
 import org.jetbrains.kotlin.analysis.api.fir.evaluate.FirCompileTimeConstantEvaluator
-import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.classKind
@@ -28,7 +27,6 @@ import org.jetbrains.kotlin.fir.scopes.CallableCopyTypeCalculator
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.types.ConeNullability
 import org.jetbrains.kotlin.fir.types.isNullableAny
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.name.FqName
@@ -51,18 +49,11 @@ internal fun KtExpression.unwrap(): KtExpression {
     } ?: this
 }
 
-internal fun KaTypeNullability.toConeNullability() = when (this) {
-    KaTypeNullability.NULLABLE -> ConeNullability.NULLABLE
-    KaTypeNullability.NON_NULLABLE -> ConeNullability.NOT_NULL
-    KaTypeNullability.UNKNOWN -> ConeNullability.UNKNOWN
-}
-
 /**
  * @receiver A symbol that needs to be imported
- * @param useSiteSession A use-site fir session.
  * @return An [FqName] by which this symbol can be imported (if it is possible)
  */
-internal fun FirCallableSymbol<*>.computeImportableName(useSiteSession: FirSession): FqName? {
+internal fun FirCallableSymbol<*>.computeImportableName(): FqName? {
     if (callableId.isLocal) return null
 
     // SAM constructors are synthetic, but can be imported
@@ -72,7 +63,7 @@ internal fun FirCallableSymbol<*>.computeImportableName(useSiteSession: FirSessi
     val containingClassId = callableId.classId
         ?: return callableId.asSingleFqName()
 
-    val containingClass = getContainingClassSymbol(useSiteSession) ?: return null
+    val containingClass = getContainingClassSymbol() ?: return null
 
     if (this is FirConstructorSymbol) return if (!containingClass.isInner) containingClassId.asSingleFqName() else null
 

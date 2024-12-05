@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
-import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
@@ -27,6 +26,9 @@ import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 
 private val STATIC_THIS_PARAMETER by IrDeclarationOriginImpl
 
+/**
+ * Extracts private members from classes.
+ */
 class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTransformer {
 
     private var IrFunction.correspondingStatic by context.mapping.privateMemberToCorrespondingStatic
@@ -70,7 +72,6 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
         staticFunction.valueParameters = staticFunction.valueParameters memoryOptimizedPlus buildValueParameter(staticFunction) {
             origin = STATIC_THIS_PARAMETER
             name = Name.identifier("\$this")
-            index = 0
             type = function.dispatchReceiverParameter!!.type
         }
 
@@ -78,7 +79,7 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
 
         staticFunction.valueParameters = staticFunction.valueParameters memoryOptimizedPlus function.valueParameters.map {
             // TODO better way to avoid copying default value
-            it.copyTo(staticFunction, index = it.index + 1, defaultValue = null)
+            it.copyTo(staticFunction, defaultValue = null)
         }
 
         val oldParameters =
@@ -125,10 +126,6 @@ class PrivateMembersLowering(val context: JsIrBackendContext) : DeclarationTrans
                     expression = (it.copyWithParameters() as IrExpressionBody).expression,
                 )
                 is IrSyntheticBody -> it
-                else -> compilationException(
-                    "Unexpected body kind",
-                    it,
-                )
             }
         }
 
@@ -159,7 +156,7 @@ class PrivateMemberBodiesLowering(val context: JsIrBackendContext) : BodyLowerin
                             expression.startOffset, expression.endOffset,
                             expression.type,
                             it.symbol, expression.typeArgumentsCount,
-                            expression.valueArgumentsCount, expression.reflectionTarget, expression.origin
+                            expression.reflectionTarget, expression.origin
                         )
                     }
                 } ?: expression
@@ -193,7 +190,6 @@ class PrivateMemberBodiesLowering(val context: JsIrBackendContext) : BodyLowerin
                     expression.type,
                     staticTarget.symbol,
                     typeArgumentsCount = expression.typeArgumentsCount,
-                    valueArgumentsCount = expression.valueArgumentsCount + 1,
                     origin = expression.origin,
                     superQualifierSymbol = expression.superQualifierSymbol
                 )

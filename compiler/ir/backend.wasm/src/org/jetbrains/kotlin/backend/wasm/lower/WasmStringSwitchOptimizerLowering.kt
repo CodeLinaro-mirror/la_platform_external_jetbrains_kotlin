@@ -25,6 +25,9 @@ import org.jetbrains.kotlin.name.Name
 
 private val OPTIMISED_WHEN_SUBJECT by IrDeclarationOriginImpl
 
+/**
+ * Replaces `when` with constant string cases to binary search by string hashcodes.
+ */
 class WasmStringSwitchOptimizerLowering(
     private val context: WasmBackendContext
 ) : FileLoweringPass, IrElementTransformerVoidWithContext() {
@@ -53,12 +56,12 @@ class WasmStringSwitchOptimizerLowering(
         irFile.transformChildrenVoid(this)
     }
 
-    private fun tryMatchCaseToNullableStringConstant(condition: IrExpression): IrConst<*>? {
+    private fun tryMatchCaseToNullableStringConstant(condition: IrExpression): IrConst? {
         val eqCall = asEqCall(condition) ?: return null
         if (eqCall.valueArgumentsCount < 2) return null
         val constantReceiver =
-            eqCall.getValueArgument(0) as? IrConst<*>
-                ?: eqCall.getValueArgument(1) as? IrConst<*>
+            eqCall.getValueArgument(0) as? IrConst
+                ?: eqCall.getValueArgument(1) as? IrConst
                 ?: return null
         return when (constantReceiver.kind) {
             IrConstKind.String, IrConstKind.Null -> constantReceiver
@@ -70,7 +73,7 @@ class WasmStringSwitchOptimizerLowering(
         val subject: IrExpression
         val subjectArgumentIndex: Int
         val firstArgument = firstEqCall.getValueArgument(0)!!
-        if (firstArgument is IrConst<*>) {
+        if (firstArgument is IrConst) {
             subject = firstEqCall.getValueArgument(1)!!
             subjectArgumentIndex = 1
         } else {

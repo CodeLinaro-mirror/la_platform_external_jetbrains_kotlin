@@ -505,7 +505,7 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
                     extensions.asMap.keys,
                     kotlin.sourceSets.names,
                     kotlin.targets.names,
-                    @Suppress("DEPRECATION")
+                    @Suppress("DEPRECATION_ERROR")
                     kotlin.presets.names,
                 ).flatten()
             }
@@ -635,5 +635,13 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
         val iosArm64MetadataElements = project.configurations.getByName("iosArm64MetadataElements")
         assertEquals("bar", iosArm64HostSpecificMetadataDependencies.attributes.getAttribute(attribute))
         assertEquals("bar", iosArm64MetadataElements.attributes.getAttribute(attribute))
+    }
+
+    @Test
+    fun compileClasspathConfigurationHasCorrectNameForJvmWithJavaLibraryProject() {
+        val project = buildProjectWithJvm {
+            project.plugins.apply("java-library")
+        }
+        assertEquals("Compile classpath for 'main'.", project.configurations.getByName("compileClasspath").description)
     }
 }

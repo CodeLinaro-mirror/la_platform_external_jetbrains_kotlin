@@ -24,20 +24,16 @@ import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.modules.TargetId
-import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.platform.CommonPlatforms
-import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.jvm.extensions.PackageFragmentProviderExtension
 import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptCompilerProxy
 import org.jetbrains.kotlin.scripting.compiler.plugin.dependencies.ScriptsCompilationDependencies
 import org.jetbrains.kotlin.scripting.compiler.plugin.services.scriptDefinitionProviderService
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinitionProvider
-import org.jetbrains.kotlin.scripting.definitions.ScriptDependenciesProvider
+import org.jetbrains.kotlin.scripting.definitions.ScriptConfigurationsProvider
 import org.jetbrains.kotlin.scripting.resolve.VirtualFileScriptSource
 import org.jetbrains.kotlin.scripting.resolve.resolvedImportScripts
 import org.jetbrains.kotlin.utils.topologicalSort
@@ -148,10 +144,10 @@ private fun compileImpl(
         return failure(messageCollector)
     }
 
-    val dependenciesProvider = ScriptDependenciesProvider.getInstance(context.environment.project)
+    val configurationsProvider = ScriptConfigurationsProvider.getInstance(context.environment.project)
     val getScriptConfiguration = { ktFile: KtFile ->
         val refinedConfiguration =
-            dependenciesProvider?.getScriptConfigurationResult(ktFile, context.baseScriptCompilationConfiguration)
+            configurationsProvider?.getScriptConfigurationResult(ktFile, context.baseScriptCompilationConfiguration)
                 ?.valueOrNull()?.configuration ?: context.baseScriptCompilationConfiguration
         refinedConfiguration.with {
             _languageVersion(context.environment.configuration.languageVersionSettings.languageVersion.versionString)
@@ -276,7 +272,7 @@ private fun generate(
     analysisResult: AnalysisResult, sourceFiles: List<KtFile>, kotlinCompilerConfiguration: CompilerConfiguration,
     messageCollector: MessageCollector
 ): GenerationState {
-    val diagnosticsReporter = DiagnosticReporterFactory.createReporter()
+    val diagnosticsReporter = DiagnosticReporterFactory.createReporter(messageCollector)
     return GenerationState.Builder(
         sourceFiles.first().project,
         ClassBuilderFactories.BINARIES,
@@ -321,52 +317,37 @@ private fun doCompileWithK2(
 
     registerPackageFragmentProvidersIfNeeded(getScriptConfiguration(sourceFiles.first()), context.environment)
 
-    val kotlinCompilerConfiguration = context.environment.configuration
+    val configuration = context.environment.configuration
 
     val targetId = TargetId(
-        kotlinCompilerConfiguration[CommonConfigurationKeys.MODULE_NAME] ?: JvmProtoBufUtil.DEFAULT_MODULE_NAME,
+        configuration[CommonConfigurationKeys.MODULE_NAME] ?: JvmProtoBufUtil.DEFAULT_MODULE_NAME,
         "java-production"
     )
 
-    val renderDiagnosticName = kotlinCompilerConfiguration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
-    val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter()
-
-    val sources = sourceFiles.map { KtPsiSourceFile(it) }
-
-    val compilerInput = ModuleCompilerInput(
-        targetId,
-        GroupedKtSources(platformSources = sources, commonSources = emptySet(), sourcesByModuleName = emptyMap()),
-        CommonPlatforms.defaultCommonPlatform,
-        JvmPlatforms.unspecifiedJvmPlatform,
-        kotlinCompilerConfiguration
-    )
+    val renderDiagnosticName = configuration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+    val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
 
     val projectEnvironment = context.environment.toAbstractProjectEnvironment()
     val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, diagnosticsReporter)
 
     var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
     val incrementalCompilationScope = createIncrementalCompilationScope(
-        compilerInput.configuration,
+        configuration,
         projectEnvironment,
         incrementalExcludesScope = null
     )?.also { librariesScope -= it }
-    val extensionRegistrars = (projectEnvironment as? VfsBasedProjectEnvironment)
-        ?.let { FirExtensionRegistrar.getInstances(it.project) }
-        .orEmpty()
 
-    val rootModuleName = targetId.name
-    val libraryList = createLibraryListForJvm(
-        rootModuleName,
-        kotlinCompilerConfiguration,
-        friendPaths = emptyList()
-    )
-    val session = prepareJvmSessions(
-        sourceFiles, kotlinCompilerConfiguration, projectEnvironment, Name.special("<$rootModuleName>"), extensionRegistrars,
-        librariesScope, libraryList, isCommonSourceForPsi, { false },
-        fileBelongsToModuleForPsi,
+    val session = prepareJvmSessionsForScripting(
+        projectEnvironment,
+        configuration,
+        sourceFiles,
+        rootModuleNameAsString = targetId.name,
+        friendPaths = emptyList(),
+        librariesScope,
+        isScript = { false },
         createProviderAndScopeForIncrementalCompilation = { files ->
             createContextForIncrementalCompilation(
-                compilerInput.configuration,
+                configuration,
                 projectEnvironment,
                 compilerEnvironment.projectEnvironment.getSearchScopeBySourceFiles(files.map { KtPsiSourceFile(it) }),
                 emptyList(),
@@ -379,7 +360,7 @@ private fun doCompileWithK2(
 
     scriptDefinitionProviderService?.run {
         definitionProvider = ScriptDefinitionProvider.getInstance(context.environment.project)
-        configurationProvider = ScriptDependenciesProvider.getInstance(context.environment.project)
+        configurationProvider = ScriptConfigurationsProvider.getInstance(context.environment.project)
     }
 
     val rawFir = session.buildFirFromKtFiles(sourceFiles) //.reversed()
@@ -429,7 +410,7 @@ private fun doCompileWithK2(
         return failure(messageCollector)
     }
 
-    val irInput = convertAnalyzedFirToIr(compilerInput, analysisResults, compilerEnvironment)
+    val irInput = convertAnalyzedFirToIr(configuration, targetId, analysisResults, compilerEnvironment)
 
     val codegenOutput = generateCodeFromIr(irInput, compilerEnvironment)
 

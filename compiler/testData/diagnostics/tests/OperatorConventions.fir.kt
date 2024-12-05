@@ -118,11 +118,11 @@ class X {
     val component1 = { "UwU" }
 }
 
-operator fun X.component1(): String = "Not UwU"
+operator fun X.<!EXTENSION_FUNCTION_SHADOWED_BY_MEMBER_PROPERTY_WITH_INVOKE!>component1<!>(): String = "Not UwU"
 
 fun useDelegate() {
-    val m by <!DELEGATE_SPECIAL_FUNCTION_MISSING!>D<!>
-    var n by <!DELEGATE_SPECIAL_FUNCTION_MISSING, DELEGATE_SPECIAL_FUNCTION_MISSING!>D<!>
+    val m <!DELEGATE_SPECIAL_FUNCTION_MISSING!>by<!> D
+    var n <!DELEGATE_SPECIAL_FUNCTION_MISSING, DELEGATE_SPECIAL_FUNCTION_MISSING!>by<!> D
 }
 
 fun resolveToExtension() {

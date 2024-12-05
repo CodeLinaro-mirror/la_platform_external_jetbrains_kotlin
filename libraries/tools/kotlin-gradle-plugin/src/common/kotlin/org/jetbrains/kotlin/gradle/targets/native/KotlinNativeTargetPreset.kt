@@ -34,7 +34,7 @@ abstract class AbstractKotlinNativeTargetPreset<T : KotlinNativeTarget>(
     override fun getName(): String = name
 
     private fun setupNativeHomePrivateProperty() = with(project) {
-        if (!hasProperty(KOTLIN_NATIVE_HOME_PRIVATE_PROPERTY))
+        if (!extensions.extraProperties.has(KOTLIN_NATIVE_HOME_PRIVATE_PROPERTY))
             extensions.extraProperties.set(
                 KOTLIN_NATIVE_HOME_PRIVATE_PROPERTY,
                 nativeProperties.actualNativeHomeDirectory.get().absolutePath
@@ -54,7 +54,6 @@ abstract class AbstractKotlinNativeTargetPreset<T : KotlinNativeTarget>(
         val result = instantiateTarget(name).apply {
             targetName = name
             disambiguationClassifier = name
-            @Suppress("DEPRECATION")
             preset = this@AbstractKotlinNativeTargetPreset
 
             val compilationFactory = KotlinNativeCompilationFactory(this)

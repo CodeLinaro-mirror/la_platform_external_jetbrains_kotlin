@@ -227,6 +227,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
         }.apply {
             this.versionRequirements = versionRequirements
             sourceElement = c.containerSource
+            deserializeCompilerPluginMetadata(c, proto, ProtoBuf.TypeAlias::getCompilerPluginDataList)
         }
     }
 
@@ -454,7 +455,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
             this.initializer = when {
                 Flags.HAS_CONSTANT.get(proto.flags) -> {
                     c.constDeserializer.loadConstant(
-                        proto, symbol.callableId, c.nameResolver, returnTypeRef.type.isUnsignedTypeOrNullableUnsignedType
+                        proto, symbol.callableId, c.nameResolver, returnTypeRef.coneType.isUnsignedTypeOrNullableUnsignedType
                     )
                 }
                 // classSymbol?.classKind?.isAnnotationClass throws 'Fir is not initialized for FirRegularClassSymbol kotlin/String'
@@ -472,9 +473,27 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
 
             proto.contextReceiverTypes(c.typeTable).mapTo(contextReceivers) { loadContextReceiver(it, local) }
         }.apply {
-            initializer?.replaceConeTypeOrNull(returnTypeRef.type)
+            when (val initializer = initializer) {
+                /**
+                 * Deserialized annotation values don't have any information about type arguments for annotation expression, so
+                 *   they should be updated from the expected type
+                 *
+                 * ```
+                 * annotation class One<T>(val s: String)
+                 *
+                 * annotation class Two(
+                 *     val one: One<Int> = One("hello") // <--------
+                 * )
+                 * ```
+                 *
+                 * Annotation value for `One("hello")` contains only annotation type (`One`) and argument values (`"hello"`)
+                 */
+                is FirAnnotation -> initializer.replaceAnnotationTypeRef(initializer.annotationTypeRef.withReplacedReturnType(returnTypeRef.coneType))
+                else -> initializer?.replaceConeTypeOrNull(returnTypeRef.coneType)
+            }
             this.versionRequirements = versionRequirements
             replaceDeprecationsProvider(getDeprecationsProvider(c.session))
+            deserializeCompilerPluginMetadata(c, proto, ProtoBuf.Property::getCompilerPluginDataList)
             setLazyPublishedVisibility(c.session)
             getter?.setLazyPublishedVisibility(annotations, this, c.session)
             setter?.setLazyPublishedVisibility(annotations, this, c.session)
@@ -565,6 +584,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
         }.apply {
             this.versionRequirements = versionRequirements
             setLazyPublishedVisibility(c.session)
+            deserializeCompilerPluginMetadata(c, proto, ProtoBuf.Function::getCompilerPluginDataList)
         }
         if (proto.hasContract()) {
             val contractDeserializer = if (proto.typeParameterList.isEmpty()) this.contractDeserializer else FirContractDeserializer(local)
@@ -591,7 +611,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
         val typeParameters = classBuilder.typeParameters
 
         val delegatedSelfType = buildResolvedTypeRef {
-            type = ConeClassLikeTypeImpl(
+            coneType = ConeClassLikeTypeImpl(
                 classBuilder.symbol.toLookupTag(),
                 typeParameters.map { ConeTypeParameterTypeImpl(it.symbol.toLookupTag(), false) }.toTypedArray(),
                 false
@@ -648,6 +668,7 @@ class FirMemberDeserializer(private val c: FirDeserializationContext) {
         }.build().apply {
             containingClassForStaticMemberAttr = c.dispatchReceiver!!.lookupTag
             this.versionRequirements = VersionRequirement.create(proto, c)
+            deserializeCompilerPluginMetadata(c, proto, ProtoBuf.Constructor::getCompilerPluginDataList)
             setLazyPublishedVisibility(c.session)
         }
     }

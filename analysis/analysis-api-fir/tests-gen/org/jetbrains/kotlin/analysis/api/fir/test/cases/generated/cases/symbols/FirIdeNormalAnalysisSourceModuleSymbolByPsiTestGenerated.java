@@ -101,6 +101,12 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends Ab
   }
 
   @Test
+  @TestMetadata("classWithTypeParamsAndSupertypes.kt")
+  public void testClassWithTypeParamsAndSupertypes() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/classWithTypeParamsAndSupertypes.kt");
+  }
+
+  @Test
   @TestMetadata("delegateField.kt")
   public void testDelegateField() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/delegateField.kt");
@@ -314,6 +320,12 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends Ab
   @TestMetadata("typeParameters.kt")
   public void testTypeParameters() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/typeParameters.kt");
+  }
+
+  @Test
+  @TestMetadata("typeParametersStressTest.kt")
+  public void testTypeParametersStressTest() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/typeParametersStressTest.kt");
   }
 
   @Test

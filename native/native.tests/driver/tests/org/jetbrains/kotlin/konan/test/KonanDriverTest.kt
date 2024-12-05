@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.konan.test
 import com.intellij.testFramework.TestDataPath
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeSimpleTest
+import org.jetbrains.kotlin.konan.test.blackbox.generateTestCaseWithSingleModule
 import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationArtifact
@@ -16,8 +17,9 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Binaries
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.CacheMode
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.GCScheduler
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.KotlinNativeHome
-import org.jetbrains.kotlin.konan.test.blackbox.support.settings.executor
+import org.jetbrains.kotlin.konan.test.blackbox.support.settings.testProcessExecutor
 import org.jetbrains.kotlin.konan.test.blackbox.targets
+import org.jetbrains.kotlin.native.executors.NoOpExecutor
 import org.jetbrains.kotlin.native.executors.RunProcessResult
 import org.jetbrains.kotlin.native.executors.runProcess
 import org.jetbrains.kotlin.test.KotlinTestUtils
@@ -87,7 +89,7 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
         val compilationResult = runProcess(konanc.absolutePath, source.absolutePath, *args.toTypedArray<String>()) {
             timeout = konancTimeout
         }
-        testRunSettings.executor.runProcess(kexe.absolutePath) // run generated executable just to check its sanity
+        testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath) // run generated executable just to check its sanity
         return compilationResult
     }
 
@@ -97,12 +99,13 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
             testRunSettings.get<CacheMode>() == CacheMode.WithoutCache &&
             testRunSettings.get<OptimizationMode>() == OptimizationMode.DEBUG
         ) // KT-65963
-        val module = TestModule.Exclusive("moduleName", emptySet(), emptySet(), emptySet())
+
+        val testCase = generateTestCaseWithSingleModule(sourcesRoot = null)
         val kexe = buildDir.resolve("kexe.kexe").also { it.delete() }
         val compilation = ExecutableCompilation(
             settings = testRunSettings,
             freeCompilerArgs = TestCompilerArgs.EMPTY,
-            sourceModules = listOf(module),
+            sourceModules = testCase.modules,
             extras = TestCase.NoTestRunnerExtras("main"),
             dependencies = emptyList(),
             expectedArtifact = TestCompilationArtifact.Executable(kexe),
@@ -112,10 +115,11 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
             timeout = konancTimeout
         }
         val runResult: RunProcessResult = with(testRunSettings) {
-            executor.runProcess(kexe.absolutePath) {
+            testProcessExecutor.runProcess(kexe.absolutePath) {
                 timeout = Duration.parse("1m")
             }
         }
+        Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
         assertEquals("Hello, world!", runResult.stdout)
     }
 
@@ -128,12 +132,12 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
         // No need to test with different GC schedulers
         Assumptions.assumeFalse(testRunSettings.get<GCScheduler>() == GCScheduler.AGGRESSIVE)
 
-        val module = TestModule.Exclusive("moduleName", emptySet(), emptySet(), emptySet())
+        val testCase = generateTestCaseWithSingleModule(sourcesRoot = null)
         val kexe = buildDir.resolve("kexe.kexe").also { it.delete() }
         val compilation = ExecutableCompilation(
             settings = testRunSettings,
             freeCompilerArgs = TestCompilerArgs(listOf("-version")),
-            sourceModules = listOf(module),
+            sourceModules = testCase.modules,
             extras = TestCase.NoTestRunnerExtras("main"),
             dependencies = emptyList(),
             expectedArtifact = TestCompilationArtifact.Executable(kexe),
@@ -152,7 +156,7 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
         // No need to test with different GC schedulers
         Assumptions.assumeFalse(testRunSettings.get<GCScheduler>() == GCScheduler.AGGRESSIVE)
 
-        val module = TestModule.Exclusive("moduleName", emptySet(), emptySet(), emptySet())
+        val testCase = generateTestCaseWithSingleModule(sourcesRoot = null)
         val kexe = buildDir.resolve("kexe.kexe").also { it.delete() }
         val compilation = ExecutableCompilation(
             settings = testRunSettings,
@@ -163,7 +167,7 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
                         "-Xoverride-konan-properties=\"llvmInlineThreshold=76\""
                     else "-Xoverride-konan-properties=llvmInlineThreshold=76"
                 )),
-            sourceModules = listOf(module),
+            sourceModules = testCase.modules,
             extras = TestCase.NoTestRunnerExtras("main"),
             dependencies = emptyList(),
             expectedArtifact = TestCompilationArtifact.Executable(kexe),
@@ -178,7 +182,7 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
             "Compiler's stderr must contain string: $expected\n" +
                     "STDOUT:\n${compilationResult.stdout}\nSTDERR:${compilationResult.stderr}"
         )
-        testRunSettings.executor.runProcess(kexe.absolutePath)
+        testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath)
     }
 
     @Disabled("The test is not working on Windows Server 2019-based TeamCity agents for the unknown reason." +
@@ -214,11 +218,12 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
         runProcess(konanc.absolutePath, source.absolutePath, *compilation.getCompilerArgs()) {
             timeout = Duration.parse("5m")
         }
-        testRunSettings.executor.runProcess(kexe.absolutePath)
+        testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath)
     }
 
     @Test
     fun testSplitCompilationPipeline() {
+
         val rootDir = testSuiteDir.resolve("split_compilation_pipeline")
         val libFile = buildDir.resolve("lib.klib")
         runProcess(
@@ -259,7 +264,37 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
             "-Xread-dependencies-from=${depsFile.absolutePath}",
             "-Xcompile-from-bitcode=${tmpFilesDir.absolutePath}/out.bc"
         )
-        val output = testRunSettings.executor.runProcess(kexe.absolutePath).output
+        val output = testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath).output
+        Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
         KotlinTestUtils.assertEqualsToFile(rootDir.resolve("override_main.out"), output)
+    }
+
+    @Test
+    fun noSourcesOrIncludeKlib() {
+        val rootDir = testSuiteDir.resolve("kt68673")
+        val libFile = buildDir.resolve("program.klib")
+        val kexe = buildDir.resolve("program.kexe")
+        runProcess(
+            konanc.absolutePath,
+            rootDir.resolve("main.kt").absolutePath,
+            "-produce", "library",
+            "-o", libFile.absolutePath,
+            "-target", targets.testTarget.visibleName,
+        ) {
+            timeout = konancTimeout
+        }
+
+        runProcess(
+            konanc.absolutePath,
+            "-l", libFile.absolutePath,
+            "-o", kexe.absolutePath,
+            "-target", targets.testTarget.visibleName,
+            "-g"
+        ) {
+            timeout = konancTimeout
+        }
+        val output = testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath).output
+        Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
+        KotlinTestUtils.assertEqualsToFile(rootDir.resolve("main.out"), output)
     }
 }

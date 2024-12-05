@@ -23,10 +23,8 @@ import org.jetbrains.kotlin.asJava.elements.KtLightMember
 import org.jetbrains.kotlin.asJava.elements.psiType
 import org.jetbrains.kotlin.light.classes.symbol.annotations.*
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
-import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassForClassLike
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassForInterface
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassForInterfaceDefaultImpls
-import org.jetbrains.kotlin.light.classes.symbol.classes.modificationTrackerForClassInnerStuff
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.KtTypeParameterListOwner
@@ -50,6 +48,8 @@ internal fun KaSession.mapType(
         useSitePosition = psiContext,
         allowErrorTypes = true,
         mode = mode,
+        forceValueClassResolution = false,
+        allowNonJvmPlatforms = true,
     )
 
     return psiType as? PsiClassType
@@ -332,9 +332,9 @@ internal inline fun <R : PsiElement, T> R.cachedValue(
     crossinline computer: () -> T,
 ): T = CachedValuesManager.getCachedValue(this) {
     val value = computer()
-    val specialClassTrackers = (this as? SymbolLightClassForClassLike<*>)?.classOrObjectDeclaration?.modificationTrackerForClassInnerStuff()
-    if (specialClassTrackers != null) {
-        CachedValueProvider.Result.create(value, specialClassTrackers)
+    val specialTrackers = (this as? SymbolLightClassBase)?.contentModificationTrackers()
+    if (specialTrackers != null) {
+        CachedValueProvider.Result.create(value, specialTrackers)
     } else {
         CachedValueProvider.Result.createSingleDependency(value, project.createProjectWideOutOfBlockModificationTracker())
     }

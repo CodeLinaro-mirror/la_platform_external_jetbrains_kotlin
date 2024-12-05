@@ -235,6 +235,11 @@ class BodyResolveContext(
     }
 
     @PrivateForInline
+    fun addAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer) {
+        replaceTowerDataContext(towerDataContext.addAnonymousInitializer(anonymousInitializer))
+    }
+
+    @PrivateForInline
     private inline fun updateLastScope(transform: FirLocalScope.() -> FirLocalScope) {
         val lastScope = towerDataContext.localScopes.lastOrNull() ?: return
         replaceTowerDataContext(towerDataContext.setLastLocalScope(lastScope.transform()))
@@ -628,7 +633,7 @@ class BodyResolveContext(
 
         if (withContextSensitiveResolution) {
             val subjectClassSymbol = (subjectType as? ConeClassLikeType)
-                ?.lookupTag?.toFirRegularClassSymbol(session)?.takeIf { it.fir.classKind == ClassKind.ENUM_CLASS }
+                ?.lookupTag?.toRegularClassSymbol(session)?.takeIf { it.fir.classKind == ClassKind.ENUM_CLASS }
             val whenSubjectImportingScope = subjectClassSymbol?.let {
                 FirWhenSubjectImportingScope(it.classId, session, sessionHolder.scopeSession)
             }
@@ -815,6 +820,7 @@ class BodyResolveContext(
         return withTowerDataCleanup {
             getPrimaryConstructorPureParametersScope()?.let { addLocalScope(it) }
             addLocalScope(FirLocalScope(session))
+            addAnonymousInitializer(anonymousInitializer)
             withContainer(anonymousInitializer, f)
         }
     }

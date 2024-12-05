@@ -174,7 +174,7 @@ KtSuperTypeCallEntry(258,282): 'ClassWithType<MyClass>()'
         extensionReceiver = null
         signature = KaFunctionSignature:
           receiverType = null
-          returnType = pack.ClassWithType<T>
+          returnType = pack.ClassWithType<pack.MyClass>
           symbol = <constructor>(): pack.ClassWithType<T>
           valueParameters = []
           callableId = null
@@ -193,7 +193,7 @@ KtConstructorCalleeExpression(258,280): 'ClassWithType<MyClass>'
         extensionReceiver = null
         signature = KaFunctionSignature:
           receiverType = null
-          returnType = pack.ClassWithType<T>
+          returnType = pack.ClassWithType<pack.MyClass>
           symbol = <constructor>(): pack.ClassWithType<T>
           valueParameters = []
           callableId = null
@@ -308,6 +308,9 @@ KtNameReferenceExpression(422,428): 'String'
   NO_CANDIDATES
 
 KtPropertyAccessor(429,442): 'get() = "rts"'
+  NO_CANDIDATES
+
+KtParameterList(432,434): '()'
   NO_CANDIDATES
 
 KtStringTemplateExpression(437,442): '"rts"'

@@ -32,7 +32,10 @@ import org.jetbrains.kotlin.ir.linkage.IrDeserializer
 import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.ir.objcinterop.IrObjCOverridabilityCondition
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.IdSignature
+import org.jetbrains.kotlin.ir.util.ReferenceSymbolTable
+import org.jetbrains.kotlin.ir.util.StubGeneratorExtensions
+import org.jetbrains.kotlin.ir.util.TypeTranslator
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.library.isHeader
 import org.jetbrains.kotlin.library.metadata.DeserializedKlibModuleOrigin
@@ -152,7 +155,6 @@ internal fun PsiToIrContext.psiToIr(
                 exportedDependencies = exportedDependencies,
                 partialLinkageSupport = createPartialLinkageSupportForLinker(
                         partialLinkageConfig = partialLinkageConfig,
-                        allowErrorTypes = false, // Kotlin/Native does not support error types.
                         builtIns = generatorContext.irBuiltIns,
                         messageCollector = messageCollector
                 ),
@@ -263,12 +265,18 @@ internal fun PsiToIrContext.psiToIr(
     }
 
     return if (isProducingLibrary) {
-        PsiToIrOutput.ForKlib(mainModule, symbols)
+        PsiToIrOutput.ForKlib(mainModule, generatorContext.irBuiltIns, symbols)
     } else if (libraryToCache == null) {
-        PsiToIrOutput.ForBackend(modules, mainModule, symbols, irDeserializer as KonanIrLinker)
+        PsiToIrOutput.ForBackend(modules, mainModule, generatorContext.irBuiltIns, symbols, irDeserializer as KonanIrLinker)
     } else {
         val libraryName = libraryToCache.klib.libraryName
         val libraryModule = modules[libraryName] ?: error("No module for the library being cached: $libraryName")
-        PsiToIrOutput.ForBackend(modules.filterKeys { it != libraryName }, libraryModule, symbols, irDeserializer as KonanIrLinker)
+        PsiToIrOutput.ForBackend(
+                irModules = modules.filterKeys { it != libraryName },
+                irModule = libraryModule,
+                irBuiltIns = generatorContext.irBuiltIns,
+                symbols = symbols,
+                irLinker = irDeserializer as KonanIrLinker
+        )
     }
 }

@@ -24,10 +24,7 @@ import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrDelegatingConstructorCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
+import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.objcinterop.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
@@ -392,7 +389,6 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
                     type = type,
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
-                    index = index,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -723,15 +719,15 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
         }
     }
 
-    override fun visitBlock(expression: IrBlock): IrExpression {
-        if (expression is IrReturnableBlock && expression.inlineFunction?.isAutoreleasepool() == true) {
+    override fun visitInlinedFunctionBlock(inlinedBlock: IrInlinedFunctionBlock): IrExpression {
+        if (inlinedBlock.inlineFunctionSymbol?.owner?.isAutoreleasepool() == true) {
             // Prohibit calling suspend functions from `autoreleasepool {}` block.
             // See https://youtrack.jetbrains.com/issue/KT-50786 for more details.
             // Note: we can't easily check this in frontend, because we need to prohibit indirect cases like
             ///    inline fun <T> myAutoreleasepool(block: () -> T) = autoreleasepool(block)
             ///    myAutoreleasepool { suspendHere() }
 
-            expression.acceptVoid(object : IrElementVisitorVoid {
+            inlinedBlock.acceptVoid(object : IrElementVisitorVoid {
                 override fun visitElement(element: IrElement) {
                     element.acceptChildrenVoid(this)
                 }
@@ -750,7 +746,7 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
                 }
             })
         }
-        return super.visitBlock(expression)
+        return super.visitInlinedFunctionBlock(inlinedBlock)
     }
 
     private fun IrFunction.isAutoreleasepool(): Boolean {
@@ -1031,7 +1027,7 @@ private class InteropTransformer(
         val constantProperty = function.correspondingPropertySymbol?.owner?.takeIf { it.isConst } ?: return null
 
         val initializer = constantProperty.backingField?.initializer?.expression
-        require(initializer is IrConst<*>) { renderCompilerError(expression) }
+        require(initializer is IrConst) { renderCompilerError(expression) }
 
         // Avoid node duplication
         return initializer.shallowCopy()
@@ -1107,7 +1103,7 @@ private class InteropTransformer(
             return when (intrinsicType) {
                 IntrinsicType.INTEROP_BITS_TO_FLOAT -> {
                     val argument = expression.getValueArgument(0)
-                    if (argument is IrConst<*> && argument.kind == IrConstKind.Int) {
+                    if (argument is IrConst && argument.kind == IrConstKind.Int) {
                         val floatValue = kotlinx.cinterop.bitsToFloat(argument.value as Int)
                         builder.irFloat(floatValue)
                     } else {
@@ -1116,7 +1112,7 @@ private class InteropTransformer(
                 }
                 IntrinsicType.INTEROP_BITS_TO_DOUBLE -> {
                     val argument = expression.getValueArgument(0)
-                    if (argument is IrConst<*> && argument.kind == IrConstKind.Long) {
+                    if (argument is IrConst && argument.kind == IrConstKind.Long) {
                         val doubleValue = kotlinx.cinterop.bitsToDouble(argument.value as Long)
                         builder.irDouble(doubleValue)
                     } else {
@@ -1206,9 +1202,6 @@ private class InteropTransformer(
                         builder.irConvertInteger(source, target, valueToConvert)
                     }
                 }
-                IntrinsicType.INTEROP_MEMORY_COPY -> {
-                    TODO("So far unsupported")
-                }
                 IntrinsicType.WORKER_EXECUTE -> {
                     val irCallableReference = unwrapStaticFunctionArgument(expression.getValueArgument(2)!!)
 
@@ -1220,7 +1213,6 @@ private class InteropTransformer(
                             builder.startOffset, builder.endOffset,
                             symbols.executeImpl.owner.valueParameters[3].type,
                             targetSymbol,
-                            typeArgumentsCount = 0,
                             reflectionTarget = null)
 
                     builder.irCall(symbols.executeImpl).apply {

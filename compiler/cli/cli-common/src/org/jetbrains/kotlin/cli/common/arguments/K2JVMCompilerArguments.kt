@@ -189,7 +189,7 @@ to force diagnostics to be reported."""
     @Argument(
         value = "-Xbackend-threads",
         valueDescription = "<N>",
-        description = """When using the IR backend, run lowerings by file in N parallel threads.
+        description = """Run codegen phase in N parallel threads.
 0 means use one thread per processor core.
 The default value is 1."""
     )
@@ -307,7 +307,7 @@ This can be used in the event of problems with the new implementation."""
         value = "-Xuse-fast-jar-file-system",
         description = "Use the fast implementation of Jar FS. This may speed up compilation time, but it is experimental."
     )
-    var useFastJarFileSystem = false
+    var useFastJarFileSystem: Boolean? = null
         set(value) {
             checkFrozen()
             field = value
@@ -563,7 +563,7 @@ default: 'indy-with-constants' for JVM targets 9 or greater, 'inline' otherwise.
         value = "-Xjdk-release",
         valueDescription = "<version>",
         description = """Compile against the specified JDK API version, similarly to javac's '-release'. This requires JDK 9 or newer.
-The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–22.
+The supported versions depend on the JDK used; for JDK 17+, the supported versions are ${JvmTarget.SUPPORTED_VERSIONS_DESCRIPTION}.
 This also sets the value of '-jvm-target' to be equal to the selected JDK version."""
     )
     var jdkRelease: String? = null
@@ -611,26 +611,6 @@ The default value is 'indy' if language version is 2.0+, and 'class' otherwise."
         set(value) {
             checkFrozen()
             field = if (value.isNullOrEmpty()) null else value
-        }
-
-    @Argument(
-        value = "-Xno-optimized-callable-references",
-        description = "Don't use optimized callable reference superclasses, which have been available since 1.4."
-    )
-    var noOptimizedCallableReferences = false
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
-        value = "-Xno-kotlin-nothing-value-exception",
-        description = "Don't use KotlinNothingValueException, which has been available since 1.4."
-    )
-    var noKotlinNothingValueException = false
-        set(value) {
-            checkFrozen()
-            field = value
         }
 
     @Argument(
@@ -828,10 +808,10 @@ This option is deprecated and will be deleted in future versions."""
         }
 
     @Argument(
-        value = "-Xuse-kapt4",
-        description = "Enable the experimental KAPT 4."
+        value = "-Xuse-k2-kapt",
+        description = "Enable the experimental support for K2 KAPT."
     )
-    var useKapt4 = false
+    var useK2Kapt = false
         set(value) {
             checkFrozen()
             field = value

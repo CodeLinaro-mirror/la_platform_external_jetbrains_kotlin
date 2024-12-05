@@ -20,6 +20,7 @@ fun copyCommonCompilerArguments(from: CommonCompilerArguments, to: CommonCompile
     to.commonSources = from.commonSources?.copyOf()
     to.consistentDataClassCopyVisibility = from.consistentDataClassCopyVisibility
     to.contextReceivers = from.contextReceivers
+    to.directJavaActualization = from.directJavaActualization
     to.disableDefaultScriptingPlugin = from.disableDefaultScriptingPlugin
     to.disablePhases = from.disablePhases?.copyOf()
     to.dontWarnOnErrorSuppression = from.dontWarnOnErrorSuppression
@@ -51,6 +52,7 @@ fun copyCommonCompilerArguments(from: CommonCompilerArguments, to: CommonCompile
     to.newInference = from.newInference
     to.noCheckActual = from.noCheckActual
     to.noInline = from.noInline
+    to.nonLocalBreakContinue = from.nonLocalBreakContinue
     to.optIn = from.optIn?.copyOf()
     to.phasesToDump = from.phasesToDump?.copyOf()
     to.phasesToDumpAfter = from.phasesToDumpAfter?.copyOf()
@@ -74,9 +76,10 @@ fun copyCommonCompilerArguments(from: CommonCompilerArguments, to: CommonCompile
     to.stdlibCompilation = from.stdlibCompilation
     to.suppressApiVersionGreaterThanLanguageVersionError = from.suppressApiVersionGreaterThanLanguageVersionError
     to.suppressVersionWarnings = from.suppressVersionWarnings
+    to.suppressedDiagnostics = from.suppressedDiagnostics?.copyOf()
     to.unrestrictedBuilderInference = from.unrestrictedBuilderInference
     to.useExperimental = from.useExperimental?.copyOf()
-    to.useFirExtendedCheckers = from.useFirExtendedCheckers
+    to.useFirExperimentalCheckers = from.useFirExperimentalCheckers
     to.useFirIC = from.useFirIC
     to.useFirLT = from.useFirLT
     to.useK2 = from.useK2

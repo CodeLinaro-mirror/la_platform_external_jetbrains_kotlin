@@ -358,6 +358,7 @@ class FirStatusResolver(
                 val containingPropertyModality = containingProperty?.modality
                 when {
                     containingClass == null -> Modality.FINAL
+                    declaration is FirPropertyAccessor && containingPropertyModality != null -> containingPropertyModality
                     containingClass.classKind == ClassKind.INTERFACE -> {
                         when {
                             declaration.visibility == Visibilities.Private -> Modality.FINAL
@@ -365,7 +366,6 @@ class FirStatusResolver(
                             else -> Modality.OPEN
                         }
                     }
-                    declaration is FirPropertyAccessor && containingPropertyModality != null -> containingPropertyModality
                     declaration.isOverride -> Modality.OPEN
                     else -> Modality.FINAL
                 }
@@ -381,7 +381,6 @@ private val FirClass.modality: Modality?
     get() = when (this) {
         is FirRegularClass -> status.modality
         is FirAnonymousObject -> Modality.FINAL
-        else -> error("Unknown kind of class: ${this::class}")
     }
 
 private fun FirDeclaration.hasOwnBodyOrAccessorBody(): Boolean {

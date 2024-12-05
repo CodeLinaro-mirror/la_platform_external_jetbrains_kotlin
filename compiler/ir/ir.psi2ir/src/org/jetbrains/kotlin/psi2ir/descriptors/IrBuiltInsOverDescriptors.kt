@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.descriptors.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolDescriptor
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
@@ -145,7 +146,6 @@ class IrBuiltInsOverDescriptors(
                     type = valueParameterType,
                     isAssignable = false,
                     symbol = valueParameterSymbol,
-                    index = i,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -260,7 +260,6 @@ class IrBuiltInsOverDescriptors(
                     type = valueIrType,
                     isAssignable = false,
                     symbol = valueParameterSymbol,
-                    index = 0,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,

@@ -244,7 +244,7 @@ internal class KaFirExpressionTypeProvider(
                     is FirNamedArgumentExpression, is FirSpreadArgumentExpression ->
                         arg.psi == argumentExpression.parent
                     else ->
-                        arg.psi == argumentExpression
+                        arg.psi == argumentExpression.unwrap()
                 }
             }?.value ?: return null
         return if (firParameterForExpression.isVararg)
@@ -348,8 +348,8 @@ internal class KaFirExpressionTypeProvider(
 
         val functionLiteral = blockExpression.parent as? KtFunctionLiteral
         return if (functionLiteral != null) {
-            val functionalType = functionLiteral.expectedType as? KaFunctionType
-            functionalType?.returnType
+            val functionType = functionLiteral.expectedType as? KaFunctionType
+            functionType?.returnType
         } else {
             blockExpression.expectedType
         }
@@ -395,7 +395,7 @@ internal class KaFirExpressionTypeProvider(
         if (expression !is KtExpression) return null
         val type = binaryExpression.expectedType ?: getElvisOperandExpectedTypeByOtherOperand(expression, binaryExpression)
 
-        return type?.applyIf(expression == binaryExpression.left) { withNullability(ConeNullability.NULLABLE) }
+        return type?.applyIf(expression == binaryExpression.left) { withNullability(nullable = true) }
     }
 
     private fun getElvisOperandExpectedTypeByOtherOperand(operand: KtExpression, elvisExpression: KtBinaryExpression): KaType? {
@@ -404,12 +404,12 @@ internal class KaFirExpressionTypeProvider(
         return if (operand == leftOperand) {
             getKtExpressionNonErrorType(rightOperand)
         } else {
-            getKtExpressionNonErrorType(leftOperand)?.withNullability(ConeNullability.NOT_NULL)
+            getKtExpressionNonErrorType(leftOperand)?.withNullability(nullable = false)
         }
     }
 
-    private fun KaType.withNullability(nullability: ConeNullability): KaType =
-        coneType.withNullability(nullability, analysisSession.firSession.typeContext).asKtType()
+    private fun KaType.withNullability(nullable: Boolean): KaType =
+        coneType.withNullability(nullable, analysisSession.firSession.typeContext).asKtType()
 
     private fun getExpectedTypeByWhenEntryValue(expression: PsiElement): KaType? {
         val condition = expression.parent as? KtWhenConditionWithExpression ?: return null

@@ -18,16 +18,13 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.ConeUnexpectedTypeArgumentsError
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.resolve.FirTypeResolutionResult
-import org.jetbrains.kotlin.fir.resolve.SupertypeSupplier
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeTypeVisibilityError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedTypeQualifierError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnsupportedDefaultValueInFunctionType
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeVisibilityError
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
-import org.jetbrains.kotlin.fir.resolve.typeResolver
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
@@ -108,7 +105,7 @@ class FirSpecificTypeResolverTransformer(
         return if (resolvedType != null && resolvedType !is ConeErrorType && diagnostic == null) {
             buildResolvedTypeRef {
                 source = functionTypeRef.source
-                type = resolvedType
+                coneType = resolvedType
                 annotations += functionTypeRef.annotations
                 delegatedTypeRef = functionTypeRef
             }
@@ -116,7 +113,7 @@ class FirSpecificTypeResolverTransformer(
             buildErrorTypeRef {
                 source = functionTypeRef.source
                 if (resolvedType != null) {
-                    type = resolvedType
+                    coneType = resolvedType
                 }
                 annotations += functionTypeRef.annotations
                 this.diagnostic = diagnostic ?: (resolvedType as? ConeErrorType)?.diagnostic
@@ -159,7 +156,7 @@ class FirSpecificTypeResolverTransformer(
             else -> {
                 buildResolvedTypeRef {
                     source = typeRef.source
-                    type = resolvedType
+                    coneType = resolvedType
                     annotations += typeRef.annotations
                     delegatedTypeRef = typeRef
                 }
@@ -188,7 +185,7 @@ class FirSpecificTypeResolverTransformer(
             }?.fakeIfAbbreviated(resolvedType)
 
             delegatedTypeRef = typeRef
-            type = resolvedType
+            coneType = resolvedType
             annotations += typeRef.annotations
 
             val partiallyResolvedTypeRef = tryCalculatingPartiallyResolvedTypeRef(typeRef, scopeClassDeclaration)
@@ -216,7 +213,7 @@ class FirSpecificTypeResolverTransformer(
             ?: fakeElement(KtFakeSourceElementKind.ErroneousTypealiasExpansion)
 
     private val ConeKotlinType.isTypealiasWithErrorInExpansion: Boolean
-        get() = (toSymbol(session) as? FirTypeAliasSymbol)?.resolvedExpandedTypeRef is FirErrorTypeRef
+        get() = toTypeAliasSymbol(session)?.resolvedExpandedTypeRef is FirErrorTypeRef
 
     /**
      * Returns the smallest non-resolvable prefix of the given [qualifiers].
@@ -252,6 +249,9 @@ class FirSpecificTypeResolverTransformer(
      *
      * This is useful for providing better IDE support when resolving partially incorrect types.
      *
+     * When trying to resolve the qualifying types, we use [withBareTypes] to ignore the required type arguments in them,
+     * because a type qualifier might not need them at all (e.g. `Map` in `Map.Entry<...>`).
+     *
      * @param typeRef The type reference for which to try to calculate a partially resolved type reference.
      * @param data The scope class declaration containing relevant information for resolving the reference.
      * @return A partially resolved type reference if it was resolved, or `null` otherwise.
@@ -270,11 +270,13 @@ class FirSpecificTypeResolverTransformer(
                 isMarkedNullable = false
                 source = typeRef.source
             }
-            val (resolvedType, diagnostic) = resolveType(typeRefToTry, data)
+
+            val (resolvedType, diagnostic) = withBareTypes { resolveType(typeRefToTry, data) }
             if (resolvedType is ConeErrorType || diagnostic != null) continue
+
             return buildResolvedTypeRef {
                 source = qualifiersToTry.last().source
-                type = resolvedType
+                coneType = resolvedType
                 delegatedTypeRef = typeRefToTry
             }
         }

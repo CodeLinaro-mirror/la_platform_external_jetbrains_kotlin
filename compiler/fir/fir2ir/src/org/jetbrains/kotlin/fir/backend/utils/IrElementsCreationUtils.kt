@@ -24,11 +24,11 @@ import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirCachingCompositeSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirStdlibBuiltinSyntheticFunctionInterfaceProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
-import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.IrVariable
+import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrElseBranch
 import org.jetbrains.kotlin.ir.expressions.IrExpression
@@ -51,7 +51,7 @@ internal fun IrDeclarationParent.declareThisReceiverParameter(
     explicitReceiver: FirReceiverParameter? = null,
     isAssignable: Boolean = false
 ): IrValueParameter {
-    return c.irFactory.createValueParameter(
+    return IrFactoryImpl.createValueParameter(
         startOffset = startOffset,
         endOffset = endOffset,
         origin = thisOrigin,
@@ -59,7 +59,6 @@ internal fun IrDeclarationParent.declareThisReceiverParameter(
         type = thisType,
         isAssignable = isAssignable,
         symbol = IrValueParameterSymbolImpl(),
-        index = UNDEFINED_PARAMETER_INDEX,
         varargElementType = null,
         isCrossinline = false,
         isNoinline = false,
@@ -82,11 +81,14 @@ fun Fir2IrComponents.createSafeCallConstruction(
     return IrBlockImpl(startOffset, endOffset, resultType, IrStatementOrigin.SAFE_CALL).apply {
         statements += receiverVariable
         statements += IrWhenImpl(startOffset, endOffset, resultType).apply {
-            val condition = IrCallImpl(
+            val condition = IrCallImplWithShape(
                 startOffset, endOffset, builtins.booleanType,
                 builtins.eqeqSymbol,
                 valueArgumentsCount = 2,
                 typeArgumentsCount = 0,
+                contextParameterCount = 0,
+                hasDispatchReceiver = false,
+                hasExtensionReceiver = false,
                 origin = IrStatementOrigin.EQEQ
             ).apply {
                 putValueArgument(0, IrGetValueImpl(startOffset, endOffset, receiverVariableSymbol))
@@ -193,11 +195,11 @@ private fun createSyntheticFiles(
     }
 }
 
-fun Fir2IrComponents.constTrue(startOffset: Int, endOffset: Int): IrConst<Boolean> {
+fun Fir2IrComponents.constTrue(startOffset: Int, endOffset: Int): IrConst {
     return IrConstImpl.constTrue(startOffset, endOffset, builtins.booleanType)
 }
 
-fun Fir2IrComponents.constFalse(startOffset: Int, endOffset: Int): IrConst<Boolean> {
+fun Fir2IrComponents.constFalse(startOffset: Int, endOffset: Int): IrConst {
     return IrConstImpl.constFalse(startOffset, endOffset, builtins.booleanType)
 }
 

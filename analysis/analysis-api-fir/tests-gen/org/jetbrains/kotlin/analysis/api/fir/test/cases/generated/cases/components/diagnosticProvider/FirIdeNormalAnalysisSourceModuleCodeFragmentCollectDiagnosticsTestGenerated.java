@@ -58,6 +58,12 @@ public class FirIdeNormalAnalysisSourceModuleCodeFragmentCollectDiagnosticsTestG
   }
 
   @Test
+  @TestMetadata("libraryOverloads.kt")
+  public void testLibraryOverloads() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/codeFragmentDiagnostics/libraryOverloads.kt");
+  }
+
+  @Test
   @TestMetadata("localClass.kt")
   public void testLocalClass() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/codeFragmentDiagnostics/localClass.kt");
@@ -67,6 +73,12 @@ public class FirIdeNormalAnalysisSourceModuleCodeFragmentCollectDiagnosticsTestG
   @TestMetadata("localFunction.kt")
   public void testLocalFunction() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/codeFragmentDiagnostics/localFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("suspend.kt")
+  public void testSuspend() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/codeFragmentDiagnostics/suspend.kt");
   }
 
   @Test

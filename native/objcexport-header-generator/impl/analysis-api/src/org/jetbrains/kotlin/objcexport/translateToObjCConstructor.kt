@@ -5,38 +5,35 @@
 
 package org.jetbrains.kotlin.objcexport
 
+import com.intellij.util.containers.addIfNotNull
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.backend.konan.descriptors.arrayTypes
-import org.jetbrains.kotlin.backend.konan.objcexport.ObjCInstanceType
-import org.jetbrains.kotlin.backend.konan.objcexport.ObjCMethod
-import org.jetbrains.kotlin.backend.konan.objcexport.ObjCParameter
-import org.jetbrains.kotlin.backend.konan.objcexport.ObjCRawType
+import org.jetbrains.kotlin.backend.konan.objcexport.*
 import org.jetbrains.kotlin.objcexport.analysisApiUtils.getSuperClassSymbolNotAny
 import org.jetbrains.kotlin.objcexport.analysisApiUtils.hasExportForCompilerAnnotation
+import org.jetbrains.kotlin.objcexport.analysisApiUtils.isCompanion
 import org.jetbrains.kotlin.objcexport.analysisApiUtils.isVisibleInObjC
 
-context(KaSession, KtObjCExportSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-fun KaClassSymbol.translateToObjCConstructors(): List<ObjCMethod> {
+fun ObjCExportContext.translateToObjCConstructors(symbol: KaClassSymbol): List<ObjCMethod> {
 
     /* Translate declared constructors */
-    val result = declaredMemberScope
+    val result = with(analysisSession) { symbol.declaredMemberScope }
         .constructors
         .filter { !it.hasExportForCompilerAnnotation }
-        .filter { it.isVisibleInObjC() }
-        .sortedWith(StableCallableOrder)
+        .filter { analysisSession.isVisibleInObjC(it) }
+        .sortedWith(analysisSession.getStableCallableOrder())
         .flatMap { constructor ->
-            val objCConstructor = constructor.buildObjCMethod()
-            listOf(objCConstructor) + if (objCConstructor.name == "init") listOf(buildNewInitConstructor(constructor)) else emptyList()
+            val objCConstructor = buildObjCMethod(constructor)
+            listOf(objCConstructor) + if (objCConstructor.name == "init") listOf(analysisSession.buildNewInitConstructor(constructor)) else emptyList()
         }
         .toMutableList()
 
     /* Create special 'alloc' constructors */
-    if (this.classId?.asFqNameString() in arrayTypes ||
-        classKind.isObject || classKind == KaClassKind.ENUM_CLASS
+    if (symbol.classId?.asFqNameString() in arrayTypes ||
+        symbol.classKind.isObject || symbol.classKind == KaClassKind.ENUM_CLASS
     ) {
         result.add(
             ObjCMethod(
@@ -53,7 +50,7 @@ fun KaClassSymbol.translateToObjCConstructors(): List<ObjCMethod> {
         result.add(
             ObjCMethod(
                 comment = null,
-                origin = getObjCExportStubOrigin(),
+                origin = analysisSession.getObjCExportStubOrigin(symbol),
                 isInstanceMethod = false,
                 returnType = ObjCInstanceType,
                 selectors = listOf("allocWithZone:"),
@@ -63,13 +60,23 @@ fun KaClassSymbol.translateToObjCConstructors(): List<ObjCMethod> {
         )
     }
 
+    if (symbol.isCompanion && symbol.classKind != KaClassKind.OBJECT) {
+        result.addIfNotNull(addInitIfNeeded(symbol, result))
+    }
+
     // Hide "unimplemented" super constructors:
-    getSuperClassSymbolNotAny()?.memberScope?.constructors.orEmpty()
-        .filter { it.isVisibleInObjC() }
-        .forEach { superClassConstructor ->
-            val translatedSuperClassConstructor = superClassConstructor.buildObjCMethod(unavailable = true)
-            if (result.none { it.name == translatedSuperClassConstructor.name }) {
-                result.add(translatedSuperClassConstructor)
+    with(analysisSession) { this@translateToObjCConstructors.analysisSession.getSuperClassSymbolNotAny(symbol)?.memberScope }?.constructors.orEmpty()
+        .filter { analysisSession.isVisibleInObjC(it) }
+        .forEach { superConstructor ->
+            val translatedSuperConstructor = buildObjCMethod(superConstructor, unavailable = true)
+            if (result.none { it.name == translatedSuperConstructor.name }) {
+                result.add(translatedSuperConstructor)
+            }
+            if (result.none { it.name == "new" } && translatedSuperConstructor.name == "init") {
+                /**
+                 * There should be only one "new" constructor, so if it's already defined in [symbol] we skip the one from super type
+                 */
+                result.add(analysisSession.buildNewInitSuperConstructor(superConstructor))
             }
         }
 
@@ -79,12 +86,10 @@ fun KaClassSymbol.translateToObjCConstructors(): List<ObjCMethod> {
 /**
  * Additional primary constructor which goes always after primary constructor ([ObjCMethod.name] == "init")
  */
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-private fun buildNewInitConstructor(constructor: KaFunctionSymbol): ObjCMethod {
+private fun KaSession.buildNewInitConstructor(constructor: KaFunctionSymbol): ObjCMethod {
     return ObjCMethod(
         comment = null,
-        origin = constructor.getObjCExportStubOrigin(),
+        origin = getObjCExportStubOrigin(constructor),
         isInstanceMethod = false,
         returnType = ObjCInstanceType,
         selectors = listOf("new"),
@@ -94,3 +99,19 @@ private fun buildNewInitConstructor(constructor: KaFunctionSymbol): ObjCMethod {
         )
     )
 }
+
+/**
+ * Additional primary super constructor which goes always after primary constructor ([ObjCMethod.name] == "init")
+ */
+private fun KaSession.buildNewInitSuperConstructor(constructor: KaFunctionSymbol): ObjCMethod {
+    return ObjCMethod(
+        comment = null,
+        origin = getObjCExportStubOrigin(constructor),
+        isInstanceMethod = false,
+        returnType = ObjCInstanceType,
+        selectors = listOf("new"),
+        parameters = emptyList(),
+        attributes = listOf("unavailable")
+    )
+}
+

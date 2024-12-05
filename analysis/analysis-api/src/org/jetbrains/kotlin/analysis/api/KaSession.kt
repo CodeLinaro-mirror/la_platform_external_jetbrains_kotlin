@@ -13,6 +13,8 @@ import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModuleProvider
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
+import org.jetbrains.kotlin.analysis.api.types.KaType
+import org.jetbrains.kotlin.analysis.api.types.KaTypePointer
 
 /**
  * [KaSession] is the entry point to all frontend-related work. It has the following contracts:
@@ -20,6 +22,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
  * - It should not be accessed from the event dispatch thread or outside a read action.
  * - It should not be leaked outside the read action it was created in. To ensure that an analysis session isn't leaked, there are
  *   additional conventions, explained further below.
+ * - It should not be accessed in [the dumb mode][com.intellij.openapi.project.DumbService].
  * - All entities retrieved from an analysis session should not be leaked outside the read action the analysis session was created in.
  *
  * To pass a symbol from one read action to another, use [KaSymbolPointer], which can be created from a symbol by [KaSymbol.createPointer].
@@ -78,6 +81,7 @@ public interface KaSession : KaLifetimeOwner,
     KaAnalysisScopeProvider,
     KaSignatureSubstitutor,
     KaResolveExtensionInfoProvider,
+    KaCompilerPluginGeneratedDeclarationsProvider,
     KaCompilerFacility,
     KaMetadataCalculator,
     KaSubstitutorProvider,
@@ -96,6 +100,11 @@ public interface KaSession : KaLifetimeOwner,
     public fun <S : KaSymbol> KaSymbolPointer<S>.restoreSymbol(): S? = withValidityAssertion {
         @OptIn(KaImplementationDetail::class)
         restoreSymbol(useSiteSession)
+    }
+
+    public fun <T : KaType> KaTypePointer<T>.restore(): T? = withValidityAssertion {
+        @OptIn(KaImplementationDetail::class)
+        restore(useSiteSession)
     }
 }
 

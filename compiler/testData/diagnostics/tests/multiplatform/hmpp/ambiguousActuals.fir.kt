@@ -1,10 +1,10 @@
 // MODULE: common
 // TARGET_PLATFORM: Common
-<!AMBIGUOUS_ACTUALS{JVM}!>expect fun foo()<!>
+<!AMBIGUOUS_ACTUALS{JVM}!>expect<!> fun foo()
 
 // MODULE: intermediate()()(common)
 // TARGET_PLATFORM: Common
-<!CONFLICTING_OVERLOADS!>actual fun foo()<!> {}
+actual <!CONFLICTING_OVERLOADS!>fun foo()<!> {}
 
 // MODULE: main()()(common, intermediate)
 actual fun foo() {}

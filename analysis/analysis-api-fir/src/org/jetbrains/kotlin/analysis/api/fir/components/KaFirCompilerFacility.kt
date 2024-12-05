@@ -9,12 +9,9 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.PsiErrorElement
 import org.jetbrains.kotlin.KtRealPsiSourceElement
 import org.jetbrains.kotlin.analysis.api.compile.CodeFragmentCapturedValue
-import org.jetbrains.kotlin.analysis.api.components.KaCodeCompilationException
-import org.jetbrains.kotlin.analysis.api.components.KaCompilationResult
-import org.jetbrains.kotlin.analysis.api.components.KaCompilerFacility
+import org.jetbrains.kotlin.analysis.api.components.*
 import org.jetbrains.kotlin.analysis.api.components.KaCompilerFacility.Companion.CODE_FRAGMENT_CLASS_NAME
 import org.jetbrains.kotlin.analysis.api.components.KaCompilerFacility.Companion.CODE_FRAGMENT_METHOD_NAME
-import org.jetbrains.kotlin.analysis.api.components.KaCompilerTarget
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnostic
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnosticWithPsi
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
@@ -32,6 +29,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirMod
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.codeFragment
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.jvm.*
@@ -41,19 +39,26 @@ import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
-import org.jetbrains.kotlin.diagnostics.*
+import org.jetbrains.kotlin.diagnostics.DiagnosticMarker
+import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.diagnostics.KtPsiDiagnostic
+import org.jetbrains.kotlin.diagnostics.Severity
+import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
+import org.jetbrains.kotlin.diagnostics.impl.PendingDiagnosticsCollectorWithSuppress
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.diagnostics.toFirDiagnostics
-import org.jetbrains.kotlin.fir.backend.*
-import org.jetbrains.kotlin.fir.backend.jvm.*
+import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
+import org.jetbrains.kotlin.fir.backend.Fir2IrConversionScope
+import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
+import org.jetbrains.kotlin.fir.backend.FirMetadataSource
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
+import org.jetbrains.kotlin.fir.backend.jvm.FirJvmVisibilityConverter
+import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.backend.utils.CodeFragmentConversionData
 import org.jetbrains.kotlin.fir.backend.utils.InjectedValue
-import org.jetbrains.kotlin.fir.backend.utils.conversionData
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirFile
-import org.jetbrains.kotlin.fir.declarations.FirFunction
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.hasBody
 import org.jetbrains.kotlin.fir.diagnostics.ConeSyntaxDiagnostic
 import org.jetbrains.kotlin.fir.languageVersionSettings
@@ -121,10 +126,6 @@ internal class KaFirCompilerFacility(
         target: KaCompilerTarget,
         allowedErrorFilter: (KaDiagnostic) -> Boolean
     ): KaCompilationResult {
-        val classBuilderFactory = when (target) {
-            is KaCompilerTarget.Jvm -> target.classBuilderFactory
-        }
-
         val syntaxErrors = SyntaxErrorReportingVisitor(analysisSession.firSession) { it.asKtDiagnostic() }
             .also(file::accept).diagnostics
 
@@ -134,7 +135,7 @@ internal class KaFirCompilerFacility(
 
         val mainFirFile = getFullyResolvedFirFile(file)
 
-        val frontendDiagnostics = file.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_COMMON_CHECKERS)
+        val frontendDiagnostics = file.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_DEFAULT_CHECKERS)
         val frontendErrors = computeErrors(frontendDiagnostics, allowedErrorFilter)
 
         if (frontendErrors.isNotEmpty()) {
@@ -148,9 +149,13 @@ internal class KaFirCompilerFacility(
         val compilationPeerData = CompilationPeerCollector.process(mainFirFile)
 
         val filesToCompile = buildList {
-            val dependencyFiles = buildSet {
-                addAll(compilationPeerData.files)
-                addAll(codeFragmentMappings?.capturedFiles.orEmpty())
+            // Since the order of dependency files matters, we have to use "List" here. Otherwise, we will meet a case
+            // that it has a missing "inline function" when filling inline functions as a part of the JVM bytecode-gen.
+            val dependencyFiles = buildList {
+                addAll(compilationPeerData.filesToCompile)
+
+                val filesAsSet = compilationPeerData.filesToCompile.toHashSet()
+                codeFragmentMappings?.capturedFiles?.forEach { if (it !in filesAsSet) add(it) }
 
                 // The main file needs to be the last so caches for the context declarations are populated in FIR-to-IR.
                 remove(file)
@@ -166,27 +171,60 @@ internal class KaFirCompilerFacility(
         require(targetFiles.isNotEmpty())
 
         val jvmIrDeserializer = JvmIrDeserializerImpl()
-        val diagnosticReporter = DiagnosticReporterFactory.createPendingReporter()
+        val diagnosticReporter = DiagnosticReporterFactory.createPendingReporter(configuration.messageCollector)
 
         val irGeneratorExtensions = IrGenerationExtension.getInstances(project)
 
-        dependencyFiles
-            .map(::getFullyResolvedFirFile)
-            .groupBy { it.llFirSession }
-            .map { (dependencySession, dependencyFiles) ->
-                val dependencyConfiguration = configuration
-                    .copy()
-                    .apply {
-                        put(CommonConfigurationKeys.USE_FIR, true)
-                        put(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS, dependencySession.languageVersionSettings)
-                    }
+        val inlineFunDependencyBytecode = mutableMapOf<String, ByteArray>()
 
-                val dependencyFir2IrExtensions = JvmFir2IrExtensions(dependencyConfiguration, jvmIrDeserializer)
-                runFir2Ir(
-                    dependencySession, dependencyFiles, dependencyFir2IrExtensions,
-                    diagnosticReporter, dependencyConfiguration, irGeneratorExtensions
+        for (dependencyFile in dependencyFiles) {
+            var compileResult: KaCompilationResult? = null
+            runFir2IrForDependency(
+                listOf(dependencyFile), configuration, jvmIrDeserializer, diagnosticReporter, irGeneratorExtensions
+            ) { fir2IrResult, ktFiles, dependencyConfiguration ->
+                val codegenFactory = createJvmIrCodegenFactory(
+                    configuration = dependencyConfiguration,
+                    isCodeFragment = dependencyFile is KtCodeFragment,
+                    irModuleFragment = fir2IrResult.irModuleFragment
                 )
+
+                compileResult = runJvmIrCodeGen(
+                    fir2IrResult = fir2IrResult,
+                    configuration = dependencyConfiguration,
+                    target = target,
+                    targetFiles = ktFiles,
+                    codeFragmentMappings = null,
+                    codegenFactory = codegenFactory,
+                    generateClassFilter = SingleFileGenerateClassFilter(dependencyFile, compilationPeerData.inlinedClasses),
+                    diagnosticReporter = diagnosticReporter,
+                    jvmGeneratorExtensions = JvmFir2IrExtensions(dependencyConfiguration, jvmIrDeserializer),
+                    allowedErrorFilter = allowedErrorFilter,
+                ) { generationState ->
+                    inlineFunDependencyBytecode.forEach { (className, compileResult) ->
+                        generationState.inlineCache.classBytes.put(className, compileResult)
+                    }
+                }
             }
+            when (compileResult) {
+                is KaCompilationResult.Success -> {
+                    val artifact = compileResult as KaCompilationResult.Success
+                    for (compiledFile in artifact.output) {
+                        val path = compiledFile.path
+
+                        // `GenerationState.inlineCache` uses the path to class file without ".class" as a key. For example,
+                        //  - The key for `Foo` class in `com.example.foo` package is `com/example/foo/Foo`.
+                        //  - The key for companion object of `Foo` in `com.example.foo` package is `com/example/foo/Foo$Companion`.
+                        //  - The key for an inner class `Inner` of `Foo` in `com.example.foo` package is `com/example/foo/Foo$Inner`.
+                        if (!path.endsWith(".class")) continue
+                        val className = path.substringBeforeLast(".class")
+
+                        inlineFunDependencyBytecode[className] = compiledFile.content
+                    }
+                }
+                is KaCompilationResult.Failure -> return compileResult!!
+                null -> continue
+            }
+        }
 
         val targetConfiguration = configuration
             .copy()
@@ -214,23 +252,58 @@ internal class KaFirCompilerFacility(
         patchCodeFragmentIr(targetFir2IrResult)
 
         ProgressManager.checkCanceled()
-        targetFir2IrResult.pluginContext.applyIrGenerationExtensions(targetFir2IrResult.irModuleFragment, irGeneratorExtensions)
-
-        val bindingContext = NoScopeRecordCliBindingTrace(project).bindingContext
+        targetFir2IrResult.pluginContext.applyIrGenerationExtensions(
+            targetFir2IrResult.components.configuration,
+            targetFir2IrResult.irModuleFragment,
+            irGeneratorExtensions,
+        )
         val codegenFactory = createJvmIrCodegenFactory(targetConfiguration, file is KtCodeFragment, targetFir2IrResult.irModuleFragment)
-        val generateClassFilter = SingleFileGenerateClassFilter(file, compilationPeerData.inlinedClasses)
 
+        return runJvmIrCodeGen(
+            targetFir2IrResult,
+            targetConfiguration,
+            target,
+            targetFiles,
+            codeFragmentMappings,
+            codegenFactory,
+            SingleFileGenerateClassFilter(file, compilationPeerData.inlinedClasses),
+            diagnosticReporter,
+            jvmGeneratorExtensions,
+            allowedErrorFilter,
+        ) { generationState ->
+            inlineFunDependencyBytecode.forEach { (className, compileResult) ->
+                generationState.inlineCache.classBytes.put(className, compileResult)
+            }
+        }
+    }
+
+    private fun runJvmIrCodeGen(
+        fir2IrResult: Fir2IrActualizedResult,
+        configuration: CompilerConfiguration,
+        target: KaCompilerTarget,
+        targetFiles: List<KtFile>,
+        codeFragmentMappings: CodeFragmentMappings?,
+        codegenFactory: JvmIrCodegenFactory,
+        generateClassFilter: SingleFileGenerateClassFilter,
+        diagnosticReporter: PendingDiagnosticsCollectorWithSuppress,
+        jvmGeneratorExtensions: JvmGeneratorExtensions,
+        allowedErrorFilter: (KaDiagnostic) -> Boolean,
+        fillInlineCache: (GenerationState) -> Unit,
+    ): KaCompilationResult {
+        val bindingContext = NoScopeRecordCliBindingTrace(project).bindingContext
         val generationState = GenerationState.Builder(
             project,
-            classBuilderFactory,
-            targetFir2IrResult.irModuleFragment.descriptor,
+            target.classBuilderFactory,
+            fir2IrResult.irModuleFragment.descriptor,
             bindingContext,
             targetFiles,
-            targetConfiguration,
+            configuration,
         ).generateDeclaredClassFilter(generateClassFilter)
             .codegenFactory(codegenFactory)
             .diagnosticReporter(diagnosticReporter)
             .build()
+
+        fillInlineCache(generationState)
 
         try {
             generationState.beforeCompile()
@@ -239,12 +312,12 @@ internal class KaFirCompilerFacility(
 
             codegenFactory.generateModuleInFrontendIRMode(
                 generationState,
-                targetFir2IrResult.irModuleFragment,
-                targetFir2IrResult.symbolTable,
-                targetFir2IrResult.components.irProviders,
+                fir2IrResult.irModuleFragment,
+                fir2IrResult.symbolTable,
+                fir2IrResult.components.irProviders,
                 CompilerFacilityJvmGeneratorExtensions(jvmGeneratorExtensions),
-                FirJvmBackendExtension(targetFir2IrResult.components, null),
-                targetFir2IrResult.pluginContext
+                FirJvmBackendExtension(fir2IrResult.components, null),
+                fir2IrResult.pluginContext
             )
 
             CodegenFactory.doCheckCancelled(generationState)
@@ -282,28 +355,71 @@ internal class KaFirCompilerFacility(
         }
     }
 
+    private fun runFir2IrForDependency(
+        dependencyFiles: List<KtFile>,
+        configuration: CompilerConfiguration,
+        jvmIrDeserializer: JvmIrDeserializerImpl,
+        diagnosticReporter: PendingDiagnosticsCollectorWithSuppress,
+        irGeneratorExtensions: List<IrGenerationExtension>,
+        handleFir2IrResult: ((Fir2IrActualizedResult, List<KtFile>, CompilerConfiguration) -> Unit)? = null,
+    ) {
+        dependencyFiles
+            .map { Pair(it, getFullyResolvedFirFile(it)) }
+            .groupBy { it.second.llFirSession }
+            .forEach { (dependencySession, dependencyFileMapping) ->
+                val dependencyConfiguration = configuration.copy().apply {
+                    put(CommonConfigurationKeys.USE_FIR, true)
+                    put(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS, dependencySession.languageVersionSettings)
+                }
+
+                val dependencyFir2IrExtensions = JvmFir2IrExtensions(dependencyConfiguration, jvmIrDeserializer)
+                val fir2IrResult = runFir2Ir(
+                    dependencySession,
+                    dependencyFileMapping.map { it.second },
+                    dependencyFir2IrExtensions,
+                    diagnosticReporter,
+                    dependencyConfiguration,
+                    irGeneratorExtensions
+                )
+
+                if (handleFir2IrResult != null) {
+                    handleFir2IrResult(fir2IrResult, dependencyFileMapping.map { it.first }, dependencyConfiguration)
+                }
+            }
+    }
+
     private fun runFir2Ir(
         session: LLFirSession,
         firFiles: List<FirFile>,
         fir2IrExtensions: Fir2IrExtensions,
-        diagnosticReporter: DiagnosticReporter,
+        diagnosticReporter: BaseDiagnosticsCollector,
         effectiveConfiguration: CompilerConfiguration,
         irGeneratorExtensions: List<IrGenerationExtension>
     ): Fir2IrActualizedResult {
-        val fir2IrConfiguration = Fir2IrConfiguration.forAnalysisApi(effectiveConfiguration, session.languageVersionSettings, diagnosticReporter)
+        val fir2IrConfiguration =
+            Fir2IrConfiguration.forAnalysisApi(effectiveConfiguration, session.languageVersionSettings, diagnosticReporter)
         val firResult = FirResult(listOf(ModuleCompilerAnalyzedOutput(session, session.getScopeSession(), firFiles)))
+        val singleOutput = firResult.outputs.size == 1
+        check(singleOutput) { "Single output invariant is used in the lambda below" }
 
         return firResult.convertToIrAndActualize(
             fir2IrExtensions,
             fir2IrConfiguration,
             irGeneratorExtensions,
             JvmIrMangler,
-            FirJvmKotlinMangler,
             FirJvmVisibilityConverter,
             DefaultBuiltIns.Instance,
             ::JvmIrTypeSystemContext,
             JvmIrSpecialAnnotationSymbolProvider,
-            FirJvmBuiltinProviderActualDeclarationExtractor.Companion::initializeIfNeeded,
+            extraActualDeclarationExtractorsInitializer = {
+                error(
+                    "extraActualDeclarationExtractorsInitializer should never be called, because outputs is a list of a single element. " +
+                            "Output is single ($singleOutput) => " +
+                            "dependentIrFragments will always be empty => " +
+                            "IrActualizer will never be called => " +
+                            "extraActualDeclarationExtractorsInitializer will never be called"
+                )
+            },
         )
     }
 
@@ -415,7 +531,7 @@ internal class KaFirCompilerFacility(
             InjectedValue(it.symbol, it.contextReceiverNumber, it.typeRef, it.value.isMutated)
         }
 
-        codeFragment.conversionData = CodeFragmentConversionData(
+        val conversionData = CodeFragmentConversionData(
             classId = ClassId(FqName.ROOT, Name.identifier(configuration[CODE_FRAGMENT_CLASS_NAME] ?: "CodeFragment")),
             methodName = Name.identifier(configuration[CODE_FRAGMENT_METHOD_NAME] ?: "run"),
             injectedSymbols
@@ -424,12 +540,13 @@ internal class KaFirCompilerFacility(
         val injectedSymbolMapping = injectedSymbols.associateBy {
             CodeFragmentCapturedId(it.symbol, it.contextReceiverNumber)
         }
-        val injectedValueProvider = InjectedSymbolProvider(mainKtFile, injectedSymbolMapping)
+        val injectedValueProvider = InjectedSymbolProvider(conversionData, mainKtFile, injectedSymbolMapping)
 
         return CodeFragmentMappings(capturedValues, capturedData.files, injectedValueProvider)
     }
 
     private class InjectedSymbolProvider(
+        val conversionData: CodeFragmentConversionData,
         private val mainKtFile: KtFile,
         private val injectedSymbolMapping: Map<CodeFragmentCapturedId, InjectedValue>
     ) : (FirReference, Fir2IrConversionScope) -> InjectedValue? {
@@ -457,11 +574,11 @@ internal class KaFirCompilerFacility(
         override fun generateRawTypeAnnotationCall(): IrConstructorCall? = delegate.generateRawTypeAnnotationCall()
 
         /**
-         * This method is used from [org.jetbrains.kotlin.backend.jvm.lower.ReflectiveAccessLowering.visitCall]
+         * This method is used from [org.jetbrains.kotlin.backend.jvm.lower.SpecialAccessLowering.visitCall]
          * (via generateReflectiveAccessForGetter) and it is called for the private access member lowered to the getter/setter call.
          * If a private property has no getter/setter (the typical situation for simple private properties without explicitly defined
          * getter/setter) then this method is not used at all. Instead
-         * [org.jetbrains.kotlin.backend.jvm.lower.ReflectiveAccessLowering.visitGetField] (or visitSetField) generates the access without
+         * [org.jetbrains.kotlin.backend.jvm.lower.SpecialAccessLowering.visitGetField] (or visitSetField) generates the access without
          * asking.
          */
         override fun isAccessorWithExplicitImplementation(accessor: IrSimpleFunction): Boolean {
@@ -477,10 +594,14 @@ internal class KaFirCompilerFacility(
 
     private class CompilerFacilityFir2IrExtensions(
         delegate: Fir2IrExtensions,
-        private val injectedValueProvider: InjectedSymbolProvider?
+        private val injectedValueProvider: InjectedSymbolProvider?,
     ) : Fir2IrExtensions by delegate {
         override fun findInjectedValue(calleeReference: FirReference, conversionScope: Fir2IrConversionScope): InjectedValue? {
             return injectedValueProvider?.invoke(calleeReference, conversionScope)
+        }
+
+        override fun codeFragmentConversionData(fragment: FirCodeFragment): CodeFragmentConversionData {
+            return injectedValueProvider?.conversionData ?: errorWithFirSpecificEntries("Conversion data is not provided", fir = fragment)
         }
     }
 

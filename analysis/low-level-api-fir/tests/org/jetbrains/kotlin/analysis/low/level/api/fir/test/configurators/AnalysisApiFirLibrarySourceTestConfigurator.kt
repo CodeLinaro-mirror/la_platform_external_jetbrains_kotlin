@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurato
 object AnalysisApiFirLibrarySourceTestConfigurator : AnalysisApiTestConfigurator() {
     override val analyseInDependentSession: Boolean get() = false
     override val frontendKind: FrontendKind get() = FrontendKind.Fir
+    override val testPrefix: String get() = "librarySource"
 
     override fun configureTest(
         builder: TestConfigurationBuilder,
@@ -39,7 +40,7 @@ object AnalysisApiFirLibrarySourceTestConfigurator : AnalysisApiTestConfigurator
     ) {
         builder.apply {
             useAdditionalService<KtTestModuleFactory> { KtLibrarySourceTestModuleFactory }
-            useAdditionalService<TestModuleCompiler> { DispatchingTestModuleCompiler() }
+            useAdditionalService<TestModuleCompiler> { DispatchingTestModuleCompiler }
             useAdditionalService { AnalysisApiIndexingConfiguration(AnalysisApiBinaryLibraryIndexingMode.INDEX_STUBS) }
             useConfigurators(
                 ::AnalysisApiJvmEnvironmentConfigurator,

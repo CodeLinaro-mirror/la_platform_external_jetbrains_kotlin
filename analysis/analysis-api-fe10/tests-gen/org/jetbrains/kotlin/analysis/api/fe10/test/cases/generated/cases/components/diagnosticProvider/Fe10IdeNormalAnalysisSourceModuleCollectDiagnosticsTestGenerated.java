@@ -95,6 +95,12 @@ public class Fe10IdeNormalAnalysisSourceModuleCollectDiagnosticsTestGenerated ex
   }
 
   @Test
+  @TestMetadata("genericsOnOuterClass.kt")
+  public void testGenericsOnOuterClass() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/genericsOnOuterClass.kt");
+  }
+
+  @Test
   @TestMetadata("incompleteDelegation.kt")
   public void testIncompleteDelegation() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/incompleteDelegation.kt");
@@ -287,6 +293,12 @@ public class Fe10IdeNormalAnalysisSourceModuleCollectDiagnosticsTestGenerated ex
     @TestMetadata("deprecationAtTopLevel.kt")
     public void testDeprecationAtTopLevel() {
       runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/suppression/deprecationAtTopLevel.kt");
+    }
+
+    @Test
+    @TestMetadata("globalWarningSuppression.kt")
+    public void testGlobalWarningSuppression() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/suppression/globalWarningSuppression.kt");
     }
   }
 

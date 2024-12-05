@@ -8,37 +8,34 @@ package org.jetbrains.kotlin.fir.java.declarations
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.MutableOrEmptyList
-import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.builder.FirBuilderDsl
-import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationAttributes
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase.Companion.ANALYZED_DEPENDENCIES
-import org.jetbrains.kotlin.fir.declarations.FirResolvedToPhaseState
-import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
-import org.jetbrains.kotlin.fir.declarations.ResolveStateAccess
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.java.FirJavaTypeConversionMode
 import org.jetbrains.kotlin.fir.java.JavaTypeParameterStack
+import org.jetbrains.kotlin.fir.java.enhancement.FirEmptyJavaAnnotationList
+import org.jetbrains.kotlin.fir.java.enhancement.FirJavaAnnotationList
 import org.jetbrains.kotlin.fir.java.resolveIfJavaType
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
+import org.jetbrains.kotlin.load.java.structure.JavaTypeParameter
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.Variance
-import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
+import org.jetbrains.kotlin.utils.exceptions.checkWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 @OptIn(FirImplementationDetail::class, ResolveStateAccess::class)
 class FirJavaTypeParameter(
+    internal val javaTypeParameter: JavaTypeParameter,
     override val source: KtSourceElement?,
     override val moduleData: FirModuleData,
     override val origin: FirDeclarationOrigin,
@@ -47,8 +44,9 @@ class FirJavaTypeParameter(
     override val symbol: FirTypeParameterSymbol,
     override val containingDeclarationSymbol: FirBasedSymbol<*>,
     private var initialBounds: List<FirTypeRef>?,
-    override var annotations: MutableOrEmptyList<FirAnnotation>,
+    private val annotationList: FirJavaAnnotationList,
 ) : FirTypeParameter() {
+    override val annotations: List<FirAnnotation> get() = annotationList
 
     private enum class BoundsEnhancementState {
         NOT_STARTED,
@@ -72,11 +70,26 @@ class FirJavaTypeParameter(
         get() {
             enhancedBounds?.let { return it }
             if (containingDeclarationSymbol is FirClassSymbol) {
-                error(
-                    "Attempt to access Java type parameter bounds before their enhancement!" +
-                            " ownerSymbol = $containingDeclarationSymbol typeParameter = $name"
-                )
+                val firJavaClass = containingDeclarationSymbol.fir
+                checkWithAttachment(
+                    firJavaClass is FirJavaClass,
+                    { "Unexpected containing declaration: ${firJavaClass::class.simpleName}" }
+                ) {
+                    withFirEntry("class", firJavaClass)
+                }
+
+                // Explicitly call type parameters which will trigger enhancement
+                firJavaClass.typeParameters
+
+                // Second attempt after enhancement
+                enhancedBounds?.let { return it }
+
+                errorWithAttachment("Attempt to access Java type parameter bounds before their enhancement!") {
+                    withFirEntry("class", firJavaClass)
+                    withEntry("name", name.asString())
+                }
             }
+
             // It's possible to get here for FirJavaMethod via JavaOverrideChecker
             // Stack trace: (JavaOverrideChecker).isOverriddenFunction -> hasSameValueParameterTypes ->
             // buildTypeParametersSubstitutorIfCompatible -> buildErasure
@@ -86,40 +99,52 @@ class FirJavaTypeParameter(
 
     init {
         symbol.bind(this)
-        resolveState = FirResolvedToPhaseState(ANALYZED_DEPENDENCIES)
+        resolveState = FirResolvePhase.ANALYZED_DEPENDENCIES.asResolveState()
+    }
+
+    /**
+     * This function shouldn't be called under lock. It mutates nothing.
+     *
+     * @return a list of bounds, enhanced to the first round, or null if bounds were already enhanced in the past
+     */
+    internal fun performFirstRoundOfBoundsResolution(
+        javaTypeParameterStack: JavaTypeParameterStack,
+        source: KtSourceElement?,
+    ): MutableList<FirResolvedTypeRef>? {
+        if (boundsEnhancementState != BoundsEnhancementState.NOT_STARTED) {
+            return null
+        }
+
+        return initialBounds!!.mapTo(mutableListOf()) {
+            it.resolveIfJavaType(
+                moduleData.session, javaTypeParameterStack, source, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_FIRST_ROUND
+            ) as FirResolvedTypeRef
+        }
     }
 
     /**
      * This function is assumed to be called under facade- or method type parameter bounds lock.
-     * It never tries to resolve some other type parameter bounds, e.g. for a different class.
+     * It never tries to resolve some other type parameter bounds, e.g., for a different class.
      * Mutates [enhancedBounds].
      *
      * @return true if the bounds were changed, false if the first round had been already performed earlier
      */
-    internal fun performFirstRoundOfBoundsResolution(
-        session: FirSession,
-        javaTypeParameterStack: JavaTypeParameterStack,
-        source: KtSourceElement?,
-    ): Boolean {
+    internal fun storeBoundsAfterFirstRound(bounds: List<FirResolvedTypeRef>): Boolean {
         if (boundsEnhancementState != BoundsEnhancementState.NOT_STARTED) {
             return false
         }
+
         boundsEnhancementState = BoundsEnhancementState.FIRST_ROUND
-        enhancedBounds = initialBounds!!.mapTo(mutableListOf()) {
-            it.resolveIfJavaType(
-                session, javaTypeParameterStack, source, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_FIRST_ROUND
-            ) as FirResolvedTypeRef
-        }
+        enhancedBounds = bounds
         return true
     }
 
     /**
      * This function shouldn't be called under lock. It mutates nothing.
      *
-     * @return a mutable list of bound, enhanced to the 2nd round, or null if bounds were already enhanced in the past
+     * @return a mutable list of bound, enhanced to the second round, or null if bounds were already enhanced in the past
      */
     internal fun performSecondRoundOfBoundsResolution(
-        session: FirSession,
         javaTypeParameterStack: JavaTypeParameterStack,
         source: KtSourceElement?,
     ): MutableList<FirResolvedTypeRef>? {
@@ -130,9 +155,10 @@ class FirJavaTypeParameter(
             }
             return null
         }
+
         return initialBounds!!.mapTo(mutableListOf()) {
             it.resolveIfJavaType(
-                session, javaTypeParameterStack, source, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_AFTER_FIRST_ROUND
+                moduleData.session, javaTypeParameterStack, source, FirJavaTypeConversionMode.TYPE_PARAMETER_BOUND_AFTER_FIRST_ROUND
             ) as FirResolvedTypeRef
         }
     }
@@ -140,15 +166,18 @@ class FirJavaTypeParameter(
     /**
      * This function is assumed to be called under facade- or method type parameter bounds lock.
      * Performs a final mutation of [enhancedBounds].
-     * Silently does nothing if bounds was already enhanced in the past.
+     *
+     * @return **false** if bounds were already enhanced in the past.
      */
-    internal fun storeBoundsAfterAllRounds(bounds: List<FirResolvedTypeRef>) {
+    internal fun storeBoundsAfterSecondRound(bounds: List<FirResolvedTypeRef>): Boolean {
         if (boundsEnhancementState != BoundsEnhancementState.FIRST_ROUND) {
-            return
+            return false
         }
+
         boundsEnhancementState = BoundsEnhancementState.COMPLETED
         enhancedBounds = bounds
         initialBounds = null
+        return true
     }
 
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
@@ -157,25 +186,25 @@ class FirJavaTypeParameter(
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirJavaTypeParameter {
-        shouldNotBeCalled()
+        return this
     }
 
     override fun <D> transformAnnotations(transformer: FirTransformer<D>, data: D): FirJavaTypeParameter {
-        shouldNotBeCalled()
+        return this
     }
 
     override fun replaceBounds(newBounds: List<FirTypeRef>) {
-        shouldNotBeCalled()
+        shouldNotBeCalled(::replaceBounds, ::bounds)
     }
 
     override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
-        annotations = newAnnotations.toMutableOrEmpty()
+        shouldNotBeCalled(::replaceAnnotations, ::annotations)
     }
 }
 
 @FirBuilderDsl
-class FirJavaTypeParameterBuilder : FirAnnotationContainerBuilder {
-    override var source: KtSourceElement? = null
+class FirJavaTypeParameterBuilder {
+    var source: KtSourceElement? = null
     lateinit var moduleData: FirModuleData
     lateinit var origin: FirDeclarationOrigin
     var attributes: FirDeclarationAttributes = FirDeclarationAttributes()
@@ -183,10 +212,13 @@ class FirJavaTypeParameterBuilder : FirAnnotationContainerBuilder {
     lateinit var symbol: FirTypeParameterSymbol
     lateinit var containingDeclarationSymbol: FirBasedSymbol<*>
     val bounds: MutableList<FirTypeRef> = mutableListOf()
-    override val annotations: MutableList<FirAnnotation> = mutableListOf()
+    lateinit var annotationBuilder: () -> List<FirAnnotation>
+    var annotationList: FirJavaAnnotationList = FirEmptyJavaAnnotationList
+    lateinit var javaTypeParameter: JavaTypeParameter
 
-    override fun build(): FirTypeParameter {
+    fun build(): FirTypeParameter {
         return FirJavaTypeParameter(
+            javaTypeParameter,
             source,
             moduleData,
             origin,
@@ -195,7 +227,7 @@ class FirJavaTypeParameterBuilder : FirAnnotationContainerBuilder {
             symbol,
             containingDeclarationSymbol,
             bounds.takeIf { it.isNotEmpty() } ?: emptyList(),
-            annotations.toMutableOrEmpty(),
+            annotationList,
         )
     }
 

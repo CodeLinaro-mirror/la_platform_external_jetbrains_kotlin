@@ -7,6 +7,7 @@ package org.jetbrains.sir.printer
 
 import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.util.Comparators
+import org.jetbrains.kotlin.sir.util.SirSwiftModule
 import org.jetbrains.kotlin.sir.util.swiftName
 import org.jetbrains.kotlin.utils.IndentingPrinter
 import org.jetbrains.kotlin.utils.SmartPrinter
@@ -60,28 +61,43 @@ public class SirAsSwiftSourcesPrinter(
     }
 
     private fun SirModule.printImports() {
-        val lastImport = imports.lastOrNull()
-        imports.forEach {
-            it.print()
-            if (it == lastImport) {
+        imports
+            .let {
+                if (stableDeclarationsOrder)
+                    imports.sortedWith(compareBy(
+                            { it.moduleName },
+                            { it.mode },
+                        ))
+                else
+                    imports
+            }.takeIf {
+                it.isNotEmpty()
+            }?.forEach {
+                it.print()
+            }?.also {
                 println()
             }
-        }
     }
 
     private fun SirTypealias.print() {
         printDocumentation()
+        printAttributes()
         printVisibility()
         print("typealias ")
         printName()
         print(" = ")
-        println(type.swiftName)
+        println(type.swiftRender)
     }
 
     private fun SirDeclarationContainer.print() {
-        (this as? SirDeclaration)?.let {
+        if (this is SirDeclaration) {
             printDocumentation()
-            printVisibility()
+            printAttributes()
+            if (this is SirClass) {
+                printModifiers()
+            } else {
+                printVisibility()
+            }
         }
 
         printContainerKeyword()
@@ -96,6 +112,25 @@ public class SirAsSwiftSourcesPrinter(
             printChildren()
         }
         println("}")
+    }
+
+    private fun SirDeclaration.printAttributes() {
+        attributes.forEach {
+            when (it) {
+                is SirAttribute.Available -> {
+                    print("@available(")
+                    print(it.platform)
+                    if (it.deprecated) {
+                        print(", deprecated")
+                    }
+                    if (it.obsoleted) {
+                        print(", obsoleted")
+                    }
+                    print(", message: \"${it.message}\"")
+                    println(")")
+                }
+            }
+        }
     }
 
     private fun SirDeclarationContainer.printChildren() {
@@ -129,13 +164,14 @@ public class SirAsSwiftSourcesPrinter(
 
     private fun SirVariable.print() {
         printDocumentation()
-        printVisibility()
-        kind.print()
+        printAttributes()
+        printModifiers()
+        printOverride()
         print(
             "var ",
             name.swiftIdentifier,
             ": ",
-            type.swiftName,
+            type.swiftRender,
         )
         println(" {")
         withIndent {
@@ -147,7 +183,8 @@ public class SirAsSwiftSourcesPrinter(
 
     private fun SirCallable.print() {
         printDocumentation()
-        printVisibility()
+        printAttributes()
+        printModifiers()
         printOverride()
         printPreNameKeywords()
         printName()
@@ -167,9 +204,19 @@ public class SirAsSwiftSourcesPrinter(
         println("}")
     }
 
-    private fun SirCallable.printOverride() {
-        if (this is SirInit && this.isOverride) {
+    private fun SirClassMemberDeclaration.printOverride() {
+        if (this.isOverride) {
             print("override ")
+        }
+    }
+
+    private fun SirCallable.printOverride() {
+        when (this) {
+            is SirInit -> if (this.isOverride && !this.isRequired) {
+                print("override ")
+            }
+            is SirClassMemberDeclaration -> (this as SirClassMemberDeclaration).printOverride()
+            else -> {}
         }
     }
 
@@ -178,7 +225,16 @@ public class SirAsSwiftSourcesPrinter(
         documentation?.lines()?.forEach { println(it.trimIndent()) }
     }
 
-    private fun SirImport.print() = println("${if (isExported) "@_exported " else ""}import $moduleName")
+    private fun SirImport.print() {
+        print(
+            when (mode) {
+                SirImport.Mode.Exported -> "@_exported "
+                SirImport.Mode.ImplementationOnly -> "@_implementationOnly "
+                null -> ""
+            }
+        )
+        println("import $moduleName")
+    }
 
     private fun SirDeclarationContainer.printContainerKeyword() = print(
         when (this@printContainerKeyword) {
@@ -191,13 +247,13 @@ public class SirAsSwiftSourcesPrinter(
     )
 
     private fun SirClass.printSuperClass() = print(
-        superClass?.let { ": ${it.swiftName} " } ?: ""
+        superClass?.let { ": ${it.swiftRender} " } ?: ""
     )
 
     private fun SirElement.printName() = print(
         when (this@printName) {
             is SirNamed -> name
-            is SirExtension -> extendedType.swiftName
+            is SirExtension -> extendedType.swiftRender
             else -> error("There is no printable name for SirElement: ${this@printName}")
         }
     )
@@ -210,11 +266,85 @@ public class SirAsSwiftSourcesPrinter(
             ?: ""
     )
 
-    private fun SirCallable.printPreNameKeywords() = when (this) {
-        is SirInit -> initKind.print()
-        is SirFunction -> kind.print()
-        is SirGetter -> print("get")
-        is SirSetter -> print("set")
+    private fun SirClassMemberDeclaration.printModifiers() {
+        when (effectiveModality) {
+            SirModality.OPEN -> {
+                if (visibility == SirVisibility.PUBLIC) {
+                    print("open ")
+                } else {
+                    // Swift properties and methods are internally inheritable
+                    // by default – no need to print "open"
+                    printVisibility()
+                }
+                if (callableKind == SirCallableKind.CLASS_METHOD) {
+                    print("class ")
+                }
+            }
+            SirModality.FINAL -> {
+                printVisibility()
+                if (callableKind == SirCallableKind.CLASS_METHOD) {
+                    print("static ")
+                } else if (callableKind != SirCallableKind.FUNCTION) {
+                    // to reduce noise we don't print 'final' when it's implied
+                    if ((parent as? SirClass)?.modality != SirModality.FINAL) {
+                        print("final ")
+                    }
+                }
+            }
+            SirModality.UNSPECIFIED -> {
+                printVisibility()
+                if (callableKind == SirCallableKind.CLASS_METHOD) {
+                    print("class ")
+                }
+            }
+        }
+    }
+
+    private fun SirClass.printModifiers() {
+        when (modality) {
+            SirModality.OPEN -> {
+                if (visibility == SirVisibility.PUBLIC) {
+                    print("open ")
+                } else {
+                    // Swift classes are internally inheritable
+                    // by default – no need to print "open"
+                    printVisibility()
+                }
+            }
+            SirModality.FINAL -> {
+                printVisibility()
+                print("final ")
+            }
+            SirModality.UNSPECIFIED -> {
+                printVisibility()
+            }
+        }
+    }
+
+    private fun SirDeclaration.printModifiers() {
+        if (this is SirClassMemberDeclaration) {
+            printModifiers()
+        } else if (this is SirClass) {
+            printModifiers()
+        } else {
+            printVisibility()
+        }
+    }
+
+    private fun SirCallable.printPreNameKeywords() = this.also {
+        when (this) {
+            is SirInit -> {
+                if (isRequired) {
+                    print("required ")
+                }
+                if (isConvenience) {
+                    print("convenience ")
+                }
+            }
+            is SirFunction -> {}
+            is SirGetter -> print("get")
+            is SirSetter -> print("set")
+        }
     }
 
     private fun SirCallable.printName() = print(
@@ -223,7 +353,7 @@ public class SirAsSwiftSourcesPrinter(
             is SirFunction -> "func $name"
             is SirGetter,
             is SirSetter,
-            -> ""
+                -> ""
         }
     )
 
@@ -232,7 +362,7 @@ public class SirAsSwiftSourcesPrinter(
         is SirFunction,
         is SirGetter,
         is SirSetter,
-        -> print("")
+            -> print("")
     }
 
     private fun SirCallable.collectParameters(): List<SirParameter> = when (this) {
@@ -244,19 +374,11 @@ public class SirAsSwiftSourcesPrinter(
 
     private fun SirCallable.printReturnType() = print(
         when (this) {
-            is SirFunction -> " -> ${returnType.swiftName}"
+            is SirFunction -> " -> ${returnType.swiftRender}"
             is SirInit,
             is SirGetter,
             is SirSetter,
-            -> ""
-        }
-    )
-
-    private fun SirInitializerKind.print() = print(
-        when (this) {
-            SirInitializerKind.ORDINARY -> ""
-            SirInitializerKind.REQUIRED -> "required "
-            SirInitializerKind.CONVENIENCE -> "convenience "
+                -> ""
         }
     )
 
@@ -266,7 +388,7 @@ public class SirAsSwiftSourcesPrinter(
                 println()
                 withIndent {
                     this.forEachIndexed { index, sirParameter ->
-                        print(sirParameter.swiftName)
+                        print(sirParameter.swiftRender)
                         if (index != lastIndex) {
                             println(",")
                         } else {
@@ -281,15 +403,6 @@ public class SirAsSwiftSourcesPrinter(
         .forEach {
             println(it)
         }
-
-    private fun SirCallableKind.print() = print(
-        when (this) {
-            SirCallableKind.FUNCTION -> ""
-            SirCallableKind.INSTANCE_METHOD -> ""
-            SirCallableKind.CLASS_METHOD -> "class "
-            SirCallableKind.STATIC_METHOD -> "static "
-        }
-    )
 }
 
 private val SirVisibility.swift
@@ -301,13 +414,24 @@ private val SirVisibility.swift
         SirVisibility.PACKAGE -> "package"
     }
 
-private val SirParameter.swift get(): String = (argumentName ?: "_") + (parameterName?.let { " $it" } ?: "") + ": " + type.swiftName
-
 private val simpleIdentifierRegex = Regex("[_a-zA-Z][_a-zA-Z0-9]*")
 
 private val String.swiftIdentifier get() = if (simpleIdentifierRegex.matches(this)) this else "`$this`"
 
-private val SirParameter.swiftName
+private val SirParameter.swiftRender
     get(): String = (argumentName ?: "_") +
             (parameterName?.let { " $it" } ?: "") + ": " +
-            type.swiftName
+            type.swiftRender
+
+private val SirType.swiftRender: String
+    get() = when (this) {
+        is SirOptionalType -> wrappedType.swiftRender + "?"
+        is SirArrayType -> "[${elementType.swiftRender}]"
+        else -> swiftName
+    }
+
+private val SirClassMemberDeclaration.callableKind: SirCallableKind
+    get() = when (this) {
+        is SirVariable -> kind
+        is SirCallable -> (this as SirCallable).kind
+    }

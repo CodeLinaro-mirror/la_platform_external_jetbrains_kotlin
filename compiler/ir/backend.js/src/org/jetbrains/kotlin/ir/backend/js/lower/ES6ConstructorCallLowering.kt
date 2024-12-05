@@ -17,6 +17,9 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
+/**
+ * Lowers constructor usages to support ES classes.
+ */
 class ES6ConstructorCallLowering(val context: JsIrBackendContext) : BodyLoweringPass {
     private var IrConstructor.constructorFactory by context.mapping.secondaryConstructorToFactory
 
@@ -35,14 +38,11 @@ class ES6ConstructorCallLowering(val context: JsIrBackendContext) : BodyLowering
                     return super.visitConstructorCall(expression)
                 }
 
-                val factoryFunction = currentConstructor.constructorFactory ?: error("Replacement for the constructor is not found")
-
-                if (expression.isInitCall) {
-                    assert(factoryFunction.isInitFunction) { "Expect to have init function replacement" }
-                    return JsIrBuilder.buildCall(factoryFunction.symbol).apply {
-                        copyValueArgumentsFrom(expression, factoryFunction)
+                val factoryFunction = currentConstructor.constructorFactory
+                    ?: irError("Replacement for the constructor is not found") {
+                        withIrEntry("currentConstructor", currentConstructor)
+                        withIrEntry("expression", expression)
                     }
-                }
 
                 val isDelegatingCall = expression.isSyntheticDelegatingReplacement && currentFunction != null
 

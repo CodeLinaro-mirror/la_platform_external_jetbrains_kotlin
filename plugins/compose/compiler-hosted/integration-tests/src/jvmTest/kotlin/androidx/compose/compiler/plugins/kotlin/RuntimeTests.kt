@@ -6,7 +6,9 @@
 package androidx.compose.compiler.plugins.kotlin
 
 import androidx.compose.compiler.plugins.kotlin.facade.SourceFile
+import androidx.compose.compiler.plugins.kotlin.lower.fastForEach
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runner.Runner
 import org.junit.runners.BlockJUnit4ClassRunner
@@ -14,35 +16,48 @@ import org.junit.runners.Suite
 import org.junit.runners.model.FrameworkMethod
 import java.io.File
 import kotlin.test.Ignore
-import kotlin.test.Test
 
 private const val RUNTIME_TEST_ROOT = "plugins/compose/compiler-hosted/runtime-tests/src"
 
 /**
  * Takes Compose tests from runtime-tests module and runs them on compiler + plugin built from source.
  */
-@RunWith(RuntimeTests.RuntimeTestRunner::class)
-class RuntimeTests {
+@RunWith(RuntimeTestsK1.RuntimeTestRunner::class)
+class RuntimeTestsK1 {
     class RuntimeTestRunner(cls: Class<*>) : Suite(
         cls,
-        createRuntimeRunners(cls)
+        createRuntimeRunners(useFir = false)
     )
 }
 
-private fun createRuntimeRunners(cls: Class<*>): List<Runner> {
+@RunWith(RuntimeTestsK2.RuntimeTestRunner::class)
+class RuntimeTestsK2 {
+    class RuntimeTestRunner(cls: Class<*>) : Suite(
+        cls,
+        createRuntimeRunners(useFir = true)
+    )
+}
+
+private fun createRuntimeRunners(useFir: Boolean): List<Runner> {
     AbstractCompilerTest.setSystemProperties()
-    val compilers = listOf(
-        RuntimeTestCompiler(useFir = false, sourceInformation = false),
-        RuntimeTestCompiler(useFir = false, sourceInformation = true),
-        RuntimeTestCompiler(useFir = true, sourceInformation = false),
-        RuntimeTestCompiler(useFir = true, sourceInformation = true)
+    val compilers = mutableListOf(
+        RuntimeTestCompiler(useFir, sourceInformation = false, optimizeNonSkippingGroups = false),
+        RuntimeTestCompiler(useFir, sourceInformation = true, optimizeNonSkippingGroups = false),
+        RuntimeTestCompiler(useFir, sourceInformation = false, optimizeNonSkippingGroups = true),
+        RuntimeTestCompiler(useFir, sourceInformation = true, optimizeNonSkippingGroups = true)
     )
 
-    return compilers.flatMap { compiler ->
+    val iterator = compilers.iterator()
+    val result = mutableListOf<Runner>()
+    while (iterator.hasNext()) {
+        val compiler = iterator.next()
         val classes = compiler.compileRuntimeClasses()
+        val description = compiler.description
         compiler.disposeTestRootDisposable()
-        classes.map { FirVariantRunner(it, compiler.description) }
+        iterator.remove()
+        classes.fastForEach { result.add(FirVariantRunner(it, description)) }
     }
+    return result
 }
 
 private class FirVariantRunner(private val cls: Class<*>, val type: String) : BlockJUnit4ClassRunner(cls) {
@@ -56,13 +71,22 @@ private val runtimeTestFiles = runtimeTestSourceRoot.walk().toSet()
 @Ignore
 private class RuntimeTestCompiler(
     useFir: Boolean,
-    private val sourceInformation: Boolean
+    private val sourceInformation: Boolean,
+    private val optimizeNonSkippingGroups: Boolean,
 ) : AbstractCodegenTest(useFir) {
-    val description: String = "[k${if (useFir) "1" else "2"}][source=$sourceInformation]"
+    val description: String = "[source=$sourceInformation][groupOptimized=$optimizeNonSkippingGroups]"
 
     override fun CompilerConfiguration.updateConfiguration() {
         put(ComposeConfiguration.SOURCE_INFORMATION_ENABLED_KEY, sourceInformation)
         put(ComposeConfiguration.TRACE_MARKERS_ENABLED_KEY, sourceInformation)
+        if (optimizeNonSkippingGroups) {
+            put(
+                ComposeConfiguration.FEATURE_FLAGS,
+                listOf(
+                    FeatureFlag.OptimizeNonSkippingGroups.featureName,
+                )
+            )
+        }
     }
 
     fun compileRuntimeClasses() =
@@ -73,15 +97,28 @@ private class RuntimeTestCompiler(
         )
 
     private fun compileRuntimeTestClasses(sourceRoot: File, commonSources: List<File>, jvmSources: List<File>): List<Class<*>> {
-        val compiledClassesLoader = createClassLoader(
+        val generatedClassLoader = createClassLoader(
             commonSourceFiles = commonSources.map { it.toSourceFile(sourceRoot.commonSourceRoot()) },
-            platformSourceFiles = jvmSources.map { it.toSourceFile(sourceRoot.jvmSourceRoot()) }
+            platformSourceFiles = jvmSources.map { it.toSourceFile(sourceRoot.jvmSourceRoot()) },
+            additionalPaths = listOf(
+                Classpath.composeTestUtilsJar(),
+                Classpath.kotlinxCoroutinesJar(),
+                Classpath.jarFor<kotlinx.coroutines.test.TestDispatcher>(), // kotlinx-coroutines-test
+                Classpath.jarFor(kotlin.test.asserter::class.java.canonicalName), // kotlin-test metadata
+                Classpath.jarFor<kotlin.test.Asserter>(), // kotlin-test
+                Classpath.jarFor<Test>() // junit
+            )
         )
 
-        val classes = compiledClassesLoader.allGeneratedFiles.mapNotNull { generatedFile ->
+        val parent = generatedClassLoader.parent
+        val classLoader = object : ClassLoader(parent) {
+            fun defineClass(name: String, bytes: ByteArray): Class<*> =
+                defineClass(name, bytes, 0, bytes.size)
+        }
+        val classes = generatedClassLoader.allGeneratedFiles.mapNotNull { generatedFile ->
             if (generatedFile.relativePath.endsWith(".class")) {
                 val className = generatedFile.relativePath.removeSuffix(".class").replace('/', '.')
-                compiledClassesLoader.loadClass(className)
+                classLoader.defineClass(className, generatedFile.asByteArray())
                     .takeIf { cls ->
                         cls.methods.any { m -> m.annotations.any { it.annotationClass == Test::class } }
                     }

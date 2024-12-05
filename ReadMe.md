@@ -122,10 +122,12 @@ sed -i -e '/<components>/,/<\/components>/d' gradle/verification-metadata.xml
 - Re-generate dependencies with Gradle's `--write-verification-metadata` command (verify update relates to your changes)
 
 ```bash
-./gradlew -i --write-verification-metadata sha256,md5 -Pkotlin.native.enabled=true resolveDependencies
+./gradlew --write-verification-metadata sha256,md5 -Pkotlin.native.enabled=true resolveDependencies
 ```
 
 *`resolveDependencies` task resolves dependencies for all platforms including dependencies downloaded by plugins.*
+
+You can also use `./scripts/update-verification-metadata.sh` script which includes both of these steps
 
 Keep in mind:
 

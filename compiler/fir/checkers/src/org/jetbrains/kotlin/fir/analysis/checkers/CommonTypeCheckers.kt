@@ -9,13 +9,14 @@ import org.jetbrains.kotlin.fir.analysis.checkers.type.*
 
 object CommonTypeCheckers : TypeCheckers() {
     override val typeRefCheckers: Set<FirTypeRefChecker> = setOf(
+        FirSuspendModifierChecker,
+    )
+
+    override val resolvedTypeRefCheckers: Set<FirResolvedTypeRefChecker> = setOf(
         FirTypeAnnotationChecker,
         FirSuspendModifierChecker,
         FirDeprecatedTypeChecker,
         FirOptInUsageTypeRefChecker,
-        FirDefinitelyNotNullableChecker,
-        FirUnsupportedDefaultValueInFunctionTypeParameterChecker,
-        FirUnsupportedModifiersInFunctionTypeParameterChecker,
         FirStarProjectionModifierChecker,
         FirInOutProjectionModifierChecker,
         FirDuplicateParameterNameInFunctionTypeChecker,
@@ -23,7 +24,17 @@ object CommonTypeCheckers : TypeCheckers() {
         FirIncompatibleClassTypeChecker,
         FirContextReceiversTypeChecker,
         FirContextReceiversDeprecatedTypeChecker,
+        FirKotlinActualAnnotationHasNoEffectInKotlinTypeChecker,
         FirProjectionRelationChecker,
         FirArrayOfNothingTypeChecker,
+    )
+
+    override val intersectionTypeRefCheckers: Set<FirIntersectionTypeRefChecker> = setOf(
+        FirDefinitelyNotNullableChecker,
+    )
+
+    override val functionTypeRefCheckers: Set<FirFunctionTypeRefChecker> = setOf(
+        FirUnsupportedDefaultValueInFunctionTypeParameterChecker,
+        FirUnsupportedModifiersInFunctionTypeParameterChecker,
     )
 }

@@ -12,7 +12,7 @@ import kotlinx.collections.immutable.persistentSetOf
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirInlineDeclarationChecker
-import org.jetbrains.kotlin.fir.analysis.checkers.extended.FirAnonymousUnusedParamChecker
+import org.jetbrains.kotlin.fir.analysis.checkers.extra.FirAnonymousUnusedParamChecker
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirFunction
@@ -44,17 +44,17 @@ class PersistentCheckerContext private constructor(
 ) : CheckerContextForProvider(sessionHolder, returnTypeCalculator, allInfosSuppressed, allWarningsSuppressed, allErrorsSuppressed) {
     constructor(sessionHolder: SessionHolder, returnTypeCalculator: ReturnTypeCalculator) : this(
         PersistentImplicitReceiverStack(),
-        persistentListOf(),
-        persistentListOf(),
-        persistentListOf(),
-        persistentListOf(),
-        persistentListOf(),
+        containingDeclarations = persistentListOf(),
+        callsOrAssignments = persistentListOf(),
+        getClassCalls = persistentListOf(),
+        annotationContainers = persistentListOf(),
+        containingElements = persistentListOf(),
         isContractBody = false,
         inlineFunctionBodyContext = null,
         lambdaBodyContext = null,
         sessionHolder,
         returnTypeCalculator,
-        persistentSetOf(),
+        suppressedDiagnostics = getGloballySuppressedDiagnostics(sessionHolder.session),
         allInfosSuppressed = false,
         allWarningsSuppressed = false,
         allErrorsSuppressed = false,

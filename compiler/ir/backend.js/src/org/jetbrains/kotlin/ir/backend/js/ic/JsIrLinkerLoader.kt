@@ -31,8 +31,6 @@ import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
 import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.ir.util.SymbolTable
-import org.jetbrains.kotlin.js.config.ErrorTolerancePolicy
-import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.uniqueName
 import org.jetbrains.kotlin.library.unresolvedDependencies
@@ -45,6 +43,7 @@ internal data class LoadedJsIr(
     private val linker: JsIrLinker,
     private val functionTypeInterfacePackages: FunctionTypeInterfacePackages,
 ) {
+    val irBuiltIns = linker.builtIns
     private val signatureProvidersImpl = hashMapOf<KotlinLibraryFile, List<FileSignatureProvider>>()
 
     private val irFileSourceNames = hashMapOf<IrModuleFragment, Map<IrFile, KotlinSourceFile>>()
@@ -134,7 +133,6 @@ internal class JsIrLinkerLoader(
         val symbolTable = SymbolTable(signaturer, irFactory)
         val moduleDescriptor = loadedModules.keys.last()
         val typeTranslator = TypeTranslatorImpl(symbolTable, compilerConfiguration.languageVersionSettings, moduleDescriptor)
-        val errorPolicy = compilerConfiguration[JSConfigurationKeys.ERROR_TOLERANCE_POLICY] ?: ErrorTolerancePolicy.DEFAULT
         val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
         val messageCollector = compilerConfiguration.messageCollector
         val linker = JsIrLinker(
@@ -144,7 +142,6 @@ internal class JsIrLinkerLoader(
             symbolTable = symbolTable,
             partialLinkageSupport = createPartialLinkageSupportForLinker(
                 partialLinkageConfig = compilerConfiguration.partialLinkageConfig,
-                allowErrorTypes = errorPolicy.allowErrors,
                 builtIns = irBuiltIns,
                 messageCollector = messageCollector
             ),
@@ -188,7 +185,10 @@ internal class JsIrLinkerLoader(
             .toMap()
     }
 
-    fun loadIr(modifiedFiles: KotlinSourceFileMap<KotlinSourceFileExports>, loadAllIr: Boolean = false): LoadedJsIr {
+    fun loadIr(
+        modifiedFiles: KotlinSourceFileMap<KotlinSourceFileExports>,
+        loadAllIr: Boolean = false,
+    ): LoadedJsIr {
         val loadedModules = loadModules()
         val linkerContext = createLinker(loadedModules)
 

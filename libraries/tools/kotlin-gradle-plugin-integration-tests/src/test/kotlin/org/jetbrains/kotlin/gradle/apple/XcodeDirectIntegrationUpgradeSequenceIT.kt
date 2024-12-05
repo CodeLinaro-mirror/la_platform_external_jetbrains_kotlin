@@ -18,7 +18,6 @@ import java.util.stream.Stream
 
 @OsCondition(supportedOn = [OS.MAC], enabledOnCI = [OS.MAC])
 @DisplayName("Tests an Upgrade sequence for Kotlin direct integration")
-@GradleTestVersions(minVersion = TestVersions.Gradle.G_7_0)
 @NativeGradlePluginTests
 class XcodeDirectIntegrationUpgradeSequenceIT : KGPBaseTest() {
 
@@ -62,7 +61,7 @@ class XcodeDirectIntegrationUpgradeSequenceIT : KGPBaseTest() {
             xcodeproj = projectPath.resolve("iosApp/iosApp.xcodeproj"),
             scheme = "iosAppTests",
             destination = "id=${simulatorUdid}",
-            buildMode = XcodeBuildMode.TEST,
+            action = XcodeBuildAction.Test,
             testRunEnvironment = mapOf(
                 "EXPECTED_TEST_VALUE" to expectedValue
             ),

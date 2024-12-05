@@ -11,13 +11,11 @@ import org.jetbrains.kotlin.ir.declarations.IrDeclarationBase
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.typeOrNull
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.getAllArgumentsWithIr
 import org.jetbrains.kotlin.ir.util.isAnnotation
-import org.jetbrains.kotlin.ir.visitors.IrTypeTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrTypeVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.test.backend.handlers.AbstractIrHandler
 import org.jetbrains.kotlin.test.model.TestModule
@@ -31,7 +29,7 @@ class IrConstCheckerHandler(testServices: TestServices) : AbstractIrHandler(test
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {}
 }
 
-private class IrConstChecker : IrTypeTransformerVoid() {
+private class IrConstChecker : IrTypeVisitorVoid() {
     override fun visitElement(element: IrElement) {
         element.acceptChildrenVoid(this)
     }
@@ -46,18 +44,12 @@ private class IrConstChecker : IrTypeTransformerVoid() {
         declaration.acceptChildrenVoid(this)
     }
 
-    override fun <Type : IrType?> transformType(container: IrElement, type: Type): Type {
-        if (type == null) return type
-
+    override fun visitType(container: IrElement, type: IrType) {
         checkAnnotations(type)
-        if (type is IrSimpleType) {
-            type.arguments.mapNotNull { it.typeOrNull }.forEach { transformType(container, it) }
-        }
-        return type
     }
 
     override fun visitField(declaration: IrField) {
-        if (declaration.correspondingPropertySymbol?.owner?.isConst == true && declaration.initializer?.expression !is IrConst<*>) {
+        if (declaration.correspondingPropertySymbol?.owner?.isConst == true && declaration.initializer?.expression !is IrConst) {
             error("Const field is not containing const expression. Got ${declaration.initializer?.dump()}")
         }
         super.visitField(declaration)
@@ -65,7 +57,7 @@ private class IrConstChecker : IrTypeTransformerVoid() {
 
     private fun checkAnnotations(container: IrAnnotationContainer) {
         fun IrElement.isConst(): Boolean {
-            return this is IrConst<*> || this is IrGetEnumValue || this is IrClassReference || (this is IrConstructorCall && type.isAnnotation())
+            return this is IrConst || this is IrGetEnumValue || this is IrClassReference || (this is IrConstructorCall && type.isAnnotation())
         }
 
         container.annotations.forEach { annotation ->

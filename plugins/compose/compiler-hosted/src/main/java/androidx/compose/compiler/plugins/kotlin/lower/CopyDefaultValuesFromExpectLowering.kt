@@ -63,16 +63,16 @@ import org.jetbrains.kotlin.resolve.multiplatform.findCompatibleActualsForExpect
  */
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 class CopyDefaultValuesFromExpectLowering(
-    private val pluginContext: IrPluginContext
+    private val pluginContext: IrPluginContext,
 ) : ModuleLoweringPass, IrElementTransformerVoid() {
 
     private val symbolTable = pluginContext.symbolTable
 
     private fun isApplicable(declaration: IrFunction): Boolean {
         return declaration.hasComposableAnnotation() ||
-            declaration.valueParameters.any {
-                it.type.hasAnnotation(ComposeFqNames.Composable)
-            }
+                declaration.valueParameters.any {
+                    it.type.hasAnnotation(ComposeFqNames.Composable)
+                }
     }
 
     override fun visitFunction(declaration: IrFunction): IrStatement {
@@ -188,12 +188,7 @@ class CopyDefaultValuesFromExpectLowering(
         val symbolRemapper = SymbolRemapper()
         acceptVoid(symbolRemapper)
 
-        return transform(
-            transformer = DeepCopyIrTreeWithSymbols(
-                symbolRemapper, DeepCopyTypeRemapper(symbolRemapper)
-            ),
-            data = null
-        )
+        return transform(DeepCopyIrTreeWithSymbols(symbolRemapper), null)
     }
 
     private fun remapExpectTypeParameter(symbol: IrTypeParameterSymbol): IrTypeParameter {

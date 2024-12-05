@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.mpp.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -38,11 +39,11 @@ import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
 internal abstract class IrExpectActualMatchingContext(
     val typeContext: IrTypeSystemContext,
-    val expectToActualClassMap: Map<ClassId, IrClassSymbol>
+    val expectToActualClassMap: ClassActualizationInfo.ActualClassMapping
 ) : ExpectActualMatchingContext<IrSymbol>, TypeSystemContext by typeContext {
-    // This incompatibility is often suppressed in the source code (e.g. in kotlin-stdlib).
-    // The backend must be able to do expect-actual matching to emit bytecode
-    // That's why we disable the checker here. Probably, this checker can be enabled once KT-60426 is fixed
+    // Default params are not checked on backend because backend ignores expect classes in fake override builder.
+    // See https://github.com/JetBrains/kotlin/commit/8d725753f8f8d430101a17bc1049463a6319359b
+    // Default params can't be accurately checked without information about overriddenSymbols of expect classes members
     override val shouldCheckDefaultParams: Boolean
         get() = false
 
@@ -253,11 +254,15 @@ internal abstract class IrExpectActualMatchingContext(
      *   has no sense in IR context
      */
     override fun RegularClassSymbolMarker.collectAllMembers(isActualDeclaration: Boolean): List<DeclarationSymbolMarker> {
-        return asIr().declarations.filterNot { it is IrAnonymousInitializer }.map { it.symbol }
+        return asIr().declarations.filter { it !is IrAnonymousInitializer && !it.isStaticFun() }.map { it.symbol }
     }
 
-    override fun RegularClassSymbolMarker.getMembersForExpectClass(name: Name): List<DeclarationSymbolMarker> {
-        return asIr().declarations.filter { it.getNameWithAssert() == name }.map { it.symbol }
+    override fun RegularClassSymbolMarker.collectAllStaticCallables(isActualDeclaration: Boolean): List<CallableSymbolMarker> {
+        return asIr().declarations.filter { it.isStaticFun() }.mapNotNull { it.symbol as? CallableSymbolMarker }
+    }
+
+    override fun RegularClassSymbolMarker.getCallablesForExpectClass(name: Name): List<CallableSymbolMarker> {
+        return asIr().declarations.filter { it.getNameWithAssert() == name }.mapNotNull { it.symbol as? CallableSymbolMarker }
     }
 
     override fun RegularClassSymbolMarker.collectEnumEntryNames(): List<Name> {
@@ -311,7 +316,6 @@ internal abstract class IrExpectActualMatchingContext(
                 // the returned descriptors are compared by `equals`. And `equals` for fake-overrides is weird.
                 // I didn't manage to invent a test that would check this condition
                 .filter { !it.asIr().isFakeOverride }
-            else -> error("Unknown IR node: $node")
         }
 
     override val FunctionSymbolMarker.valueParameters: List<ValueParameterSymbolMarker>
@@ -457,15 +461,8 @@ internal abstract class IrExpectActualMatchingContext(
         }
     }
 
-    override fun RegularClassSymbolMarker.isNotSamInterface(): Boolean {
-        /*
-         * This is incorrect for java classes (because all java interfaces are considered as fun interfaces),
-         *   but it's fine to not to check if some java interfaces is really SAM or not, because if one
-         *   tries to actualize `expect fun interface` with typealias to non-SAM java interface, frontend
-         *   will report an error and IR matching won't be invoked
-         */
-        return !asIr().isFun
-    }
+    override fun RegularClassSymbolMarker.isSamInterface(): Boolean =
+        this.asIr().functions.singleOrNull { it.modality == Modality.ABSTRACT } != null
 
     override fun CallableSymbolMarker.isFakeOverride(containingExpectClass: RegularClassSymbolMarker?): Boolean {
         return asIr().isFakeOverride
@@ -617,3 +614,5 @@ internal abstract class IrExpectActualMatchingContext(
         }
     }
 }
+
+private fun IrDeclaration.isStaticFun(): Boolean = this is IrSimpleFunction && isStatic

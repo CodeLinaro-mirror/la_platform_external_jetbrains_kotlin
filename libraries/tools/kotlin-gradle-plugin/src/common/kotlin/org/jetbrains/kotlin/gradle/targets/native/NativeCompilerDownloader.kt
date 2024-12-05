@@ -14,16 +14,17 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.provider.Provider
 import org.gradle.api.provider.ValueSource
 import org.gradle.api.provider.ValueSourceParameters
-import org.jetbrains.kotlin.compilerRunner.KotlinNativeToolRunner
+import org.jetbrains.kotlin.gradle.internal.ClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.internal.configurationTimePropertiesAccessor
-import org.jetbrains.kotlin.gradle.plugin.internal.usedAtConfigurationTime
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
+import org.jetbrains.kotlin.gradle.report.GradleBuildMetricsReporter
 import org.jetbrains.kotlin.gradle.targets.native.internal.NativeDistributionTypeProvider
 import org.jetbrains.kotlin.gradle.targets.native.internal.PlatformLibrariesGenerator
 import org.jetbrains.kotlin.gradle.targets.native.konanPropertiesBuildService
+import org.jetbrains.kotlin.internal.compilerRunner.native.nativeCompilerClasspath
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.util.DependencyDirectories
@@ -226,13 +227,12 @@ class NativeCompilerDownloader(
     private fun checkClassPath() {
         project.providers.of(NativeCompilerDownloaderClassPathChecker::class.java) {
             it.parameters.classPath.setFrom(
-                KotlinNativeToolRunner.Settings.of(
-                    project.nativeProperties.actualNativeHomeDirectory.get().absolutePath,
-                    project.nativeProperties.konanDataDir.orNull?.absolutePath,
-                    project
-                ).classpath
+                project.objects.nativeCompilerClasspath(
+                    project.nativeProperties.actualNativeHomeDirectory,
+                    project.nativeProperties.shouldUseEmbeddableCompilerJar,
+                )
             )
-        }.usedAtConfigurationTime(project.configurationTimePropertiesAccessor).get()
+        }.get()
     }
 
     internal abstract class NativeCompilerDownloaderClassPathChecker :
@@ -281,11 +281,15 @@ internal fun Project.setupNativeCompiler(konanTarget: KonanTarget) {
     val distributionType = NativeDistributionTypeProvider(project).getDistributionType()
     if (distributionType.mustGeneratePlatformLibs) {
         PlatformLibrariesGenerator(
-            project,
+            project.objects,
             konanTarget,
-            nativeProperties.actualNativeHomeDirectory.get(),
             project.kotlinPropertiesProvider,
             project.konanPropertiesBuildService,
+            project.objects.property(GradleBuildMetricsReporter()),
+            ClassLoadersCachingBuildService.registerIfAbsent(project),
+            PlatformLibrariesGenerator.registerRequiredServiceIfAbsent(project),
+            project.useXcodeMessageStyle,
+            project.nativeProperties
         ).generatePlatformLibsIfNeeded()
     }
 }

@@ -26,9 +26,7 @@
 -dontwarn com.sun.jna.WString
 -dontwarn dk.brics.automaton.*
 -dontwarn java.lang.invoke.MethodHandle
--dontwarn javaslang.*
--dontwarn javaslang.match.annotation.Patterns
--dontwarn javaslang.match.annotation.Unapply
+-dontwarn io.vavr.*
 -dontwarn javax.crypto.**
 -dontwarn kotlinx.collections.immutable.*
 -dontwarn kotlinx.collections.immutable.**
@@ -191,7 +189,6 @@
 -keep class gnu.trove.TIntHashSet { *; }
 -keep class gnu.trove.TIntIterator { *; }
 -keep class org.iq80.snappy.SlowMemory { *; }
--keep class javaslang.match.PatternsProcessor { *; }
 
 -keepclassmembers enum * {
     public static **[] values();
@@ -269,9 +266,6 @@
     void setLazyListeners(java.util.concurrent.ConcurrentMap);
 }
 
--keep class com.intellij.openapi.util.KeyWithDefaultValue {
-    public static com.intellij.openapi.util.KeyWithDefaultValue create(java.lang.String, java.util.function.Supplier);
-}
 
 -keepclassmembers class com.intellij.util.PathUtil {
     public static java.lang.String getJarPathForClass(java.lang.Class);
@@ -305,6 +299,7 @@
 -keep class org.jline.reader.History { *; }
 -keep class org.jline.reader.EndOfFileException { *; }
 -keep class org.jline.reader.UserInterruptException { *; }
+-keep class org.jline.terminal.TerminalBuilder { *; }
 -keep class org.jline.terminal.impl.jna.JnaSupportImpl  { *; }
 -keep class org.jline.terminal.impl.jansi.JansiSupportImpl  { *; }
 
@@ -328,8 +323,11 @@
     public ** plusAll(java.util.Map);
 }
 
-# This class is needed for test framework
+# These classes is needed for test framework
 -keep class com.intellij.openapi.util.text.StringUtil { *; }
+-keepclassmembers class com.intellij.openapi.util.io.NioFiles {
+    public static void deleteRecursively(java.nio.file.Path);
+}
 
 
 # This is used from standalone analysis API, which is NOT a part of the compiler but is bundled into kotlin-annotation-processing.
@@ -358,6 +356,13 @@
 }
 -keepclassmembers class com.intellij.util.containers.ContainerUtil {
     public static java.util.concurrent.ConcurrentMap createConcurrentSoftMap();
+    public static java.util.Map createSoftValueMap();
+}
+-keep class com.intellij.codeInsight.PsiEquivalenceUtil {
+    public static boolean areElementsEquivalent(com.intellij.psi.PsiElement, com.intellij.psi.PsiElement);
+}
+-keepclassmembers class com.intellij.util.indexing.FileContentImpl {
+    public static com.intellij.util.indexing.FileContent createByFile(com.intellij.openapi.vfs.VirtualFile);
 }
 # Uses a ClassLoader method from JDK 9+
 -dontwarn org.jetbrains.kotlin.buildtools.internal.ClassLoaderUtilsKt

@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
 import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
+import org.jetbrains.kotlin.backend.common.reflectedNameAccessor
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -62,9 +63,15 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
             return expression.run {
                 val vpCount = if (function.isSuspend) 1 else 0
                 val ctorCall =
-                    IrConstructorCallImpl(
-                        startOffset, endOffset, type, ctor.symbol, 0 /*TODO: properly set type arguments*/, 0, vpCount,
-                        JsStatementOrigins.CALLABLE_REFERENCE_CREATE
+                    IrConstructorCallImplWithShape(
+                        startOffset, endOffset, type, ctor.symbol,
+                        typeArgumentsCount = 0 /*TODO: properly set type arguments*/,
+                        constructorTypeArgumentsCount = 0,
+                        valueArgumentsCount = vpCount,
+                        contextParameterCount = 0,
+                        hasDispatchReceiver = false,
+                        hasExtensionReceiver = false,
+                        origin = JsStatementOrigins.CALLABLE_REFERENCE_CREATE
                     ).apply {
                         if (function.isSuspend) {
                             putValueArgument(0, IrConstImpl.constNull(startOffset, endOffset, context.irBuiltIns.nothingNType))
@@ -86,8 +93,9 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                 val vpCount = if (boundReceiver != null) 1 else 0
                 val ctorCall = IrConstructorCallImpl(
                     startOffset, endOffset, type, ctor.symbol,
-                    0 /*TODO: properly set type arguments*/, 0,
-                    vpCount, JsStatementOrigins.CALLABLE_REFERENCE_CREATE
+                    typeArgumentsCount = 0, /*TODO: properly set type arguments*/
+                    constructorTypeArgumentsCount = 0,
+                    origin = JsStatementOrigins.CALLABLE_REFERENCE_CREATE
                 ).apply {
                     boundReceiver?.let {
                         putValueArgument(0, it)
@@ -220,7 +228,6 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                     addValueParameter {
                         name = BOUND_RECEIVER_NAME
                         type = it.type
-                        index = 0
                     }
                 }
 
@@ -231,7 +238,6 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                     continuation = addValueParameter {
                         name = superContinuation.name
                         type = superContinuation.type
-                        index = if (boundReceiverParameter == null) 0 else 1
                     }
                 }
 
@@ -275,9 +281,8 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
         private fun IrSimpleFunction.createLambdaInvokeMethod() {
             annotations = function.annotations
             val valueParameterMap = function.explicitParameters
-                .withIndex()
-                .associate { (index, param) ->
-                    param to param.copyTo(this, index = index)
+                .associate { param ->
+                    param to param.copyTo(this)
                 }
             valueParameters = valueParameterMap.values.toList()
             body = function.moveBodyTo(this, valueParameterMap)
@@ -320,7 +325,6 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                             callee.symbol,
                             callee.countContextTypeParameters(),
                             callee.typeParameters.size,
-                            callee.valueParameters.size,
                             JsStatementOrigins.CALLABLE_REFERENCE_INVOKE
                         )
                     is IrSimpleFunction ->
@@ -330,11 +334,8 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                             callee.returnType,
                             callee.symbol,
                             callee.typeParameters.size,
-                            callee.valueParameters.size,
                             JsStatementOrigins.CALLABLE_REFERENCE_INVOKE
                         )
-                    else ->
-                        compilationException("unknown function kind", callee)
                 }
             }
 
@@ -399,7 +400,6 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                 buildValueParameter(this) {
                     name = Name.identifier("p$i")
                     type = t
-                    index = i
                 }
             }
 
@@ -455,7 +455,7 @@ class CallableReferenceLowering(private val context: JsCommonBackendContext) : B
                 )
             )
 
-            context.mapping.reflectedNameAccessor[clazz] = getter
+            clazz.reflectedNameAccessor = getter
         }
 
         fun build(): Pair<IrClass, IrConstructor> {

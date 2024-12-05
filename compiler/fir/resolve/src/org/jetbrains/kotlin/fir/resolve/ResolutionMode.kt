@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.resolve
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationStatus
 import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.render
+import org.jetbrains.kotlin.fir.resolve.ResolutionMode.ArrayLiteralPosition
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 
@@ -28,24 +29,42 @@ sealed class ResolutionMode(
         val mayBeCoercionToUnitApplied: Boolean = false,
         val expectedTypeMismatchIsReportedInChecker: Boolean = false,
         val fromCast: Boolean = false,
-        // It might be ok if the types turn out to be incompatible
-        // Consider the following examples with properties and their backing fields:
-        //
-        // val items: List field = mutableListOf()
-        // val s: String field = 10 get() = ...
-        // In these examples we should try using the property type information while resolving the initializer,
-        // but it's ok if it's not applicable
+        /**
+         * Expected type is used for inferring array literal types in places where array literal syntax is supported
+         * Currently, it's an argument of annotation call or a default value of parameter in annotation class constructor
+         * `ArrayLiteralPosition.AnnotationArgument` does not produce a constraint during completion because
+         * it can contain type parameter types which aren't substituted to type variable types.
+         */
+        val arrayLiteralPosition: ArrayLiteralPosition? = null,
+        /**
+         * It might be ok if the types turn out to be incompatible.
+         * Consider the following examples with properties and their backing fields:
+         *
+         * ```
+         * val items: List field = mutableListOf()
+         * val s: String field = 10 get() = ...
+         * ```
+         *
+         * In these examples we should try using the property type information while resolving the initializer,
+         * but it's ok if it's not applicable
+         */
         val shouldBeStrictlyEnforced: Boolean = true,
-        // Currently the only case for expected type when we don't force completion are when's branches
+        /** Currently the only case for expected type when we don't force completion are when's branches */
         forceFullCompletion: Boolean = true,
     ) : ResolutionMode(forceFullCompletion) {
 
         fun copy(
+            expectedTypeRef: FirResolvedTypeRef = this.expectedTypeRef,
             mayBeCoercionToUnitApplied: Boolean = this.mayBeCoercionToUnitApplied,
-            forceFullCompletion: Boolean = this.forceFullCompletion
+            forceFullCompletion: Boolean = this.forceFullCompletion,
         ): WithExpectedType = WithExpectedType(
-            expectedTypeRef, mayBeCoercionToUnitApplied, expectedTypeMismatchIsReportedInChecker, fromCast, shouldBeStrictlyEnforced,
-            forceFullCompletion
+            expectedTypeRef = expectedTypeRef,
+            mayBeCoercionToUnitApplied = mayBeCoercionToUnitApplied,
+            expectedTypeMismatchIsReportedInChecker = expectedTypeMismatchIsReportedInChecker,
+            fromCast = fromCast,
+            arrayLiteralPosition = arrayLiteralPosition,
+            shouldBeStrictlyEnforced = shouldBeStrictlyEnforced,
+            forceFullCompletion = forceFullCompletion
         )
 
         override fun toString(): String {
@@ -53,9 +72,15 @@ sealed class ResolutionMode(
                     "mayBeCoercionToUnitApplied=${mayBeCoercionToUnitApplied}, " +
                     "expectedTypeMismatchIsReportedInChecker=${expectedTypeMismatchIsReportedInChecker}, " +
                     "fromCast=${fromCast}, " +
+                    "arrayLiteralPosition=${arrayLiteralPosition}, " +
                     "shouldBeStrictlyEnforced=${shouldBeStrictlyEnforced}, " +
                     "forceFullCompletion=${forceFullCompletion}, "
         }
+    }
+
+    enum class ArrayLiteralPosition {
+        AnnotationArgument,
+        AnnotationParameter,
     }
 
     class WithStatus(val status: FirDeclarationStatus) : ResolutionMode(forceFullCompletion = false) {
@@ -102,10 +127,15 @@ fun ResolutionMode.expectedType(components: BodyResolveComponents): FirTypeRef? 
     else -> null
 }
 
-fun withExpectedType(expectedTypeRef: FirTypeRef, expectedTypeMismatchIsReportedInChecker: Boolean = false): ResolutionMode = when {
+fun withExpectedType(
+    expectedTypeRef: FirTypeRef,
+    expectedTypeMismatchIsReportedInChecker: Boolean = false,
+    arrayLiteralPosition: ArrayLiteralPosition? = null,
+): ResolutionMode = when {
     expectedTypeRef is FirResolvedTypeRef -> ResolutionMode.WithExpectedType(
         expectedTypeRef,
-        expectedTypeMismatchIsReportedInChecker = expectedTypeMismatchIsReportedInChecker
+        expectedTypeMismatchIsReportedInChecker = expectedTypeMismatchIsReportedInChecker,
+        arrayLiteralPosition = arrayLiteralPosition,
     )
     else -> ResolutionMode.ContextIndependent
 }
@@ -117,7 +147,7 @@ fun withExpectedType(coneType: ConeKotlinType?, mayBeCoercionToUnitApplied: Bool
 
 fun withExpectedType(coneType: ConeKotlinType, mayBeCoercionToUnitApplied: Boolean = false): ResolutionMode {
     val typeRef = buildResolvedTypeRef {
-        type = coneType
+        this.coneType = coneType
     }
     return ResolutionMode.WithExpectedType(typeRef, mayBeCoercionToUnitApplied)
 }

@@ -544,8 +544,7 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         }
     }
 
-    // Requires public access, because it is used by serialization plugin to generate initializer in synthetic constructor
-    public void initializeProperty(@NotNull ExpressionCodegen codegen, @NotNull KtProperty property) {
+    private void initializeProperty(@NotNull ExpressionCodegen codegen, @NotNull KtProperty property) {
         PropertyDescriptor propertyDescriptor = (PropertyDescriptor) bindingContext.get(VARIABLE, property);
         assert propertyDescriptor != null;
 
@@ -581,7 +580,6 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         }
     }
 
-    // Public accessible for serialization plugin to check whether call to initializeProperty(..) is legal.
     public boolean shouldInitializeProperty(@NotNull KtProperty property) {
         if (!property.hasDelegateExpressionOrInitializer()) return false;
 
@@ -693,24 +691,16 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
         iv.dup();
 
         List<Type> superCtorArgTypes = new ArrayList<>();
-        if (state.getConfig().getGenerateOptimizedCallableReferenceSuperClasses()) {
-            CallableReferenceUtilKt.generateCallableReferenceDeclarationContainerClass(iv, property, state);
-            superCtorArgTypes.add(JAVA_CLASS_TYPE);
-        } else {
-            // TODO: generate the container once and save to a local field instead (KT-10495)
-            CallableReferenceUtilKt.generateCallableReferenceDeclarationContainer(iv, property, state);
-            superCtorArgTypes.add(K_DECLARATION_CONTAINER_TYPE);
-        }
+        CallableReferenceUtilKt.generateCallableReferenceDeclarationContainerClass(iv, property, state);
+        superCtorArgTypes.add(JAVA_CLASS_TYPE);
 
         iv.aconst(property.getName().asString());
         CallableReferenceUtilKt.generatePropertyReferenceSignature(iv, property, state);
         superCtorArgTypes.add(JAVA_STRING_TYPE);
         superCtorArgTypes.add(JAVA_STRING_TYPE);
 
-        if (state.getConfig().getGenerateOptimizedCallableReferenceSuperClasses()) {
-            iv.aconst(CallableReferenceUtilKt.getCallableReferenceTopLevelFlag(property));
-            superCtorArgTypes.add(Type.INT_TYPE);
-        }
+        iv.aconst(CallableReferenceUtilKt.getCallableReferenceTopLevelFlag(property));
+        superCtorArgTypes.add(Type.INT_TYPE);
 
         iv.invokespecial(
                 implType.getInternalName(), "<init>",
@@ -748,7 +738,9 @@ public abstract class MemberCodegen<T extends KtPureElement/* TODO: & KtDeclarat
     @NotNull
     public SourceMapper getOrCreateSourceMapper() {
         if (sourceMapper == null) {
-            sourceMapper = new SourceMapper(element instanceof KtElement ? SourceInfo.Companion.createFromPsi((KtElement)element, getClassName()) : null);
+            sourceMapper = new SourceMapper(
+                    element instanceof KtElement ? SourceInfoUtils.Companion.createSourceInfoFromPsi((KtElement) element, getClassName()) : null
+            );
         }
         return sourceMapper;
     }

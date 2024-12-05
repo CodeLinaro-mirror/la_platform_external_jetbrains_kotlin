@@ -139,7 +139,8 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
                 }
 
                 engine.runK2SpecialBackendChecks(fir2IrOutput)
-                engine.runFir2IrSerializer(FirSerializerInput(fir2IrOutput))
+                val inlinedIr = engine.runIrInliner(fir2IrOutput, environment)
+                engine.runFir2IrSerializer(FirSerializerInput(inlinedIr))
             }
         }
     }
@@ -188,7 +189,7 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
         val llvmContext = LLVMContextCreate()!!
         var llvmModule: CPointer<LLVMOpaqueModule>? = null
         try {
-            llvmModule = parseBitcodeFile(llvmContext, bitcodeFilePath)
+            llvmModule = parseBitcodeFile(engine.context, engine.context.messageCollector, llvmContext, bitcodeFilePath)
             val context = BitcodePostProcessingContextImpl(config, llvmModule, llvmContext)
             val depsPath = config.readSerializedDependencies
             val dependencies = if (depsPath.isNullOrEmpty()) DependenciesTrackingResult(emptyList(), emptyList(), emptyList()).also {
@@ -234,7 +235,7 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
             config,
             frontendOutput.moduleDescriptor.getIncludedLibraryDescriptors(config).toSet() + frontendOutput.moduleDescriptor,
             frontendOutput.moduleDescriptor.builtIns as KonanBuiltIns,
-            psiToIrOutput.irModule.irBuiltins,
+            psiToIrOutput.irBuiltIns,
             psiToIrOutput.irModules,
             psiToIrOutput.irLinker,
             psiToIrOutput.symbols

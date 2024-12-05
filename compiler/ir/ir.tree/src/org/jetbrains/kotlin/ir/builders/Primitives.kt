@@ -36,7 +36,6 @@ fun primitiveOp1(
     IrCallImpl(
         startOffset, endOffset, primitiveOpReturnType, primitiveOpSymbol,
         typeArgumentsCount = 0,
-        valueArgumentsCount = 0,
         origin = origin
     ).also {
         it.dispatchReceiver = dispatchReceiver
@@ -54,7 +53,6 @@ fun primitiveOp2(
         primitiveOpReturnType,
         primitiveOpSymbol,
         typeArgumentsCount = 0,
-        valueArgumentsCount = 2,
         origin = origin
     ).apply {
         putValueArgument(0, argument1)
@@ -93,7 +91,7 @@ fun IrGeneratorContextInterface.oror(
     b: IrExpression,
     origin: IrStatementOrigin = IrStatementOrigin.OROR
 ): IrWhen =
-    IrIfThenElseImpl(startOffset, endOffset, irBuiltIns.booleanType, origin).apply {
+    IrWhenImpl(startOffset, endOffset, irBuiltIns.booleanType, origin).apply {
         branches.add(IrBranchImpl(a, constTrue(a.startOffset, a.endOffset)))
         branches.add(elseBranch(b))
     }
@@ -112,7 +110,7 @@ fun IrGeneratorContextInterface.andand(
     b: IrExpression,
     origin: IrStatementOrigin = IrStatementOrigin.ANDAND
 ): IrWhen =
-    IrIfThenElseImpl(startOffset, endOffset, irBuiltIns.booleanType, origin).apply {
+    IrWhenImpl(startOffset, endOffset, irBuiltIns.booleanType, origin).apply {
         branches.add(IrBranchImpl(a, b))
         branches.add(elseBranch(constFalse(b.startOffset, b.endOffset)))
     }

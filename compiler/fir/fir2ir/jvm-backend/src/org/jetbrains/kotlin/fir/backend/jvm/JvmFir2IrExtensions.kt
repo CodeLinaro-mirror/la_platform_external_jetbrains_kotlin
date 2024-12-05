@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.overrides.IrExternalOverridabilityCondition
 import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmentSymbol
 import org.jetbrains.kotlin.ir.util.*
@@ -50,7 +51,6 @@ class JvmFir2IrExtensions(
     override val externalOverridabilityConditions: List<IrExternalOverridabilityCondition>
         get() = listOf(IrJavaIncompatibilityRulesOverridabilityCondition())
 
-    override val classNameOverride: MutableMap<IrClass, JvmClassName> = mutableMapOf()
     override val cachedFields: CachedFieldsForObjectInstances =
         CachedFieldsForObjectInstances(IrFactoryImpl, configuration.languageVersionSettings)
 
@@ -104,10 +104,6 @@ class JvmFir2IrExtensions(
     override fun hasBackingField(property: FirProperty, session: FirSession): Boolean =
         property.origin is FirDeclarationOrigin.Java || Fir2IrExtensions.Default.hasBackingField(property, session)
 
-    override fun isTrueStatic(declaration: FirCallableDeclaration, session: FirSession): Boolean =
-        declaration.hasAnnotation(StandardClassIds.Annotations.jvmStatic, session) ||
-                (declaration as? FirPropertyAccessor)?.propertySymbol?.fir?.hasAnnotation(StandardClassIds.Annotations.jvmStatic, session) == true
-
     override fun initializeIrBuiltInsAndSymbolTable(irBuiltIns: IrBuiltIns, symbolTable: SymbolTable) {
         require(this.irBuiltIns == null) { "BuiltIns are already initialized" }
         this.irBuiltIns = irBuiltIns
@@ -116,8 +112,8 @@ class JvmFir2IrExtensions(
     }
 
     // See FirJvmDelegatedMembersFilter for reference
-    override fun shouldGenerateDelegatedMember(delegateMemberCandidate: IrOverridableDeclaration<*>): Boolean {
-        val original = delegateMemberCandidate.resolveFakeOverride() ?: return true
+    override fun shouldGenerateDelegatedMember(delegateMemberFromBaseType: IrOverridableDeclaration<*>): Boolean {
+        val original = delegateMemberFromBaseType.resolveFakeOverride() ?: return true
 
         fun IrOverridableDeclaration<*>.isNonAbstractJavaMethod(): Boolean {
             return origin == IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB && modality != Modality.ABSTRACT

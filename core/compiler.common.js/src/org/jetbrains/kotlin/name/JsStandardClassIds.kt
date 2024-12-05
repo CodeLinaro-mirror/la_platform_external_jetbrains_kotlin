@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -54,6 +54,12 @@ object JsStandardClassIds {
         val JsExportIgnore = JsExport.createNestedClassId(Name.identifier("Ignore"))
 
         @JvmField
+        val JsFun = "JsFun".jsId()
+
+        @JvmField
+        val JsOutlinedFunction = "JsOutlinedFunction".jsId()
+
+        @JvmField
         val annotationsRequiringExternal = setOf(JsModule, JsQualifier)
 
         @JvmField
@@ -66,12 +72,6 @@ object JsStandardClassIds {
 
         @JvmField
         val JsDefinedExternally = "definedExternally".callableId(BASE_JS_PACKAGE)
-
-        @JvmField
-        val JsNoImpl = "noImpl".callableId(BASE_JS_PACKAGE)
-
-        @JvmField
-        val definedExternallyPropertyNames = setOf(JsNoImpl, JsDefinedExternally)
     }
 }
 

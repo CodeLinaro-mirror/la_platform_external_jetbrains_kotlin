@@ -96,7 +96,7 @@ fun IrBuilderWithScope.irElseBranch(expression: IrExpression) =
     IrElseBranchImpl(startOffset, endOffset, irTrue(), expression)
 
 fun IrBuilderWithScope.irIfThen(type: IrType, condition: IrExpression, thenPart: IrExpression, origin: IrStatementOrigin? = null) =
-    IrIfThenElseImpl(startOffset, endOffset, type, origin).apply {
+    IrWhenImpl(startOffset, endOffset, type, origin).apply {
         branches.add(IrBranchImpl(startOffset, endOffset, condition, thenPart))
     }
 
@@ -107,7 +107,7 @@ fun IrBuilderWithScope.irIfThenElse(
     elsePart: IrExpression,
     origin: IrStatementOrigin? = null
 ) =
-    IrIfThenElseImpl(startOffset, endOffset, type, origin).apply {
+    IrWhenImpl(startOffset, endOffset, type, origin).apply {
         branches.add(IrBranchImpl(startOffset, endOffset, condition, thenPart))
         branches.add(irElseBranch(elsePart))
     }
@@ -196,7 +196,6 @@ fun IrBuilderWithScope.irGet(type: IrType, receiver: IrExpression?, getterSymbol
         type,
         getterSymbol as IrSimpleFunctionSymbol,
         typeArgumentsCount = getterSymbol.owner.typeParameters.size,
-        valueArgumentsCount = 0,
         origin = IrStatementOrigin.GET_PROPERTY
     ).apply {
         dispatchReceiver = receiver
@@ -208,7 +207,6 @@ fun IrBuilderWithScope.irSet(type: IrType, receiver: IrExpression?, setterSymbol
         type,
         setterSymbol as IrSimpleFunctionSymbol,
         typeArgumentsCount = setterSymbol.owner.typeParameters.size,
-        valueArgumentsCount = 1,
         origin = IrStatementOrigin.EQ
     ).apply {
         dispatchReceiver = receiver
@@ -249,7 +247,6 @@ fun IrBuilderWithScope.irCall(
     IrCallImpl(
         startOffset, endOffset, type, callee,
         typeArgumentsCount = typeArgumentsCount,
-        valueArgumentsCount = valueArgumentsCount,
         origin = origin
     )
 
@@ -260,7 +257,6 @@ fun IrBuilderWithScope.irCall(
 ): IrConstructorCall =
     IrConstructorCallImpl(
         startOffset, endOffset, type, callee,
-        valueArgumentsCount = callee.owner.valueParameters.size,
         typeArgumentsCount = callee.owner.typeParameters.size + constructedClass.typeParameters.size,
         constructorTypeArgumentsCount = callee.owner.typeParameters.size
     )
@@ -287,7 +283,7 @@ fun IrBuilderWithScope.irCall(callee: IrFunction, origin: IrStatementOrigin? = n
     IrCallImpl(
         startOffset, endOffset, callee.returnType,
         callee.symbol as IrSimpleFunctionSymbol,
-        callee.typeParameters.size, callee.valueParameters.size,
+        callee.typeParameters.size,
         origin, superQualifierSymbol
     )
 
@@ -303,7 +299,7 @@ fun IrBuilderWithScope.irCallWithSubstitutedType(callee: IrFunctionSymbol, typeA
 fun IrBuilderWithScope.irDelegatingConstructorCall(callee: IrConstructor): IrDelegatingConstructorCall =
     IrDelegatingConstructorCallImpl(
         startOffset, endOffset, context.irBuiltIns.unitType, callee.symbol,
-        callee.parentAsClass.typeParameters.size, callee.valueParameters.size
+        callee.parentAsClass.typeParameters.size
     )
 
 fun IrBuilderWithScope.irCallOp(
@@ -378,8 +374,7 @@ fun IrBuilderWithScope.irFunctionReference(type: IrType, symbol: IrFunctionSymbo
         endOffset,
         type,
         symbol,
-        symbol.owner.typeParameters.size,
-        symbol.owner.valueParameters.size
+        symbol.owner.typeParameters.size
     )
 
 fun IrBuilderWithScope.irTry(type: IrType, tryResult: IrExpression, catches: List<IrCatch>, finallyExpression: IrExpression?) =
@@ -424,7 +419,7 @@ inline fun IrBuilderWithScope.irBlockBody(
         endOffset
     ).blockBody(body)
 
-fun IrBuilderWithScope.irConstantPrimitive(value: IrConst<*>) =
+fun IrBuilderWithScope.irConstantPrimitive(value: IrConst) =
     IrConstantPrimitiveImpl(startOffset, endOffset, value)
 
 fun IrBuilderWithScope.irConstantArray(type: IrType, elements: List<IrConstantValue>) =

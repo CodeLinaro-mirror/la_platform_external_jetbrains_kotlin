@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.fir.types.isBoolean
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImplWithShape
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
@@ -103,15 +104,26 @@ class Fir2IrBuiltinSymbolsContainer(
     val stringClass: IrClassSymbol by lazy { loadClass(StandardClassIds.String) }
     val stringType: IrType get() = stringClass.defaultTypeWithoutArguments
 
+    val throwableClass: IrClassSymbol by lazy { loadClass(StandardClassIds.Throwable) }
+    val throwableType: IrType get() = throwableClass.defaultTypeWithoutArguments
+
     val extensionFunctionTypeAnnotationCall: IrConstructorCall? by lazy {
+        generateAnnotationCall(StandardClassIds.Annotations.ExtensionFunctionType)
+    }
+
+    val noInferAnnotationCall: IrConstructorCall? by lazy {
+        generateAnnotationCall(StandardClassIds.Annotations.NoInfer)
+    }
+
+    private fun generateAnnotationCall(classId: ClassId): IrConstructorCallImpl? {
         val firSymbol =
-            session.symbolProvider.getClassLikeSymbolByClassId(StandardClassIds.Annotations.ExtensionFunctionType) as? FirRegularClassSymbol
-                ?: return@lazy null
-        val irSymbol = firSymbol.toIrSymbol(c, ConversionTypeOrigin.DEFAULT) as? IrClassSymbol ?: return@lazy null
-        val firConstructorSymbol = firSymbol.unsubstitutedScope(c).getDeclaredConstructors().singleOrNull() ?: return@lazy null
+            session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirRegularClassSymbol
+                ?: return null
+        val irSymbol = firSymbol.toIrSymbol(c, ConversionTypeOrigin.DEFAULT) as? IrClassSymbol ?: return null
+        val firConstructorSymbol = firSymbol.unsubstitutedScope(c).getDeclaredConstructors().singleOrNull() ?: return null
         val constructorSymbol = c.declarationStorage.getIrConstructorSymbol(firConstructorSymbol)
 
-        IrConstructorCallImpl(
+        return IrConstructorCallImplWithShape(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             type = IrSimpleTypeImpl(
@@ -124,6 +136,9 @@ class Fir2IrBuiltinSymbolsContainer(
             typeArgumentsCount = 0,
             constructorTypeArgumentsCount = 0,
             valueArgumentsCount = 0,
+            contextParameterCount = 0,
+            hasDispatchReceiver = false,
+            hasExtensionReceiver = false,
         )
     }
 
@@ -249,7 +264,7 @@ class Fir2IrBuiltinSymbolsContainer(
             name,
             *packageNameSegments,
             mapKey = { symbol ->
-                symbol.fir.receiverParameter?.typeRef?.toIrType(c)?.classifierOrNull
+                symbol.resolvedReceiverTypeRef?.toIrType(c)?.classifierOrNull
             },
             mapValue = { firSymbol, irSymbol -> firSymbol to irSymbol }
         )

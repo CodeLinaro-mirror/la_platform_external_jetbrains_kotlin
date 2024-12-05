@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.powerassert
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.test.backend.handlers.IrPrettyKotlinDumpHandler
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
@@ -46,14 +45,6 @@ open class AbstractFirLightTreeBlackBoxCodegenTestForPowerAssert : AbstractFirLi
 // ------------------------ configuration ------------------------
 
 fun TestConfigurationBuilder.configurePlugin() {
-    // TODO there has got to be a better way?
-    val sourceRoots = File("plugins/power-assert/testData/")
-        .walkTopDown()
-        .filter { it.isDirectory }
-        .joinToString(",") { it.path }
-    System.setProperty("KOTLIN_POWER_ASSERT_ADD_SRC_ROOTS", sourceRoots)
-
-
     defaultDirectives {
         +FULL_JDK
         +WITH_STDLIB
@@ -82,7 +73,7 @@ class PowerAssertEnvironmentConfigurator(testServices: TestServices) : Environme
             .ifEmpty { listOf("kotlin.assert") }
             .mapTo(mutableSetOf()) { FqName(it) }
 
-        IrGenerationExtension.registerExtension(PowerAssertIrGenerationExtension(configuration.messageCollector, functions))
+        IrGenerationExtension.registerExtension(PowerAssertIrGenerationExtension(PowerAssertConfiguration(configuration, functions)))
     }
 }
 

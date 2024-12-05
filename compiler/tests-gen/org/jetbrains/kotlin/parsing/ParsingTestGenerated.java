@@ -676,6 +676,11 @@ public class ParsingTestGenerated extends AbstractParsingTest {
       runTest("compiler/testData/psi/StringTemplates.kt");
     }
 
+    @TestMetadata("suggestGuardSyntax.kt")
+    public void testSuggestGuardSyntax() {
+      runTest("compiler/testData/psi/suggestGuardSyntax.kt");
+    }
+
     @TestMetadata("Super.kt")
     public void testSuper() {
       runTest("compiler/testData/psi/Super.kt");
@@ -2901,6 +2906,11 @@ public class ParsingTestGenerated extends AbstractParsingTest {
       @TestMetadata("IncorrectPaddedMultiDollarInterpolationCode.kt")
       public void testIncorrectPaddedMultiDollarInterpolationCode() {
         runTest("compiler/testData/psi/stringTemplates/IncorrectPaddedMultiDollarInterpolationCode.kt");
+      }
+
+      @TestMetadata("MultiDollarBacktick.kt")
+      public void testMultiDollarBacktick() {
+        runTest("compiler/testData/psi/stringTemplates/MultiDollarBacktick.kt");
       }
 
       @TestMetadata("RawStringsWithManyQuotes.kt")

@@ -5,7 +5,9 @@
 
 package org.jetbrains.kotlin.fir.resolve.inference
 
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.lookupTracker
 import org.jetbrains.kotlin.fir.recordTypeResolveAsLookup
 import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
@@ -30,7 +32,7 @@ import org.jetbrains.kotlin.types.model.freshTypeConstructor
 import org.jetbrains.kotlin.types.model.safeSubstitute
 
 data class ReturnArgumentsAnalysisResult(
-    val returnArguments: Collection<FirExpression>,
+    val returnArguments: Collection<ConeResolutionAtom>,
     val additionalConstraints: ConstraintStorage?,
 )
 
@@ -80,7 +82,7 @@ class PostponedArgumentsAnalyzer(
             callResolver.resolveCallableReference(candidate, atom, hasSyntheticOuterCall = false)
         }
 
-        val callableReferenceAccess = atom.fir
+        val callableReferenceAccess = atom.expression
         atom.analyzed = true
 
         resolutionContext.bodyResolveContext.dropCallableReferenceContext(callableReferenceAccess)
@@ -118,31 +120,43 @@ class PostponedArgumentsAnalyzer(
             return ReturnArgumentsAnalysisResult(lambda.returnStatements, additionalConstraints = null)
         }
 
-        val additionalBindings: Map<TypeConstructorMarker, KotlinTypeMarker>? =
+        val additionalBinding: Pair<TypeConstructorMarker, KotlinTypeMarker>? =
             (resolutionContext.bodyResolveContext.inferenceSession as? FirPCLAInferenceSession)?.let { pclaInferenceSession ->
                 // TODO: Fix variables for context receivers, too (KT-64859)
-                buildMap {
-                    lambda.receiver
-                        ?.let { pclaInferenceSession.fixCurrentResultIfTypeVariableAndReturnBinding(it, candidate.system) }
-                        ?.let(this::plusAssign)
-                }
+                lambda.receiverType
+                    ?.let { pclaInferenceSession.semiFixCurrentResultIfTypeVariableAndReturnBinding(it, candidate.system) }
             }
 
-        val unitType = components.session.builtinTypes.unitType.type
-        val currentSubstitutor = c.buildCurrentSubstitutor(additionalBindings ?: emptyMap()) as ConeSubstitutor
+        val unitType = components.session.builtinTypes.unitType.coneType
+        val currentSubstitutor = c.buildCurrentSubstitutor(additionalBinding) as ConeSubstitutor
 
         fun substitute(type: ConeKotlinType) = currentSubstitutor.safeSubstitute(c, type) as ConeKotlinType
 
-        val receiver = lambda.receiver?.let(::substitute)
-        val contextReceivers = lambda.contextReceivers.map(::substitute)
-        val parameters = lambda.parameters.map(::substitute)
-        val rawReturnType = lambda.returnType
+        val receiver = lambda.receiverType?.let(::substitute)
+        val contextReceivers = lambda.contextReceiverTypes.map(::substitute)
+        val parameters = lambda.parameterTypes.map(::substitute)
+        val lambdaReturnType = lambda.returnType
 
         val expectedTypeForReturnArguments = when {
-            c.canBeProper(rawReturnType) -> substitute(rawReturnType)
+            c.canBeProper(lambdaReturnType) -> substitute(lambdaReturnType)
 
             // For Unit-coercion
-            !rawReturnType.isMarkedNullable && c.hasUpperOrEqualUnitConstraint(rawReturnType) -> unitType
+            !lambdaReturnType.isMarkedNullable && c.hasUpperOrEqualUnitConstraint(lambdaReturnType) -> unitType
+
+            // Supplying the expected type for lambda effectively makes it being resolved in the FULL completion mode.
+            // For non-PCLA lambdas using expected types with non-fixed type variables would lead to illegal state: calls inside return
+            // statements are not aware of type variables of the "main" call.
+            // But for PCLA, we resolve everything within a common CS; thus it's ok.
+            //
+            // The main purpose of this condition is actually forcing lambda analysis in return statements, so we might gather
+            // constraints for the builder-related type variable from the nested lambdas.
+            //
+            // For more details, see #analysis-mode-for-return-statements-of-a-pcla-lambda at [docs/fir/pcla.md]
+            //
+            // NB: It's explicitly put below the unit case
+            // (see testData/diagnostics/tests/inference/pcla/lambdaBelongsToOuterCallUnitConstraint.kt)
+            withPCLASession && resolutionContext.session.languageVersionSettings.supportsFeature(LanguageFeature.PCLAEnhancementsIn21) ->
+                substitute(lambdaReturnType)
 
             else -> null
         }
@@ -174,7 +188,8 @@ class PostponedArgumentsAnalyzer(
         results: ReturnArgumentsAnalysisResult,
         substituteAlreadyFixedVariables: (ConeKotlinType) -> ConeKotlinType = c.createSubstituteFunctorForLambdaAnalysis(),
     ) {
-        val (returnArguments, additionalConstraintStorage) = results
+        val (returnAtoms, additionalConstraintStorage) = results
+        val returnArguments = returnAtoms.map { it.expression }
 
         if (additionalConstraintStorage != null) {
             c.addOtherSystem(additionalConstraintStorage)
@@ -183,17 +198,18 @@ class PostponedArgumentsAnalyzer(
         val checkerSink: CheckerSink = CheckerSinkImpl(candidate)
         val builder = c.getBuilder()
 
-        val lastExpression = lambda.fir.lastStatement() as? FirExpression
+        val lastExpression = lambda.anonymousFunction.lastStatement() as? FirExpression
         var hasExpressionInReturnArguments = false
-        val returnTypeRef = lambda.fir.returnTypeRef.let {
+        val returnTypeRef = lambda.anonymousFunction.returnTypeRef.let {
             it as? FirResolvedTypeRef ?: it.resolvedTypeFromPrototype(substituteAlreadyFixedVariables(lambda.returnType))
         }
-        val isUnitLambda = returnTypeRef.type.isUnitOrFlexibleUnit || lambda.fir.shouldReturnUnit(returnArguments)
+        val isUnitLambda = returnTypeRef.coneType.isUnitOrFlexibleUnit || lambda.anonymousFunction.shouldReturnUnit(returnArguments)
 
-        returnArguments.forEach {
-            if (it.isImplicitUnitForEmptyLambda()) return@forEach
+        for (atom in returnAtoms) {
+            val expression = atom.expression
+            if (expression.isImplicitUnitForEmptyLambda()) continue
             // If the lambda returns Unit, the last expression is not returned and should not be constrained.
-            val isLastExpression = it == lastExpression
+            val isLastExpression = expression == lastExpression
 
             // TODO (KT-55837) questionable moment inherited from FE1.0 (the `haveSubsystem` case):
             //    fun <T> foo(): T
@@ -202,7 +218,7 @@ class PostponedArgumentsAnalyzer(
             //      foo() // T = Unit, even though there is no implicit return
             //    }
             //  Things get even weirder if T has an upper bound incompatible with Unit.
-            val haveSubsystem = c.addSubsystemFromExpression(it)
+            val haveSubsystem = c.addSubsystemFromExpression(expression)
             if (isLastExpression && isUnitLambda) {
                 // That "if" is necessary because otherwise we would force a lambda return type
                 // to be inferred from completed last expression.
@@ -214,18 +230,19 @@ class PostponedArgumentsAnalyzer(
                     // }
                     // See KT-63602 for details.
                     builder.addSubtypeConstraintIfCompatible(
-                        it.resolvedType, returnTypeRef.type,
-                        ConeLambdaArgumentConstraintPosition(lambda.fir)
+                        expression.resolvedType, returnTypeRef.coneType,
+                        ConeLambdaArgumentConstraintPosition(lambda.anonymousFunction)
                     )
                 }
-                return@forEach
+                continue
             }
 
             hasExpressionInReturnArguments = true
-            if (!builder.hasContradiction) {
+            // Nested lambdas need to be resolved even when we have a contradiction.
+            if (!builder.hasContradiction || atom is ConeResolutionAtomWithPostponedChild) {
                 ArgumentCheckingProcessor.resolveArgumentExpression(
                     candidate,
-                    it,
+                    atom,
                     substituteAlreadyFixedVariables(lambda.returnType),
                     checkerSink,
                     context = resolutionContext,
@@ -240,7 +257,7 @@ class PostponedArgumentsAnalyzer(
         }
 
         lambda.analyzed = true
-        lambda.returnStatements = returnArguments
+        lambda.returnStatements = returnAtoms
     }
 
     private fun addLambdaReturnTypeUnitConstraintOrReportError(
@@ -255,8 +272,8 @@ class PostponedArgumentsAnalyzer(
         // If we've got some errors already, no new constraints or diagnostics are required
         if (with(c) { lambdaReturnType.isError() } || builder.hasContradiction) return
 
-        val position = ConeLambdaArgumentConstraintPosition(lambda.fir)
-        val unitType = components.session.builtinTypes.unitType.type
+        val position = ConeLambdaArgumentConstraintPosition(lambda.anonymousFunction)
+        val unitType = components.session.builtinTypes.unitType.coneType
         if (!builder.addSubtypeConstraintIfCompatible(
                 unitType,
                 lambdaReturnType,
@@ -271,7 +288,7 @@ class PostponedArgumentsAnalyzer(
                     // TODO: Consider replacement with ArgumentTypeMismatch once KT-67961 is fixed
                     // Currently, ArgumentTypeMismatch only allows expressions and we don't have it here
                     UnitReturnTypeLambdaContradictsExpectedType(
-                        lambda.fir,
+                        lambda.anonymousFunction,
                         wholeLambdaExpectedType,
                         lambda.sourceForFunctionExpression,
                     )
@@ -304,9 +321,12 @@ fun ConeLambdaWithTypeVariableAsExpectedTypeAtom.transformToResolvedLambda(
     val fixedExpectedType = (csBuilder.buildCurrentSubstitutor() as ConeSubstitutor)
         .substituteOrSelf(expectedType ?: this.expectedType)
     val resolvedAtom = ArgumentCheckingProcessor.createResolvedLambdaAtomDuringCompletion(
-        candidateOfOuterCall, csBuilder, expression, fixedExpectedType,
+        candidateOfOuterCall, csBuilder, ConeResolutionAtomWithPostponedChild(expression), fixedExpectedType,
         context, returnTypeVariable = returnTypeVariable
     )
+
+    subAtom = resolvedAtom
     analyzed = true
+
     return resolvedAtom
 }

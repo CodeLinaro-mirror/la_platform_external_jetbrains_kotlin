@@ -1,7 +1,5 @@
-// IGNORE_BACKEND: ANY
-
 // MODULE: lib1
-// FILE: lib.kt
+// FILE: file1.kt
 package org.sample
 
 private fun libName() = "lib1 "
@@ -9,7 +7,7 @@ private fun libName() = "lib1 "
 internal inline fun inlineFun1() = libName()
 
 // MODULE: lib2
-// FILE: lib.kt
+// FILE: file2.kt
 package org.sample
 
 private fun libName() = "lib2 "

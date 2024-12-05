@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.CastCompatibleKotlinNativeClassLoader
+import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
@@ -129,15 +130,20 @@ class ClassicFrontend2NativeIrConverter(
             diagnosticReporter = configuration.messageCollector
         )
 
+        // N.B. The list of libraries to be written to manifest `depends=` property is not computed here.
+        // The reason for this is that there are no tests which could produce Kotlin/Native KLIBs with the classic frontend compiler.
+        // And there are no plans to add such tests in the future.
+        val usedLibrariesForManifest = emptyList<KotlinLibrary>()
+
         @OptIn(ObsoleteDescriptorBasedAPI::class)
         return IrBackendInput.NativeBackendInput(
             moduleFragment,
             pluginContext,
-            diagnosticReporter = DiagnosticReporterFactory.createReporter(),
+            diagnosticReporter = DiagnosticReporterFactory.createReporter(configuration.messageCollector),
             descriptorMangler = (pluginContext.symbolTable as SymbolTable).signaturer!!.mangler,
             irMangler = KonanManglerIr,
-            firMangler = null,
-            metadataSerializer = null
+            metadataSerializer = null,
+            usedLibrariesForManifest = usedLibrariesForManifest,
         )
     }
 

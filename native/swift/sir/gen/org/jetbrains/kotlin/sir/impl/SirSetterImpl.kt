@@ -16,7 +16,7 @@ internal class SirSetterImpl(
     override val origin: SirOrigin,
     override val visibility: SirVisibility,
     override val documentation: String?,
-    override val kind: SirCallableKind,
+    override val attributes: MutableList<SirAttribute>,
     override var body: SirFunctionBody?,
     override val parameterName: String,
 ) : SirSetter() {

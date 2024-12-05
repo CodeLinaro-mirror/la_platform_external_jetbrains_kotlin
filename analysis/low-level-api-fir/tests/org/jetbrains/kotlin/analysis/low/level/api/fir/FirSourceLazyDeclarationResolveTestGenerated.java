@@ -25,6 +25,12 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
   }
 
   @Test
+  @TestMetadata("ambiguousLocalEnum.kt")
+  public void testAmbiguousLocalEnum() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/ambiguousLocalEnum.kt");
+  }
+
+  @Test
   @TestMetadata("annotationArgumentsMix.kt")
   public void testAnnotationArgumentsMix() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/annotationArgumentsMix.kt");
@@ -58,6 +64,12 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
   @TestMetadata("annotationInsideWhereProperty.kt")
   public void testAnnotationInsideWhereProperty() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/annotationInsideWhereProperty.kt");
+  }
+
+  @Test
+  @TestMetadata("annotationOnDelegatedInterface.kt")
+  public void testAnnotationOnDelegatedInterface() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/annotationOnDelegatedInterface.kt");
   }
 
   @Test
@@ -334,6 +346,12 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
   @TestMetadata("fromLocalHierarchyToOuter.kt")
   public void testFromLocalHierarchyToOuter() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/fromLocalHierarchyToOuter.kt");
+  }
+
+  @Test
+  @TestMetadata("functionWithAnnotatedJavaClass.kt")
+  public void testFunctionWithAnnotatedJavaClass() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/functionWithAnnotatedJavaClass.kt");
   }
 
   @Test
@@ -898,6 +916,12 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
     }
 
     @Test
+    @TestMetadata("deprecatedSinceKotlin.kt")
+    public void testDeprecatedSinceKotlin() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/deprecatedSinceKotlin.kt");
+    }
+
+    @Test
     @TestMetadata("emptyClassWithSuper.kt")
     public void testEmptyClassWithSuper() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/emptyClassWithSuper.kt");
@@ -991,6 +1015,12 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
     @TestMetadata("simpleLoopInOverride2.kt")
     public void testSimpleLoopInOverride2() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/simpleLoopInOverride2.kt");
+    }
+
+    @Test
+    @TestMetadata("sinceKotlin.kt")
+    public void testSinceKotlin() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/sinceKotlin.kt");
     }
 
     @Test
@@ -1659,6 +1689,28 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
     @TestMetadata("preresolvedNonEmptyInterfaceWithSuper.kt")
     public void testPreresolvedNonEmptyInterfaceWithSuper() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/withCallableMembers/preresolvedNonEmptyInterfaceWithSuper.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled")
+  @TestDataPath("$PROJECT_ROOT")
+  public class WithTestCompilerPluginEnabled {
+    @Test
+    public void testAllFilesPresentInWithTestCompilerPluginEnabled() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("serializable_starImport.kt")
+    public void testSerializable_starImport() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled/serializable_starImport.kt");
+    }
+
+    @Test
+    @TestMetadata("serializable_starImport_twoAnnotationsChain.kt")
+    public void testSerializable_starImport_twoAnnotationsChain() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled/serializable_starImport_twoAnnotationsChain.kt");
     }
   }
 }

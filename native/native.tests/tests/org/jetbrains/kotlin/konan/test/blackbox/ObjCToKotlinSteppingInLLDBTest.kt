@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ObjCFrameworkCompilation
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationArtifact
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationResult.Companion.assertSuccess
+import org.jetbrains.kotlin.konan.test.blackbox.support.group.FirPipeline
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestExecutable
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck.ExecutionTimeout
@@ -22,10 +23,13 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.util.ClangDistribution
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.LLDBSessionSpec
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.compileWithClang
 import org.junit.jupiter.api.Assumptions
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import java.io.File
 
 
+@FirPipeline
+@Tag("frontend-fir")
 @EnforcedProperty(ClassLevelProperty.COMPILER_OUTPUT_INTERCEPTOR, "NONE")
 // FIXME: With -opt these tests can't set a breakpoint in inlined "fun bar()"
 @EnforcedProperty(ClassLevelProperty.OPTIMIZATION_MODE, propertyValue = "DEBUG")
@@ -35,7 +39,7 @@ class ObjCToKotlinSteppingInLLDBTest : AbstractNativeSimpleTest() {
     fun stepInFromObjCToKotlin___WithDisabledStopHook___StopsAtABridgingRoutine() {
         testSteppingFromObjcToKotlin(
             """
-            > b ${CLANG_FILE_NAME}:3
+            > b ${CLANG_FILE_NAME}:4
             > env KONAN_LLDB_DONT_SKIP_BRIDGING_FUNCTIONS=1
             > run
             > thread step-in
@@ -96,12 +100,13 @@ class ObjCToKotlinSteppingInLLDBTest : AbstractNativeSimpleTest() {
             > run
             > thread step-out
             [..] stop reason = Python thread plan implemented by class konan_lldb.KonanStepOut.
-            [..]`main at main.m:3:5
-               1   	@import Kotlin;
-               2   	int main() {
-            -> 3   	    [KotlinLibKt bar];
+            [..]`main at main.m:5:5
+               2   	void landing() {}
+               3   	int main() {
+               4   	    [KotlinLibKt bar];
+            -> 5   	    landing();
                         ^
-               4   	}
+               6   	}
             > c
             """.trimIndent(),
             CLANG_FILE_NAME,
@@ -136,12 +141,13 @@ class ObjCToKotlinSteppingInLLDBTest : AbstractNativeSimpleTest() {
             > run
             > thread step-over
             [..] stop reason = Python thread plan implemented by class konan_lldb.KonanStepOver.
-            [..]`main at main.m:3:5
-               1   	@import Kotlin;
-               2   	int main() {
-            -> 3   	    [KotlinLibKt bar];
+            [..]`main at main.m:5:5
+               2   	void landing() {}
+               3   	int main() {
+               4   	    [KotlinLibKt bar];
+            -> 5   	    landing();
                         ^
-               4   	}
+               6   	}
             > c
             """.trimIndent(),
             CLANG_FILE_NAME,
@@ -162,8 +168,10 @@ class ObjCToKotlinSteppingInLLDBTest : AbstractNativeSimpleTest() {
         val kotlinFrameworkName = "Kotlin"
         val clangMainSources = """
             @import ${kotlinFrameworkName};
+            void landing() {}
             int main() {
                 [${kotlinFrameworkName}LibKt bar];
+                landing();
             }
         """.trimIndent()
 
@@ -205,6 +213,7 @@ class ObjCToKotlinSteppingInLLDBTest : AbstractNativeSimpleTest() {
             testRunSettings.get<PipelineType>().compilerFlags + listOf(
                 "-Xstatic-framework",
                 "-Xbinary=bundleId=stub",
+                "-module-name", kotlinFrameworkName
             )
         )
         val module = generateTestCaseWithSingleModule(sourceDirectory, freeCompilerArgs)

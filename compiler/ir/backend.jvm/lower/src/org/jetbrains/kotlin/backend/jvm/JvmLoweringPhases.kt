@@ -63,7 +63,6 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
     ::JvmLocalDeclarationsLowering,
 
     ::RemoveDuplicatedInlinedLocalClassesLowering,
-    ::JvmInventNamesForInlinedAnonymousObjects,
 
     ::JvmLocalClassPopupLowering,
     ::StaticCallableReferenceLowering,
@@ -81,7 +80,6 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
 
     ::InterfaceLowering,
     ::InheritedDefaultMethodsOnClassesLowering,
-    ::ReplaceDefaultImplsOverriddenSymbols,
     ::InterfaceSuperCallsLowering,
     ::InterfaceDefaultCallsLowering,
     ::InterfaceObjectCallsLowering,
@@ -122,12 +120,11 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
     ::FakeLocalVariablesForBytecodeInlinerLowering,
     ::FakeLocalVariablesForIrInlinerLowering,
 
-    ::ReflectiveAccessLowering,
+    ::SpecialAccessLowering,
 )
 
 val jvmLoweringPhases = SameTypeNamedCompilerPhase(
     name = "IrLowering",
-    description = "IR lowering",
     nlevels = 1,
     actions = DEFAULT_IR_ACTIONS,
     lower = buildModuleLoweringsPhase(
@@ -142,14 +139,20 @@ val jvmLoweringPhases = SameTypeNamedCompilerPhase(
         ::FileClassLowering,
         ::JvmStaticInObjectLowering,
         ::RepeatedAnnotationLowering,
+        ::JvmInlineCallableReferenceToLambdaWithDefaultsPhase,
 
         ::JvmIrInliner,
         ::ApiVersionIsAtLeastEvaluationLowering,
         ::CreateSeparateCallForInlinedLambdasLowering,
         ::MarkNecessaryInlinedClassesAsRegeneratedLowering,
         ::InlinedClassReferencesBoxingLowering,
+        ::RestoreInlineLambda,
     ).then(
-        performByIrFile("PerformByIrFile", lower = jvmFilePhases)
+        performByIrFile(
+            name = "PerformByIrFile",
+            lower = jvmFilePhases,
+            supportParallel = false,
+        )
     ) then buildModuleLoweringsPhase(
         ::GenerateMultifileFacades,
         ::ResolveInlineCalls,

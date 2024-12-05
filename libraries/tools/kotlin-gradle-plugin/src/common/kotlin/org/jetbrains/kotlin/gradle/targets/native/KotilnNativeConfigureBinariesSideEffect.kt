@@ -12,12 +12,15 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.plugins.BasePlugin
 import org.gradle.api.tasks.Exec
 import org.gradle.language.base.plugins.LifecycleBasePlugin
+import org.jetbrains.kotlin.gradle.internal.attributes.setAttributeTo
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
+import org.jetbrains.kotlin.gradle.plugin.attributes.KlibPackaging
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.statistics.NativeLinkTaskMetrics
 import org.jetbrains.kotlin.gradle.targets.KotlinTargetSideEffect
-import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.chooseKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
 import org.jetbrains.kotlin.gradle.tasks.dependsOn
 import org.jetbrains.kotlin.gradle.tasks.locateOrRegisterTask
@@ -89,7 +92,10 @@ private fun KotlinNativeCompilation.resolvableApiConfiguration(): Configuration 
         .configurations.maybeCreateResolvable(lowerCamelCaseName("resolvable", apiConfiguration.name)) {
             extendsFrom(apiConfiguration)
             val compileConfiguration = compilation.internal.configurations.compileDependencyConfiguration
-            compileConfiguration.copyAttributesTo(project, this)
+            compileConfiguration.copyAttributesTo(project.providers, this)
+            if (project.kotlinPropertiesProvider.useNonPackedKlibs) {
+                KlibPackaging.setAttributeTo(project, attributes, false)
+            }
         }
 }
 
@@ -98,7 +104,6 @@ private fun Project.createLinkTask(binary: NativeBinary) {
     // which leads to not able run project.afterEvaluate because of wrong context
     // this afterEvaluate comes from NativeCompilerOptions
     @Suppress("DEPRECATION") val compilationCompilerOptions = binary.compilation.compilerOptions
-    val konanPropertiesBuildService = KonanPropertiesBuildService.registerIfAbsent(project)
 
     val linkTask = registerTask<KotlinNativeLink>(
         binary.linkTaskName, listOf(binary)
@@ -110,16 +115,12 @@ private fun Project.createLinkTask(binary: NativeBinary) {
         task.description = "Links ${binary.outputKind.description} '${binary.name}' for a target '${target.name}'."
         task.dependsOn(compilation.compileTaskProvider)
 
-        task.enabled = binary.konanTarget.enabledOnCurrentHostForBinariesCompilation()
-        task.konanPropertiesService.set(konanPropertiesBuildService)
-        task.usesService(konanPropertiesBuildService)
+        val enabledOnCurrentHost = binary.konanTarget.enabledOnCurrentHostForBinariesCompilation()
+        task.enabled = enabledOnCurrentHost
         task.toolOptions.freeCompilerArgs.value(compilationCompilerOptions.options.freeCompilerArgs)
         task.toolOptions.freeCompilerArgs.addAll(providers.provider { PropertiesProvider(project).nativeLinkArgs })
         task.runViaBuildToolsApi.value(false).disallowChanges() // K/N is not yet supported
-
-        task.kotlinNativeProvider.set(project.provider {
-            KotlinNativeProvider(project, task.konanTarget, task.kotlinNativeBundleBuildService)
-        })
+        task.kotlinNativeProvider.set(task.chooseKotlinNativeProvider(enabledOnCurrentHost, task.konanTarget))
 
         // Frameworks actively uses symlinks.
         // Gradle build cache transforms symlinks into regular files https://guides.gradle.org/using-build-cache/#symbolic_links
@@ -130,6 +131,10 @@ private fun Project.createLinkTask(binary: NativeBinary) {
         task.disallowSourceChanges()
 
         task.apiFiles.from({ compilation.resolvableApiConfiguration().incoming.files })
+
+        task.kotlinCompilerArgumentsLogLevel
+            .value(project.kotlinPropertiesProvider.kotlinCompilerArgumentsLogLevel)
+            .finalizeValueOnRead()
     }
 
     NativeLinkTaskMetrics.collectMetrics(this)

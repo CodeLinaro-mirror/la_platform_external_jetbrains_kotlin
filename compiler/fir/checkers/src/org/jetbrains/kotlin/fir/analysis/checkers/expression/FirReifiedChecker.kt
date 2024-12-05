@@ -7,6 +7,8 @@ package org.jetbrains.kotlin.fir.analysis.checkers.expression
 
 import org.jetbrains.kotlin.KtRealSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.chooseFactory
 import org.jetbrains.kotlin.diagnostics.reportOn
@@ -38,6 +40,7 @@ object FirReifiedChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Co
             if (typeParameter.isReifiedTypeParameterOrFromKotlinArray()) {
                 checkArgumentAndReport(
                     typeArgument,
+                    typeParameter,
                     source,
                     isExplicit = typeArgumentProjection.source?.kind == KtRealSourceElementKind,
                     isArray = false,
@@ -54,14 +57,15 @@ object FirReifiedChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Co
                 containingDeclaration is FirRegularClassSymbol && containingDeclaration.classId == StandardClassIds.Array
     }
 
-    private fun ConeKotlinType.cannotBeReified() = when (this) {
+    private fun ConeKotlinType.cannotBeReified(languageVersionSettings: LanguageVersionSettings) = when (this) {
         is ConeCapturedType -> true
         is ConeDynamicType -> true
-        else -> isNothing || isNullableNothing
+        else -> isUnsupportedNothingAsReifiedOrInArray(languageVersionSettings)
     }
 
     private fun checkArgumentAndReport(
         typeArgument: ConeKotlinType,
+        typeParameter: FirTypeParameterSymbol,
         source: KtSourceElement,
         isExplicit: Boolean,
         isArray: Boolean,
@@ -73,7 +77,7 @@ object FirReifiedChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Co
             // Type aliases can transform type arguments arbitrarily (drop, nest, etc...).
             // Therefore, we check the arguments of the expanded type, not the ones that went into the type alias.
             fullyExpandedType.typeArguments.forEach {
-                if (it is ConeKotlinType) checkArgumentAndReport(it, source, isExplicit, isArray = true, context, reporter)
+                if (it is ConeKotlinType) checkArgumentAndReport(it, typeParameter, source, isExplicit, isArray = true, context, reporter)
             }
             return
         }
@@ -91,8 +95,10 @@ object FirReifiedChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Co
         } else if (typeArgument is ConeDefinitelyNotNullType && isExplicit) {
             // We sometimes infer type arguments to DNN types, which seems to be ok. Only report explicit DNN types written by user.
             reporter.reportOn(source, FirErrors.DEFINITELY_NON_NULLABLE_AS_REIFIED, context)
-        } else if (typeArgument.cannotBeReified()) {
+        } else if (typeArgument.cannotBeReified(context.languageVersionSettings)) {
             reporter.reportOn(source, FirErrors.REIFIED_TYPE_FORBIDDEN_SUBSTITUTION, typeArgument, context)
+        } else if (typeArgument is ConeIntersectionType) {
+            reporter.reportOn(source, FirErrors.TYPE_INTERSECTION_AS_REIFIED, typeParameter, typeArgument.intersectedTypes, context)
         }
     }
 

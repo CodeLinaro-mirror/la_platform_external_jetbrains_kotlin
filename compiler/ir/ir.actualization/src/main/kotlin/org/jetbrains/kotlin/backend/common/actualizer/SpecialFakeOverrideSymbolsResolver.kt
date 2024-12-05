@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.util.SymbolRemapper
 import org.jetbrains.kotlin.ir.util.isGetter
 import org.jetbrains.kotlin.ir.util.isSetter
 import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.util.resolveFakeOverride
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
@@ -104,11 +105,11 @@ class SpecialFakeOverrideSymbolsResolver(val expectActualMap: IrExpectActualMap)
     }
 
     private fun IrSymbol.actualize(): IrSymbol {
-        return expectActualMap.regularSymbols[this] ?: this
+        return expectActualMap.expectToActual[this] ?: this
     }
 
     private fun processClass(irClass: IrClass) {
-        require(!irClass.isExpect) { "There should be no references to expect classes at this point" }
+        require(!irClass.isExpect) { "There should be no references to expect classes at this point\n${irClass.render()}" }
         if (!processedClasses.add(irClass)) return
         for (declaration in irClass.declarations) {
             if (declaration !is IrOverridableDeclaration<*>) continue
@@ -242,7 +243,7 @@ class SpecialFakeOverrideSymbolsActualizedByFieldsTransformer(
         val originalAccessorSymbol = fakeOverrideAccessorSymbol.originalSymbol
         val actualizedClassSymbol = fakeOverrideAccessorSymbol.containingClassSymbol
 
-        val actualFieldSymbol = expectActualMap.propertyAccessorsActualizedByFields[originalAccessorSymbol]?.owner?.backingField?.symbol
+        val actualFieldSymbol = expectActualMap.propertyAccessorsActualizedByFields[originalAccessorSymbol]?.owner?.resolveFakeOverride()?.backingField?.symbol
             ?: error("No override for $originalAccessorSymbol in $actualizedClassSymbol")
 
         return when {

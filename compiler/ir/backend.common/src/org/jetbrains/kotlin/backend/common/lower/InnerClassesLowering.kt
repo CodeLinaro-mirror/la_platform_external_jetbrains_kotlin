@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.types.classOrNull
+import org.jetbrains.kotlin.ir.util.copyValueArgumentsFrom
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
@@ -29,6 +30,9 @@ interface InnerClassesSupport {
     fun getInnerClassOriginalPrimaryConstructorOrNull(innerClass: IrClass): IrConstructor?
 }
 
+/**
+ * Adds 'outer this' fields to inner classes.
+ */
 open class InnerClassesLowering(val context: CommonBackendContext) : DeclarationTransformer {
     private val innerClassesSupport = context.innerClassesSupport
 
@@ -127,7 +131,9 @@ private fun InnerClassesSupport.primaryConstructorParameterMap(originalConstruct
     return oldConstructorParameterToNew
 }
 
-
+/**
+ * Replaces `this` with 'outer this' field references.
+ */
 open class InnerClassesMemberBodyLowering(val context: CommonBackendContext) : BodyLoweringPass {
     private val innerClassesSupport = context.innerClassesSupport
 
@@ -256,7 +262,6 @@ open class InnerClassConstructorCallsLowering(val context: CommonBackendContext)
                 val newCall = IrDelegatingConstructorCallImpl(
                     expression.startOffset, expression.endOffset, context.irBuiltIns.unitType, newCallee.symbol,
                     typeArgumentsCount = expression.typeArgumentsCount,
-                    valueArgumentsCount = newCallee.valueParameters.size
                 ).apply { copyTypeArgumentsFrom(expression) }
 
                 newCall.putValueArgument(0, dispatchReceiver)
@@ -289,7 +294,6 @@ open class InnerClassConstructorCallsLowering(val context: CommonBackendContext)
                         type,
                         newCallee.symbol,
                         typeArgumentsCount = typeArgumentsCount,
-                        valueArgumentsCount = newCallee.valueParameters.size,
                         reflectionTarget = newReflectionTarget?.symbol,
                         origin = origin
                     )
@@ -297,13 +301,7 @@ open class InnerClassConstructorCallsLowering(val context: CommonBackendContext)
 
                 newReference.let {
                     it.copyTypeArgumentsFrom(expression)
-                    // TODO: This is wrong, since we moved all parameters into value parameters,
-                    //       but changing it breaks JS IR in CallableReferenceLowering.
-                    it.dispatchReceiver = expression.dispatchReceiver
-                    it.extensionReceiver = expression.extensionReceiver
-                    for (v in 0 until expression.valueArgumentsCount) {
-                        it.putValueArgument(v, expression.getValueArgument(v))
-                    }
+                    it.copyValueArgumentsFrom(expression, it.symbol.owner, receiversAsArguments = true)
                 }
 
                 return newReference

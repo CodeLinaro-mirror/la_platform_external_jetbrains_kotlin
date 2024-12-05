@@ -66,6 +66,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public void testAssociatedObjects1_testGlobalOptimizations2() {
       runTest("native/native.tests/testData/codegen/associatedObjects/associatedObjects1_testGlobalOptimizations2.kt");
     }
+
+    @Test
+    @TestMetadata("associatedObjects_multiFile.kt")
+    public void testAssociatedObjects_multiFile() {
+      runTest("native/native.tests/testData/codegen/associatedObjects/associatedObjects_multiFile.kt");
+    }
   }
 
   @Nested
@@ -241,6 +247,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("kt66169.kt")
     public void testKt66169() {
       runTest("native/native.tests/testData/codegen/cinterop/kt66169.kt");
+    }
+
+    @Test
+    @TestMetadata("kt71435.kt")
+    public void testKt71435() {
+      runTest("native/native.tests/testData/codegen/cinterop/kt71435.kt");
     }
 
     @Test
@@ -887,6 +899,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
+    @TestMetadata("assertDisabled.kt")
+    public void testAssertDisabled() {
+      runTest("native/native.tests/testData/codegen/fileCheck/assertDisabled.kt");
+    }
+
+    @Test
     @TestMetadata("atomics.kt")
     public void testAtomics() {
       runTest("native/native.tests/testData/codegen/fileCheck/atomics.kt");
@@ -1025,6 +1043,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
+    @TestMetadata("noLocalClassesInInlineFunctionExtraction.kt")
+    public void testNoLocalClassesInInlineFunctionExtraction() {
+      runTest("native/native.tests/testData/codegen/fileCheck/noLocalClassesInInlineFunctionExtraction.kt");
+    }
+
+    @Test
     @TestMetadata("no_frame_on_constant_object_access.kt")
     public void testNo_frame_on_constant_object_access() {
       runTest("native/native.tests/testData/codegen/fileCheck/no_frame_on_constant_object_access.kt");
@@ -1040,6 +1064,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("replace_invoke_with_call.kt")
     public void testReplace_invoke_with_call() {
       runTest("native/native.tests/testData/codegen/fileCheck/replace_invoke_with_call.kt");
+    }
+
+    @Test
+    @TestMetadata("runtime_attributes_compatible.kt")
+    public void testRuntime_attributes_compatible() {
+      runTest("native/native.tests/testData/codegen/fileCheck/runtime_attributes_compatible.kt");
     }
 
     @Test
@@ -1603,9 +1633,9 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
-    @TestMetadata("anonymousObjectInInlineFunctionWithCache.kt")
-    public void testAnonymousObjectInInlineFunctionWithCache() {
-      runTest("native/native.tests/testData/codegen/kclass/anonymousObjectInInlineFunctionWithCache.kt");
+    @TestMetadata("bindClassToObjCName.kt")
+    public void testBindClassToObjCName() {
+      runTest("native/native.tests/testData/codegen/kclass/bindClassToObjCName.kt");
     }
 
     @Test
@@ -1914,6 +1944,37 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
       @TestMetadata("callOnValueOverPrimitiveClass.kt")
       public void testCallOnValueOverPrimitiveClass() {
         runTest("native/native.tests/testData/codegen/reflection/collectReferenceFieldValues/callOnValueOverPrimitiveClass.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("native/native.tests/testData/codegen/reflection/objc")
+    @TestDataPath("$PROJECT_ROOT")
+    @Tag("frontend-fir")
+    @FirPipeline()
+    @UseExtTestCaseGroupProvider()
+    public class Objc {
+      @Test
+      public void testAllFilesPresentInObjc() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection/objc"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      }
+
+      @Test
+      @TestMetadata("class.kt")
+      public void testClass() {
+        runTest("native/native.tests/testData/codegen/reflection/objc/class.kt");
+      }
+
+      @Test
+      @TestMetadata("platformClass.kt")
+      public void testPlatformClass() {
+        runTest("native/native.tests/testData/codegen/reflection/objc/platformClass.kt");
+      }
+
+      @Test
+      @TestMetadata("protocol.kt")
+      public void testProtocol() {
+        runTest("native/native.tests/testData/codegen/reflection/objc/protocol.kt");
       }
     }
   }

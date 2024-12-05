@@ -27,6 +27,7 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure-utils"))
     testApi(projectTests(":compiler:tests-compiler-utils"))
     testApi(project(":libraries:tools:abi-comparator"))
+    testApi(project(":compiler:tests-mutes:mutes-junit5"))
 
     /*
      * Actually those dependencies are needed only at runtime, but they
@@ -73,7 +74,9 @@ compilerTests {
 projectTest(
     jUnitMode = JUnitMode.JUnit5,
     defineJDKEnvVariables = listOf(
+        JdkMajorVersion.JDK_1_8,
         JdkMajorVersion.JDK_11_0, // e.g. org.jetbrains.kotlin.test.runners.ForeignAnnotationsCompiledJavaTestGenerated.Java11Tests
+        JdkMajorVersion.JDK_17_0,
         JdkMajorVersion.JDK_21_0, // e.g. org.jetbrains.kotlin.test.runners.codegen.FirLightTreeBlackBoxModernJdkCodegenTestGenerated.TestsWithJava21
     )
 ) {

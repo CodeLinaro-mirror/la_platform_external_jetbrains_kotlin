@@ -3,7 +3,7 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
+    compilerVisibility: Private
     contextReceivers: []
     isActual: false
     isExpect: false
@@ -19,7 +19,7 @@ KaKotlinPropertySymbol:
       annotations: []
       typeArguments: []
       type: kotlin/Int
-    visibility: PUBLIC
+    visibility: PRIVATE
     getContainingFileSymbol: KaFileSymbol(dataClass.kt)
     getContainingJvmClassName: Abc
     getContainingModule: KaSourceModule "Sources of main"
@@ -102,7 +102,7 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
+    compilerVisibility: Private
     contextReceivers: []
     isActual: false
     isExpect: false
@@ -118,7 +118,7 @@ KaKotlinPropertySymbol:
       annotations: []
       typeArguments: []
       type: kotlin/Double
-    visibility: PUBLIC
+    visibility: PRIVATE
     getContainingFileSymbol: KaFileSymbol(dataClass.kt)
     getContainingJvmClassName: Abc
     getContainingModule: KaSourceModule "Sources of main"
@@ -201,7 +201,7 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
+    compilerVisibility: Private
     contextReceivers: []
     isActual: false
     isExpect: false
@@ -217,7 +217,7 @@ KaKotlinPropertySymbol:
       annotations: []
       typeArguments: []
       type: kotlin/String
-    visibility: PUBLIC
+    visibility: PRIVATE
     getContainingFileSymbol: KaFileSymbol(dataClass.kt)
     getContainingJvmClassName: Abc
     getContainingModule: KaSourceModule "Sources of main"
@@ -382,14 +382,26 @@ KaKotlinPropertySymbol:
     origin: SOURCE
     receiverParameter: KaReceiverParameterSymbol:
       annotations: []
+      callableId: null
+      compilerVisibility: Public
+      contextReceivers: []
+      isActual: false
+      isExpect: false
+      isExtension: false
+      isVal: true
       location: LOCAL
+      modality: FINAL
+      name: <receiver>
       origin: SOURCE
       owningCallableSymbol: KaKotlinPropertySymbol(/Abc.bodyProperty)
-      type: KaUsualClassType:
+      receiverParameter: null
+      returnType: KaUsualClassType:
         annotations: []
         typeArguments: []
         type: kotlin/Int
+      visibility: PUBLIC
       getContainingFileSymbol: KaFileSymbol(dataClass.kt)
+      getContainingJvmClassName: Abc
       getContainingModule: KaSourceModule "Sources of main"
       deprecationStatus: null
     returnType: KaUsualClassType:
@@ -422,14 +434,26 @@ KaKotlinPropertySymbol:
   origin: SOURCE
   receiverParameter: KaReceiverParameterSymbol:
     annotations: []
+    callableId: null
+    compilerVisibility: Public
+    contextReceivers: []
+    isActual: false
+    isExpect: false
+    isExtension: false
+    isVal: true
     location: LOCAL
+    modality: FINAL
+    name: <receiver>
     origin: SOURCE
     owningCallableSymbol: KaKotlinPropertySymbol(/Abc.bodyProperty)
-    type: KaUsualClassType:
+    receiverParameter: null
+    returnType: KaUsualClassType:
       annotations: []
       typeArguments: []
       type: kotlin/Int
+    visibility: PUBLIC
     getContainingFileSymbol: KaFileSymbol(dataClass.kt)
+    getContainingJvmClassName: Abc
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
   returnType: KaUsualClassType:
@@ -881,7 +905,7 @@ KaConstructorSymbol:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
+          compilerVisibility: Private
           contextReceivers: []
           isActual: false
           isExpect: false
@@ -897,7 +921,7 @@ KaConstructorSymbol:
             annotations: []
             typeArguments: []
             type: kotlin/Int
-          visibility: PUBLIC
+          visibility: PRIVATE
           getContainingFileSymbol: KaFileSymbol(dataClass.kt)
           getContainingJvmClassName: Abc
           getContainingModule: KaSourceModule "Sources of main"
@@ -1007,7 +1031,7 @@ KaConstructorSymbol:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
+          compilerVisibility: Private
           contextReceivers: []
           isActual: false
           isExpect: false
@@ -1023,7 +1047,7 @@ KaConstructorSymbol:
             annotations: []
             typeArguments: []
             type: kotlin/Double
-          visibility: PUBLIC
+          visibility: PRIVATE
           getContainingFileSymbol: KaFileSymbol(dataClass.kt)
           getContainingJvmClassName: Abc
           getContainingModule: KaSourceModule "Sources of main"
@@ -1133,7 +1157,7 @@ KaConstructorSymbol:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
+          compilerVisibility: Private
           contextReceivers: []
           isActual: false
           isExpect: false
@@ -1149,7 +1173,7 @@ KaConstructorSymbol:
             annotations: []
             typeArguments: []
             type: kotlin/String
-          visibility: PUBLIC
+          visibility: PRIVATE
           getContainingFileSymbol: KaFileSymbol(dataClass.kt)
           getContainingJvmClassName: Abc
           getContainingModule: KaSourceModule "Sources of main"

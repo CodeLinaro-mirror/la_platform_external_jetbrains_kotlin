@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.light.classes.symbol.classes
 
+import com.intellij.psi.PsiField
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.PsiModifierList
@@ -19,8 +20,6 @@ import org.jetbrains.kotlin.asJava.builder.LightMemberOriginForDeclaration
 import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_BASE
 import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_FOR_NON_ORIGIN_METHOD
 import org.jetbrains.kotlin.asJava.classes.lazyPub
-import org.jetbrains.kotlin.asJava.elements.KtLightField
-import org.jetbrains.kotlin.asJava.elements.KtLightMethod
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.StandardNames.HASHCODE_NAME
 import org.jetbrains.kotlin.config.LanguageFeature
@@ -109,7 +108,7 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
 
     override fun getOwnMethods(): List<PsiMethod> = cachedValue {
         withClassSymbol { classSymbol ->
-            val result = mutableListOf<KtLightMethod>()
+            val result = mutableListOf<PsiMethod>()
 
             // We should use the combined declared member scope here because an enum class may contain static callables.
             val declaredMemberScope = classSymbol.combinedDeclaredMemberScope
@@ -157,24 +156,8 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
 
     context(KaSession)
     @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    private fun addMethodsFromDataClass(result: MutableList<KtLightMethod>, classSymbol: KaNamedClassSymbol) {
+    private fun addMethodsFromDataClass(result: MutableList<PsiMethod>, classSymbol: KaNamedClassSymbol) {
         if (!classSymbol.isData) return
-
-        fun createMethodFromAny(functionSymbol: KaNamedFunctionSymbol) {
-            // Similar to `copy`, synthetic members from `Any` should refer to `data` class as origin, not the function in `Any`.
-            val lightMemberOrigin = classOrObjectDeclaration?.let { LightMemberOriginForDeclaration(it, JvmDeclarationOriginKind.OTHER) }
-            result.add(
-                SymbolLightSimpleMethod(
-                    ktAnalysisSession = this@KaSession,
-                    functionSymbol,
-                    lightMemberOrigin,
-                    this,
-                    METHOD_INDEX_BASE,
-                    false,
-                    suppressStatic = false,
-                )
-            )
-        }
 
         // NB: componentN and copy are added during RAW FIR, but synthetic members from `Any` are not.
         // That's why we use declared scope for 'component*' and 'copy', and member scope for 'equals/hashCode/toString'
@@ -184,8 +167,27 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
             .filterIsInstance<KaNamedFunctionSymbol>()
 
         createMethods(componentAndCopyFunctions, result)
+        generateMethodsFromAny(classSymbol, result)
+    }
 
-        // Compiler will generate 'equals/hashCode/toString' for data class if they are not final.
+    private fun KaSession.createMethodFromAny(functionSymbol: KaNamedFunctionSymbol, result: MutableList<PsiMethod>) {
+        // Similar to `copy`, synthetic members from `Any` should refer to `data` class as origin, not the function in `Any`.
+        val lightMemberOrigin = classOrObjectDeclaration?.let { LightMemberOriginForDeclaration(it, JvmDeclarationOriginKind.OTHER) }
+        result.add(
+            SymbolLightSimpleMethod(
+                ktAnalysisSession = this,
+                functionSymbol,
+                lightMemberOrigin,
+                this@SymbolLightClassForClassOrObject,
+                METHOD_INDEX_BASE,
+                false,
+                suppressStatic = false,
+            )
+        )
+    }
+
+    protected fun KaSession.generateMethodsFromAny(classSymbol: KaNamedClassSymbol, result: MutableList<PsiMethod>) {
+        // Compiler will generate 'equals/hashCode/toString' for data/value class if they are not final.
         // We want to mimic that.
         val generatedFunctionsFromAny = classSymbol.memberScope
             .callables(EQUALS, HASHCODE_NAME, TO_STRING)
@@ -195,14 +197,14 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
         val functionsFromAnyByName = generatedFunctionsFromAny.associateBy { it.name }
 
         // NB: functions from `Any` are not in an alphabetic order.
-        functionsFromAnyByName[TO_STRING]?.let { createMethodFromAny(it) }
-        functionsFromAnyByName[HASHCODE_NAME]?.let { createMethodFromAny(it) }
-        functionsFromAnyByName[EQUALS]?.let { createMethodFromAny(it) }
+        functionsFromAnyByName[TO_STRING]?.let { createMethodFromAny(it, result) }
+        functionsFromAnyByName[HASHCODE_NAME]?.let { createMethodFromAny(it, result) }
+        functionsFromAnyByName[EQUALS]?.let { createMethodFromAny(it, result) }
     }
 
     context(KaSession)
     @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    private fun addDelegatesToInterfaceMethods(result: MutableList<KtLightMethod>, classSymbol: KaNamedClassSymbol) {
+    protected fun addDelegatesToInterfaceMethods(result: MutableList<PsiMethod>, classSymbol: KaNamedClassSymbol) {
         fun createDelegateMethod(functionSymbol: KaNamedFunctionSymbol) {
             val kotlinOrigin = functionSymbol.psiSafe<KtDeclaration>() ?: classOrObjectDeclaration
             val lightMemberOrigin = kotlinOrigin?.let { LightMemberOriginForDeclaration(it, JvmDeclarationOriginKind.DELEGATION) }
@@ -227,9 +229,9 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
         }
     }
 
-    override fun getOwnFields(): List<KtLightField> = cachedValue {
+    override fun getOwnFields(): List<PsiField> = cachedValue {
         withClassSymbol { classSymbol ->
-            val result = mutableListOf<KtLightField>()
+            val result = mutableListOf<PsiField>()
 
             // First, add static fields: companion object and fields from companion object
             addCompanionObjectFieldIfNeeded(result, classSymbol)
@@ -251,7 +253,7 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
 
     context(KaSession)
     @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    private fun addInstanceFieldIfNeeded(result: MutableList<KtLightField>, classSymbol: KaNamedClassSymbol) {
+    private fun addInstanceFieldIfNeeded(result: MutableList<PsiField>, classSymbol: KaNamedClassSymbol) {
         if (classKind() != KaClassKind.OBJECT || isLocal) return
 
         result.add(
@@ -268,7 +270,7 @@ internal open class SymbolLightClassForClassOrObject : SymbolLightClassForNamedC
 
     context(KaSession)
     @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    private fun addFieldsForEnumEntries(result: MutableList<KtLightField>, classSymbol: KaNamedClassSymbol) {
+    private fun addFieldsForEnumEntries(result: MutableList<PsiField>, classSymbol: KaNamedClassSymbol) {
         if (!isEnum) return
 
         classSymbol.staticDeclaredMemberScope.callables

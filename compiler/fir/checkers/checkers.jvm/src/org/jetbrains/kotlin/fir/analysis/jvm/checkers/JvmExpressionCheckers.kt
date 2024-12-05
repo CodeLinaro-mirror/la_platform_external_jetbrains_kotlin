@@ -13,6 +13,7 @@ object JvmExpressionCheckers : ExpressionCheckers() {
         get() = setOf(
             FirJvmProtectedInSuperClassCompanionCallChecker,
             FirJvmReflectionApiCallChecker,
+            FirJvmMissingBuiltInDeclarationChecker
         )
 
     override val qualifiedAccessExpressionCheckers: Set<FirQualifiedAccessExpressionChecker>
@@ -22,6 +23,8 @@ object JvmExpressionCheckers : ExpressionCheckers() {
             FirQualifiedAccessJavaNullabilityWarningChecker,
             FirJvmModuleAccessibilityQualifiedAccessChecker,
             FirJvmInlineTargetQualifiedAccessChecker,
+            FirJavaClassInheritsKtPrivateClassExpressionChecker,
+            FirArrayOfNullableNothingExpressionChecker,
         )
 
     override val propertyAccessExpressionCheckers: Set<FirPropertyAccessExpressionChecker>
@@ -41,6 +44,7 @@ object JvmExpressionCheckers : ExpressionCheckers() {
             FirJavaGenericVarianceViolationTypeChecker,
             FirSuperCallWithDefaultsChecker,
             FirJvmSuspensionPointInsideMutexLockChecker,
+            FirJvmSynchronizedByValueClassOrPrimitiveChecker,
             FirJvmInconsistentOperatorFromJavaCallChecker,
             FirJvmPolymorphicSignatureCallChecker,
             FirJavaSamConstructorNullabilityChecker,
@@ -63,7 +67,7 @@ object JvmExpressionCheckers : ExpressionCheckers() {
             FirWhenConditionJavaNullabilityWarningChecker,
         )
 
-    override val logicExpressionCheckers: Set<FirLogicExpressionChecker>
+    override val booleanOperatorExpressionCheckers: Set<FirBooleanOperatorExpressionChecker>
         get() = setOf(
             FirLogicExpressionTypeJavaNullabilityWarningChecker,
         )

@@ -12,6 +12,7 @@ dependencies {
     testApi(commonDependency("org.jetbrains.teamcity:serviceMessages"))
     testApi(project(":kotlin-compiler-runner-unshaded"))
     testApi(projectTests(":compiler:tests-common"))
+    testApi(projectTests(":compiler:tests-integration"))
     testApi(projectTests(":compiler:tests-common-new"))
     testApi(projectTests(":compiler:test-infrastructure"))
     testApi(project(":native:kotlin-native-utils"))
@@ -20,6 +21,7 @@ dependencies {
     testImplementation(projectTests(":generators:test-generator"))
     testImplementation(project(":compiler:ir.serialization.native"))
     testImplementation(project(":compiler:fir:native"))
+    testImplementation(project(":core:compiler.common.native"))
     testImplementation(project(":kotlin-util-klib-abi"))
     testImplementation(project(":native:swift:swift-export-standalone"))
     testImplementation(projectTests(":kotlin-util-klib-abi"))
@@ -46,10 +48,8 @@ testsJar {}
 val infrastructureTest = nativeTest("infrastructureTest", "infrastructure")
 val codegenBoxTest = nativeTest("codegenBoxTest", "codegen & !frontend-fir")
 val codegenBoxK2Test = nativeTest("codegenBoxK2Test", "codegen & frontend-fir")
-val stdlibTest = nativeTest("stdlibTest", "stdlib & !frontend-fir")
-val stdlibK2Test = nativeTest("stdlibK2Test", "stdlib & frontend-fir")
-val kotlinTestLibraryTest = nativeTest("kotlinTestLibraryTest", "kotlin-test & !frontend-fir")
-val kotlinTestLibraryK2Test = nativeTest("kotlinTestLibraryK2Test", "kotlin-test & frontend-fir")
+val stdlibTest = nativeTest("stdlibTest", "stdlib")
+val kotlinTestLibraryTest = nativeTest("kotlinTestLibraryTest", "kotlin-test")
 val partialLinkageTest = nativeTest("partialLinkageTest", "partial-linkage")
 val cinteropTest = nativeTest("cinteropTest", "cinterop")
 val debuggerTest = nativeTest("debuggerTest", "debugger")
@@ -61,7 +61,17 @@ val gcTest = nativeTest("gcTest", "gc")
 val testTags = findProperty("kotlin.native.tests.tags")?.toString()
 // Note: arbitrary JUnit tag expressions can be used in this property.
 // See https://junit.org/junit5/docs/current/user-guide/#running-tests-tag-expressions
-val test by nativeTest("test", testTags, requirePlatformLibs = true) {
+val test by nativeTest(
+    "test",
+    testTags,
+    requirePlatformLibs = true,
+    defineJDKEnvVariables = listOf(
+        JdkMajorVersion.JDK_1_8,  // required in CompilerOutputTest via AbstractCliTest.getNormalizedCompilerOutput
+        JdkMajorVersion.JDK_11_0, // required in CompilerOutputTest via AbstractCliTest.getNormalizedCompilerOutput
+        JdkMajorVersion.JDK_17_0, // required in CompilerOutputTest via AbstractCliTest.getNormalizedCompilerOutput
+        JdkMajorVersion.JDK_21_0,
+    )
+) {
     options {
         // See [org.jetbrains.kotlin.konan.test.KlibCrossCompilationIdentityTest.FULL_CROSS_DIST_ENABLED_PROPERTY]
         // See also kotlin-native/build-tools/src/main/kotlin/org/jetbrains/kotlin/nativeFullCrossDist.kt

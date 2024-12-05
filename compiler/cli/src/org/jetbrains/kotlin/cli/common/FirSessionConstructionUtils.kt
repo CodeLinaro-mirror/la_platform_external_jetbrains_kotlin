@@ -6,10 +6,16 @@
 package org.jetbrains.kotlin.cli.common
 
 import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.createLibraryListForJvm
+import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.FrontendContext
+import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.MinimizedFrontendContext
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.fir.*
-import org.jetbrains.kotlin.fir.analysis.checkers.OptInLanguageVersionSettingsCheckers
-import org.jetbrains.kotlin.fir.checkers.registerExtendedCommonCheckers
+import org.jetbrains.kotlin.fir.analysis.checkers.CliOnlyLanguageVersionSettingsCheckers
+import org.jetbrains.kotlin.fir.checkers.registerExperimentalCheckers
+import org.jetbrains.kotlin.fir.checkers.registerExtraCommonCheckers
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.session.*
@@ -32,6 +38,7 @@ import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.config.wasmTarget
+import kotlin.collections.orEmpty
 
 val isCommonSourceForPsi: (KtFile) -> Boolean = { it.isCommonSource == true }
 val fileBelongsToModuleForPsi: (KtFile, String) -> Boolean = { file, moduleName -> file.hmppModuleName == moduleName }
@@ -42,6 +49,24 @@ val GroupedKtSources.isCommonSourceForLt: (KtSourceFile) -> Boolean
 val GroupedKtSources.fileBelongsToModuleForLt: (KtSourceFile, String) -> Boolean
     get() = { file, moduleName -> sourcesByModuleName[moduleName].orEmpty().contains(file) }
 
+fun prepareJvmSessionsForScripting(
+    projectEnvironment: AbstractProjectEnvironment,
+    configuration: CompilerConfiguration,
+    files: List<KtFile>,
+    rootModuleNameAsString: String,
+    friendPaths: List<String>,
+    librariesScope: AbstractProjectFileSearchScope,
+    isScript: (KtFile) -> Boolean,
+    createProviderAndScopeForIncrementalCompilation: (List<KtFile>) -> IncrementalCompilationContext?,
+): List<SessionWithSources<KtFile>> {
+    val extensionRegistrars = (projectEnvironment as? VfsBasedProjectEnvironment)
+        ?.let { FirExtensionRegistrar.getInstances(it.project) }.orEmpty()
+    return MinimizedFrontendContext(projectEnvironment, MessageCollector.NONE, extensionRegistrars, configuration).prepareJvmSessions(
+        files, rootModuleNameAsString, friendPaths, librariesScope, isCommonSourceForPsi, isScript,
+        fileBelongsToModuleForPsi, createProviderAndScopeForIncrementalCompilation
+    )
+}
+
 /**
  * Creates library session and sources session for JVM platform
  * Number of created session depends on mode of MPP:
@@ -49,12 +74,45 @@ val GroupedKtSources.fileBelongsToModuleForLt: (KtSourceFile, String) -> Boolean
  *   - legacy (one platform and one common module)
  *   - HMPP (multiple number of modules)
  */
-fun <F> prepareJvmSessions(
+internal fun <F> FrontendContext.prepareJvmSessions(
     files: List<F>,
+    rootModuleNameAsString: String,
+    friendPaths: List<String>,
+    librariesScope: AbstractProjectFileSearchScope,
+    isCommonSource: (F) -> Boolean,
+    isScript: (F) -> Boolean,
+    fileBelongsToModule: (F, String) -> Boolean,
+    createProviderAndScopeForIncrementalCompilation: (List<F>) -> IncrementalCompilationContext?,
+): List<SessionWithSources<F>> {
+    val libraryList = createLibraryListForJvm(rootModuleNameAsString, configuration, friendPaths)
+    val rootModuleName = Name.special("<$rootModuleNameAsString>")
+    return prepareJvmSessions(
+        files, rootModuleName, librariesScope, libraryList,
+        isCommonSource, isScript, fileBelongsToModule, createProviderAndScopeForIncrementalCompilation
+    )
+}
+
+fun prepareJvmSessionsWithoutFiles(
     configuration: CompilerConfiguration,
-    projectEnvironment: AbstractProjectEnvironment,
+    environment: VfsBasedProjectEnvironment,
+    moduleName: Name,
+    libraryList: DependencyListForCliModule
+): List<SessionWithSources<KtFile>> {
+    return MinimizedFrontendContext(environment, MessageCollector.NONE, emptyList(), configuration).prepareJvmSessions(
+        files = emptyList(),
+        moduleName,
+        environment.getSearchScopeForProjectLibraries(),
+        libraryList,
+        isCommonSource = { false },
+        isScript = { false },
+        fileBelongsToModule = { _, _ -> false },
+        createProviderAndScopeForIncrementalCompilation = { null }
+    )
+}
+
+internal fun <F> FrontendContext.prepareJvmSessions(
+    files: List<F>,
     rootModuleName: Name,
-    extensionRegistrars: List<FirExtensionRegistrar>,
     librariesScope: AbstractProjectFileSearchScope,
     libraryList: DependencyListForCliModule,
     isCommonSource: (F) -> Boolean,
@@ -82,7 +140,6 @@ fun <F> prepareJvmSessions(
                 projectEnvironment.getPackagePartProvider(librariesScope),
                 configuration.languageVersionSettings,
                 predefinedJavaComponents = predefinedJavaComponents,
-                registerExtraComponents = {},
             )
         },
     ) { moduleFiles, moduleData, sessionProvider, sessionConfigurator ->
@@ -114,7 +171,6 @@ fun <F> prepareJvmSessions(
             configuration.get(CommonConfigurationKeys.IMPORT_TRACKER),
             predefinedJavaComponents = predefinedJavaComponents,
             needRegisterJavaElementFinder = true,
-            registerExtraComponents = {},
             sessionConfigurator,
         )
     }
@@ -151,7 +207,6 @@ fun <F> prepareJsSessions(
                 libraryList.moduleDataProvider,
                 extensionRegistrars,
                 configuration,
-                registerExtraComponents = {},
             )
         }
     ) { _, moduleData, sessionProvider, sessionConfigurator ->
@@ -162,7 +217,6 @@ fun <F> prepareJsSessions(
             configuration,
             lookupTracker,
             icData = icData,
-            registerExtraComponents = {},
             init = sessionConfigurator,
         )
     }
@@ -185,7 +239,6 @@ fun <F> prepareNativeSessions(
     metadataCompilationMode: Boolean,
     isCommonSource: (F) -> Boolean,
     fileBelongsToModule: (F, String) -> Boolean,
-    registerExtraComponents: ((FirSession) -> Unit) = {},
 ): List<SessionWithSources<F>> {
     return prepareSessions(
         files, configuration, rootModuleName, NativePlatforms.unspecifiedNativePlatform,
@@ -198,7 +251,6 @@ fun <F> prepareNativeSessions(
                 libraryList.moduleDataProvider,
                 extensionRegistrars,
                 configuration.languageVersionSettings,
-                registerExtraComponents,
             )
         }
     ) { _, moduleData, sessionProvider, sessionConfigurator ->
@@ -208,7 +260,6 @@ fun <F> prepareNativeSessions(
             extensionRegistrars,
             configuration.languageVersionSettings,
             sessionConfigurator,
-            registerExtraComponents,
         )
     }
 }
@@ -248,7 +299,7 @@ fun <F> prepareWasmSessions(
                 libraryList.moduleDataProvider,
                 extensionRegistrars,
                 configuration.languageVersionSettings,
-                registerExtraComponents = {},
+                configuration.wasmTarget,
             )
         }
     ) { _, moduleData, sessionProvider, sessionConfigurator ->
@@ -260,7 +311,6 @@ fun <F> prepareWasmSessions(
             configuration.wasmTarget,
             lookupTracker,
             icData = icData,
-            registerExtraComponents = {},
             init = sessionConfigurator,
         )
     }
@@ -298,7 +348,6 @@ fun <F> prepareCommonSessions(
                 resolvedLibraries,
                 projectEnvironment.getPackagePartProvider(librariesScope) as PackageAndMetadataPartProvider,
                 configuration.languageVersionSettings,
-                registerExtraComponents = {},
             )
         }
     ) { moduleFiles, moduleData, sessionProvider, sessionConfigurator ->
@@ -312,7 +361,6 @@ fun <F> prepareCommonSessions(
             lookupTracker = configuration.get(CommonConfigurationKeys.LOOKUP_TRACKER),
             enumWhenTracker = configuration.get(CommonConfigurationKeys.ENUM_WHEN_TRACKER),
             importTracker = configuration.get(CommonConfigurationKeys.IMPORT_TRACKER),
-            registerExtraComponents = {},
             init = sessionConfigurator
         )
     }
@@ -343,10 +391,14 @@ private inline fun <F> prepareSessions(
     val sessionProvider = FirProjectSessionProvider()
 
     createLibrarySession(sessionProvider)
-    val extendedAnalysisMode = configuration.getBoolean(CommonConfigurationKeys.USE_FIR_EXTENDED_CHECKERS)
+    val extraAnalysisMode = configuration.getBoolean(CommonConfigurationKeys.USE_FIR_EXTRA_CHECKERS)
+    val experimentalAnalysisMode = configuration.getBoolean(CommonConfigurationKeys.USE_FIR_EXPERIMENTAL_CHECKERS)
     val sessionConfigurator: FirSessionConfigurator.() -> Unit = {
-        if (extendedAnalysisMode) {
-            registerExtendedCommonCheckers()
+        if (extraAnalysisMode) {
+            registerExtraCommonCheckers()
+        }
+        if (experimentalAnalysisMode) {
+            registerExperimentalCheckers()
         }
     }
 
@@ -420,7 +472,7 @@ private inline fun <F> createSingleSession(
 
     val session = createFirSession(files, platformModuleData, sessionProvider) {
         sessionConfigurator()
-        useCheckers(OptInLanguageVersionSettingsCheckers)
+        useCheckers(CliOnlyLanguageVersionSettingsCheckers)
     }
     return SessionWithSources(session, files)
 }
@@ -464,7 +516,7 @@ private inline fun <F> createSessionsForLegacyMppProject(
         sessionConfigurator()
         // The CLI session might contain an opt-in for an annotation that's defined in the platform module.
         // Therefore, only run the opt-in LV checker on the platform module.
-        useCheckers(OptInLanguageVersionSettingsCheckers)
+        useCheckers(CliOnlyLanguageVersionSettingsCheckers)
     }
 
     return listOf(
@@ -509,7 +561,7 @@ private inline fun <F> createSessionsForHmppProject(
             // The CLI session might contain an opt-in for an annotation that's defined in one of the modules.
             // The only module that's guaranteed to have a dependency on this module is the last one.
             if (i == hmppModuleStructure.modules.lastIndex) {
-                useCheckers(OptInLanguageVersionSettingsCheckers)
+                useCheckers(CliOnlyLanguageVersionSettingsCheckers)
             }
         }
         SessionWithSources(session, sources)

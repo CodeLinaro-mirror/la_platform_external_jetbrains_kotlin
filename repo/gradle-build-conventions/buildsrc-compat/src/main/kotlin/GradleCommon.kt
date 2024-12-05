@@ -3,6 +3,9 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+import gradle.commonSourceSetName
+import gradle.GradlePluginVariant
+import gradle.publishGradlePluginsJavadoc
 import org.gradle.api.Action
 import org.gradle.api.GradleException
 import org.gradle.api.Project
@@ -33,43 +36,14 @@ import org.gradle.plugin.devel.PluginDeclaration
 import org.gradle.plugin.devel.plugins.JavaGradlePluginPlugin
 import org.gradle.plugin.devel.tasks.ValidatePlugins
 import org.gradle.plugin.use.resolve.internal.ArtifactRepositoriesPluginResolver.PLUGIN_MARKER_SUFFIX
-import org.jetbrains.dokka.DokkaVersion
-import org.jetbrains.dokka.gradle.DokkaTask
-import org.jetbrains.dokka.gradle.GradleExternalDocumentationLinkBuilder
 import org.jetbrains.kotlin.gradle.dsl.KotlinSingleJavaTargetExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import plugins.configureDefaultPublishing
 import plugins.configureKotlinPomAttributes
-import java.net.URL
-
-/**
- * Gradle's plugins common variants.
- *
- * [minimalSupportedGradleVersion] - minimal Gradle version that is supported in this variant
- * [gradleApiVersion] - Gradle API dependency version. Usually should be the same as [minimalSupportedGradleVersion].
- * [gradleApiJavadocUrl] - Gradle URL for the given API. Last enum entry should always point to 'current'.
- */
-enum class GradlePluginVariant(
-    val sourceSetName: String,
-    val minimalSupportedGradleVersion: String,
-    val gradleApiVersion: String,
-    val gradleApiJavadocUrl: String,
-) {
-    GRADLE_MIN("main", "6.8.3", "6.9", "https://docs.gradle.org/6.9.3/javadoc/"),
-    GRADLE_70("gradle70", "7.0", "7.0", "https://docs.gradle.org/7.0.2/javadoc/"),
-    GRADLE_71("gradle71", "7.1", "7.1", "https://docs.gradle.org/7.1.1/javadoc/"),
-    GRADLE_74("gradle74", "7.4", "7.4", "https://docs.gradle.org/7.4.2/javadoc/"),
-    GRADLE_75("gradle75", "7.5", "7.5", "https://docs.gradle.org/7.5.1/javadoc/"),
-    GRADLE_76("gradle76", "7.6", "7.6", "https://docs.gradle.org/7.6.1/javadoc/"),
-    GRADLE_80("gradle80", "8.0", "8.0", "https://docs.gradle.org/8.0.2/javadoc/"),
-    GRADLE_81("gradle81", "8.1", "8.1", "https://docs.gradle.org/8.1.1/javadoc/"),
-    GRADLE_82("gradle82", "8.2", "8.2", "https://docs.gradle.org/8.2.1/javadoc/"),
-    GRADLE_85("gradle85", "8.5", "8.5", "https://docs.gradle.org/current/javadoc/"),
-}
-
-val commonSourceSetName = "common"
 
 /**
  * We have to handle the returned provider lazily, because the publication's artifactId
@@ -159,7 +133,6 @@ private val internalPlugins = setOf(
     "android-test-fixes",
     "gradle-warnings-detector",
     "kotlin-compiler-args-properties",
-    "fus-statistics-gradle-plugin",
 )
 
 private val testPlugins = internalPlugins + setOf(
@@ -169,7 +142,7 @@ private val testPlugins = internalPlugins + setOf(
 
 /**
  * Common sources for all variants.
- * Should contain classes that are independent of Gradle API version or using minimal supported Gradle api.
+ * Should contain classes that are independent of the Gradle API version or using the maximum supported Gradle API.
  */
 fun Project.createGradleCommonSourceSet(): SourceSet {
     val commonSourceSet = sourceSets.create(commonSourceSetName) {
@@ -185,7 +158,7 @@ fun Project.createGradleCommonSourceSet(): SourceSet {
 
         dependencies {
             compileOnlyConfigurationName(kotlinStdlib())
-            "commonGradleApiCompileOnly"("dev.gradleplugins:gradle-api:8.6")
+            "commonGradleApiCompileOnly"("dev.gradleplugins:gradle-api:8.10")
             if (this@createGradleCommonSourceSet.name !in testPlugins) {
                 compileOnlyConfigurationName(project(":kotlin-gradle-plugin-api")) {
                     capabilities {
@@ -568,13 +541,15 @@ private fun Project.commonVariantAttributes(): Action<Configuration> = Action<Co
 }
 
 fun Project.configureKotlinCompileTasksGradleCompatibility() {
-    tasks.withType<KotlinJvmCompile>().configureEach {
+    tasks.withType<KotlinCompile>().configureEach {
         compilerOptions {
-            // check https://docs.gradle.org/current/userguide/compatibility.html#kotlin for Kotlin-Gradle versions matrix
-            @Suppress("DEPRECATION") // we can't use language version greater than 1.5 as minimal supported Gradle embeds Kotlin 1.4
-            languageVersion.set(KotlinVersion.KOTLIN_1_5)
-            @Suppress("DEPRECATION") // we can't use api version greater than 1.4 as minimal supported Gradle version uses kotlin-stdlib 1.4
-            apiVersion.set(KotlinVersion.KOTLIN_1_4)
+            if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+                // check https://docs.gradle.org/current/userguide/compatibility.html#kotlin for Kotlin-Gradle versions matrix
+                @Suppress("DEPRECATION", "DEPRECATION_ERROR") // we can't use language version greater than 1.5 as minimal supported Gradle embeds Kotlin 1.4
+                languageVersion.set(KotlinVersion.KOTLIN_1_5)
+                @Suppress("DEPRECATION", "DEPRECATION_ERROR") // we can't use api version greater than 1.4 as minimal supported Gradle version uses kotlin-stdlib 1.4
+                apiVersion.set(KotlinVersion.KOTLIN_1_4)
+            }
             freeCompilerArgs.addAll(
                 listOf(
                     "-Xskip-prerelease-check",
@@ -586,6 +561,21 @@ fun Project.configureKotlinCompileTasksGradleCompatibility() {
                     "-Xsam-conversions=class",
                 )
             )
+        }
+    }
+    configureRunViaKotlinBuildToolsApi()
+}
+
+fun Project.configureRunViaKotlinBuildToolsApi() {
+    project.extra["kotlin.compiler.runViaBuildToolsApi"] = true
+    tasks.withType<KotlinCompile>().configureEach {
+        compilerExecutionStrategy.set(KotlinCompilerExecutionStrategy.IN_PROCESS)
+    }
+    afterEvaluate {
+        val gradlePluginsBuildToolsApiClasspath by rootProject.buildscript.configurations
+        configurations.findByName("kotlinBuildToolsApiClasspath")?.let {
+            it.dependencies.clear()
+            dependencies.add(it.name, files(gradlePluginsBuildToolsApiClasspath))
         }
     }
 }
@@ -657,7 +647,6 @@ fun Project.addBomCheckTask() {
             project(":gradle:kotlin-compiler-args-properties").path,
             project(":kotlin-gradle-build-metrics").path,
             project(":kotlin-gradle-statistics").path,
-            project(":libraries:tools:gradle:fus-statistics-gradle-plugin").path
         )
         val projectPath = this@addBomCheckTask.path
 
@@ -682,134 +671,6 @@ fun Project.addBomCheckTask() {
 
     tasks.named("check") {
         dependsOn(checkBomTask)
-    }
-}
-
-fun Project.configureDokkaPublication(
-    shouldLinkGradleApi: Boolean = false,
-    configurePublishingToKotlinlang: Boolean = false,
-    additionalDokkaTaskConfiguration: DokkaTask.() -> Unit = {},
-) {
-
-    val dokkaVersioningPluginVersion = "1.8.10"
-
-    dependencies {
-        implicitDependencies("org.jetbrains.dokka:javadoc-plugin:${DokkaVersion.version}")
-        implicitDependencies("org.jetbrains.dokka:versioning-plugin:$dokkaVersioningPluginVersion")
-    }
-
-    if (!kotlinBuildProperties.publishGradlePluginsJavadoc) return
-
-    plugins.apply("org.jetbrains.dokka")
-    plugins.withId("org.jetbrains.dokka") {
-        val commonSourceSet = sourceSets.getByName(commonSourceSetName)
-
-        GradlePluginVariant.values().forEach { pluginVariant ->
-            val variantSourceSet = sourceSets.getByName(pluginVariant.sourceSetName)
-            val dokkaTaskName = "dokka${variantSourceSet.javadocTaskName.replaceFirstChar { it.uppercase() }}"
-
-            val dokkaTask = if (tasks.names.contains(dokkaTaskName)) {
-                tasks.named<DokkaTask>(dokkaTaskName)
-            } else {
-                tasks.register<DokkaTask>(dokkaTaskName)
-            }
-
-            val javaDocDokkaDependency = project.dependencies.create("org.jetbrains.dokka:javadoc-plugin:${DokkaVersion.version}")
-            dokkaTask.configure {
-                description = "Generates documentation in 'javadoc' format for '${variantSourceSet.javadocTaskName}' variant"
-                notCompatibleWithConfigurationCache("Dokka is not compatible with Configuration Cache yet.")
-
-                plugins.dependencies.add(javaDocDokkaDependency)
-
-                dokkaSourceSets {
-                    named(commonSourceSet.name) {
-                        suppress.set(false)
-                        jdkVersion.set(8)
-                    }
-
-                    named(variantSourceSet.name) {
-                        dependsOn(commonSourceSet)
-                        suppress.set(false)
-                        jdkVersion.set(8)
-
-                        if (shouldLinkGradleApi) {
-                            externalDocumentationLink {
-                                url.set(URL(pluginVariant.gradleApiJavadocUrl))
-
-                                addWorkaroundForElementList(pluginVariant)
-                            }
-                        }
-                    }
-                }
-
-                additionalDokkaTaskConfiguration()
-            }
-
-            tasks.named<Jar>(variantSourceSet.javadocJarTaskName) {
-                from(dokkaTask.flatMap { it.outputDirectory })
-            }
-        }
-
-        if (configurePublishingToKotlinlang) {
-            val latestVariant = GradlePluginVariant.values().last()
-            val olderVersionsDir = layout.buildDirectory.dir("dokka/kotlinlangDocumentationOld")
-
-            project.dependencies {
-                // Version is required due to https://github.com/Kotlin/dokka/issues/2812
-                "dokkaHtmlPlugin"("org.jetbrains.dokka:versioning-plugin:$dokkaVersioningPluginVersion")
-            }
-
-            tasks.register<DokkaTask>("dokkaKotlinlangDocumentation") {
-                description = "Generates documentation reference for Kotlinlang"
-                notCompatibleWithConfigurationCache("Dokka is not compatible with Configuration Cache yet.")
-
-                dokkaSourceSets {
-                    pluginsMapConfiguration.put(
-                        "org.jetbrains.dokka.base.DokkaBase",
-                        "{ \"templatesDir\": \"${layout.projectDirectory.dir("dokka-template")}\" }"
-                    )
-                    pluginsMapConfiguration.put(
-                        "org.jetbrains.dokka.versioning.VersioningPlugin",
-                        olderVersionsDir.map { olderVersionsDir ->
-                            "{ \"version\":\"$version\", \"olderVersionsDir\":\"${olderVersionsDir.asFile}\" }"
-                        }
-                    )
-
-                    named(commonSourceSet.name) {
-                        suppress.set(false)
-                        jdkVersion.set(8)
-                    }
-
-                    named(latestVariant.sourceSetName) {
-                        dependsOn(commonSourceSet)
-                        suppress.set(false)
-                        jdkVersion.set(8)
-
-                        if (shouldLinkGradleApi) {
-                            externalDocumentationLink {
-                                url.set(URL(latestVariant.gradleApiJavadocUrl))
-
-                                addWorkaroundForElementList(latestVariant)
-                            }
-                        }
-                    }
-
-                    additionalDokkaTaskConfiguration()
-                }
-            }
-        }
-    }
-}
-
-// Workaround for https://github.com/Kotlin/dokka/issues/2097
-// Gradle 7.6 javadoc does not have published 'package-list' file
-private fun GradleExternalDocumentationLinkBuilder.addWorkaroundForElementList(pluginVariant: GradlePluginVariant) {
-    if (pluginVariant == GradlePluginVariant.GRADLE_76 ||
-        pluginVariant == GradlePluginVariant.GRADLE_80 ||
-        pluginVariant == GradlePluginVariant.GRADLE_81 ||
-        pluginVariant == GradlePluginVariant.GRADLE_82
-    ) {
-        packageListUrl.set(URL("${pluginVariant.gradleApiJavadocUrl}element-list"))
     }
 }
 

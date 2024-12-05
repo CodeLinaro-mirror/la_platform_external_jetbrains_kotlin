@@ -23,9 +23,7 @@ import org.jetbrains.kotlin.codegen.context.RootContext;
 import org.jetbrains.kotlin.codegen.state.GenerationState;
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper;
 import org.jetbrains.kotlin.config.ApiVersion;
-import org.jetbrains.kotlin.config.JvmAnalysisFlags;
 import org.jetbrains.kotlin.config.JvmDefaultMode;
-import org.jetbrains.kotlin.config.LanguageVersionSettings;
 import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.descriptors.impl.AnonymousFunctionDescriptor;
 import org.jetbrains.kotlin.descriptors.impl.LocalVariableDescriptor;
@@ -278,13 +276,18 @@ public class JvmCodegenUtil {
 
     @NotNull
     public static String getModuleName(ModuleDescriptor module) {
-        Name name = module.getStableName();
-        if (name == null) {
+        Name stableName = module.getStableName();
+        if (stableName == null) {
             // Defensive fallback to possibly unstable name, to not fail with exception
-            return StringsKt.removeSurrounding(module.getName().asString(), "<", ">");
+            return prepareModuleName(module.getName());
         } else {
-            return StringsKt.removeSurrounding(name.asString(), "<", ">");
+            return prepareModuleName(stableName);
         }
+    }
+
+    @NotNull
+    public static String prepareModuleName(@NotNull Name name) {
+        return StringsKt.removeSurrounding(name.asString(), "<", ">");
     }
 
     @NotNull
@@ -382,15 +385,6 @@ public class JvmCodegenUtil {
 
     public static boolean isPolymorphicSignature(@NotNull FunctionDescriptor descriptor) {
         return descriptor.getAnnotations().hasAnnotation(PolymorphicSignatureCallChecker.polymorphicSignatureFqName);
-    }
-
-    @NotNull
-    public static String sanitizeNameIfNeeded(@NotNull String name, @NotNull LanguageVersionSettings languageVersionSettings) {
-        if (languageVersionSettings.getFlag(JvmAnalysisFlags.getSanitizeParentheses())) {
-            return name.replace("(", "$_").replace(")", "$_");
-        }
-
-        return name;
     }
 
     // Before metadata version 1.1.16 we did not generate equals-impl0 methods correctly.

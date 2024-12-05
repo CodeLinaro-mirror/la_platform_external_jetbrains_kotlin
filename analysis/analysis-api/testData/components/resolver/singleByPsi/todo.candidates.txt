@@ -13,7 +13,7 @@ KtNameReferenceExpression(55,59): 'TODO'
           valueParameters = []
           callableId = kotlin/TODO
       typeArgumentsMapping = {}
-    diagnostic = ERROR<TOO_MANY_ARGUMENTS: Too many arguments for '@InlineOnly() fun TODO(): Nothing'.>
+    diagnostic = ERROR<TOO_MANY_ARGUMENTS: Too many arguments for 'fun TODO(): Nothing'.>
     isInBestCandidates = false
   
   KaApplicableCallCandidateInfo:

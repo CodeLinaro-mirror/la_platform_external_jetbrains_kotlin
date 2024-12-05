@@ -145,7 +145,7 @@ dependencies {
     testImplementation(project(":compiler:util"))
 }
 
-val nativelibs = project.tasks.register<Copy>("nativelibs") {
+val nativelibs by tasks.registering(Sync::class) {
     val clangstubsSolib = solib("clangstubs")
     dependsOn(clangstubsSolib)
 
@@ -153,13 +153,28 @@ val nativelibs = project.tasks.register<Copy>("nativelibs") {
     into(layout.buildDirectory.dir("nativelibs"))
 }
 
+val nativeLibs by configurations.creating {
+    isCanBeConsumed = true
+    isCanBeResolved = false
+    attributes {
+        attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.DIRECTORY_TYPE)
+        attribute(TargetWithSanitizer.TARGET_ATTRIBUTE, TargetWithSanitizer.host)
+    }
+}
+
+artifacts {
+    add(nativeLibs.name, nativelibs)
+}
+
 kotlinNativeInterop {
     this.create("clang") {
         defFile("clang.def")
         compilerOpts(cflags)
-        linkerOpts = ldflags
-        genTask.dependsOn(libclangextTask)
-        genTask.inputs.dir(libclangextDir)
+        linkerOpts(ldflags)
+        genTask.configure {
+            dependsOn(libclangextTask)
+            inputs.dir(libclangextDir)
+        }
     }
 }
 

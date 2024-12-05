@@ -19,8 +19,6 @@ import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
-import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
@@ -33,10 +31,6 @@ import org.jetbrains.kotlin.types.TypeCheckerState.SupertypesPolicy.LowerIfFlexi
 import org.jetbrains.kotlin.types.TypeSystemCommonBackendContext
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
-
-class ErrorTypeConstructor(val reason: String) : TypeConstructorMarker {
-    override fun toString(): String = reason
-}
 
 interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, TypeCheckerProviderContext, TypeSystemCommonBackendContext {
     val session: FirSession
@@ -55,12 +49,12 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
 
     override fun TypeConstructorMarker.isLocalType(): Boolean {
         if (this !is ConeClassLikeLookupTag) return false
-        return classId.isLocal
+        return isLocalClass()
     }
 
     override fun TypeConstructorMarker.isAnonymous(): Boolean {
         if (this !is ConeClassLikeLookupTag) return false
-        return name == SpecialNames.ANONYMOUS
+        return isAnonymousClass()
     }
 
     override val TypeVariableTypeConstructorMarker.typeParameter: TypeParameterMarker?
@@ -69,27 +63,27 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
             return this.originalTypeParameter
         }
 
-    override fun SimpleTypeMarker.possibleIntegerTypes(): Collection<KotlinTypeMarker> {
+    override fun RigidTypeMarker.possibleIntegerTypes(): Collection<KotlinTypeMarker> {
         return (this as? ConeIntegerLiteralType)?.possibleTypes ?: emptyList()
     }
 
-    override fun SimpleTypeMarker.fastCorrespondingSupertypes(constructor: TypeConstructorMarker): List<SimpleTypeMarker>? {
+    override fun RigidTypeMarker.fastCorrespondingSupertypes(constructor: TypeConstructorMarker): List<ConeClassLikeType>? {
         require(this is ConeKotlinType)
         return session.correspondingSupertypesCache.getCorrespondingSupertypes(this, constructor)
     }
 
-    override fun SimpleTypeMarker.isIntegerLiteralType(): Boolean {
+    override fun RigidTypeMarker.isIntegerLiteralType(): Boolean {
         return this is ConeIntegerLiteralType
     }
 
-    override fun KotlinTypeMarker.asSimpleType(): SimpleTypeMarker? {
+    override fun KotlinTypeMarker.asRigidType(): RigidTypeMarker? {
         assert(this is ConeKotlinType)
         return when (this) {
             is ConeClassLikeType -> fullyExpandedType(session)
-            is ConeSimpleKotlinType -> this
+            is ConeRigidType -> this
             is ConeFlexibleType -> null
             else -> errorWithAttachment("Unknown simpleType: ${this::class}") {
-                withConeTypeEntry("type", this@asSimpleType as? ConeKotlinType)
+                withConeTypeEntry("type", this@asRigidType as? ConeKotlinType)
             }
         }
     }
@@ -120,12 +114,12 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return this.isRaw()
     }
 
-    override fun FlexibleTypeMarker.upperBound(): SimpleTypeMarker {
+    override fun FlexibleTypeMarker.upperBound(): RigidTypeMarker {
         require(this is ConeFlexibleType)
         return this.upperBound
     }
 
-    override fun FlexibleTypeMarker.lowerBound(): SimpleTypeMarker {
+    override fun FlexibleTypeMarker.lowerBound(): RigidTypeMarker {
         require(this is ConeFlexibleType)
         return this.lowerBound
     }
@@ -134,23 +128,23 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return this as? ConeCapturedType
     }
 
-    override fun SimpleTypeMarker.asDefinitelyNotNullType(): DefinitelyNotNullTypeMarker? {
+    override fun RigidTypeMarker.asDefinitelyNotNullType(): DefinitelyNotNullTypeMarker? {
         require(this is ConeKotlinType)
         return this as? ConeDefinitelyNotNullType
     }
 
-    override fun SimpleTypeMarker.isMarkedNullable(): Boolean {
+    override fun KotlinTypeMarker.isMarkedNullable(): Boolean {
         require(this is ConeKotlinType)
-        return fullyExpandedType(session).nullability.isNullable
+        return fullyExpandedType(session).isMarkedNullable
     }
 
-    override fun SimpleTypeMarker.withNullability(nullable: Boolean): SimpleTypeMarker {
+    override fun RigidTypeMarker.withNullability(nullable: Boolean): RigidTypeMarker {
         require(this is ConeKotlinType)
-        return fullyExpandedType(session).withNullability(ConeNullability.create(nullable), session.typeContext) as SimpleTypeMarker
+        return fullyExpandedType(session).withNullability(nullable, session.typeContext) as RigidTypeMarker
     }
 
-    override fun SimpleTypeMarker.typeConstructor(): TypeConstructorMarker {
-        require(this is ConeSimpleKotlinType)
+    override fun RigidTypeMarker.typeConstructor(): TypeConstructorMarker {
+        require(this is ConeRigidType)
         return this.getConstructor()
     }
 
@@ -203,7 +197,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun TypeArgumentMarker.getVariance(): TypeVariance {
-        require(this is ConeTypeProjection)
+        require(this is ConeKotlinTypeProjection)
 
         return when (this.kind) {
             ProjectionKind.STAR -> error("Nekorrektno (c) Stas")
@@ -213,9 +207,8 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         }
     }
 
-    override fun TypeArgumentMarker.getType(): KotlinTypeMarker {
+    override fun TypeArgumentMarker.getType(): KotlinTypeMarker? {
         require(this is ConeTypeProjection)
-        require(this is ConeKotlinTypeProjection) { "No type for StarProjection" }
         return this.type
     }
 
@@ -231,23 +224,22 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun TypeConstructorMarker.parametersCount(): Int {
+        require(this is ConeTypeConstructorMarker)
         return when (this) {
-            is ConeTypeParameterLookupTag,
             is ConeCapturedTypeConstructor,
-            is ErrorTypeConstructor,
             is ConeTypeVariableTypeConstructor,
-            is ConeIntersectionType -> 0
-            is ConeClassLikeLookupTag -> {
+            is ConeIntersectionType
+                -> 0
+            is ConeClassifierLookupTag -> {
                 when (val symbol = toSymbol(session)) {
                     is FirAnonymousObjectSymbol -> symbol.fir.typeParameters.size
                     is FirRegularClassSymbol -> symbol.fir.typeParameters.size
                     is FirTypeAliasSymbol -> symbol.fir.typeParameters.size
-                    else -> 0
+                    is FirTypeParameterSymbol, null -> 0
                 }
             }
             is ConeIntegerLiteralType -> 0
             is ConeStubTypeConstructor -> 0
-            else -> unknownConstructorError()
         }
     }
 
@@ -274,22 +266,21 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     fun TypeConstructorMarker.toClassLikeSymbol(): FirClassLikeSymbol<*>? = (this as? ConeClassLikeLookupTag)?.toSymbol(session)
 
     override fun TypeConstructorMarker.supertypes(): Collection<ConeKotlinType> {
-        if (this is ErrorTypeConstructor) return emptyList()
+        require(this is ConeTypeConstructorMarker)
         return when (this) {
-            is ConeStubTypeConstructor -> listOf(session.builtinTypes.nullableAnyType.type)
+            is ConeStubTypeConstructor -> listOf(session.builtinTypes.nullableAnyType.coneType)
             is ConeTypeVariableTypeConstructor -> emptyList()
-            is ConeTypeParameterLookupTag -> bounds().map { it.coneType }
-            is ConeClassLikeLookupTag -> {
-                when (val symbol = toClassLikeSymbol().also { it?.lazyResolveToPhase(FirResolvePhase.TYPES) }) {
+            is ConeClassifierLookupTag -> {
+                when (val symbol = toSymbol(session).also { it?.lazyResolveToPhase(FirResolvePhase.TYPES) }) {
+                    is FirTypeParameterSymbol -> symbol.resolvedBounds.map { it.coneType }
                     is FirClassSymbol<*> -> symbol.fir.superConeTypes
                     is FirTypeAliasSymbol -> listOfNotNull(symbol.fir.expandedConeType)
-                    else -> listOf(session.builtinTypes.anyType.type)
+                    null -> listOf(session.builtinTypes.anyType.coneType)
                 }
             }
             is ConeCapturedTypeConstructor -> supertypes.orEmpty()
             is ConeIntersectionType -> intersectedTypes
             is ConeIntegerLiteralType -> supertypes
-            else -> unknownConstructorError()
         }
     }
 
@@ -313,7 +304,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
 
     override fun TypeParameterMarker.upperBoundCount(): Int {
         require(this is ConeTypeParameterLookupTag)
-        return this.bounds().size
+        return this.symbol.fir.bounds.size
     }
 
     override fun TypeParameterMarker.getUpperBound(index: Int): KotlinTypeMarker {
@@ -341,23 +332,20 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun areEqualTypeConstructors(c1: TypeConstructorMarker, c2: TypeConstructorMarker): Boolean {
-        if (c1 is ErrorTypeConstructor || c2 is ErrorTypeConstructor) return false
         return c1 == c2
     }
 
     override fun TypeConstructorMarker.isDenotable(): Boolean {
+        require(this is ConeTypeConstructorMarker)
         return when (this) {
-            is ConeClassLikeLookupTag,
-            is ConeTypeParameterLookupTag -> true
+            is ConeClassifierLookupTag -> true
 
             is ConeStubTypeConstructor,
             is ConeCapturedTypeConstructor,
-            is ErrorTypeConstructor,
             is ConeTypeVariableTypeConstructor,
             is ConeIntegerLiteralType,
-            is ConeIntersectionType -> false
-
-            else -> unknownConstructorError()
+            is ConeIntersectionType,
+                -> false
         }
     }
 
@@ -376,19 +364,19 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return captureFromExpressionInternal(type)
     }
 
-    override fun captureFromArguments(type: SimpleTypeMarker, status: CaptureStatus): SimpleTypeMarker? {
-        require(type is ConeKotlinType)
-        return captureFromArgumentsInternal(type, status) as SimpleTypeMarker?
+    override fun captureFromArguments(type: RigidTypeMarker, status: CaptureStatus): RigidTypeMarker? {
+        require(type is ConeRigidType)
+        return captureFromArgumentsInternal(type, status) as RigidTypeMarker?
     }
 
-    override fun SimpleTypeMarker.asArgumentList(): TypeArgumentListMarker {
+    override fun RigidTypeMarker.asArgumentList(): TypeArgumentListMarker {
         require(this is ConeKotlinType)
         return this
     }
 
-    override fun identicalArguments(a: SimpleTypeMarker, b: SimpleTypeMarker): Boolean {
-        require(a is ConeKotlinType)
-        require(b is ConeKotlinType)
+    override fun identicalArguments(a: RigidTypeMarker, b: RigidTypeMarker): Boolean {
+        require(a is ConeRigidType)
+        require(b is ConeRigidType)
         return a.typeArguments === b.typeArguments
     }
 
@@ -404,18 +392,21 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return this is ConeClassLikeLookupTag && classId == StandardClassIds.Array
     }
 
-    override fun SimpleTypeMarker.isSingleClassifierType(): Boolean {
+    override fun RigidTypeMarker.isSingleClassifierType(): Boolean {
         if (isError()) return false
-        if (this is ConeCapturedType) return true
-        if (this is ConeTypeVariableType) return false
-        if (this is ConeIntersectionType) return false
-        if (this is ConeIntegerLiteralType) return true
-        if (this is ConeStubType) return true
-        if (this is ConeDefinitelyNotNullType) return true
-        require(this is ConeLookupTagBasedType)
-        val typeConstructor = this.typeConstructor()
-        return typeConstructor is ConeClassLikeLookupTag ||
-                typeConstructor is ConeTypeParameterLookupTag
+        require(this is ConeRigidType)
+        return when (this) {
+            is ConeLookupTagBasedType -> {
+                val typeConstructor = this.typeConstructor()
+                typeConstructor is ConeClassifierLookupTag
+            }
+            is ConeCapturedType -> true
+            is ConeTypeVariableType -> false
+            is ConeIntersectionType -> false
+            is ConeIntegerLiteralType -> true
+            is ConeStubType -> true
+            is ConeDefinitelyNotNullType -> true
+        }
     }
 
     override fun SimpleTypeMarker.isPrimitiveType(): Boolean {
@@ -430,15 +421,15 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return attributes.toList()
     }
 
-    override fun SimpleTypeMarker.isStubType(): Boolean {
+    override fun RigidTypeMarker.isStubType(): Boolean {
         return this is ConeStubType
     }
 
-    override fun SimpleTypeMarker.isStubTypeForVariableInSubtyping(): Boolean {
+    override fun RigidTypeMarker.isStubTypeForVariableInSubtyping(): Boolean {
         return this is ConeStubTypeForTypeVariableInSubtyping
     }
 
-    override fun SimpleTypeMarker.isStubTypeForBuilderInference(): Boolean {
+    override fun RigidTypeMarker.isStubTypeForBuilderInference(): Boolean {
         return false
     }
 
@@ -451,7 +442,9 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
 
     override fun intersectTypes(types: Collection<SimpleTypeMarker>): SimpleTypeMarker {
         @Suppress("UNCHECKED_CAST")
-        return ConeTypeIntersector.intersectTypes(this as ConeInferenceContext, types as Collection<ConeKotlinType>) as SimpleTypeMarker
+        return ConeTypeIntersector.intersectTypes(
+            this as ConeInferenceContext, types as Collection<ConeSimpleKotlinType>
+        ) as SimpleTypeMarker
     }
 
     override fun intersectTypes(types: Collection<KotlinTypeMarker>): ConeKotlinType {
@@ -468,9 +461,9 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return toClassLikeSymbol()?.fir as? FirRegularClass
     }
 
-    override fun nullableAnyType(): SimpleTypeMarker = session.builtinTypes.nullableAnyType.type
+    override fun nullableAnyType(): ConeClassLikeType = session.builtinTypes.nullableAnyType.coneType
 
-    override fun arrayType(componentType: KotlinTypeMarker): SimpleTypeMarker {
+    override fun arrayType(componentType: KotlinTypeMarker): ConeClassLikeType {
         require(componentType is ConeKotlinType)
         return componentType.createArrayType(nullable = false)
     }
@@ -540,7 +533,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return this@ConeTypeContext.valueClassLoweringKind(fields) == ValueClassKind.MultiField
     }
 
-    override fun TypeConstructorMarker.getValueClassProperties(): List<Pair<Name, SimpleTypeMarker>>? {
+    override fun TypeConstructorMarker.getValueClassProperties(): List<Pair<Name, RigidTypeMarker>>? {
         val firClass = toFirRegularClass() ?: return null
         // NB: [FirRegularClass.valueClassRepresentation] is updated by [FirStatusResolveTransformer].
         return firClass.valueClassRepresentation?.underlyingPropertyNamesToTypes
@@ -553,11 +546,11 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     override fun TypeParameterMarker.getRepresentativeUpperBound(): KotlinTypeMarker {
         require(this is ConeTypeParameterLookupTag)
         return this.bounds().getOrNull(0)?.coneType
-            ?: session.builtinTypes.nullableAnyType.type
+            ?: session.builtinTypes.nullableAnyType.coneType
     }
 
     @Suppress("NOTHING_TO_INLINE")
-    private inline fun ConeTypeParameterLookupTag.bounds(): List<FirTypeRef> = symbol.fir.bounds
+    private inline fun ConeTypeParameterLookupTag.bounds(): List<FirTypeRef> = symbol.resolvedBounds
 
     override fun KotlinTypeMarker.getUnsubstitutedUnderlyingType(): KotlinTypeMarker? {
         require(this is ConeKotlinType)
@@ -596,17 +589,10 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun TypeConstructorMarker.isError(): Boolean {
-        return this is ErrorTypeConstructor
+        return false
     }
 
-    private fun TypeConstructorMarker.unknownConstructorError(): Nothing {
-        errorWithAttachment("Unknown type constructor: ${this::class.java}") {
-            withEntry("constructor", this@unknownConstructorError) { it.toString() }
-            withFirLookupTagEntry("constructorAsLookupTag", this@unknownConstructorError as? ConeClassifierLookupTag)
-        }
-    }
-
-    override fun substitutionSupertypePolicy(type: SimpleTypeMarker): TypeCheckerState.SupertypesPolicy {
+    override fun substitutionSupertypePolicy(type: RigidTypeMarker): TypeCheckerState.SupertypesPolicy {
         if (type.argumentsCount() == 0) return LowerIfFlexible
         require(type is ConeKotlinType)
         val declaration = when (type) {
@@ -618,17 +604,17 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
             val substitution =
                 declaration.typeParameters.zip(type.typeArguments).associate { (parameter, argument) ->
                     parameter.symbol to ((argument as? ConeKotlinTypeProjection)?.type
-                        ?: session.builtinTypes.nullableAnyType.type)//StandardClassIds.Any(session.firSymbolProvider).constructType(emptyArray(), isNullable = true))
+                        ?: session.builtinTypes.nullableAnyType.coneType)//StandardClassIds.Any(session.firSymbolProvider).constructType(emptyArray(), isNullable = true))
                 }
             substitutorByMap(substitution, session)
         } else {
             ConeSubstitutor.Empty
         }
         return object : DoCustomTransform() {
-            override fun transformType(state: TypeCheckerState, type: KotlinTypeMarker): SimpleTypeMarker {
+            override fun transformType(state: TypeCheckerState, type: KotlinTypeMarker): RigidTypeMarker {
                 val lowerBound = type.lowerBoundIfFlexible()
-                require(lowerBound is ConeKotlinType)
-                return substitutor.substituteOrSelf(lowerBound) as SimpleTypeMarker
+                require(lowerBound is ConeRigidType)
+                return substitutor.substituteOrSelf(lowerBound) as RigidTypeMarker
             }
 
         }

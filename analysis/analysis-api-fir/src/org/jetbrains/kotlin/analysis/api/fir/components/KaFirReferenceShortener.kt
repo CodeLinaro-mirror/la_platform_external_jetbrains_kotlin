@@ -49,6 +49,7 @@ import org.jetbrains.kotlin.fir.resolve.calls.OverloadCandidate
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguityError
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnmatchedTypeArgumentsError
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.transformers.PackageResolutionResult
 import org.jetbrains.kotlin.fir.resolve.transformers.resolveToPackageOrClass
 import org.jetbrains.kotlin.fir.scopes.*
@@ -414,7 +415,7 @@ private class FirShorteningContext(val analysisSession: KaFirSession) {
         firSession.symbolProvider.getClassLikeSymbolByClassId(classId)
 
     fun convertToImportableName(callableSymbol: FirCallableSymbol<*>): FqName? =
-        callableSymbol.computeImportableName(firSession)
+        callableSymbol.computeImportableName()
 }
 
 private sealed class ElementToShorten {
@@ -538,7 +539,7 @@ private class ElementsToShortenCollector(
         val typeElement = resolvedTypeRef.correspondingTypePsi ?: return
         if (typeElement.qualifier == null) return
 
-        val classifierId = resolvedTypeRef.type.abbreviatedTypeOrSelf.lowerBoundIfFlexible().candidateClassId ?: return
+        val classifierId = resolvedTypeRef.coneType.abbreviatedTypeOrSelf.lowerBoundIfFlexible().candidateClassId ?: return
 
         findClassifierQualifierToShorten(classifierId, typeElement)?.let(::addElementToShorten)
     }

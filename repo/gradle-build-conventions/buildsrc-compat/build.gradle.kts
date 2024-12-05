@@ -94,6 +94,8 @@ java {
 }
 
 dependencies {
+    api(project(":gradle-plugins-common"))
+    
     implementation(kotlin("stdlib", embeddedKotlinVersion))
     implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
     implementation(libs.gradle.pluginPublish.gradlePlugin)
@@ -111,26 +113,18 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.cio)
 
-    compileOnly(libs.gradle.enterprise.gradlePlugin)
-
+    compileOnly(libs.develocity.gradlePlugin)
+    compileOnly(libs.ant) // for accessing the zip-related classes that are present in Gradle's runtime
     compileOnly(gradleApi())
+    compileOnly(project(":android-sdk-provisioner"))
 
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:${project.bootstrapKotlinVersion}")
     implementation("org.jetbrains.kotlin:kotlin-reflect:${project.bootstrapKotlinVersion}")
     implementation(libs.gson)
     implementation(libs.kotlinx.metadataJvm)
-
-    testImplementation(libs.junit.jupiter.api)
-    testRuntimeOnly(libs.junit.platform.launcher)
-    testRuntimeOnly(libs.junit.jupiter.engine)
-}
-
-tasks.withType<Test>().configureEach {
-    useJUnitPlatform()
 }
 
 tasks.register("checkBuild") {
     dependsOn("test")
 }
-

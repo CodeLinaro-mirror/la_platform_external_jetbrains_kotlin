@@ -26,7 +26,9 @@ internal class SymbolLightParameterForDefaultImplsReceiver(containingDeclaration
             ktType.asPsiType(
                 containingDeclaration,
                 allowErrorTypes = true,
-                getTypeMappingMode(ktType)
+                getTypeMappingMode(ktType),
+                forceValueClassResolution = false,
+                allowNonJvmPlatforms = true,
             ) ?: nonExistentType()
         }
     }
