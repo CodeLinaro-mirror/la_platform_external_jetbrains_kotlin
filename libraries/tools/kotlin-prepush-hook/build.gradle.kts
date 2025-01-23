@@ -1,7 +1,16 @@
 import org.gradle.api.Project
 import java.io.File
 
+// In the upstream KT compiler repo, ".git" is a directory. `Project.removePrePushHookIfExists()` finds
+// ".git/hooks/pre-push.sample" and removes it. However, on studio-main `external/jetbrains/kotlin`, we
+// link ".git" to a symbolic link "../../../.repo/projects/external/jetbrains/kotlin.git". This script
+// recognizes it as a file and fails on `mainRepoPath` search (`require(it.isNotEmpty())` below).
+// Since we do not have "hooks/pre-push.sample" under
+// "../../../.repo/projects/external/jetbrains/kotlin.git", we simply skip this script.
+
+/*
 project.removePrePushHookIfExists()
+*/
 
 fun Project.removePrePushHookIfExists() {
     val prePushHookPath = rootProject.getGitDirectory().toPath()
