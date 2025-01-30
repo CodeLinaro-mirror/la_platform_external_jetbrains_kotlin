@@ -65,6 +65,18 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
   }
 
   @Test
+  @TestMetadata("defaultImpls.kt")
+  public void testDefaultImpls() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/defaultImpls.kt");
+  }
+
+  @Test
+  @TestMetadata("defaultImplsCLIOnly.kt")
+  public void testDefaultImplsCLIOnly() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/defaultImplsCLIOnly.kt");
+  }
+
+  @Test
   @TestMetadata("defaultParameterValue.kt")
   public void testDefaultParameterValue() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/defaultParameterValue.kt");
@@ -164,6 +176,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
   @TestMetadata("sourceLibModuleInlinePropertyGetter.kt")
   public void testSourceLibModuleInlinePropertyGetter() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/sourceLibModuleInlinePropertyGetter.kt");
+  }
+
+  @Test
+  @TestMetadata("twoTargetFiles.kt")
+  public void testTwoTargetFiles() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/twoTargetFiles.kt");
   }
 
   @Nested
@@ -407,6 +425,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
       }
 
       @Test
+      @TestMetadata("localFunction2.kt")
+      public void testLocalFunction2() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localFunction2.kt");
+      }
+
+      @Test
       @TestMetadata("localFunctionContainingClassClosure.kt")
       public void testLocalFunctionContainingClassClosure() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localFunctionContainingClassClosure.kt");
@@ -446,6 +470,18 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
       @TestMetadata("localFunctionParameterClosure.kt")
       public void testLocalFunctionParameterClosure() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localFunctionParameterClosure.kt");
+      }
+
+      @Test
+      @TestMetadata("localFunctionWithMultiFileClass.kt")
+      public void testLocalFunctionWithMultiFileClass() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localFunctionWithMultiFileClass.kt");
+      }
+
+      @Test
+      @TestMetadata("localFunctionsInNestedClass.kt")
+      public void testLocalFunctionsInNestedClass() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/localFunctionsInNestedClass.kt");
       }
 
       @Test
