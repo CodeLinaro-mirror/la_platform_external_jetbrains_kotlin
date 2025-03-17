@@ -14,13 +14,14 @@ import org.jetbrains.kotlin.cli.common.fileBelongsToModuleForPsi
 import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
 import org.jetbrains.kotlin.cli.common.isCommonSourceForLt
 import org.jetbrains.kotlin.cli.common.isCommonSourceForPsi
+import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.common.messages.toLogger
 import org.jetbrains.kotlin.cli.common.prepareCommonSessions
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
-import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.createContextForIncrementalCompilation
-import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.createIncrementalCompilationScope
-import org.jetbrains.kotlin.cli.jvm.compiler.toAbstractProjectEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.createContextForIncrementalCompilation
+import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.createIncrementalCompilationScope
+import org.jetbrains.kotlin.cli.jvm.compiler.toVfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
 import org.jetbrains.kotlin.cli.jvm.config.K2MetadataConfigurationKeys
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
@@ -88,7 +89,7 @@ internal abstract class AbstractFirMetadataSerializer(
         }
 
         val outputs = if (isLightTree) {
-            val projectEnvironment = environment.toAbstractProjectEnvironment() as VfsBasedProjectEnvironment
+            val projectEnvironment = environment.toVfsBasedProjectEnvironment() as VfsBasedProjectEnvironment
             var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
             val groupedSources = collectSources(configuration, projectEnvironment, messageCollector)
             val extensionRegistrars = FirExtensionRegistrar.Companion.getInstances(projectEnvironment.project)
@@ -122,9 +123,14 @@ internal abstract class AbstractFirMetadataSerializer(
             ) { environment.createPackagePartProvider(it) }
             var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
             val extensionRegistrars = FirExtensionRegistrar.Companion.getInstances(projectEnvironment.project)
-            val psiFiles = environment.getSourceFiles()
+            val ktFiles = environment.getSourceFiles()
+
+            for (ktFile in ktFiles) {
+                AnalyzerWithCompilerReport.reportSyntaxErrors(ktFile, diagnosticsReporter)
+            }
+
             val sourceScope =
-                projectEnvironment.getSearchScopeByPsiFiles(psiFiles) + projectEnvironment.getSearchScopeForProjectJavaSources()
+                projectEnvironment.getSearchScopeByPsiFiles(ktFiles) + projectEnvironment.getSearchScopeForProjectJavaSources()
             val providerAndScopeForIncrementalCompilation = org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation(
                 projectEnvironment,
                 configuration,
@@ -134,7 +140,7 @@ internal abstract class AbstractFirMetadataSerializer(
                 librariesScope -= it
             }
             val sessionsWithSources = prepareCommonSessions(
-                psiFiles, configuration, projectEnvironment, rootModuleName, extensionRegistrars,
+                ktFiles, configuration, projectEnvironment, rootModuleName, extensionRegistrars,
                 librariesScope, libraryList, resolvedLibraries, isCommonSourceForPsi, fileBelongsToModuleForPsi,
                 createProviderAndScopeForIncrementalCompilation = { providerAndScopeForIncrementalCompilation }
             )

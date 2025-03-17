@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.SourceElementPositioningStrategies
 import org.jetbrains.kotlin.diagnostics.reportOn
@@ -25,9 +24,7 @@ import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.mpp.RegularClassSymbolMarker
-import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.mpp.AbstractExpectActualChecker
-import org.jetbrains.kotlin.resolve.checkers.OptInNames
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectActualCheckingCompatibility
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectActualCompatibility
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectActualMatchingCompatibility
@@ -311,18 +308,18 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
         context: CheckerContext,
         reporter: DiagnosticReporter
     ) {
-        val filesWithAtLeastWeaklyCompatibleExpects = compatibility[ExpectActualMatchingCompatibility.MatchedSuccessfully]
+        val filesWithMatchedExpects = compatibility[ExpectActualMatchingCompatibility.MatchedSuccessfully]
             .orEmpty()
             .map { it.moduleData }
             .sortedBy { it.name.asString() }
             .toList()
 
-        if (filesWithAtLeastWeaklyCompatibleExpects.size > 1) {
+        if (filesWithMatchedExpects.size > 1) {
             reporter.reportOn(
                 actualDeclaration.source,
                 FirErrors.AMBIGUOUS_EXPECTS,
                 symbol,
-                filesWithAtLeastWeaklyCompatibleExpects,
+                filesWithMatchedExpects,
                 context
             )
         }
@@ -350,9 +347,8 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
 
     // Ideally, this function shouldn't exist KT-63751
     private fun FirElement.hasActualModifier(): Boolean {
-        val source = source
-        check(source != null) { "expect-actual matching is only possible for code with sources" }
-        return when (source.kind) {
+        return when (source?.kind) {
+            null -> false
             KtFakeSourceElementKind.DataClassGeneratedMembers -> false
             KtFakeSourceElementKind.EnumGeneratedDeclaration -> false
             KtFakeSourceElementKind.ImplicitConstructor -> false
@@ -364,7 +360,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
         symbol: FirBasedSymbol<*>,
         actualContainingClass: FirRegularClassSymbol,
         platformSession: FirSession
-    ): Boolean = actualContainingClass.isInline &&
+    ): Boolean = (actualContainingClass.isInlineOrValue) &&
             symbol is FirPropertySymbol &&
             symbol.receiverParameter == null &&
             actualContainingClass.primaryConstructorSymbol(platformSession)?.valueParameterSymbols?.singleOrNull()?.name == symbol.name

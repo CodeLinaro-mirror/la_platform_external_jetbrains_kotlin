@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.analysis.api.fir.findPsi
 import org.jetbrains.kotlin.analysis.api.fir.location
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolLocation
-import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -32,13 +31,13 @@ internal class KaFirTypeParameterSymbol private constructor(
     )
 
     constructor(symbol: FirTypeParameterSymbol, session: KaFirSession) : this(
-        backingPsi = symbol.fir.realPsi as? KtTypeParameter,
+        backingPsi = symbol.backingPsiIfApplicable as? KtTypeParameter,
         lazyFirSymbol = lazyOf(symbol),
         analysisSession = session,
     )
 
     override val psi: PsiElement?
-        get() = withValidityAssertion { backingPsi ?: firSymbol.findPsi() }
+        get() = withValidityAssertion { backingPsi ?: findPsi() }
 
     override val name: Name
         get() = withValidityAssertion { backingPsi?.nameAsSafeName ?: firSymbol.name }

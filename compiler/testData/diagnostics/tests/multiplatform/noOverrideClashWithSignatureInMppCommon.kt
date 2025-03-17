@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FIR2IR
 // LANGUAGE: +MultiPlatformProjects
 // IGNORE_NON_REVERSED_RESOLVE
 // IGNORE_REVERSED_RESOLVE
@@ -6,7 +7,7 @@
 
 // MODULE: common
 // FILE: Common.kt
-expect abstract class <!NO_ACTUAL_FOR_EXPECT!>B<!>() {
+expect abstract class B() {
     fun get(index: Int): Char
 }
 

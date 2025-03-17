@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.backend.common.lower
 
-import org.jetbrains.kotlin.backend.common.BackendContext
-import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.backend.common.LoweringContext
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
@@ -21,7 +21,7 @@ import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 
 class DeclarationIrBuilder(
@@ -63,7 +63,7 @@ fun IrBuiltIns.createIrBuilder(
 ) =
     DeclarationIrBuilder(IrGeneratorContextBase(this), symbol, startOffset, endOffset)
 
-fun BackendContext.createIrBuilder(
+fun LoweringContext.createIrBuilder(
     symbol: IrSymbol,
     startOffset: Int = UNDEFINED_OFFSET,
     endOffset: Int = UNDEFINED_OFFSET
@@ -79,9 +79,11 @@ fun <T : IrBuilder> T.at(element: IrElement) = this.at(element.startOffset, elem
 inline fun IrGeneratorWithScope.irBlock(
     expression: IrExpression, origin: IrStatementOrigin? = null,
     resultType: IrType? = expression.type,
+    startOffset: Int = expression.startOffset,
+    endOffset: Int = expression.endOffset,
     body: IrBlockBuilder.() -> Unit
 ) =
-    this.irBlock(expression.startOffset, expression.endOffset, origin, resultType, body)
+    this.irBlock(startOffset, endOffset, origin, resultType, body)
 
 inline fun IrGeneratorWithScope.irComposite(
     expression: IrExpression, origin: IrStatementOrigin? = null,
@@ -114,7 +116,7 @@ fun IrBuilderWithScope.irImplicitCoercionToUnit(arg: IrExpression) =
         arg
     )
 
-open class IrBuildingTransformer(private val context: BackendContext) : IrElementTransformerVoid() {
+open class IrBuildingTransformer(private val context: LoweringContext) : IrElementTransformerVoid() {
     private var currentBuilder: IrBuilderWithScope? = null
 
     protected val builder: IrBuilderWithScope
@@ -182,7 +184,7 @@ fun IrConstructor.delegationKind(irBuiltIns: IrBuiltIns): ConstructorDelegationK
     var callsSuper = false
     var numberOfDelegatingCalls = 0
     var hasPartialLinkageError = false
-    acceptChildrenVoid(object : IrElementVisitorVoid {
+    acceptChildrenVoid(object : IrVisitorVoid() {
         override fun visitElement(element: IrElement) {
             element.acceptChildrenVoid(this)
         }

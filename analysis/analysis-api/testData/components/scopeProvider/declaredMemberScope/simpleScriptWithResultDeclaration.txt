@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -66,6 +67,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(simpleScriptWithResultDeclaration.kts)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaScriptModule "Script simpleScriptWithResultDeclaration.kts"
   deprecationStatus: null
 
@@ -74,6 +76,7 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: null
   callableId: /$$result
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -105,12 +108,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(foo { ...)
+  initializer: KaNonConstantInitializerValue(foo { ...)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

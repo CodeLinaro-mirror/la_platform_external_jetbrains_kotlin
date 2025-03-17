@@ -23,6 +23,8 @@ object CommonExpressionCheckers : ExpressionCheckers() {
             FirRecursiveProblemChecker,
             FirOptInUsageAccessChecker,
             FirPrefixAndSuffixSyntaxChecker,
+            FirAnnotatedBinaryExpressionChecker,
+            FirExpressionWithErrorTypeChecker,
         )
 
     override val throwExpressionCheckers: Set<FirThrowExpressionChecker>
@@ -77,6 +79,9 @@ object CommonExpressionCheckers : ExpressionCheckers() {
             FirProtectedConstructorNotInSuperCallChecker,
             FirOptionalExpectationExpressionChecker,
             FirParenthesizedLhsSetOperatorChecker,
+            FirCommonAtomicReferenceToPrimitiveCallChecker,
+            FirCommonAtomicArrayToPrimitiveCallChecker,
+            FirGenericQualifierOnConstructorCallChecker,
         )
 
     override val propertyAccessExpressionCheckers: Set<FirPropertyAccessExpressionChecker>

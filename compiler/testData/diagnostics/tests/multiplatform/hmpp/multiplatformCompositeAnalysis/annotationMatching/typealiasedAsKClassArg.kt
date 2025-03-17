@@ -1,4 +1,4 @@
-// FIR_IDENTICAL
+// RUN_PIPELINE_TILL: BACKEND
 // WITH_STDLIB
 // MODULE: common
 expect class Typealiased
@@ -8,7 +8,7 @@ annotation class Ann(val p: kotlin.reflect.KClass<*>)
 @Ann(Typealiased::class)
 expect fun test()
 
-@Ann(Array<Typealiased>::class)
+@Ann(<!CLASS_LITERAL_LHS_NOT_A_CLASS!>Array<Typealiased>::class<!>)
 expect fun testInArray()
 
 // MODULE: main()()(common)

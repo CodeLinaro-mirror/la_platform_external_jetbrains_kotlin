@@ -17,7 +17,7 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtSimpleNameExpression
 
 @KaIdeApi
-public interface KaCompletionCandidateChecker {
+public interface KaCompletionCandidateChecker : KaSessionComponent {
     /**
      * Returns an extension applicability checker for the given context [nameExpression].
      * The function is meant to only be used for providing auto-completion for Kotlin in IntelliJ IDEA.
@@ -38,7 +38,7 @@ public interface KaCompletionCandidateChecker {
 }
 
 @KaIdeApi
-public interface KaCompletionExtensionCandidateChecker {
+public interface KaCompletionExtensionCandidateChecker : KaLifetimeOwner {
     /**
      * Checks if the given [candidate] is applicable as an extension callable in the current context.
      */
@@ -46,10 +46,6 @@ public interface KaCompletionExtensionCandidateChecker {
     @KaExperimentalApi
     public fun computeApplicability(candidate: KaCallableSymbol): KaExtensionApplicabilityResult
 }
-
-@KaIdeApi
-@Deprecated("Use 'KaCompletionExtensionCandidateChecker' instead.", replaceWith = ReplaceWith("KaCompletionExtensionCandidateChecker"))
-public typealias KtCompletionExtensionCandidateChecker = KaCompletionExtensionCandidateChecker
 
 /**
  * Represents the result of checking the applicability of an extension callable in a specific context.
@@ -94,8 +90,3 @@ public sealed class KaExtensionApplicabilityResult : KaLifetimeOwner {
         override val token: KaLifetimeToken
     ) : KaExtensionApplicabilityResult()
 }
-
-@KaIdeApi
-@KaExperimentalApi
-@Deprecated("Use 'KaExtensionApplicabilityResult' instead.", replaceWith = ReplaceWith("KaExtensionApplicabilityResult"))
-public typealias KtExtensionApplicabilityResult = KaExtensionApplicabilityResult

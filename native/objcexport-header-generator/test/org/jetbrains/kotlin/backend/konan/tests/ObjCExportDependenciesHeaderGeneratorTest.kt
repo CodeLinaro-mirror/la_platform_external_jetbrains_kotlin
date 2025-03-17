@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.konan.tests
 
 import org.jetbrains.kotlin.backend.konan.testUtils.*
+import org.jetbrains.kotlin.konan.test.*
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -270,6 +271,14 @@ class ObjCExportDependenciesHeaderGeneratorTest(
                 dependencies = listOf(testLibraryCKlibFile),
                 exportedDependencies = setOf(testLibraryCKlibFile),
             )
+        )
+    }
+
+    @Test
+    fun `test - suspend handler translated as result and error parameters`() {
+        doTest(
+            root = dependenciesDir.resolve("suspendHandlerTranslatedAsResultAndErrorParameters"),
+            configuration = HeaderGenerator.Configuration(dependencies = listOf(testLibraryKotlinxCoroutines))
         )
     }
 

@@ -2,7 +2,7 @@
  * Copyright 2010-2023 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
  * that can be found in the LICENSE file.
  */
-@file:OptIn(ExperimentalForeignApi::class)
+@file:OptIn(ExperimentalForeignApi::class, ExperimentalAtomicApi::class)
 
 @file:Suppress("DEPRECATION", "DEPRECATION_ERROR") // Char.toInt()
 package kotlin.native.internal
@@ -10,7 +10,8 @@ package kotlin.native.internal
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.internal.getProgressionLastElement
 import kotlin.reflect.KClass
-import kotlin.concurrent.AtomicReference
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.cinterop.*
 import kotlinx.cinterop.NativePtr
 import kotlin.native.internal.escapeAnalysis.Escapes
@@ -160,7 +161,7 @@ internal object UnhandledExceptionHookHolder {
 @ExportForCppRuntime
 @OptIn(ExperimentalNativeApi::class)
 internal fun OnUnhandledException(throwable: Throwable) {
-    val handler = UnhandledExceptionHookHolder.hook.value
+    val handler = UnhandledExceptionHookHolder.hook.load()
     if (handler == null) {
         ReportUnhandledException(throwable);
         return
@@ -175,7 +176,7 @@ internal fun OnUnhandledException(throwable: Throwable) {
 @ExportForCppRuntime("Kotlin_runUnhandledExceptionHook")
 @OptIn(ExperimentalNativeApi::class)
 internal fun runUnhandledExceptionHook(throwable: Throwable) {
-    val handler = UnhandledExceptionHookHolder.hook.value ?: throw throwable
+    val handler = UnhandledExceptionHookHolder.hook.load() ?: throw throwable
     handler(throwable)
 }
 
@@ -218,6 +219,11 @@ public external fun initInstance(thiz: Any, constructorCall: Any): Unit
 @TypedIntrinsic(IntrinsicType.CREATE_UNINITIALIZED_ARRAY)
 @InternalForKotlinNative
 public external fun <T> createUninitializedArray(size: Int): T
+
+@TypedIntrinsic(IntrinsicType.CREATE_EMPTY_STRING)
+@InternalForKotlinNative
+@PublishedApi
+internal external fun createEmptyString(): String
 
 @PublishedApi
 @TypedIntrinsic(IntrinsicType.IS_SUBTYPE)

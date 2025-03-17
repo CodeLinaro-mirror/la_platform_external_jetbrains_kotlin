@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.backend.jvm.intrinsics
 
 import org.jetbrains.kotlin.backend.jvm.codegen.*
-import org.jetbrains.kotlin.backend.jvm.ir.isReifiedTypeParameter
+import org.jetbrains.kotlin.ir.util.isReifiedTypeParameter
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.inline.ReifiedTypeInliner
 import org.jetbrains.kotlin.codegen.putReifiedOperationMarkerIfTypeIsReifiedParameter
@@ -16,7 +16,7 @@ import org.jetbrains.org.objectweb.asm.Type
 
 object EnumValueOf : IntrinsicMethod() {
     override fun invoke(expression: IrFunctionAccessExpression, codegen: ExpressionCodegen, data: BlockInfo) = with(codegen) {
-        val type = expression.getTypeArgument(0)!!
+        val type = expression.typeArguments[0]!!
         val result = expression.getValueArgument(0)!!.accept(this, data)
             .materializedAt(AsmTypes.JAVA_STRING_TYPE, codegen.context.irBuiltIns.stringType)
         if (type.isReifiedTypeParameter) {
@@ -45,7 +45,7 @@ object EnumValueOf : IntrinsicMethod() {
 
 object EnumValues : IntrinsicMethod() {
     override fun invoke(expression: IrFunctionAccessExpression, codegen: ExpressionCodegen, data: BlockInfo) = with(codegen) {
-        val type = expression.getTypeArgument(0)!!
+        val type = expression.typeArguments[0]!!
         if (type.isReifiedTypeParameter) {
             // Note that the inliner expects exactly the following sequence of instructions.
             // <REIFIED-OPERATIONS-MARKER>
@@ -69,7 +69,7 @@ object EnumValues : IntrinsicMethod() {
 
 object EnumEntries : IntrinsicMethod() {
     override fun invoke(expression: IrFunctionAccessExpression, codegen: ExpressionCodegen, data: BlockInfo) = with(codegen) {
-        val type = expression.getTypeArgument(0)!!
+        val type = expression.typeArguments[0]!!
         if (type.isReifiedTypeParameter) {
             // Note that the inliner expects exactly the following sequence of instructions.
             // <REIFIED-OPERATIONS-MARKER>

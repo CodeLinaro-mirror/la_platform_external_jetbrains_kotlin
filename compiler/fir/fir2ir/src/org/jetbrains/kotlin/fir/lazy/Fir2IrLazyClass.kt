@@ -10,8 +10,8 @@ import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
 import org.jetbrains.kotlin.fir.backend.generators.isFakeOverride
 import org.jetbrains.kotlin.fir.backend.toIrType
 import org.jetbrains.kotlin.fir.backend.utils.computeValueClassRepresentation
-import org.jetbrains.kotlin.fir.backend.utils.declareThisReceiverParameter
 import org.jetbrains.kotlin.fir.backend.utils.getIrSymbolsForSealedSubclasses
+import org.jetbrains.kotlin.fir.backend.utils.setThisReceiver
 import org.jetbrains.kotlin.fir.backend.utils.unsubstitutedScope
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.fir.scopes.staticScopeForBackend
 import org.jetbrains.kotlin.fir.symbols.impl.FirFieldSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.visibilityChecker
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.lazy.IrMaybeDeserializedClass
@@ -33,7 +34,6 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.deserializedIr
 import org.jetbrains.kotlin.ir.util.isEnumClass
 import org.jetbrains.kotlin.ir.util.isObject
@@ -80,15 +80,7 @@ class Fir2IrLazyClass(
         get() = if (fir.classKind.isAnnotationClass) Modality.OPEN else fir.symbol.resolvedStatus.modality
         set(_) = mutationNotSupported()
 
-    override var attributeOwnerId: IrAttributeContainer
-        get() = this
-        set(_) = mutationNotSupported()
-
-    override var originalBeforeInline: IrAttributeContainer?
-        get() = null
-        set(_) {
-            error("Mutating Fir2Ir lazy elements is not possible")
-        }
+    override var attributeOwnerId: IrElement = this
 
     override var kind: ClassKind
         get() = fir.classKind
@@ -111,7 +103,7 @@ class Fir2IrLazyClass(
         set(_) = mutationNotSupported()
 
     override var isValue: Boolean
-        get() = fir.isInline
+        get() = fir.isInlineOrValue
         set(_) = mutationNotSupported()
 
     override var isExpect: Boolean
@@ -139,18 +131,8 @@ class Fir2IrLazyClass(
     }
 
     override var thisReceiver: IrValueParameter? by lazyVar(lock) {
-        val typeArguments = fir.typeParameters.map {
-            IrSimpleTypeImpl(
-                classifierStorage.getCachedIrTypeParameter(it.symbol.fir)!!.symbol,
-                hasQuestionMark = false, arguments = emptyList(), annotations = emptyList()
-            )
-        }
-        val receiver = declareThisReceiverParameter(
-            c,
-            thisType = IrSimpleTypeImpl(symbol, hasQuestionMark = false, arguments = typeArguments, annotations = emptyList()),
-            thisOrigin = IrDeclarationOrigin.INSTANCE_RECEIVER
-        )
-        receiver
+        setThisReceiver(c, fir.typeParameters)
+        thisReceiver
     }
 
     override var valueClassRepresentation: ValueClassRepresentation<IrSimpleType>?
@@ -269,7 +251,14 @@ class Fir2IrLazyClass(
         set(_) = error("We should never need to store metadata of external declarations.")
 
     override val moduleName: String?
-        get() = fir.moduleName
+        get() {
+            fir.moduleName?.let { return it }
+            val moduleNameFromModuleData = fir.moduleData.stableModuleName ?: return null
+            require(moduleNameFromModuleData.startsWith("<") && moduleNameFromModuleData.endsWith(">")) {
+                "Stable module name is expected to be wrapped in '<>' brackets, but got `$moduleNameFromModuleData` instead"
+            }
+            return moduleNameFromModuleData.substring(1, moduleNameFromModuleData.length - 1)
+        }
 
     override val isNewPlaceForBodyGeneration: Boolean
         get() = fir.isNewPlaceForBodyGeneration == true

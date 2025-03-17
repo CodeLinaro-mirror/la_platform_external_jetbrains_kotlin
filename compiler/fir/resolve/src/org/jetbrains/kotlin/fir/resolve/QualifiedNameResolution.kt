@@ -40,6 +40,7 @@ fun BodyResolveComponents.resolveRootPartOfQualifier(
     namedReference: FirSimpleNamedReference,
     qualifiedAccess: FirQualifiedAccessExpression,
     nonFatalDiagnosticsFromExpression: List<ConeDiagnostic>?,
+    isUsedAsReceiver: Boolean,
 ): QualifierResolutionResult? {
     val name = namedReference.name
     if (name.asString() == ROOT_PREFIX_FOR_IDE_RESOLUTION_MODE) {
@@ -79,12 +80,14 @@ fun BodyResolveComponents.resolveRootPartOfQualifier(
         return buildResolvedQualifierResultForTopLevelClass(symbol, qualifiedAccess, nonFatalDiagnosticsFromExpression, firstUnsuccessful)
     }
 
+    // KT-72173 To mimic K1 behavior,
+    // we allow resolving to classifiers in the root package without import if they are receivers but not top-level.
     return FqName.ROOT.continueQualifierInPackage(
         name,
         qualifiedAccess,
         nonFatalDiagnosticsFromExpression,
         this
-    )
+    ).takeIf { isUsedAsReceiver || it?.qualifier?.symbol == null }
 }
 
 fun FirResolvedQualifier.continueQualifier(
@@ -153,7 +156,7 @@ private fun FqName.continueQualifierInPackage(
     components: BodyResolveComponents,
 ): QualifierResolutionResult? {
     val childFqName = this.child(name)
-    if (components.symbolProvider.getPackage(childFqName) != null) {
+    if (components.symbolProvider.hasPackage(childFqName)) {
         return components.buildResolvedQualifierResult(
             qualifiedAccess = qualifiedAccess,
             packageFqName = childFqName,

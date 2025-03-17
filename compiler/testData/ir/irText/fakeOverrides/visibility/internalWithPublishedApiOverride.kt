@@ -1,8 +1,6 @@
 // SKIP_KT_DUMP
 // TARGET_BACKEND: JVM
 // IGNORE_BACKEND_K1: ANY
-// SEPARATE_SIGNATURE_DUMP_FOR_K2
-// ^ ISSUE: KT-65679, KT-65388
 
 // MODULE: separate
 // FILE: KotlinInternalSeparate.kt
@@ -15,6 +13,7 @@ open class KotlinInternalSeparate {
 }
 
 // MODULE: main(separate)
+// IGNORE_FIR_DIAGNOSTICS
 // FILE: Java1.java
 public class Java1 extends InternalVisibility { }
 

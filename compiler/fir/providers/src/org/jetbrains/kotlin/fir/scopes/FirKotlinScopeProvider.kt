@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.scopes
 
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
 import org.jetbrains.kotlin.fir.declarations.*
@@ -68,7 +69,7 @@ class FirKotlinScopeProvider(
             }
             val declaredMemberScopeWithPossiblySynthesizedMembers =
                 // Related: https://youtrack.jetbrains.com/issue/KT-20427#focus=Comments-27-8652759.0-0
-                if (klass is FirRegularClass && !klass.isExpect && (klass.isData || klass.isInline)) {
+                if (klass is FirRegularClass && !klass.isExpect && (klass.isData || klass.isInlineOrValue)) {
                     // See also KT-58926 (we apply delegation first, and data/value classes after it)
                     FirClassAnySynthesizedMemberScope(useSiteSession, possiblyDelegatedDeclaredMemberScope, klass, scopeSession)
                 } else {
@@ -86,6 +87,17 @@ class FirKotlinScopeProvider(
                 scopes,
                 declaredMemberScopeWithPossiblySynthesizedMembers,
             )
+        }
+    }
+
+    @OptIn(FirImplementationDetail::class)
+    override fun getTypealiasConstructorScope(
+        typeAlias: FirTypeAlias,
+        useSiteSession: FirSession,
+        scopeSession: ScopeSession,
+    ): FirScope {
+        return scopeSession.getOrBuild(useSiteSession to typeAlias.symbol, TYPEALIAS_CONSTRUCTOR) {
+            TypeAliasConstructorsSubstitutingScope.initialize(typeAlias.symbol, useSiteSession, scopeSession)
         }
     }
 
@@ -231,6 +243,13 @@ fun FirClass.scopeForClass(
     memberRequiredPhase = memberRequiredPhase,
 )
 
+fun FirTypeAlias.scopeForTypeAlias(
+    useSiteSession: FirSession,
+    scopeSession: ScopeSession,
+): FirScope {
+    return scopeProvider.getTypealiasConstructorScope(this, useSiteSession, scopeSession)
+}
+
 fun ConeKotlinType.scopeForSupertype(
     useSiteSession: FirSession,
     scopeSession: ScopeSession,
@@ -306,5 +325,7 @@ private fun FirClass.scopeForClassImpl(
         )
     }
 }
+
+private val TYPEALIAS_CONSTRUCTOR: ScopeSessionKey<Pair<FirSession, FirTypeAliasSymbol>, FirScope> = scopeSessionKey()
 
 val FirSession.kotlinScopeProvider: FirKotlinScopeProvider by FirSession.sessionComponentAccessor()

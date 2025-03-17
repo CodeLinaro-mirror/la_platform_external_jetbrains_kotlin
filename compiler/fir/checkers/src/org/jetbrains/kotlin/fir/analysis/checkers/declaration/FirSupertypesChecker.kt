@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isInterface
 import org.jetbrains.kotlin.fir.declarations.utils.modality
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.languageVersionSettings
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassifierSymbol
@@ -37,7 +38,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.toKtLightSourceElement
 import org.jetbrains.kotlin.util.getChildren
 
-object FirSupertypesChecker : FirClassChecker(MppCheckerKind.Common) {
+object FirSupertypesChecker : FirClassChecker(MppCheckerKind.Platform) {
     override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
         if (declaration.source?.kind is KtFakeSourceElementKind) return
         val isInterface = declaration.classKind == ClassKind.INTERFACE
@@ -54,6 +55,7 @@ object FirSupertypesChecker : FirClassChecker(MppCheckerKind.Common) {
 
             val expandedSupertype = superTypeRef.coneType.fullyExpandedType(context.session)
             val originalSupertype = expandedSupertype.abbreviatedTypeOrSelf
+            val supertypeIsDynamic = originalSupertype is ConeDynamicType
             if (!nullableSupertypeReported && originalSupertype.isMarkedNullable) {
                 reporter.reportOn(superTypeRef.source, FirErrors.NULLABLE_SUPERTYPE, context)
                 nullableSupertypeReported = true
@@ -79,13 +81,15 @@ object FirSupertypesChecker : FirClassChecker(MppCheckerKind.Common) {
                     } else {
                         classAppeared = true
                     }
-                    if (!interfaceWithSuperclassReported) {
+                    // DYNAMIC_SUPERTYPE will be reported separately
+                    if (!interfaceWithSuperclassReported && !supertypeIsDynamic) {
                         reporter.reportOn(superTypeRef.source, FirErrors.INTERFACE_WITH_SUPERCLASS, context)
                         interfaceWithSuperclassReported = true
                     }
                 }
                 val isObject = symbol.classKind == ClassKind.OBJECT
-                if (!finalSupertypeReported && !isObject && symbol.modality == Modality.FINAL) {
+                // DYNAMIC_SUPERTYPE will be reported separately
+                if (!finalSupertypeReported && !isObject && symbol.modality == Modality.FINAL && !supertypeIsDynamic) {
                     reporter.reportOn(superTypeRef.source, FirErrors.FINAL_SUPERTYPE, context)
                     finalSupertypeReported = true
                 }
@@ -98,7 +102,13 @@ object FirSupertypesChecker : FirClassChecker(MppCheckerKind.Common) {
             checkClassCannotBeExtendedDirectly(symbol, reporter, superTypeRef, context)
             checkNamedFunctionTypeParameter(superTypeRef, context, reporter)
 
-            if (!checkProjectionInImmediateArgumentToSupertype(originalSupertype, superTypeRef, reporter, context)) {
+            val shouldCheckSupertypeOnTypealiasWithTypeProjection = if (originalSupertype.typeArguments.isNotEmpty()) {
+                !checkProjectionInImmediateArgumentToSupertype(originalSupertype, superTypeRef, reporter, context)
+            } else {
+                !checkExpandedTypeCannotBeInherited(symbol, expandedSupertype, reporter, superTypeRef, originalSupertype, context)
+            }
+
+            if (shouldCheckSupertypeOnTypealiasWithTypeProjection) {
                 checkSupertypeOnTypeAliasWithTypeProjection(originalSupertype, expandedSupertype, superTypeRef, reporter, context)
             }
         }
@@ -154,6 +164,25 @@ object FirSupertypesChecker : FirClassChecker(MppCheckerKind.Common) {
             }
         }
         return result
+    }
+
+    private fun checkExpandedTypeCannotBeInherited(
+        symbol: FirBasedSymbol<*>?,
+        fullyExpandedType: ConeKotlinType,
+        reporter: DiagnosticReporter,
+        superTypeRef: FirTypeRef,
+        coneType: ConeKotlinType,
+        context: CheckerContext,
+    ): Boolean {
+        if (symbol is FirRegularClassSymbol && symbol.classKind == ClassKind.INTERFACE) {
+            for (typeArgument in fullyExpandedType.typeArguments) {
+                if (typeArgument.isConflictingOrNotInvariant) {
+                    reporter.reportOn(superTypeRef.source, FirErrors.EXPANDED_TYPE_CANNOT_BE_INHERITED, coneType, context)
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private fun checkSupertypeOnTypeAliasWithTypeProjection(

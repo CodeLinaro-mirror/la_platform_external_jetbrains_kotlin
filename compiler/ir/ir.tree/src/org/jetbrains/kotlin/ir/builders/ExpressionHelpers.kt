@@ -198,7 +198,9 @@ fun IrBuilderWithScope.irGet(type: IrType, receiver: IrExpression?, getterSymbol
         typeArgumentsCount = getterSymbol.owner.typeParameters.size,
         origin = IrStatementOrigin.GET_PROPERTY
     ).apply {
-        dispatchReceiver = receiver
+        if (receiver != null) {
+            arguments[0] = receiver
+        }
     }
 
 fun IrBuilderWithScope.irSet(type: IrType, receiver: IrExpression?, setterSymbol: IrFunctionSymbol, value: IrExpression): IrCall =
@@ -209,8 +211,12 @@ fun IrBuilderWithScope.irSet(type: IrType, receiver: IrExpression?, setterSymbol
         typeArgumentsCount = setterSymbol.owner.typeParameters.size,
         origin = IrStatementOrigin.EQ
     ).apply {
-        dispatchReceiver = receiver
-        putValueArgument(0, value)
+        if (receiver != null) {
+            arguments[0] = receiver
+            arguments[1] = value
+        } else {
+            arguments[0] = value
+        }
     }
 
 fun IrBuilderWithScope.irCall(
@@ -220,7 +226,7 @@ fun IrBuilderWithScope.irCall(
 ): IrMemberAccessExpression<*> =
     irCall(callee, type).apply {
         typeArguments.forEachIndexed { index, irType ->
-            this.putTypeArgument(index, irType)
+            this.typeArguments[index] = irType
         }
     }
 
@@ -233,14 +239,13 @@ fun IrBuilderWithScope.irCallConstructor(callee: IrConstructorSymbol, typeArgume
         typeArguments.size - callee.owner.typeParameters.size
     ).apply {
         typeArguments.forEachIndexed { index, irType ->
-            this.putTypeArgument(index, irType)
+            this.typeArguments[index] = irType
         }
     }
 
 fun IrBuilderWithScope.irCall(
     callee: IrSimpleFunctionSymbol,
     type: IrType,
-    valueArgumentsCount: Int = callee.owner.valueParameters.size,
     typeArgumentsCount: Int = callee.owner.typeParameters.size,
     origin: IrStatementOrigin? = null
 ): IrCall =
@@ -309,10 +314,10 @@ fun IrBuilderWithScope.irCallOp(
     argument: IrExpression? = null,
     origin: IrStatementOrigin? = null
 ): IrMemberAccessExpression<*> =
-    irCall(callee, type, valueArgumentsCount = if (argument != null) 1 else 0, typeArgumentsCount = 0, origin = origin).apply {
-        this.dispatchReceiver = dispatchReceiver
+    irCall(callee, type, typeArgumentsCount = 0, origin = origin).apply {
+        arguments[0] = dispatchReceiver
         if (argument != null)
-            putValueArgument(0, argument)
+            arguments[1] = argument
     }
 
 fun IrBuilderWithScope.typeOperator(
@@ -394,6 +399,17 @@ inline fun IrBuilderWithScope.irBlock(
         origin, resultType
     ).block(body)
 
+inline fun IrBuilderWithScope.irBlockOrSingleExpression(
+    startOffset: Int = this.startOffset,
+    endOffset: Int = this.endOffset,
+    origin: IrStatementOrigin? = null,
+    resultType: IrType? = null,
+    body: IrBlockBuilder.() -> Unit
+): IrExpression =
+    irBlock(startOffset, endOffset, origin, resultType, body).let {
+        it.statements.singleOrNull() as? IrExpression ?: it
+    }
+
 inline fun IrBuilderWithScope.irComposite(
     startOffset: Int = this.startOffset,
     endOffset: Int = this.endOffset,
@@ -457,7 +473,7 @@ fun IrBuilderWithScope.irConstantObject(
 ): IrConstantValue {
     return irConstantObject(
         clazz,
-        clazz.primaryConstructor!!.symbol.owner.valueParameters.also {
+        clazz.primaryConstructor!!.symbol.owner.parameters.also {
             require(it.size == elements.size) {
                 "Wrong number of values provided for ${clazz.name} construction: ${elements.size} instead of ${it.size}"
             }
@@ -466,4 +482,23 @@ fun IrBuilderWithScope.irConstantObject(
         },
         typeArguments
     )
+}
+
+fun IrBuilder.irRichFunctionReference(
+    invokeFunction: IrSimpleFunction,
+    superType: IrType,
+    reflectionTargetSymbol: IrFunctionSymbol?,
+    overriddenFunctionSymbol: IrSimpleFunctionSymbol,
+    captures: List<IrExpression>,
+    origin: IrStatementOrigin?,
+): IrRichFunctionReferenceImpl = IrRichFunctionReferenceImpl(
+    startOffset = startOffset,
+    endOffset = endOffset,
+    type = superType,
+    reflectionTargetSymbol = reflectionTargetSymbol,
+    overriddenFunctionSymbol = overriddenFunctionSymbol,
+    invokeFunction = invokeFunction,
+    origin = origin
+).apply {
+    boundValues += captures
 }

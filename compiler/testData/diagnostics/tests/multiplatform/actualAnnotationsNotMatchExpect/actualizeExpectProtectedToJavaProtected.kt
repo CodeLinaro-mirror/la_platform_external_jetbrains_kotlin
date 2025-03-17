@@ -1,12 +1,12 @@
-// TARGET_BACKEND: JVM_IR
-// IGNORE_BACKEND_K1: JVM_IR JVM
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: BACKEND
 // ISSUE: KT-66436
 
 // MODULE: common
 // FILE: common.kt
 package pkg
 
-expect open class <!NO_ACTUAL_FOR_EXPECT!>Foo<!> {
+expect open class Foo {
     protected fun foo()
 }
 

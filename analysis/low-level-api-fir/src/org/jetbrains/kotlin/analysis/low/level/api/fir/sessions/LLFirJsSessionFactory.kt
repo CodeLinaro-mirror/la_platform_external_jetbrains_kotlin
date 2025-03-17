@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
-import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLLibrarySymbolProviderFactory
-import org.jetbrains.kotlin.analysis.low.level.api.fir.providers.LLFirModuleWithDependenciesSymbolProvider
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.factories.LLLibrarySymbolProviderFactory
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.LLModuleWithDependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.SessionConfiguration
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
@@ -26,7 +26,7 @@ internal class LLFirJsSessionFactory(project: Project) : LLFirAbstractSessionFac
 
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOfNotNull(
                         context.firProvider.symbolProvider,
@@ -45,7 +45,7 @@ internal class LLFirJsSessionFactory(project: Project) : LLFirAbstractSessionFac
 
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOf(
                         context.firProvider.symbolProvider,
@@ -63,19 +63,19 @@ internal class LLFirJsSessionFactory(project: Project) : LLFirAbstractSessionFac
     }
 
     override fun createDanglingFileSession(module: KaDanglingFileModule, contextSession: LLFirSession): LLFirSession {
-        return doCreateDanglingFileSession(module, contextSession) {
+        return doCreateDanglingFileSession(module, contextSession) { context ->
             registerJsComponents(moduleKind = null)
 
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOfNotNull(
                         firProvider.symbolProvider,
-                        switchableExtensionDeclarationsSymbolProvider,
-                        syntheticFunctionInterfaceProvider,
+                        context.switchableExtensionDeclarationsSymbolProvider,
+                        context.syntheticFunctionInterfaceProvider,
                     ),
-                    dependencyProvider,
+                    context.dependencyProvider,
                 )
             )
         }

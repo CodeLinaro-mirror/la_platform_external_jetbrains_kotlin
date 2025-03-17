@@ -8,12 +8,13 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirResolvableModuleSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.FirElementFinder.findElementIn
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.FirElementFinder
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.fir.FirElementWithResolveState
 import org.jetbrains.kotlin.fir.declarations.FirClass
+import org.jetbrains.kotlin.fir.declarations.FirDanglingModifierList
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.renderer.FirDeclarationRendererWithFilteredAttributes
@@ -33,11 +34,7 @@ import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhaseRecursively
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhaseWithCallableMembers
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
-import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
-import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
-import org.jetbrains.kotlin.test.directives.model.ValueDirective
-import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
+import org.jetbrains.kotlin.test.directives.model.*
 import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.moduleStructure
@@ -58,11 +55,19 @@ abstract class AbstractFirLazyDeclarationResolveTestCase : AbstractAnalysisApiBa
                 file.lazyResolveToPhaseByDirective(phase, testServices)
             }
         }
+        Directives.RESOLVE_DANGLING_MODIFIER in testServices.moduleStructure.allDirectives -> {
+            val session = firResolveSession.useSiteFirSession as LLFirResolvableModuleSession
+            val file = session.moduleComponents.firFileBuilder.buildRawFirFileWithCaching(ktFile)
+            val danglingModifier = file.declarations.last() as FirDanglingModifierList
+            danglingModifier to fun(phase: FirResolvePhase) {
+                danglingModifier.lazyResolveToPhaseByDirective(phase, testServices)
+            }
+        }
         else -> {
             val ktDeclaration = if (Directives.RESOLVE_SCRIPT in testServices.moduleStructure.allDirectives) {
                 ktFile.script!!
             } else {
-                testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtDeclaration>(ktFile)
+                testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret<KtDeclaration>(ktFile)
             }
 
             val declarationSymbol = ktDeclaration.resolveToFirSymbol(firResolveSession)
@@ -169,12 +174,8 @@ abstract class AbstractFirLazyDeclarationResolveTestCase : AbstractAnalysisApiBa
         return declarations.singleOrNull() ?: error("Can't choose from:\n${declarations.joinToString("\n")}")
     }
 
-    override fun configureTest(builder: TestConfigurationBuilder) {
-        super.configureTest(builder)
-        with(builder) {
-            useDirectives(Directives)
-        }
-    }
+    override val additionalDirectives: List<DirectivesContainer>
+        get() = super.additionalDirectives + listOf(Directives)
 
     protected object Directives : SimpleDirectivesContainer() {
         val MEMBER_CLASS_FILTER: ValueDirective<(FirBasedSymbol<*>) -> Boolean> by valueDirective("Choose member declaration by a declaration class") { value ->
@@ -193,6 +194,7 @@ abstract class AbstractFirLazyDeclarationResolveTestCase : AbstractAnalysisApiBa
         val RESOLVE_PROPERTY_PART by enumDirective<PropertyPart>("Choose getter/setter/backing field in the case of property")
         val RESOLVE_SCRIPT by directive("Resolve script instead of declaration at caret")
         val RESOLVE_FILE by directive("Resolve file instead of declaration at caret")
+        val RESOLVE_DANGLING_MODIFIER by directive("Resolve a file dangling modifier list instead of declaration at caret")
 
         val LAZY_MODE by enumDirective<LazyResolveMode>("Describes which lazy resolution call should be used")
     }
@@ -254,7 +256,7 @@ internal operator fun List<FirFile>.contains(element: FirElementWithResolveState
     element in this
 } else {
     any { file ->
-        findElementIn<FirElementWithResolveState>(file) {
+        FirElementFinder.findElementIn<FirElementWithResolveState>(file) {
             it == element
         } != null
     }

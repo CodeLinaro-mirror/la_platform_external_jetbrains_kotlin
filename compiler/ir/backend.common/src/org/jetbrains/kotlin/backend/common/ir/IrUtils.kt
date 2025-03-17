@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.backend.common.ir
 
+import org.jetbrains.kotlin.CompilerVersionOfApiDeprecation
+import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.backend.common.descriptors.synthesizedName
@@ -17,6 +19,8 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrVarargImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.util.hasAnnotation
+import org.jetbrains.kotlin.name.StandardClassIds
 
 fun IrReturnTarget.returnType(context: CommonBackendContext) =
     when (this) {
@@ -26,6 +30,10 @@ fun IrReturnTarget.returnType(context: CommonBackendContext) =
         else -> error("Unknown ReturnTarget: $this")
     }
 
+@DeprecatedForRemovalCompilerApi(
+    deprecatedSince = CompilerVersionOfApiDeprecation._2_1_20,
+    replaceWith = "org.jetbrains.kotlin.ir.builders.declarations.buildReceiverParameter",
+)
 inline fun IrSimpleFunction.addDispatchReceiver(builder: IrValueParameterBuilder.() -> Unit): IrValueParameter =
     IrValueParameterBuilder().run {
         builder()
@@ -35,6 +43,10 @@ inline fun IrSimpleFunction.addDispatchReceiver(builder: IrValueParameterBuilder
         }
     }
 
+@DeprecatedForRemovalCompilerApi(
+    deprecatedSince = CompilerVersionOfApiDeprecation._2_1_20,
+    replaceWith = "org.jetbrains.kotlin.backend.common.ir.createExtensionReceiver",
+)
 fun IrSimpleFunction.addExtensionReceiver(type: IrType, origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED): IrValueParameter =
     IrValueParameterBuilder().run {
         this.type = type
@@ -45,11 +57,20 @@ fun IrSimpleFunction.addExtensionReceiver(type: IrType, origin: IrDeclarationOri
         }
     }
 
+fun IrSimpleFunction.createExtensionReceiver(type: IrType, origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED): IrValueParameter =
+    IrValueParameterBuilder().run {
+        this.type = type
+        this.origin = origin
+        this.name = "receiver".synthesizedName
+        this.kind = IrParameterKind.ExtensionReceiver
+        factory.buildValueParameter(this, this@createExtensionReceiver)
+    }
+
 // TODO: support more cases like built-in operator call and so on
 fun IrExpression?.isPure(
     anyVariable: Boolean,
     checkFields: Boolean = true,
-    context: CommonBackendContext? = null
+    symbols: Symbols? = null
 ): Boolean {
     if (this == null) return true
 
@@ -67,16 +88,10 @@ fun IrExpression?.isPure(
                         operator == IrTypeOperator.INSTANCEOF ||
                                 operator == IrTypeOperator.REINTERPRET_CAST ||
                                 operator == IrTypeOperator.NOT_INSTANCEOF
-                        ) && argument.isPure(anyVariable, checkFields, context)
-            is IrCall -> if (context?.isSideEffectFree(this) == true) {
-                for (i in 0 until valueArgumentsCount) {
-                    val valueArgument = getValueArgument(i)
-                    if (!valueArgument.isPure(anyVariable, checkFields, context)) return false
-                }
-                true
-            } else false
+                        ) && argument.isPure(anyVariable, checkFields, symbols)
+            is IrCall -> symbols?.isSideEffectFree(this) == true && arguments.all { it.isPure(anyVariable, checkFields, symbols) }
             is IrGetObjectValue -> type.isUnit()
-            is IrVararg -> elements.all { (it as? IrExpression)?.isPure(anyVariable, checkFields, context) == true }
+            is IrVararg -> elements.all { (it as? IrExpression)?.isPure(anyVariable, checkFields, symbols) == true }
             else -> false
         }
     }
@@ -113,8 +128,8 @@ fun CommonBackendContext.createArrayOfExpression(
         ir.symbols.arrayOf,
         typeArgumentsCount = 1,
     ).apply {
-        putTypeArgument(0, arrayElementType)
-        putValueArgument(0, arg0)
+        typeArguments[0] = arrayElementType
+        arguments[0] = arg0
     }
 }
 
@@ -124,3 +139,7 @@ fun IrBranch.isUnconditional(): Boolean = (condition as? IrConst)?.value == true
 
 fun syntheticBodyIsNotSupported(declaration: IrDeclaration): Nothing =
     compilationException("${IrSyntheticBody::class.java.simpleName} is not supported here", declaration)
+
+val IrFile.isJvmBuiltin: Boolean get() = hasAnnotation(StandardClassIds.Annotations.JvmBuiltin)
+
+val IrFile.isBytecodeGenerationSuppressed: Boolean get() = hasAnnotation(StandardClassIds.Annotations.SuppressBytecodeGeneration)

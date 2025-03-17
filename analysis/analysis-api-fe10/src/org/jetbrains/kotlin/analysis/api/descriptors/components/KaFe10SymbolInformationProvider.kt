@@ -8,13 +8,11 @@ package org.jetbrains.kotlin.analysis.api.descriptors.components
 import org.jetbrains.kotlin.analysis.api.components.KaSymbolInformationProvider
 import org.jetbrains.kotlin.analysis.api.descriptors.KaFe10Session
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.KaFe10SessionComponent
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getDescriptor
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getSymbolDescriptor
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaPropertyAccessorSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
@@ -24,15 +22,22 @@ import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationResolver
 import org.jetbrains.kotlin.resolve.deprecation.SimpleDeprecationInfo
 import org.jetbrains.kotlin.resolve.lazy.ForceResolveUtil
+import org.jetbrains.kotlin.util.OperatorChecks
 
 internal class KaFe10SymbolInformationProvider(
     override val analysisSessionProvider: () -> KaFe10Session
-) : KaSessionComponent<KaFe10Session>(), KaSymbolInformationProvider, KaFe10SessionComponent {
+) : KaBaseSessionComponent<KaFe10Session>(), KaSymbolInformationProvider, KaFe10SessionComponent {
     override val KaSymbol.deprecationStatus: DeprecationInfo?
         get() = withValidityAssertion {
             val descriptor = getSymbolDescriptor(this) ?: return null
             ForceResolveUtil.forceResolveAllContents(descriptor)
             return getDeprecation(descriptor)
+        }
+
+    override val KaNamedFunctionSymbol.canBeOperator: Boolean
+        get() = withValidityAssertion {
+            val functionDescriptor = this.getDescriptor() as? FunctionDescriptor ?: return false
+            OperatorChecks.check(functionDescriptor).isSuccess
         }
 
     override fun KaSymbol.deprecationStatus(annotationUseSiteTarget: AnnotationUseSiteTarget?): DeprecationInfo? = withValidityAssertion {

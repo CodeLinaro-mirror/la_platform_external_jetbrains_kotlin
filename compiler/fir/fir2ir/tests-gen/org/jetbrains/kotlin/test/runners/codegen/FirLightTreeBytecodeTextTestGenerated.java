@@ -398,6 +398,18 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
   }
 
   @Test
+  @TestMetadata("noLineNumberInEnumEntries.kt")
+  public void testNoLineNumberInEnumEntries() {
+    runTest("compiler/testData/codegen/bytecodeText/noLineNumberInEnumEntries.kt");
+  }
+
+  @Test
+  @TestMetadata("noLinenumberInJvmOverloads.kt")
+  public void testNoLinenumberInJvmOverloads() {
+    runTest("compiler/testData/codegen/bytecodeText/noLinenumberInJvmOverloads.kt");
+  }
+
+  @Test
   @TestMetadata("noNumberCheckCast.kt")
   public void testNoNumberCheckCast() {
     runTest("compiler/testData/codegen/bytecodeText/noNumberCheckCast.kt");
@@ -674,6 +686,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     @TestMetadata("checkcastAndInstanceOf.kt")
     public void testCheckcastAndInstanceOf() {
       runTest("compiler/testData/codegen/bytecodeText/boxingOptimization/checkcastAndInstanceOf.kt");
+    }
+
+    @Test
+    @TestMetadata("checkcastAndInstanceOf_before.kt")
+    public void testCheckcastAndInstanceOf_before() {
+      runTest("compiler/testData/codegen/bytecodeText/boxingOptimization/checkcastAndInstanceOf_before.kt");
     }
 
     @Test
@@ -3316,6 +3334,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
       }
 
       @Test
+      @TestMetadata("forInRangeToUByteMaxValue.kt")
+      public void testForInRangeToUByteMaxValue() {
+        runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInRangeToUByteMaxValue.kt");
+      }
+
+      @Test
       @TestMetadata("forInRangeToUIntMaxValue.kt")
       public void testForInRangeToUIntMaxValue() {
         runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInRangeToUIntMaxValue.kt");
@@ -3325,6 +3349,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
       @TestMetadata("forInRangeToULongMaxValue.kt")
       public void testForInRangeToULongMaxValue() {
         runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInRangeToULongMaxValue.kt");
+      }
+
+      @Test
+      @TestMetadata("forInRangeToUShortMaxValue.kt")
+      public void testForInRangeToUShortMaxValue() {
+        runTest("compiler/testData/codegen/bytecodeText/forLoop/unsigned/forInRangeToUShortMaxValue.kt");
       }
 
       @Test
@@ -4149,12 +4179,6 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     }
 
     @Test
-    @TestMetadata("kt53804.kt")
-    public void testKt53804() {
-      runTest("compiler/testData/codegen/bytecodeText/innerClasses/kt53804.kt");
-    }
-
-    @Test
     @TestMetadata("kt56104.kt")
     public void testKt56104() {
       runTest("compiler/testData/codegen/bytecodeText/innerClasses/kt56104.kt");
@@ -4170,12 +4194,6 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     @TestMetadata("nestedClassInAnnotationArgument.kt")
     public void testNestedClassInAnnotationArgument() {
       runTest("compiler/testData/codegen/bytecodeText/innerClasses/nestedClassInAnnotationArgument.kt");
-    }
-
-    @Test
-    @TestMetadata("nestedClassInAnnotationArgumentOldMode.kt")
-    public void testNestedClassInAnnotationArgumentOldMode() {
-      runTest("compiler/testData/codegen/bytecodeText/innerClasses/nestedClassInAnnotationArgumentOldMode.kt");
     }
   }
 

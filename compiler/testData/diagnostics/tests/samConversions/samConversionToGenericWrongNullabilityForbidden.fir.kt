@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // LANGUAGE: -JavaTypeParameterDefaultRepresentationWithDNN +ProhibitReturningIncorrectNullabilityValuesFromSamConstructorLambdaOfJdkInterfaces
 // ISSUE: KT-57014, KT-66730
 // FULL_JDK
@@ -89,7 +90,7 @@ fun main() {
 
     Supplier<String>(
         fun(): String {
-            if (true) return <!ARGUMENT_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>returnNullableString()<!>
+            if (true) return <!RETURN_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>returnNullableString()<!>
             return ""
         }
     )
@@ -164,25 +165,25 @@ import java.util.function.Supplier
 
 fun scopes () {
     Supplier<String> {
-        <!ARGUMENT_TYPE_MISMATCH!>run {
+        <!RETURN_TYPE_MISMATCH!>run {
             returnNullableString()
         }<!>
     }
 
     Supplier<String> {
-        <!ARGUMENT_TYPE_MISMATCH!>run {
-            return@run <!ARGUMENT_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>returnNullableString()<!>
+        <!RETURN_TYPE_MISMATCH!>run {
+            return@run <!RETURN_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>returnNullableString()<!>
         }<!>
     }
 
     Supplier<String> {
-        <!ARGUMENT_TYPE_MISMATCH!>run run@ {
-            return@run <!ARGUMENT_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>returnNullableString()<!>
+        <!RETURN_TYPE_MISMATCH!>run run@ {
+            return@run <!RETURN_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>returnNullableString()<!>
         }<!>
     }
 
     Supplier<String> lambda@ {
-        <!ARGUMENT_TYPE_MISMATCH!>run {
+        <!RETURN_TYPE_MISMATCH!>run {
             return@lambda returnNullableString()
         }<!>
     }

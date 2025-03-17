@@ -76,6 +76,7 @@ public class DetachedObjectGraph<T> internal constructor(pointer: NativePtr) {
      * Returns raw C pointer value, usable for interoperability with C scenarious.
      */
     @ExperimentalForeignApi
+    @Suppress("DEPRECATION")
     public fun asCPointer(): COpaquePointer? = interpretCPointer<COpaque>(stable.value)
 }
 

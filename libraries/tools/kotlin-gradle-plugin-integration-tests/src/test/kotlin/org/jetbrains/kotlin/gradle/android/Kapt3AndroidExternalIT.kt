@@ -8,7 +8,9 @@ package org.jetbrains.kotlin.gradle.android
 import org.gradle.api.JavaVersion
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.BrokenOnMacosTest
 import org.jetbrains.kotlin.gradle.Kapt3BaseIT
+import org.jetbrains.kotlin.gradle.forceK1Kapt
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 import java.io.File
@@ -17,6 +19,9 @@ import kotlin.io.path.appendText
 @DisplayName("android with kapt3 external dependencies tests")
 @AndroidGradlePluginTests
 open class Kapt3AndroidExternalIT : Kapt3BaseIT() {
+    override fun TestProject.customizeProject() {
+        forceK1Kapt()
+    }
 
     // Deprecated and doesn't work with Gradle 8 + AGP 8, so keeping max Gradle version as 7.6
     // For example: https://github.com/JakeWharton/butterknife/issues/1686
@@ -109,6 +114,7 @@ open class Kapt3AndroidExternalIT : Kapt3BaseIT() {
 
     @DisplayName("kapt works with realm")
     @GradleAndroidTest
+    @BrokenOnMacosTest
     fun testRealm(
         gradleVersion: GradleVersion,
         agpVersion: String,

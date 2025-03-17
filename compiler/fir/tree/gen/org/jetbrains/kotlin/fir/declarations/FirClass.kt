@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.fir.visitors.FirVisitor
 /**
  * Generated from: [org.jetbrains.kotlin.fir.tree.generator.FirTree.klass]
  */
-sealed class FirClass : FirClassLikeDeclaration(), FirStatement, FirTypeParameterRefsOwner, FirControlFlowGraphOwner {
+sealed class FirClass : FirClassLikeDeclaration(), FirStatement, FirControlFlowGraphOwner {
     abstract override val source: KtSourceElement?
     abstract override val moduleData: FirModuleData
     abstract override val origin: FirDeclarationOrigin
@@ -32,13 +32,13 @@ sealed class FirClass : FirClassLikeDeclaration(), FirStatement, FirTypeParamete
     abstract override val typeParameters: List<FirTypeParameterRef>
     abstract override val status: FirDeclarationStatus
     abstract override val deprecationsProvider: DeprecationsProvider
+    abstract override val scopeProvider: FirScopeProvider
     abstract override val controlFlowGraphReference: FirControlFlowGraphReference?
     abstract override val symbol: FirClassSymbol<FirClass>
     abstract val classKind: ClassKind
     abstract val superTypeRefs: List<FirTypeRef>
     abstract val declarations: List<FirDeclaration>
     abstract override val annotations: List<FirAnnotation>
-    abstract val scopeProvider: FirScopeProvider
 
     override fun <R, D> accept(visitor: FirVisitor<R, D>, data: D): R =
         visitor.visitClass(this, data)

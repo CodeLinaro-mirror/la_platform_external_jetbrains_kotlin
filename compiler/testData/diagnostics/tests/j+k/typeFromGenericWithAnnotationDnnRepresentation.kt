@@ -1,4 +1,5 @@
-// LANGUAGE: +JavaTypeParameterDefaultRepresentationWithDNN
+// RUN_PIPELINE_TILL: FRONTEND
+// LANGUAGE: +JavaTypeParameterDefaultRepresentationWithDNN -DontMakeExplicitJavaTypeArgumentsFlexible
 
 // FILE: GenericTypeAnnotationNotNull.java
 import org.jetbrains.annotations.NotNull;

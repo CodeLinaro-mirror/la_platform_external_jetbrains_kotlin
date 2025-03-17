@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.sir.printer
 import com.intellij.util.containers.addAllIfNotNull
 import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.builder.*
-import org.jetbrains.kotlin.sir.providers.utils.updateImports
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
 import org.jetbrains.kotlin.sir.util.addChild
 import org.jetbrains.kotlin.test.services.JUnit5Assertions
@@ -281,6 +280,140 @@ class SirAsSwiftSourcesPrinterTests {
         runTest(
             module,
             "testData/class_function"
+        )
+    }
+
+    @Test
+    fun `should print throwing functions`() {
+        val module = buildModule {
+            name = "Test"
+            declarations.add(
+                buildFunction {
+                    origin = SirOrigin.Unknown
+                    visibility = SirVisibility.PUBLIC
+                    name = "nothrow"
+                    returnType = SirType.void
+                    errorType = SirType.never
+                }
+            )
+            declarations.add(
+                buildFunction {
+                    origin = SirOrigin.Unknown
+                    visibility = SirVisibility.PUBLIC
+                    name = "throwsAny"
+                    returnType = SirType.void
+                    errorType = SirType.any
+                }
+            )
+            declarations.add(
+                buildFunction {
+                    origin = SirOrigin.Unknown
+                    visibility = SirVisibility.PUBLIC
+                    name = "throwsVoid"
+                    returnType = SirType.void
+                    errorType = SirType.void
+                }
+            )
+        }.attachDeclarations()
+
+        runTest(
+            module,
+            "testData/throwing_functions"
+        )
+    }
+
+    @Test
+    fun `should print throwing inits`() {
+        val module = buildModule {
+            name = "Test"
+            declarations.add(
+                buildStruct {
+                    origin = SirOrigin.Unknown
+                    name = "Foo"
+
+                    declarations.add(
+                        buildInit {
+                            origin = SirOrigin.Unknown
+                            visibility = SirVisibility.PUBLIC
+                            isFailable = false
+                            errorType = SirType.never
+                        }
+                    )
+                    declarations.add(
+                        buildInit {
+                            origin = SirOrigin.Unknown
+                            visibility = SirVisibility.PUBLIC
+                            isFailable = false
+                            errorType = SirType.any
+                        }
+                    )
+                    declarations.add(
+                        buildInit {
+                            origin = SirOrigin.Unknown
+                            visibility = SirVisibility.PUBLIC
+                            isFailable = false
+                            errorType = SirType.void
+                        }
+                    )
+                }
+            )
+        }.attachDeclarations()
+
+        runTest(
+            module,
+            "testData/throwing_inits"
+        )
+    }
+
+    @Test
+    fun `should print throwing accessors`() {
+        val module = buildModule {
+            name = "Test"
+            declarations.add(
+                buildVariable {
+                    origin = SirOrigin.Unknown
+                    name = "nonThrowing"
+                    type = SirType.void
+                    getter = buildGetter {
+                        errorType = SirType.never
+                    }
+                    setter = buildSetter {
+                        errorType = SirType.never
+                    }
+
+                }
+            )
+            declarations.add(
+                buildVariable {
+                    origin = SirOrigin.Unknown
+                    name = "throwingAny"
+                    type = SirType.void
+                    getter = buildGetter {
+                        errorType = SirType.any
+                    }
+                    setter = buildSetter {
+                        errorType = SirType.any
+                    }
+                }
+            )
+            declarations.add(
+                buildVariable {
+                    origin = SirOrigin.Unknown
+                    name = "throwingVoid"
+                    type = SirType.void
+                    getter = buildGetter {
+                        errorType = SirType.void
+                    }
+                    setter = buildSetter {
+                        errorType = SirType.void
+                    }
+                }
+            )
+        }.attachDeclarations()
+
+        runTest(
+            module,
+            "testData/throwing_accessors"
         )
     }
 
@@ -925,7 +1058,7 @@ class SirAsSwiftSourcesPrinterTests {
             name = "Test"
         }
 
-        module.updateImports(
+        module.imports.addAll(
             listOf(
                 SirImport(moduleName = "DEMO_PACKAGE"),
                 SirImport(moduleName = "ExportedModule", mode = SirImport.Mode.Exported),
@@ -1000,7 +1133,7 @@ class SirAsSwiftSourcesPrinterTests {
     }
 
     @Test
-    fun `attributes`() {
+    fun `should print attributes`() {
 
         val clazz = buildClass {
             name = "OPEN_INTERNAL"
@@ -1012,7 +1145,7 @@ class SirAsSwiftSourcesPrinterTests {
                 name = "method"
                 returnType = SirNominalType(SirSwiftModule.bool)
                 documentation = "// Check that nested attributes handled properly"
-                attributes += SirAttribute.Available(message = "Available method", deprecated = false, obsoleted = false)
+                attributes += SirAttribute.Available(message = "Deprecated method", deprecated = true, obsoleted = false)
             }
         }.attachDeclarations()
 
@@ -1040,6 +1173,16 @@ class SirAsSwiftSourcesPrinterTests {
                 }
             }
             addChild {
+                buildTypealias {
+                    name = "myVariable"
+                    type = SirNominalType(SirSwiftModule.bool)
+                    documentation = """
+                            /// Example docstring
+                        """.trimIndent()
+                    attributes += SirAttribute.Available(message = "Unavailable typealias", unavailable = true)
+                }
+            }
+            addChild {
                 clazz
             }
         }.attachDeclarations()
@@ -1047,6 +1190,113 @@ class SirAsSwiftSourcesPrinterTests {
         runTest(
             module,
             "testData/attributes"
+        )
+    }
+
+    @Test
+    fun `should escape identifiers`() {
+        val identifiers = listOf(
+            "simple0",
+            "", // empty
+            "_", // underscore
+            "a", // single character
+            "0", // single digit
+            "∞", // single unicode symbol 221e
+            "\u221E", // single unicode symbol 221e
+            "0startsWithDigit",
+            "~invalidSymbol~",
+            "unicode∞symbol221e",
+            "with space",
+            "() -> Function",
+            "+", // operator
+            "class", // keyword
+            "Class", // almost keyword
+            "with\textensive\r\nwhite spacing",
+            "\t\r\n", // just whitespacing
+            "\b\\\$" // more escapes
+        )
+
+        val module = buildModule {
+            name = "Test"
+        }.apply {
+            for (identifier in identifiers) {
+                val doc = identifier.split('\n').joinToString(separator = "\n") { "// $it" }
+                val decl = buildStruct {
+                    origin = SirOrigin.Unknown
+                    name = identifier
+                }.also { addChild { it } }
+
+                addChild {
+                    buildFunction {
+                        origin = SirOrigin.Unknown
+                        name = identifier
+                        returnType = SirNominalType(decl)
+                        documentation = doc
+                    }
+                }
+                addChild {
+                    buildVariable {
+                        origin = SirOrigin.Unknown
+                        name = identifier
+                        type = SirNominalType(decl)
+                        documentation = doc
+                        getter = buildGetter()
+                    }
+                }
+                addChild {
+                    buildTypealias {
+                        origin = SirOrigin.Unknown
+                        name = identifier
+                        type = SirNominalType(decl)
+                        documentation = doc
+                    }
+                }
+            }
+        }.attachDeclarations()
+
+        runTest(
+            module,
+            "testData/identifiers"
+        )
+    }
+
+    @Test
+    fun `should choose appropriate string literals`() {
+        val messages = listOf(
+            "simple",
+            "", // empty
+            "∞", // single unicode symbol 221e
+            "\u221E", // single unicode symbol 221e
+            "unicode∞symbol221e",
+            "with space",
+            "with\textensive\r\nwhite spacing",
+            "\t\r\n", // just whitespacing
+            "\b\\\$", // more escapes
+            "\"doubly-quoted\"",
+            "'singly-quoted'",
+            "`backticked`",
+            "\"#unescaped",
+        )
+
+        val module = buildModule {
+            name = "Test"
+        }.apply {
+            // At the time of writing, attributes is the easiest way to test literal strings
+            for (message in messages) {
+                addChild {
+                    buildStruct {
+                        origin = SirOrigin.Unknown
+                        name = "test"
+                        attributes.add(SirAttribute.Available(deprecated = true, message = message))
+                        documentation = message.split('\n').joinToString(separator = "\n") { "// $it" }
+                    }
+                }
+            }
+        }.attachDeclarations()
+
+        runTest(
+            module,
+            "testData/string_literals"
         )
     }
 
@@ -1070,6 +1320,86 @@ class SirAsSwiftSourcesPrinterTests {
             module,
             "testData/simple_function_returns_nullable"
         )
+    }
+
+    @Test
+    fun `should print protocol declarations`() {
+        val proto1 = buildProtocol {
+            name = "Fooable"
+        }.apply {
+            parent = kotlinRuntimeModule
+        }
+
+        val proto2 = buildProtocol {
+            name = "Barable"
+        }.apply {
+            parent = kotlinRuntimeModule
+        }
+
+        val module = buildModule {
+            name = "Test"
+            declarations.add(
+                buildProtocol {
+                    name = "Foo"
+                    superClass = SirNominalType(kotlinBase)
+                    protocols.addAll(listOf(proto1, proto2))
+
+                    declarations.add(
+                        buildFunction {
+                            origin = SirOrigin.Unknown
+                            visibility = SirVisibility.PUBLIC
+                            name = "foo"
+                            returnType = SirNominalType(
+                                SirSwiftModule.bool
+                            )
+                            body = SirFunctionBody(listOf("<SHOULD NOT BE VISIBLE>"))
+                        }
+                    )
+
+                    declarations.add(
+                        buildVariable {
+                            origin = SirOrigin.Unknown
+                            visibility = SirVisibility.PUBLIC
+                            name = "bar"
+                            type = SirNominalType(
+                                SirSwiftModule.bool
+                            )
+                            getter = buildGetter {
+                                body = SirFunctionBody(listOf("<SHOULD NOT BE VISIBLE>"))
+                            }
+                            setter = buildSetter {
+                                body = SirFunctionBody(listOf("<SHOULD NOT BE VISIBLE>"))
+                            }
+                        }
+                    )
+
+                    declarations.add(
+                        buildInit {
+                            origin = SirOrigin.Unknown
+                            visibility = SirVisibility.PUBLIC
+                            isFailable = false
+                            body = SirFunctionBody(listOf("<SHOULD NOT BE VISIBLE>"))
+                        }
+                    )
+                }.attachDeclarations()
+            )
+        }.attachDeclarations()
+
+        runTest(
+            module,
+            "testData/protocol_declarations"
+        )
+    }
+
+    companion object {
+        val kotlinRuntimeModule = buildModule {
+            name = "KotlinRuntime"
+        }
+        val kotlinBase = kotlinRuntimeModule.addChild {
+            buildClass {
+                name = "KotlinBase"
+            }
+        }
     }
 }
 

@@ -29,6 +29,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /i
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -60,12 +61,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(1)
+  initializer: KaConstantInitializerValue(1)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -120,6 +122,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /i2
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: [
@@ -154,12 +157,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(1)
+  initializer: KaConstantInitializerValue(1)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -214,6 +218,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /i3
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -245,12 +250,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: true
-  initializer: KtConstantInitializerValue(1)
+  initializer: KaConstantInitializerValue(1)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -393,6 +399,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /i4
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: [
@@ -427,12 +434,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: true
-  initializer: KtConstantInitializerValue(1)
+  initializer: KaConstantInitializerValue(1)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -554,6 +562,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: /f
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -583,6 +592,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(deprecated.kt)
   getContainingJvmClassName: DeprecatedKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=true, message=null)
 
@@ -651,6 +661,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /Foo.i2
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -686,12 +697,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(1)
+  initializer: KaConstantInitializerValue(1)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -729,6 +741,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: /Foo.f2
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -762,6 +775,7 @@ KaNamedFunctionSymbol:
     type: Foo
   getContainingFileSymbol: KaFileSymbol(deprecated.kt)
   getContainingJvmClassName: Foo
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=true, message=null)
 
@@ -827,6 +841,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /j
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -858,12 +873,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(2)
+  initializer: KaConstantInitializerValue(2)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -921,6 +937,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /j2
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -952,12 +969,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(2)
+  initializer: KaConstantInitializerValue(2)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -1015,6 +1033,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=null)
   callableId: /j3
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -1046,12 +1065,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(2)
+  initializer: KaConstantInitializerValue(2)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

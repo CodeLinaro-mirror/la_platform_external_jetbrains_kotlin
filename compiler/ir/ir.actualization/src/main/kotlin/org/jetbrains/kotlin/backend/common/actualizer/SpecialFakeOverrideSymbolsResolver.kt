@@ -15,13 +15,9 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrFakeOverrideSymbolBase
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldFakeOverrideSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrFunctionFakeOverrideSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrPropertyFakeOverrideSymbol
-import org.jetbrains.kotlin.ir.util.SymbolRemapper
-import org.jetbrains.kotlin.ir.util.isGetter
-import org.jetbrains.kotlin.ir.util.isSetter
-import org.jetbrains.kotlin.ir.util.render
-import org.jetbrains.kotlin.ir.util.resolveFakeOverride
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
@@ -137,7 +133,7 @@ class SpecialFakeOverrideSymbolsResolver(val expectActualMap: IrExpectActualMap)
     }
 
     fun cacheFakeOverridesOfAllClasses(irModuleFragment: IrModuleFragment) {
-        val visitor = object : IrElementVisitorVoid {
+        val visitor = object : IrVisitorVoid() {
             override fun visitElement(element: IrElement) {}
 
             override fun visitFile(declaration: IrFile) {
@@ -156,7 +152,7 @@ class SpecialFakeOverrideSymbolsResolver(val expectActualMap: IrExpectActualMap)
 }
 
 
-class SpecialFakeOverrideSymbolsResolverVisitor(private val resolver: SpecialFakeOverrideSymbolsResolver) : IrElementVisitorVoid {
+class SpecialFakeOverrideSymbolsResolverVisitor(private val resolver: SpecialFakeOverrideSymbolsResolver) : IrVisitorVoid() {
     override fun visitElement(element: IrElement) {
         // E.g. annotation can contain fake override of constant property
         if (element is IrAnnotationContainer) {
@@ -260,7 +256,7 @@ class SpecialFakeOverrideSymbolsActualizedByFieldsTransformer(
                 expression.startOffset, expression.endOffset,
                 symbol = actualFieldSymbol,
                 receiver = expression.dispatchReceiver,
-                value = expression.getValueArgument(0)!!,
+                value = expression.arguments[originalAccessorSymbol.owner.parameters.indexOfFirst{ it.kind == IrParameterKind.Regular }]!!,
                 type = expression.type,
                 origin = expression.origin,
                 superQualifierSymbol = expression.superQualifierSymbol

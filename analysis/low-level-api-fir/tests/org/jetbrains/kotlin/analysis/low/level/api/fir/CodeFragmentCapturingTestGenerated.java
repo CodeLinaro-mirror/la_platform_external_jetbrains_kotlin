@@ -96,9 +96,33 @@ public class CodeFragmentCapturingTestGenerated extends AbstractCodeFragmentCapt
   }
 
   @Test
+  @TestMetadata("fromExtensionGetterAnother.kt")
+  public void testFromExtensionGetterAnother() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/fromExtensionGetterAnother.kt");
+  }
+
+  @Test
+  @TestMetadata("fromExtensionGetterRecursive.kt")
+  public void testFromExtensionGetterRecursive() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/fromExtensionGetterRecursive.kt");
+  }
+
+  @Test
   @TestMetadata("initializer.kt")
   public void testInitializer() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/initializer.kt");
+  }
+
+  @Test
+  @TestMetadata("jvmNameConstEvaluation.kt")
+  public void testJvmNameConstEvaluation() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/jvmNameConstEvaluation.kt");
+  }
+
+  @Test
+  @TestMetadata("JvmNameConstEvaluationBadName.kt")
+  public void testJvmNameConstEvaluationBadName() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/JvmNameConstEvaluationBadName.kt");
   }
 
   @Test

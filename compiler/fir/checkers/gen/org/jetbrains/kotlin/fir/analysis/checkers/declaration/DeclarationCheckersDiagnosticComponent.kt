@@ -75,6 +75,10 @@ class DeclarationCheckersDiagnosticComponent(
         checkers.allScriptCheckers.check(script, data)
     }
 
+    override fun visitReplSnippet(replSnippet: FirReplSnippet, data: CheckerContext) {
+        checkers.allReplSnippetCheckers.check(replSnippet, data)
+    }
+
     override fun visitTypeParameter(typeParameter: FirTypeParameter, data: CheckerContext) {
         checkers.allTypeParameterCheckers.check(typeParameter, data)
     }
@@ -109,6 +113,10 @@ class DeclarationCheckersDiagnosticComponent(
 
     override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer, data: CheckerContext) {
         checkers.allAnonymousInitializerCheckers.check(anonymousInitializer, data)
+    }
+
+    override fun visitReceiverParameter(receiverParameter: FirReceiverParameter, data: CheckerContext) {
+        checkers.allReceiverParameterCheckers.check(receiverParameter, data)
     }
 
     override fun visitDanglingModifierList(danglingModifierList: FirDanglingModifierList, data: CheckerContext) {

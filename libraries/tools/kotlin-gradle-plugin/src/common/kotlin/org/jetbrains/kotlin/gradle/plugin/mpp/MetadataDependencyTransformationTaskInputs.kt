@@ -3,18 +3,17 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ProjectDependency
-import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.*
+import org.gradle.util.GradleVersion
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.internal.kotlinSecondaryVariantsDataSharing
-import org.jetbrains.kotlin.gradle.plugin.mpp.internal.projectStructureMetadataResolvableConfiguration
+import org.jetbrains.kotlin.gradle.plugin.mpp.internal.projectStructureMetadataResolvedConfiguration
 import org.jetbrains.kotlin.gradle.plugin.sources.internal
 import org.jetbrains.kotlin.gradle.utils.currentBuild
 import org.jetbrains.kotlin.gradle.utils.filesProvider
-import org.jetbrains.kotlin.gradle.utils.lenientArtifactsView
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 
 internal class MetadataDependencyTransformationTaskInputs(
@@ -22,7 +21,6 @@ internal class MetadataDependencyTransformationTaskInputs(
     kotlinSourceSet: KotlinSourceSet,
     private val keepProjectDependencies: Boolean = true,
 ) {
-
     private val currentBuild = project.currentBuild
 
     // GMT algorithm uses the project-structure-metadata.json files from the other subprojects.
@@ -34,25 +32,21 @@ internal class MetadataDependencyTransformationTaskInputs(
     @get:PathSensitive(PathSensitivity.RELATIVE)
     @get:IgnoreEmptyDirectories
     @get:NormalizeLineEndings
-    val projectStructureMetadataFileCollection: ConfigurableFileCollection = project.filesProvider {
-        kotlinSourceSet.internal.projectStructureMetadataResolvableConfiguration?.lenientArtifactsView?.artifactFiles
-    }
+    val projectStructureMetadataFileCollection = kotlinSourceSet
+        .internal
+        .projectStructureMetadataResolvedConfiguration()
+        .files
 
     @Suppress("unused") // Gradle input
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     @get:IgnoreEmptyDirectories
     @get:NormalizeLineEndings
-    @get:Optional
-    val sourceSetConfigurationToResolve: FileCollection? =
+    val metadataLocationsOfProjectDependencies: FileCollection =
         // This configuration is resolvable only for P2P dependencies, for IDE import we should not invoke sourceSet metadata compilations
-        if (keepProjectDependencies) {
-            project.kotlinSecondaryVariantsDataSharing
-                .consumeCommonSourceSetMetadataLocations(kotlinSourceSet.internal.resolvableMetadataConfiguration)
-                .files
-        } else {
-            null
-        }
+        project.kotlinSecondaryVariantsDataSharing
+            .consumeCommonSourceSetMetadataLocations(kotlinSourceSet.internal.resolvableMetadataConfiguration, keepProjectDependencies)
+            .files
 
     @Suppress("unused") // Gradle input
     @get:InputFiles
@@ -106,7 +100,12 @@ internal class MetadataDependencyTransformationTaskInputs(
                 .allDependencies
                 .map { dependency ->
                     if (dependency is ProjectDependency && keepProjectDependencies) {
-                        dependency.dependencyProject.path
+                        if (GradleVersion.current() < GradleVersion.version("8.11")) {
+                            @Suppress("DEPRECATION")
+                            dependency.dependencyProject.path
+                        } else {
+                            dependency.path
+                        }
                     } else {
                         "${dependency.name}:${dependency.group}:${dependency.version}"
                     }

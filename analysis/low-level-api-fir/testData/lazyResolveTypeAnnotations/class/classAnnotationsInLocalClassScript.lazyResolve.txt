@@ -1,7 +1,7 @@
 RAW_FIR:
 FILE: [ResolvedTo(RAW_FIR)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -27,7 +27,7 @@ FILE: [ResolvedTo(RAW_FIR)] classAnnotationsInLocalClassScript.kts
 IMPORTS:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -53,7 +53,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 COMPILER_REQUIRED_ANNOTATIONS:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -79,7 +79,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 COMPANION_GENERATION:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -105,7 +105,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 SUPER_TYPES:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -131,7 +131,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 TYPES:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -157,7 +157,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 STATUS:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -183,7 +183,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 EXPECT_ACTUAL_MATCHING:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -209,7 +209,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 CONTRACTS:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -229,32 +229,13 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 
         }
 
-        public final [ResolvedTo(CONTRACTS)] fun foo(): R|kotlin/Unit| {
-            [ResolvedTo(RAW_FIR)] lval localProp: <implicit> = IntegerLiteral(1)
-            @Anno[Unresolved](<strcat>(String(class ), localProp#)) local final? [ResolvedTo(RAW_FIR)] class OriginalClass<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>> {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>>(): R|<local>/OriginalClass<T>| {
-                    super<@Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>>>()
-                }
-
-                public? final? [ResolvedTo(RAW_FIR)] val prop: <implicit> = IntegerLiteral(0)
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] get(): <implicit>
-
-                @Anno[Unresolved](<strcat>(String(class ), prop#)) local final? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] class InnerClass<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>, @Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] Outer(T) : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>> {
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=InnerClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>>(): R|<local>/OriginalClass.InnerClass<T, T>| {
-                        super<@Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>>>()
-                    }
-
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(CONTRACTS)] fun foo(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 IMPLICIT_TYPES_BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -274,32 +255,13 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 
         }
 
-        public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun foo(): R|kotlin/Unit| {
-            [ResolvedTo(RAW_FIR)] lval localProp: <implicit> = IntegerLiteral(1)
-            @Anno[Unresolved](<strcat>(String(class ), localProp#)) local final? [ResolvedTo(RAW_FIR)] class OriginalClass<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>> {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>>(): R|<local>/OriginalClass<T>| {
-                    super<@Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>>>()
-                }
-
-                public? final? [ResolvedTo(RAW_FIR)] val prop: <implicit> = IntegerLiteral(0)
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] get(): <implicit>
-
-                @Anno[Unresolved](<strcat>(String(class ), prop#)) local final? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] class InnerClass<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>, @Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] Outer(T) : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>> {
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=InnerClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>>(): R|<local>/OriginalClass.InnerClass<T, T>| {
-                        super<@Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>>>()
-                    }
-
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun foo(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 CONSTANT_EVALUATION:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -319,32 +281,13 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 
         }
 
-        public final [ResolvedTo(CONSTANT_EVALUATION)] fun foo(): R|kotlin/Unit| {
-            [ResolvedTo(RAW_FIR)] lval localProp: <implicit> = IntegerLiteral(1)
-            @Anno[Unresolved](<strcat>(String(class ), localProp#)) local final? [ResolvedTo(RAW_FIR)] class OriginalClass<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>> {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>>(): R|<local>/OriginalClass<T>| {
-                    super<@Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>>>()
-                }
-
-                public? final? [ResolvedTo(RAW_FIR)] val prop: <implicit> = IntegerLiteral(0)
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] get(): <implicit>
-
-                @Anno[Unresolved](<strcat>(String(class ), prop#)) local final? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] class InnerClass<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>, @Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] Outer(T) : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>> {
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=InnerClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>>(): R|<local>/OriginalClass.InnerClass<T, T>| {
-                        super<@Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>>>()
-                    }
-
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(CONSTANT_EVALUATION)] fun foo(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @Target[Unresolved](LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION, LAZY_EXPRESSION) public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -364,32 +307,13 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 
         }
 
-        public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun foo(): R|kotlin/Unit| {
-            [ResolvedTo(RAW_FIR)] lval localProp: <implicit> = IntegerLiteral(1)
-            @Anno[Unresolved](<strcat>(String(class ), localProp#)) local final? [ResolvedTo(RAW_FIR)] class OriginalClass<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>> {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>>(): R|<local>/OriginalClass<T>| {
-                    super<@Anno[Unresolved](<strcat>(String(super type ), localProp#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), localProp#)) Int>>>()
-                }
-
-                public? final? [ResolvedTo(RAW_FIR)] val prop: <implicit> = IntegerLiteral(0)
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] get(): <implicit>
-
-                @Anno[Unresolved](<strcat>(String(class ), prop#)) local final? [ResolvedTo(RAW_FIR)] [ContainingClassKey=OriginalClass] class InnerClass<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>, @Anno[Unresolved](<strcat>(String(type param ), localProp#)) [ResolvedTo(RAW_FIR)] Outer(T) : @Anno[Unresolved](<strcat>(String(bound ), localProp#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), localProp#)) Int>> : @Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>> {
-                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=InnerClass] constructor<@Anno[Unresolved](<strcat>(String(type param ), prop#)) [ResolvedTo(RAW_FIR)] T : @Anno[Unresolved](<strcat>(String(bound ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested bound ), prop#)) Int>>(): R|<local>/OriginalClass.InnerClass<T, T>| {
-                        super<@Anno[Unresolved](<strcat>(String(super type ), prop#)) A<@Anno[Unresolved](<strcat>(String(nested super type ), prop#)) List<@Anno[Unresolved](<strcat>(String(nested nested super type ), prop#)) Int>>>()
-                    }
-
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun foo(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[Types](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.TYPE|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.CLASS|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.TYPE_PARAMETER|) public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -434,7 +358,7 @@ FILE: [ResolvedTo(IMPORTS)] classAnnotationsInLocalClassScript.kts
 FILE RAW TO BODY:
 FILE: [ResolvedTo(BODY_RESOLVE)] classAnnotationsInLocalClassScript.kts
     SCRIPT: [ResolvedTo(BODY_RESOLVE)] <script-classAnnotationsInLocalClassScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(BODY_RESOLVE)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(BODY_RESOLVE)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[Types](allowedTargets = vararg(Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.TYPE|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.CLASS|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.TYPE_PARAMETER|)) public final [ResolvedTo(BODY_RESOLVE)] [ContainingScriptKey=FirScriptSymbol <script-classAnnotationsInLocalClassScript.kts>] annotation class Anno : R|kotlin/Annotation| {

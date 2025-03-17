@@ -36,7 +36,7 @@ class NativeAtomicfuIrBuilder(
             this.extensionReceiver = extensionReceiver
             if (symbol.owner.typeParameters.isNotEmpty()) {
                 require(symbol.owner.typeParameters.size == 1) { "Only K/N atomic intrinsics are parameterized with a type of the updated volatile field. A function with more type parameters is being invoked: ${symbol.owner.render()}" }
-                putTypeArgument(0, valueType)
+                typeArguments[0] = valueType
             }
             valueArguments.forEachIndexed { i, arg ->
                 if (isAtomicArrayHandler && valueType.isBoolean() && i != 0) {
@@ -128,7 +128,7 @@ class NativeAtomicfuIrBuilder(
         }
 
     private fun addAndGetField(propertyRef: IrExpression, valueType: IrType, delta: IrExpression?): IrCall =
-        getAndAddField(propertyRef, valueType, delta).plus(delta)
+        getAndAddField(propertyRef, valueType, delta).plus(delta?.deepCopyWithoutPatchingParents())
 
     private fun getAndIncrementField(propertyRef: IrExpression, valueType: IrType): IrCall {
         val delta = if (valueType.isInt()) irInt(1) else irLong(1)

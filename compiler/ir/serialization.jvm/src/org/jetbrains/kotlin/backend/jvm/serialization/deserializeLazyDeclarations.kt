@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.backend.common.overrides.FileLocalAwareLinker
 import org.jetbrains.kotlin.backend.common.overrides.IrLinkerFakeOverrideProvider
 import org.jetbrains.kotlin.backend.common.serialization.*
 import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolData
-import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureFactory
 import org.jetbrains.kotlin.backend.jvm.serialization.proto.JvmIr
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -27,9 +26,10 @@ import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrFileSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.backend.common.serialization.proto.FileEntry as ProtoFileEntry
 import org.jetbrains.kotlin.backend.common.serialization.proto.IdSignature as ProtoIdSignature
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrDeclaration as ProtoDeclaration
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrExpression as ProtoExpression
@@ -51,7 +51,8 @@ fun deserializeFromByteArray(
         irProto.signatureList,
         irProto.stringList,
         irProto.bodyList,
-        irProto.debugInfoList
+        irProto.debugInfoList,
+        irProto.fileEntryList,
     )
 
     // Only needed for local signature computation.
@@ -74,10 +75,9 @@ fun deserializeFromByteArray(
     // Patching will be needed.
     val deserializer = IrDeclarationDeserializer(
         irBuiltIns, symbolTable, irBuiltIns.irFactory, irLibraryFile, toplevelParent,
-        allowAlreadyBoundSymbols = true,
-        allowErrorNodes = false,
-        deserializeInlineFunctions = true,
-        deserializeBodies = true,
+        settings = IrDeserializationSettings(
+            allowAlreadyBoundSymbols = true,
+        ),
         symbolDeserializer,
         onDeserializedClass = { _, _ -> },
         needToDeserializeFakeOverrides = { false },
@@ -110,10 +110,10 @@ private fun IrElement.safelyInitializeAllLazyDescendants() {
     // which would throw ConcurrentModificationException.
     // The workaround is to traverse the subtree over snapshots first.
 
-    acceptVoid(object : IrElementVisitorVoid {
+    acceptVoid(object : IrVisitorVoid() {
         override fun visitElement(element: IrElement) {
             val directChildrenSnapshot = mutableListOf<IrElement>()
-            element.acceptChildrenVoid(object : IrElementVisitorVoid {
+            element.acceptChildrenVoid(object : IrVisitorVoid() {
                 override fun visitElement(element: IrElement) {
                     directChildrenSnapshot += element
                 }
@@ -132,7 +132,8 @@ private class IrLibraryFileFromAnnotation(
     private val signatures: List<ProtoIdSignature>,
     private val strings: List<String>,
     private val bodies: List<JvmIr.XStatementOrExpression>,
-    private val debugInfo: List<String>
+    private val debugInfo: List<String>,
+    private val fileEntries: List<ProtoFileEntry>,
 ) : IrLibraryFile() {
     override fun declaration(index: Int): ProtoDeclaration {
         error("This method is never supposed to be called")
@@ -142,6 +143,7 @@ private class IrLibraryFileFromAnnotation(
     override fun signature(index: Int): ProtoIdSignature = signatures[index]
     override fun string(index: Int): String = strings[index]
     override fun debugInfo(index: Int): String = debugInfo[index]
+    override fun fileEntry(index: Int): ProtoFileEntry = fileEntries[index]
 
     override fun expressionBody(index: Int): ProtoExpression =
         bodies[index].also { require(it.hasExpression()) }.expression
@@ -203,7 +205,7 @@ private fun buildFakeOverridesForLocalClasses(
 ) {
     val builder = makeSimpleFakeOverrideBuilder(symbolTable, typeSystemContext, symbolDeserializer)
     toplevel.acceptChildrenVoid(
-        object : IrElementVisitorVoid {
+        object : IrVisitorVoid() {
             override fun visitElement(element: IrElement) {
                 element.acceptChildrenVoid(this)
             }
@@ -219,7 +221,7 @@ private fun buildFakeOverridesForLocalClasses(
 
 class PrePopulatedDeclarationTable(
     sig2symbol: Map<IdSignature, IrSymbol>
-) : FakeOverrideDeclarationTable(JvmIrMangler, signatureSerializerFactory = ::IdSignatureFactory) {
+) : FakeOverrideDeclarationTable(JvmIrMangler) {
     private val symbol2Sig = sig2symbol.entries.associate { (x, y) -> y to x }
 
     override fun tryComputeBackendSpecificSignature(declaration: IrDeclaration): IdSignature? {

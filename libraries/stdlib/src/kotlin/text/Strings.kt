@@ -550,12 +550,15 @@ public inline fun String.replaceRange(range: IntRange, replacement: CharSequence
     (this as CharSequence).replaceRange(range, replacement).toString()
 
 /**
- * Returns a char sequence with content of this char sequence where its part at the given range is removed.
+ * Returns a [CharSequence] obtained by removing the specified subsequence from this char sequence.
  *
- * @param startIndex the index of the first character to be removed.
- * @param endIndex the index of the first character after the removed part to keep in the string.
+ * @param startIndex the beginning (inclusive) of the subsequence to remove.
+ * @param endIndex the end (exclusive) of the subsequence to remove.
  *
- * [endIndex] is not included in the removed part.
+ * @throws IndexOutOfBoundsException or [IllegalArgumentException] when [startIndex] or [endIndex] is out of range of this char sequence indices
+ *   or when `startIndex > endIndex`.
+ *
+ * @sample samples.text.Strings.removeRangeCharSequence
  */
 public fun CharSequence.removeRange(startIndex: Int, endIndex: Int): CharSequence {
     if (endIndex < startIndex)
@@ -571,27 +574,37 @@ public fun CharSequence.removeRange(startIndex: Int, endIndex: Int): CharSequenc
 }
 
 /**
- * Removes the part of a string at a given range.
- * @param startIndex the index of the first character to be removed.
- * @param endIndex the index of the first character after the removed part to keep in the string.
+ * Returns a [String] obtained by removing the specified substring from this string.
  *
- *  [endIndex] is not included in the removed part.
+ * @param startIndex the beginning (inclusive) of the substring to remove.
+ * @param endIndex the end (exclusive) of the substring to remove.
+ *
+ * @throws IndexOutOfBoundsException or [IllegalArgumentException] when [startIndex] or [endIndex] is out of range of this string indices
+ *   or when `startIndex > endIndex`.
+ *
+ * @sample samples.text.Strings.removeRangeString
  */
 @kotlin.internal.InlineOnly
 public inline fun String.removeRange(startIndex: Int, endIndex: Int): String =
     (this as CharSequence).removeRange(startIndex, endIndex).toString()
 
 /**
- * Returns a char sequence with content of this char sequence where its part at the given [range] is removed.
+ * Returns a [CharSequence] obtained by removing the specified subsequence from this char sequence.
  *
- * The end index of the [range] is included in the removed part.
+ * @param range the range of indexes of the subsequence to remove.
+ *   Note: the character at index [IntRange.endInclusive] of the [range] is removed as well.
+ *
+ * @sample samples.text.Strings.removeRangeCharSequence
  */
 public fun CharSequence.removeRange(range: IntRange): CharSequence = removeRange(range.start, range.endInclusive + 1)
 
 /**
- * Removes the part of a string at the given [range].
+ * Returns a [String] obtained by removing the specified substring from this char sequence.
  *
- * The end index of the [range] is included in the removed part.
+ * @param range the range of indexes of the substring to remove.
+ *   Note: the character at index [IntRange.endInclusive] of the [range] is removed as well.
+ *
+ * @sample samples.text.Strings.removeRangeString
  */
 @kotlin.internal.InlineOnly
 public inline fun String.removeRange(range: IntRange): String =
@@ -756,11 +769,13 @@ public fun String.replaceBeforeLast(delimiter: String, replacement: String, miss
 // public fun String.replace(oldValue: String, newValue: String, ignoreCase: Boolean): String // JVM- and JS-specific
 
 /**
- * Returns a new string obtained by replacing each substring of this char sequence that matches the given regular expression
- * with the given [replacement].
+ * Replaces all occurrences of the given regular expression [regex] in this char sequence
+ * with the specified [replacement] expression.
  *
- * The [replacement] can consist of any combination of literal text and $-substitutions. To treat the replacement string
- * literally escape it with the [kotlin.text.Regex.Companion.escapeReplacement] method.
+ * This is a convenience function that is equivalent to `regex.replace(this, replacement)`.
+ * For details about its behaviour and the substitution syntax of [replacement] expression, refer to [Regex.replace].
+ *
+ * @sample samples.text.Strings.replaceWithExpression
  */
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.replace(regex: Regex, replacement: String): String = regex.replace(this, replacement)
@@ -775,9 +790,13 @@ public inline fun CharSequence.replace(regex: Regex, noinline transform: (MatchR
     regex.replace(this, transform)
 
 /**
- * Replaces the first occurrence of the given regular expression [regex] in this char sequence with specified [replacement] expression.
+ * Replaces the first occurrence of the given regular expression [regex] in this char sequence
+ * with the specified [replacement] expression.
  *
- * @param replacement A replacement expression that can include substitutions. See [Regex.replaceFirst] for details.
+ * This is a convenience function that is equivalent to `regex.replaceFirst(this, replacement)`.
+ * For details about its behaviour and the substitution syntax of [replacement] expression, refer to [Regex.replaceFirst].
+ *
+ * @sample samples.text.Strings.replaceFirstWithExpression
  */
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.replaceFirst(regex: Regex, replacement: String): String = regex.replaceFirst(this, replacement)

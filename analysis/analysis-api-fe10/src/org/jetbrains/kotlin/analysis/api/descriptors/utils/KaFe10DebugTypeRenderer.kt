@@ -1,11 +1,13 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.descriptors.utils
 
-import org.jetbrains.kotlin.analysis.api.annotations.*
+import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
+import org.jetbrains.kotlin.analysis.api.annotations.KaNamedAnnotationValue
+import org.jetbrains.kotlin.analysis.api.annotations.renderAsSourceCode
 import org.jetbrains.kotlin.analysis.api.descriptors.Fe10AnalysisContext
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.classId
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getKtNamedAnnotationArguments
@@ -84,7 +86,7 @@ internal class KaFe10DebugTypeRenderer {
     }
 
     private fun Fe10AnalysisContext.renderTypeAnnotationDebug(annotation: AnnotationDescriptor, printer: PrettyPrinter) {
-        val namedValues = annotation.getKtNamedAnnotationArguments(this@Fe10AnalysisContext)
+        val namedValues = annotation.getKtNamedAnnotationArguments(this@renderTypeAnnotationDebug)
         renderAnnotationDebug(annotation.annotationClass?.classId, namedValues, printer)
     }
 
@@ -125,10 +127,10 @@ internal class KaFe10DebugTypeRenderer {
             }
 
             is KaAnnotationValue.ConstantValue -> {
-                @Suppress("DEPRECATION")
-                printer.append(value.value.constantValueKind.asString)
+                val constantValue = value.value
+                printer.append((constantValue.value ?: constantValue)::class.simpleName)
                     .append("(")
-                    .append(value.value.value.toString())
+                    .append(constantValue.value.toString())
                     .append(")")
             }
 

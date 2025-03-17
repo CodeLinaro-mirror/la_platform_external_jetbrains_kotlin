@@ -42,6 +42,7 @@ sealed class ClangArgs(
                     target.family.name.takeIf { target.family != Family.MINGW },
                     "WINDOWS".takeIf { target.family == Family.MINGW },
                     "MACOSX".takeIf { target.family == Family.OSX },
+                    "APPLE".takeIf { target.family.isAppleFamily },
 
                     "NO_64BIT_ATOMIC".takeUnless { target.supports64BitAtomics() },
                     "NO_UNALIGNED_ACCESS".takeUnless { target.supportsUnalignedAccess() },
@@ -141,7 +142,11 @@ sealed class ClangArgs(
                     "-I$toolchainSysroot/usr/include/c++/v1",
                     "-I$toolchainSysroot/usr/include",
                     "-I$toolchainSysroot/usr/include/$clangTarget"
-            )
+            ) + when (target) {
+                // KT-73559
+                KonanTarget.ANDROID_ARM64 -> listOf("-mno-outline-atomics")
+                else -> emptyList()
+            }
         }
 
         else -> emptyList()

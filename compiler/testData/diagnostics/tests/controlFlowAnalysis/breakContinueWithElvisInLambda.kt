@@ -1,5 +1,4 @@
-// FIR_IDENTICAL
-// LATEST_LV_DIFFERENCE
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -UNUSED_VARIABLE
 // WITH_STDLIB
 // ISSUE: KT-67624
@@ -73,5 +72,4 @@ fun test_3_break() {
         }
     }
 }
-
 

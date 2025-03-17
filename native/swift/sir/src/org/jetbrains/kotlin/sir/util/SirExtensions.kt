@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.sir.*
 
 val SirCallable.allParameters: List<SirParameter>
     get() = when (this) {
-        is SirFunction -> this.parameters
+        is SirFunction -> listOfNotNull(this.extensionReceiverParameter) + this.parameters
         is SirInit -> this.parameters
         is SirSetter -> listOf(SirParameter(parameterName = parameterName, type = this.valueType))
         is SirGetter -> listOf()
@@ -50,7 +50,8 @@ fun <T : SirDeclaration> SirMutableDeclarationContainer.addChild(producer: () ->
 
 val SirType.swiftName
     get(): String = when (this) {
-        is SirExistentialType -> "Any"
+        is SirExistentialType -> protocols.takeIf { it.isNotEmpty() }?.joinToString(prefix = "any ", separator = " & ") { it.swiftFqName }
+            ?: "Any"
         is SirNominalType -> listOfNotNull(
             parent?.swiftName?.let { "$it." },
             typeDeclaration.swiftFqName,
@@ -58,6 +59,7 @@ val SirType.swiftName
         ).joinToString("")
         is SirErrorType -> "ERROR_TYPE"
         is SirUnsupportedType -> "Swift.Never"
+        is SirFunctionalType -> "(${parameterTypes.joinToString { it.swiftName }}) -> ${returnType.swiftName}"
     }
 
 private val SirDeclaration.swiftParentNamePrefix: String?
@@ -65,14 +67,14 @@ private val SirDeclaration.swiftParentNamePrefix: String?
 
 val SirDeclarationParent.swiftFqNameOrNull: String?
     get() = (this as? SirNamedDeclaration)?.swiftFqName
-        ?: ((this as? SirNamed)?.name)
+        ?: ((this as? SirNamed)?.name?.swiftSanitizedName)
         ?: ((this as? SirExtension)?.extendedType?.swiftName)
 
 val SirNamedDeclaration.swiftFqName: String
-    get() = swiftParentNamePrefix?.let { "$it.$name" } ?: name
+    get() = swiftParentNamePrefix?.let { "$it.${name.swiftSanitizedName}" } ?: name.swiftSanitizedName
 
 val SirFunction.swiftFqName: String
-    get() = swiftParentNamePrefix?.let { "$it.$name" } ?: name
+    get() = swiftParentNamePrefix?.let { "$it.${name.swiftSanitizedName}" } ?: name.swiftSanitizedName
 
 val SirVariable.swiftFqName: String
-    get() = swiftParentNamePrefix?.let { "$it.$name" } ?: name
+    get() = swiftParentNamePrefix?.let { "$it.${name.swiftSanitizedName}" } ?: name.swiftSanitizedName

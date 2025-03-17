@@ -9,13 +9,19 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.descriptors.ValueClassRepresentation
-import org.jetbrains.kotlin.generators.tree.*
+import org.jetbrains.kotlin.generators.tree.ImplementationKind
 import org.jetbrains.kotlin.generators.tree.imports.ArbitraryImportable
-import org.jetbrains.kotlin.generators.tree.printer.*
+import org.jetbrains.kotlin.generators.tree.printer.FunctionParameter
+import org.jetbrains.kotlin.generators.tree.printer.VariableKind
+import org.jetbrains.kotlin.generators.tree.printer.printFunctionDeclaration
+import org.jetbrains.kotlin.generators.tree.printer.printPropertyDeclaration
+import org.jetbrains.kotlin.generators.tree.type
+import org.jetbrains.kotlin.generators.tree.withArgs
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.anonymousInitializerSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.classSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.classifierSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.constructorSymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.declarationWithAccessorsSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.enumEntrySymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.externalPackageFragmentSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.fieldSymbol
@@ -24,6 +30,7 @@ import org.jetbrains.kotlin.ir.generator.IrSymbolTree.functionSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.localDelegatedPropertySymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.packageFragmentSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.propertySymbol
+import org.jetbrains.kotlin.ir.generator.IrSymbolTree.replSnippetSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.returnTargetSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.returnableBlockSymbol
 import org.jetbrains.kotlin.ir.generator.IrSymbolTree.scriptSymbol
@@ -36,9 +43,9 @@ import org.jetbrains.kotlin.ir.generator.IrSymbolTree.variableSymbol
 import org.jetbrains.kotlin.ir.generator.config.AbstractTreeBuilder
 import org.jetbrains.kotlin.ir.generator.model.Element
 import org.jetbrains.kotlin.ir.generator.model.Element.Category.*
-import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.*
-import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.Array
+import org.jetbrains.kotlin.ir.generator.model.ListField
 import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.MutableList
+import org.jetbrains.kotlin.ir.generator.model.ListField.Mutability.Var
 import org.jetbrains.kotlin.ir.generator.model.SimpleField
 import org.jetbrains.kotlin.ir.generator.model.symbol.Symbol
 import org.jetbrains.kotlin.name.FqName
@@ -62,6 +69,7 @@ object IrTree : AbstractTreeBuilder() {
             nullable = nullable,
         ) {
             optInAnnotation = obsoleteDescriptorBasedApiAnnotation
+            deepCopyExcludeFromApply = true
         }
 
     private fun declarationWithLateBinding(symbol: Symbol, initializer: Element.() -> Unit) = element(Declaration) {
@@ -105,6 +113,14 @@ object IrTree : AbstractTreeBuilder() {
         +offsetField("start")
         +offsetField("end")
 
+        +field("attributeOwnerId", rootElement, isChild = false) {
+            deepCopyExcludeFromApply = true
+            kDoc = """
+                Original element before copying. Always satisfies the following
+                invariant: `this.attributeOwnerId == this.attributeOwnerId.attributeOwnerId`.
+            """.trimIndent()
+        }
+
         kDoc = "The root interface of the IR tree. Each IR node implements this interface."
     }
     val statement: Element by element(Other)
@@ -115,7 +131,9 @@ object IrTree : AbstractTreeBuilder() {
         parent(mutableAnnotationContainer)
 
         +descriptor("DeclarationDescriptor")
-        +field("origin", type(Packages.declarations, "IrDeclarationOrigin"))
+        +field("origin", type(Packages.declarations, "IrDeclarationOrigin")) {
+            deepCopyExcludeFromApply = true
+        }
         +factory
 
         generationCallback = {
@@ -155,13 +173,15 @@ object IrTree : AbstractTreeBuilder() {
         +declaredSymbol(IrSymbolTree.rootElement)
     }
     val metadataSourceOwner: Element by element(Declaration) {
-        val metadataField = +field("metadata", type(Packages.declarations, "MetadataSource"), nullable = true) {
-            kDoc = """
-            The arbitrary metadata associated with this IR node.
-            
-            @see ${render()}
-            """.trimIndent()
-        }
+        val metadataField =
+            +field("metadata", type(Packages.declarations, "MetadataSource"), nullable = true) {
+                kDoc = """
+                The arbitrary metadata associated with this IR node.
+                
+                @see ${render()}
+                """.trimIndent()
+                deepCopyExcludeFromApply = true
+            }
         kDoc = """
         An [${rootElement.render()}] capable of holding something which backends can use to write
         as the metadata for the declaration.
@@ -211,13 +231,14 @@ object IrTree : AbstractTreeBuilder() {
         +field("type", irTypeType)
     }
     val valueParameter: Element by element(Declaration) {
+        doPrint = false
         needTransformMethod()
 
         parent(declarationBase)
         parent(valueDeclaration)
 
         +descriptor("ParameterDescriptor")
-        +field("isAssignable", boolean, mutable = false)
+        +field("isAssignable", boolean)
         +declaredSymbol(valueParameterSymbol)
         +field("varargElementType", irTypeType, nullable = true)
         +field("isCrossinline", boolean)
@@ -270,7 +291,6 @@ object IrTree : AbstractTreeBuilder() {
         parent(declarationWithVisibility)
         parent(typeParametersContainer)
         parent(declarationContainer)
-        parent(attributeContainer)
         parent(metadataSourceOwner)
 
         +descriptor("ClassDescriptor")
@@ -308,21 +328,6 @@ object IrTree : AbstractTreeBuilder() {
             See [KT-54028](https://youtrack.jetbrains.com/issue/KT-54028).
             """.trimIndent()
         }
-    }
-    val attributeContainer: Element by element(Declaration) {
-        kDoc = """
-            Represents an IR element that can be copied, but must remember its original element. It is
-            useful, for example, to keep track of generated names for anonymous declarations.
-            @property attributeOwnerId original element before copying. Always satisfies the following
-              invariant: `this.attributeOwnerId == this.attributeOwnerId.attributeOwnerId`.
-            @property originalBeforeInline original element before inlining. Useful only with IR
-              inliner. `null` if the element wasn't inlined. Unlike [attributeOwnerId], doesn't have the
-              idempotence invariant and can contain a chain of declarations.
-        """.trimIndent()
-
-        +field("attributeOwnerId", attributeContainer, isChild = false)
-        // null <=> this element wasn't inlined
-        +field("originalBeforeInline", attributeContainer, nullable = true, isChild = false)
     }
     val mutableAnnotationContainer: Element by element(Declaration) {
         parent(type(Packages.declarations, "IrAnnotationContainer"))
@@ -404,10 +409,6 @@ object IrTree : AbstractTreeBuilder() {
         +field("isInline", boolean)
         +field("isExpect", boolean)
         +field("returnType", irTypeType)
-        +field("dispatchReceiverParameter", valueParameter, nullable = true)
-        +field("extensionReceiverParameter", valueParameter, nullable = true)
-        // The first `contextReceiverParametersCount` value parameters are context receivers.
-        +field("contextReceiverParametersCount", int)
         +field("body", body, nullable = true)
     }
     val constructor: Element by element(Declaration) {
@@ -425,11 +426,6 @@ object IrTree : AbstractTreeBuilder() {
         +declaredSymbol(enumEntrySymbol)
         +field("initializerExpression", expressionBody, nullable = true)
         +field("correspondingClass", `class`, nullable = true)
-    }
-    val errorDeclaration: Element by element(Declaration) {
-        parent(declarationBase)
-
-        +field("symbol", IrSymbolTree.rootElement, mutable = false)
     }
     val functionWithLateBinding: Element by declarationWithLateBinding(simpleFunctionSymbol) {
         parent(simpleFunction)
@@ -481,7 +477,6 @@ object IrTree : AbstractTreeBuilder() {
         parent(possiblyExternalDeclaration)
         parent(overridableDeclaration.withArgs("S" to propertySymbol))
         parent(metadataSourceOwner)
-        parent(attributeContainer)
         parent(memberWithContainerSource)
 
         +descriptor("PropertyDescriptor")
@@ -511,22 +506,58 @@ object IrTree : AbstractTreeBuilder() {
         // NOTE: is the result of the FE conversion, because there script interpreted as a class and has receiver
         // TODO: consider removing from here and handle appropriately in the lowering
         +field("thisReceiver", valueParameter, nullable = true) // K1
-        +field("baseClass", irTypeType, nullable = true) // K1
+        +field("baseClass", irTypeType, nullable = true) {
+            deepCopyExcludeFromApply = true
+        } // K1
         +listField("explicitCallParameters", variable, mutability = Var)
         +listField("implicitReceiversParameters", valueParameter, mutability = Var)
-        +referencedSymbolList("providedProperties", propertySymbol)
+        +referencedSymbolList("providedProperties", propertySymbol) {
+            deepCopyExcludeFromApply = true
+        }
         +listField("providedPropertiesParameters", valueParameter, mutability = Var)
         +referencedSymbol("resultProperty", propertySymbol, nullable = true)
         +field("earlierScriptsParameter", valueParameter, nullable = true)
         +referencedSymbolList("importedScripts", scriptSymbol, nullable = true)
         +referencedSymbolList("earlierScripts", scriptSymbol, nullable = true)
         +referencedSymbol("targetClass", classSymbol, nullable = true)
-        +field("constructor", constructor, nullable = true, isChild = false) // K1
+        +field("constructor", constructor, nullable = true, isChild = false) {
+            deepCopyExcludeFromApply = true
+        } // K1
+    }
+    val replSnippet: Element by element(Declaration) {
+        parent(declarationBase)
+        parent(declarationWithName)
+        parent(declarationParent)
+        parent(metadataSourceOwner)
+
+        kDoc = """
+            Represents a REPL snippet entity that corresponds to the analogous FIR entity.
+        """.trimIndent()
+
+        +declaredSymbol(replSnippetSymbol)
+        +listField("receiverParameters", valueParameter, mutability = Var) {
+            kDoc = """
+                Stores implicit receiver parameters configured for the snippet.
+            """.trimIndent()
+        }
+        +listField("variablesFromOtherSnippets", variable, mutability = MutableList)
+        +listField("declarationsFromOtherSnippets", declaration, mutability = MutableList)
+        +referencedSymbol("stateObject", classSymbol, nullable = true) {
+            kDoc = """
+                Contains link to the static state object for this compilation session.
+            """.trimIndent()
+        }
+        +field("body", body)
+        +field("returnType", irTypeType, nullable = true)
+        +referencedSymbol("targetClass", classSymbol, nullable = true){
+            kDoc = """
+                Contains link to the IrClass symbol to which this snippet should be lowered on the appropriate stage.
+            """.trimIndent()
+        }
     }
     val simpleFunction: Element by element(Declaration) {
         parent(function)
         parent(overridableDeclaration.withArgs("S" to simpleFunctionSymbol))
-        parent(attributeContainer)
 
         +descriptor("FunctionDescriptor")
         +declaredSymbol(simpleFunctionSymbol)
@@ -597,13 +628,15 @@ object IrTree : AbstractTreeBuilder() {
     val file: Element by element(Declaration) {
         needTransformMethod()
         transformByChildren = true
-        
+
         parent(packageFragment)
         parent(mutableAnnotationContainer)
         parent(metadataSourceOwner)
 
         +declaredSymbol(fileSymbol)
-        +field("module", moduleFragment, isChild = false)
+        +field("module", moduleFragment, isChild = false) {
+            deepCopyExcludeFromApply = true
+        }
         +field("fileEntry", type(Packages.tree, "IrFileEntry"))
     }
 
@@ -613,7 +646,6 @@ object IrTree : AbstractTreeBuilder() {
 
         parent(statement)
         parent(varargElement)
-        parent(attributeContainer)
 
         +field("type", irTypeType)
     }
@@ -656,15 +688,15 @@ object IrTree : AbstractTreeBuilder() {
 
         parent(declarationReference)
 
-        +field("dispatchReceiver", expression, nullable = true)
-        +field("extensionReceiver", expression, nullable = true)
         +referencedSymbol(s, mutable = false)
         +field("origin", statementOriginType, nullable = true)
-        +listField("valueArguments", expression.copy(nullable = true), mutability = Array) {
-            visibility = Visibility.PROTECTED
-        }
-        +listField("typeArguments", irTypeType.copy(nullable = true), mutability = Array) {
-            visibility = Visibility.PROTECTED
+        +listField(
+            name = "typeArguments",
+            baseType = irTypeType.copy(nullable = true),
+            mutability = MutableList,
+        ) {
+            deepCopyExcludeFromConstructor = true
+            deepCopyExcludeFromApply = true
         }
     }
     val functionAccessExpression: Element by sealedElement(Expression) {
@@ -740,8 +772,18 @@ object IrTree : AbstractTreeBuilder() {
 
         visitorParameterName = "inlinedBlock"
 
-        +field("inlineFunctionSymbol", functionSymbol, isChild = false, nullable = true)
-        +field("fileEntry", type(Packages.tree, "IrFileEntry"), isChild = false)
+        +field("inlinedFunctionStartOffset", int) {
+            kDoc = """
+                Represents the start offset of the inlined function that was located inside `fileEntry`.
+            """.trimIndent()
+        }
+        +field("inlinedFunctionEndOffset", int) {
+            kDoc = """
+                Represents the end offset of the inlined function that was located inside `fileEntry`.                
+            """.trimIndent()
+        }
+        +field("inlinedFunctionSymbol", functionSymbol, isChild = false, nullable = true)
+        +field("inlinedFunctionFileEntry", type(Packages.tree, "IrFileEntry"), isChild = false)
     }
     val syntheticBody: Element by element(Expression) {
         visitorParameterName = "body"
@@ -801,6 +843,157 @@ object IrTree : AbstractTreeBuilder() {
         +referencedSymbol("getter", simpleFunctionSymbol)
         +referencedSymbol("setter", simpleFunctionSymbol, nullable = true)
     }
+
+    // TODO: extract common part of function/property reference to common supertype - KT-73206
+    val richFunctionReference: Element by element(Expression) {
+        parent(expression)
+
+        +referencedSymbol("reflectionTargetSymbol", functionSymbol, nullable = true)
+        +referencedSymbol("overriddenFunctionSymbol", simpleFunctionSymbol, nullable)
+        +listField("boundValues", expression, nullable = false, mutability = ListField.Mutability.MutableList)
+        +field("invokeFunction", simpleFunction)
+        +field("origin", statementOriginType, nullable = true)
+        +field("hasUnitConversion", boolean)
+        +field("hasSuspendConversion", boolean)
+        +field("hasVarargConversion", boolean)
+        +field("isRestrictedSuspension", boolean)
+
+        kDoc = """
+            This node is intended to unify different ways of handling function reference-like objects in IR.
+
+            In particular, it covers:
+            * Lambdas and anonymous functions
+            * Regular function references (`::foo`, and `receiver::foo` in code)
+            * Adapted function references, which happen in cases where referenced function doesn't perfectly match the expected shape, such as:
+               * Returns something instead of expected `Unit`
+               * Declares more parameters than expected, but those extra parameters have default values
+               * Consumes vararg instead of an expected fixed number of arguments
+               * Is not suspend, while suspend function is expected
+               * Is a reference to a `fun interface` / SAM interface constructor, which is not a real function at all
+            * SAM or `fun interface` conversions of something listed above. E.g. `Callable { 123 }` or `Callable(::foo)`
+
+            This node is intended to replace [IrFunctionReference] and [IrFunctionExpression] in the IR tree.
+            It also replaces some adapted function references implemented as [IrBlock] with [IrFunction] and [IrFunctionReference] inside it.
+
+            Such objects are eventually transformed to anonymous classes, which implement the corresponding interface.
+            For example:
+            
+            ```
+            fun String.test(x: Int) : Unit = TODO()
+            
+            fun interface Foo {
+               fun bar(x: String, y: Int): Unit
+            }
+            
+            fun main() {
+                val x = "OK"::test
+                //
+                // val x = { // BLOCK
+                //   class <anonymous>(val boundValue: String) : KFunction1<Int, Unit> {
+                //     override fun invoke(p0: Int) { invokeFunction(boundValue, p0) }
+                //     private static fun invokeFunction(p0: String, p1: Int) = p0.test(p1)
+                //     // reflection information
+                //   }
+                //   <anonymous>("OK")
+                // }
+            
+                val y = Foo(String::test)
+                // val y = { // BLOCK
+                //   class <anonymous>() : Foo {
+                //     override fun bar(x: String, y: Int) { invokeFunction(x, y) }
+                //     private static fun invokeFunction(p0: String, p1: Int) = p0.test(p1)
+                //     // reflection information
+                //   }
+                //   <anonymous>()
+                // }
+            }
+            ```
+            
+            In general case, the mental model of this node is the following instance of local anonymous class:
+            ```
+            class <anonymous>(
+                private val boundValue0: %boundValue0Type%,
+                private val boundValue1: %boundValue1Type%,
+                ...
+            ): %ExpressionType% {
+                // moved from [invokeFunction] property
+                // may be inlined to overriddenFunctionName as optimization
+                private static fun invokeFunction(...) : %ReturnType% {
+                   // some way of invoke [reflectionTargetSymbol] or body of original lambda
+                   // it can be transformed by lowerings and plugins as other function bodies,
+                   // so no assumptions should be made on specific content of it
+                }
+            
+                // overriding function [overriddenFunctionSymbol]
+                // would be created later, when node would be transformed to a class
+                // it can't be referenced explicitly, all calls would happen with function from super-interface
+                override fun %overriddenFunctionName%(
+                    overriddenFunctionParameter0: %overriddenFunctionParametersType0%,
+                    overriddenFunctionParameter1: %overriddenFunctionParametersType1%,
+                    ...
+                ) = invokeFunction(
+                    boundValue0, boundValue1, ..., boundValueN,
+                    overriddenFunctionParameter0, overriddenFunctionParameter1, ..., overriddenFunctionParameterN
+                )
+            
+                // if reflectionTarget is not null
+                //    some platform-specific implementation of reflection information for reflectionTarget
+                //    some platform-specific implementation of equality/hashCode based on reflectionTarget
+            }
+            val theReference = <anonymous>(boundValues[0], boundValues[1], ..., boundValues[N])
+            ```
+            
+            So basically, this is an anonymous object implementing expression type, capturing `boundValues`, and overriding the function stored in
+            [overriddenFunctionSymbol] by the function stored in [invokeFunction], with reflection information for [reflectionTargetSymbol]
+            if it is not null.
+            
+            [invokeFunction] parameters except first [boundValues.size] correspond to non-dispatch parameters of [overriddenFunctionSymbol]
+            in natural order (i.e., contexts, extension, regular). The mapping between [invokeFunction] and [reflectionTargetSymbol] parameters
+            is not specified, and shouldn't be used. Instead, a body inside [invokeFunction] should be processed as regular expressions.
+            [boundValues] would be computed on reference creation, and then loaded from the reference object on invocation.
+            
+            [overriddenFunctionSymbol] is typically the corresponding `invoke` method of the `(K)(Suspend)FunctionN` interface, but it also can be
+            the method of a fun interface or Java SAM interface, if the corresponding SAM conversion has happened.
+            
+            [reflectionTargetSymbol] is typically a function for which the reference was initially created, or null if it is a lambda, which doesn't
+            need any reflection information.
+            
+            [hasUnitConversion], [hasSuspendConversion], [hasVarargConversion], [isRestrictedSuspension] flags represent information about
+            the reference, which is useful for generating correct reflection information. While it's technically possible to reconstruct it from
+            the function and reflection function signature, it's easier and more robust to store it explicitly.
+            
+            This allows processing function references by almost all lowerings as normal calls (within [invokeFunction]), and minimizes special
+            cases. Also, it enables support of several bound values.
+        """.trimIndent()
+    }
+    val richPropertyReference: Element by element(Expression) {
+        parent(expression)
+
+        +referencedSymbol("reflectionTargetSymbol", declarationWithAccessorsSymbol, nullable = true)
+        +listField("boundValues", expression, nullable = false, mutability = ListField.Mutability.MutableList)
+        +field("getterFunction", simpleFunction)
+        +field("setterFunction", simpleFunction, nullable = true)
+        +field("origin", statementOriginType, nullable = true)
+
+        kDoc = """
+            This node is intended to unify different ways of handling property reference-like objects in IR.
+
+            In particular, it covers:
+              * References to regular properties
+              * References implicitly passed to property delegation functions
+              * References implicitly passed to local variable delegation functions (see [IrLocalDelegatedProperty])
+
+            This node is intended to replace [IrPropertyReference] and [IrLocalDelegatedPropertyReference] in the IR tree.
+
+            It's similar to [IrRichFunctionReference] except for property references, and has the same semantics, with the following differences:
+              * There is no [IrRichFunctionReference.overriddenFunctionSymbol] because property references cannot implement a `fun interface`
+                or be SAM-converted
+              * There is no [IrRichFunctionReference.invokeFunction], but there is [getterFunction] with similar semantics instead
+              * There is nullable [setterFunction] with similar semantics in case of mutable property
+              * [boundValues] are passed as the first arguments to both [getterFunction] and [setterFunction]
+        """.trimIndent()
+    }
+
     val classReference: Element by element(Expression) {
         parent(declarationReference)
 

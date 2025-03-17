@@ -12,12 +12,19 @@ import org.jetbrains.kotlin.fir.backend.toIrType
 import org.jetbrains.kotlin.fir.backend.utils.*
 import org.jetbrains.kotlin.fir.containingClassForLocalAttr
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.builder.buildRegularClass
+import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
 import org.jetbrains.kotlin.fir.hasEnumEntries
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyClass
 import org.jetbrains.kotlin.fir.moduleData
+import org.jetbrains.kotlin.fir.resolve.bindSymbolToLookupTag
 import org.jetbrains.kotlin.fir.resolve.toClassSymbol
+import org.jetbrains.kotlin.fir.scopes.kotlinScopeProvider
+import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.LookupTagInternals
 import org.jetbrains.kotlin.fir.types.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.toLookupTag
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -28,10 +35,7 @@ import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrClassSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrExternalPackageFragmentSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
-import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.name.*
 
 class Fir2IrClassifiersGenerator(private val c: Fir2IrComponents) : Fir2IrComponents by c {
     // ------------------------------------ type parameters ------------------------------------
@@ -91,7 +95,7 @@ class Fir2IrClassifiersGenerator(private val c: Fir2IrComponents) : Fir2IrCompon
                 isCompanion = regularClass.isCompanion,
                 isInner = regularClass.isInner,
                 isData = regularClass.isData,
-                isValue = regularClass.isInline,
+                isValue = regularClass.isInlineOrValue,
                 isExpect = regularClass.isExpect,
                 isFun = regularClass.isFun,
                 hasEnumEntries = regularClass.hasEnumEntries,
@@ -112,7 +116,7 @@ class Fir2IrClassifiersGenerator(private val c: Fir2IrComponents) : Fir2IrCompon
 
     fun processClassHeader(klass: FirClass, irClass: IrClass = classifierStorage.getIrClass(klass)): IrClass {
         irClass.declareTypeParameters(klass)
-        irClass.setThisReceiver(klass.typeParameters)
+        irClass.setThisReceiver(c, klass.typeParameters)
         irClass.declareSupertypes(klass)
         if (klass is FirRegularClass) {
             irClass.declareValueClassRepresentation(klass)
@@ -129,18 +133,6 @@ class Fir2IrClassifiersGenerator(private val c: Fir2IrComponents) : Fir2IrCompon
             val fieldsForContextReceiversOfCurrentClass = classifierStorage.getFieldsWithContextReceiversForClass(this, klass)
             declarations.addAll(fieldsForContextReceiversOfCurrentClass)
         }
-    }
-
-    private fun IrClass.setThisReceiver(typeParameters: List<FirTypeParameterRef>) {
-        val typeArguments = typeParameters.map {
-            val typeParameter = classifierStorage.getIrTypeParameterSymbol(it.symbol, ConversionTypeOrigin.DEFAULT)
-            IrSimpleTypeImpl(typeParameter, hasQuestionMark = false, emptyList(), emptyList())
-        }
-        thisReceiver = declareThisReceiverParameter(
-            c,
-            thisType = IrSimpleTypeImpl(symbol, hasQuestionMark = false, typeArguments, emptyList()),
-            thisOrigin = IrDeclarationOrigin.INSTANCE_RECEIVER
-        )
     }
 
     private fun IrClass.declareSupertypes(klass: FirClass) {
@@ -333,15 +325,36 @@ class Fir2IrClassifiersGenerator(private val c: Fir2IrComponents) : Fir2IrCompon
                 setParent(containingFile)
                 addDeclarationToParent(this, containingFile)
                 typeParameters = emptyList()
-                thisReceiver = declareThisReceiverParameter(
-                    c,
-                    thisType = IrSimpleTypeImpl(symbol, false, emptyList(), emptyList()),
-                    thisOrigin = IrDeclarationOrigin.INSTANCE_RECEIVER
-                )
+                setThisReceiver(c, emptyList())
                 superTypes = listOf(builtins.anyType)
             }
         }
         return irClass
+    }
+
+    // ------------------------------------ REPL snippets ------------------------------------
+
+    @OptIn(LookupTagInternals::class)
+    fun createEarlierSnippetClass(snippet: FirReplSnippet, containingPackageFragment: IrPackageFragment, symbol: IrClassSymbol): IrClass {
+        val name = NameUtils.getScriptTargetClassName(snippet.name)
+        val firSnippetClassSymbol = FirRegularClassSymbol(ClassId(containingPackageFragment.packageFqName, name))
+        val firSnippetClass = buildRegularClass {
+            moduleData = snippet.moduleData
+            origin = FirDeclarationOrigin.FromOtherReplSnippet
+            this.name = name
+            status = FirResolvedDeclarationStatusImpl(
+                Visibilities.Public,
+                Modality.FINAL,
+                EffectiveVisibility.Public
+            )
+            classKind = ClassKind.CLASS
+            this.symbol = firSnippetClassSymbol
+            superTypeRefs += session.builtinTypes.anyType
+            resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
+            scopeProvider = session.kotlinScopeProvider
+        }
+        (firSnippetClass.symbol.toLookupTag() as? ConeClassLikeLookupTagImpl)?.bindSymbolToLookupTag(session, firSnippetClassSymbol)
+        return lazyDeclarationsGenerator.createIrLazyClass(firSnippetClass, containingPackageFragment, symbol)
     }
 
     // ------------------------------------ enum entries ------------------------------------
@@ -429,11 +442,7 @@ class Fir2IrClassifiersGenerator(private val c: Fir2IrComponents) : Fir2IrCompon
             setParent(irParent)
             addDeclarationToParent(this, irParent)
             typeParameters = emptyList()
-            thisReceiver = declareThisReceiverParameter(
-                c,
-                thisType = IrSimpleTypeImpl(symbol, false, emptyList(), emptyList()),
-                thisOrigin = IrDeclarationOrigin.INSTANCE_RECEIVER,
-            )
+            setThisReceiver(c, emptyList())
             superTypes = listOf(builtins.anyType)
         }
     }

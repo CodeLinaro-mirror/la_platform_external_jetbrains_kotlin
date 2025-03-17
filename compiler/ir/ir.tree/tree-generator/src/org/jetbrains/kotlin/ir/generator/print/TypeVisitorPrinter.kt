@@ -7,7 +7,11 @@ package org.jetbrains.kotlin.ir.generator.print
 
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.generators.tree.*
-import org.jetbrains.kotlin.generators.tree.printer.*
+import org.jetbrains.kotlin.generators.tree.printer.FunctionParameter
+import org.jetbrains.kotlin.generators.tree.printer.ImportCollectingPrinter
+import org.jetbrains.kotlin.generators.tree.printer.printFunctionDeclaration
+import org.jetbrains.kotlin.generators.tree.printer.printKDoc
+import org.jetbrains.kotlin.generators.util.printBlock
 import org.jetbrains.kotlin.ir.generator.*
 import org.jetbrains.kotlin.ir.generator.model.Element
 import org.jetbrains.kotlin.ir.generator.model.Field
@@ -163,9 +167,9 @@ internal open class TypeVisitorPrinter(
                                         |Please adjust logic of `${visitorType.simpleName}`'s generation.""".trimMargin()
                     )
                 }
-                println("(0 until ", visitorParam, ".typeArgumentsCount).forEach {")
+                println("for (type in ${visitorParam}.typeArguments) {")
                 withIndent {
-                    println(visitorParam, ".getTypeArgument(it)?.let { type ->")
+                    println("if (type != null) {")
                     withIndent {
                         print(visitTypeMethodName, "(", visitorParam, ", type")
                         if (hasDataParameter) {

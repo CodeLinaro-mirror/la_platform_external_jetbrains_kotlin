@@ -29,6 +29,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: one/SimpleClass.memberPropertyWithAnnotations
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: [
@@ -73,6 +74,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

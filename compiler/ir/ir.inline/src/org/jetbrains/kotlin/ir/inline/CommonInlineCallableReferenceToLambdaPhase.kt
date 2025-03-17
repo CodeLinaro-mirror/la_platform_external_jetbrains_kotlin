@@ -5,7 +5,8 @@
 
 package org.jetbrains.kotlin.ir.inline
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
+import org.jetbrains.kotlin.backend.common.LoweringContext
+import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
@@ -17,16 +18,17 @@ import org.jetbrains.kotlin.ir.util.isInlineParameter
 /**
  * Transforms all callable references (including defaults) to inline lambdas, marks inline lambdas for later passes.
  */
-abstract class CommonInlineCallableReferenceToLambdaPhase(
-    context: CommonBackendContext,
+@PhaseDescription("CommonInlineCallableReferenceToLambdaPhase")
+open class CommonInlineCallableReferenceToLambdaPhase(
+    context: LoweringContext,
     inlineFunctionResolver: InlineFunctionResolver
 ) : InlineCallableReferenceToLambdaPhase(context, inlineFunctionResolver) {
     fun lower(function: IrFunction) = function.accept(this, function.parent)
 
     override fun visitFunction(declaration: IrFunction, data: IrDeclarationParent?): IrStatement {
         super.visitFunction(declaration, data)
-        if (inlineFunctionResolver.needsInlining(declaration)) {
-            for (parameter in declaration.valueParameters) {
+        if (inlineFunctionResolver.needsInlining(declaration.symbol)) {
+            for (parameter in declaration.parameters) {
                 if (parameter.isInlineParameter()) {
                     val defaultExpression = parameter.defaultValue?.expression ?: continue
                     parameter.defaultValue?.expression = defaultExpression.transformToLambda(declaration)
@@ -41,7 +43,7 @@ abstract class CommonInlineCallableReferenceToLambdaPhase(
         super.visitFunctionReference(expression, data)
 
         val owner = expression.symbol.owner
-        if (!owner.isInlineArrayConstructor(context.irBuiltIns)) return expression
+        if (!owner.isInlineArrayConstructor()) return expression
 
         return expression.transformToLambda(data)
     }

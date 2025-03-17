@@ -26,6 +26,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -57,12 +58,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(ice + 32)
+  initializer: KaNonConstantInitializerValue(ice + 32)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -117,6 +119,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/internalFoo
   compilerVisibility: Internal
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -148,12 +151,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(ice + 32)
+  initializer: KaNonConstantInitializerValue(ice + 32)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -208,6 +212,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/privateFoo
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -239,12 +244,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(ice + 32)
+  initializer: KaNonConstantInitializerValue(ice + 32)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -299,6 +305,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/bar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -330,12 +337,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(ice - 8)
+  initializer: KaNonConstantInitializerValue(ice - 8)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -390,6 +398,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/internalBar
   compilerVisibility: Internal
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -421,12 +430,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(ice - 8)
+  initializer: KaNonConstantInitializerValue(ice - 8)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -481,6 +491,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/privateBar
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -512,12 +523,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(ice - 8)
+  initializer: KaNonConstantInitializerValue(ice - 8)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -548,6 +560,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/doFoo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -577,6 +590,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(Foo.kt)
   getContainingJvmClassName: test.FooKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -584,6 +598,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/internalDoFoo
   compilerVisibility: Internal
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -613,6 +628,7 @@ KaNamedFunctionSymbol:
   visibility: INTERNAL
   getContainingFileSymbol: KaFileSymbol(Foo.kt)
   getContainingJvmClassName: test.FooKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -620,6 +636,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/privateDoFoo
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -649,6 +666,7 @@ KaNamedFunctionSymbol:
   visibility: PRIVATE
   getContainingFileSymbol: KaFileSymbol(Foo.kt)
   getContainingJvmClassName: test.FooKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -656,6 +674,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/doBar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -685,6 +704,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(Bar.kt)
   getContainingJvmClassName: test.BarKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -692,6 +712,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/internalDoBar
   compilerVisibility: Internal
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -721,6 +742,7 @@ KaNamedFunctionSymbol:
   visibility: INTERNAL
   getContainingFileSymbol: KaFileSymbol(Bar.kt)
   getContainingJvmClassName: test.BarKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -728,6 +750,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/privateDoBar
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -757,5 +780,6 @@ KaNamedFunctionSymbol:
   visibility: PRIVATE
   getContainingFileSymbol: KaFileSymbol(Bar.kt)
   getContainingJvmClassName: test.BarKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -23,9 +23,9 @@ import org.jetbrains.kotlin.load.kotlin.*
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.deserialization.Flags
+import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.deserialization.NameResolver
 import org.jetbrains.kotlin.metadata.deserialization.TypeTable
-import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -34,7 +34,6 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.stubs.KotlinStubVersions
 import org.jetbrains.kotlin.psi.stubs.impl.createConstantValue
 import org.jetbrains.kotlin.serialization.deserialization.builtins.BuiltInSerializerProtocol
-
 import org.jetbrains.kotlin.serialization.deserialization.getClassId
 import org.jetbrains.kotlin.serialization.deserialization.getName
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
@@ -99,7 +98,7 @@ open class KotlinClsStubBuilder : ClsStubBuilder() {
                 val context = components.createContext(nameResolver, packageFqName, TypeTable(classProto.typeTable))
                 createTopLevelClassStub(classId, classProto, KotlinJvmBinarySourceElement(kotlinClass), context, header.isScript)
             }
-            KotlinClassHeader.Kind.FILE_FACADE -> {
+            KotlinClassHeader.Kind.FILE_FACADE, KotlinClassHeader.Kind.MULTIFILE_CLASS_PART -> {
                 val (nameResolver, packageProto) = JvmProtoBufUtil.readPackageDataFrom(annotationData, strings)
                 val context = components.createContext(nameResolver, packageFqName, TypeTable(packageProto.typeTable))
                 val fqName = header.packageName?.let { ClassId(FqName(it), classId.relativeClassName, classId.isLocal).asSingleFqName() }
@@ -114,12 +113,12 @@ open class KotlinClsStubBuilder : ClsStubBuilder() {
         file: VirtualFile,
         packageFqName: FqName,
         fileContent: ByteArray,
-        jvmMetadataVersion: JvmMetadataVersion
+        metadataVersion: MetadataVersion
     ): ClsStubBuilderComponents {
         val classFinder = DirectoryBasedClassFinder(file.parent!!, packageFqName)
-        val classDataFinder = DirectoryBasedDataFinder(classFinder, LOG, jvmMetadataVersion)
-        val annotationLoader = AnnotationLoaderForClassFileStubBuilder(classFinder, file, fileContent, jvmMetadataVersion)
-        return ClsStubBuilderComponents(classDataFinder, annotationLoader, file, BuiltInSerializerProtocol, classFinder, jvmMetadataVersion)
+        val classDataFinder = DirectoryBasedDataFinder(classFinder, LOG, metadataVersion)
+        val annotationLoader = AnnotationLoaderForClassFileStubBuilder(classFinder, file, fileContent, metadataVersion)
+        return ClsStubBuilderComponents(classDataFinder, annotationLoader, file, BuiltInSerializerProtocol, classFinder, metadataVersion)
     }
 
     companion object {
@@ -138,7 +137,7 @@ private class AnnotationLoaderForClassFileStubBuilder(
     kotlinClassFinder: KotlinClassFinder,
     private val cachedFile: VirtualFile,
     private val cachedFileContent: ByteArray,
-    override val jvmMetadataVersion: JvmMetadataVersion
+    override val metadataVersion: MetadataVersion
 ) : AbstractBinaryClassAnnotationLoader<AnnotationWithArgs, AnnotationsContainerWithConstants<AnnotationWithArgs, ConstantValue<*>>>(
     kotlinClassFinder
 ) {

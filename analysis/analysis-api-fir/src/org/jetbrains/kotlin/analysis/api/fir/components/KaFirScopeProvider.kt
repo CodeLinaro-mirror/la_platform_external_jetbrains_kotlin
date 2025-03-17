@@ -6,16 +6,16 @@
 package org.jetbrains.kotlin.analysis.api.fir.components
 
 import org.jetbrains.kotlin.analysis.api.components.*
-import org.jetbrains.kotlin.analysis.api.components.KaScopeKinds
-import org.jetbrains.kotlin.analysis.api.components.KaScopeWithKindImpl
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.scopes.*
 import org.jetbrains.kotlin.analysis.api.fir.symbols.*
 import org.jetbrains.kotlin.analysis.api.fir.types.KaFirType
 import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseImplicitReceiver
+import org.jetbrains.kotlin.analysis.api.fir.utils.getAvailableScopesForPosition
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeImplicitReceiverValue
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeContext
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeImplicitArgumentValue
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseCompositeScope
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseCompositeTypeScope
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseEmptyScope
@@ -39,11 +39,13 @@ import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticPropertiesScope
+import org.jetbrains.kotlin.fir.resolve.calls.referencedMemberSymbol
 import org.jetbrains.kotlin.fir.resolve.scope
 import org.jetbrains.kotlin.fir.resolve.scopeSessionKey
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.*
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhaseWithCallableMembers
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc
@@ -56,7 +58,7 @@ import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 
 internal class KaFirScopeProvider(
     override val analysisSessionProvider: () -> KaFirSession
-) : KaSessionComponent<KaFirSession>(), KaScopeProvider, KaFirSessionComponent {
+) : KaBaseSessionComponent<KaFirSession>(), KaScopeProvider, KaFirSessionComponent {
     private fun getScopeSession(): ScopeSession {
         return analysisSession.getScopeSessionFor(analysisSession.firSession)
     }
@@ -279,7 +281,7 @@ internal class KaFirScopeProvider(
             val firImportingScopesIndexed = firImportingScopes.asReversed().withIndex()
 
             val ktScopesWithKinds = createScopesWithKind(firImportingScopesIndexed)
-            return KaBaseScopeContext(ktScopesWithKinds, implicitReceivers = emptyList(), token)
+            return KaBaseScopeContext(ktScopesWithKinds, implicitValues = emptyList(), token)
         }
 
     override fun KtFile.scopeContext(position: KtElement): KaScopeContext = withValidityAssertion {
@@ -305,27 +307,41 @@ internal class KaFirScopeProvider(
 
         val firSymbolBuilder = analysisSession.firSymbolBuilder
 
-        val implicitReceivers = towerDataElementsIndexed.flatMap { (index, towerDataElement) ->
-            val receivers = listOfNotNull(towerDataElement.implicitReceiver) + towerDataElement.contextReceiverGroup.orEmpty()
+        val implicitValues = towerDataElementsIndexed.flatMap { (index, towerDataElement) ->
+            buildList {
+                val receivers = listOfNotNull(towerDataElement.implicitReceiver) + towerDataElement.contextReceiverGroup.orEmpty()
+                for (receiver in receivers) {
+                    val receiverValue = KaBaseScopeImplicitReceiverValue(
+                        backingType = firSymbolBuilder.typeBuilder.buildKtType(receiver.type),
+                        ownerSymbol = firSymbolBuilder.buildSymbol(receiver.referencedMemberSymbol),
+                        scopeIndexInTower = index,
+                    )
 
-            receivers.map { receiver ->
-                KaBaseImplicitReceiver(
-                    firSymbolBuilder.typeBuilder.buildKtType(receiver.type),
-                    firSymbolBuilder.buildSymbol(receiver.boundSymbol.fir),
-                    index
-                )
+                    add(receiverValue)
+                }
+
+                val arguments = towerDataElement.contextParameterGroup.orEmpty()
+                for (argument in arguments) {
+                    val argumentValue = KaBaseScopeImplicitArgumentValue(
+                        backingType = firSymbolBuilder.typeBuilder.buildKtType(argument.type),
+                        symbol = firSymbolBuilder.variableBuilder.buildContextParameterSymbol(argument.boundSymbol),
+                        scopeIndexInTower = index,
+                    )
+
+                    add(argumentValue)
+                }
             }
         }
 
         val firScopes = towerDataElementsIndexed.flatMap { (index, towerDataElement) ->
             val availableScopes = towerDataElement
-                .getAvailableScopes { coneType -> withSyntheticPropertiesScopeOrSelf(coneType) }
+                .getAvailableScopesForPosition(position) { coneType -> withSyntheticPropertiesScopeOrSelf(coneType) }
                 .flatMap { flattenFirScope(it) }
             availableScopes.map { IndexedValue(index, it) }
         }
         val ktScopesWithKinds = createScopesWithKind(firScopes)
 
-        return KaBaseScopeContext(ktScopesWithKinds, implicitReceivers, token)
+        return KaBaseScopeContext(ktScopesWithKinds, implicitValues, token)
     }
 
     private fun createScopesWithKind(firScopes: Iterable<IndexedValue<FirScope>>): List<KaScopeWithKind> {
@@ -353,6 +369,7 @@ internal class KaFirScopeProvider(
 
     private fun getScopeKind(firScope: FirScope, indexInTower: Int): KaScopeKind = when (firScope) {
         is FirNameAwareOnlyCallablesScope -> getScopeKind(firScope.delegate, indexInTower)
+        is FirNoClassifiersScope -> getScopeKind(firScope.delegateScope, indexInTower)
 
         is FirLocalScope -> KaScopeKinds.LocalScope(indexInTower)
         is FirTypeScope -> KaScopeKinds.TypeScope(indexInTower)

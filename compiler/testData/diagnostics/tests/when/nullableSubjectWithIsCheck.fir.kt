@@ -1,3 +1,6 @@
+// RUN_PIPELINE_TILL: BACKEND
+// LATEST_LV_DIFFERENCE
+// IGNORE_DEXING
 // ISSUE: KT-49710
 // WITH_STDLIB
 
@@ -19,10 +22,10 @@ public class JClass {
 
 // FILE: test.kt
 
-fun Int?.isNull() = when (this) {
+<!CONFLICTING_JVM_DECLARATIONS!>fun Int?.isNull() = when (this) {
     null -> true
     <!USELESS_IS_CHECK!>is Int<!> -> false
-}
+}<!>
 
 fun <T> List<T>.isNull() = when (this) {
     <!USELESS_IS_CHECK!>is List<T><!> -> false
@@ -32,10 +35,10 @@ fun <T> List<T>.isNull1() = when (this) {
     <!USELESS_IS_CHECK!>is List<*><!> -> false
 }
 
-fun <T: Int?> isNull(arg: T) = when(arg) {
+<!CONFLICTING_JVM_DECLARATIONS!>fun <T: Int?> isNull(arg: T) = when(arg) {
     is Int -> false
     null -> true
-}
+}<!>
 
 fun testNullableInt(arg: Int?) = when (arg) {
     null -> true

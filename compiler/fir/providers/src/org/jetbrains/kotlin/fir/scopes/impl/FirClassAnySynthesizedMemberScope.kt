@@ -26,7 +26,7 @@ import org.jetbrains.kotlin.fir.declarations.builder.buildValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.isEquals
 import org.jetbrains.kotlin.fir.declarations.utils.isData
-import org.jetbrains.kotlin.fir.declarations.utils.isInline
+import org.jetbrains.kotlin.fir.declarations.utils.isInlineOrValue
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.defaultType
@@ -58,7 +58,7 @@ class FirClassAnySynthesizedMemberScope(
 ) : FirContainingNamesAwareScope() {
     private val originForFunctions = when {
         klass.isData -> FirDeclarationOrigin.Synthetic.DataClassMember
-        klass.isInline -> FirDeclarationOrigin.Synthetic.ValueClassMember
+        klass.isInlineOrValue -> FirDeclarationOrigin.Synthetic.ValueClassMember
         else -> error("This scope should not be created for non-data and non-value class. ${klass.render()}")
     }
     private val lookupTag = klass.symbol.toLookupTag()
@@ -124,7 +124,7 @@ class FirClassAnySynthesizedMemberScope(
     private fun FirNamedFunctionSymbol.matchesSomeAnyMember(name: Name): Boolean {
         return when (name) {
             OperatorNameConventions.HASH_CODE, OperatorNameConventions.TO_STRING -> {
-                valueParameterSymbols.isEmpty() && !isExtension && fir.contextReceivers.isEmpty()
+                valueParameterSymbols.isEmpty() && !isExtension && fir.contextParameters.isEmpty()
             }
             else -> {
                 lazyResolveToPhase(FirResolvePhase.TYPES)
@@ -152,7 +152,7 @@ class FirClassAnySynthesizedMemberScope(
                     moduleData = baseModuleData
                     this.returnTypeRef = FirImplicitNullableAnyTypeRef(null)
                     this.symbol = FirValueParameterSymbol(this.name)
-                    containingFunctionSymbol = this@buildSimpleFunction.symbol
+                    containingDeclarationSymbol = this@buildSimpleFunction.symbol
                     isCrossinline = false
                     isNoinline = false
                     isVararg = false

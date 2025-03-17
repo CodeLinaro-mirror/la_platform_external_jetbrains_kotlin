@@ -24,6 +24,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /topLevelFunction
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -49,12 +50,33 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(A)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: A
+      origin: SOURCE
+      upperBounds: [
+        KaUsualClassType:
+          annotations: []
+          typeArguments: []
+          type: kotlin/Number
+      ]
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: TypeParametersStressTestKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -102,6 +124,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /topLevelProperty
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -139,7 +162,7 @@ KaKotlinPropertySymbol:
         type: B
       visibility: LOCAL
       getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
-      getContainingJvmClassName: null
+      getContainingJvmClassName: TypeParametersStressTestKt
       getContainingModule: KaSourceModule "Sources of main"
       deprecationStatus: null
     returnType: KaTypeParameterType:
@@ -160,6 +183,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -189,7 +213,7 @@ KaKotlinPropertySymbol:
       type: B
     visibility: LOCAL
     getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
-    getContainingJvmClassName: null
+    getContainingJvmClassName: TypeParametersStressTestKt
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
   returnType: KaTypeParameterType:
@@ -197,7 +221,22 @@ KaKotlinPropertySymbol:
     type: B
   setter: null
   typeParameters: [
-    KaTypeParameterSymbol(B)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: B
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -399,6 +438,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -424,7 +464,22 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(I)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: I
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: PUBLIC
@@ -447,6 +502,7 @@ KaNamedFunctionSymbol:
     type: LocalClass<H, G, F, E>
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -492,7 +548,22 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(J)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: J
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -525,7 +596,22 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(H)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: H
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -537,6 +623,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Local
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -562,12 +649,28 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(G)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: G
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -575,6 +678,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /TopLevelClass.NestedClass.nestedFunction
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -600,7 +704,22 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(F)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: F
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: PUBLIC
@@ -614,6 +733,7 @@ KaNamedFunctionSymbol:
     type: TopLevelClass.NestedClass<E>
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: TopLevelClass.NestedClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -642,7 +762,22 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(E)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: E
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -739,6 +874,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -764,7 +900,22 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(O)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: O
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: PUBLIC
@@ -793,6 +944,7 @@ KaNamedFunctionSymbol:
     type: LocalClass<N, M, L, K, C, D>
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -838,7 +990,22 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(P)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: P
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -871,7 +1038,22 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(N)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: N
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -883,6 +1065,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Local
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -908,12 +1091,28 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(M)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: M
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -945,6 +1144,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /TopLevelClass.InnerClass.nestedFunction
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -970,7 +1170,22 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(L)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: L
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: []
   visibility: PUBLIC
@@ -990,6 +1205,7 @@ KaNamedFunctionSymbol:
     type: TopLevelClass<C, D>.TopLevelClass.InnerClass<K>
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
   getContainingJvmClassName: TopLevelClass.InnerClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -1018,7 +1234,22 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(K)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: K
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -1051,8 +1282,42 @@ KaNamedClassSymbol:
       type: kotlin/Any
   ]
   typeParameters: [
-    KaTypeParameterSymbol(C)
-    KaTypeParameterSymbol(D)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: C
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: CLASS
+      modality: FINAL
+      name: D
+      origin: SOURCE
+      upperBounds: [
+        KaTypeParameterType:
+          annotations: []
+          type: C
+      ]
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
@@ -1092,7 +1357,22 @@ KaTypeAliasSymbol:
   name: TopLevelTypeAlias
   origin: SOURCE
   typeParameters: [
-    KaTypeParameterSymbol(Q)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: Q
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(typeParametersStressTest.kt)

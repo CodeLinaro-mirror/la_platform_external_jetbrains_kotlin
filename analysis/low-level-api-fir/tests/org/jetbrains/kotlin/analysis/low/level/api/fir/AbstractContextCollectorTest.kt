@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir
 
+import org.jetbrains.kotlin.analysis.api.projectStructure.copyOrigin
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getFirResolveSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirCustomScriptDefinitionTestConfigurator
@@ -45,7 +46,7 @@ abstract class AbstractContextCollectorTest : AbstractAnalysisApiBasedTest() {
     private fun createFileCopy(file: KtFile): KtFile {
         val fakeFile = file.copy() as KtFile
 
-        assert(fakeFile.originalFile == file)
+        assert(fakeFile.copyOrigin == file)
         assert(!fakeFile.isPhysical)
         assert(!fakeFile.viewProvider.isEventSystemEnabled)
 
@@ -66,7 +67,7 @@ abstract class AbstractContextCollectorTest : AbstractAnalysisApiBasedTest() {
         val firFile = mainFile.getOrBuildFirFile(resolveSession)
 
         val targetElement = testServices.expressionMarkerProvider
-            .getBottommostSelectedElementOfType(mainFile, KtElement::class.java)
+            .getBottommostSelectedElementOfType(mainFile, KtElement::class)
 
         val bodyElement = if (useBodyElement) targetElement else null
 
@@ -103,13 +104,10 @@ internal object ElementContextRenderer {
 
                     towerDataElement.implicitReceiver?.let { implicitReceiver ->
                         appendBlock("Implicit receiver:") {
-                            appendSymbol(implicitReceiver.boundSymbol).appendLine()
+                            appendSymbol(implicitReceiver.boundSymbol as FirBasedSymbol<*>).appendLine()
 
                             appendBlock {
                                 append("Type: ").appendType(implicitReceiver.type).appendLine()
-                                if (implicitReceiver.isContextReceiver) {
-                                    append("Context receiver index: ").appendLine(implicitReceiver.contextReceiverNumber)
-                                }
                             }
                         }
                     }
@@ -124,6 +122,17 @@ internal object ElementContextRenderer {
                                     contextReceiverValue.labelName?.let { labelName ->
                                         append("Label: ").appendLine(labelName)
                                     }
+                                }
+                            }
+                        }
+                    }
+
+                    towerDataElement.contextParameterGroup?.takeIf { it.isNotEmpty() }?.let { contextParameterValues ->
+                        appendBlock("Context parameters:") {
+                            for (contextParameterValue in contextParameterValues) {
+                                appendSymbol(contextParameterValue.boundSymbol).appendLine()
+                                appendBlock {
+                                    append("Type: ").appendType(contextParameterValue.type).appendLine()
                                 }
                             }
                         }
@@ -272,16 +281,8 @@ abstract class AbstractContextCollectorSourceTest : AbstractContextCollectorTest
     override val configurator: AnalysisApiTestConfigurator = AnalysisApiFirSourceTestConfigurator(analyseInDependentSession = false)
 }
 
-abstract class AbstractDependentContextCollectorSourceTest : AbstractContextCollectorTest() {
-    override val configurator: AnalysisApiTestConfigurator = AnalysisApiFirSourceTestConfigurator(analyseInDependentSession = true)
-}
-
 abstract class AbstractContextCollectorScriptTest : AbstractContextCollectorTest() {
     override val configurator: AnalysisApiTestConfigurator =
         AnalysisApiFirCustomScriptDefinitionTestConfigurator(analyseInDependentSession = false)
 }
 
-abstract class AbstractDependentContextCollectorScriptTest : AbstractContextCollectorTest() {
-    override val configurator: AnalysisApiTestConfigurator =
-        AnalysisApiFirCustomScriptDefinitionTestConfigurator(analyseInDependentSession = true)
-}

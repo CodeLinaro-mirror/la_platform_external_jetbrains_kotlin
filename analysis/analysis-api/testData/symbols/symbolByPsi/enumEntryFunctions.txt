@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -35,6 +36,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryFunctions.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -92,6 +94,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -125,6 +128,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryFunctions.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -132,6 +136,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -195,6 +200,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryFunctions.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 

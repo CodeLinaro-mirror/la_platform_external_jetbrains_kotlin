@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_SIGNATURE
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.MUTE_SIGNATURE_COMPARISON_K2
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.SEPARATE_SIGNATURE_DUMP_FOR_K2
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_IDENTICAL
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LINK_VIA_SIGNATURES_K1
 import org.jetbrains.kotlin.test.model.AfterAnalysisChecker
 import org.jetbrains.kotlin.test.model.BackendKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
@@ -49,6 +50,11 @@ import java.io.FileNotFoundException
 private const val CHECK_MARKER = "// CHECK"
 
 /**
+ * Note: This handler has a limited usage.
+ * -  It does not make sense for Kotlin/JVM with exception for a special experimental mode in K1
+ *  where the linkage is performed by signatures. See also [LINK_VIA_SIGNATURES_K1].
+ * - For KLIB-based backends, it has been superseded by [KlibAbiDumpHandler].
+ *
  * Prints a mangled name and an [IdSignature] for each declaration and compares the result with
  * an expected output in a `*.sig.kt.txt` file located next to the test file.
  *
@@ -126,7 +132,7 @@ class IrMangledNameAndSignatureDumpHandler(
 
     private fun computeDumpExtension(): String {
         return if (
-            testServices.defaultsProvider.defaultFrontend == FrontendKinds.ClassicFrontend ||
+            testServices.defaultsProvider.frontendKind == FrontendKinds.ClassicFrontend ||
             separateSignatureDirectiveNotPresent(testServices)
         ) {
             DUMP_EXTENSION
@@ -167,7 +173,6 @@ class IrMangledNameAndSignatureDumpHandler(
             dumper,
             KotlinLikeDumpOptions(
                 customDumpStrategy = DumpStrategy(
-                    module,
                     info.irMangler,
                     info.descriptorMangler,
                     info.irPluginContext.irBuiltIns,
@@ -180,6 +185,7 @@ class IrMangledNameAndSignatureDumpHandler(
                 // Expect declarations exist in K1 IR just before serialization, but won't be serialized. Though, dumps should be same before and after
                 printExpectDeclarations = module.languageVersionSettings.languageVersion.usesK2,
             ),
+            testServices
         )
     }
 
@@ -188,7 +194,7 @@ class IrMangledNameAndSignatureDumpHandler(
             assertions.assertFileDoesntExist(expectedFile, DUMP_SIGNATURES)
             return
         }
-        val frontendKind = testServices.defaultsProvider.defaultFrontend
+        val frontendKind = testServices.defaultsProvider.frontendKind
         val muteDirectives = listOfNotNull(
             MUTE_SIGNATURE_COMPARISON_K2.takeIf { frontendKind == FrontendKinds.FIR },
         )
@@ -198,14 +204,13 @@ class IrMangledNameAndSignatureDumpHandler(
     }
 
     private inner class DumpStrategy(
-        val module: TestModule,
         val irMangler: KotlinMangler.IrMangler,
         val descriptorMangler: KotlinMangler.DescriptorMangler?,
         val irBuiltIns: IrBuiltIns,
     ) : CustomKotlinLikeDumpStrategy {
 
         private val targetBackend: TargetBackend
-            get() = module.targetBackend!!
+            get() = testServices.defaultsProvider.targetBackend!!
 
         private val IrDeclaration.isFunctionWithNonUnitReturnType: Boolean
             get() = this is IrSimpleFunction && !returnType.isUnit()

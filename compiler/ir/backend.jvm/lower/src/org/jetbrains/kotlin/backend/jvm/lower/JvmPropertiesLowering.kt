@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.getRequiresMangling
 import org.jetbrains.kotlin.backend.jvm.hasMangledReturnType
-import org.jetbrains.kotlin.backend.jvm.ir.eraseTypeParameters
+import org.jetbrains.kotlin.ir.util.eraseTypeParameters
 import org.jetbrains.kotlin.backend.jvm.ir.needsAccessor
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -31,7 +31,6 @@ import org.jetbrains.kotlin.ir.expressions.IrFieldAccessExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrNull
-import org.jetbrains.kotlin.ir.types.isSubtypeOfClass
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -47,6 +46,8 @@ import org.jetbrains.kotlin.utils.addIfNotNull
 internal class JvmPropertiesLowering(
     private val backendContext: JvmBackendContext
 ) : IrElementTransformerVoidWithContext(), FileLoweringPass {
+    val uninitializedPropertyAccessExceptionThrower = JvmUninitializedPropertyAccessExceptionThrower(backendContext.ir.symbols)
+
     override fun lower(irFile: IrFile) {
         irFile.accept(this, null)
     }
@@ -116,7 +117,7 @@ internal class JvmPropertiesLowering(
                 +irIfNull(
                     expression.type,
                     irGet(tmpVal),
-                    backendContext.throwUninitializedPropertyAccessException(this, backingField.name.asString()),
+                    uninitializedPropertyAccessExceptionThrower.build(this, backingField.name.asString()),
                     irGet(tmpVal)
                 )
             }
@@ -142,7 +143,7 @@ internal class JvmPropertiesLowering(
     private fun IrBuilderWithScope.patchReceiver(expression: IrFieldAccessExpression): IrExpression =
         if (expression.symbol.owner.isStatic && expression.receiver != null) {
             irBlock {
-                +expression.receiver!!.coerceToUnit(context.irBuiltIns, backendContext.typeSystem)
+                +expression.receiver!!.coerceToUnit(context.irBuiltIns)
                 expression.receiver = null
                 +expression
             }

@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.light.classes.symbol.annotations.GranularAnnotations
 import org.jetbrains.kotlin.light.classes.symbol.annotations.NullabilityAnnotationsProvider
 import org.jetbrains.kotlin.light.classes.symbol.isValid
 import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightMethodBase
-import org.jetbrains.kotlin.light.classes.symbol.methods.canHaveValueClassInSignature
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.SymbolLightClassModifierList
 import org.jetbrains.kotlin.light.classes.symbol.nonExistentType
 import org.jetbrains.kotlin.light.classes.symbol.withSymbol
@@ -31,8 +30,7 @@ internal class SymbolLightSuspendContinuationParameter(
     private val functionSymbolPointer: KaSymbolPointer<KaNamedFunctionSymbol>,
     private val containingMethod: SymbolLightMethodBase,
 ) : SymbolLightParameterBase(containingMethod) {
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    private inline fun <T> withFunctionSymbol(crossinline action: context(KaSession) (KaNamedFunctionSymbol) -> T): T {
+    private inline fun <T> withFunctionSymbol(crossinline action: KaSession.(KaNamedFunctionSymbol) -> T): T {
         return functionSymbolPointer.withSymbol(ktModule, action)
     }
 
@@ -46,10 +44,9 @@ internal class SymbolLightSuspendContinuationParameter(
         withFunctionSymbol { functionSymbol ->
             val ktType = buildClassType(StandardClassIds.Continuation) { argument(functionSymbol.returnType) }
             ktType.asPsiType(
-                this,
+                this@SymbolLightSuspendContinuationParameter,
                 allowErrorTypes = true,
                 getTypeMappingMode(ktType),
-                forceValueClassResolution = method.canHaveValueClassInSignature(),
                 allowNonJvmPlatforms = true,
             ) ?: nonExistentType()
         }

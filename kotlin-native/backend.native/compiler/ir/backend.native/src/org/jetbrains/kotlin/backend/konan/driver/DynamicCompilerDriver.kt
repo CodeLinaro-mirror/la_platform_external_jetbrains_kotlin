@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,25 +11,23 @@ import llvm.LLVMContextCreate
 import llvm.LLVMContextDispose
 import llvm.LLVMDisposeModule
 import llvm.LLVMOpaqueModule
+import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
 import org.jetbrains.kotlin.backend.konan.*
-import org.jetbrains.kotlin.backend.konan.BitcodePostProcessingContextImpl
-import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.driver.phases.*
-import org.jetbrains.kotlin.backend.konan.getIncludedLibraryDescriptors
 import org.jetbrains.kotlin.backend.konan.llvm.parseBitcodeFile
 import org.jetbrains.kotlin.builtins.konan.KonanBuiltIns
-import org.jetbrains.kotlin.cli.common.CommonCompilerPerformanceManager
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.utils.usingNativeMemoryAllocator
+import org.jetbrains.kotlin.util.PerformanceManager
 
 /**
  * Dynamic driver does not "know" upfront which phases will be executed.
  */
-internal class DynamicCompilerDriver(private val performanceManager: CommonCompilerPerformanceManager?) : CompilerDriver() {
+internal class DynamicCompilerDriver(private val performanceManager: PerformanceManager?) : CompilerDriver() {
 
     override fun run(config: KonanConfig, environment: KotlinCoreEnvironment) {
         usingNativeMemoryAllocator {
@@ -111,7 +109,7 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
             serializeKLibK2(engine, config, environment)
         else
             serializeKlibK1(engine, config, environment)
-        serializerOutput?.let { engine.writeKlib(it) }
+        serializerOutput?.let { engine.writeKlib(it, customAbiVersion = config.customAbiVersion) }
     }
 
     private fun serializeKLibK2(
@@ -130,9 +128,10 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
                 val fir2IrOutput = engine.runFir2Ir(frontendOutput)
 
                 val headerKlibPath = config.headerKlibPath
+                val customAbiVersion = config.customAbiVersion
                 if (!headerKlibPath.isNullOrEmpty()) {
                     val headerKlib = engine.runFir2IrSerializer(FirSerializerInput(fir2IrOutput, produceHeaderKlib = true))
-                    engine.writeKlib(headerKlib, headerKlibPath, produceHeaderKlib = true)
+                    engine.writeKlib(headerKlib, headerKlibPath, produceHeaderKlib = true, customAbiVersion)
                     // Don't overwrite the header klib with the full klib and stop compilation here.
                     // By providing the same path for both regular output and header klib we can skip emitting the full klib.
                     if (File(config.outputPath).canonicalPath == File(headerKlibPath).canonicalPath) return null
@@ -159,9 +158,10 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
             }
 
             val headerKlibPath = config.headerKlibPath
+            val customAbiVersion = config.customAbiVersion
             if (!headerKlibPath.isNullOrEmpty()) {
                 val headerKlib = engine.runSerializer(frontendOutput.moduleDescriptor, psiToIrOutput, produceHeaderKlib = true)
-                engine.writeKlib(headerKlib, headerKlibPath, produceHeaderKlib = true)
+                engine.writeKlib(headerKlib, headerKlibPath, produceHeaderKlib = true, customAbiVersion)
                 // Don't overwrite the header klib with the full klib and stop compilation here.
                 // By providing the same path for both regular output and header klib we can skip emitting the full klib.
                 if (File(config.outputPath).canonicalPath == File(headerKlibPath).canonicalPath) return null
@@ -238,7 +238,8 @@ internal class DynamicCompilerDriver(private val performanceManager: CommonCompi
             psiToIrOutput.irBuiltIns,
             psiToIrOutput.irModules,
             psiToIrOutput.irLinker,
-            psiToIrOutput.symbols
+            psiToIrOutput.symbols,
+            psiToIrOutput.symbolTable,
     ).also {
         additionalDataSetter(it)
     }

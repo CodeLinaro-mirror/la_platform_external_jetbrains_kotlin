@@ -7,16 +7,14 @@ package org.jetbrains.kotlin.gradle.util
 
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.gradle.LibraryExtension
-import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.artifacts.verification.DependencyVerificationMode
 import org.gradle.api.internal.project.ProjectInternal
 import org.gradle.api.plugins.ExtraPropertiesExtension
 import org.gradle.testfixtures.ProjectBuilder
+import org.gradle.testing.base.TestingExtension
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformSourceSetConventions
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
-import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT
@@ -25,7 +23,7 @@ import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension
 import org.jetbrains.kotlin.gradle.plugin.getExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.SwiftExportExtension
-import org.jetbrains.kotlin.gradle.plugin.mpp.resources.resolve.KotlinTargetResourcesResolutionStrategy
+import org.jetbrains.kotlin.gradle.plugin.mpp.resources.resolve.KotlinTargetResourcesResolution
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.KotlinArtifactsExtensionImpl
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.kotlinArtifactsExtension
 import org.jetbrains.kotlin.gradle.utils.getFile
@@ -92,13 +90,19 @@ fun Project.kotlinArtifacts(code: KotlinArtifactsExtensionImpl.() -> Unit) {
 fun Project.androidLibrary(code: LibraryExtension.() -> Unit) {
     plugins.findPlugin("com.android.library") ?: plugins.apply("com.android.library")
     val androidExtension = project.extensions.getByName("android") as LibraryExtension
+    androidExtension.configureDefaults()
     androidExtension.code()
 }
 
 fun Project.androidApplication(code: ApplicationExtension.() -> Unit) {
     plugins.findPlugin("com.android.application") ?: plugins.apply("com.android.application")
     val androidExtension = project.extensions.getByName("android") as ApplicationExtension
+    androidExtension.configureDefaults()
     androidExtension.code()
+}
+
+fun Project.testing(code: TestingExtension.() -> Unit) {
+    extensions.configure(TestingExtension::class.java, code)
 }
 
 fun Project.applyMultiplatformPlugin(): KotlinMultiplatformExtension {
@@ -128,10 +132,6 @@ fun Project.enableCInteropCommonization(enabled: Boolean = true) {
 
 fun Project.enableMppResourcesPublication(enabled: Boolean = true) {
     propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_RESOURCES_PUBLICATION, enabled.toString())
-}
-
-fun Project.setMppResourcesResolutionStrategy(strategy: KotlinTargetResourcesResolutionStrategy) {
-    propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_MPP_RESOURCES_RESOLUTION_STRATEGY, strategy.propertyName)
 }
 
 fun Project.enableIntransitiveMetadataConfiguration(enabled: Boolean = true) {

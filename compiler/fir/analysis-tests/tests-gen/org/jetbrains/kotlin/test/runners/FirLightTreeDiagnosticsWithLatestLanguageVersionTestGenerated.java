@@ -687,9 +687,15 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     }
 
     @Test
-    @TestMetadata("topLevelDestruction.kt")
-    public void testTopLevelDestruction() {
-      runTest("compiler/fir/analysis-tests/testData/resolve/topLevelDestruction.kt");
+    @TestMetadata("topLevelDestructuring.kt")
+    public void testTopLevelDestructuring() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/topLevelDestructuring.kt");
+    }
+
+    @Test
+    @TestMetadata("topLevelDestructuring2.kt")
+    public void testTopLevelDestructuring2() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/topLevelDestructuring2.kt");
     }
 
     @Test
@@ -1652,33 +1658,9 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
-      @TestMetadata("cyclicSupertype3.kt")
-      public void testCyclicSupertype3() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertype3.kt");
-      }
-
-      @Test
-      @TestMetadata("cyclicSupertype4.kt")
-      public void testCyclicSupertype4() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertype4.kt");
-      }
-
-      @Test
       @TestMetadata("cyclicSupertypeBetweenModules.kt")
       public void testCyclicSupertypeBetweenModules() {
         runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertypeBetweenModules.kt");
-      }
-
-      @Test
-      @TestMetadata("cyclicSupertypeWithAlias.kt")
-      public void testCyclicSupertypeWithAlias() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertypeWithAlias.kt");
-      }
-
-      @Test
-      @TestMetadata("cyclicSupertypeWithAlias2.kt")
-      public void testCyclicSupertypeWithAlias2() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertypeWithAlias2.kt");
       }
     }
 
@@ -1735,6 +1717,598 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("noSuperCallInSupertypes.kt")
       public void testNoSuperCallInSupertypes() {
         runTest("compiler/fir/analysis-tests/testData/resolve/constructors/noSuperCallInSupertypes.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters")
+    @TestDataPath("$PROJECT_ROOT")
+    public class ContextParameters {
+      @Test
+      public void testAllFilesPresentInContextParameters() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("ambiguityBetweenReceiverAndContext.kt")
+      public void testAmbiguityBetweenReceiverAndContext() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/ambiguityBetweenReceiverAndContext.kt");
+      }
+
+      @Test
+      @TestMetadata("callableReference.kt")
+      public void testCallableReference() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/callableReference.kt");
+      }
+
+      @Test
+      @TestMetadata("contextLambda.kt")
+      public void testContextLambda() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextLambda.kt");
+      }
+
+      @Test
+      @TestMetadata("contextualLateinit.kt")
+      public void testContextualLateinit() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualLateinit.kt");
+      }
+
+      @Test
+      @TestMetadata("expectActualMatch.kt")
+      public void testExpectActualMatch() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/expectActualMatch.kt");
+      }
+
+      @Test
+      @TestMetadata("expectActualMismatch.kt")
+      public void testExpectActualMismatch() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/expectActualMismatch.kt");
+      }
+
+      @Test
+      @TestMetadata("smoke.kt")
+      public void testSmoke() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smoke.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages")
+      @TestDataPath("$PROJECT_ROOT")
+      public class DeclarationAndUsages {
+        @Test
+        public void testAllFilesPresentInDeclarationAndUsages() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("annotationOnTypeWithContext.kt")
+        public void testAnnotationOnTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/annotationOnTypeWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationTargetInContext.kt")
+        public void testAnnotationTargetInContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/annotationTargetInContext.kt");
+        }
+
+        @Test
+        @TestMetadata("anonymousFunctionContextWithoutType.kt")
+        public void testAnonymousFunctionContextWithoutType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/anonymousFunctionContextWithoutType.kt");
+        }
+
+        @Test
+        @TestMetadata("anonymousFunctionWithWrongShape.kt")
+        public void testAnonymousFunctionWithWrongShape() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/anonymousFunctionWithWrongShape.kt");
+        }
+
+        @Test
+        @TestMetadata("classMembersWithContext.kt")
+        public void testClassMembersWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/classMembersWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("contextInCompanionObject.kt")
+        public void testContextInCompanionObject() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextInCompanionObject.kt");
+        }
+
+        @Test
+        @TestMetadata("contextInLocalFunction.kt")
+        public void testContextInLocalFunction() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextInLocalFunction.kt");
+        }
+
+        @Test
+        @TestMetadata("contextInLocalFunctionResolution.kt")
+        public void testContextInLocalFunctionResolution() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextInLocalFunctionResolution.kt");
+        }
+
+        @Test
+        @TestMetadata("contextOnGetterSetter.kt")
+        public void testContextOnGetterSetter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextOnGetterSetter.kt");
+        }
+
+        @Test
+        @TestMetadata("contextOrderWithAnnotation.kt")
+        public void testContextOrderWithAnnotation() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextOrderWithAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterIsNotInlined.kt")
+        public void testContextParameterIsNotInlined() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextParameterIsNotInlined.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterToDefaultArgument.kt")
+        public void testContextParameterToDefaultArgument() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextParameterToDefaultArgument.kt");
+        }
+
+        @Test
+        @TestMetadata("contextWithAnnotation.kt")
+        public void testContextWithAnnotation() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextWithAnnotation.kt");
+        }
+
+        @Test
+        @TestMetadata("contextualAnonymousFunction.kt")
+        public void testContextualAnonymousFunction() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/contextualAnonymousFunction.kt");
+        }
+
+        @Test
+        @TestMetadata("dslMarkerOnContextType.kt")
+        public void testDslMarkerOnContextType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/dslMarkerOnContextType.kt");
+        }
+
+        @Test
+        @TestMetadata("emptyContextName.kt")
+        public void testEmptyContextName() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/emptyContextName.kt");
+        }
+
+        @Test
+        @TestMetadata("emptyListOfContextParameters.kt")
+        public void testEmptyListOfContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/emptyListOfContextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("genericContextAmbiguity.kt")
+        public void testGenericContextAmbiguity() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/genericContextAmbiguity.kt");
+        }
+
+        @Test
+        @TestMetadata("inFunctionDeclaration.kt")
+        public void testInFunctionDeclaration() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/inFunctionDeclaration.kt");
+        }
+
+        @Test
+        @TestMetadata("inFunctionalType.kt")
+        public void testInFunctionalType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/inFunctionalType.kt");
+        }
+
+        @Test
+        @TestMetadata("inPropertyDeclaration.kt")
+        public void testInPropertyDeclaration() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/inPropertyDeclaration.kt");
+        }
+
+        @Test
+        @TestMetadata("initializerInProperty.kt")
+        public void testInitializerInProperty() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/initializerInProperty.kt");
+        }
+
+        @Test
+        @TestMetadata("inlineForTypeWithContext.kt")
+        public void testInlineForTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/inlineForTypeWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("memberUsageFromContextScope.kt")
+        public void testMemberUsageFromContextScope() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/memberUsageFromContextScope.kt");
+        }
+
+        @Test
+        @TestMetadata("moreThenOneContext.kt")
+        public void testMoreThenOneContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/moreThenOneContext.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleContextsWithTheSameType.kt")
+        public void testMultipleContextsWithTheSameType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/multipleContextsWithTheSameType.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleDslMarkers.kt")
+        public void testMultipleDslMarkers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/multipleDslMarkers.kt");
+        }
+
+        @Test
+        @TestMetadata("nameClashes.kt")
+        public void testNameClashes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/nameClashes.kt");
+        }
+
+        @Test
+        @TestMetadata("onClassifierDeclaration.kt")
+        public void testOnClassifierDeclaration() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/onClassifierDeclaration.kt");
+        }
+
+        @Test
+        @TestMetadata("onConstructor.kt")
+        public void testOnConstructor() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/onConstructor.kt");
+        }
+
+        @Test
+        @TestMetadata("parameterModifiersOnContextParameter.kt")
+        public void testParameterModifiersOnContextParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/parameterModifiersOnContextParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("parameterType.kt")
+        public void testParameterType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/parameterType.kt");
+        }
+
+        @Test
+        @TestMetadata("parameterTypeWithContext.kt")
+        public void testParameterTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/parameterTypeWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("parameterWithDefault.kt")
+        public void testParameterWithDefault() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/parameterWithDefault.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyWithContextAndContextType.kt")
+        public void testPropertyWithContextAndContextType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/propertyWithContextAndContextType.kt");
+        }
+
+        @Test
+        @TestMetadata("theSameContextAndDispatchReceiver.kt")
+        public void testTheSameContextAndDispatchReceiver() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/theSameContextAndDispatchReceiver.kt");
+        }
+
+        @Test
+        @TestMetadata("usageOfTypeWithContext.kt")
+        public void testUsageOfTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/usageOfTypeWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("usageWithoutContext.kt")
+        public void testUsageWithoutContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/usageWithoutContext.kt");
+        }
+
+        @Test
+        @TestMetadata("usageWithoutContextForMultipleParameters.kt")
+        public void testUsageWithoutContextForMultipleParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/usageWithoutContextForMultipleParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("valVarOnContextParameter.kt")
+        public void testValVarOnContextParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/valVarOnContextParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("visibilityOfContextTypeOnFunction.kt")
+        public void testVisibilityOfContextTypeOnFunction() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/visibilityOfContextTypeOnFunction.kt");
+        }
+
+        @Test
+        @TestMetadata("visibilityOfContextTypeOnProperty.kt")
+        public void testVisibilityOfContextTypeOnProperty() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/visibilityOfContextTypeOnProperty.kt");
+        }
+
+        @Test
+        @TestMetadata("withNestedContext.kt")
+        public void testWithNestedContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/withNestedContext.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Diagnostics {
+        @Test
+        public void testAllFilesPresentInDiagnostics() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("anonymousFunctionsWithModifiers.kt")
+        public void testAnonymousFunctionsWithModifiers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/anonymousFunctionsWithModifiers.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterSyntaxWithReceiversLanguageFeature.kt")
+        public void testContextParameterSyntaxWithReceiversLanguageFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/contextParameterSyntaxWithReceiversLanguageFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterSyntaxWithoutLanguageFeature.kt")
+        public void testContextParameterSyntaxWithoutLanguageFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/contextParameterSyntaxWithoutLanguageFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleContextParameterLists.kt")
+        public void testMultipleContextParameterLists() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/multipleContextParameterLists.kt");
+        }
+
+        @Test
+        @TestMetadata("subtyping.kt")
+        public void testSubtyping() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/subtyping.kt");
+        }
+
+        @Test
+        @TestMetadata("unsupportedContextParameters.kt")
+        public void testUnsupportedContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/unsupportedContextParameters.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Multiplatform {
+        @Test
+        public void testAllFilesPresentInMultiplatform() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("contextInFunctionAsAType.kt")
+        public void testContextInFunctionAsAType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/contextInFunctionAsAType.kt");
+        }
+
+        @Test
+        @TestMetadata("contextInPropertyAsAType.kt")
+        public void testContextInPropertyAsAType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/contextInPropertyAsAType.kt");
+        }
+
+        @Test
+        @TestMetadata("extensionFunWithContextInExpectActual.kt")
+        public void testExtensionFunWithContextInExpectActual() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/extensionFunWithContextInExpectActual.kt");
+        }
+
+        @Test
+        @TestMetadata("extensionPropertyWithContextInExpectActual.kt")
+        public void testExtensionPropertyWithContextInExpectActual() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/extensionPropertyWithContextInExpectActual.kt");
+        }
+
+        @Test
+        @TestMetadata("funWithContextInExpectActual.kt")
+        public void testFunWithContextInExpectActual() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/funWithContextInExpectActual.kt");
+        }
+
+        @Test
+        @TestMetadata("memberWithAContext.kt")
+        public void testMemberWithAContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/memberWithAContext.kt");
+        }
+
+        @Test
+        @TestMetadata("overloadWithContext.kt")
+        public void testOverloadWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/overloadWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyWithContextInExpectActual.kt")
+        public void testPropertyWithContextInExpectActual() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform/propertyWithContextInExpectActual.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Operators {
+        @Test
+        public void testAllFilesPresentInOperators() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("baseOperatorsWithContext.kt")
+        public void testBaseOperatorsWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators/baseOperatorsWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("infixOperator.kt")
+        public void testInfixOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators/infixOperator.kt");
+        }
+
+        @Test
+        @TestMetadata("infixOperatorOnTypeWithContext.kt")
+        public void testInfixOperatorOnTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators/infixOperatorOnTypeWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("invokeOnTypeWithContext.kt")
+        public void testInvokeOnTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators/invokeOnTypeWithContext.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Overrides {
+        @Test
+        public void testAllFilesPresentInOverrides() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("baseKotlinJavaOverride.kt")
+        public void testBaseKotlinJavaOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/baseKotlinJavaOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("baseKotlinJavaOverrideWithExtension.kt")
+        public void testBaseKotlinJavaOverrideWithExtension() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/baseKotlinJavaOverrideWithExtension.kt");
+        }
+
+        @Test
+        @TestMetadata("baseOverride.kt")
+        public void testBaseOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/baseOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectionOverride.kt")
+        public void testIntersectionOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/intersectionOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectionOverrideWithContextTypeAndJava.kt")
+        public void testIntersectionOverrideWithContextTypeAndJava() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/intersectionOverrideWithContextTypeAndJava.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectionOverrideWithExtensionAndValue.kt")
+        public void testIntersectionOverrideWithExtensionAndValue() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/intersectionOverrideWithExtensionAndValue.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectionOverrideWithJava.kt")
+        public void testIntersectionOverrideWithJava() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/intersectionOverrideWithJava.kt");
+        }
+
+        @Test
+        @TestMetadata("intersectionWithTypeParameter.kt")
+        public void testIntersectionWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/intersectionWithTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("KJKHierarchyWithOverride.kt")
+        public void testKJKHierarchyWithOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/KJKHierarchyWithOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("nameCanBeChangedInOverride.kt")
+        public void testNameCanBeChangedInOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/nameCanBeChangedInOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("orderAndTypeOfContextsInOverride.kt")
+        public void testOrderAndTypeOfContextsInOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/orderAndTypeOfContextsInOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("overrideWithFlexibleBaseReceiver.kt")
+        public void testOverrideWithFlexibleBaseReceiver() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/overrideWithFlexibleBaseReceiver.kt");
+        }
+
+        @Test
+        @TestMetadata("substitutionOverride.kt")
+        public void testSubstitutionOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/substitutionOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("withContextInType.kt")
+        public void testWithContextInType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/withContextInType.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Smartcast {
+        @Test
+        public void testAllFilesPresentInSmartcast() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("onContextParameters.kt")
+        public void testOnContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast/onContextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("onPropertyWithContext.kt")
+        public void testOnPropertyWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast/onPropertyWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("onTypeWithContext.kt")
+        public void testOnTypeWithContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast/onTypeWithContext.kt");
+        }
+
+        @Test
+        @TestMetadata("withCallInPlaceContract.kt")
+        public void testWithCallInPlaceContract() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast/withCallInPlaceContract.kt");
+        }
+
+        @Test
+        @TestMetadata("withImpliesContract.kt")
+        public void testWithImpliesContract() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast/withImpliesContract.kt");
+        }
       }
     }
 
@@ -1924,6 +2498,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("conflictingOverloads2.kt")
+      public void testConflictingOverloads2() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/conflictingOverloads2.kt");
+      }
+
+      @Test
       @TestMetadata("conflictingProjection.kt")
       public void testConflictingProjection() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/conflictingProjection.kt");
@@ -1984,6 +2564,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("instanceAccessBeforeSuperCallErrorOnRed.kt")
+      public void testInstanceAccessBeforeSuperCallErrorOnRed() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/instanceAccessBeforeSuperCallErrorOnRed.kt");
+      }
+
+      @Test
       @TestMetadata("interfaceWithSuperclass.kt")
       public void testInterfaceWithSuperclass() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/interfaceWithSuperclass.kt");
@@ -1993,6 +2579,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("javaInheritsPrivateJavaClass.kt")
       public void testJavaInheritsPrivateJavaClass() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/javaInheritsPrivateJavaClass.kt");
+      }
+
+      @Test
+      @TestMetadata("javaInheritsPrivateKtClass2.kt")
+      public void testJavaInheritsPrivateKtClass2() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/javaInheritsPrivateKtClass2.kt");
       }
 
       @Test
@@ -2909,6 +3501,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
+        @TestMetadata("binaryOpFolding.kt")
+        public void testBinaryOpFolding() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/expresssions/operators/binaryOpFolding.kt");
+        }
+
+        @Test
+        @TestMetadata("binaryOpStackOverflow.kt")
+        public void testBinaryOpStackOverflow() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/expresssions/operators/binaryOpStackOverflow.kt");
+        }
+
+        @Test
         @TestMetadata("plus.kt")
         public void testPlus() {
           runTest("compiler/fir/analysis-tests/testData/resolve/expresssions/operators/plus.kt");
@@ -2953,6 +3557,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("kt69190.kt")
       public void testKt69190() {
         runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/kt69190.kt");
+      }
+
+      @Test
+      @TestMetadata("kt72164.kt")
+      public void testKt72164() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/kt72164.kt");
+      }
+
+      @Test
+      @TestMetadata("kt72537.kt")
+      public void testKt72537() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/kt72537.kt");
       }
 
       @Test
@@ -3662,6 +4278,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("lambdasReturnsShareCS.kt")
+      public void testLambdasReturnsShareCS() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/lambdasReturnsShareCS.kt");
+      }
+
+      @Test
+      @TestMetadata("lambdasReturnsShareCSFeatureDisabled.kt")
+      public void testLambdasReturnsShareCSFeatureDisabled() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/lambdasReturnsShareCSFeatureDisabled.kt");
+      }
+
+      @Test
       @TestMetadata("nestedExtensionFunctionType.kt")
       public void testNestedExtensionFunctionType() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/nestedExtensionFunctionType.kt");
@@ -3722,6 +4350,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("samConversionTopLevel.kt")
+      public void testSamConversionTopLevel() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/samConversionTopLevel.kt");
+      }
+
+      @Test
+      @TestMetadata("samConversionTopLevelFeatureDisabled.kt")
+      public void testSamConversionTopLevelFeatureDisabled() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/samConversionTopLevelFeatureDisabled.kt");
+      }
+
+      @Test
       @TestMetadata("selfTypeFromJava.kt")
       public void testSelfTypeFromJava() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/selfTypeFromJava.kt");
@@ -3743,6 +4383,28 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("unitUpperBound.kt")
       public void testUnitUpperBound() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/unitUpperBound.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/inference/incorporation")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Incorporation {
+        @Test
+        public void testAllFilesPresentInIncorporation() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference/incorporation"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("insideOtherConstraintsWithFlexibleTypes.kt")
+        public void testInsideOtherConstraintsWithFlexibleTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/incorporation/insideOtherConstraintsWithFlexibleTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("insideOtherConstraintsWithFlexibleTypesOriginal.kt")
+        public void testInsideOtherConstraintsWithFlexibleTypesOriginal() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/incorporation/insideOtherConstraintsWithFlexibleTypesOriginal.kt");
+        }
       }
 
       @Nested
@@ -3815,6 +4477,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("inner.kt")
       public void testInner() {
         runTest("compiler/fir/analysis-tests/testData/resolve/innerClasses/inner.kt");
+      }
+
+      @Test
+      @TestMetadata("innerInsideNestedSealed.kt")
+      public void testInnerInsideNestedSealed() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/innerClasses/innerInsideNestedSealed.kt");
       }
 
       @Test
@@ -3961,6 +4629,64 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("TypeAliasExpansion.kt")
       public void testTypeAliasExpansion() {
         runTest("compiler/fir/analysis-tests/testData/resolve/multifile/TypeAliasExpansion.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases")
+    @TestDataPath("$PROJECT_ROOT")
+    public class NestedTypeAliases {
+      @Test
+      public void testAllFilesPresentInNestedTypeAliases() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("deepInnerRHS.kt")
+      public void testDeepInnerRHS() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/deepInnerRHS.kt");
+      }
+
+      @Test
+      @TestMetadata("innerRHS.kt")
+      public void testInnerRHS() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHS.kt");
+      }
+
+      @Test
+      @TestMetadata("innerRHSandTypeArguments.kt")
+      public void testInnerRHSandTypeArguments() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHSandTypeArguments.kt");
+      }
+
+      @Test
+      @TestMetadata("kmp.kt")
+      public void testKmp() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/kmp.kt");
+      }
+
+      @Test
+      @TestMetadata("local.kt")
+      public void testLocal() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/local.kt");
+      }
+
+      @Test
+      @TestMetadata("simple.kt")
+      public void testSimple() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/simple.kt");
+      }
+
+      @Test
+      @TestMetadata("typeAliasExpansionCapturesOuterTypeParametersErrorMessage.kt")
+      public void testTypeAliasExpansionCapturesOuterTypeParametersErrorMessage() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/typeAliasExpansionCapturesOuterTypeParametersErrorMessage.kt");
+      }
+
+      @Test
+      @TestMetadata("visibility.kt")
+      public void testVisibility() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/visibility.kt");
       }
     }
 
@@ -5278,6 +6004,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("anonymousFunction.kt")
+      public void testAnonymousFunction() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/anonymousFunction.kt");
+      }
+
+      @Test
       @TestMetadata("illFormed.kt")
       public void testIllFormed() {
         runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/illFormed.kt");
@@ -5553,12 +6285,6 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     }
 
     @Test
-    @TestMetadata("annotationUseSites.kt")
-    public void testAnnotationUseSites() {
-      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotationUseSites.kt");
-    }
-
-    @Test
     @TestMetadata("arrayFilterCapturedType.kt")
     public void testArrayFilterCapturedType() {
       runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/arrayFilterCapturedType.kt");
@@ -5676,6 +6402,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     @TestMetadata("fillInStackTrace.kt")
     public void testFillInStackTrace() {
       runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/fillInStackTrace.kt");
+    }
+
+    @Test
+    @TestMetadata("flatMapWithReverseOrder.kt")
+    public void testFlatMapWithReverseOrder() {
+      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/flatMapWithReverseOrder.kt");
+    }
+
+    @Test
+    @TestMetadata("flatMapWithReverseOrderLegacy.kt")
+    public void testFlatMapWithReverseOrderLegacy() {
+      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/flatMapWithReverseOrderLegacy.kt");
     }
 
     @Test
@@ -5952,6 +6690,58 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     @TestMetadata("withInInitializer.kt")
     public void testWithInInitializer() {
       runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/withInInitializer.kt");
+    }
+
+    @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Annotations {
+      @Test
+      public void testAllFilesPresentInAnnotations() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("annotationAllUseSiteTarget.kt")
+      public void testAnnotationAllUseSiteTarget() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationAllUseSiteTarget.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationDefaultTargetFirstOnly.kt")
+      public void testAnnotationDefaultTargetFirstOnly() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationDefaultTargetFirstOnly.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationDefaultTargetFirstOnlyWarn.kt")
+      public void testAnnotationDefaultTargetFirstOnlyWarn() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationDefaultTargetFirstOnlyWarn.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationDefaultTargetParamProperty.kt")
+      public void testAnnotationDefaultTargetParamProperty() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationDefaultTargetParamProperty.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationIncompatibleTargets.kt")
+      public void testAnnotationIncompatibleTargets() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationIncompatibleTargets.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationUseSites.kt")
+      public void testAnnotationUseSites() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationUseSites.kt");
+      }
+
+      @Test
+      @TestMetadata("multipleAnnotationsWithAllUseSiteTarget.kt")
+      public void testMultipleAnnotationsWithAllUseSiteTarget() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/multipleAnnotationsWithAllUseSiteTarget.kt");
+      }
     }
 
     @Nested
@@ -6276,6 +7066,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
             @TestMetadata("coercedInvocationKind.kt")
             public void testCoercedInvocationKind() {
               runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/callsInPlace/coercedInvocationKind.kt");
+            }
+
+            @Test
+            @TestMetadata("contractAndImplicitTypeInterdependency1.kt")
+            public void testContractAndImplicitTypeInterdependency1() {
+              runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/callsInPlace/contractAndImplicitTypeInterdependency1.kt");
+            }
+
+            @Test
+            @TestMetadata("contractAndImplicitTypeInterdependency2.kt")
+            public void testContractAndImplicitTypeInterdependency2() {
+              runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/callsInPlace/contractAndImplicitTypeInterdependency2.kt");
             }
 
             @Test
@@ -6701,6 +7503,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("plusAssignWithLambdaInRhs.kt")
       public void testPlusAssignWithLambdaInRhs() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/plusAssignWithLambdaInRhs.kt");
+      }
+
+      @Test
+      @TestMetadata("subAtomAlreadyInitialized.kt")
+      public void testSubAtomAlreadyInitialized() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/subAtomAlreadyInitialized.kt");
+      }
+
+      @Test
+      @TestMetadata("subAtomAlreadyInitialized2.kt")
+      public void testSubAtomAlreadyInitialized2() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/subAtomAlreadyInitialized2.kt");
       }
 
       @Nested
@@ -7180,6 +7994,40 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public void testUsingObject() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/UsingObject.kt");
       }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes")
+      @TestDataPath("$PROJECT_ROOT")
+      public class CommonAtomicTypes {
+        @Test
+        public void testAllFilesPresentInCommonAtomicTypes() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("javaToKotlinHierarchy.kt")
+        public void testJavaToKotlinHierarchy() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes/javaToKotlinHierarchy.kt");
+        }
+
+        @Test
+        @TestMetadata("KJKHierarchy.kt")
+        public void testKJKHierarchy() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes/KJKHierarchy.kt");
+        }
+
+        @Test
+        @TestMetadata("kotlinToJavaHierarchy.kt")
+        public void testKotlinToJavaHierarchy() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes/kotlinToJavaHierarchy.kt");
+        }
+
+        @Test
+        @TestMetadata("overrideWithRawType.kt")
+        public void testOverrideWithRawType() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes/overrideWithRawType.kt");
+        }
+      }
     }
 
     @Nested
@@ -7604,6 +8452,44 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     @TestMetadata("manyCapturedTypes.nkt")
     public void testManyCapturedTypes() {
       runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/manyCapturedTypes.nkt");
+    }
+
+    @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Pcla {
+      @Test
+      public void testAllFilesPresentInPcla() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla"), Pattern.compile("^(.+)\\.(nkt)$"), null, true);
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Issues {
+        @Test
+        public void testAllFilesPresentInIssues() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues"), Pattern.compile("^(.+)\\.(nkt)$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("kt73771Original.nkt")
+        public void testKt73771Original() {
+          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/kt73771Original.nkt");
+        }
+
+        @Test
+        @TestMetadata("kt73771Simple.nkt")
+        public void testKt73771Simple() {
+          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/kt73771Simple.nkt");
+        }
+
+        @Test
+        @TestMetadata("manyDelegateInsidePCLA.nkt")
+        public void testManyDelegateInsidePCLA() {
+          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/manyDelegateInsidePCLA.nkt");
+        }
+      }
     }
   }
 }

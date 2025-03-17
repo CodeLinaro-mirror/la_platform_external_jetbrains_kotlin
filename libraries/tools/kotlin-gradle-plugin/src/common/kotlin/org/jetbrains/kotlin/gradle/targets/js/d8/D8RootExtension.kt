@@ -37,7 +37,7 @@ open class D8RootExtension(
      * The same as in [D8EnvSpec.version]
      */
     override val versionProperty: org.gradle.api.provider.Property<String> = project.objects.property<String>()
-        .convention("11.9.85")
+        .convention("13.4.61")
 
     /**
      * Specify the edition of the D8.
@@ -51,7 +51,7 @@ open class D8RootExtension(
         .convention("d8")
 
     override fun finalizeConfiguration(): D8Env {
-        return d8EnvSpec.produceEnv(project.providers).get()
+        return d8EnvSpec.env.get()
     }
 
     val setupTaskProvider: TaskProvider<out D8SetupTask>

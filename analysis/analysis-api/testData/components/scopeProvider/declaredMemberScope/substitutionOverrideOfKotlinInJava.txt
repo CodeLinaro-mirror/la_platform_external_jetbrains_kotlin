@@ -5,6 +5,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: /JavaC.func
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -37,6 +38,7 @@ KaNamedFunctionSymbol:
     type: JavaC
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaC
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -87,6 +89,7 @@ KaSyntheticJavaPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isOverride: false
   isStatic: false

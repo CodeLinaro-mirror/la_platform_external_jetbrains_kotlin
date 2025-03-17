@@ -5,19 +5,26 @@
 
 package org.jetbrains.kotlin.incremental
 
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
+import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
+import org.jetbrains.kotlin.backend.js.TsCompilationStrategy
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.codegen.*
+import org.jetbrains.kotlin.codegen.ModelTarget
+import org.jetbrains.kotlin.codegen.ModuleInfo
+import org.jetbrains.kotlin.codegen.ProjectInfo
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.phaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaseSet
 import org.jetbrains.kotlin.ir.backend.js.JsICContext
 import org.jetbrains.kotlin.ir.backend.js.SourceMapsInfo
-import org.jetbrains.kotlin.ir.backend.js.ic.*
-import org.jetbrains.kotlin.ir.backend.js.getJsPhases
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.*
+import org.jetbrains.kotlin.ir.backend.js.ic.CacheUpdater
+import org.jetbrains.kotlin.ir.backend.js.ic.JsExecutableProducer
+import org.jetbrains.kotlin.ir.backend.js.ic.JsModuleArtifact
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.CompilationOutputs
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.extension
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
-import org.jetbrains.kotlin.js.testOld.V8IrJsTestChecker
+import org.jetbrains.kotlin.js.testOld.V8JsTestChecker
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.test.DebugMode
@@ -100,16 +107,17 @@ abstract class JsAbstractInvalidationTest(
                 }
 
                 val configuration = createConfiguration(projStep.order.last(), projStep.language, projectInfo.moduleKind)
+                    .apply { put(JSConfigurationKeys.GENERATE_DTS, projectInfo.checkTypeScriptDefinitions) }
 
                 val dirtyData = when (granularity) {
                     JsGenerationGranularity.PER_FILE -> projStep.dirtyJsFiles
                     else -> projStep.dirtyJsModules
                 }
 
+                configuration.phaseConfig = getPhaseConfig(projStep.id)
                 val icContext = JsICContext(
                     mainArguments,
                     granularity,
-                    getPhaseConfig(configuration, projStep.id),
                     setOf(FqName(BOX_FUNCTION_NAME)),
                 )
 
@@ -142,7 +150,10 @@ abstract class JsAbstractInvalidationTest(
 
                 verifyJsExecutableProducerBuildModules(projStep.id, rebuiltModules, dirtyData)
                 verifyJsCode(projStep.id, mainModuleName, writtenFiles)
-                verifyDTS(projStep.id, testInfo)
+
+                if (projectInfo.checkTypeScriptDefinitions) {
+                    verifyDTS(projStep.id, testInfo)
+                }
             }
         }
 
@@ -155,7 +166,7 @@ abstract class JsAbstractInvalidationTest(
 
         private fun verifyJsCode(stepId: Int, mainModuleName: String, jsFiles: List<String>) {
             try {
-                V8IrJsTestChecker.checkWithTestFunctionArgs(
+                V8JsTestChecker.checkWithTestFunctionArgs(
                     files = jsFiles,
                     testModuleName = "./$mainModuleName${projectInfo.moduleKind.extension}",
                     testPackageName = null,
@@ -193,17 +204,14 @@ abstract class JsAbstractInvalidationTest(
             }
         }
 
-        private fun getPhaseConfig(configuration: CompilerConfiguration, stepId: Int): PhaseConfig {
-            val jsPhases = getJsPhases(configuration)
-
+        private fun getPhaseConfig(stepId: Int): PhaseConfig {
             if (DebugMode.fromSystemProperty("kotlin.js.debugMode") < DebugMode.SUPER_DEBUG) {
-                return PhaseConfig(jsPhases)
+                return PhaseConfig()
             }
 
             return PhaseConfig(
-                jsPhases,
-                dumpToDirectory = buildDir.resolve("irdump").resolve("step-$stepId").path,
-                toDumpStateAfter = jsPhases.toPhaseMap().values.toSet()
+                toDumpStateAfter = PhaseSet.All,
+                dumpToDirectory = buildDir.resolve("irdump").resolve("step-$stepId").path
             )
         }
 

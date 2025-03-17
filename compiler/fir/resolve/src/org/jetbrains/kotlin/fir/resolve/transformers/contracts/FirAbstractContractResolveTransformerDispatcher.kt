@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.contracts.FirLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.contracts.FirRawContractDescription
+import org.jetbrains.kotlin.fir.contracts.builder.buildErrorContractDescription
 import org.jetbrains.kotlin.fir.contracts.builder.buildLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.contracts.builder.buildResolvedContractDescription
 import org.jetbrains.kotlin.fir.contracts.description.ConeEffectDeclaration
@@ -17,10 +18,11 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.buildAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.builder.buildReceiverParameter
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
-import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
-import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.expressions.builder.*
+import org.jetbrains.kotlin.fir.expressions.builder.buildAnonymousFunctionExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildArgumentList
+import org.jetbrains.kotlin.fir.expressions.builder.buildBlock
+import org.jetbrains.kotlin.fir.expressions.builder.buildFunctionCall
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.references.builder.buildSimpleNamedReference
@@ -32,13 +34,10 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBod
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirDeclarationsResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirExpressionsResolveTransformer
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
-import org.jetbrains.kotlin.fir.toFirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.ConeErrorType
+import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
-import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
 import org.jetbrains.kotlin.fir.visitors.transformSingle
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 abstract class FirAbstractContractResolveTransformerDispatcher(
     session: FirSession,
@@ -66,22 +65,12 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
     private var insideContractDescription = false
 
     override fun transformAnnotation(annotation: FirAnnotation, data: ResolutionMode): FirStatement {
+        // Annotations within contracts will be resolved explicitly during BODY_RESOLVE.
         return annotation
     }
 
     override fun transformAnnotationCall(annotationCall: FirAnnotationCall, data: ResolutionMode): FirStatement {
-        // Annotation calls inside contracts are not allowed and at this point we are also
-        // unable to resolve them. We indicate this by returning a resolved error type.
-        if (insideContractDescription) {
-            val typeDiagnostic = ConeSimpleDiagnostic(
-                "Cannot infer annotation call type during CONTRACTS phase.",
-                DiagnosticKind.AnnotationInContract
-            )
-            val errorType = ConeErrorType(typeDiagnostic)
-
-            annotationCall.replaceAnnotationTypeRef(errorType.toFirResolvedTypeRef(annotationCall.annotationTypeRef.source))
-        }
-
+        // Annotations within contracts will be resolved explicitly during BODY_RESOLVE.
         return annotationCall
     }
 
@@ -127,6 +116,10 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             return property
         }
 
+        override fun transformErrorProperty(errorProperty: FirErrorProperty, data: ResolutionMode): FirStatement {
+            return transformProperty(errorProperty, data)
+        }
+
         override fun transformField(field: FirField, data: ResolutionMode): FirField {
             return field
         }
@@ -163,8 +156,12 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             contractDescription: FirLegacyRawContractDescription,
             hasBodyContract: Boolean
         ): T {
-            val valueParameters = owner.valueParameters
-            for (valueParameter in valueParameters) {
+            val valueAndContextParameters = when (owner) {
+                is FirPropertyAccessor -> owner.valueParameters + owner.propertySymbol.resolvedContextParameters
+                is FirFunction -> owner.valueParameters + owner.contextParameters
+            }
+
+            for (valueParameter in valueAndContextParameters) {
                 context.storeVariable(valueParameter, session)
             }
 
@@ -174,29 +171,31 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
                     .apply { replaceConeTypeOrNull(session.builtinTypes.unitType.coneType) }
             }
 
+            // We generate a FirContractCallBlock according to a heuristic, which can have false positives,
+            // such as user-defined functions called "contract". In this case, we restore the contract call block
+            // to a normal call.
             if (resolvedContractCall.toResolvedCallableSymbol()?.callableId != FirContractsDslNames.CONTRACT) {
                 if (hasBodyContract) {
-                    owner.body.replaceFirstStatement<FirContractCallBlock> { resolvedContractCall }
+                    owner.body!!.replaceFirstStatement<FirContractCallBlock> { contractDescription.contractCall }
                 }
+
                 owner.replaceContractDescription(newContractDescription = null)
                 dataFlowAnalyzer.exitContractDescription()
                 return owner
             }
 
-            if (hasBodyContract) {
-                // Until the contract description is replaced with a resolved one, a call rests both in the description
-                // and in the callable body (scoped inside a marker block). Here we patch the second call occurrence.
-                owner.body.replaceFirstStatement<FirContractCallBlock> { FirContractCallBlock(resolvedContractCall) }
+            val argument = resolvedContractCall.arguments.singleOrNull() as? FirAnonymousFunctionExpression
+                ?: return transformOwnerOfErrorContract(owner, contractDescription, hasBodyContract)
+
+            if (!argument.anonymousFunction.isLambda) {
+                return transformOwnerOfErrorContract(owner, contractDescription, hasBodyContract)
             }
 
-            val argument = resolvedContractCall.arguments.singleOrNull() as? FirAnonymousFunctionExpression
-                ?: return transformOwnerOfErrorContract(owner)
-
             val lambdaBody = argument.anonymousFunction.body
-                ?: return transformOwnerOfErrorContract(owner)
+                ?: return transformOwnerOfErrorContract(owner, contractDescription, hasBodyContract)
 
             val resolvedContractDescription = buildResolvedContractDescription {
-                val effectExtractor = ConeEffectExtractor(session, owner, valueParameters)
+                val effectExtractor = ConeEffectExtractor(session, owner, valueAndContextParameters)
                 for (statement in lambdaBody.statements) {
                     if (statement.source?.kind is KtFakeSourceElementKind.ImplicitReturn) continue
                     when (val effect = statement.accept(effectExtractor, null)) {
@@ -241,10 +240,14 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
                 moduleData = session.moduleData
                 origin = FirDeclarationOrigin.Source
                 returnTypeRef = FirImplicitTypeRefImplWithoutSource
+                symbol = FirAnonymousFunctionSymbol()
                 receiverParameter = buildReceiverParameter {
                     typeRef = FirImplicitTypeRefImplWithoutSource
+                    symbol = FirReceiverParameterSymbol()
+                    moduleData = session.moduleData
+                    origin = FirDeclarationOrigin.Source
+                    containingDeclarationSymbol = this@buildAnonymousFunction.symbol
                 }
-                symbol = FirAnonymousFunctionSymbol()
                 isLambda = true
                 hasExplicitParameterList = true
 
@@ -314,6 +317,10 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             }
         }
 
+        override fun transformReplSnippet(replSnippet: FirReplSnippet, data: ResolutionMode): FirReplSnippet {
+            return replSnippet
+        }
+
         override fun transformAnonymousObject(
             anonymousObject: FirAnonymousObject,
             data: ResolutionMode
@@ -362,7 +369,23 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             return enumEntry
         }
 
-        private fun <T : FirContractDescriptionOwner> transformOwnerOfErrorContract(owner: T): T {
+        private fun <T : FirContractDescriptionOwner> transformOwnerOfErrorContract(
+            owner: T,
+            description: FirLegacyRawContractDescription,
+            hasBodyContract: Boolean,
+        ): T {
+            owner.replaceContractDescription(
+                buildErrorContractDescription {
+                    source = description.source
+                    diagnostic = description.diagnostic
+                }
+            )
+
+            // Error contract should be unwrapped to properly resolve it later
+            if (hasBodyContract) {
+                owner.body!!.replaceFirstStatement<FirContractCallBlock> { description.contractCall }
+            }
+
             dataFlowAnalyzer.exitContractDescription()
             return owner
         }
@@ -371,15 +394,3 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             get() = contractDescription is FirLegacyRawContractDescription || contractDescription is FirRawContractDescription
     }
 }
-
-private val FirContractDescriptionOwner.valueParameters: List<FirValueParameter>
-    get() = when (this) {
-        is FirFunction -> valueParameters
-    }
-
-private val FirContractDescriptionOwner.body: FirBlock
-    get() = when (this) {
-        is FirFunction -> body!!
-    }
-
-private fun FirContractDescriptionOwner.error(): Nothing = throw IllegalStateException("${this::class} can not be a contract owner")

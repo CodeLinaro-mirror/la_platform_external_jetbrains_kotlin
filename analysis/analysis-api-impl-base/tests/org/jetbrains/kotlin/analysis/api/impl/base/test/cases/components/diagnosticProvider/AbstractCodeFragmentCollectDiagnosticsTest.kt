@@ -15,19 +15,18 @@ import java.io.File
 
 abstract class AbstractCodeFragmentCollectDiagnosticsTest : AbstractCollectDiagnosticsTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
-        val contextElement = testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtElement>(mainFile)
+        val contextElement = testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret<KtElement>(mainFile)
 
         val fragmentText = mainModule.testModule.files.single().originalFile
             .run { File(parent, "$nameWithoutExtension.fragment.$extension") }
             .readText()
 
-        val isBlockFragment = fragmentText.any { it == '\n' }
-
         val project = mainFile.project
         val factory = KtPsiFactory(project, markGenerated = false)
 
         val codeFragment = when {
-            isBlockFragment -> factory.createBlockCodeFragment(fragmentText, contextElement)
+            fragmentText.startsWith("// CODE_FRAGMENT_KIND: TYPE") -> factory.createTypeCodeFragment(fragmentText, contextElement)
+            fragmentText.any { it == '\n' } -> factory.createBlockCodeFragment(fragmentText, contextElement)
             else -> factory.createExpressionCodeFragment(fragmentText, contextElement)
         }
 

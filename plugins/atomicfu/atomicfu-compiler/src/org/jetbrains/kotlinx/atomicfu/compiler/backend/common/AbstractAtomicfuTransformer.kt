@@ -11,8 +11,6 @@ import org.jetbrains.kotlin.ir.util.parents
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
-import org.jetbrains.kotlin.ir.backend.js.utils.typeArguments
-import org.jetbrains.kotlin.ir.backend.js.utils.valueArguments
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addTypeParameter
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
@@ -431,7 +429,7 @@ abstract class AbstractAtomicfuTransformer(
                     dispatchReceiver = dispatchReceiver,
                     valueType = valueType,
                     atomicHandlerExtraArg = atomicHandlerExtraArg,
-                    callValueArguments = expression.valueArguments,
+                    callValueArguments = List(expression.valueArgumentsCount) { expression.getValueArgument(it) },
                     functionName = functionName
                 )
                 return super.visitExpression(atomicCall, data)
@@ -444,7 +442,7 @@ abstract class AbstractAtomicfuTransformer(
                     dispatchReceiver = dispatchReceiver,
                     callDispatchReceiver = expression.dispatchReceiver,
                     atomicHandlerExtraArg = atomicHandlerExtraArg,
-                    callValueArguments = expression.valueArguments,
+                    callValueArguments = List(expression.valueArgumentsCount) { expression.getValueArgument(it) },
                     callTypeArguments = expression.typeArguments,
                     originalAtomicExtension = declaration,
                     parentFunction = data
@@ -521,7 +519,9 @@ abstract class AbstractAtomicfuTransformer(
                 putValueArgument(shift++, atomicHandlerReceiverValueParam)
                 atomicHandlerExtraArg?.let { putValueArgument(shift++, it) }
                 callValueArguments.forEachIndexed { i, arg -> putValueArgument(i + shift, arg); }
-                callTypeArguments.forEachIndexed { i, irType -> putTypeArgument(i, irType) }
+                callTypeArguments.forEachIndexed { i, irType ->
+                    typeArguments[i] = irType
+                }
             }
         }
 
@@ -629,7 +629,7 @@ abstract class AbstractAtomicfuTransformer(
         ): IrExpression?
 
         protected fun AtomicArray.getAtomicArrayElementIndex(propertyGetterCall: IrExpression): IrExpression =
-            requireNotNull((propertyGetterCall as IrCall).valueArguments[0]) {
+            requireNotNull((propertyGetterCall as IrCall).getValueArgument(0)) {
                 "Expected index argument to be passed to the atomic array getter call ${propertyGetterCall.render()}, but found null." + CONSTRAINTS_MESSAGE
             }
 
@@ -661,7 +661,11 @@ abstract class AbstractAtomicfuTransformer(
             return super.visitContainerExpression(expression, data)
         }
 
-        private fun IrExpression.isThisReceiver() = this is IrGetValue && symbol.owner.name.asString() == "<this>"
+        private fun IrExpression.isThisReceiver() =
+            this is IrGetValue && symbol.owner.let {
+                it is IrValueParameter &&
+                    (it.kind == IrParameterKind.DispatchReceiver || it.kind == IrParameterKind.ExtensionReceiver)
+            }
 
         private fun IrCall.isArrayElementGetter(): Boolean =
             dispatchReceiver?.let {
@@ -734,15 +738,15 @@ abstract class AbstractAtomicfuTransformer(
                         ?: error("Failed to find a transformed atomic extension parent function for ${this.render()}.")
 
         private fun IrValueParameter.remapValueParameters(transformedExtension: IrFunction): IrValueParameter? {
-            if (index < 0 && !type.isAtomicType()) {
+            if (indexInOldValueParameters < 0 && !type.isAtomicType()) {
                 // data is a transformed function
                 // index == -1 for `this` parameter
                 return transformedExtension.dispatchReceiverParameter
                     ?: error("Dispatch receiver of ${transformedExtension.render()} is null" + CONSTRAINTS_MESSAGE)
             }
-            if (index >= 0) {
+            if (indexInOldValueParameters >= 0) {
                 val shift = transformedExtension.valueParameters.map { it.name.asString() }.count { it.endsWith(ATOMICFU) }
-                return transformedExtension.valueParameters[index + shift]
+                return transformedExtension.valueParameters[indexInOldValueParameters + shift]
             }
             return null
         }

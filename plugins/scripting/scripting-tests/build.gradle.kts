@@ -13,8 +13,10 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure-utils"))
     testApi(projectTests(":compiler:tests-compiler-utils"))
     testApi(projectTests(":compiler:tests-common-new"))
+    testApi(project(":compiler:fir:tree"))
 
     testApi(platform(libs.junit.bom))
+    testCompileOnly(project(":compiler:plugin-api"))
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(commonDependency("org.codehaus.woodstox:stax2-api"))

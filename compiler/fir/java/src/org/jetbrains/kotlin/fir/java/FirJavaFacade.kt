@@ -68,8 +68,8 @@ abstract class FirJavaFacade(session: FirSession, private val classFinder: JavaC
     fun findClass(classId: ClassId, knownContent: ByteArray? = null): JavaClass? =
         classFinder.findClass(JavaClassFinder.Request(classId, knownContent))?.takeUnless(JavaClass::hasMetadataAnnotation)
 
-    fun getPackage(fqName: FqName): FqName? =
-        packageCache.getValue(fqName)?.fqName
+    fun hasPackage(fqName: FqName): Boolean =
+        packageCache.getValue(fqName) != null
 
     fun hasTopLevelClassOf(classId: ClassId): Boolean {
         val knownNames = knownClassNamesInPackage(classId.packageFqName) ?: return true
@@ -231,7 +231,7 @@ private class FirLazyJavaDeclarationList(javaClass: JavaClass, classSymbol: FirR
         val classId = classSymbol.classId
         val classTypeParameters = firJavaClass.typeParameters.filterIsInstance<FirTypeParameter>()
         val classKind = firJavaClass.classKind
-        val classStatus = firJavaClass.status
+        val classStatus = firJavaClass.originalStatus
         val classResolvePhase = firJavaClass.resolvePhase
         val classSource = firJavaClass.source
 
@@ -475,7 +475,7 @@ private fun createDeclarationsForJavaRecord(
 
             javaClass.recordComponents.mapTo(valueParameters) { component ->
                 buildJavaValueParameter {
-                    containingFunctionSymbol = this@buildJavaConstructor.symbol
+                    containingDeclarationSymbol = this@buildJavaConstructor.symbol
                     source = component.toSourceElement(KtFakeSourceElementKind.ImplicitRecordConstructorParameter)
                     this.moduleData = moduleData
                     isFromSource = component.isFromSource
@@ -625,7 +625,7 @@ private fun convertJavaAnnotationMethodToValueParameter(
         this.moduleData = moduleData
         isFromSource = javaMethod.isFromSource
         returnTypeRef = firJavaMethod.returnTypeRef
-        containingFunctionSymbol = firJavaMethod.symbol
+        containingDeclarationSymbol = firJavaMethod.symbol
         name = javaMethod.name
         isVararg = javaMethod.returnType is JavaArrayType && javaMethod.name == FirJavaFacade.VALUE_METHOD_NAME
     }
@@ -642,6 +642,7 @@ private fun convertJavaConstructorToFir(
     val session = moduleData.session
     val constructorSymbol = FirConstructorSymbol(constructorId)
     return buildJavaConstructor {
+        val javaFirClass = classSymbol.fir as FirJavaClass
         containingClassSymbol = classSymbol
         source = javaConstructor?.toSourceElement() ?: javaClass.toSourceElement(KtFakeSourceElementKind.ImplicitConstructor)
         this.moduleData = moduleData
@@ -649,7 +650,7 @@ private fun convertJavaConstructorToFir(
         symbol = constructorSymbol
         isInner = javaClass.outerClass != null && !javaClass.isStatic
         val isThisInner = this.isInner
-        val visibility = javaConstructor?.visibility ?: classSymbol.visibility
+        val visibility = javaConstructor?.visibility ?: javaFirClass.originalStatus.visibility
         status = FirResolvedDeclarationStatusImpl(
             visibility,
             Modality.FINAL,

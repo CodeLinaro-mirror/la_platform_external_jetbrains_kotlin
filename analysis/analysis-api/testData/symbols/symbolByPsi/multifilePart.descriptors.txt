@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -31,6 +32,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(multifilePart.kt)
   getContainingJvmClassName: NotMultiFilePartKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -38,6 +40,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -78,7 +81,7 @@ KaNamedFunctionSymbol:
       type: kotlin/String
     visibility: LOCAL
     getContainingFileSymbol: KaFileSymbol(multifilePart.kt)
-    getContainingJvmClassName: null
+    getContainingJvmClassName: NotMultiFilePartKt
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
   returnType: KaUsualClassType:
@@ -90,6 +93,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(multifilePart.kt)
   getContainingJvmClassName: NotMultiFilePartKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -121,6 +125,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /x
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -152,12 +157,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(42)
+  initializer: KaConstantInitializerValue(42)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -212,6 +218,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /y
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -250,7 +257,7 @@ KaKotlinPropertySymbol:
         type: kotlin/Int
       visibility: LOCAL
       getContainingFileSymbol: KaFileSymbol(multifilePart.kt)
-      getContainingJvmClassName: null
+      getContainingJvmClassName: NotMultiFilePartKt
       getContainingModule: KaSourceModule "Sources of main"
       deprecationStatus: null
     returnType: KaUsualClassType:
@@ -272,6 +279,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -302,7 +310,7 @@ KaKotlinPropertySymbol:
       type: kotlin/Int
     visibility: LOCAL
     getContainingFileSymbol: KaFileSymbol(multifilePart.kt)
-    getContainingJvmClassName: null
+    getContainingJvmClassName: NotMultiFilePartKt
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
   returnType: KaUsualClassType:

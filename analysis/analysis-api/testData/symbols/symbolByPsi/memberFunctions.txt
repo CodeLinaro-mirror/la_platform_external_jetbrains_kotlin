@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /A.x
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -35,6 +36,7 @@ KaNamedFunctionSymbol:
     type: A
   getContainingFileSymbol: KaFileSymbol(memberFunctions.kt)
   getContainingJvmClassName: A
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -42,6 +44,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /A.y
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -75,6 +78,7 @@ KaNamedFunctionSymbol:
     type: A
   getContainingFileSymbol: KaFileSymbol(memberFunctions.kt)
   getContainingJvmClassName: A
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 

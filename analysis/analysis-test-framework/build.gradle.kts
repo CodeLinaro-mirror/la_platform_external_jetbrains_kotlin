@@ -22,7 +22,6 @@ dependencies {
     testImplementation(project(":analysis:analysis-api"))
     testApi(project(":analysis:analysis-api-standalone:analysis-api-standalone-base"))
     testApi(project(":analysis:analysis-api-standalone:analysis-api-fir-standalone-base"))
-    testImplementation(project(":analysis:analysis-api-impl-barebone"))
     testImplementation(project(":analysis:analysis-api-impl-base"))
     testImplementation(project(":analysis:decompiled:decompiler-to-psi"))
     testImplementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
@@ -42,10 +41,11 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
 testsJar()
 
 tasks.withType<KotlinJvmCompile>().configureEach {
-    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
+    compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
 
     compilerOptions.optIn.addAll(
         "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
         "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
+        "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",
     )
 }

@@ -12,21 +12,24 @@ import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.psi.KtReturnExpression
 
-public interface KaDataFlowProvider {
+public interface KaDataFlowProvider : KaSessionComponent {
     /**
-     * Smart cast information for the given expression, or `null` if smart casts are not applied to it.
+     * [Smart cast information][KaSmartCastInfo] for the given [KtExpression], or `null` if smart casts are not applied to it.
      */
     public val KtExpression.smartCastInfo: KaSmartCastInfo?
 
     /**
-     * Returns the list of implicit smart-casts which are required for the expression to be called. Includes only implicit
-     * smart-casts:
+     * The list of [implicit receiver smart casts][KaImplicitReceiverSmartCast] which have refined the expression's implicit receivers to a
+     * more specific type. These smart casts are required for the expression to be evaluated. The list does not include smart casts for
+     * explicit receivers.
+     *
+     * #### Example
      *
      * ```kotlin
      * if (this is String) {
-     *   this.substring() // 'this' receiver is explicit, so no implicit smart-cast here.
+     *   this.substring()   // 'this' receiver is explicit, so there is no implicit smart cast here.
      *
-     *   smartcast() // 'this' receiver is implicit, therefore there is implicit smart-cast involved.
+     *   smartcast()        // 'this' receiver is implicit, therefore there is an implicit smart cast involved.
      * }
      * ```
      */
@@ -35,12 +38,6 @@ public interface KaDataFlowProvider {
 
     @KaNonPublicApi
     public fun computeExitPointSnapshot(statements: List<KtExpression>): KaDataFlowExitPointSnapshot
-
-    @KaNonPublicApi
-    @Deprecated("Use 'computeExitPointSnapshot()' instead.", replaceWith = ReplaceWith("computeExitPointSnapshot(statements)"))
-    public fun getExitPointSnapshot(statements: List<KtExpression>): KaDataFlowExitPointSnapshot {
-        return computeExitPointSnapshot(statements)
-    }
 }
 
 /**
@@ -48,10 +45,7 @@ public interface KaDataFlowProvider {
  */
 public interface KaSmartCastInfo : KaLifetimeOwner {
     /**
-     * `true` if the smart cast is stable.
-     *
-     * See the [Smart cast sink stability](https://kotlinlang.org/spec/type-inference.html#smart-cast-sink-stability) section of the
-     * Kotlin specification for more information.
+     * Whether the smart cast is [stable](https://kotlinlang.org/spec/type-inference.html#smart-cast-sink-stability).
      */
     public val isStable: Boolean
 
@@ -61,11 +55,9 @@ public interface KaSmartCastInfo : KaLifetimeOwner {
     public val smartCastType: KaType
 }
 
-@Deprecated("Use 'KaSmartCastInfo' instead.", replaceWith = ReplaceWith("KaSmartCastInfo"))
-public typealias KtSmartCastInfo = KaSmartCastInfo
-
 /**
- * Represents an implicit smart cast for the receiver expression.
+ * Represents type information about an implicit receiver which has been smart-cast to a more specific type. An implicit smart cast is
+ * applied to an implicit receiver, such as `substring()` called on an implicit `this` given an earlier smart cast `this is String`.
  */
 public interface KaImplicitReceiverSmartCast : KaLifetimeOwner {
     /**
@@ -74,16 +66,13 @@ public interface KaImplicitReceiverSmartCast : KaLifetimeOwner {
     public val type: KaType
 
     /**
-     * The kind of the implicit smart cast.
+     * The kind of implicit receiver, i.e. a dispatch or extension receiver.
      */
     public val kind: KaImplicitReceiverSmartCastKind
 }
 
-@Deprecated("Use 'KaImplicitReceiverSmartCast' instead.", replaceWith = ReplaceWith("KaImplicitReceiverSmartCast"))
-public typealias KtImplicitReceiverSmartCast = KaImplicitReceiverSmartCast
-
 /**
- * Represents the kind of implicit smart cast for the receiver expression.
+ * Represents the kind of implicit receiver affected by the smart cast.
  */
 public enum class KaImplicitReceiverSmartCastKind {
     /**
@@ -94,11 +83,8 @@ public enum class KaImplicitReceiverSmartCastKind {
     /**
      * The cast is applied to the receiver of an extension function or property call.
      */
-    EXTENSION
+    EXTENSION,
 }
-
-@Deprecated("Use 'KaImplicitReceiverSmartCastKind' instead.", replaceWith = ReplaceWith("KaImplicitReceiverSmartCastKind"))
-public typealias KtImplicitReceiverSmartCastKind = KaImplicitReceiverSmartCastKind
 
 @KaNonPublicApi
 public class KaDataFlowExitPointSnapshot(
@@ -183,7 +169,3 @@ public class KaDataFlowExitPointSnapshot(
         public val isAugmented: Boolean
     )
 }
-
-@KaNonPublicApi
-@Deprecated("Use 'KaDataFlowExitPointSnapshot' instead.", replaceWith = ReplaceWith("KaDataFlowExitPointSnapshot"))
-public typealias KtDataFlowExitPointSnapshot = KaDataFlowExitPointSnapshot

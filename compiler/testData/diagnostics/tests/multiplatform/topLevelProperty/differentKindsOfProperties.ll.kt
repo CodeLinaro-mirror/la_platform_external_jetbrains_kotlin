@@ -1,3 +1,5 @@
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: FIR2IR
 // LANGUAGE: +LateinitTopLevelProperties
 // MODULE: m1-common
 // FILE: common.kt
@@ -38,3 +40,5 @@ fun test(): String {
     localVariable = "no"
     return localVariable
 }
+
+// MODULE: m1-jvm()()(m1-common)

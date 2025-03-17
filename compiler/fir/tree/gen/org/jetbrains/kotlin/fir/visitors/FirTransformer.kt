@@ -83,14 +83,6 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformControlFlowGraphOwner(controlFlowGraphOwner, data)
     }
 
-    open fun transformContextReceiver(contextReceiver: FirContextReceiver, data: D): FirContextReceiver {
-        return transformElement(contextReceiver, data)
-    }
-
-    final override fun visitContextReceiver(contextReceiver: FirContextReceiver, data: D): FirContextReceiver {
-        return transformContextReceiver(contextReceiver, data)
-    }
-
     open fun transformElementWithResolveState(elementWithResolveState: FirElementWithResolveState, data: D): FirElementWithResolveState {
         return transformElement(elementWithResolveState, data)
     }
@@ -323,12 +315,12 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformElvisExpression(elvisExpression, data)
     }
 
-    open fun transformContextReceiverArgumentListOwner(contextReceiverArgumentListOwner: FirContextReceiverArgumentListOwner, data: D): FirContextReceiverArgumentListOwner {
-        return transformElement(contextReceiverArgumentListOwner, data)
+    open fun transformContextArgumentListOwner(contextArgumentListOwner: FirContextArgumentListOwner, data: D): FirContextArgumentListOwner {
+        return transformElement(contextArgumentListOwner, data)
     }
 
-    final override fun visitContextReceiverArgumentListOwner(contextReceiverArgumentListOwner: FirContextReceiverArgumentListOwner, data: D): FirContextReceiverArgumentListOwner {
-        return transformContextReceiverArgumentListOwner(contextReceiverArgumentListOwner, data)
+    final override fun visitContextArgumentListOwner(contextArgumentListOwner: FirContextArgumentListOwner, data: D): FirContextArgumentListOwner {
+        return transformContextArgumentListOwner(contextArgumentListOwner, data)
     }
 
     open fun transformQualifiedAccessExpression(qualifiedAccessExpression: FirQualifiedAccessExpression, data: D): FirStatement {
@@ -721,6 +713,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     final override fun visitCodeFragment(codeFragment: FirCodeFragment, data: D): FirCodeFragment {
         return transformCodeFragment(codeFragment, data)
+    }
+
+    open fun transformReplSnippet(replSnippet: FirReplSnippet, data: D): FirReplSnippet {
+        return transformElement(replSnippet, data)
+    }
+
+    final override fun visitReplSnippet(replSnippet: FirReplSnippet, data: D): FirReplSnippet {
+        return transformReplSnippet(replSnippet, data)
     }
 
     open fun transformPackageDirective(packageDirective: FirPackageDirective, data: D): FirPackageDirective {
@@ -1249,5 +1249,13 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     final override fun visitLegacyRawContractDescription(legacyRawContractDescription: FirLegacyRawContractDescription, data: D): FirContractDescription {
         return transformLegacyRawContractDescription(legacyRawContractDescription, data)
+    }
+
+    open fun transformErrorContractDescription(errorContractDescription: FirErrorContractDescription, data: D): FirContractDescription {
+        return transformElement(errorContractDescription, data)
+    }
+
+    final override fun visitErrorContractDescription(errorContractDescription: FirErrorContractDescription, data: D): FirContractDescription {
+        return transformErrorContractDescription(errorContractDescription, data)
     }
 }

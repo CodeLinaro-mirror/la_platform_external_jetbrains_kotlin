@@ -69,6 +69,7 @@ callables: 5
     annotations: []
     callableId: generated/genTopLevelFun1
     compilerVisibility: Public
+    contextParameters: []
     contextReceivers: []
     contractEffects: []
     hasStableParameterNames: true
@@ -130,6 +131,7 @@ callables: 5
     annotations: []
     callableId: generated/genTopLevelExtension1
     compilerVisibility: Public
+    contextParameters: []
     contextReceivers: []
     contractEffects: []
     hasStableParameterNames: true
@@ -204,6 +206,7 @@ callables: 5
       visibility: PRIVATE
     callableId: generated/genTopLevelVal1
     compilerVisibility: Public
+    contextParameters: []
     contextReceivers: []
     getter: KaPropertyGetterSymbol:
       annotations: []
@@ -231,12 +234,13 @@ callables: 5
     hasBackingField: true
     hasGetter: true
     hasSetter: false
-    initializer: KtConstantInitializerValue("baz")
+    initializer: KaConstantInitializerValue("baz")
     isActual: false
     isConst: false
     isDelegatedProperty: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isFromPrimaryConstructor: false
     isLateInit: false
     isOverride: false
@@ -282,6 +286,7 @@ callables: 5
       visibility: PRIVATE
     callableId: generated/genTopLevelVar1
     compilerVisibility: Public
+    contextParameters: []
     contextReceivers: []
     getter: KaPropertyGetterSymbol:
       annotations: []
@@ -309,12 +314,13 @@ callables: 5
     hasBackingField: true
     hasGetter: true
     hasSetter: true
-    initializer: KtConstantInitializerValue("quux")
+    initializer: KaConstantInitializerValue("quux")
     isActual: false
     isConst: false
     isDelegatedProperty: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isFromPrimaryConstructor: false
     isLateInit: false
     isOverride: false
@@ -433,6 +439,7 @@ callables: 5
       visibility: PRIVATE
     callableId: generated/genExtensionVal1
     compilerVisibility: Public
+    contextParameters: []
     contextReceivers: []
     getter: KaPropertyGetterSymbol:
       annotations: []
@@ -485,6 +492,7 @@ callables: 5
     isDelegatedProperty: false
     isExpect: false
     isExtension: true
+    isExternal: false
     isFromPrimaryConstructor: false
     isLateInit: false
     isOverride: false

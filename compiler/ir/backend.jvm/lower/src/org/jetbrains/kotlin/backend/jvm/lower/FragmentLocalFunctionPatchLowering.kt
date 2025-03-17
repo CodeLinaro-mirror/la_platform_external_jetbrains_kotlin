@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
+import org.jetbrains.kotlin.backend.common.defaultArgumentsOriginalFunction
 import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
@@ -52,7 +53,7 @@ internal class FragmentLocalFunctionPatchLowering(
             override fun visitCall(expression: IrCall): IrExpression {
                 expression.transformChildrenVoid(this)
                 val localDeclarationsDataKey = when (expression.symbol.owner.origin) {
-                    IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER -> context.mapping.defaultArgumentsOriginalFunction[expression.symbol.owner]
+                    IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER -> expression.symbol.owner.defaultArgumentsOriginalFunction
                     else -> expression.symbol.owner
                 }
                 val localsData = localDeclarationsData[localDeclarationsDataKey] ?: return expression
@@ -74,7 +75,7 @@ internal class FragmentLocalFunctionPatchLowering(
                             // the corresponding argument from the existing
                             // call and place at the appropriate slot in the
                             // call to the lowered function
-                            expression.getValueArgument(oldParameter.index)!!
+                            expression.getValueArgument(oldParameter.indexInOldValueParameters)!!
                         } else {
                             // The parameter is introduced by the lowering to
                             // private static function, so corresponds to a _capture_ by the local function
@@ -90,16 +91,18 @@ internal class FragmentLocalFunctionPatchLowering(
                                 name = capturedValueSymbol.owner.name
                             }
 
-                            context.state.recordNewFragmentCaptureParameter(
-                                newParameter.name.asString(),
-                                capturedValueSymbol.owner.type.toIrBasedKotlinType(),
-                                capturedValueSymbol.owner.toIrBasedDescriptor()
+                            context.state.newFragmentCaptureParameters.add(
+                                Triple(
+                                    newParameter.name.asString(),
+                                    capturedValueSymbol.owner.type.toIrBasedKotlinType(),
+                                    capturedValueSymbol.owner.toIrBasedDescriptor()
+                                )
                             )
 
                             irBuilder.irGet(newParameter)
                         }
 
-                        putValueArgument(newValueParameterDeclaration.index, getValue)
+                        putValueArgument(newValueParameterDeclaration.indexInOldValueParameters, getValue)
                     }
                 }
             }

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.diagnostics.rendering.Renderer
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.fqNameWithoutFileClassesWhenAvailable
 import org.jetbrains.kotlin.ir.util.isPropertyAccessor
 
 interface IrDiagnosticReporter {
@@ -24,7 +25,7 @@ interface IrDiagnosticReporter {
 
 object IrDiagnosticRenderers {
     val SYMBOL_OWNER_DECLARATION_FQ_NAME = Renderer<IrSymbol> {
-        (it.owner as? IrDeclarationWithName)?.fqNameWhenAvailable?.asString() ?: "unknown name"
+        (it.owner as? IrDeclarationWithName)?.fqNameWithoutFileClassesWhenAvailable?.asString() ?: "unknown name"
     }
     val DECLARATION_NAME = Renderer<IrDeclarationWithName> { it.name.asString() }
 
@@ -41,5 +42,9 @@ object IrDiagnosticRenderers {
             is IrProperty -> "property"
             else -> "declaration"
         }
+    }
+
+    val DECLARATION_KIND_AND_NAME = Renderer<IrDeclaration> { declaration ->
+        DECLARATION_KIND.render(declaration) + " " + (declaration as? IrDeclarationWithName)?.fqNameWhenAvailable?.asString()
     }
 }

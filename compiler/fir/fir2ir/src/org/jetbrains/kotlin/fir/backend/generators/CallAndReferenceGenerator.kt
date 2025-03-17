@@ -27,15 +27,12 @@ import org.jetbrains.kotlin.fir.resolve.calls.getExpectedType
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.approximateDeclarationType
 import org.jetbrains.kotlin.fir.scopes.getDeclaredConstructors
-import org.jetbrains.kotlin.fir.scopes.impl.originalConstructorIfTypeAlias
-import org.jetbrains.kotlin.fir.scopes.impl.typeAliasForConstructor
+import org.jetbrains.kotlin.fir.scopes.impl.toConeType
+import org.jetbrains.kotlin.fir.scopes.impl.typeAliasConstructorInfo
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
-import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.builder.buildTypeProjectionWithVariance
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.UNDEFINED_PARAMETER_INDEX
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -50,8 +47,8 @@ import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.types.AbstractTypeChecker
-import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.util.OperatorNameConventions
+import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 class CallAndReferenceGenerator(
@@ -59,8 +56,6 @@ class CallAndReferenceGenerator(
     private val visitor: Fir2IrVisitor,
     private val conversionScope: Fir2IrConversionScope,
 ) : Fir2IrComponents by c {
-
-    private val adapterGenerator = AdapterGenerator(c, conversionScope)
 
     private fun FirTypeRef.toIrType(): IrType = toIrType(c, conversionScope.defaultConversionTypeOrigin())
 
@@ -119,7 +114,9 @@ class CallAndReferenceGenerator(
                     getter = referencedPropertyGetterSymbol,
                     setter = referencedPropertySetterSymbol,
                     origin = origin
-                ).applyTypeArguments(callableReferenceAccess).applyReceivers(callableReferenceAccess, explicitReceiverExpression)
+                )
+                    .applyTypeArguments(callableReferenceAccess)
+                    .applyReceiversAndArguments(callableReferenceAccess, firSymbol, explicitReceiverExpression)
             }
 
             fun convertReferenceToSyntheticProperty(propertySymbol: FirSimpleSyntheticPropertySymbol): IrExpression? {
@@ -143,7 +140,9 @@ class CallAndReferenceGenerator(
                     getter = referencedPropertyGetterSymbol,
                     setter = referencedPropertySetterSymbol,
                     origin = origin
-                ).applyTypeArguments(callableReferenceAccess).applyReceivers(callableReferenceAccess, explicitReceiverExpression)
+                )
+                    .applyTypeArguments(callableReferenceAccess)
+                    .applyReceiversAndArguments(callableReferenceAccess, firSymbol, explicitReceiverExpression)
             }
 
             fun convertReferenceToLocalDelegatedProperty(propertySymbol: FirPropertySymbol): IrExpression? {
@@ -170,7 +169,8 @@ class CallAndReferenceGenerator(
                     getter = runIf(!field.isStatic) { declarationStorage.findGetterOfProperty(irPropertySymbol) },
                     setter = runIf(!field.isStatic) { declarationStorage.findSetterOfProperty(irPropertySymbol) },
                     origin
-                ).applyReceivers(callableReferenceAccess, explicitReceiverExpression)
+                )
+                    .applyReceiversAndArguments(callableReferenceAccess, firSymbol, explicitReceiverExpression)
             }
 
             fun convertReferenceToFunction(functionSymbol: FirFunctionSymbol<*>): IrExpression? {
@@ -181,7 +181,7 @@ class CallAndReferenceGenerator(
                 if (function is FirConstructor) {
                     // The number of type parameters of typealias constructor may mismatch with that number in the original constructor.
                     // And for IR, we need to use the original constructor as a source of truth
-                    function = function.originalConstructorIfTypeAlias ?: function
+                    function = function.typeAliasConstructorInfo?.originalConstructor ?: function
                 }
                 return if (adapterGenerator.needToGenerateAdaptedCallableReference(callableReferenceAccess, type, function)) {
                     // Receivers are being applied inside
@@ -192,13 +192,14 @@ class CallAndReferenceGenerator(
                     IrFunctionReferenceImplWithShape(
                         startOffset, endOffset, type, irFunctionSymbol,
                         typeArgumentsCount = function.typeParameters.size,
-                        valueArgumentsCount = function.valueParameters.size + function.contextReceivers.size,
-                        contextParameterCount = function.contextReceivers.size,
+                        valueArgumentsCount = function.valueParameters.size + function.contextParameters.size,
+                        contextParameterCount = function.contextParameters.size,
                         hasDispatchReceiver = function.dispatchReceiverType != null,
                         hasExtensionReceiver = function.isExtension,
                         reflectionTarget = irFunctionSymbol
-                    ).applyTypeArguments(callableReferenceAccess)
-                        .applyReceivers(callableReferenceAccess, explicitReceiverExpression)
+                    )
+                        .applyTypeArguments(callableReferenceAccess)
+                        .applyReceiversAndArguments(callableReferenceAccess, firSymbol, explicitReceiverExpression)
                 }
             }
 
@@ -439,6 +440,18 @@ class CallAndReferenceGenerator(
                         } else {
                             selectedReceiver
                         }
+
+                        if (noArguments || qualifiedAccess !is FirCall) return@apply
+
+                        val (valueParameters, argumentMapping, substitutor) = extractArgumentsMapping(qualifiedAccess)
+                        if (valueParameters == null || argumentMapping == null || !visitor.annotationMode && argumentMapping.isEmpty()) return@apply
+
+                        val dynamicCallVarargArgument = argumentMapping.keys.firstOrNull() as? FirVarargArgumentsExpression
+                            ?: error("Dynamic call must have a single vararg argument")
+                        for (argument in dynamicCallVarargArgument.arguments) {
+                            val irArgument = convertArgument(argument, null, substitutor)
+                            arguments.add(irArgument)
+                        }
                     }
                 }
 
@@ -448,10 +461,11 @@ class CallAndReferenceGenerator(
                 }
 
                 else -> generateErrorCallExpression(startOffset, endOffset, calleeReference, type)
+                    .applyIf(qualifiedAccess is FirCall && !noArguments) {
+                        applyReceiversAndArguments(qualifiedAccess, declarationSiteSymbol = null, explicitReceiverExpression = null)
+                    }
             }
         }
-            .applyTypeArguments(qualifiedAccess)
-            .applyCallArguments((qualifiedAccess as? FirCall)?.takeIf { !noArguments })
     }
 
     internal fun injectGetValueCall(element: FirElement, calleeReference: FirReference): IrExpression? {
@@ -493,6 +507,10 @@ class CallAndReferenceGenerator(
         val dispatchReceiver = qualifiedAccess.dispatchReceiver
         val calleeReference = qualifiedAccess.calleeReference
 
+        if (calleeReference is FirSuperReference && dispatchReceiver != null) {
+            return visitor.convertToIrExpression(dispatchReceiver)
+        }
+
         val firSymbol = calleeReference.extractDeclarationSiteSymbol(c)
         val isDynamicAccess = firSymbol?.origin == FirDeclarationOrigin.DynamicScope
 
@@ -502,7 +520,7 @@ class CallAndReferenceGenerator(
                 explicitReceiverExpression,
                 irType,
                 calleeReference,
-                firSymbol ?: error("Must have had a symbol"),
+                firSymbol,
                 dynamicOperator,
                 noArguments,
             )
@@ -530,11 +548,6 @@ class CallAndReferenceGenerator(
         }
 
         return qualifiedAccess.convertWithOffsets { startOffset, endOffset ->
-            if (calleeReference is FirSuperReference) {
-                if (dispatchReceiver != null) {
-                    return@convertWithOffsets visitor.convertToIrExpression(dispatchReceiver)
-                }
-            }
             val irSymbol = firSymbol?.toIrSymbolForCall(
                 c,
                 dispatchReceiver,
@@ -553,7 +566,7 @@ class CallAndReferenceGenerator(
                         irSymbol,
                         typeArgumentsCount = totalTypeParametersCount,
                         valueArgumentsCount = firSymbol.valueParametersSize(),
-                        contextParameterCount = constructor.contextReceivers.size,
+                        contextParameterCount = constructor.contextParameters.size,
                         constructorTypeArgumentsCount = constructorTypeParametersCount,
                         hasDispatchReceiver = firSymbol.dispatchReceiverType != null,
                         hasExtensionReceiver = firSymbol.isExtension,
@@ -578,7 +591,7 @@ class CallAndReferenceGenerator(
                         startOffset, endOffset, irType, irSymbol,
                         typeArgumentsCount = firSymbol.typeParameterSymbols.size,
                         valueArgumentsCount = firSymbol.valueParametersSize(),
-                        contextParameterCount = firSymbol.fir.contextReceivers.size,
+                        contextParameterCount = firSymbol.fir.contextParameters.size,
                         hasDispatchReceiver = firSymbol.dispatchReceiverType != null,
                         hasExtensionReceiver = firSymbol.isExtension,
                         origin = callOrigin,
@@ -622,8 +635,8 @@ class CallAndReferenceGenerator(
                                 finalIrType,
                                 getterSymbol,
                                 typeArgumentsCount = property.typeParameters.size,
-                                valueArgumentsCount = property.contextReceivers.size,
-                                contextParameterCount = property.contextReceivers.size,
+                                valueArgumentsCount = property.contextParameters.size,
+                                contextParameterCount = property.contextParameters.size,
                                 hasDispatchReceiver = property.dispatchReceiverType != null,
                                 hasExtensionReceiver = property.isExtension,
                                 origin = incOrDecSourceKindToIrStatementOrigin[qualifiedAccess.source?.kind]
@@ -665,15 +678,15 @@ class CallAndReferenceGenerator(
                 is IrEnumEntrySymbol -> IrGetEnumValueImpl(startOffset, endOffset, irType, irSymbol)
                 else -> generateErrorCallExpression(startOffset, endOffset, calleeReference, irType)
             }
-        }.applyTypeArguments(qualifiedAccess).applyReceivers(qualifiedAccess, convertedExplicitReceiver)
-            .applyCallArguments(qualifiedAccess)
+        }.applyTypeArguments(qualifiedAccess)
+            .applyReceiversAndArguments(qualifiedAccess, firSymbol, convertedExplicitReceiver)
     }
 
     private fun FirCallableSymbol<*>.valueParametersSize(): Int {
         return when (this) {
             is FirSyntheticPropertySymbol -> 0
-            is FirNamedFunctionSymbol -> fir.valueParameters.size + fir.contextReceivers.size
-            is FirConstructorSymbol -> fir.valueParameters.size + fir.contextReceivers.size
+            is FirNamedFunctionSymbol -> fir.valueParameters.size + fir.contextParameters.size
+            is FirConstructorSymbol -> fir.valueParameters.size + fir.contextParameters.size
             is FirFunctionSymbol<*> -> fir.valueParameters.size
             else -> error("Illegal symbol: ${this::class}")
         }
@@ -747,7 +760,14 @@ class CallAndReferenceGenerator(
             irRhs.type = variableAssignment.lValue.resolvedType.toIrType()
         }
 
-        val irRhsWithCast = wrapWithImplicitCastForAssignment(variableAssignment, irRhs)
+        val irRhsWithCast =
+            wrapWithImplicitCastForAssignment(variableAssignment, irRhs)
+                .prepareExpressionForGivenExpectedType(
+                    this,
+                    variableAssignment.rValue,
+                    variableAssignment.rValue.resolvedType,
+                    variableAssignment.lValue.resolvedType
+                )
 
         injectSetValueCall(variableAssignment, calleeReference, irRhsWithCast)?.let { return it }
 
@@ -760,7 +780,7 @@ class CallAndReferenceGenerator(
                 explicitReceiverExpression,
                 type,
                 calleeReference,
-                firSymbol ?: error("Must've had a symbol"),
+                firSymbol,
                 irRhsWithCast,
             )
         }
@@ -791,10 +811,7 @@ class CallAndReferenceGenerator(
                             typeArgumentsCount = firProperty.typeParameters.size,
                             origin = origin,
                             superQualifierSymbol = variableAssignment.dispatchReceiver?.superQualifierSymbolForFunctionAndPropertyAccess()
-                        ).apply {
-                            putContextReceiverArguments(lValue)
-                            putValueArgument(0, irRhsWithCast)
-                        }
+                        )
 
                         else -> generateErrorCallExpression(startOffset, endOffset, calleeReference)
                     }
@@ -809,15 +826,13 @@ class CallAndReferenceGenerator(
                         setterSymbol != null -> IrCallImplWithShape(
                             startOffset, endOffset, type, setterSymbol,
                             typeArgumentsCount = firProperty.typeParameters.size,
-                            valueArgumentsCount = 1 + firProperty.contextReceivers.size,
-                            contextParameterCount = firProperty.contextReceivers.size,
+                            valueArgumentsCount = 1 + firProperty.contextParameters.size,
+                            contextParameterCount = firProperty.contextParameters.size,
                             hasDispatchReceiver = firProperty.dispatchReceiverType != null,
                             hasExtensionReceiver = firProperty.isExtension,
                             origin = origin,
                             superQualifierSymbol = variableAssignment.dispatchReceiver?.superQualifierSymbolForFunctionAndPropertyAccess()
-                        ).apply {
-                            putValueArgument(putContextReceiverArguments(lValue), irRhsWithCast)
-                        }
+                        )
 
                         backingFieldSymbol != null -> IrSetFieldImpl(
                             startOffset, endOffset, backingFieldSymbol, type,
@@ -832,14 +847,13 @@ class CallAndReferenceGenerator(
                 }
 
                 is IrSimpleFunctionSymbol -> {
+                    // Assignment to synthetic var property
                     val firFunction = calleeReference.toResolvedFunctionSymbol()?.fir
                     IrCallImpl(
                         startOffset, endOffset, type, symbol,
                         typeArgumentsCount = firFunction?.typeParameters?.size ?: 0,
                         origin = origin
-                    ).apply {
-                        putValueArgument(0, irRhsWithCast)
-                    }
+                    )
                 }
 
                 is IrVariableSymbol -> {
@@ -848,10 +862,12 @@ class CallAndReferenceGenerator(
 
                 else -> generateErrorCallExpression(startOffset, endOffset, calleeReference)
             }
-        }.applyTypeArguments(lValue).applyReceivers(lValue, explicitReceiverExpression)
+        }
+            .applyTypeArguments(lValue)
+            .applyReceiversAndArguments(lValue, firSymbol, explicitReceiverExpression, irAssignmentRhs = irRhs)
     }
 
-    /** Wrap an assignment - as needed - with an implicit cast to the left-hard side type. */
+    /** Wrap an assignment - as needed - with an implicit cast to the left-hand side type. */
     private fun wrapWithImplicitCastForAssignment(assignment: FirVariableAssignment, value: IrExpression): IrExpression {
         if (value is IrTypeOperatorCall) return value // Value is already cast.
 
@@ -936,7 +952,7 @@ class CallAndReferenceGenerator(
                     firConstructorSymbol.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
 
                     val fullyExpandedConstructorSymbol = firConstructorSymbol.let {
-                        it.fir.originalConstructorIfTypeAlias?.unwrapUseSiteSubstitutionOverrides()?.symbol ?: it
+                        it.fir.typeAliasConstructorInfo?.originalConstructor?.unwrapUseSiteSubstitutionOverrides()?.symbol ?: it
                     }
                     val irConstructor = declarationStorage.getIrConstructorSymbol(fullyExpandedConstructorSymbol)
 
@@ -948,7 +964,7 @@ class CallAndReferenceGenerator(
                         // `irConstructor.owner.valueParameters.size`.
                         // See KT-58294
                         valueArgumentsCount = firConstructorSymbol.valueParameterSymbols.size,
-                        contextParameterCount = firConstructorSymbol.resolvedContextReceivers.size,
+                        contextParameterCount = firConstructorSymbol.resolvedContextParameters.size,
                         hasDispatchReceiver = firConstructorSymbol.dispatchReceiverType != null,
                         hasExtensionReceiver = firConstructorSymbol.isExtension,
                         typeArgumentsCount = fullyExpandedConstructorSymbol.typeParameterSymbols.size,
@@ -961,7 +977,7 @@ class CallAndReferenceGenerator(
         return visitor.withAnnotationMode {
             val annotationCall = annotation.toAnnotationCall()
             irConstructorCall
-                .applyCallArguments(annotationCall)
+                .applyReceiversAndArguments(annotationCall, declarationSiteSymbol = firConstructorSymbol, explicitReceiverExpression = null)
                 .applyTypeArgumentsWithTypealiasConstructorRemapping(firConstructorSymbol?.fir, annotationCall?.typeArguments.orEmpty())
         }
     }
@@ -1039,186 +1055,38 @@ class CallAndReferenceGenerator(
         return Triple(valueParameters, argumentMapping, substitutor)
     }
 
-    internal fun IrExpression.applyCallArguments(
-        statement: FirStatement?,
-    ): IrExpression {
-        val call = statement as? FirCall
-        return when (this) {
-            is IrMemberAccessExpression<*> -> {
-                val contextReceiverCount = putContextReceiverArguments(statement)
-                if (call == null) return this
-                val argumentsCount = call.arguments.size
-                if (argumentsCount <= valueArgumentsCount) {
-                    apply {
-                        val (valueParameters, argumentMapping, substitutor) = extractArgumentsMapping(call)
-                        if (argumentMapping != null && (visitor.annotationMode || argumentMapping.isNotEmpty()) && valueParameters != null) {
-                            return applyArgumentsWithReorderingIfNeeded(
-                                argumentMapping, valueParameters, substitutor, contextReceiverCount, call,
-                            )
-                        }
-                        check(argumentsCount == 0) { "Non-empty unresolved argument list." }
-                    }
-                } else {
-                    val calleeSymbol = (this as? IrCallImpl)?.symbol
-
-                    @OptIn(UnsafeDuringIrConstructionAPI::class)
-                    val description = calleeSymbol?.signature?.render()
-                        ?: calleeSymbol?.takeIf { it.isBound }?.owner?.render()
-                        ?: "???"
-                    IrErrorCallExpressionImpl(
-                        startOffset, endOffset, type,
-                        "Cannot bind $argumentsCount arguments to '$description' call with $valueArgumentsCount parameters"
-                    ).apply {
-                        for (argument in call.arguments) {
-                            arguments.add(visitor.convertToIrExpression(argument))
-                        }
-                    }
-                }
-            }
-
-            is IrDynamicOperatorExpression -> apply {
-                if (call == null) return@apply
-                val (valueParameters, argumentMapping, substitutor) = extractArgumentsMapping(call)
-                if (argumentMapping != null && (visitor.annotationMode || argumentMapping.isNotEmpty())) {
-                    if (valueParameters != null) {
-                        val dynamicCallVarargArgument = argumentMapping.keys.firstOrNull() as? FirVarargArgumentsExpression
-                            ?: error("Dynamic call must have a single vararg argument")
-                        for (argument in dynamicCallVarargArgument.arguments) {
-                            val irArgument = convertArgument(argument, null, substitutor)
-                            arguments.add(irArgument)
-                        }
-                    }
-                }
-            }
-
-            is IrErrorCallExpressionImpl -> apply {
-                for (argument in call?.arguments.orEmpty()) {
-                    arguments.add(visitor.convertToIrExpression(argument))
-                }
-            }
-
-            else -> this
-        }
-    }
-
-    private fun IrMemberAccessExpression<*>.putContextReceiverArguments(statement: FirStatement?): Int {
-        if (statement !is FirContextReceiverArgumentListOwner) return 0
-
-        val contextReceiverCount = statement.contextReceiverArguments.size
-        if (contextReceiverCount > 0) {
-            for (index in 0 until contextReceiverCount) {
-                putValueArgument(
-                    index,
-                    visitor.convertToIrExpression(statement.contextReceiverArguments[index]),
-                )
-            }
-        }
-
-        return contextReceiverCount
-    }
-
-    private fun IrMemberAccessExpression<*>.applyArgumentsWithReorderingIfNeeded(
-        argumentMapping: Map<FirExpression, FirValueParameter>,
-        valueParameters: List<FirValueParameter>,
-        substitutor: ConeSubstitutor,
-        contextReceiverCount: Int,
-        call: FirCall,
-    ): IrExpression {
-        val converted = convertArguments(argumentMapping, substitutor)
-        // If none of the parameters have side effects, the evaluation order doesn't matter anyway.
-        // For annotations, this is always true, since arguments have to be compile-time constants.
-        if (!visitor.annotationMode && !converted.all { (_, irArgument) -> irArgument.hasNoSideEffects() } &&
-            needArgumentReordering(argumentMapping.values, valueParameters)
-        ) {
-            return IrBlockImpl(startOffset, endOffset, type, IrStatementOrigin.ARGUMENTS_REORDERING_FOR_CALL).apply {
-                fun IrExpression.freeze(nameHint: String): IrExpression {
-                    if (isUnchanging()) return this
-                    val (variable, symbol) = conversionScope.createTemporaryVariable(this, nameHint)
-                    statements.add(variable)
-                    return IrGetValueImpl(startOffset, endOffset, symbol, null)
-                }
-
-                dispatchReceiver = dispatchReceiver?.freeze("\$this")
-                extensionReceiver = extensionReceiver?.freeze("\$receiver")
-                for ((parameter, irArgument) in converted) {
-                    putValueArgument(
-                        valueParameters.indexOf(parameter) + contextReceiverCount,
-                        irArgument.freeze(parameter.name.asString())
-                    )
-                }
-                statements.add(this@applyArgumentsWithReorderingIfNeeded)
-            }
-        } else {
-            for ((parameter, irArgument) in converted) {
-                putValueArgument(valueParameters.indexOf(parameter) + contextReceiverCount, irArgument)
-            }
-            if (visitor.annotationMode) {
-                val function = call.toReference(session)?.toResolvedCallableSymbol()?.fir as? FirFunction
-                for ((index, parameter) in valueParameters.withIndex()) {
-                    if (parameter.isVararg && !argumentMapping.containsValue(parameter)) {
-                        val value = if (function?.itOrExpectHasDefaultParameterValue(index) == true) {
-                            null
-                        } else {
-                            val varargType = parameter.returnTypeRef.toIrType()
-                            IrVarargImpl(
-                                UNDEFINED_OFFSET,
-                                UNDEFINED_OFFSET,
-                                varargType,
-                                varargType.getArrayElementType(builtins)
-                            )
-                        }
-                        putValueArgument(index, value)
-                    }
-                }
-            }
-            return this
-        }
-    }
-
-    private fun convertArguments(
-        argumentMapping: Map<FirExpression, FirValueParameter>,
-        substitutor: ConeSubstitutor,
-    ): List<Pair<FirValueParameter, IrExpression>> =
-        argumentMapping.entries.mapNotNull { (argument, parameter) ->
-            if (visitor.isGetClassOfUnresolvedTypeInAnnotation(argument)) null
-            else (parameter to convertArgument(argument, parameter, substitutor))
-        }
-
-    private fun needArgumentReordering(
-        parametersInActualOrder: Collection<FirValueParameter>,
-        valueParameters: List<FirValueParameter>,
-    ): Boolean {
-        var lastValueParameterIndex = UNDEFINED_PARAMETER_INDEX
-        for (parameter in parametersInActualOrder) {
-            val index = valueParameters.indexOf(parameter)
-            if (index < lastValueParameterIndex) {
-                return true
-            }
-            lastValueParameterIndex = index
-        }
-        return false
-    }
-
     private fun convertArgument(
         argument: FirExpression,
         parameter: FirValueParameter?,
         substitutor: ConeSubstitutor,
     ): IrExpression {
         val unsubstitutedParameterType = parameter?.returnTypeRef?.coneType?.fullyExpandedType(session)
-        // Normally argument type should be correct itself.
-        // However, for deserialized annotations it's possible to have imprecise Array<Any> type
-        // for empty integer literal arguments.
-        // In this case we have to use parameter type itself which is more precise, like Array<String> or IntArray.
-        // See KT-62598 and its fix for details.
-        val expectedType = unsubstitutedParameterType.takeIf { visitor.annotationMode && unsubstitutedParameterType?.isArrayType == true }
-        var irArgument = visitor.convertToIrExpression(argument, expectedType = expectedType)
+        var irArgument = visitor.convertToIrExpression(
+            argument,
+            // Normally an argument type should be correct itself.
+            // However, for deserialized annotations it's possible to have an imprecise Array<Any> type
+            // for empty integer literal arguments.
+            // In this case we have to use a parameter type itself which is more precise, like Array<String> or IntArray.
+            // See KT-62598 and its fix for details
+            expectedTypeForAnnotationArgument =
+                unsubstitutedParameterType.takeIf { visitor.annotationMode && unsubstitutedParameterType?.isArrayType == true }
+        )
         if (unsubstitutedParameterType != null) {
-            with(visitor.implicitCastInserter) {
-                val argumentType = argument.resolvedType.fullyExpandedType(session)
+            // Unsubstituted parameter type is only used for generating nullability check if the argument being used is flexible,
+            // while the value parameter doesn't accept nulls.
+            // And this is the only use case where the whole Array type is required for vararg, all other implicit coercion/conversion
+            // logic needs the element type and substituted type.
+            val substitutedParameterType = substitutor.substituteOrSelf(
+                when {
+                    parameter.isVararg -> unsubstitutedParameterType.arrayElementType()!!
+                    else -> unsubstitutedParameterType
+                }
+            )
+            val argumentType = argument.resolvedType.fullyExpandedType(session)
 
+            with(visitor.implicitCastInserter) {
                 fun insertCastToArgument(argument: FirExpression): IrExpression = when (argument) {
                     is FirSmartCastExpression -> {
-                        val substitutedParameterType = substitutor.substituteOrSelf(unsubstitutedParameterType)
                         // here we should use a substituted parameter type to properly choose the component of an intersection type
                         //  to provide a proper cast to the smartcasted type
                         irArgument.insertCastForSmartcastWithIntersection(argumentType, substitutedParameterType)
@@ -1229,24 +1097,15 @@ class CallAndReferenceGenerator(
                     else -> irArgument
                 }
                 irArgument = insertCastToArgument(argument)
-                // here we should pass unsubstituted parameter type to properly infer if the original type accepts null or not
-                // to properly insert nullability check
-                irArgument = irArgument.insertSpecialCast(argument, argumentType, unsubstitutedParameterType)
             }
+
+            // here we should pass an unsubstituted parameter type to properly infer if the original type accepts null or not
+            // to properly insert nullability check
+            irArgument = irArgument.prepareExpressionForGivenExpectedType(
+                this, argument, argumentType, unsubstitutedParameterType, substitutedParameterType
+            )
         }
-        with(adapterGenerator) {
-            if (parameter?.returnTypeRef is FirResolvedTypeRef) {
-                // Java type case (from annotations)
-                val parameterType = parameter.returnTypeRef.coneType
-                val unwrappedParameterType = if (parameter.isVararg) parameterType.arrayElementType()!! else parameterType
-                val samFunctionType = getFunctionTypeForPossibleSamType(unwrappedParameterType)
-                irArgument = irArgument.applySuspendConversionIfNeeded(
-                    argument,
-                    substitutor.substituteOrSelf(samFunctionType ?: unwrappedParameterType)
-                )
-                irArgument = irArgument.applySamConversionIfNeeded(argument, parameter)
-            }
-        }
+
         return irArgument
             .applyImplicitIntegerCoercionIfNeeded(argument, parameter)
     }
@@ -1276,7 +1135,7 @@ class CallAndReferenceGenerator(
                     irConversionFunction,
                     typeArgumentsCount = 0
                 ).apply {
-                    extensionReceiver = this@applyToElement
+                    arguments[0] = this@applyToElement
                 }
             } else {
                 this@applyToElement
@@ -1319,93 +1178,6 @@ class CallAndReferenceGenerator(
         }
     }
 
-    internal fun IrExpression.applyTypeArguments(access: FirQualifiedAccessExpression): IrExpression =
-        applyTypeArgumentsWithTypealiasConstructorRemapping(access.calleeReference.toResolvedCallableSymbol()?.fir, access.typeArguments)
-
-    /**
-     * Should be used whenever a [callableFir] representing a constructor produced by typealias
-     * expansion gets manually unwrapped to the original constructor.
-     * If you manually unwrap the constructor, you must manually remap the type arguments.
-     */
-    private fun IrExpression.applyTypeArgumentsWithTypealiasConstructorRemapping(
-        callableFir: FirCallableDeclaration?,
-        originalTypeArguments: List<FirTypeProjection>,
-    ): IrExpression {
-        // If we have a constructor call through a type alias, we can't apply the type arguments as is.
-        // The type arguments in FIR correspond to the original type arguments as passed to the type alias.
-        // However, the type alias can map the type arguments arbitrarily (change order, change count by mapping K,V -> Map<K,V> or by
-        // having an unused argument).
-        // We need to map the type arguments using the expansion of the type alias.
-
-        val typeArguments = (callableFir as? FirConstructor)
-            ?.typeAliasForConstructor
-            ?.let { originalTypeArguments.toExpandedTypeArguments(it) }
-            ?: originalTypeArguments
-
-        return applyTypeArguments(
-            typeArguments,
-            (callableFir as? FirTypeParametersOwner)?.typeParameters
-        )
-    }
-
-    /**
-     * Applies the list of type arguments to the given type alias, expands it fully and returns the list of type arguments for the
-     * resulting type.
-     */
-    private fun List<FirTypeProjection>.toExpandedTypeArguments(typeAliasSymbol: FirTypeAliasSymbol): List<FirTypeProjection> {
-        return typeAliasSymbol
-            .constructType(map { it.toConeTypeProjection() }.toTypedArray())
-            .fullyExpandedType(session)
-            .typeArguments
-            .map { typeProjection ->
-                buildTypeProjectionWithVariance {
-                    variance = when (typeProjection) {
-                        is ConeKotlinTypeProjectionIn -> Variance.IN_VARIANCE
-                        is ConeKotlinTypeProjectionOut -> Variance.OUT_VARIANCE
-                        else -> Variance.INVARIANT
-                    }
-                    typeRef = (typeProjection as? ConeKotlinType)?.let {
-                        buildResolvedTypeRef { coneType = it }
-                    } ?: buildErrorTypeRef {
-                        diagnostic = ConeSimpleDiagnostic("Expansion contains unexpected type ${typeProjection.javaClass}")
-                    }
-                }
-            }
-    }
-
-    private fun IrExpression.applyTypeArguments(
-        typeArguments: List<FirTypeProjection>?,
-        typeParameters: List<FirTypeParameter>?,
-    ): IrExpression {
-        if (this !is IrMemberAccessExpression<*>) return this
-
-        val argumentsCount = typeArguments?.size ?: return this
-        if (argumentsCount <= typeArgumentsCount) {
-            for ((index, argument) in typeArguments.withIndex()) {
-                val typeParameter = typeParameters?.get(index)
-                val argumentFirType = (argument as FirTypeProjectionWithVariance).typeRef
-                val argumentIrType = if (typeParameter?.isReified == true) {
-                    argumentFirType.approximateDeclarationType(
-                        session,
-                        containingCallableVisibility = null,
-                        isLocal = false,
-                        stripEnhancedNullability = false
-                    ).toIrType()
-                } else {
-                    argumentFirType.toIrType()
-                }
-                putTypeArgument(index, argumentIrType)
-            }
-            return this
-        } else {
-            val name = if (this is IrCallImpl) symbol.signature.toString() else "???"
-            return IrErrorExpressionImpl(
-                startOffset, endOffset, type,
-                "Cannot bind $argumentsCount type arguments to $name call with $typeArgumentsCount type parameters"
-            )
-        }
-    }
-
     private fun FirQualifiedAccessExpression.findIrDispatchReceiver(explicitReceiverExpression: IrExpression?): IrExpression? =
         findIrReceiver(explicitReceiverExpression, isDispatch = true)
 
@@ -1424,69 +1196,6 @@ class CallAndReferenceGenerator(
         return firReceiver
             ?.let { visitor.convertToIrReceiverExpression(it, this) }
             ?: explicitReceiverExpression
-    }
-
-    private fun IrExpression.applyReceivers(
-        qualifiedAccess: FirQualifiedAccessExpression,
-        explicitReceiverExpression: IrExpression?,
-    ): IrExpression {
-        when (this) {
-            is IrMemberAccessExpression<*> -> {
-                val resolvedFirSymbol = qualifiedAccess.toResolvedCallableSymbol()
-                if (resolvedFirSymbol?.dispatchReceiverType != null) {
-                    val baseDispatchReceiver = qualifiedAccess.findIrDispatchReceiver(explicitReceiverExpression)
-                    var firDispatchReceiver = qualifiedAccess.dispatchReceiver
-                    if (firDispatchReceiver is FirPropertyAccessExpression && firDispatchReceiver.calleeReference is FirSuperReference) {
-                        firDispatchReceiver = firDispatchReceiver.dispatchReceiver
-                    }
-                    val notFromAny = !resolvedFirSymbol.isFunctionFromAny()
-                    val notAnInterface = firDispatchReceiver?.resolvedType?.toRegularClassSymbol(session)?.isInterface != true
-                    dispatchReceiver =
-                        if (notFromAny || notAnInterface) {
-                            baseDispatchReceiver
-                        } else {
-                            requireNotNull(baseDispatchReceiver)
-                            // NB: for FE 1.0, this type cast is added by InterfaceObjectCallsLowering
-                            // However, it doesn't work for FIR due to different f/o structure
-                            // (FIR calls Any method directly, but FE 1.0 calls its interface f/o instead)
-                            implicitCast(
-                                baseDispatchReceiver,
-                                builtins.anyType,
-                                IrTypeOperator.IMPLICIT_CAST
-                            )
-                        }
-                }
-                // constructors don't have extension receiver but may have receiver parameter in case of inner classes
-                if (resolvedFirSymbol?.receiverParameter != null && resolvedFirSymbol !is FirConstructorSymbol) {
-                    extensionReceiver = qualifiedAccess.findIrExtensionReceiver(explicitReceiverExpression)?.let {
-                        val symbol = qualifiedAccess.calleeReference.toResolvedCallableSymbol()
-                            ?: error("Symbol for call ${qualifiedAccess.render()} not found")
-                        symbol.fir.receiverParameter?.typeRef?.let { receiverType ->
-                            with(visitor.implicitCastInserter) {
-                                val extensionReceiver = qualifiedAccess.extensionReceiver!!
-                                val substitutor = qualifiedAccess.buildSubstitutorByCalledCallable(c)
-                                it.insertSpecialCast(
-                                    extensionReceiver,
-                                    extensionReceiver.resolvedType,
-                                    substitutor.substituteOrSelf(receiverType.coneType),
-                                )
-                            }
-                        } ?: it
-                    }
-                }
-            }
-
-            is IrFieldAccessExpression -> {
-                val firDeclaration = qualifiedAccess.toResolvedCallableSymbol()!!.fir.propertyIfBackingField
-                // Top-level properties are considered as static in IR
-                val fieldIsStatic =
-                    firDeclaration.isStatic || (firDeclaration is FirProperty && !firDeclaration.isLocal && firDeclaration.containingClassLookupTag() == null)
-                if (!fieldIsStatic) {
-                    receiver = qualifiedAccess.findIrDispatchReceiver(explicitReceiverExpression)
-                }
-            }
-        }
-        return this
     }
 
     private fun FirCallableSymbol<*>.isFunctionFromAny(): Boolean {
@@ -1512,5 +1221,423 @@ class CallAndReferenceGenerator(
             is IrMemberAccessExpression<*> -> origin = origin ?: newOrigin
             is IrValueAccessExpression -> origin = origin ?: newOrigin
         }
+    }
+
+    ////// TYPE ARGUMENT MAPPING
+
+    internal fun IrExpression.applyTypeArguments(access: FirQualifiedAccessExpression): IrExpression =
+        applyTypeArgumentsWithTypealiasConstructorRemapping(access.calleeReference.toResolvedCallableSymbol()?.fir, access.typeArguments)
+
+    /**
+     * Should be used whenever a [callableFir] representing a constructor produced by typealias
+     * expansion gets manually unwrapped to the original constructor.
+     * If you manually unwrap the constructor, you must manually remap the type arguments.
+     */
+    private fun IrExpression.applyTypeArgumentsWithTypealiasConstructorRemapping(
+        callableFir: FirCallableDeclaration?,
+        originalTypeArguments: List<FirTypeProjection>,
+    ): IrExpression {
+        val refinedTypeArguments = callableFir.refineTypeArgumentsOfTypeAliasConstructor(originalTypeArguments)
+
+        return applyTypeArguments(
+            refinedTypeArguments,
+            (callableFir as? FirTypeParametersOwner)?.typeParameters
+        )
+    }
+
+    /**
+     * If the given `FirCallableDeclaration` is `FirConstructor` with `TypeAliasConstructor` origin,
+     * it applies the list of passed type arguments (`originalTypeArguments`) to the corresponding type alias, expands it fully
+     * and returns the list of type arguments for the resulting type.
+     * Otherwise, it returns the passed type arguments.
+     *
+     * In the case of type alias constructor, the type arguments can be mapped arbitrarily because of the following reasons:
+     *   * Changed order
+     *   * Changed count by mapping K,V -> Map<K,V> or by having an unused argument
+     *   * Extra type arguments that correspond to outer type parameters of an inner class (they are used while resolving, but not needed on backend)
+     * We need to map them using the typealias parameters and typealias constructor substitutors.
+     */
+    private fun FirCallableDeclaration?.refineTypeArgumentsOfTypeAliasConstructor(originalTypeArguments: List<FirTypeProjection>): List<ConeKotlinType> {
+        val typeAliasConstructorInfo = (this as? FirConstructor)?.typeAliasConstructorInfo
+            ?: return originalTypeArguments.map { (it as FirTypeProjectionWithVariance).typeRef.coneType }
+        val typeAliasSymbol = typeAliasConstructorInfo.typeAliasSymbol
+
+        val parametersSubstitutor = createParametersSubstitutor(
+            session,
+            typeAliasSymbol.typeParameterSymbols.zip(originalTypeArguments) { typeParameter, typeArgument ->
+                typeParameter to typeArgument.toConeTypeProjection()
+            }.toMap()
+        )
+
+        /**
+         * Filter out type arguments that correspond outer type parameters of an inner class
+         * To perform it, we should use two substitutors: `typeAliasConstructorInfo.substitutor` and `parametersSubstitutor`.
+         * Consider the following example:
+         *
+         * ```kt
+         * class Foo<T> {
+         *     inner class Inner
+         * }
+         *
+         * typealias InnerAlias<K> = Foo<K>.Inner
+         *
+         * fun test() {
+         *     val foo = Foo<String>()
+         *     foo.InnerAlias() // Filter out `String` type argument (String <- K <- T, where T is `FirOuterClassTypeParameterRef`)
+         * }
+         * ```
+         *
+         * In the example above, `parametersSubstitutor` holds `K -> String` substitution, `typeAliasConstructorInfo.substitutor` holds `T` -> K` substituion.
+         */
+        val containingInnerClass = typeAliasConstructorInfo.originalConstructor.takeIf { it.isInner }?.getContainingClass()
+        val typeAliasConstructorSubstitutor = typeAliasConstructorInfo.substitutor
+        val ignoredTypeArguments = if (typeAliasConstructorSubstitutor != null && containingInnerClass != null) {
+            containingInnerClass.typeParameters.filterIsInstance<FirOuterClassTypeParameterRef>().mapNotNullTo(mutableSetOf()) {
+                typeAliasConstructorSubstitutor.substituteOrNull(it.toConeType())
+            }
+        } else {
+            emptySet()
+        }
+
+        return buildList {
+            for ((index, typeArgument) in typeAliasSymbol.resolvedExpandedTypeRef.coneType.typeArguments.withIndex()) {
+                if (ignoredTypeArguments.contains(typeArgument)) continue
+
+                val typeProjection = parametersSubstitutor.substituteArgument(typeArgument, index) ?: typeArgument
+                val type = typeProjection as? ConeKotlinType
+                    ?: ConeErrorType(diagnostic = ConeSimpleDiagnostic("Expansion contains unexpected type ${typeProjection.javaClass}"))
+                add(type)
+            }
+        }
+    }
+
+    private fun IrExpression.applyTypeArguments(
+        typeArguments: List<ConeKotlinType>?,
+        typeParameters: List<FirTypeParameter>?,
+    ): IrExpression {
+        if (this !is IrMemberAccessExpression<*>) return this
+
+        val argumentsCount = typeArguments?.size ?: return this
+        if (argumentsCount <= this.typeArguments.size) {
+            for ((index, argumentType) in typeArguments.withIndex()) {
+                val typeParameter = typeParameters?.get(index)
+                val argumentIrType = if (typeParameter?.isReified == true) {
+                    argumentType.approximateDeclarationType(
+                        session,
+                        containingCallableVisibility = null,
+                        isLocal = false
+                    ).toIrType()
+                } else {
+                    argumentType.toIrType()
+                }
+                this.typeArguments[index] = argumentIrType
+            }
+            return this
+        } else {
+            val name = if (this is IrCallImpl) symbol.signature.toString() else "???"
+            return IrErrorExpressionImpl(
+                startOffset, endOffset, type,
+                "Cannot bind $argumentsCount type arguments to $name call with ${typeArguments.size} type parameters"
+            )
+        }
+    }
+
+    ////// RECEIVER AND CONTEXT/VALUE ARGUMENT MAPPING
+
+    private class ReceiverInfo(
+        val hasDispatchReceiver: Boolean,
+        val hasExtensionReceiver: Boolean,
+    ) {
+        fun contextArgumentOffset(): Int {
+            return if (hasDispatchReceiver) 1 else 0
+        }
+
+        fun valueArgumentOffset(contextArgumentCount: Int): Int {
+            return extensionReceiverOffset(contextArgumentCount) + (if (hasExtensionReceiver) 1 else 0)
+        }
+
+        fun extensionReceiverOffset(contextArgumentCount: Int): Int {
+            return (if (hasDispatchReceiver) 1 else 0) + contextArgumentCount
+        }
+    }
+
+    /**
+     * @param irAssignmentRhs If passed, this expression will be the only applied argument.
+     * Context arguments will still be set from [statement].
+     */
+    fun IrExpression.applyReceiversAndArguments(
+        statement: FirStatement?,
+        declarationSiteSymbol: FirCallableSymbol<*>?,
+        explicitReceiverExpression: IrExpression?,
+        irAssignmentRhs: IrExpression? = null,
+    ): IrExpression {
+        if (statement == null) return this
+
+        val receiverInfo = putReceivers(statement, declarationSiteSymbol, explicitReceiverExpression)
+
+        return if (irAssignmentRhs != null && this is IrMemberAccessExpression<*>) {
+            val contextArgumentCount = this.putContextArguments(statement, receiverInfo)
+            this.arguments[receiverInfo.valueArgumentOffset(contextArgumentCount)] = irAssignmentRhs
+            this
+        } else {
+            applyCallArguments(statement, declarationSiteSymbol, receiverInfo)
+        }
+    }
+
+    private fun IrExpression.putReceivers(
+        statement: FirStatement,
+        declarationSiteSymbol: FirCallableSymbol<*>?,
+        explicitReceiverExpression: IrExpression?,
+    ): ReceiverInfo {
+        var hasDispatchReceiver = false
+        var hasExtensionReceiver = false
+        when (this) {
+            is IrMemberAccessExpression<*> if statement is FirQualifiedAccessExpression -> {
+                if (declarationSiteSymbol?.dispatchReceiverType != null) {
+                    // Although type alias constructors with inner RHS work as extension functions
+                    // (https://github.com/Kotlin/KEEP/blob/master/proposals/type-aliases.md#type-alias-constructors-for-inner-classes),
+                    // They should work as real constructors with initialized `dispatchReceiver` instead of `extensionReceiver` on IR level.
+                    val isConstructorOnTypealiasWithInnerRhs =
+                        (statement.calleeReference.symbol as? FirConstructorSymbol)?.let {
+                            it.origin == FirDeclarationOrigin.Synthetic.TypeAliasConstructor && it.receiverParameter != null
+                        } == true
+                    val baseDispatchReceiver = if (!isConstructorOnTypealiasWithInnerRhs) {
+                        statement.findIrDispatchReceiver(explicitReceiverExpression)
+                    } else {
+                        statement.findIrExtensionReceiver(explicitReceiverExpression)
+                    }
+                    var firDispatchReceiver = statement.dispatchReceiver
+                    if (firDispatchReceiver is FirPropertyAccessExpression && firDispatchReceiver.calleeReference is FirSuperReference) {
+                        firDispatchReceiver = firDispatchReceiver.dispatchReceiver
+                    }
+                    val notFromAny = !declarationSiteSymbol.isFunctionFromAny()
+                    val notAnInterface = firDispatchReceiver?.resolvedType?.toRegularClassSymbol(session)?.isInterface != true
+                    dispatchReceiver =
+                        if (notFromAny || notAnInterface) {
+                            baseDispatchReceiver
+                        } else {
+                            requireNotNull(baseDispatchReceiver)
+                            // NB: for FE 1.0, this type cast is added by InterfaceObjectCallsLowering
+                            // However, it doesn't work for FIR due to different f/o structure
+                            // (FIR calls Any method directly, but FE 1.0 calls its interface f/o instead)
+                            implicitCast(
+                                baseDispatchReceiver,
+                                builtins.anyType,
+                                IrTypeOperator.IMPLICIT_CAST
+                            )
+                        }
+                    hasDispatchReceiver = true
+                }
+                // constructors don't have extension receiver (except a case with type alias and inner RHS that is handled above),
+                // but may have receiver parameter in case of inner classes
+                if (declarationSiteSymbol?.receiverParameter != null && declarationSiteSymbol !is FirConstructorSymbol) {
+                    val contextArgumentCount = (statement as? FirContextArgumentListOwner)?.contextArguments?.size ?: 0
+                    val extensionReceiverIndex = (if (hasDispatchReceiver) 1 else 0) + contextArgumentCount
+                    arguments[extensionReceiverIndex] =
+                        statement.findIrExtensionReceiver(explicitReceiverExpression)?.let {
+                            val symbol = statement.calleeReference.toResolvedCallableSymbol()
+                                ?: error("Symbol for call ${statement.render()} not found")
+                            symbol.fir.receiverParameter?.typeRef?.let { receiverType ->
+                                val extensionReceiver = statement.extensionReceiver!!
+                                val substitutor = statement.buildSubstitutorByCalledCallable(c)
+                                it.prepareExpressionForGivenExpectedType(
+                                    this@CallAndReferenceGenerator,
+                                    extensionReceiver,
+                                    extensionReceiver.resolvedType,
+                                    substitutor.substituteOrSelf(receiverType.coneType),
+                                )
+                            } ?: it
+                        }
+                    hasExtensionReceiver = true
+                }
+            }
+
+            is IrMemberAccessExpression<*> if statement is FirDelegatedConstructorCall -> {
+                statement.dispatchReceiver?.let {
+                    dispatchReceiver = visitor.convertToIrExpression(it)
+                    hasDispatchReceiver = true
+                }
+            }
+
+            is IrFieldAccessExpression -> {
+                require(statement is FirQualifiedAccessExpression)
+                val firDeclaration = declarationSiteSymbol!!.fir.propertyIfBackingField
+                // Top-level properties are considered as static in IR
+                val fieldIsStatic =
+                    firDeclaration.isStatic || (firDeclaration is FirProperty && !firDeclaration.isLocal && firDeclaration.containingClassLookupTag() == null)
+                if (!fieldIsStatic) {
+                    receiver = statement.findIrDispatchReceiver(explicitReceiverExpression)
+                    hasDispatchReceiver = true
+                }
+            }
+
+            is IrConstructorCall if statement is FirAnnotationCall -> {
+                // annotation calls don't have receivers
+            }
+
+            is IrGetValue, is IrSetValue, is IrGetEnumValue, is IrGetObjectValue, is IrErrorCallExpression -> {
+                // no receivers
+            }
+
+            else -> error("Can't apply receivers of ${statement.javaClass.simpleName} to ${this.javaClass.simpleName}")
+        }
+
+        return ReceiverInfo(hasDispatchReceiver, hasExtensionReceiver)
+    }
+
+    private fun IrExpression.applyCallArguments(
+        statement: FirStatement?,
+        declarationSiteSymbol: FirCallableSymbol<*>?,
+        receiverInfo: ReceiverInfo,
+    ): IrExpression {
+        val call = statement as? FirCall
+        return when (this) {
+            is IrMemberAccessExpression<*> -> {
+                val contextArgumentCount = putContextArguments(statement, receiverInfo)
+                if (call == null) return this
+                val argumentsCount = call.arguments.size
+                if (declarationSiteSymbol != null && argumentsCount <= declarationSiteSymbol.valueParametersSize()) {
+                    apply {
+                        val (valueParameters, argumentMapping, substitutor) = extractArgumentsMapping(call)
+                        if (argumentMapping != null && (visitor.annotationMode || argumentMapping.isNotEmpty()) && valueParameters != null) {
+                            return applyArgumentsWithReorderingIfNeeded(
+                                argumentMapping, valueParameters, substitutor, receiverInfo, contextArgumentCount, call,
+                            )
+                        }
+                        check(argumentsCount == 0) { "Non-empty unresolved argument list." }
+                    }
+                } else {
+                    val calleeSymbol = (this as? IrCallImpl)?.symbol
+
+                    @OptIn(UnsafeDuringIrConstructionAPI::class)
+                    val description = calleeSymbol?.signature?.render()
+                        ?: calleeSymbol?.takeIf { it.isBound }?.owner?.render()
+                        ?: "???"
+                    IrErrorCallExpressionImpl(
+                        startOffset, endOffset, type,
+                        "Cannot bind $argumentsCount arguments to '$description' call with ${declarationSiteSymbol?.valueParametersSize()} parameters"
+                    ).apply {
+                        for (argument in call.arguments) {
+                            arguments.add(visitor.convertToIrExpression(argument))
+                        }
+                    }
+                }
+            }
+
+            is IrErrorCallExpressionImpl -> apply {
+                for (argument in call?.arguments.orEmpty()) {
+                    arguments.add(visitor.convertToIrExpression(argument))
+                }
+            }
+
+            else -> this
+        }
+    }
+
+    private fun IrMemberAccessExpression<*>.applyArgumentsWithReorderingIfNeeded(
+        argumentMapping: Map<FirExpression, FirValueParameter>,
+        valueParameters: List<FirValueParameter>,
+        substitutor: ConeSubstitutor,
+        receiverInfo: ReceiverInfo,
+        contextArgumentCount: Int,
+        call: FirCall,
+    ): IrExpression {
+        val converted = convertArguments(argumentMapping, substitutor)
+        // If none of the parameters have side effects, the evaluation order doesn't matter anyway.
+        // For annotations, this is always true, since arguments have to be compile-time constants.
+        if (!visitor.annotationMode && !converted.all { (_, irArgument) -> irArgument.hasNoSideEffects() } &&
+            needArgumentReordering(argumentMapping.values, valueParameters)
+        ) {
+            return IrBlockImpl(startOffset, endOffset, type, IrStatementOrigin.ARGUMENTS_REORDERING_FOR_CALL).apply {
+                fun IrExpression.freeze(nameHint: String): IrExpression {
+                    if (isUnchanging()) return this
+                    val (variable, symbol) = conversionScope.createTemporaryVariable(this, nameHint)
+                    statements.add(variable)
+                    return IrGetValueImpl(startOffset, endOffset, symbol, null)
+                }
+
+                if (receiverInfo.hasDispatchReceiver) {
+                    arguments[0] = arguments[0]?.freeze($$"$this")
+                }
+
+                if (receiverInfo.hasExtensionReceiver) {
+                    val extensionReceiverIndex = receiverInfo.extensionReceiverOffset(contextArgumentCount)
+                    arguments[extensionReceiverIndex] = arguments[extensionReceiverIndex]?.freeze($$"$receiver")
+                }
+
+                val valueArgumentOffset = receiverInfo.valueArgumentOffset(contextArgumentCount)
+                for ((parameter, irArgument) in converted) {
+                    arguments[valueArgumentOffset + valueParameters.indexOf(parameter)] = irArgument.freeze(parameter.name.asString())
+                }
+                statements.add(this@applyArgumentsWithReorderingIfNeeded)
+            }
+        } else {
+            val valueArgumentOffset = receiverInfo.valueArgumentOffset(contextArgumentCount)
+            for ((parameter, irArgument) in converted) {
+                arguments[valueArgumentOffset + valueParameters.indexOf(parameter)] = irArgument
+            }
+            if (visitor.annotationMode) {
+                val function = call.toReference(session)?.toResolvedCallableSymbol()?.fir as? FirFunction
+                for ((index, parameter) in valueParameters.withIndex()) {
+                    if (parameter.isVararg && !argumentMapping.containsValue(parameter)) {
+                        val value = if (function?.itOrExpectHasDefaultParameterValue(index) == true) {
+                            null
+                        } else {
+                            val varargType = parameter.returnTypeRef.toIrType()
+                            IrVarargImpl(
+                                UNDEFINED_OFFSET,
+                                UNDEFINED_OFFSET,
+                                varargType,
+                                varargType.getArrayElementType(builtins)
+                            )
+                        }
+                        arguments[valueArgumentOffset + index] = value
+                    }
+                }
+            }
+            return this
+        }
+    }
+
+    private fun convertArguments(
+        argumentMapping: Map<FirExpression, FirValueParameter>,
+        substitutor: ConeSubstitutor,
+    ): List<Pair<FirValueParameter, IrExpression>> =
+        argumentMapping.entries.mapNotNull { (argument, parameter) ->
+            if (visitor.isGetClassOfUnresolvedTypeInAnnotation(argument)) null
+            else (parameter to convertArgument(argument, parameter, substitutor))
+        }
+
+    private fun needArgumentReordering(
+        parametersInActualOrder: Collection<FirValueParameter>,
+        valueParameters: List<FirValueParameter>,
+    ): Boolean {
+        var lastValueParameterIndex = UNDEFINED_PARAMETER_INDEX
+        for (parameter in parametersInActualOrder) {
+            val index = valueParameters.indexOf(parameter)
+            if (index < lastValueParameterIndex) {
+                return true
+            }
+            lastValueParameterIndex = index
+        }
+        return false
+    }
+
+    /**
+     * @return the number of context arguments.
+     */
+    private fun IrMemberAccessExpression<*>.putContextArguments(statement: FirStatement?, receiverInfo: ReceiverInfo): Int {
+        if (statement !is FirContextArgumentListOwner) return 0
+
+        val offset = receiverInfo.contextArgumentOffset()
+        val contextArgumentCount = statement.contextArguments.size
+        if (contextArgumentCount > 0) {
+            for (index in 0 until contextArgumentCount) {
+                // The order of arguments is dispatch receiver, context parameters, extension receiver, regular parameters
+                arguments[offset + index] = visitor.convertToIrExpression(statement.contextArguments[index])
+            }
+        }
+
+        return contextArgumentCount
     }
 }

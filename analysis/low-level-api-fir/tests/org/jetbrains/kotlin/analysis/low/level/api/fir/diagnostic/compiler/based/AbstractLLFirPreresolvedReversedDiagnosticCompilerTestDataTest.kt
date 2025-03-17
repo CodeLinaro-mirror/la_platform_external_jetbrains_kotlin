@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.compiler.based.AbstractLo
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.facades.LLFirAnalyzerFacadeFactoryWithPreresolveInReversedOrder
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.frontend.fir.handlers.AbstractFirIdenticalChecker
-import org.jetbrains.kotlin.test.runners.baseFirDiagnosticTestConfiguration
+import org.jetbrains.kotlin.test.configuration.baseFirDiagnosticTestConfiguration
 import org.jetbrains.kotlin.test.services.MetaTestConfigurator
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.utils.bind
 import java.io.File
 
 abstract class AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest : AbstractLowLevelCompilerBasedTest() {
-    override fun configureTest(builder: TestConfigurationBuilder) {
+    override fun configure(builder: TestConfigurationBuilder) {
         with(builder) {
             baseFirDiagnosticTestConfiguration(
                 frontendFacade = ::LowLevelFirFrontendFacade.bind(LLFirAnalyzerFacadeFactoryWithPreresolveInReversedOrder),
@@ -35,7 +35,12 @@ abstract class AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest : 
 
 internal class ReversedDiagnosticsConfigurator(testServices: TestServices) : MetaTestConfigurator(testServices) {
     override fun transformTestDataPath(testDataFileName: String): String {
-        val reversedTestDataFileName = testDataFileName.replaceFirst(".", ".reversed.")
+        val separatorIndex = testDataFileName.lastIndexOf(File.separatorChar).takeIf { it != -1 } ?: 0
+        val dotSeparator = "."
+        val dotIndex = testDataFileName.indexOf(dotSeparator, separatorIndex)
+        if (dotIndex == -1) return testDataFileName
+
+        val reversedTestDataFileName = testDataFileName.replaceRange(dotIndex, dotIndex + dotSeparator.length, ".reversed.")
         return if (File(reversedTestDataFileName).exists()) reversedTestDataFileName else testDataFileName
     }
 }

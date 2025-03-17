@@ -201,7 +201,7 @@ class KotlinCompilationNpmResolver(
                     InternalDependency(
                         projectResolver.projectPath,
                         main.disambiguatedName,
-                        projectResolver[main].npmProject.name
+                        projectResolver[main].compilation.outputModuleName.get()
                     )
                 )
             }
@@ -258,16 +258,6 @@ class KotlinCompilationNpmResolver(
             dependency: ResolvedDependency,
             componentIdentifier: ProjectComponentIdentifier,
         ) {
-            check(target is KotlinJsIrTarget) {
-                """
-                Composite builds for Kotlin/JS are supported only for IR compiler.
-                Use kotlin.js.compiler=ir in gradle.properties or
-                js(IR) {
-                ...
-                }
-                """.trimIndent()
-            }
-
             (componentIdentifier as DefaultProjectComponentIdentifier).let { identifier ->
                 val includedBuild = project.gradle.includedBuild(identifier.identityPath.topRealPath().name!!)
                 internalCompositeDependencies.add(
@@ -288,7 +278,7 @@ class KotlinCompilationNpmResolver(
                         InternalDependency(
                             dependentResolver.projectPath,
                             dependentResolver.compilationDisambiguatedName,
-                            dependentResolver.npmProject.name
+                            dependentResolver.compilation.outputModuleName.get()
                         )
                     )
                 }
@@ -308,7 +298,7 @@ class KotlinCompilationNpmResolver(
             fileCollectionDependencies,
             projectPath,
             compilationDisambiguatedName,
-            npmProject.name,
+            compilation.outputModuleName.get(),
             npmVersion,
             rootResolver.tasksRequirements
         )

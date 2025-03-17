@@ -1,12 +1,13 @@
-@file:Suppress("UNUSED_VARIABLE", "NAME_SHADOWING")
+@file:Suppress("UNUSED_VARIABLE", "NAME_SHADOWING", "DEPRECATION")
 import org.gradle.jvm.tasks.Jar
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinCommonCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.GenerateProjectStructureMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
-import org.jetbrains.kotlin.gradle.targets.js.d8.D8RootPlugin
+import org.jetbrains.kotlin.gradle.targets.js.d8.D8Plugin
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinTargetWithNodeJsDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
@@ -25,6 +26,8 @@ plugins {
     kotlin("multiplatform")
     `maven-publish`
     signing
+    id("nodejs-cache-redirector-configuration")
+    id("d8-configuration")
 }
 
 description = "Kotlin Standard Library"
@@ -74,6 +77,7 @@ val commonTestOptIns = listOf(
     "kotlin.ExperimentalStdlibApi",
     "kotlin.io.encoding.ExperimentalEncodingApi",
     "kotlin.uuid.ExperimentalUuidApi",
+    "kotlin.time.ExperimentalTime",
 )
 
 kotlin {
@@ -254,8 +258,6 @@ kotlin {
         }
     }
 
-    D8RootPlugin.apply(rootProject).version = v8Version
-
     fun KotlinWasmTargetDsl.commonWasmTargetConfiguration() {
         (this as KotlinTargetWithNodeJsDsl).nodejs()
         compilations {
@@ -417,8 +419,10 @@ kotlin {
             }
 
             prepareJsIrMainSources.configure {
+                val ignoredFileNames = setOf("Atomics.kt", "AtomicArrays.kt")
                 val unimplementedNativeBuiltIns =
                     (file(jvmBuiltinsDir).list()!!.toSortedSet() - file("$jsDir/builtins/").list()!!)
+                        .filterNot { ignoredFileNames.contains(it) }
                         .map { "$jvmBuiltinsRelativeDir/$it" }
 
                 val sources = unimplementedNativeBuiltIns
@@ -483,6 +487,7 @@ kotlin {
                 val sources = unimplementedNativeBuiltIns
 
                 val excluded = listOf(
+                    "Atomics.kt", "AtomicArrays.kt",
                     // Included with K/N collections
                     "Collections.kt", "Iterator.kt"
                 )
@@ -773,6 +778,9 @@ tasks {
         named("compileTestDevelopmentExecutableKotlinWasm$wasmTarget", KotlinJsIrLink::class) {
             @Suppress("DEPRECATION")
             kotlinOptions.freeCompilerArgs += listOf("-Xwasm-enable-array-range-checks")
+        }
+        named("compileTestProductionExecutableKotlinWasm$wasmTarget", KotlinJsIrLink::class) {
+            enabled = false  // Causes out-of-memory in CI: KTI-2150
         }
     }
     val wasmWasiNodeTest by existing {

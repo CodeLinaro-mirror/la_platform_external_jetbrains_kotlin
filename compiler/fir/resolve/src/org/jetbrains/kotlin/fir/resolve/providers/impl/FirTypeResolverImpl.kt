@@ -301,9 +301,9 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
 
     private fun createFunctionType(typeRef: FirFunctionTypeRef): FirTypeResolutionResult {
         val parameters =
-            typeRef.contextReceiverTypeRefs.map { it.coneType } +
+            typeRef.contextParameterTypeRefs.map { it.coneType } +
                     listOfNotNull(typeRef.receiverTypeRef?.coneType) +
-                    typeRef.parameters.map { it.returnTypeRef.coneType.withParameterNameAnnotation(it, session) } +
+                    typeRef.parameters.map { it.returnTypeRef.coneType.withParameterNameAnnotation(it) } +
                     listOf(typeRef.returnTypeRef.coneType)
         val functionKinds = session.functionTypeService.extractAllSpecialKindsForFunctionTypeRef(typeRef)
         var diagnostic: ConeDiagnostic? = null
@@ -325,8 +325,8 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                     add(CompilerConeAttributes.ExtensionFunctionType)
                 }
 
-                if (typeRef.contextReceiverTypeRefs.isNotEmpty()) {
-                    add(CompilerConeAttributes.ContextFunctionTypeParams(typeRef.contextReceiverTypeRefs.size))
+                if (typeRef.contextParameterTypeRefs.isNotEmpty()) {
+                    add(CompilerConeAttributes.ContextFunctionTypeParams(typeRef.contextParameterTypeRefs.size))
                 }
             },
             shouldExpandTypeAliases = true

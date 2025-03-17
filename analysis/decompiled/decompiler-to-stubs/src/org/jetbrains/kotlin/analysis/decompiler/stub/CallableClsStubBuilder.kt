@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.metadata.ProtoBuf.MemberKind
 import org.jetbrains.kotlin.metadata.ProtoBuf.Modality
 import org.jetbrains.kotlin.metadata.deserialization.*
 import org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf
-import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
+import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -102,12 +102,10 @@ abstract class CallableClsStubBuilder(
 ) {
     protected val c = outerContext.child(typeParameters)
     protected val typeStubBuilder = TypeClsStubBuilder(c)
-    private val contextReceiversListStubBuilder = ContextReceiversListStubBuilder(c)
     protected val isTopLevel: Boolean get() = protoContainer is ProtoContainer.Package
     protected val callableStub: StubElement<out PsiElement> by lazy(LazyThreadSafetyMode.NONE) { doCreateCallableStub(parent) }
 
     fun build() {
-        contextReceiversListStubBuilder.createContextReceiverStubs(callableStub, contextReceiverTypes)
         createModifierListStub()
         val typeConstraintListData = typeStubBuilder.createTypeParameterListStub(callableStub, typeParameters)
         createReceiverTypeReferenceStub()
@@ -133,6 +131,12 @@ abstract class CallableClsStubBuilder(
         returnType?.let {
             typeStubBuilder.createTypeReferenceStub(callableStub, it)
         }
+    }
+
+    protected fun createModifierListStubForCallableDeclaration(flags: Int, flagsToTranslate: List<FlagsToModifiers>): KotlinModifierListStubImpl {
+        val modifierListStub = createModifierListStubForDeclaration(callableStub, flags, flagsToTranslate)
+        typeStubBuilder.createContextReceiverStubs(modifierListStub, contextReceiverTypes)
+        return modifierListStub
     }
 
     abstract fun createModifierListStub()
@@ -172,9 +176,9 @@ private class FunctionClsStubBuilder(
 
     override fun createModifierListStub() {
         val modalityModifier = if (isTopLevel) listOf() else listOf(MODALITY)
-        val modifierListStubImpl = createModifierListStubForDeclaration(
-            callableStub, functionProto.flags,
-            listOf(VISIBILITY, OPERATOR, INFIX, EXTERNAL_FUN, INLINE, TAILREC, SUSPEND, EXPECT_FUNCTION) + modalityModifier
+        val modifierListStubImpl = createModifierListStubForCallableDeclaration(
+            flags = functionProto.flags,
+            flagsToTranslate = listOf(VISIBILITY, OPERATOR, INFIX, EXTERNAL_FUN, INLINE, TAILREC, SUSPEND, EXPECT_FUNCTION) + modalityModifier
         )
 
         // If function is marked as having no annotations, we don't create stubs for it
@@ -240,9 +244,9 @@ private class PropertyClsStubBuilder(
         val constModifier = if (isVar) listOf() else listOf(CONST)
         val modalityModifier = if (isTopLevel) listOf() else listOf(MODALITY)
 
-        val modifierListStubImpl = createModifierListStubForDeclaration(
-            callableStub, propertyProto.flags,
-            listOf(VISIBILITY, LATEINIT, EXTERNAL_PROPERTY, EXPECT_PROPERTY) + constModifier + modalityModifier
+        val modifierListStubImpl = createModifierListStubForCallableDeclaration(
+            flags = propertyProto.flags,
+            flagsToTranslate = listOf(VISIBILITY, LATEINIT, EXTERNAL_PROPERTY, EXPECT_PROPERTY) + constModifier + modalityModifier
         )
 
         // If field is marked as having no annotations, we don't create stubs for it
@@ -344,7 +348,7 @@ private class PropertyClsStubBuilder(
     private fun calcInitializer(): ConstantValue<*>? {
         val classFinder = c.components.classFinder
         val containerClass =
-            if (classFinder != null) getSpecialCaseContainerClass(classFinder, c.components.jvmMetadataVersion!!) else null
+            if (classFinder != null) getSpecialCaseContainerClass(classFinder, c.components.metadataVersion!!) else null
         val source = protoContainer.source
         val binaryClass = containerClass ?: (source as? KotlinJvmBinarySourceElement)?.binaryClass
         var constantInitializer: ConstantValue<*>? = null
@@ -402,7 +406,7 @@ private class PropertyClsStubBuilder(
 
     private fun getSpecialCaseContainerClass(
         classFinder: KotlinClassFinder,
-        jvmMetadataVersion: JvmMetadataVersion
+        metadataVersion: MetadataVersion
     ): KotlinJvmBinaryClass? {
         return AbstractBinaryClassAnnotationLoader.getSpecialCaseContainerClass(
             container = protoContainer,
@@ -411,7 +415,7 @@ private class PropertyClsStubBuilder(
             isConst = Flags.IS_CONST.get(propertyProto.flags),
             isMovedFromInterfaceCompanion = JvmProtoBufUtil.isMovedFromInterfaceCompanion(propertyProto),
             kotlinClassFinder = classFinder,
-            jvmMetadataVersion = jvmMetadataVersion
+            metadataVersion = metadataVersion
         )
     }
 }
@@ -439,7 +443,10 @@ private class ConstructorClsStubBuilder(
     }
 
     override fun createModifierListStub() {
-        val modifierListStubImpl = createModifierListStubForDeclaration(callableStub, constructorProto.flags, listOf(VISIBILITY))
+        val modifierListStubImpl = createModifierListStubForCallableDeclaration(
+            flags = constructorProto.flags,
+            flagsToTranslate = listOf(VISIBILITY)
+        )
 
         // If constructor is marked as having no annotations, we don't create stubs for it
         if (!Flags.HAS_ANNOTATIONS.get(constructorProto.flags)) return

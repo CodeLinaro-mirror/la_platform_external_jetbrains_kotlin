@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.impl.IrEnumConstructorCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrExpressionBodyImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -103,7 +102,7 @@ internal class CEnumClassGenerator(
             ).also {
                 postLinkageSteps.add {
                     it.initializer = irBuiltIns.createIrBuilder(it.symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET).run {
-                        irExprBody(irGet(irClass.primaryConstructor!!.valueParameters[0]))
+                        irExprBody(irGet(irClass.primaryConstructor!!.parameters[0]))
                     }
                 }
             }
@@ -136,7 +135,7 @@ internal class CEnumClassGenerator(
                             symbol = constructorSymbol,
                             typeArgumentsCount = 0,
                     ).also {
-                        it.putValueArgument(0, extractEnumEntryValue(entryDescriptor))
+                        it.arguments[0] = extractEnumEntryValue(entryDescriptor)
                     },
             )
         }
@@ -171,7 +170,7 @@ internal class CEnumClassGenerator(
                                 constructorSymbol,
                                 typeArgumentsCount = 1, // kotlin.Enum<T> has a single type parameter.
                         ).apply {
-                            putTypeArgument(0, type)
+                            typeArguments[0] = type
                         }
                         +irInstanceInitializer(classSymbol)
                     }

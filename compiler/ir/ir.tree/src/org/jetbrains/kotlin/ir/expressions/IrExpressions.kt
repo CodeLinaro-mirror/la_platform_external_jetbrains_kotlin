@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.ir.expressions
 
+import org.jetbrains.kotlin.CompilerVersionOfApiDeprecation
+import org.jetbrains.kotlin.DeprecatedCompilerApi
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.PropertyAccessorDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrFunction
@@ -35,6 +37,7 @@ var IrDynamicOperatorExpression.right: IrExpression
             arguments[0] = value
     }
 
+@DeprecatedCompilerApi(CompilerVersionOfApiDeprecation._2_1_20)
 fun IrFunctionAccessExpression.putArgument(parameter: IrValueParameter, argument: IrExpression): Unit =
     putArgument(symbol.owner, parameter, argument)
 
@@ -61,7 +64,7 @@ fun IrExpression.implicitCastTo(expectedType: IrType?): IrExpression {
 
 fun IrExpression.isUnchanging(): Boolean =
     this is IrFunctionExpression ||
-            (this is IrCallableReference<*> && dispatchReceiver == null && extensionReceiver == null) ||
+            (this is IrCallableReference<*> && arguments.all { it == null }) ||
             this is IrClassReference ||
             this is IrConst ||
             (this is IrGetValue && !symbol.owner.let { it is IrVariable && it.isVar })
@@ -81,11 +84,11 @@ internal fun IrMemberAccessExpression<*>.checkArgumentSlotAccess(kind: String, i
 }
 
 fun IrMemberAccessExpression<*>.copyTypeArgumentsFrom(other: IrMemberAccessExpression<*>, shift: Int = 0) {
-    assert(typeArgumentsCount == other.typeArgumentsCount + shift) {
-        "Mismatching type arguments: $typeArgumentsCount vs ${other.typeArgumentsCount} + $shift"
+    assert(this.typeArguments.size == other.typeArguments.size + shift) {
+        "Mismatching type arguments: ${this.typeArguments.size} vs ${other.typeArguments.size} + $shift"
     }
-    for (i in 0 until other.typeArgumentsCount) {
-        putTypeArgument(i + shift, other.getTypeArgument(i))
+    for (i in other.typeArguments.indices) {
+        this.typeArguments[i + shift] = other.typeArguments[i]
     }
 }
 
@@ -96,9 +99,11 @@ val CallableDescriptor.typeParametersCount: Int
             else -> typeParameters.size
         }
 
-fun IrMemberAccessExpression<*>.putArgument(callee: IrFunction, parameter: IrValueParameter, argument: IrExpression) =
-    when (parameter) {
-        callee.dispatchReceiverParameter -> dispatchReceiver = argument
-        callee.extensionReceiverParameter -> extensionReceiver = argument
-        else -> putValueArgument(parameter.index, argument)
-    }
+@DeprecatedCompilerApi(CompilerVersionOfApiDeprecation._2_1_20)
+fun IrMemberAccessExpression<*>.putArgument(
+    @Suppress("unused") callee: IrFunction, // To be removed
+    parameter: IrValueParameter,
+    argument: IrExpression
+) {
+    arguments[parameter.indexInParameters] = argument
+}

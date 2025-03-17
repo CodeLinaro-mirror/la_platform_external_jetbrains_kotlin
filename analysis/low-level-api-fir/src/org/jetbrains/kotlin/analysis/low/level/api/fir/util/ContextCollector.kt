@@ -20,20 +20,20 @@ import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.memberDeclarationNameOrNull
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.psi
-import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.resolve.SessionHolder
 import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
+import org.jetbrains.kotlin.fir.resolve.calls.ImplicitValue
 import org.jetbrains.kotlin.fir.resolve.dfa.DataFlowAnalyzerContext
 import org.jetbrains.kotlin.fir.resolve.dfa.RealVariable
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ClassExitNode
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.MergePostponedLambdaExitsNode
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.resolve.dfa.smartCastedType
 import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculatorForFullBodyResolve
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.BodyResolveContext
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.addReceiversFromExtensions
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.typeContext
@@ -47,7 +47,6 @@ import org.jetbrains.kotlin.psi.psiUtil.parentsWithSelf
 import org.jetbrains.kotlin.types.SmartcastStability
 import org.jetbrains.kotlin.util.PrivateForInline
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
-import java.util.ArrayList
 
 object ContextCollector {
     enum class ContextKind {
@@ -268,8 +267,9 @@ private class ContextCollectorVisitor(
         }
     }
 
+    @OptIn(ImplicitValue.ImplicitValueInternals::class)
     private fun computeContext(fir: FirElement, kind: ContextKind): Context {
-        val implicitReceiverStack = context.towerDataContext.implicitReceiverStack
+        val implicitReceiverStack = context.towerDataContext.implicitValueStorage
 
         val smartCasts = mutableMapOf<RealVariable, Set<ConeKotlinType>>()
 
@@ -293,9 +293,9 @@ private class ContextCollectorVisitor(
                 // The compiler pushes smart-cast types for implicit receivers to ease later lookups.
                 // Here we emulate such behavior. Unlike the compiler, though, modified types are only reflected in the created snapshot.
                 // See other usages of 'replaceReceiverType()' for more information.
-                if (realVariable.isReceiver) {
+                if (realVariable.isImplicit) {
                     val smartCastedType = typeStatement.smartCastedType(bodyHolder.session.typeContext)
-                    implicitReceiverStack.replaceReceiverType(realVariable.symbol, smartCastedType)
+                    implicitReceiverStack.replaceImplicitValueType(realVariable.symbol, smartCastedType)
                 }
             }
         }
@@ -303,8 +303,8 @@ private class ContextCollectorVisitor(
         val towerDataContextSnapshot = context.towerDataContext.createSnapshot(keepMutable = true)
 
         for (realVariable in smartCasts.keys) {
-            if (realVariable.isReceiver) {
-                implicitReceiverStack.replaceReceiverType(realVariable.symbol, realVariable.originalType)
+            if (realVariable.isImplicit) {
+                implicitReceiverStack.replaceImplicitValueType(realVariable.symbol, realVariable.originalType)
             }
         }
 
@@ -328,27 +328,53 @@ private class ContextCollectorVisitor(
         return null
     }
 
+    private val nodesCache = HashMap<FirControlFlowGraphOwner, Map<FirElement, CFGNode<*>>>()
+
+    /**
+     * Returns the first occurrence of an [element] inside the [flow]
+     *
+     * @param container a [FirControlFlowGraphOwner] where [element] should be searched
+     * @param element an [FirElement] to search
+     * @param flow an [ControlFlowGraph] from [container]
+     */
+    private fun findNode(container: FirControlFlowGraphOwner, element: FirElement, flow: ControlFlowGraph): CFGNode<*>? {
+        val map = nodesCache.getOrPut(container) { buildDeclarationNodesMapping(flow) }
+        return map[element]
+    }
+
+    /**
+     * @see findNode
+     */
+    private fun buildDeclarationNodesMapping(
+        flow: ControlFlowGraph,
+    ): Map<FirElement, CFGNode<*>> = HashMap<FirElement, CFGNode<*>>().apply {
+        for (node in flow.nodes) {
+            if (isAcceptedControlFlowNode(node)) {
+                val fir = node.fir
+                // We are interested only in the first one
+                putIfAbsent(fir, node)
+            }
+        }
+    }.ifEmpty(::emptyMap)
+
     private fun getControlFlowNode(fir: FirElement, kind: ContextKind): CFGNode<*>? {
         for (container in context.containers.asReversed()) {
             val cfgOwner = container as? FirControlFlowGraphOwner ?: continue
             val cfgReference = cfgOwner.controlFlowGraphReference ?: continue
             val cfg = cfgReference.controlFlowGraph ?: continue
 
-            val nodes = cfg.nodes
-
-            val node = nodes.firstOrNull { isAcceptedControlFlowNode(it) && it.fir === fir }
-            if (node != null) {
-                return when (kind) {
+            val node = findNode(container, fir, cfg)
+            when {
+                node != null -> return when (kind) {
                     ContextKind.SELF -> {
                         // For the 'SELF' mode, we need to find the state *before* the 'FirElement'
-                        node.previousNodes.singleOrNull()?.takeIf { it in nodes } ?: node
+                        node.previousNodes.singleOrNull()?.takeIf { it in cfg.nodes } ?: node
                     }
                     ContextKind.BODY -> {
                         node
                     }
                 }
-            } else if (!cfg.isSubGraph) {
-                return null
+                !cfg.isSubGraph -> return null
             }
         }
 
@@ -516,7 +542,7 @@ private class ContextCollectorVisitor(
     @OptIn(PrivateForInline::class)
     private fun Processor.processClassHeader(regularClass: FirRegularClass) {
         context.withTypeParametersOf(regularClass) {
-            processList(regularClass.contextReceivers)
+            processList(regularClass.contextParameters)
             processList(regularClass.typeParameters)
             processList(regularClass.superTypeRefs)
         }
@@ -536,6 +562,10 @@ private class ContextCollectorVisitor(
      */
     private fun Processor.processAnonymousObjectHeader(anonymousObject: FirAnonymousObject) {
         processList(anonymousObject.superTypeRefs)
+    }
+
+    override fun visitErrorPrimaryConstructor(errorPrimaryConstructor: FirErrorPrimaryConstructor) {
+        visitConstructor(errorPrimaryConstructor)
     }
 
     override fun visitConstructor(constructor: FirConstructor) = withProcessor(constructor) {
@@ -619,6 +649,10 @@ private class ContextCollectorVisitor(
                 }
             }
         }
+    }
+
+    override fun visitErrorProperty(errorProperty: FirErrorProperty) {
+        visitProperty(errorProperty)
     }
 
     override fun visitProperty(property: FirProperty) = withProcessor(property) {
@@ -769,11 +803,9 @@ private class ContextCollectorVisitor(
         processSignatureAnnotations(anonymousFunction)
 
         onActiveBody {
-            context.withAnonymousFunction(anonymousFunction, bodyHolder, ResolutionMode.ContextIndependent) {
-                for (parameter in anonymousFunction.valueParameters) {
-                    process(parameter)
-                    context.storeVariable(parameter, bodyHolder.session)
-                }
+            context.withAnonymousFunction(anonymousFunction, bodyHolder) {
+                processList(anonymousFunction.contextParameters)
+                processList(anonymousFunction.valueParameters)
 
                 dumpContext(anonymousFunction, ContextKind.BODY)
 
@@ -786,7 +818,6 @@ private class ContextCollectorVisitor(
                 }
             }
         }
-
     }
 
     override fun visitAnonymousObject(anonymousObject: FirAnonymousObject) = withProcessor(anonymousObject) {

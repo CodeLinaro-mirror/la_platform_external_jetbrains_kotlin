@@ -24,12 +24,15 @@ import org.jetbrains.kotlin.ir.SourceRangeInfo
 import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
 import org.jetbrains.kotlin.ir.builders.irConcat
 import org.jetbrains.kotlin.ir.builders.irGet
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.lexer.KotlinLexer
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.powerassert.getExplicitReceiver
 import org.jetbrains.kotlin.powerassert.irString
+import org.jetbrains.kotlin.powerassert.isInnerOfComparisonOperator
+import org.jetbrains.kotlin.powerassert.isInnerOfNotEqualOperator
 
 fun IrBuilderWithScope.irDiagramString(
     sourceFile: SourceFile,
@@ -37,7 +40,7 @@ fun IrBuilderWithScope.irDiagramString(
     call: IrCall,
     variables: List<IrTemporaryVariable>,
 ): IrExpression {
-    val callInfo = sourceFile.getSourceRangeInfo(call)
+    val callInfo = sourceFile.getCompleteSourceRangeInfo(call)
 
     // Get call source string starting at the very beginning of the first line.
     // This is so multiline calls all start from the same column offset.
@@ -186,7 +189,7 @@ private fun IrTemporaryVariable.toValueDisplay(
  *   | <- display offset: 0
  * ```
  */
-private fun findDisplayOffset(
+internal fun findDisplayOffset(
     expression: IrExpression,
     sourceRangeInfo: SourceRangeInfo,
     source: String,
@@ -203,9 +206,8 @@ private fun memberAccessOffset(
     sourceRangeInfo: SourceRangeInfo,
     source: String,
 ): Int {
+    if (expression !is IrCall) return 0
     val owner = expression.symbol.owner
-    if (owner !is IrSimpleFunction) return 0
-
     if (owner.isInfix || owner.isOperator || owner.origin == IrBuiltIns.BUILTIN_OPERATOR) {
         val lhs = expression.binaryOperatorLhs() ?: return 0
         return when (expression.origin) {
@@ -257,37 +259,43 @@ private fun binaryOperatorOffset(lhs: IrExpression, wholeOperatorSourceRangeInfo
  * The left-hand side expression of an infix operator/function that takes into account special cases like `in`, `!in` and `!=` operators
  * that have a more complex structure than just a single call with two arguments.
  */
-private fun IrMemberAccessExpression<*>.binaryOperatorLhs(): IrExpression? = when (origin) {
-    IrStatementOrigin.EXCLEQ -> {
+private fun IrCall.binaryOperatorLhs(): IrExpression? = when (origin) {
+    IrStatementOrigin.EXCLEQ, IrStatementOrigin.EXCLEQEQ -> {
         // The `!=` operator call is actually a sugar for `lhs.equals(rhs).not()`.
-        (dispatchReceiver as? IrCall)?.simpleBinaryOperatorLhs()
-    }
-    IrStatementOrigin.EXCLEQEQ -> {
         // The `!==` operator call is actually a sugar for `(lhs === rhs).not()`.
-        (dispatchReceiver as? IrCall)?.simpleBinaryOperatorLhs()
+        val innerCall = (arguments[0] as? IrCall)?.takeIf { it.isInnerOfNotEqualOperator() } ?: this
+        innerCall.simpleBinaryOperatorLhs()
     }
     IrStatementOrigin.IN -> {
         // The `in` operator call is actually a sugar for `rhs.contains(lhs)`.
-        getValueArgument(0)
+        arguments.last()
     }
     IrStatementOrigin.NOT_IN -> {
         // The `!in` operator call is actually a sugar for `rhs.contains(lhs).not()`.
-        (dispatchReceiver as? IrCall)?.getValueArgument(0)
+        (arguments[0] as? IrCall)?.arguments?.last()
+    }
+    IrStatementOrigin.LT, IrStatementOrigin.GT, IrStatementOrigin.LTEQ, IrStatementOrigin.GTEQ -> {
+        // Comparison operator calls are actually sugar for `lhs.compareTo(rhs) <> 0`.
+        val innerCall = (arguments[0] as? IrCall)?.takeIf { it.isInnerOfComparisonOperator() } ?: this
+        innerCall.simpleBinaryOperatorLhs()
     }
     else -> simpleBinaryOperatorLhs()
 }
 
 /**
- * The left-hand side expression of an infix operator/function.
- * For single-value operators returns `null`, for all other infix operators/functions, returns the receiver or the first value argument.
+ * The left-hand side expression of an infix operator/function:
+ * * For single-value operators returns `null`,
+ * * For all others, returns the explicit receiver or the first regular argument.
  */
-private fun IrMemberAccessExpression<*>.simpleBinaryOperatorLhs(): IrExpression? {
-    val singleReceiver = (dispatchReceiver != null) xor (extensionReceiver != null)
-    return if (singleReceiver && valueArgumentsCount == 0) {
-        null
-    } else {
-        dispatchReceiver
-            ?: extensionReceiver
-            ?: getValueArgument(0).takeIf { (symbol.owner as? IrSimpleFunction)?.origin == IrBuiltIns.BUILTIN_OPERATOR }
+private fun IrCall.simpleBinaryOperatorLhs(): IrExpression? {
+    val parameters = symbol.owner.parameters
+    val singleReceiver =
+        1 == parameters.count { it.kind == IrParameterKind.DispatchReceiver || it.kind == IrParameterKind.ExtensionReceiver }
+    if (singleReceiver && parameters.none { it.kind == IrParameterKind.Regular }) {
+        return null
     }
+
+    getExplicitReceiver()?.let { return it }
+    if (symbol.owner.origin != IrBuiltIns.BUILTIN_OPERATOR) return null
+    return parameters.firstOrNull { it.kind == IrParameterKind.Regular }?.let { arguments[it] }
 }

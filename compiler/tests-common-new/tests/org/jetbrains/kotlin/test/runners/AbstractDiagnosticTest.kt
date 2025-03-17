@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendFailingTestSupp
 import org.jetbrains.kotlin.test.frontend.classic.handlers.*
 import org.jetbrains.kotlin.test.model.DependencyKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
+import org.jetbrains.kotlin.test.services.LibraryProvider
 import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.JvmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.ScriptingEnvironmentConfigurator
@@ -47,7 +48,7 @@ abstract class AbstractDiagnosticTest : AbstractKotlinCompilerTest() {
         ).map { "-$it" }
     }
 
-    override fun TestConfigurationBuilder.configuration() {
+    override fun configure(builder: TestConfigurationBuilder) = with(builder) {
         globalDefaults {
             frontend = FrontendKinds.ClassicFrontend
             targetPlatform = JvmPlatforms.defaultJvmPlatform
@@ -71,6 +72,7 @@ abstract class AbstractDiagnosticTest : AbstractKotlinCompilerTest() {
             ::AdditionalDiagnosticsSourceFilesProvider,
             ::CoroutineHelpersSourceFilesProvider,
         )
+        useAdditionalService(::LibraryProvider)
 
         classicFrontendStep()
 

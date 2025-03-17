@@ -9,7 +9,8 @@ import org.gradle.api.Action
 import org.gradle.api.Named
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
-import org.gradle.api.internal.plugins.DslObject
+import org.gradle.api.component.AdhocComponentWithVariants
+import org.gradle.api.plugins.ExtensionAware
 import org.gradle.api.provider.Property
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainSpec
@@ -19,6 +20,7 @@ import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinPluginLifecycle.CoroutineStart.Undispatched
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinAndroidTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
+import org.jetbrains.kotlin.gradle.plugin.sources.DefaultKotlinSourceSetFactory
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrSingleTargetPreset
 import org.jetbrains.kotlin.gradle.tasks.CompileUsingKotlinDaemon
@@ -58,6 +60,12 @@ internal val Project.kotlinJvmExtensionOrNull: KotlinJvmProjectExtension?
 internal val Project.kotlinJvmExtension: KotlinJvmProjectExtension
     get() = extensions.getByName(KOTLIN_PROJECT_EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
 
+internal val Project.kotlinAndroidExtensionOrNull: KotlinAndroidProjectExtension?
+    get() = extensions.findByName(KOTLIN_PROJECT_EXTENSION_NAME)?.castIsolatedKotlinPluginClassLoaderAware()
+
+internal val Project.kotlinAndroidExtension: KotlinAndroidProjectExtension
+    get() = extensions.getByName(KOTLIN_PROJECT_EXTENSION_NAME).castIsolatedKotlinPluginClassLoaderAware()
+
 internal val Project.multiplatformExtensionOrNull: KotlinMultiplatformExtension?
     get() = extensions.findByName(KOTLIN_PROJECT_EXTENSION_NAME)?.castIsolatedKotlinPluginClassLoaderAware()
 
@@ -77,21 +85,28 @@ internal fun KotlinBaseExtension.explicitApiModeAsCompilerArg(): String? {
 }
 
 @KotlinGradlePluginPublicDsl
-open class KotlinProjectExtension @Inject constructor(
+abstract class KotlinProjectExtension @Inject constructor(
     override val project: Project
 ) : KotlinBaseExtension,
     HasMutableExtras,
-    HasProject {
+    HasProject,
+    ExtensionAware {
 
     override lateinit var coreLibrariesVersion: String
 
     final override val extras: MutableExtras = mutableExtrasOf()
 
+    private val sourceSetsContainer = project.objects.domainObjectContainer(
+        KotlinSourceSet::class.java,
+        DefaultKotlinSourceSetFactory(project)
+    ).also { kotlinSourceSets ->
+        // Required for Gradle to generate accessors to source sets or 'sourceSets {}' DSL
+        extensions.add("sourceSets", kotlinSourceSets)
+    }
     override var sourceSets: NamedDomainObjectContainer<KotlinSourceSet>
-        @Suppress("UNCHECKED_CAST")
-        get() = DslObject(this).extensions.getByName("sourceSets") as NamedDomainObjectContainer<KotlinSourceSet>
-        internal set(value) {
-            DslObject(this).extensions.add("sourceSets", value)
+        get() = sourceSetsContainer
+        @Deprecated("Assigning new value to 'sourceSets' is deprecated", level = DeprecationLevel.ERROR)
+        internal set(_) {
         }
 
     internal suspend fun awaitSourceSets(): NamedDomainObjectContainer<KotlinSourceSet> {
@@ -186,23 +201,13 @@ abstract class KotlinJvmProjectExtension @Inject constructor(
     override fun compilerOptions(configure: KotlinJvmCompilerOptions.() -> Unit) {
         configure(compilerOptions)
     }
+
+    override val publishing: KotlinPublishing = KotlinJvmPublishingDsl(project)
 }
 
-abstract class Kotlin2JsProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
-    @Suppress("DEPRECATION")
-    override val target: KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>
-        get() {
-            if (!targetFuture.isCompleted) throw IllegalStateException("Extension target is not initialized!")
-            return targetFuture.getOrThrow()
-        }
-
-    @Suppress("DEPRECATION")
-    override val targetFuture = CompletableFuture<KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>>()
-    open fun target(
-        @Suppress("DEPRECATION") body: KotlinWithJavaTarget<KotlinJsOptions, KotlinJsCompilerOptions>.() -> Unit
-    ) {
-        project.launch(Undispatched) { targetFuture.await().body() }
-    }
+private class KotlinJvmPublishingDsl(private val project: Project) : KotlinPublishing {
+    override val adhocSoftwareComponent: AdhocComponentWithVariants
+        get() = project.components.getByName("java") as AdhocComponentWithVariants
 }
 
 abstract class KotlinJsProjectExtension(project: Project) :
@@ -214,7 +219,7 @@ abstract class KotlinJsProjectExtension(project: Project) :
     override val target: KotlinJsTargetDsl
         get() = targetFuture.lenient.getOrNull() ?: js()
 
-    @Deprecated("Because only IR compiler is left, no more necessary to know about compiler type in properties")
+    @Deprecated("Because only the IR compiler is left, it's no longer necessary to know about the compiler type in properties")
     override val compilerTypeFromProperties: KotlinJsCompilerType? = null
 
     override val targetFuture = CompletableFuture<KotlinJsTargetDsl>()
@@ -289,21 +294,6 @@ abstract class KotlinJsProjectExtension(project: Project) :
             target.project.container(KotlinTarget::class.java)
                 .apply { add(target) }
         }
-}
-
-abstract class KotlinCommonProjectExtension(project: Project) : KotlinSingleJavaTargetExtension(project) {
-    override val target: KotlinWithJavaTarget<*, *> get() = targetFuture.getOrThrow()
-
-    @Suppress("DEPRECATION")
-    override val targetFuture =
-        CompletableFuture<KotlinWithJavaTarget<KotlinMultiplatformCommonOptions, KotlinMultiplatformCommonCompilerOptions>>()
-
-    open fun target(
-        @Suppress("DEPRECATION")
-        body: KotlinWithJavaTarget<KotlinMultiplatformCommonOptions, KotlinMultiplatformCommonCompilerOptions>.() -> Unit,
-    ) = project.launch(Undispatched) {
-        targetFuture.await().body()
-    }
 }
 
 abstract class KotlinAndroidProjectExtension @Inject constructor(

@@ -34,7 +34,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
-import org.jetbrains.kotlin.utils.metadataVersion
+import org.jetbrains.kotlin.util.metadataVersion
 import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.commons.Method
 
@@ -92,8 +92,7 @@ fun makeLocalFirMetadataSerializerForMetadataSource(
     }
 
     val firSerializerExtension = FirJvmSerializerExtension(
-        session, serializationBindings, emptyList(), approximator, scopeSession,
-        globalSerializationBindings,
+        session, serializationBindings, emptyList(), scopeSession, globalSerializationBindings,
         configuration.getBoolean(JVMConfigurationKeys.USE_TYPE_TABLE),
         targetId.name,
         ClassBuilderMode.FULL,
@@ -126,9 +125,9 @@ class FirMetadataSerializer(
     private val actualizedExpectDeclarations: Set<FirDeclaration>?
 ) : MetadataSerializer {
 
-    override fun serialize(metadata: MetadataSource): Pair<MessageLite, JvmStringTable>? {
+    override fun serialize(metadata: MetadataSource, containingFile: MetadataSource.File?): Pair<MessageLite, JvmStringTable>? {
         val message = when (metadata) {
-            is FirMetadataSource.Class -> serializer!!.classProto(metadata.fir).build()
+            is FirMetadataSource.Class -> serializer!!.classProto(metadata.fir, (containingFile as FirMetadataSource.File?)?.fir).build()
             is FirMetadataSource.File -> serializer!!.packagePartProto(metadata.fir, actualizedExpectDeclarations).build()
             is FirMetadataSource.Function -> {
                 val withTypeParameters = metadata.fir.copyToFreeAnonymousFunction(approximator)
@@ -138,6 +137,7 @@ class FirMetadataSerializer(
                 serializer!!.functionProto(withTypeParameters)?.build()
             }
             is FirMetadataSource.Script -> serializer!!.scriptProto(metadata.fir).build()
+            is FirMetadataSource.ReplSnippet -> serializer!!.snippetProto(metadata.fir).build()
             else -> null
         } ?: return null
         return message to serializer!!.stringTable as JvmStringTable
@@ -215,6 +215,13 @@ internal fun makeElementSerializer(
             approximator,
             languageVersionSettings
         )
+        is FirMetadataSource.ReplSnippet -> FirElementSerializer.createForSnippet(
+            session, scopeSession,
+            metadata.fir,
+            serializerExtension,
+            approximator,
+            languageVersionSettings
+        )
         else -> null
     }
 
@@ -230,6 +237,7 @@ private fun FirFunction.copyToFreeAnonymousFunction(approximator: AbstractTypeAp
         receiverParameter = function.receiverParameter?.let { receiverParameter ->
             buildReceiverParameterCopy(receiverParameter) {
                 typeRef = receiverParameter.typeRef.approximated(approximator, typeParameterSet, toSuper = false)
+                symbol = FirReceiverParameterSymbol()
             }
         }
 
@@ -267,7 +275,6 @@ private fun FirPropertyAccessor.copyToFreeAccessor(
             }
         }
         annotations += accessor.annotations
-        typeParameters += typeParameterSet
     }
 }
 
@@ -284,6 +291,7 @@ internal fun FirProperty.copyToFreeProperty(approximator: AbstractTypeApproximat
         receiverParameter = property.receiverParameter?.let { receiverParameter ->
             buildReceiverParameterCopy(receiverParameter) {
                 typeRef = receiverParameter.typeRef.approximated(approximator, typeParameterSet, toSuper = false)
+                symbol = FirReceiverParameterSymbol()
             }
         }
         name = property.name

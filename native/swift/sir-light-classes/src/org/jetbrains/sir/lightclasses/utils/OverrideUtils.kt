@@ -6,13 +6,14 @@
 package org.jetbrains.sir.lightclasses.utils;
 
 import org.jetbrains.kotlin.sir.*
+import org.jetbrains.kotlin.utils.findIsInstanceAnd
 
 internal inline val <reified T : SirClassMemberDeclaration> T.overridableCandidates: List<T>
     get() =
         generateSequence((parent as? SirClass)?.superClassDeclaration) { it.superClassDeclaration }
             .flatMap { it.declarations }
             .filterIsInstance<T>()
-            .filter { it.modality != SirModality.FINAL }
+            .filter { it.modality != SirModality.FINAL && !it.isUnsuitablyDeprecatedToOverride }
             .toList()
 
 
@@ -34,9 +35,55 @@ internal fun SirType.isSubtypeOf(other: SirType): Boolean = when (this) {
 
 private fun SirDeclaration.isSubclassOf(other: SirDeclaration): Boolean = this == other || this is SirClass && (superClass as? SirNominalType)?.typeDeclaration?.isSubclassOf(other) ?: false
 
-internal fun SirInit.computeIsOverride(): Boolean = (this.parent as? SirClass)?.superClassDeclaration?.let { cls ->
-    cls.overrideableInitializers.any { this.isViableOverrideFor(it) }
-} ?: false
+private fun SirInit.bestOverrideCandidate(): SirInit? = (this.parent as? SirClass)?.superClassDeclaration?.let { cls ->
+    cls.overrideableInitializers.firstOrNull { other -> this.parameters.isSuitableForOverrideOf(other.parameters) }
+}
+
+internal sealed class OverrideStatus<T: SirDeclaration>(val declaration: T) {
+    class Overrides<T: SirDeclaration>(declaration: T): OverrideStatus<T>(declaration)
+    class Conflicts<T: SirDeclaration>(declaration: T): OverrideStatus<T>(declaration)
+}
+
+private fun<T: SirDeclaration> OverrideStatus(declaration: T, isOverride: Boolean): OverrideStatus<T> = if (isOverride) {
+    OverrideStatus.Overrides(declaration)
+} else {
+    OverrideStatus.Conflicts(declaration)
+}
+
+internal fun SirInit.computeIsOverride(): OverrideStatus<SirInit>? = bestOverrideCandidate()?.let {
+    OverrideStatus(
+        it,
+        isOverride = !it.isUnsuitablyDeprecatedToOverride
+                && (!this.isFailable || this.isFailable && it.isFailable)
+                && (this.errorType.isSubtypeOf(it.errorType))
+    )
+}
+
+private fun SirFunction.bestOverrideCandidate(): SirFunction? = overridableCandidates.firstOrNull {
+    this.name == it.name &&
+            this.parameters.isSuitableForOverrideOf(it.parameters) &&
+            this.returnType.isSubtypeOf(it.returnType) &&
+            this.isInstance == it.isInstance
+}
+
+internal fun SirFunction.computeIsOverride(): OverrideStatus<SirFunction>? = bestOverrideCandidate()?.let {
+    OverrideStatus(it, !it.isUnsuitablyDeprecatedToOverride && this.errorType.isSubtypeOf(it.errorType))
+}
+
+private fun SirVariable.bestOverrideCandidate(): SirVariable? = overridableCandidates.firstOrNull {
+    this.name == it.name && this.isInstance == it.isInstance
+}
+
+internal fun SirVariable.computeIsOverride(): OverrideStatus<SirVariable>? = bestOverrideCandidate()?.let {
+    OverrideStatus(
+        it,
+        isOverride = !it.isUnsuitablyDeprecatedToOverride
+                && (it.setter == null) == (this.setter == null)
+                && (this.type != SirType.never || it.type == SirType.never)
+                && (it.setter == null && this.type.isSubtypeOf(it.type) || this.type == it.type)
+                && (this.getter.errorType.isSubtypeOf(it.getter.errorType))
+    )
+}
 
 internal fun List<SirParameter>.isSuitableForOverrideOf(other: List<SirParameter>): Boolean =
     this.size == other.size && this.zip(other).all { it.second.type.isSubtypeOf(it.first.type) }
@@ -50,11 +97,11 @@ private val SirClass.overrideableInitializers: List<SirInit>
     // 2) Class inherits its parent's designated initializers if it doesn't itself define any designated (or required) initializers
     get() = this.declarations.filterIsInstance<SirInit>().let { initializers ->
         if (initializers.all { it.isConvenience }) {
-            return this.superClassDeclaration?.overrideableInitializers ?: emptyList()
+            this.superClassDeclaration?.overrideableInitializers ?: emptyList()
         } else {
-            return initializers.filter { !it.isConvenience }
+            initializers.filter { !it.isConvenience }
         }
-    }
+    }.filter { !it.isUnsuitablyDeprecatedToOverride }
 
 /**
  *  Returns all available initializers to call, which includes both own and initializers inherited from parent
@@ -79,3 +126,6 @@ public fun SirClass.calculateAllAvailableInitializers(): List<SirInit> {
 
     return result
 }
+
+private val SirDeclaration.isUnsuitablyDeprecatedToOverride: Boolean
+    get() = attributes.findIsInstanceAnd<SirAttribute.Available> { it.unavailable } != null

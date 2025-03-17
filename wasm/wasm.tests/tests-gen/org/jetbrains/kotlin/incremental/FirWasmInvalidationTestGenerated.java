@@ -37,6 +37,12 @@ public class FirWasmInvalidationTestGenerated extends AbstractFirWasmInvalidatio
   }
 
   @Test
+  @TestMetadata("associatedObjectKey")
+  public void testAssociatedObjectKey() {
+    runTest("js/js.translator/testData/incremental/invalidation/associatedObjectKey/");
+  }
+
+  @Test
   @TestMetadata("circleExportsUpdate")
   public void testCircleExportsUpdate() {
     runTest("js/js.translator/testData/incremental/invalidation/circleExportsUpdate/");
@@ -112,6 +118,12 @@ public class FirWasmInvalidationTestGenerated extends AbstractFirWasmInvalidatio
   @TestMetadata("crossModuleReferences")
   public void testCrossModuleReferences() {
     runTest("js/js.translator/testData/incremental/invalidation/crossModuleReferences/");
+  }
+
+  @Test
+  @TestMetadata("defaultParamMethod")
+  public void testDefaultParamMethod() {
+    runTest("js/js.translator/testData/incremental/invalidation/defaultParamMethod/");
   }
 
   @Test
@@ -367,6 +379,12 @@ public class FirWasmInvalidationTestGenerated extends AbstractFirWasmInvalidatio
   }
 
   @Test
+  @TestMetadata("multiModuleEagerInitialization")
+  public void testMultiModuleEagerInitialization() {
+    runTest("js/js.translator/testData/incremental/invalidation/multiModuleEagerInitialization/");
+  }
+
+  @Test
   @TestMetadata("multiPlatformClashFileNames")
   public void testMultiPlatformClashFileNames() {
     runTest("js/js.translator/testData/incremental/invalidation/multiPlatformClashFileNames/");
@@ -514,5 +532,11 @@ public class FirWasmInvalidationTestGenerated extends AbstractFirWasmInvalidatio
   @TestMetadata("variance")
   public void testVariance() {
     runTest("js/js.translator/testData/incremental/invalidation/variance/");
+  }
+
+  @Test
+  @TestMetadata("wasmJsInterop")
+  public void testWasmJsInterop() {
+    runTest("js/js.translator/testData/incremental/invalidation/wasmJsInterop/");
   }
 }

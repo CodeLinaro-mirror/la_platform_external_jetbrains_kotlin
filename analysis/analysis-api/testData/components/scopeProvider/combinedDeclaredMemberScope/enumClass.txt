@@ -52,6 +52,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.values
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -86,6 +87,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(enumClass.kt)
   getContainingJvmClassName: test.E
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -93,6 +95,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.valueOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -152,6 +155,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(enumClass.kt)
   getContainingJvmClassName: test.E
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -160,6 +164,7 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: null
   callableId: test/E.entries
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -202,6 +207,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

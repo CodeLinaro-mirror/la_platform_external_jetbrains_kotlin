@@ -1,7 +1,37 @@
+KaJavaFieldSymbol:
+  annotations: []
+  callableId: /JavaClass.field
+  compilerVisibility: Public
+  contextReceivers: []
+  isActual: false
+  isExpect: false
+  isExtension: false
+  isStatic: false
+  isVal: false
+  location: CLASS
+  modality: FINAL
+  name: field
+  origin: JAVA_SOURCE
+  receiverParameter: null
+  returnType: KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: kotlin/Int
+  visibility: PUBLIC
+  getDispatchReceiver(): KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: JavaClass
+  getContainingFileSymbol: null
+  getContainingJvmClassName: JavaClass
+  getContainingModule: KaSourceModule "Sources of main"
+  deprecationStatus: null
+
 KaNamedFunctionSymbol:
   annotations: []
   callableId: /JavaClass.hello
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -35,6 +65,7 @@ KaNamedFunctionSymbol:
     type: JavaClass
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -42,6 +73,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /JavaClass.method
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -67,7 +99,26 @@ KaNamedFunctionSymbol:
     typeArguments: []
     type: kotlin/Unit
   typeParameters: [
-    KaTypeParameterSymbol(T)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: T
+      origin: JAVA_SOURCE
+      upperBounds: [
+        KaFlexibleType:
+          annotations: []
+          type: kotlin/Any!
+      ]
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: null
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: [
     KaValueParameterSymbol:
@@ -106,6 +157,36 @@ KaNamedFunctionSymbol:
     type: JavaClass
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaClass
+  canBeOperator: false
+  getContainingModule: KaSourceModule "Sources of main"
+  deprecationStatus: null
+
+KaJavaFieldSymbol:
+  annotations: []
+  callableId: /SuperClass.superField
+  compilerVisibility: Public
+  contextReceivers: []
+  isActual: false
+  isExpect: false
+  isExtension: false
+  isStatic: false
+  isVal: false
+  location: CLASS
+  modality: FINAL
+  name: superField
+  origin: JAVA_SOURCE
+  receiverParameter: null
+  returnType: KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: kotlin/Int
+  visibility: PUBLIC
+  getDispatchReceiver(): KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: SuperClass
+  getContainingFileSymbol: null
+  getContainingJvmClassName: SuperClass
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -116,6 +197,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: /SuperClass.getActualRandomNumber
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -149,6 +231,7 @@ KaNamedFunctionSymbol:
     type: SuperClass
   getContainingFileSymbol: null
   getContainingJvmClassName: SuperClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -156,6 +239,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -219,6 +303,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -226,6 +311,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -259,6 +345,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -266,6 +353,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -299,6 +387,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 

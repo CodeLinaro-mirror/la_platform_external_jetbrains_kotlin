@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.getDependencies
+import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.libraryProvider
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 
@@ -38,8 +39,8 @@ class WasmDeserializerFacade(
     testServices: TestServices,
 ) : DeserializerFacade<BinaryArtifacts.KLib, IrBackendInput>(testServices, ArtifactKinds.KLib, BackendKinds.IrBackend) {
 
-    override fun shouldRunAnalysis(module: TestModule): Boolean {
-        require(module.backendKind == outputKind)
+    override fun shouldTransform(module: TestModule): Boolean {
+        require(testServices.defaultsProvider.backendKind == outputKind)
         return WasmEnvironmentConfigurator.isMainModule(module, testServices)
     }
 
@@ -47,6 +48,7 @@ class WasmDeserializerFacade(
         require(WasmEnvironmentConfigurator.isMainModule(module, testServices))
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
 
+        // TODO: turn on PL only when it's really necessary, see KT-73841
         // Enforce PL with the ERROR log level to fail any tests where PL detected any incompatibilities.
         configuration.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.ERROR))
 
@@ -75,7 +77,6 @@ class WasmDeserializerFacade(
         val moduleInfo = loadIr(
             depsDescriptors = moduleStructure,
             irFactory = IrFactoryImplForWasmIC(WholeWorldStageController()),
-            verifySignatures = false,
             loadFunctionInterfacesIntoStdlib = true,
         )
 
@@ -89,7 +90,7 @@ class WasmDeserializerFacade(
             typeTranslator = TypeTranslatorImpl(symbolTable, configuration.languageVersionSettings, moduleDescriptor),
             irBuiltIns = moduleInfo.bultins,
             linker = moduleInfo.deserializer,
-            diagnosticReporter = configuration.messageCollector,
+            messageCollector = configuration.messageCollector,
         )
         return IrBackendInput.WasmDeserializedFromKlibBackendInput(
             moduleInfo,

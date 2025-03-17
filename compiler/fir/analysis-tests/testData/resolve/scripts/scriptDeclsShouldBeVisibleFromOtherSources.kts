@@ -1,3 +1,5 @@
+// RUN_PIPELINE_TILL: FRONTEND
+// DISABLE_NEXT_PHASE_SUGGESTION: Caused by: java.lang.IndexOutOfBoundsException: Cannot pop operand off an empty stack.
 
 // FILE: script.kts
 

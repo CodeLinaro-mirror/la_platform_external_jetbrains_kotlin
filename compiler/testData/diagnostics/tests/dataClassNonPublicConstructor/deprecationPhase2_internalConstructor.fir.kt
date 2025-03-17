@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // LANGUAGE: +ErrorAboutDataClassCopyVisibilityChange, -DataClassCopyRespectsConstructorVisibility
 
 // MODULE: a
@@ -31,18 +32,4 @@ fun local() {
     fun Local.foo() {
         copy()
     }
-}
-
-// MODULE: b(a)
-// FILE: b.kt
-package b
-
-import a.Data
-
-fun topLevel(data: Data) {
-    data.<!DATA_CLASS_INVISIBLE_COPY_USAGE_ERROR!>copy<!>()
-}
-
-fun Data.topLevelExtension() {
-    <!DATA_CLASS_INVISIBLE_COPY_USAGE_ERROR!>copy<!>()
 }

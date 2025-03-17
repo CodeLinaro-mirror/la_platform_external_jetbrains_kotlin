@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // LANGUAGE: +OverloadResolutionByLambdaReturnType
 // ALLOW_KOTLIN_PACKAGE
 // DIAGNOSTICS: -UNUSED_PARAMETER -UNUSED_VARIABLE -UNUSED_EXPRESSION
@@ -31,7 +32,7 @@ fun test_2() {
 }
 
 fun test_3() {
-    val x = create { <!ARGUMENT_TYPE_MISMATCH!>1.0<!> }
+    val x = create { <!RETURN_TYPE_MISMATCH!>1.0<!> }
 }
 
 @OverloadResolutionByLambdaReturnType

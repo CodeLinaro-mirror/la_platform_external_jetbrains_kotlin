@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 class Controller<T> {
     fun yield(t: T): Boolean = true
 }
@@ -12,12 +13,12 @@ interface C : A<Long>
 fun <F> Controller<F>.baz(a: A<F>, f: F) {}
 
 fun <T> bar(a: A<T>, w: T) {
-    <!INFERENCE_UNSUCCESSFUL_FORK, INFERENCE_UNSUCCESSFUL_FORK, INFERENCE_UNSUCCESSFUL_FORK!>generate<!> {
-        <!INFERENCE_UNSUCCESSFUL_FORK!>if (a is B) {
+    generate {
+        if (a is B) {
             baz(a, 1)
-            <!INFERENCE_UNSUCCESSFUL_FORK!>baz<!>(a, w)
-            <!INFERENCE_UNSUCCESSFUL_FORK!>baz<!>(a, "")
-        }<!>
+            baz(a, <!ARGUMENT_TYPE_MISMATCH!>w<!>)
+            baz(a, <!ARGUMENT_TYPE_MISMATCH!>""<!>)
+        }
     }
 
     generate {
@@ -30,14 +31,14 @@ fun <T> bar(a: A<T>, w: T) {
         }
     }
 
-    <!INFERENCE_UNSUCCESSFUL_FORK, INFERENCE_UNSUCCESSFUL_FORK!>generate<!> {
+    generate {
         if (a is B) {
             baz(a, 1)
         }
 
-        <!INFERENCE_UNSUCCESSFUL_FORK!>if (a is B) {
-            <!INFERENCE_UNSUCCESSFUL_FORK!>baz<!>(a, w)
-        }<!>
+        if (a is B) {
+            baz(a, <!ARGUMENT_TYPE_MISMATCH!>w<!>)
+        }
     }
 
     generate {

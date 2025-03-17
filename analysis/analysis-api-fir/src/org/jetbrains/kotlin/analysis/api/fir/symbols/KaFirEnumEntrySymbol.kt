@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
-import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.name.CallableId
@@ -39,12 +38,12 @@ internal class KaFirEnumEntrySymbol private constructor(
     )
 
     constructor(symbol: FirEnumEntrySymbol, session: KaFirSession) : this(
-        backingPsi = symbol.fir.realPsi as? KtEnumEntry,
+        backingPsi = symbol.backingPsiIfApplicable as? KtEnumEntry,
         lazyFirSymbol = lazyOf(symbol),
         analysisSession = session,
     )
 
-    override val psi: PsiElement? get() = withValidityAssertion { backingPsi ?: firSymbol.findPsi() }
+    override val psi: PsiElement? get() = withValidityAssertion { backingPsi ?: findPsi() }
 
     override val annotations: KaAnnotationList
         get() = withValidityAssertion { psiOrSymbolAnnotationList() }
@@ -86,7 +85,7 @@ internal class KaFirEnumEntrySymbol private constructor(
 
     override fun createPointer(): KaSymbolPointer<KaEnumEntrySymbol> = withValidityAssertion {
         psiBasedSymbolPointerOfTypeIfSource<KaEnumEntrySymbol>()
-            ?: KaFirEnumEntrySymbolPointer(analysisSession.createOwnerPointer(this), name)
+            ?: KaFirEnumEntrySymbolPointer(analysisSession.createOwnerPointer(this), name, this)
     }
 
     override fun equals(other: Any?): Boolean = psiOrSymbolEquals(other)

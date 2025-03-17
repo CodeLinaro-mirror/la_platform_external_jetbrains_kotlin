@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -18,15 +18,16 @@ import org.jetbrains.kotlin.analysis.api.impl.base.annotations.KaBaseEmptyAnnota
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibrarySourceModule
 import org.jetbrains.kotlin.analysis.api.symbols.*
-import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaPsiBasedSymbolPointer
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaPsiSymbolPointerCreator
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
-import org.jetbrains.kotlin.analysis.api.symbols.pointers.symbolPointerOfType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbolOfType
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.fir.analysis.checkers.toRegularClassSymbol
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.supertypeGenerators
+import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
@@ -66,6 +67,13 @@ internal interface KaFirPsiSymbol<out P : PsiElement, out S : FirBasedSymbol<*>>
 
     override val firSymbol: S get() = lazyFirSymbol.value
 }
+
+internal val FirBasedSymbol<*>.backingPsiIfApplicable: PsiElement?
+    get() {
+        if (origin == FirDeclarationOrigin.Synthetic.TypeAliasConstructor) return null
+
+        return fir.realPsi
+    }
 
 internal interface KaFirKtBasedSymbol<out P : KtElement, out S : FirBasedSymbol<*>> : KaFirPsiSymbol<P, S> {
     override val origin: KaSymbolOrigin get() = withValidityAssertion { psiOrSymbolOrigin() }
@@ -120,7 +128,9 @@ internal fun KaFirKtBasedSymbol<KtAnnotated, *>.psiOrSymbolAnnotationList(): KaA
 }
 
 internal fun KaFirKtBasedSymbol<KtCallableDeclaration, FirCallableSymbol<*>>.createContextReceivers(): List<KaContextReceiver> {
-    if (backingPsi?.contextReceivers?.isEmpty() == true) return emptyList()
+    val psi = backingPsi
+    if (psi != null && (psi !is KtTypeParameterListOwnerStub<*> || psi.contextReceiverList == null)) return emptyList()
+
     return firSymbol.createContextReceivers(builder)
 }
 
@@ -152,7 +162,7 @@ internal fun KaFirKtBasedSymbol<KtClassOrObject, FirClassSymbol<*>>.createSuperT
             val enumFirSymbol = firSession.builtinTypes.enumType.toRegularClassSymbol(firSession)
                 ?: return firSymbol.superTypesList(builder) // something goes wrong here
 
-            val enumKaSymbol = builder.classifierBuilder.buildNamedClassOrObjectSymbol(enumFirSymbol)
+            val enumKaSymbol = builder.classifierBuilder.buildNamedClassSymbol(enumFirSymbol)
             buildClassType(enumKaSymbol) {
                 argument(defaultType)
             }
@@ -193,7 +203,7 @@ internal fun <P : KtElement> KaFirPsiSymbol<P, *>.psiOrSymbolOrigin(): KaSymbolO
 private val KtElement.cameFromKotlinLibrary: Boolean get() = containingKtFile.isCompiled
 
 /**
- * Executes [action] if the [backingPsi] exists and came from a source file.
+ * Executes [action] if the [KaFirPsiSymbol.backingPsi] exists and came from a source file.
  */
 @OptIn(ExperimentalContracts::class)
 internal inline fun <R> KaFirPsiSymbol<*, *>.ifSource(action: () -> R): R? {
@@ -205,14 +215,18 @@ internal inline fun <R> KaFirPsiSymbol<*, *>.ifSource(action: () -> R): R? {
 }
 
 /**
- * Potentially, we may use [backingPsi] to create [KaPsiBasedSymbolPointer] for library elements as well,
+ * Potentially, we may use [KaFirKtBasedSymbol.backingPsi] to create [org.jetbrains.kotlin.analysis.api.impl.base.symbols.pointers.KaBasePsiSymbolPointer] for library elements as well,
  * but it triggers AST tree calculation.
  *
  * Another potential issue: the library PSI may represent both [KaSymbolOrigin.SOURCE] and as [KaSymbolOrigin.LIBRARY],
  * so it is not so simple to distinguish between them to restore the correct symbol.
  */
 internal inline fun <reified S : KaSymbol> KaFirKtBasedSymbol<*, *>.psiBasedSymbolPointerOfTypeIfSource(): KaSymbolPointer<S>? {
-    return ifSource { backingPsi?.symbolPointerOfType<S>() }
+    return ifSource {
+        backingPsi?.let {
+            KaPsiSymbolPointerCreator.symbolPointerOfType(it, this as S)
+        }
+    }
 }
 
 internal inline fun <reified S : FirBasedSymbol<*>> lazyFirSymbol(
@@ -243,6 +257,17 @@ internal fun KaFirKtBasedSymbol<KtCallableDeclaration, *>.createKaValueParameter
     ifNotLibrarySource {
         with(analysisSession) {
             backingPsi?.valueParameters?.map { it.symbol as KaValueParameterSymbol }
+        }
+    }
+
+internal fun KaFirKtBasedSymbol<KtCallableDeclaration, *>.createKaContextParameters(): List<KaContextParameterSymbol>? =
+    ifNotLibrarySource {
+        val psi = backingPsi as? KtTypeParameterListOwnerStub<*> ?: return null // no psi
+        val list = psi.contextReceiverList ?: return emptyList() // no context receivers/parameters
+        with(analysisSession) {
+            list.contextParameters().map { it.symbol as KaContextParameterSymbol }.ifEmpty {
+                list.contextReceivers().map { it.symbol }
+            }
         }
     }
 

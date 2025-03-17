@@ -11,16 +11,20 @@ import com.sun.management.OperatingSystemMXBean
 import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.artifacts.Configuration
-import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.attributes.Usage
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.*
 import org.gradle.kotlin.dsl.support.serviceOf
+import org.gradle.process.CommandLineArgumentProvider
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import java.io.File
@@ -29,6 +33,7 @@ import java.lang.Character.isUpperCase
 import java.lang.management.ManagementFactory
 import java.nio.file.Files
 import java.nio.file.Path
+import javax.inject.Inject
 
 val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-assignment",
@@ -42,7 +47,6 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":kotlin-android-extensions",
     ":kotlin-android-extensions-runtime",
     ":kotlin-parcelize-compiler",
-    ":kotlin-build-common",
     ":kotlin-compiler-embeddable",
     ":native:kotlin-native-utils",
     ":kotlin-util-klib",
@@ -90,6 +94,8 @@ val kotlinGradlePluginAndItsRequired = arrayOf(
     ":compiler:build-tools:kotlin-build-tools-impl",
     ":libraries:tools:gradle:fus-statistics-gradle-plugin",
     ":kotlin-util-klib-metadata",
+    ":libraries:tools:abi-validation:abi-tools-api",
+    ":libraries:tools:abi-validation:abi-tools"
 )
 
 fun Task.dependsOnKotlinGradlePluginInstall() {
@@ -116,6 +122,25 @@ enum class JUnitMode {
     JUnit4, JUnit5
 }
 
+abstract class MuteWithDatabaseArgumentProvider @Inject constructor(objects: ObjectFactory) : CommandLineArgumentProvider {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    val mutesFile: RegularFileProperty = objects.fileProperty()
+
+    override fun asArguments(): Iterable<String> =
+        listOf("-Dorg.jetbrains.kotlin.test.mutes.file=${mutesFile.get().asFile.canonicalPath}")
+}
+
+fun Test.muteWithDatabase() {
+    jvmArgumentProviders.add(
+        project.objects.newInstance<MuteWithDatabaseArgumentProvider>().apply {
+            mutesFile.fileValue(File(project.rootDir, "tests/mute-common.csv"))
+        })
+    systemProperty("org.jetbrains.kotlin.skip.muted.tests", if (project.rootProject.hasProperty("skipMutedTests")) "true" else "false")
+    // This system property is only useful for JUnit Platform, but it does no harm on JUnit4
+    systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
+}
+
 /**
  * @param parallel is redundant if @param jUnit5Enabled is true, because
  *   JUnit5 supports parallel test execution by itself, without gradle help
@@ -131,6 +156,11 @@ fun Project.projectTest(
     defineJDKEnvVariables: List<JdkMajorVersion> = emptyList(),
     body: Test.() -> Unit = {},
 ): TaskProvider<Test> {
+    if (jUnitMode == JUnitMode.JUnit5) {
+        project.dependencies {
+            "testImplementation"(project(":compiler:tests-mutes:mutes-junit5"))
+        }
+    }
     val shouldInstrument = project.providers.gradleProperty("kotlin.test.instrumentation.disable")
         .orNull?.toBoolean() != true
     if (shouldInstrument) {
@@ -139,6 +169,8 @@ fun Project.projectTest(
     return getOrCreateTask<Test>(taskName) {
         dependsOn(":createIdeaHomeForTests")
         inputs.dir(File(rootDir, "build/ideaHomeForTests")).withPathSensitivity(PathSensitivity.RELATIVE)
+
+        muteWithDatabase()
 
         doFirst {
             if (jUnitMode == JUnitMode.JUnit5) return@doFirst
@@ -241,12 +273,14 @@ fun Project.projectTest(
         environment("PROJECT_CLASSES_DIRS", project.testSourceSet.output.classesDirs.asPath)
         environment("PROJECT_BUILD_DIR", project.layout.buildDirectory.get().asFile)
         systemProperty("jps.kotlin.home", project.rootProject.extra["distKotlinHomeDir"]!!)
-        systemProperty("org.jetbrains.kotlin.skip.muted.tests", if (project.rootProject.hasProperty("skipMutedTests")) "true" else "false")
         systemProperty("kotlin.test.update.test.data", if (project.rootProject.hasProperty("kotlin.test.update.test.data")) "true" else "false")
         systemProperty("cacheRedirectorEnabled", project.rootProject.findProperty("cacheRedirectorEnabled")?.toString() ?: "false")
         project.kotlinBuildProperties.junit5NumberOfThreadsForParallelExecution?.let { n ->
             systemProperty("junit.jupiter.execution.parallel.config.strategy", "fixed")
             systemProperty("junit.jupiter.execution.parallel.config.fixed.parallelism", n)
+        }
+        project.providers.gradleProperty("teamcity.build.parallelTests.excludesFile").orNull?.let { parallelTestsExcludesFile ->
+            systemProperty("teamcity.build.parallelTests.excludesFile", parallelTestsExcludesFile)
         }
 
         systemProperty("idea.ignore.disabled.plugins", "true")

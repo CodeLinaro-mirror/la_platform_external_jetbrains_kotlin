@@ -80,6 +80,7 @@ fun FirSession.registerCommonComponents(languageVersionSettings: LanguageVersion
 
     register(FirSubstitutionOverrideStorage::class, FirSubstitutionOverrideStorage(this))
     register(FirIntersectionOverrideStorage::class, FirIntersectionOverrideStorage(this))
+    register(FirTypealiasConstructorStorage::class, FirTypealiasConstructorStorage(this))
     register(FirSynthesizedStorage::class, FirSynthesizedStorage(this))
     register(FirGeneratedMemberDeclarationsStorage::class, FirGeneratedMemberDeclarationsStorage(this))
     register(FirSamConstructorStorage::class, FirSamConstructorStorage(this))
@@ -105,11 +106,15 @@ val firCachesFactoryForCliMode: FirCachesFactory
     get() = FirThreadUnsafeCachesFactory
 
 @OptIn(SessionConfiguration::class)
-fun FirSession.registerCliCompilerOnlyComponents() {
+fun FirSession.registerCliCompilerOnlyComponents(languageVersionSettings: LanguageVersionSettings) {
     register(FirCachesFactory::class, firCachesFactoryForCliMode)
     register(SealedClassInheritorsProvider::class, SealedClassInheritorsProviderImpl)
     register(FirLazyDeclarationResolver::class, FirDummyCompilerLazyDeclarationResolver)
     register(FirExceptionHandler::class, FirCliExceptionHandler)
+    register(
+        FirLookupDefaultStarImportsInSourcesSettingHolder::class,
+        FirLookupDefaultStarImportsInSourcesSettingHolder.createDefault(languageVersionSettings)
+    )
 
     register(FirRegisteredPluginAnnotations::class, FirRegisteredPluginAnnotationsImpl(this))
     register(FirPredicateBasedProvider::class, FirPredicateBasedProviderImpl(this))

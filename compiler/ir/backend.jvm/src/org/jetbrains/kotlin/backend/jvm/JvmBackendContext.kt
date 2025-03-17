@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.ir.Ir
 import org.jetbrains.kotlin.backend.common.lower.InnerClassesSupport
 import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements.RemappedParameter.MultiFieldValueClassMapping
 import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements.RemappedParameter.RegularMapping
 import org.jetbrains.kotlin.backend.jvm.caches.BridgeLoweringCache
@@ -23,30 +22,29 @@ import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.JvmBackendConfig
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
-import org.jetbrains.kotlin.ir.*
-import org.jetbrains.kotlin.ir.builders.IrBuilderWithScope
-import org.jetbrains.kotlin.ir.builders.irBlock
+import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.linkage.IrProvider
-import org.jetbrains.kotlin.ir.symbols.*
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
+import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmBackendErrors
 import org.jetbrains.org.objectweb.asm.Type
-import java.util.concurrent.ConcurrentHashMap
 
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 class JvmBackendContext(
     val state: GenerationState,
     override val irBuiltIns: IrBuiltIns,
     val symbolTable: SymbolTable,
-    val phaseConfig: PhaseConfig,
     val generatorExtensions: JvmGeneratorExtensions,
     val backendExtension: JvmBackendExtension,
     val irSerializer: JvmIrSerializer?,
@@ -67,9 +65,6 @@ class JvmBackendContext(
 
     override val irFactory: IrFactory = IrFactoryImpl
 
-    override val scriptMode: Boolean = false
-
-    override val builtIns = state.module.builtIns
     override val typeSystem: IrTypeSystemContext = JvmIrTypeSystemContext(irBuiltIns)
     val defaultTypeMapper = IrTypeMapper(this)
     val defaultMethodSignatureMapper = MethodSignatureMapper(this, defaultTypeMapper)
@@ -83,7 +78,7 @@ class JvmBackendContext(
 
     val ktDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(state.diagnosticReporter, config.languageVersionSettings)
 
-    override val ir = JvmIr(this.symbolTable)
+    override val ir = JvmIr()
 
     override val sharedVariablesManager = JvmSharedVariablesManager(state.module, ir.symbols, irBuiltIns, irFactory)
 
@@ -104,8 +99,6 @@ class JvmBackendContext(
     override var inVerbosePhase: Boolean = false
 
     override val configuration get() = state.configuration
-
-    override val internalPackageFqn = FqName("kotlin.jvm")
 
     val inlineClassReplacements = MemoizedInlineClassReplacements(config.functionsWithInlineClassReturnTypesMangled, irFactory, this)
 
@@ -142,11 +135,6 @@ class JvmBackendContext(
     internal fun referenceTypeParameter(descriptor: TypeParameterDescriptor): IrTypeParameterSymbol =
         symbolTable.lazyWrapper.descriptorExtension.referenceTypeParameter(descriptor)
 
-    override fun throwUninitializedPropertyAccessException(builder: IrBuilderWithScope, name: String): IrExpression =
-        builder.irBlock {
-            +super.throwUninitializedPropertyAccessException(builder, name)
-        }
-
     override val preferJavaLikeCounterLoop: Boolean
         get() = true
 
@@ -159,10 +147,8 @@ class JvmBackendContext(
     override val optimizeNullChecksUsingKotlinNullability: Boolean
         get() = false
 
-    inner class JvmIr(
-        symbolTable: SymbolTable,
-    ) : Ir<JvmBackendContext>(this) {
-        override val symbols = JvmSymbols(this@JvmBackendContext, symbolTable)
+    inner class JvmIr : Ir() {
+        override val symbols = JvmSymbols(this@JvmBackendContext)
 
         override fun shouldGenerateHandlerParameterForDefaultBodyFun() = true
     }
@@ -173,10 +159,10 @@ class JvmBackendContext(
         parametersMappingOrNull: Map<IrValueParameter, IrValueParameter>?,
     ) {
         val parametersMapping = parametersMappingOrNull ?: run {
-            require(oldFunction.explicitParametersCount == newFunction.explicitParametersCount) {
+            require(oldFunction.parameters.size == newFunction.parameters.size) {
                 "Use non-default mapping instead:\n${oldFunction.render()}\n${newFunction.render()}"
             }
-            oldFunction.explicitParameters.zip(newFunction.explicitParameters).toMap()
+            oldFunction.parameters.zip(newFunction.parameters).toMap()
         }
         val oldRemappedParameters = oldFunction.parameterTemplateStructureOfThisNewMfvcBidingFunction ?: return
         val newRemapsFromOld = oldRemappedParameters.mapNotNull { oldRemapping ->
@@ -193,7 +179,7 @@ class JvmBackendContext(
             }
         }
         val remappedParameters = newRemapsFromOld.flatMap { remap -> remap.valueParameters.map { it to remap } }.toMap()
-        val newBinding = newFunction.explicitParameters.map { remappedParameters[it] ?: RegularMapping(it) }.distinct()
+        val newBinding = newFunction.parameters.map { remappedParameters[it] ?: RegularMapping(it) }.distinct()
         newFunction.parameterTemplateStructureOfThisNewMfvcBidingFunction = newBinding
     }
 }

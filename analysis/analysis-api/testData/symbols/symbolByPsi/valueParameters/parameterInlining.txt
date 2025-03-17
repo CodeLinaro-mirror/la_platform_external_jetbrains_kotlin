@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -134,5 +135,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(parameterInlining.kt)
   getContainingJvmClassName: ParameterInliningKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

@@ -6,11 +6,12 @@
 package org.jetbrains.kotlin.backend.jvm.codegen
 
 import com.intellij.openapi.util.TextRange
-import org.jetbrains.kotlin.backend.common.CodegenUtil
+import org.jetbrains.kotlin.backend.jvm.JvmEvaluatorData
 import org.jetbrains.kotlin.backend.jvm.hasMangledReturnType
 import org.jetbrains.kotlin.backend.jvm.ir.*
 import org.jetbrains.kotlin.codegen.inline.*
 import org.jetbrains.kotlin.codegen.state.GenerationState
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
 import org.jetbrains.kotlin.incremental.components.LocationInfo
 import org.jetbrains.kotlin.incremental.components.Position
@@ -34,7 +35,8 @@ class IrSourceCompilerForInline(
     override val callElement: IrFunctionAccessExpression,
     private val callee: IrFunction,
     internal val codegen: ExpressionCodegen,
-    private val data: BlockInfo
+    private val data: BlockInfo,
+    private val evaluatorData: JvmEvaluatorData?,
 ) : SourceCompilerForInline {
     override val callElementText: String
         get() = ir2string(callElement)
@@ -48,9 +50,12 @@ class IrSourceCompilerForInline(
                     codegen.signature.asmMethod
                 else
                     codegen.methodSignatureMapper.mapAsmMethod(rootFunction),
+                // In K1, evaluatorData?.evaluatorGeneratedFunction == null, but it's OK as in K1 non-public-api object inlining error
+                // does not appear in the first place, since all is being compiled in the single module
+                evaluatorData?.evaluatorGeneratedFunction == rootFunction,
                 rootFunction.inlineScopeVisibility,
                 rootFunction.fileParent.getIoFile(),
-                callElement.psiElement?.let { CodegenUtil.getLineNumberForElement(it, false) } ?: 0
+                codegen.irFunction.fileParent.fileEntry.getLineNumber(callElement.startOffset),
             )
         }
 
@@ -88,7 +93,14 @@ class IrSourceCompilerForInline(
             }
         }
         callee.parentClassId?.let {
-            return loadCompiledInlineFunction(it, jvmSignature.asmMethod, callee.isSuspend, callee.hasMangledReturnType, state)
+            return loadCompiledInlineFunction(
+                it,
+                jvmSignature.asmMethod,
+                callee.isSuspend,
+                callee.hasMangledReturnType,
+                codegen.context.evaluatorData != null && callee.visibility == DescriptorVisibilities.INTERNAL,
+                state
+            )
         }
         return ClassCodegen.getOrCreate(callee.parentAsClass, codegen.context).generateMethodNode(callee)
     }

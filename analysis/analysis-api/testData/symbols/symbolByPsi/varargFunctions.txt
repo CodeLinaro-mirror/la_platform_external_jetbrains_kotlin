@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /primitive
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -61,6 +62,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(varargFunctions.kt)
   getContainingJvmClassName: VarargFunctionsKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -68,6 +70,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /nullablePrimitive
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -127,6 +130,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(varargFunctions.kt)
   getContainingJvmClassName: VarargFunctionsKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -134,6 +138,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /nonPrimitive
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -193,6 +198,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(varargFunctions.kt)
   getContainingJvmClassName: VarargFunctionsKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -200,6 +206,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /error
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -258,5 +265,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(varargFunctions.kt)
   getContainingJvmClassName: VarargFunctionsKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

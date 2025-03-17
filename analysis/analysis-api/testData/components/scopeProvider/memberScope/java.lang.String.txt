@@ -37,7 +37,7 @@ KaJavaFieldSymbol:
   isStatic: false
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: FINAL
   name: hash
   origin: JAVA_LIBRARY
   receiverParameter: null
@@ -59,6 +59,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.hash32
   compilerVisibility: PackageVisibility
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -92,6 +93,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -106,7 +108,7 @@ KaJavaFieldSymbol:
   isStatic: false
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: FINAL
   name: hash32
   origin: JAVA_LIBRARY
   receiverParameter: null
@@ -169,6 +171,7 @@ KaSyntheticJavaPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isOverride: false
   isStatic: false
@@ -204,6 +207,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.isEmpty
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -237,6 +241,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -244,6 +249,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.codePointAt
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -287,7 +293,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: index
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -307,6 +313,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -314,6 +321,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.codePointBefore
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -357,7 +365,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: index
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -377,6 +385,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -384,6 +393,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.codePointCount
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -427,7 +437,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: beginIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -456,7 +466,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: endIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -476,6 +486,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -483,6 +494,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.offsetByCodePoints
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -526,7 +538,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: index
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -555,7 +567,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: codePointOffset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -575,6 +587,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -582,6 +595,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.getChars
   compilerVisibility: PackageVisibility
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -625,7 +639,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: dst
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -653,7 +667,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: dstBegin
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -673,6 +687,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -680,6 +695,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.getChars
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -723,7 +739,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: srcBegin
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -752,7 +768,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: srcEnd
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -781,7 +797,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: dst
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -809,7 +825,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: dstBegin
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -829,6 +845,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -839,6 +856,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: java/lang/String.getBytes
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -882,7 +900,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: srcBegin
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -911,7 +929,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: srcEnd
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -940,7 +958,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: dst
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -968,7 +986,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: dstBegin
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -988,6 +1006,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=null)
 
@@ -995,6 +1014,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.getBytes
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1037,7 +1057,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: charsetName
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1056,6 +1076,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1063,6 +1084,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.getBytes
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1105,7 +1127,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: charset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1124,6 +1146,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1131,6 +1154,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.getBytes
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1163,6 +1187,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1170,6 +1195,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1213,7 +1239,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: anObject
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1233,6 +1259,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1240,6 +1267,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.contentEquals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1283,7 +1311,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: sb
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1302,6 +1330,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1309,6 +1338,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.contentEquals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1352,7 +1382,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: cs
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1371,6 +1401,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1378,6 +1409,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.equalsIgnoreCase
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1421,7 +1453,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: anotherString
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1440,6 +1472,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1447,6 +1480,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1490,7 +1524,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: anotherString
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1509,6 +1543,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1516,6 +1551,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.compareToIgnoreCase
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1559,7 +1595,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: str
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1578,6 +1614,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1585,6 +1622,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.regionMatches
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1628,7 +1666,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: toffset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1657,7 +1695,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: other
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1685,7 +1723,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: ooffset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1714,7 +1752,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: len
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1734,6 +1772,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1741,6 +1780,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.regionMatches
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1784,7 +1824,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ignoreCase
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1813,7 +1853,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: toffset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1842,7 +1882,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: other
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1870,7 +1910,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: ooffset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1899,7 +1939,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p4
+      name: len
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -1919,6 +1959,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -1926,6 +1967,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.startsWith
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -1969,7 +2011,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: prefix
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -1997,7 +2039,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: toffset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2017,6 +2059,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2024,6 +2067,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.startsWith
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2067,7 +2111,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: prefix
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -2086,6 +2130,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2093,6 +2138,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.endsWith
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2136,7 +2182,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: suffix
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -2155,6 +2201,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2162,6 +2209,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2195,6 +2243,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2202,6 +2251,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.indexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2245,7 +2295,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ch
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2265,6 +2315,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2272,6 +2323,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.indexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2315,7 +2367,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ch
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2344,7 +2396,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: fromIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2364,6 +2416,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2371,6 +2424,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.indexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2414,7 +2468,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: str
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -2433,6 +2487,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2440,6 +2495,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.indexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2483,7 +2539,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: str
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -2511,7 +2567,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: fromIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2531,6 +2587,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2538,6 +2595,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.indexOfSupplementary
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2581,7 +2639,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ch
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2610,7 +2668,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: fromIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2630,6 +2688,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2637,6 +2696,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.lastIndexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2680,7 +2740,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ch
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2700,6 +2760,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2707,6 +2768,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.lastIndexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2750,7 +2812,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ch
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2779,7 +2841,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: fromIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2799,6 +2861,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2806,6 +2869,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.lastIndexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2849,7 +2913,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: str
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -2868,6 +2932,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2875,6 +2940,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.lastIndexOf
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -2918,7 +2984,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: str
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -2946,7 +3012,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: fromIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -2966,6 +3032,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -2973,6 +3040,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.lastIndexOfSupplementary
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3016,7 +3084,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ch
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3045,7 +3113,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: fromIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3065,6 +3133,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3072,6 +3141,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.substring
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3114,7 +3184,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: beginIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3134,6 +3204,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3141,6 +3212,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.substring
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3183,7 +3255,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: beginIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3212,7 +3284,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: endIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3232,6 +3304,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3239,6 +3312,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.subSequence
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3282,7 +3356,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: beginIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3311,7 +3385,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: endIndex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3331,6 +3405,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3338,6 +3413,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.concat
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3380,7 +3456,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: str
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3399,6 +3475,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3406,6 +3483,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.replace
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3448,7 +3526,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: oldChar
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3477,7 +3555,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: newChar
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -3497,6 +3575,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3504,6 +3583,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.replace
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3546,7 +3626,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: target
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3574,7 +3654,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: replacement
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3593,6 +3673,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3600,6 +3681,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.matches
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3643,7 +3725,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: regex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3662,6 +3744,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3669,6 +3752,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.contains
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3712,7 +3796,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: s
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3731,6 +3815,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3738,6 +3823,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.replaceFirst
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3780,7 +3866,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: regex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3808,7 +3894,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: replacement
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3827,6 +3913,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3834,6 +3921,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.replaceAll
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3876,7 +3964,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: regex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3904,7 +3992,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: replacement
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -3923,6 +4011,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -3930,6 +4019,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.split
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -3972,7 +4062,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: regex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4000,7 +4090,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: limit
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -4020,6 +4110,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4027,6 +4118,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.split
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4069,7 +4161,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: regex
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4088,6 +4180,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4095,6 +4188,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.toLowerCase
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4137,7 +4231,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: locale
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4156,6 +4250,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4163,6 +4258,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.toLowerCase
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4195,6 +4291,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4202,6 +4299,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.toUpperCase
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4244,7 +4342,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: locale
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4263,6 +4361,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4270,6 +4369,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.toUpperCase
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4302,6 +4402,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4309,6 +4410,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.trim
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4341,6 +4443,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4348,6 +4451,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4381,6 +4485,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4388,6 +4493,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.toCharArray
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4420,6 +4526,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4427,6 +4534,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.intern
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4459,6 +4567,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4466,6 +4575,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: java/lang/String.get
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -4509,7 +4619,7 @@ KaNamedFunctionSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: index
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -4529,6 +4639,7 @@ KaNamedFunctionSymbol:
     type: java/lang/String
   getContainingFileSymbol: null
   getContainingJvmClassName: java.lang.String
+  canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
 
@@ -4640,7 +4751,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: original
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4696,7 +4807,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: value
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4752,7 +4863,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: value
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4780,7 +4891,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -4809,7 +4920,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: count
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -4866,7 +4977,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: codePoints
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -4894,7 +5005,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -4923,7 +5034,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: count
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -4983,7 +5094,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ascii
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5011,7 +5122,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: hibyte
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5040,7 +5151,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5069,7 +5180,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: count
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5129,7 +5240,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: ascii
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5157,7 +5268,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: hibyte
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5214,7 +5325,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: bytes
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5242,7 +5353,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5271,7 +5382,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: length
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5300,7 +5411,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: charsetName
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5356,7 +5467,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: bytes
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5384,7 +5495,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5413,7 +5524,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: length
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5442,7 +5553,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p3
+      name: charset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5498,7 +5609,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: bytes
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5526,7 +5637,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: charsetName
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5582,7 +5693,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: bytes
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5610,7 +5721,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: charset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5666,7 +5777,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: bytes
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5694,7 +5805,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5723,7 +5834,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: length
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -5780,7 +5891,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: bytes
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5836,7 +5947,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: buffer
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5892,7 +6003,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: builder
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5948,7 +6059,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: value
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:
@@ -5976,7 +6087,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: share
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -6036,7 +6147,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p0
+      name: offset
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -6065,7 +6176,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p1
+      name: count
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaUsualClassType:
@@ -6094,7 +6205,7 @@ KaConstructorSymbol:
       isVararg: false
       location: LOCAL
       modality: FINAL
-      name: p2
+      name: value
       origin: JAVA_LIBRARY
       receiverParameter: null
       returnType: KaFlexibleType:

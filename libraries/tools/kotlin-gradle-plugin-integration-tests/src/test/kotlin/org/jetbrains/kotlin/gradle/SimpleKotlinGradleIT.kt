@@ -1,11 +1,11 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
-import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.test.TestMetadata
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
@@ -203,42 +203,6 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
         }
     }
 
-    @DisplayName("Proper Gradle plugin variant is used")
-    @GradleTestVersions(
-        additionalVersions = [
-            TestVersions.Gradle.G_7_6,
-            TestVersions.Gradle.G_8_0,
-            TestVersions.Gradle.G_8_1,
-            TestVersions.Gradle.G_8_2,
-            TestVersions.Gradle.G_8_4,
-            TestVersions.Gradle.G_8_5,
-        ],
-    )
-    @GradleTest
-    internal fun pluginVariantIsUsed(gradleVersion: GradleVersion) {
-        project("kotlinProject", gradleVersion) {
-            build("help") {
-                val expectedVariant = when (gradleVersion) {
-                    GradleVersion.version(TestVersions.Gradle.G_8_10) -> "gradle85"
-                    GradleVersion.version(TestVersions.Gradle.G_8_9) -> "gradle85"
-                    GradleVersion.version(TestVersions.Gradle.G_8_8) -> "gradle85"
-                    GradleVersion.version(TestVersions.Gradle.G_8_7) -> "gradle85"
-                    GradleVersion.version(TestVersions.Gradle.G_8_6) -> "gradle85"
-                    GradleVersion.version(TestVersions.Gradle.G_8_5) -> "gradle85"
-                    GradleVersion.version(TestVersions.Gradle.G_8_4) -> "gradle82"
-                    GradleVersion.version(TestVersions.Gradle.G_8_3) -> "gradle82"
-                    GradleVersion.version(TestVersions.Gradle.G_8_2) -> "gradle82"
-                    GradleVersion.version(TestVersions.Gradle.G_8_1) -> "gradle81"
-                    GradleVersion.version(TestVersions.Gradle.G_8_0) -> "gradle80"
-                    GradleVersion.version(TestVersions.Gradle.G_7_6) -> "gradle76"
-                    else -> "main"
-                }
-
-                assertOutputContains("Using Kotlin Gradle Plugin $expectedVariant variant")
-            }
-        }
-    }
-
     @DisplayName("Changing compile task destination directory does not break test compilation")
     @GradleTest
     internal fun customDestinationDir(gradleVersion: GradleVersion) {
@@ -336,6 +300,24 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
             KotlinSourceSet::customSourceFilesExtensions // ensure the accessed property is available on KotlinSourceSet
             buildAndFail("help") {
                 assertOutputContains("Could not get unknown property 'customSourceFilesExtensions' for source set 'main' ")
+            }
+        }
+    }
+
+    @GradleTest
+    fun testKotlinCompilerEmbeddable(gradleVersion: GradleVersion) {
+        project("kotlinProjectWithBuildSrc", gradleVersion) {
+            build {
+                assertNoDiagnostic(KotlinToolingDiagnostics.KotlinCompilerEmbeddableIsPresentInClasspath)
+            }
+            subProject("buildSrc").buildScriptInjection {
+                project.dependencies.add("runtimeOnly", "org.jetbrains.kotlin:kotlin-compiler-embeddable:1.7.10")
+            }
+            buildAndFail {
+                // example of incompatibility caused by the problem
+                // if it started to fail, feel free to remove/adjust this assertion
+                assertOutputContains("class org.jetbrains.kotlin.build.report.metrics.GradleBuildTime can not implement org.jetbrains.kotlin.build.report.metrics.BuildTime, because it is not an interface")
+                assertHasDiagnostic(KotlinToolingDiagnostics.KotlinCompilerEmbeddableIsPresentInClasspath)
             }
         }
     }

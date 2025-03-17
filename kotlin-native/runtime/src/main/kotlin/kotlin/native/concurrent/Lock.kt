@@ -3,10 +3,15 @@
  * that can be found in the LICENSE file.
  */
 
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package kotlin.native.concurrent
 
 import kotlin.experimental.ExperimentalNativeApi
-import kotlin.concurrent.AtomicInt
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.decrementAndFetch
+import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 @ThreadLocal
 private object CurrentThread {
@@ -19,6 +24,7 @@ internal class Lock {
     private val reenterCount_ = AtomicInt(0)
 
     // TODO: make it properly reschedule instead of spinning.
+    @OptIn(ExperimentalStdlibApi::class)
     fun lock() {
         val lockData = CurrentThread.id.hashCode()
         loop@ do {
@@ -26,21 +32,22 @@ internal class Lock {
             when (old) {
                 lockData -> {
                     // Was locked by us already.
-                    reenterCount_.incrementAndGet()
+                    reenterCount_.incrementAndFetch()
                     break@loop
                 }
                 0 -> {
                     // We just got the lock.
-                    assert(reenterCount_.value == 0)
+                    assert(reenterCount_.load() == 0)
                     break@loop
                 }
             }
         } while (true)
     }
 
+    @OptIn(ExperimentalStdlibApi::class)
     fun unlock() {
-        if (reenterCount_.value > 0) {
-            reenterCount_.decrementAndGet()
+        if (reenterCount_.load() > 0) {
+            reenterCount_.decrementAndFetch()
         } else {
             val lockData = CurrentThread.id.hashCode()
             val old = locker_.compareAndExchange(lockData, 0)

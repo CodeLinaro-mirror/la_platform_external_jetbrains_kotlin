@@ -1,7 +1,10 @@
 element: e
-implicit receivers:
-  type: Context
-  owner symbol: KaFirNamedFunctionSymbol
+implicit values:
+  KaImplicitReceiver:
+    scopeIndexInTower = 1
+    type = Context
+    ownerSymbol = KaContextParameterSymbol:
+      Context: Context
 
 scopes:
   LocalScope, index = 0
@@ -44,7 +47,7 @@ scopes:
     classifiers: 1
       class Context
     callables: 1
-      context(Context)
+      context(Context@Context)
       fun test()
     constructors: 0
 

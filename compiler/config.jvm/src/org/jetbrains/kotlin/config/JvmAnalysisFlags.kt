@@ -31,10 +31,10 @@ object JvmAnalysisFlags {
     val enableJvmPreview by AnalysisFlag.Delegates.Boolean
 
     @JvmStatic
-    val useIR by AnalysisFlag.Delegates.Boolean
+    val outputBuiltinsMetadata by AnalysisFlag.Delegates.Boolean
 
     @JvmStatic
-    val generatePropertyAnnotationsMethods by AnalysisFlag.Delegates.Boolean
+    val expectBuiltinsAsPartOfStdlib by AnalysisFlag.Delegates.Boolean
 
     private object Delegates {
         object JavaTypeEnhancementStateWarnByDefault {

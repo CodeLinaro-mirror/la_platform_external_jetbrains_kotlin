@@ -779,6 +779,23 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     }
 
     @Nested
+    @TestMetadata("compiler/testData/ir/irText/declarations/contextParameters")
+    @TestDataPath("$PROJECT_ROOT")
+    @Tag("legacy-frontend")
+    public class ContextParameters {
+      @Test
+      public void testAllFilesPresentInContextParameters() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/declarations/contextParameters"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+      }
+
+      @Test
+      @TestMetadata("contextWithAnnotation.kt")
+      public void testContextWithAnnotation() {
+        runTest("compiler/testData/ir/irText/declarations/contextParameters/contextWithAnnotation.kt");
+      }
+    }
+
+    @Nested
     @TestMetadata("compiler/testData/ir/irText/declarations/contextReceivers")
     @TestDataPath("$PROJECT_ROOT")
     @Tag("legacy-frontend")
@@ -1912,6 +1929,12 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @TestMetadata("smartCastsWithDestructuring.kt")
     public void testSmartCastsWithDestructuring() {
       runTest("compiler/testData/ir/irText/expressions/smartCastsWithDestructuring.kt");
+    }
+
+    @Test
+    @TestMetadata("smartcastToIntersection.kt")
+    public void testSmartcastToIntersection() {
+      runTest("compiler/testData/ir/irText/expressions/smartcastToIntersection.kt");
     }
 
     @Test
@@ -3124,6 +3147,12 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
       }
 
       @Test
+      @TestMetadata("external.kt")
+      public void testExternal() {
+        runTest("compiler/testData/ir/irText/js/external/external.kt");
+      }
+
+      @Test
       @TestMetadata("kt38765.kt")
       public void testKt38765() {
         runTest("compiler/testData/ir/irText/js/external/kt38765.kt");
@@ -3209,6 +3238,12 @@ public class ClassicJsIrTextTestGenerated extends AbstractClassicJsIrTextTest {
     @Test
     public void testAllFilesPresentInProperties() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/properties"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    }
+
+    @Test
+    @TestMetadata("setters.kt")
+    public void testSetters() {
+      runTest("compiler/testData/ir/irText/properties/setters.kt");
     }
 
     @Test

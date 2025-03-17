@@ -15,13 +15,14 @@ class SourceMap3Builder(
     private val generatedFile: File?,
     private val getCurrentOutputColumn: () -> Int,
     private val pathPrefix: String
-) : SourceMapBuilder {
+) : SourceMapMappingConsumer {
 
     private val out = StringBuilder(8192)
 
     private val sources = createOpenHashMap<SourceKey>()
     private val orderedSources = mutableListOf<String>()
     private val orderedSourceContentSuppliers = mutableListOf<Supplier<Reader?>>()
+    private val ignoredSources = linkedSetOf<Int>()
 
     private val names = createOpenHashMap<String>()
     private val orderedNames = mutableListOf<String>()
@@ -38,15 +39,14 @@ class SourceMap3Builder(
     private var previousPreviousSourceColumn = 0
     private var currentMappingIsEmpty = true
 
-    override fun getOutFile() = File(generatedFile!!.parentFile, "${generatedFile.name}.map")
-
-    override fun build(): String {
+    fun build(): String {
         val json = JsonObject()
         json.properties["version"] = JsonNumber(3.0)
         if (generatedFile != null)
             json.properties["file"] = JsonString(generatedFile.name)
         appendSources(json)
         appendSourcesContent(json)
+        appendIgnoredSources(json)
         json.properties["names"] = JsonArray(
             orderedNames.mapTo(mutableListOf()) { JsonString(it) }
         )
@@ -58,6 +58,13 @@ class SourceMap3Builder(
         json.properties["sources"] = JsonArray(
             orderedSources.mapTo(mutableListOf()) { JsonString(pathPrefix + it) }
         )
+    }
+
+    private fun appendIgnoredSources(json: JsonObject) {
+        val ignoreList = JsonArray(ignoredSources.mapTo(mutableListOf()) { JsonNumber(it.toDouble()) })
+
+        json.properties["ignoreList"] = ignoreList
+        json.properties["x_google_ignoreList"] = ignoreList
     }
 
     private fun appendSourcesContent(json: JsonObject) {
@@ -85,10 +92,6 @@ class SourceMap3Builder(
         previousGeneratedColumn = -1
     }
 
-    override fun skipLinesAtBeginning(count: Int) {
-        out.insert(0, ";".repeat(count))
-    }
-
     private fun getSourceIndex(source: String, fileIdentity: Any?, contentSupplier: Supplier<Reader?>): Int {
         val key = SourceKey(source, fileIdentity)
         var sourceIndex = sources.getInt(key)
@@ -111,6 +114,17 @@ class SourceMap3Builder(
         return nameIndex
     }
 
+    private val String.unixStylePath: String
+        get() = replace(File.separatorChar, '/')
+
+    fun addIgnoredSource(
+        source: String,
+        fileIdentity: Any? = null,
+        sourceContent: Supplier<Reader?> = Supplier { null },
+    ) {
+        ignoredSources.add(getSourceIndex(source.unixStylePath, fileIdentity, sourceContent))
+    }
+
     override fun addMapping(
         source: String,
         fileIdentity: Any?,
@@ -119,19 +133,19 @@ class SourceMap3Builder(
         sourceColumn: Int,
         name: String?,
     ) {
-        addMapping(source, fileIdentity, sourceContent, sourceLine, sourceColumn, name, getCurrentOutputColumn())
+        addMapping(source, sourceLine, sourceColumn, getCurrentOutputColumn(), name, fileIdentity, sourceContent)
     }
 
     fun addMapping(
         source: String,
-        fileIdentity: Any?,
-        sourceContent: Supplier<Reader?>,
         sourceLine: Int,
         sourceColumn: Int,
-        name: String?,
-        outputColumn: Int
+        outputColumn: Int,
+        name: String? = null,
+        fileIdentity: Any? = null,
+        sourceContent: Supplier<Reader?> = Supplier { null },
     ) {
-        val sourceIndex = getSourceIndex(source.replace(File.separatorChar, '/'), fileIdentity, sourceContent)
+        val sourceIndex = getSourceIndex(source.unixStylePath, fileIdentity, sourceContent)
 
         val nameIndex = name?.let(this::getNameIndex) ?: -1
 
@@ -165,13 +179,6 @@ class SourceMap3Builder(
     override fun addEmptyMapping() {
         if (!currentMappingIsEmpty) {
             startMapping(getCurrentOutputColumn())
-            currentMappingIsEmpty = true
-        }
-    }
-
-    fun addEmptyMapping(outputColumn: Int) {
-        if (!currentMappingIsEmpty) {
-            startMapping(outputColumn)
             currentMappingIsEmpty = true
         }
     }

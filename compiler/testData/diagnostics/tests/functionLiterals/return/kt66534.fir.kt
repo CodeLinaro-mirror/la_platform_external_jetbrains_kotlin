@@ -1,3 +1,5 @@
+// RUN_PIPELINE_TILL: FRONTEND
+// LATEST_LV_DIFFERENCE
 // ISSUE: KT-66534, KT-66954
 // WITH_STDLIB
 
@@ -42,10 +44,10 @@ fun expectedFlexibleUnitEmptyReturnAndExplicitReturnNull() {
     }
 }
 
-val expectedNullableUnitExplicitReturnUnitAndString: () -> Unit? = <!INITIALIZER_TYPE_MISMATCH("kotlin.Function0<kotlin.Unit?>; kotlin.Function0<kotlin.Any>")!>l@ {
+val expectedNullableUnitExplicitReturnUnitAndString: () -> Unit? = l@ {
     if ("0".hashCode() == 42) return@l Unit
-    ""
-}<!>
+    <!RETURN_TYPE_MISMATCH!>""<!>
+}
 
 fun expectedFlexibleUnitImplicitReturnString() {
     A.foo = l@ {
@@ -60,9 +62,9 @@ fun expectedFlexibleUnitExplicitReturnUnitAndString() {
     }
 }
 
-val expectedNullableUnitExplicitReturnString: () -> Unit? = <!INITIALIZER_TYPE_MISMATCH!>l@ {
-    return@l ""
-}<!>
+val expectedNullableUnitExplicitReturnString: () -> Unit? = l@ {
+    return@l <!RETURN_TYPE_MISMATCH!>""<!>
+}
 
 fun expectedFlexibleUnitExplicitReturnString() {
     A.foo = l@ {
@@ -113,7 +115,7 @@ fun test() {
 
     run<Unit?> l@ {
         if ("0".hashCode() == 42) return@l Unit
-        <!ARGUMENT_TYPE_MISMATCH!>""<!>
+        <!RETURN_TYPE_MISMATCH!>""<!>
     }
 
     A.run l@ {
@@ -126,11 +128,11 @@ fun test() {
     }
 
     run<Unit?> l@ {
-        return@l <!ARGUMENT_TYPE_MISMATCH!>""<!>
+        return@l <!RETURN_TYPE_MISMATCH!>""<!>
     }
 
     A.run l@ {
-        return@l <!ARGUMENT_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>""<!>
+        return@l <!RETURN_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>""<!>
     }
 
     run<Unit?> l@ {

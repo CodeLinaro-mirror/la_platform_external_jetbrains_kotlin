@@ -9,6 +9,7 @@
 #include <atomic>
 
 #include "GCImpl.hpp"
+#include "Memory.h"
 #include "ThreadData.hpp"
 #include "ThreadRegistry.hpp"
 
@@ -65,7 +66,7 @@ void switchPhase(BarriersPhase from, BarriersPhase to) noexcept {
 }
 
 auto& markDispatcher() noexcept {
-    return mm::GlobalData::Instance().gc().impl().gc().mark();
+    return mm::GlobalData::Instance().gc().impl().markDispatcher_;
 }
 
 inline constexpr auto kTagBarriers = logging::Tag::kBarriers;
@@ -107,7 +108,7 @@ void gc::barriers::enableBarriers(int64_t epoch) noexcept {
     markingEpoch.store(epoch, std::memory_order_relaxed);
     switchPhase(BarriersPhase::kDisabled, BarriersPhase::kMarkClosure);
     for (auto& mutator : mutators) {
-        mutator.gc().impl().gc().barriers().startMarkingNewObjects(GCHandle::getByEpoch(epoch));
+        mutator.gc().impl().barriers_.startMarkingNewObjects(GCHandle::getByEpoch(epoch));
     }
 }
 
@@ -119,7 +120,7 @@ void gc::barriers::disableBarriers() noexcept {
     auto mutators = mm::ThreadRegistry::Instance().LockForIter();
     switchPhase(BarriersPhase::kWeakProcessing, BarriersPhase::kDisabled);
     for (auto& mutator : mutators) {
-        mutator.gc().impl().gc().barriers().stopMarkingNewObjects();
+        mutator.gc().impl().barriers_.stopMarkingNewObjects();
     }
 }
 
@@ -127,6 +128,8 @@ namespace {
 
 // TODO decide whether it's really beneficial to NO_INLINE the slow path
 NO_INLINE void beforeHeapRefUpdateSlowPath(mm::DirectRefAccessor ref, ObjHeader* value, bool loadAtomic) noexcept {
+    AssertThreadState(ThreadState::kRunnable);
+
     ObjHeader* prev;
     if (loadAtomic) {
         prev = ref.loadAtomic(std::memory_order_relaxed);
@@ -134,13 +137,13 @@ NO_INLINE void beforeHeapRefUpdateSlowPath(mm::DirectRefAccessor ref, ObjHeader*
         prev = ref.load();
     }
 
-    if (prev != nullptr && prev->heap()) {
+    if (prev != nullptr && prev->heapNotLocal()) {
         // TODO Redundant if the destination object is black.
         //      Yet at the moment there is now efficient way to distinguish black and gray objects.
 
         // TODO perhaps it would be better to pass the thread data from outside
         auto& threadData = *mm::ThreadRegistry::Instance().CurrentThreadData();
-        auto& markQueue = *threadData.gc().impl().gc().mark().markQueue();
+        auto& markQueue = *threadData.gc().impl().mark_.markQueue();
         gc::mark::ConcurrentMark::MarkTraits::tryEnqueue(markQueue, prev);
         // No need to add the marked object in statistics here.
         // Objects will be counted on dequeue.
@@ -157,6 +160,23 @@ PERFORMANCE_INLINE void gc::barriers::beforeHeapRefUpdate(mm::DirectRefAccessor 
     }
 }
 
+PERFORMANCE_INLINE gc::barriers::ExternalRCRefReleaseGuard::Impl::Impl(mm::DirectRefAccessor ref) noexcept {
+    // Can be called with any possible thread state: kotlin, native, unattached thread.
+    // This guard synchronizes with the `ConcurrentMark` via the ThreadRegistry lock.
+    // It must be done before the barriers phase check.
+    if (mm::ThreadRegistry::IsCurrentThreadRegistered()) {
+        // If the thread is registered, just ensure, that the root set mutation happens will happen in the runnable state
+        stateGuard_ = ThreadStateGuard{ThreadState::kRunnable, true};
+        // NOTE that this barrier must be executed before the RC decrement
+        beforeHeapRefUpdate(ref, nullptr, false);
+    } else {
+        // In case of an unregistered thread, just do thing outside the mark phase.
+        // NOTE This code can be called from quite an unexpected places (such as TLS destructors).
+        // One can't simply register the thread from here.
+        markMutex_ = markDispatcher().markMutex();
+    }
+}
+
 namespace {
 
 /**
@@ -166,7 +186,7 @@ namespace {
 NO_INLINE void weakRefReadInMarkSlowPath(ObjHeader* weakReferee) noexcept {
     assertPhase(BarriersPhase::kMarkClosure);
     auto& threadData = *mm::ThreadRegistry::Instance().CurrentThreadData();
-    auto& markQueue = *threadData.gc().impl().gc().mark().markQueue();
+    auto& markQueue = *threadData.gc().impl().mark_.markQueue();
     gc::mark::ConcurrentMark::MarkTraits::tryEnqueue(markQueue, weakReferee);
 }
 

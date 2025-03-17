@@ -75,7 +75,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
 
     private fun createEnvironment(content: String): KotlinCoreEnvironment {
         val classpath = mutableListOf(getAnnotationsJar(), ForTestCompileRuntime.runtimeJarForTests())
-        if (InTextDirectivesUtils.isDirectiveDefined(content, "JVM_ANNOTATIONS")) {
+        if (InTextDirectivesUtils.isDirectiveDefined(content, "WITH_KOTLIN_JVM_ANNOTATIONS")) {
             classpath.add(ForTestCompileRuntime.jvmAnnotationsForTests())
         }
         if (InTextDirectivesUtils.isDirectiveDefined(content, "FOREIGN_ANNOTATIONS")) {
@@ -144,7 +144,7 @@ abstract class AbstractFirTypeEnhancementTest : KtUsefulTestCase() {
             val scope = GlobalSearchScope.filesScope(project, virtualFiles)
                 .uniteWith(TopDownAnalyzerFacadeForJVM.AllJavaSourcesInProjectScope(project))
             val session = FirTestSessionFactoryHelper.createSessionForTests(
-                environment.toAbstractProjectEnvironment(),
+                environment.toVfsBasedProjectEnvironment(),
                 scope.toAbstractProjectFileSearchScope()
             )
 

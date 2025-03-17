@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,33 +15,23 @@ import org.jetbrains.kotlin.analysis.api.components.KaSymbolRelationProvider
 import org.jetbrains.kotlin.analysis.api.descriptors.KaFe10Session
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.KaFe10SessionComponent
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.KaFe10PackageSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KaFe10DescEnumEntrySymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KaFe10DescSamConstructorSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.KaFe10DynamicFunctionDescValueParameterSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getDescriptor
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.getSymbolDescriptor
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtCallableSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtClassifierSymbol
-import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.toKtSymbol
+import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.base.*
 import org.jetbrains.kotlin.analysis.api.getModule
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibrarySourceModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
-import org.jetbrains.kotlin.descriptors.ClassDescriptor
-import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.ClassifierDescriptorWithTypeParameters
-import org.jetbrains.kotlin.descriptors.MemberDescriptor
-import org.jetbrains.kotlin.descriptors.PropertyAccessorDescriptor
-import org.jetbrains.kotlin.descriptors.ValueParameterDescriptor
+import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.util.kotlinPackageFqn
 import org.jetbrains.kotlin.load.java.lazy.descriptors.LazyJavaPackageFragment
 import org.jetbrains.kotlin.load.java.sam.JvmSamConversionOracle
-import org.jetbrains.kotlin.load.kotlin.*
+import org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
+import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
@@ -52,6 +42,7 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.platform
 import org.jetbrains.kotlin.resolve.findOriginalTopMostOverriddenDescriptors
 import org.jetbrains.kotlin.resolve.multiplatform.ExpectedActualResolver
 import org.jetbrains.kotlin.resolve.multiplatform.isCompatibleOrWeaklyIncompatible
+import org.jetbrains.kotlin.resolve.sam.SamConstructorDescriptor
 import org.jetbrains.kotlin.resolve.sam.createSamConstructorFunction
 import org.jetbrains.kotlin.resolve.sam.getSingleAbstractMethodOrNull
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DescriptorWithContainerSource
@@ -61,7 +52,7 @@ import java.nio.file.Paths
 
 internal class KaFe10SymbolRelationProvider(
     override val analysisSessionProvider: () -> KaFe10Session
-) : KaSessionComponent<KaFe10Session>(), KaSymbolRelationProvider, KaFe10SessionComponent {
+) : KaBaseSessionComponent<KaFe10Session>(), KaSymbolRelationProvider, KaFe10SessionComponent {
     override val KaSymbol.containingSymbol: KaSymbol?
         get() = withValidityAssertion {
             when (this) {
@@ -199,6 +190,15 @@ internal class KaFe10SymbolRelationProvider(
             return KaFe10DescSamConstructorSymbol(constructorDescriptor, analysisContext)
         }
 
+    override val KaSamConstructorSymbol.constructedClass: KaClassLikeSymbol
+        get() = withValidityAssertion {
+            (getDescriptor() as SamConstructorDescriptor).baseDescriptorForSynthetic.toKaClassSymbol(analysisContext)
+        }
+
+    @KaExperimentalApi
+    override val KaConstructorSymbol.originalConstructorIfTypeAliased: KaConstructorSymbol?
+        get() = withValidityAssertion { null }
+
     private val overridesProvider = KaFe10SymbolDeclarationOverridesProvider(analysisSessionProvider)
 
     override val KaCallableSymbol.directlyOverriddenSymbols: Sequence<KaCallableSymbol>
@@ -237,15 +237,6 @@ internal class KaFe10SymbolRelationProvider(
             return originalCallableDescriptor.toKtCallableSymbol(analysisContext) ?: this
         }
 
-    @Suppress("OVERRIDE_DEPRECATION")
-    override val KaCallableSymbol.originalContainingClassForOverride: KaClassSymbol?
-        get() = withValidityAssertion {
-            val callableDescriptor = getSymbolDescriptor(this) as? CallableMemberDescriptor ?: return null
-            val originalCallableDescriptor = callableDescriptor.findOriginalTopMostOverriddenDescriptors().firstOrNull() ?: return null
-            val containingClassDescriptor = originalCallableDescriptor.containingDeclaration as? ClassDescriptor ?: return null
-            return containingClassDescriptor.toKtClassifierSymbol(analysisContext) as? KaClassSymbol
-        }
-
     override fun KaDeclarationSymbol.getExpectsForActual(): List<KaDeclarationSymbol> = withValidityAssertion {
         if (psiSafe<KtDeclaration>()?.hasActualModifier() != true) return emptyList()
         val memberDescriptor = (getSymbolDescriptor(this) as? MemberDescriptor)?.takeIf { it.isActual } ?: return emptyList()
@@ -268,38 +259,13 @@ internal class KaFe10SymbolRelationProvider(
             return inheritorsProvider.computeSealedSubclasses(classDescriptor, allowInDifferentFiles)
                 .mapNotNull { it.toKtClassifierSymbol(analysisContext) as? KaNamedClassSymbol }
         }
-
-    @Deprecated("Use the declaration scope instead.")
-    override val KaNamedClassSymbol.enumEntries: List<KaEnumEntrySymbol>
-        get() = withValidityAssertion {
-            val enumDescriptor = getSymbolDescriptor(this) as? ClassDescriptor ?: return emptyList()
-            if (enumDescriptor.kind != ClassKind.ENUM_CLASS) {
-                return emptyList()
-            }
-
-            val result = mutableListOf<KaEnumEntrySymbol>()
-
-            for (entryDescriptor in enumDescriptor.unsubstitutedMemberScope.getContributedDescriptors()) {
-                if (entryDescriptor is ClassDescriptor && entryDescriptor.kind == ClassKind.ENUM_ENTRY) {
-                    result += KaFe10DescEnumEntrySymbol(entryDescriptor, analysisContext)
-                }
-            }
-
-            return result
-        }
 }
 
-internal fun computeContainingSymbolOrSelf(symbol: KaSymbol, analysisSession: KaSession): KaSymbol {
-    with(analysisSession) {
-        return when (symbol) {
-            is KaValueParameterSymbol -> {
-                symbol.containingDeclaration as? KaFunctionSymbol ?: symbol
-            }
-            is KaPropertyAccessorSymbol -> {
-                symbol.containingDeclaration as? KaPropertySymbol ?: symbol
-            }
-            is KaBackingFieldSymbol -> symbol.owningProperty
-            else -> symbol
-        }
+internal fun computeContainingSymbolOrSelf(symbol: KaSymbol, analysisSession: KaSession): KaSymbol = with(analysisSession) {
+    when (symbol) {
+        is KaParameterSymbol -> symbol.containingDeclaration as? KaCallableSymbol ?: symbol
+        is KaPropertyAccessorSymbol -> symbol.containingDeclaration as? KaPropertySymbol ?: symbol
+        is KaBackingFieldSymbol -> symbol.owningProperty
+        else -> symbol
     }
 }

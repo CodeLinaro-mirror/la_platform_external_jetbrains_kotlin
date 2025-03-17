@@ -7,6 +7,8 @@ package org.jetbrains.kotlin.ir.interpreter.transformer
 
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrVarargImpl
@@ -14,28 +16,46 @@ import org.jetbrains.kotlin.ir.interpreter.isPrimitiveArray
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.isAnnotation
+import org.jetbrains.kotlin.ir.util.parentsWithSelf
 import org.jetbrains.kotlin.ir.util.toIrConst
 
 internal abstract class IrConstAnnotationTransformer(private val context: IrConstEvaluationContext) {
+    var insideFakeOverrideDeclaration = false
+
+    protected inline fun <T> handleAsFakeOverrideIf(condition: Boolean, action: () -> T): T {
+        val oldValue = insideFakeOverrideDeclaration
+        if (condition) {
+            insideFakeOverrideDeclaration = true
+        }
+
+        try {
+            return action()
+        } finally {
+            insideFakeOverrideDeclaration = oldValue
+        }
+    }
 
     abstract fun visitAnnotations(element: IrElement)
 
     protected fun transformAnnotations(annotationContainer: IrAnnotationContainer) {
         annotationContainer.annotations.forEach { annotation ->
-            transformAnnotation(annotation)
+            context.saveConstantsOnCondition(!insideFakeOverrideDeclaration) {
+                transformAnnotation(annotation)
+            }
         }
     }
 
     private fun transformAnnotation(annotation: IrConstructorCall) {
         if (annotation.type is IrErrorType) return
-        for (i in 0 until annotation.valueArgumentsCount) {
-            val arg = annotation.getValueArgument(i) ?: continue
-            annotation.putValueArgument(i, transformAnnotationArgument(arg, annotation.symbol.owner.valueParameters[i]))
+        for ((param, arg) in (annotation.symbol.owner.parameters zip annotation.arguments)) {
+            if (arg != null) {
+                annotation.arguments[param] = transformAnnotationArgument(arg, param)
+            }
         }
         context.saveInConstTracker(annotation)
     }
 
-    protected fun transformAnnotationArgument(argument: IrExpression, valueParameter: IrValueParameter): IrExpression? {
+    private fun transformAnnotationArgument(argument: IrExpression, valueParameter: IrValueParameter): IrExpression? {
         return when (argument) {
             is IrVararg -> argument.transformVarArg()
             else -> argument.transformSingleArg(valueParameter.type)

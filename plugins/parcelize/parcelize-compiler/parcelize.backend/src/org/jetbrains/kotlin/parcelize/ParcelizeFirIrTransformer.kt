@@ -41,7 +41,7 @@ class ParcelizeFirIrTransformer(
             override fun visitCall(expression: IrCall): IrExpression {
                 val callee = expression.symbol.owner
                 if (callee.isParcelableCreatorIntrinsic()) {
-                    expression.getTypeArgument(0)?.getClass()?.let { parcelableClass ->
+                    expression.typeArguments[0]?.getClass()?.let { parcelableClass ->
                         androidSymbols.createBuilder(expression.symbol).apply {
                             return getParcelableCreator(parcelableClass)
                         }
@@ -102,8 +102,7 @@ class ParcelizeFirIrTransformer(
                 }
                 ParcelizeSyntheticComponent.ComponentKind.WRITE_TO_PARCEL.methodName -> {
                     function.apply {
-                        val receiverParameter = dispatchReceiverParameter!!
-                        val (parcelParameter, flagsParameter) = function.valueParameters
+                        val (receiverParameter, parcelParameter, flagsParameter) = function.parameters
 
                         // We need to defer the construction of the writer, since it may refer to the [writeToParcel] methods in other
                         // @Parcelize classes in the current module, which might not be constructed yet at this point.

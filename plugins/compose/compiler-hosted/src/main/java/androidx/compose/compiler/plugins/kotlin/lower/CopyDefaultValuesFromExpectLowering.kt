@@ -100,8 +100,8 @@ class CopyDefaultValuesFromExpectLowering(
         return original
     }
 
-    override fun lower(module: IrModuleFragment) {
-        module.transformChildrenVoid(this)
+    override fun lower(irModule: IrModuleFragment) {
+        irModule.transformChildrenVoid(this)
     }
 
     private inline fun <reified T : IrFunction> T.findActualForExpected(): T {
@@ -238,8 +238,8 @@ class CopyDefaultValuesFromExpectLowering(
                         parent.findActualForExpected().extensionReceiverParameter!!
 
                     else -> {
-                        assert(parent.valueParameters[parameter.index] == parameter)
-                        parent.findActualForExpected().valueParameters[parameter.index]
+                        assert(parent.valueParameters[parameter.indexInOldValueParameters] == parameter)
+                        parent.findActualForExpected().valueParameters[parameter.indexInOldValueParameters]
                     }
                 }
 

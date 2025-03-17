@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // WITH_STDLIB
 // DIAGNOSTICS: -OPT_IN_IS_NOT_ENABLED -OPT_IN_USAGE_ERROR
 // IGNORE_BACKEND: WASM
@@ -24,6 +25,6 @@ fun main() {
     } // `Map<CharSequence, String>` if we use builder inference, `Map<String, String>` if we don't
 
     val y: MutableMap<String, CharSequence> = build7 {
-        <!ARGUMENT_TYPE_MISMATCH, TYPE_MISMATCH, TYPE_MISMATCH!>id(run { this })<!>
+        <!RETURN_TYPE_MISMATCH, TYPE_MISMATCH, TYPE_MISMATCH!>id(run { this })<!>
     }
 }

@@ -24,7 +24,7 @@ import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 import org.jetbrains.kotlin.utils.toSmartList
 
 @Suppress("PARAMETER_NAME_CHANGED_ON_OVERRIDE")
-class IrElementToJsExpressionTransformer : BaseIrElementToJsNodeTransformer<JsExpression, JsGenerationContext> {
+class IrElementToJsExpressionTransformer : BaseIrElementToJsNodeTransformer<JsExpression, JsGenerationContext>() {
 
     private fun JsGenerationContext.isClassInlineLike(irClass: IrClass) =
         staticContext.backendContext.inlineClassesUtils.isClassInlineLike(irClass)
@@ -179,7 +179,7 @@ class IrElementToJsExpressionTransformer : BaseIrElementToJsNodeTransformer<JsEx
         val callFuncRef = JsNameRef(Namer.CALL_FUNCTION, classNameRef)
         val fromPrimary = context.currentFunction is IrConstructor
         val thisRef =
-            if (fromPrimary) JsThisRef() else context.getNameForValueDeclaration(context.currentFunction!!.valueParameters.last()).makeRef()
+            if (fromPrimary) JsThisRef() else context.getNameForValueDeclaration(context.currentFunction!!.parameters.last()).makeRef()
         val arguments = translateCallArguments(expression, context, this)
 
         val constructor = expression.symbol.owner

@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -UNUSED_PARAMETER
 // RENDER_DIAGNOSTICS_MESSAGES
 
@@ -13,5 +14,5 @@ class C<T> {
 class Out<out F>
 
 fun test(a: C<out CharSequence>, y: Out<CharSequence>) {
-    a + <!ARGUMENT_TYPE_MISMATCH("Out<@A() CapturedType(out kotlin.CharSequence)>; Out<kotlin.CharSequence>")!>y<!>
+    a + <!ARGUMENT_TYPE_MISMATCH("Out<CharSequence>; Out<@A() CapturedType(out CharSequence)>")!>y<!>
 }

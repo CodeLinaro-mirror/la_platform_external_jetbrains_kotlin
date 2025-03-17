@@ -33,16 +33,79 @@ import org.jetbrains.kotlin.KtNodeTypes.*
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.diagnostics.PsiDiagnosticUtils
 import org.jetbrains.kotlin.lexer.KtTokens
+import org.jetbrains.kotlin.lexer.KtTokens.PLUS
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.util.getChildren
 import java.util.*
+import kotlin.collections.ArrayDeque
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
 // NOTE: in this file we collect only LANGUAGE INDEPENDENT methods working with PSI and not modifying it
 
 // ----------- Walking children/siblings/parents -------------------------------------------------------------------------------------------
+
+/**
+ * Emulates recursion using a stack to prevent StackOverflow exception on big string concatenation expressions like
+ * `val x = "a0" + "a1" + ... + "a9999"` (it's relatively common in machine-generated code)
+
+ * This method traverses the provided @param[KtBinaryExpression], tries to extract all string template nodes and returns
+ * the list of nested expressions in direct order if the input `KtBinaryExpression` matches the string literals concatenation pattern.
+ * Otherwise, it returns `null`.
+ * The method handles nested expressions by pushing nodes onto an input stack and processing them iteratively.
+ *
+ * For instance, the "a" + "b" + "c" is represented as
+ *
+ * ```
+ *          '+'(0)
+ *      '+'(1)     'c'
+ *  'a'        'b'
+ * ```
+ *
+ *
+ * The method returns `'a', 'b', 'c'` if @param[collectAllDescendants] is `false` (default)
+ * But returns `'a', 'b', '+'(1), 'c', '+'(0)` otherwise. This is used when full-fidelity tree structure is needed (see usages).
+ */
+fun KtBinaryExpression.tryVisitFoldingStringConcatenation(collectAllDescendants: Boolean = false): List<KtExpression>? {
+    // Optimization: don't allocate anything if the root expression doesn't match the string concatenation folding pattern
+    if (operationToken != PLUS) return null
+
+    val input = mutableListOf<KtExpression?>().also { it.add(this) }
+    val output = ArrayDeque<KtExpression>()
+
+    while (input.isNotEmpty()) {
+        var node = input.removeLast()
+        when (node) {
+            is KtBinaryExpression -> {
+                if (node.operationToken != PLUS) {
+                    return null
+                }
+
+                if (collectAllDescendants) {
+                    output.addFirst(node)
+                }
+                input.add(node.left)
+                input.add(node.right)
+            }
+            is KtParenthesizedExpression -> {
+                if (collectAllDescendants) {
+                    output.addFirst(node)
+                }
+                input.add(node.expression)
+            }
+            else -> {
+                if (node !is KtStringTemplateExpression) {
+                    return null
+                }
+
+                output.addFirst(node)
+            }
+        }
+    }
+
+    return output
+}
 
 val PsiElement.allChildren: PsiChildRange
     get() {
@@ -209,7 +272,6 @@ inline fun <reified T : PsiElement> PsiElement.getParentOfTypeAndBranches(
     return getParentOfType<T>(strict)?.getIfChildIsInBranches(this, branches)
 }
 
-@Suppress("NO_TAIL_CALLS_FOUND", "NON_TAIL_RECURSIVE_CALL") // K2 warning suppression, TODO: KT-62472
 tailrec fun PsiElement.getOutermostParentContainedIn(container: PsiElement): PsiElement? {
     val parent = parent
     return if (parent == container) this else parent?.getOutermostParentContainedIn(container)
@@ -523,6 +585,8 @@ fun KtModifierList.hasSuspendModifier() = hasModifier(KtTokens.SUSPEND_KEYWORD)
 fun KtModifierList.hasFunModifier() = hasModifier(KtTokens.FUN_KEYWORD)
 
 fun KtModifierList.hasValueModifier() = hasModifier(KtTokens.VALUE_KEYWORD)
+
+fun KtModifierListOwner.hasInnerModifier() = hasModifier(KtTokens.INNER_KEYWORD)
 
 fun ASTNode.children() = generateSequence(firstChildNode) { node -> node.treeNext }
 fun ASTNode.parents() = generateSequence(treeParent) { node -> node.treeParent }

@@ -21,9 +21,11 @@ object StandardClassIds {
     val BASE_INTERNAL_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("internal"))
     val BASE_INTERNAL_IR_PACKAGE = BASE_INTERNAL_PACKAGE.child(Name.identifier("ir"))
     val BASE_COROUTINES_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("coroutines"))
+    val BASE_COROUTINES_INTRINSICS_PACKAGE = BASE_COROUTINES_PACKAGE.child(Name.identifier("intrinsics"))
     val BASE_ENUMS_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("enums"))
     val BASE_CONTRACTS_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("contracts"))
     val BASE_CONCURRENT_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("concurrent"))
+    val BASE_CONCURRENT_ATOMICS_PACKAGE = BASE_CONCURRENT_PACKAGE.child(Name.identifier("atomics"))
     val BASE_TEST_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("test"))
     val BASE_TEXT_PACKAGE = BASE_KOTLIN_PACKAGE.child(Name.identifier("text"))
 
@@ -41,7 +43,8 @@ object StandardClassIds {
         BASE_ANNOTATION_PACKAGE,
         BASE_REFLECT_PACKAGE,
         BASE_INTERNAL_PACKAGE,
-        BASE_COROUTINES_PACKAGE
+        BASE_COROUTINES_PACKAGE,
+        BASE_CONCURRENT_ATOMICS_PACKAGE
     )
 
     val Nothing = "Nothing".baseId()
@@ -133,6 +136,7 @@ object StandardClassIds {
     val ListIterator = "ListIterator".collectionsId()
     val Set = "Set".collectionsId()
     val Map = "Map".collectionsId()
+    val AbstractMap = "AbstractMap".collectionsId()
     val MutableIterator = "MutableIterator".collectionsId()
     val CharIterator = "CharIterator".collectionsId()
 
@@ -157,6 +161,26 @@ object StandardClassIds {
     val DeprecationLevel = "DeprecationLevel".baseId()
 
     val EnumEntries = "EnumEntries".enumsId()
+
+    val AtomicBoolean = "AtomicBoolean".atomicsId()
+    val AtomicInt = "AtomicInt".atomicsId()
+    val AtomicLong = "AtomicLong".atomicsId()
+    val AtomicReference = "AtomicReference".atomicsId()
+
+    val atomicByPrimitive = mapOf(
+        Boolean to AtomicBoolean,
+        Int to AtomicInt,
+        Long to AtomicLong,
+    )
+
+    val AtomicArray = "AtomicArray".atomicsId()
+    val AtomicIntArray = "AtomicIntArray".atomicsId()
+    val AtomicLongArray = "AtomicLongArray".atomicsId()
+
+    val atomicArrayByPrimitive = mapOf(
+        Int to AtomicIntArray,
+        Long to AtomicLongArray,
+    )
 
     object Annotations {
         val Suppress = "Suppress".baseId()
@@ -208,6 +232,8 @@ object StandardClassIds {
         val KotlinActual = "KotlinActual".annotationsJvmId()
 
         val jvmStatic = "JvmStatic".jvmId()
+        val jvmName = "JvmName".jvmId()
+        val Transient = "Transient".jvmId()
 
         val AssociatedObjectKey = "AssociatedObjectKey".reflectId()
         val ExperimentalAssociatedObjects = "ExperimentalAssociatedObjects".reflectId()
@@ -215,6 +241,9 @@ object StandardClassIds {
         val associatedObjectAnnotations = hashSetOf(AssociatedObjectKey, ExperimentalAssociatedObjects)
 
         val ActualizeByJvmBuiltinProvider = "ActualizeByJvmBuiltinProvider".internalId()
+
+        val JvmBuiltin = "JvmBuiltin".internalId()
+        val SuppressBytecodeGeneration = "SuppressBytecodeGeneration".internalId()
 
         object ParameterNames {
             val value = Name.identifier("value")
@@ -246,6 +275,11 @@ object StandardClassIds {
         val not = "not".callableId(Boolean)
 
         val contract = "contract".callableId(BASE_CONTRACTS_PACKAGE)
+
+        val atomicReferenceCompareAndSet = "compareAndSet".callableId(AtomicReference)
+        val atomicReferenceCompareAndExchange = "compareAndExchange".callableId(AtomicReference)
+        val atomicArrayCompareAndSetAt = "compareAndSetAt".callableId(AtomicArray)
+        val atomicArrayCompareAndExchangeAt = "compareAndExchangeAt".callableId(AtomicArray)
     }
 
     object Collections {
@@ -283,6 +317,7 @@ private fun String.internalIrId() = ClassId(StandardClassIds.BASE_INTERNAL_IR_PA
 private fun String.coroutinesId() = ClassId(StandardClassIds.BASE_COROUTINES_PACKAGE, Name.identifier(this))
 private fun String.enumsId() = ClassId(StandardClassIds.BASE_ENUMS_PACKAGE, Name.identifier(this))
 private fun String.concurrentId() = ClassId(StandardClassIds.BASE_CONCURRENT_PACKAGE, Name.identifier(this))
+private fun String.atomicsId() = ClassId(StandardClassIds.BASE_CONCURRENT_ATOMICS_PACKAGE, Name.identifier(this))
 
 private fun String.testId() = ClassId(StandardClassIds.BASE_TEST_PACKAGE, Name.identifier(this))
 

@@ -35,4 +35,16 @@ class IrSerializationSettings(
     val bodiesOnlyForInlines: Boolean = false,
     val shouldCheckSignaturesOnUniqueness: Boolean = true,
     val reuseExistingSignaturesForSymbols: Boolean = false,
+    val abiCompatibilityLevel: KlibAbiCompatibilityLevel = KlibAbiCompatibilityLevel.ABI_LEVEL_2_2,
 )
+
+enum class KlibAbiCompatibilityLevel(val major: Int, val minor: Int) {
+    ABI_LEVEL_2_1(2, 1),
+    ABI_LEVEL_2_2(2, 2),
+    ;
+
+    override fun toString() = "$major.$minor"
+
+    fun isAtLeast(other: KlibAbiCompatibilityLevel): Boolean =
+        major > other.major || major == other.major && minor >= other.minor
+}

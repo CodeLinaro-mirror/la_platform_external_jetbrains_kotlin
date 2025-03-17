@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.test.services.configuration
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
+import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives
 import org.jetbrains.kotlin.test.directives.NativeEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.model.TestModule
@@ -78,7 +79,7 @@ class NativeEnvironmentConfigurator(testServices: TestServices) : EnvironmentCon
     }
 
     override val directiveContainers: List<DirectivesContainer>
-        get() = listOf(NativeEnvironmentConfigurationDirectives)
+        get() = listOf(NativeEnvironmentConfigurationDirectives, KlibBasedCompilerTestDirectives)
 }
 
 val TestServices.nativeEnvironmentConfigurator: NativeEnvironmentConfigurator

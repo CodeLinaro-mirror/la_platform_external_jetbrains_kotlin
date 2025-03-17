@@ -24,14 +24,13 @@ dependencies {
     testImplementation(project(":core:compiler.common.native"))
     testImplementation(project(":kotlin-util-klib-abi"))
     testImplementation(project(":native:swift:swift-export-standalone"))
-    testImplementation(projectTests(":kotlin-util-klib-abi"))
     testApi(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(commonDependency("org.jetbrains.kotlinx", "kotlinx-metadata-klib"))
     testImplementation(libs.kotlinx.coroutines.core) { isTransitive = false }
 
-    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testRuntimeOnly(libs.intellij.fastutil)
 }
 
 sourceSets {
@@ -46,7 +45,7 @@ testsJar {}
 
 // Tasks that run different sorts of tests. Most frequent use case: running specific tests at TeamCity.
 val infrastructureTest = nativeTest("infrastructureTest", "infrastructure")
-val codegenBoxTest = nativeTest("codegenBoxTest", "codegen & !frontend-fir")
+val codegenBoxTest = nativeTest("codegenBoxTest", "codegen & frontend-classic")
 val codegenBoxK2Test = nativeTest("codegenBoxK2Test", "codegen & frontend-fir")
 val stdlibTest = nativeTest("stdlibTest", "stdlib")
 val kotlinTestLibraryTest = nativeTest("kotlinTestLibraryTest", "kotlin-test")

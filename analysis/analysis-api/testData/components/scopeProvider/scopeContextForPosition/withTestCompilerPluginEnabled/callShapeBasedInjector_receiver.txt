@@ -1,10 +1,13 @@
 element: column
-implicit receivers:
-  type: KaUsualClassType:
-    annotations: []
-    typeArguments: []
-    type: <local>/Scope1
-  owner symbol: KaFirNamedFunctionSymbol
+implicit values:
+  KaImplicitReceiver:
+    scopeIndexInTower = 0
+    type = KaUsualClassType:
+      annotations: []
+      typeArguments: []
+      type: <local>/Scope1
+    ownerSymbol = KaNamedFunctionSymbol:
+      /test_1(df: DataFrame<*>): kotlin.Unit
 
 scopes:
   TypeScope, index = 0
@@ -35,6 +38,7 @@ scopes:
           visibility: PRIVATE
         callableId: null
         compilerVisibility: Local
+        contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
@@ -92,6 +96,7 @@ scopes:
         isDelegatedProperty: false
         isExpect: false
         isExtension: true
+        isExternal: false
         isFromPrimaryConstructor: false
         isLateInit: false
         isOverride: false
@@ -137,6 +142,7 @@ scopes:
         annotations: []
         callableId: kotlin/Any.equals
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
@@ -194,6 +200,7 @@ scopes:
         annotations: []
         callableId: kotlin/Any.hashCode
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
@@ -225,6 +232,7 @@ scopes:
         annotations: []
         callableId: kotlin/Any.toString
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
@@ -373,7 +381,19 @@ scopes:
             type: kotlin/Any
         ]
         typeParameters: [
-          KaTypeParameterSymbol(T)
+          KaTypeParameterSymbol:
+            annotations: []
+            compilerVisibility: Local
+            isActual: false
+            isExpect: false
+            isReified: false
+            location: CLASS
+            modality: FINAL
+            name: T
+            origin: SOURCE
+            upperBounds: []
+            variance: OUT_VARIANCE
+            visibility: LOCAL
         ]
         visibility: PUBLIC
       KaNamedClassSymbol:
@@ -410,6 +430,7 @@ scopes:
         ]
         callableId: /add
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
@@ -463,8 +484,32 @@ scopes:
           ]
           type: DataFrame<kotlin/Any?>
         typeParameters: [
-          KaTypeParameterSymbol(T)
-          KaTypeParameterSymbol(R)
+          KaTypeParameterSymbol:
+            annotations: []
+            compilerVisibility: Local
+            isActual: false
+            isExpect: false
+            isReified: false
+            location: LOCAL
+            modality: FINAL
+            name: T
+            origin: SOURCE
+            upperBounds: []
+            variance: INVARIANT
+            visibility: LOCAL
+          KaTypeParameterSymbol:
+            annotations: []
+            compilerVisibility: Local
+            isActual: false
+            isExpect: false
+            isReified: false
+            location: LOCAL
+            modality: FINAL
+            name: R
+            origin: SOURCE
+            upperBounds: []
+            variance: INVARIANT
+            visibility: LOCAL
         ]
         valueParameters: [
           KaValueParameterSymbol:
@@ -527,6 +572,7 @@ scopes:
         annotations: []
         callableId: /test_1
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true

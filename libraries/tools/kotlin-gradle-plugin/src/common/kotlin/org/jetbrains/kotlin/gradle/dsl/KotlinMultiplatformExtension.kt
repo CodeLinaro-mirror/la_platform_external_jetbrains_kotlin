@@ -25,18 +25,23 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.targets.android.internal.InternalKotlinTargetPreset
 import org.jetbrains.kotlin.gradle.targets.android.internal.internal
 import org.jetbrains.kotlin.gradle.utils.KotlinCommonCompilerOptionsDefault
+import org.jetbrains.kotlin.gradle.utils.newInstance
 import javax.inject.Inject
 
 @Suppress("DEPRECATION")
 @KotlinGradlePluginPublicDsl
 abstract class KotlinMultiplatformExtension
-@InternalKotlinGradlePluginApi constructor(project: Project) :
+@Inject
+@InternalKotlinGradlePluginApi
+constructor(
+    project: Project,
+) :
     KotlinProjectExtension(project),
     KotlinTargetContainerWithPresetFunctions,
     KotlinTargetContainerWithJsPresetFunctions,
     KotlinTargetContainerWithWasmPresetFunctions,
-    KotlinTargetContainerWithNativeShortcuts,
     KotlinHierarchyDsl,
+    KotlinPublishingDsl,
     HasConfigurableKotlinCompilerOptions<KotlinCommonCompilerOptions>,
     KotlinMultiplatformSourceSetConventions by KotlinMultiplatformSourceSetConventionsImpl {
     @Deprecated(
@@ -47,7 +52,7 @@ abstract class KotlinMultiplatformExtension
 
     final override val targets: NamedDomainObjectCollection<KotlinTarget> = project.container(KotlinTarget::class.java)
 
-    @Deprecated("Because only IR compiler is left, no more necessary to know about compiler type in properties")
+    @Deprecated("Because only the IR compiler is left, it's no longer necessary to know about the compiler type in properties")
     override val compilerTypeFromProperties: KotlinJsCompilerType? = null
 
     internal suspend fun awaitTargets(): NamedDomainObjectCollection<KotlinTarget> {
@@ -242,8 +247,15 @@ abstract class KotlinMultiplatformExtension
     }
 
     internal val rootSoftwareComponent: KotlinSoftwareComponent by lazy {
-        KotlinSoftwareComponentWithCoordinatesAndPublication(project, "kotlin", targets)
+        KotlinSoftwareComponentWithCoordinatesAndPublication(
+            project,
+            "kotlin",
+            targets,
+            publishing.adhocSoftwareComponent
+        )
     }
+
+    override val publishing: KotlinPublishing = project.objects.newInstance<KotlinMultiplatformPublishing>()
 
     override val compilerOptions: KotlinCommonCompilerOptions =
         project.objects.KotlinCommonCompilerOptionsDefault(project)

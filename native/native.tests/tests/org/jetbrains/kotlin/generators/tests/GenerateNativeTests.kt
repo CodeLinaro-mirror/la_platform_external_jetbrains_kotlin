@@ -14,15 +14,9 @@ import org.jetbrains.kotlin.konan.test.blackbox.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.ClassLevelProperty
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedHostTarget
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedProperty
-import org.jetbrains.kotlin.konan.test.blackbox.support.KLIB_IR_INLINER
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.*
-import org.jetbrains.kotlin.konan.test.diagnostics.*
-import org.jetbrains.kotlin.konan.test.irtext.AbstractClassicNativeIrTextTest
-import org.jetbrains.kotlin.konan.test.irtext.AbstractFirLightTreeNativeIrTextTest
-import org.jetbrains.kotlin.konan.test.irtext.AbstractFirPsiNativeIrTextTest
 import org.jetbrains.kotlin.konan.test.klib.AbstractFirKlibCrossCompilationIdentityTest
 import org.jetbrains.kotlin.test.TargetBackend
-import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 import org.junit.jupiter.api.Tag
 import java.io.File
 
@@ -39,6 +33,7 @@ fun main() {
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "NativeCodegenLocalTestGenerated",
                 annotations = listOf(
+                    *frontendClassic(),
                     provider<UseExtTestCaseGroupProvider>(),
                 )
             ) {
@@ -60,6 +55,7 @@ fun main() {
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "NativeCodegenBoxTestGenerated",
                 annotations = listOf(
+                    *frontendClassic(),
                     provider<UseExtTestCaseGroupProvider>(),
                 )
             ) {
@@ -69,6 +65,7 @@ fun main() {
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "NativeCodegenBoxTestNoPLGenerated",
                 annotations = listOf(
+                    *frontendClassic(),
                     provider<UseExtTestCaseGroupProvider>(),
                     *noPartialLinkage()
                 )
@@ -99,24 +96,12 @@ fun main() {
             }
         }
 
-        // irText tests
-        testGroup("native/native.tests/tests-gen", "compiler/testData/ir/irText") {
-            testClass<AbstractClassicNativeIrTextTest> {
-                model(excludeDirs = listOf("declarations/multiplatform/k2"))
-            }
-            testClass<AbstractFirLightTreeNativeIrTextTest> {
-                model(excludeDirs = listOf("declarations/multiplatform/k1"))
-            }
-            testClass<AbstractFirPsiNativeIrTextTest> {
-                model(excludeDirs = listOf("declarations/multiplatform/k1"))
-            }
-        }
-
         // Samples (how to utilize the abilities of new test infrastructure).
         testGroup("native/native.tests/tests-gen", "native/native.tests/testData") {
             testClass<AbstractNativeBlackBoxTest>(
                 suiteTestClassName = "InfrastructureTestGenerated",
                 annotations = listOf(
+                    *frontendClassic(),
                     infrastructure(),
                     provider<UseStandardTestCaseGroupProvider>()
                 )
@@ -143,14 +128,17 @@ fun main() {
         // Partial linkage tests.
         testGroup("native/native.tests/tests-gen", "compiler/testData/klib/partial-linkage") {
             testClass<AbstractNativePartialLinkageTest>(
-                suiteTestClassName = "NativePartialLinkageTestGenerated"
+                suiteTestClassName = "NativePartialLinkageTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                )
             ) {
                 model(pattern = "^([^_](.+))$", recursive = false)
             }
             testClass<AbstractNativePartialLinkageTest>(
                 suiteTestClassName = "FirNativePartialLinkageTestGenerated",
                 annotations = listOf(
-                    *frontendFir()
+                    *frontendFir(),
                 )
             ) {
                 model(pattern = "^([^_](.+))$", recursive = false)
@@ -160,69 +148,20 @@ fun main() {
         // Klib Compatibility tests.
         testGroup("native/native.tests/klib-compatibility/tests-gen", "compiler/testData/klib/versionCompatibility") {
             testClass<AbstractNativeKlibCompatibilityTest>(
-                suiteTestClassName = "NativeKlibCompatibilityTestGenerated"
+                suiteTestClassName = "NativeKlibCompatibilityTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                )
             ) {
                 model(pattern = "^([^_](.+))$", recursive = false)
             }
             testClass<AbstractNativeKlibCompatibilityTest>(
                 suiteTestClassName = "FirNativeKlibCompatibilityTestGenerated",
                 annotations = listOf(
-                    *frontendFir()
+                    *frontendFir(),
                 )
             ) {
                 model(pattern = "^([^_](.+))$", recursive = false)
-            }
-        }
-
-        // 1st phase IR Inliner tests (IR inliner is invoked before K2 Klib Serializer)
-        testGroup("native/native.tests/klib-ir-inliner/tests-gen", "compiler/testData/codegen") {
-            testClass<AbstractNativeCodegenBoxTest>(
-                suiteTestClassName = "FirNativeCodegenBoxWithInlinedFunInKlibTestGenerated",
-                annotations = listOf(
-                    *frontendFir(),
-                    klibIrInliner(),
-                    provider<UseExtTestCaseGroupProvider>()
-                )
-            ) {
-                model("box", targetBackend = TargetBackend.NATIVE, excludeDirs = k1BoxTestDir)
-                model("boxInline", targetBackend = TargetBackend.NATIVE, excludeDirs = k1BoxTestDir)
-            }
-        }
-
-        // KLIB evolution tests.
-        testGroup("native/native.tests/tests-gen", "compiler/testData/klib/evolution") {
-            testClass<AbstractNativeKlibEvolutionTest>(
-                suiteTestClassName = "NativeKlibEvolutionTestGenerated"
-            ) {
-                model(recursive = false)
-            }
-            testClass<AbstractNativeKlibEvolutionTest>(
-                suiteTestClassName = "FirNativeKlibEvolutionTestGenerated",
-                annotations = listOf(
-                    *frontendFir()
-                )
-            ) {
-                model(recursive = false)
-            }
-        }
-
-        // KLIB synthetic accessor tests.
-        testGroup("native/native.tests/tests-gen", "compiler/testData/klib/syntheticAccessors") {
-            testClass<AbstractNativeKlibSyntheticAccessorInPhase1Test>(
-                annotations = listOf(
-                    *klibSyntheticAccessors(),
-                    *frontendFir(),
-                )
-            ) {
-                model(targetBackend = TargetBackend.NATIVE)
-            }
-            testClass<AbstractNativeKlibSyntheticAccessorInPhase2Test>(
-                annotations = listOf(
-                    *klibSyntheticAccessors(),
-                    *frontendFir(),
-                )
-            ) {
-                model(targetBackend = TargetBackend.NATIVE)
             }
         }
 
@@ -240,7 +179,10 @@ fun main() {
         // CInterop tests.
         testGroup("native/native.tests/tests-gen", "native/native.tests/testData/CInterop") {
             testClass<AbstractNativeCInteropFModulesTest>(
-                suiteTestClassName = "CInteropFModulesTestGenerated"
+                suiteTestClassName = "CInteropFModulesTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                )
             ) {
                 model("simple/simpleDefs", pattern = "^([^_](.+))$", recursive = false)
                 model("framework/frameworkDefs", pattern = "^([^_](.+))$", recursive = false)
@@ -248,7 +190,10 @@ fun main() {
                 model("builtins/builtinsDefs", pattern = "^([^_](.+))$", recursive = false)
             }
             testClass<AbstractNativeCInteropNoFModulesTest>(
-                suiteTestClassName = "CInteropNoFModulesTestGenerated"
+                suiteTestClassName = "CInteropNoFModulesTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                )
             ) {
                 model("simple/simpleDefs", pattern = "^([^_](.+))$", recursive = false)
                 model("framework/frameworkDefs", pattern = "^([^_](.+))$", recursive = false)
@@ -264,13 +209,19 @@ fun main() {
                 model("KT-39120/defs", pattern = "^([^_](.+))$", recursive = false)
             }
             testClass<AbstractNativeCInteropIncludeCategoriesTest>(
-                suiteTestClassName = "CInteropIncludeCategoriesTestGenerated"
+                suiteTestClassName = "CInteropIncludeCategoriesTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                )
             ) {
                 model("frameworkIncludeCategories/cases", pattern = "^([^_](.+))$", recursive = false)
             }
 
             testClass<AbstractNativeCInteropExperimentalTest>(
-                suiteTestClassName = "CInteropExperimentalTestGenerated"
+                suiteTestClassName = "CInteropExperimentalTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                )
             ) {
                 model("experimental/cases", pattern = "^([^_](.+))$", recursive = false)
             }
@@ -279,7 +230,10 @@ fun main() {
         // ObjCExport tests.
         testGroup("native/native.tests/tests-gen", "native/native.tests/testData/ObjCExport") {
             testClass<AbstractNativeObjCExportTest>(
-                suiteTestClassName = "ObjCExportTestGenerated"
+                suiteTestClassName = "ObjCExportTestGenerated",
+                annotations = listOf(
+                    *frontendClassic(),
+                ),
             ) {
                 model(pattern = "^([^_](.+))$", recursive = false)
             }
@@ -293,74 +247,6 @@ fun main() {
             }
         }
 
-        // Dump KLIB metadata tests
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/dump-metadata") {
-            testClass<AbstractNativeKlibDumpMetadataTest>(
-                suiteTestClassName = "NativeKlibDumpMetadataTestGenerated"
-            ) {
-                model(pattern = "^([^_](.+)).kt$", recursive = true)
-            }
-            testClass<AbstractNativeKlibDumpMetadataTest>(
-                suiteTestClassName = "FirNativeKlibDumpMetadataTestGenerated",
-                annotations = listOf(
-                    *frontendFir()
-                )
-            ) {
-                model(pattern = "^([^_](.+)).kt$", recursive = true)
-            }
-        }
-
-        // Dump KLIB IR tests
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/dump-ir") {
-            testClass<AbstractNativeKlibDumpIrTest>(
-                suiteTestClassName = "NativeKlibDumpIrTestGenerated",
-            ) {
-                model(pattern = "^([^_](.+)).kt$", recursive = true)
-            }
-            testClass<AbstractNativeKlibDumpIrTest>(
-                suiteTestClassName = "FirNativeKlibDumpIrTestGenerated",
-                annotations = listOf(
-                    *frontendFir()
-                )
-            ) {
-                model(pattern = "^([^_](.+)).kt$", recursive = true)
-            }
-        }
-
-        // Dump KLIB IR signatures tests
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/dump-signatures") {
-            testClass<AbstractNativeKlibDumpIrSignaturesTest>(
-                suiteTestClassName = "NativeKlibDumpIrSignaturesTestGenerated",
-            ) {
-                model(pattern = "^([^_](.+)).kt$", recursive = true)
-            }
-            testClass<AbstractNativeKlibDumpIrSignaturesTest>(
-                suiteTestClassName = "FirNativeKlibDumpIrSignaturesTestGenerated",
-                annotations = listOf(
-                    *frontendFir()
-                )
-            ) {
-                model(pattern = "^([^_](.+)).kt$", recursive = true)
-            }
-        }
-
-        // Dump KLIB metadata signatures tests
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/dump-signatures") {
-            testClass<AbstractNativeKlibDumpMetadataSignaturesTest>(
-                suiteTestClassName = "NativeKlibDumpMetadataSignaturesTestGenerated",
-            ) {
-                model(pattern = "^([^_](.+)).(kt|def)$", recursive = true)
-            }
-            testClass<AbstractNativeKlibDumpMetadataSignaturesTest>(
-                suiteTestClassName = "FirNativeKlibDumpMetadataSignaturesTestGenerated",
-                annotations = listOf(
-                    *frontendFir()
-                )
-            ) {
-                model(pattern = "^([^_](.+)).(kt|def)$", recursive = true)
-            }
-        }
-
         // LLDB integration tests.
         testGroup("native/native.tests/tests-gen", "native/native.tests/testData/lldb") {
             testClass<AbstractNativeBlackBoxTest>(
@@ -369,7 +255,8 @@ fun main() {
                     debugger(),
                     provider<UseStandardTestCaseGroupProvider>(),
                     forceDebugMode(),
-                    forceHostTarget()
+                    forceHostTarget(),
+                    *frontendClassic(),
                 )
             ) {
                 model()
@@ -388,56 +275,11 @@ fun main() {
             }
         }
 
-        // New frontend test infrastructure tests
-        testGroup(testsRoot = "native/native.tests/tests-gen", testDataRoot = "compiler/testData/diagnostics") {
-            testClass<AbstractDiagnosticsNativeTest> {
-                model(
-                    "nativeTests",
-                    excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN,
-                    // There are no special native-specific diagnostics in K1 frontend.
-                    // These checks happen in native backend instead, in SpecialBackendChecks class.
-                    excludeDirs = listOf("specialBackendChecks"),
-                )
-            }
-
-            testClass<AbstractFirPsiNativeDiagnosticsTest>(
-                suiteTestClassName = "FirPsiOldFrontendNativeDiagnosticsTestGenerated",
-                annotations = listOf(*frontendFir()),
-            ) {
-                model("nativeTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
-            }
-
-            testClass<AbstractFirLightTreeNativeDiagnosticsTest>(
-                suiteTestClassName = "FirLightTreeOldFrontendNativeDiagnosticsTestGenerated",
-                annotations = listOf(*frontendFir()),
-            ) {
-                model("nativeTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
-            }
-
-            testClass<AbstractFirPsiNativeDiagnosticsWithBackendTestBase>(
-                suiteTestClassName = "FirPsiNativeKlibDiagnosticsTestGenerated",
-                annotations = listOf(*frontendFir(), klib())
-            ) {
-                model("klibSerializationTests")
-                // KT-67300: TODO: extract specialBackendChecks into own test runner, invoking Native backend facade at the end
-                model("nativeTests/specialBackendChecks")
-            }
-
-            testClass<AbstractFirLightTreeNativeDiagnosticsWithBackendTestBase>(
-                suiteTestClassName = "FirLightTreeNativeKlibDiagnosticsTestGenerated",
-                annotations = listOf(*frontendFir(), klib())
-            ) {
-                model("klibSerializationTests")
-                // KT-67300: TODO: extract specialBackendChecks into own test runner, invoking Native backend facade at the end
-                model("nativeTests/specialBackendChecks")
-            }
-        }
-
         // Atomicfu compiler plugin native tests.
         testGroup("plugins/atomicfu/atomicfu-compiler/test", "plugins/atomicfu/atomicfu-compiler/testData/box") {
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "AtomicfuNativeTestGenerated",
-                annotations = listOf(*atomicfuNative(), provider<UseExtTestCaseGroupProvider>())
+                annotations = listOf(*atomicfuNative(), *frontendClassic(), provider<UseExtTestCaseGroupProvider>())
             ) {
                 model(targetBackend = TargetBackend.NATIVE)
             }
@@ -449,26 +291,39 @@ fun main() {
             }
         }
 
-        generateTestGroupSuiteWithJUnit5 {
-            testGroup("native/native.tests/tests-gen", "compiler/testData/klib/dump-abi/content") {
-                testClass<AbstractNativeLibraryAbiReaderTest>(
-                    suiteTestClassName = "NativeLibraryAbiReaderTest"
-                ) {
-                    model(targetBackend = TargetBackend.NATIVE)
-                }
-                testClass<AbstractNativeLibraryAbiReaderTest>(
-                    suiteTestClassName = "FirNativeLibraryAbiReaderTest",
-                    annotations = listOf(
-                        *frontendFir()
-                    )
-                ) {
-                    model(targetBackend = TargetBackend.NATIVE)
-                }
+        // LitmusKt tests.
+        testGroup("native/native.tests/litmus-tests/tests-gen", "native/native.tests/litmus-tests/testData") {
+            testClass<AbstractNativeBlackBoxTest>(
+                suiteTestClassName = "LitmusKtTestsGenerated",
+                annotations = listOf(
+                    litmusktNative(),
+                    provider<UseStandardTestCaseGroupProvider>(),
+                    forceHostTarget(),
+                    *frontendClassic(),
+                )
+            ) {
+                model("standalone")
             }
+            testClass<AbstractNativeBlackBoxTest>(
+                suiteTestClassName = "FirLitmusKtTestsGenerated",
+                annotations = listOf(
+                    litmusktNative(),
+                    provider<UseStandardTestCaseGroupProvider>(),
+                    forceHostTarget(),
+                    *frontendFir(),
+                )
+            ) {
+                model("standalone")
+            }
+        }
 
+        generateTestGroupSuiteWithJUnit5 {
             testGroup("native/native.tests/tests-gen", "compiler/testData/klib/dump-abi/cinterop") {
                 testClass<AbstractNativeCInteropLibraryAbiReaderTest>(
-                    suiteTestClassName = "NativeCInteropLibraryAbiReaderTest"
+                    suiteTestClassName = "NativeCInteropLibraryAbiReaderTest",
+                    annotations = listOf(
+                        *frontendClassic(),
+                    )
                 ) {
                     model()
                 }
@@ -483,36 +338,6 @@ fun main() {
             }
         }
 
-        // Header klib comparison tests
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/header-klibs/comparison") {
-            testClass<AbstractNativeHeaderKlibComparisonTest>(
-                suiteTestClassName = "NativeHeaderKlibComparisonTestGenerated",
-            ) {
-                model(extension = null, recursive = false)
-            }
-            testClass<AbstractNativeHeaderKlibComparisonTest>(
-                suiteTestClassName = "FirNativeHeaderKlibComparisonTestGenerated",
-                annotations = listOf(*frontendFir()),
-            ) {
-                model(extension = null, recursive = false)
-            }
-        }
-
-        // Header klib compilation tests
-        testGroup("native/native.tests/tests-gen", "native/native.tests/testData/klib/header-klibs/compilation") {
-            testClass<AbstractNativeHeaderKlibCompilationTest>(
-                suiteTestClassName = "NativeHeaderKlibCompilationTestGenerated",
-            ) {
-                model(extension = null, recursive = false)
-            }
-            testClass<AbstractNativeHeaderKlibCompilationTest>(
-                suiteTestClassName = "FirNativeHeaderKlibCompilationTestGenerated",
-                annotations = listOf(*frontendFir()),
-            ) {
-                model(extension = null, recursive = false)
-            }
-        }
-
         // Plain executable tests
         testGroup("native/native.tests/tests-gen", "native/native.tests/testData/standalone") {
             testClass<AbstractNativeBlackBoxTest>(
@@ -520,6 +345,7 @@ fun main() {
                 annotations = listOf(
                     *standalone(),
                     provider<UseStandardTestCaseGroupProvider>(),
+                    *frontendClassic(),
                 )
             ) {
                 model()
@@ -540,7 +366,7 @@ fun main() {
             "Dynamic" to binaryLibraryKind("DYNAMIC"),
         )
         val frontendFlags = mapOf(
-            "Classic" to arrayOf(),
+            "Classic" to frontendClassic(),
             "Fir" to frontendFir(),
         )
         // C Export
@@ -567,6 +393,14 @@ fun main() {
                     }
                 }
             }
+            testClass<AbstractNativeCExportInterfaceV1HeaderTest>(
+                "CExportInterfaceV1HeaderTestGenerated",
+                annotations = listOf(
+                    *frontendFir(),
+                )
+            ) {
+                model("InterfaceV1HeaderTests")
+            }
         }
         // Stress tests
         testGroup("native/native.tests/stress/tests-gen", "native/native.tests/stress/testData") {
@@ -575,6 +409,7 @@ fun main() {
                 annotations = listOf(
                     *stress(),
                     provider<UseStandardTestCaseGroupProvider>(),
+                    *frontendClassic(),
                 )
             ) {
                 model()
@@ -597,6 +432,7 @@ fun main() {
                 annotations = listOf(
                     *gc(),
                     provider<UseStandardTestCaseGroupProvider>(),
+                    *frontendClassic(),
                 )
             ) {
                 model()
@@ -732,18 +568,20 @@ private fun TestGroup.disabledInOneStageMode(vararg unexpandedPaths: String): An
 }
 
 fun frontendFir() = arrayOf(
-    annotation(Tag::class.java, "frontend-fir"),
     annotation(FirPipeline::class.java)
 )
 
-private fun klibIrInliner() = annotation(Tag::class.java, KLIB_IR_INLINER)
-private fun klib() = annotation(Tag::class.java, "klib")
+fun frontendClassic() = arrayOf(
+    annotation(ClassicPipeline::class.java)
+)
+
 private fun debugger() = annotation(Tag::class.java, "debugger")
 private fun infrastructure() = annotation(Tag::class.java, "infrastructure")
 private fun atomicfuNative() = arrayOf(
     annotation(Tag::class.java, "atomicfu-native"),
     annotation(EnforcedHostTarget::class.java), // TODO(KT-65977): Make atomicfu tests run on all targets.
 )
+private fun litmusktNative() = annotation(Tag::class.java, "litmuskt-native")
 private fun standalone() = arrayOf(
     annotation(Tag::class.java, "standalone"),
     annotation(
@@ -751,20 +589,6 @@ private fun standalone() = arrayOf(
         "property" to ClassLevelProperty.TEST_KIND,
         "propertyValue" to "STANDALONE_NO_TR"
     )
-)
-
-private fun klibSyntheticAccessors() = arrayOf(
-    annotation(
-        EnforcedProperty::class.java,
-        "property" to ClassLevelProperty.TEST_KIND,
-        "propertyValue" to "STANDALONE"
-    ),
-    annotation(
-        EnforcedProperty::class.java,
-        "property" to ClassLevelProperty.CACHE_MODE,
-        "propertyValue" to "NO"
-    ),
-    provider<UseExtTestCaseGroupProvider>(),
 )
 
 private fun binaryLibraryKind(kind: String = "DYNAMIC") = annotation(

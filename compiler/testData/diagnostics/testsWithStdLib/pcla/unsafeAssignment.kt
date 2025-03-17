@@ -1,4 +1,4 @@
-// LATEST_LV_DIFFERENCE
+// RUN_PIPELINE_TILL: FRONTEND
 
 class Foo<T : Any> {
     fun doSmthng(arg: T) {}

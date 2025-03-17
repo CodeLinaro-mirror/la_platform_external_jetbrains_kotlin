@@ -28,11 +28,13 @@ abstract class FirSerializerExtension {
     abstract val metadataVersion: BinaryVersion
 
     val annotationSerializer: FirAnnotationSerializer by lazy {
-        FirAnnotationSerializer(session, scopeSession, stringTable, constValueProvider)
+        FirAnnotationSerializer(session, scopeSession, stringTable, constValueProvider, localClassIdOracle)
     }
 
     abstract val constValueProvider: ConstValueProvider?
     abstract val additionalMetadataProvider: FirAdditionalMetadataProvider?
+
+    protected open val localClassIdOracle: LocalClassIdOracle get() = LocalClassIdOracle.EMPTY
 
     @OptIn(ConstValueProviderInternals::class)
     internal inline fun <T> processFile(firFile: FirFile, crossinline action: () -> T): T {
@@ -48,7 +50,12 @@ abstract class FirSerializerExtension {
     open fun shouldUseTypeTable(): Boolean = false
     open fun shouldUseNormalizedVisibility(): Boolean = false
 
-    open fun serializePackage(packageFqName: FqName, proto: ProtoBuf.Package.Builder) {
+    open fun serializePackage(
+        packageFqName: FqName,
+        proto: ProtoBuf.Package.Builder,
+        versionRequirementTable: MutableVersionRequirementTable?,
+        childSerializer: FirElementSerializer
+    ) {
     }
 
     open fun serializeClass(
@@ -61,6 +68,14 @@ abstract class FirSerializerExtension {
 
     open fun serializeScript(
         script: FirScript,
+        proto: ProtoBuf.Class.Builder,
+        versionRequirementTable: MutableVersionRequirementTable,
+        childSerializer: FirElementSerializer
+    ) {
+    }
+
+    open fun serializeSnippet(
+        snippet: FirReplSnippet,
         proto: ProtoBuf.Class.Builder,
         versionRequirementTable: MutableVersionRequirementTable,
         childSerializer: FirElementSerializer

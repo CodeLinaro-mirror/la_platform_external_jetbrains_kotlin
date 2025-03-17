@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.backend.wasm
 
 import org.jetbrains.kotlin.backend.common.ir.Ir
-import org.jetbrains.kotlin.backend.common.ir.Symbols
 import org.jetbrains.kotlin.backend.common.linkage.partial.createPartialLinkageSupportForLowerings
 import org.jetbrains.kotlin.backend.common.lower.InnerClassesSupport
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.JsModuleAndQualifierReference
@@ -14,17 +13,15 @@ import org.jetbrains.kotlin.backend.wasm.lower.WasmSharedVariablesManager
 import org.jetbrains.kotlin.backend.wasm.utils.WasmInlineClassesUtils
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.messageCollector
+import org.jetbrains.kotlin.config.phaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaseConfig
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.ir.*
+import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.backend.js.*
-import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.lower.JsInnerClassesSupport
-import org.jetbrains.kotlin.ir.builders.declarations.addFunction
-import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFileSymbol
@@ -33,25 +30,24 @@ import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmen
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContextImpl
 import org.jetbrains.kotlin.ir.util.SymbolTable
-import org.jetbrains.kotlin.ir.util.addChild
-import org.jetbrains.kotlin.ir.util.file
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
+import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.config.wasmTarget
 
 class WasmBackendContext(
     val module: ModuleDescriptor,
     override val irBuiltIns: IrBuiltIns,
-    val symbolTable: SymbolTable,
+    override val symbolTable: SymbolTable,
     val irModuleFragment: IrModuleFragment,
     propertyLazyInitialization: Boolean,
     override val configuration: CompilerConfiguration,
 ) : JsCommonBackendContext {
-    override val builtIns = module.builtIns
+    val phaseConfig = configuration.phaseConfig ?: PhaseConfig()
+    val isDebugFriendlyCompilation = configuration.getBoolean(WasmConfigurationKeys.WASM_FORCE_DEBUG_FRIENDLY_COMPILATION)
+
     override val typeSystem: IrTypeSystemContext = IrTypeSystemContextImpl(irBuiltIns)
     override var inVerbosePhase: Boolean = false
-    override val scriptMode = false
     override val irFactory: IrFactory = symbolTable.irFactory
 
     val isWasmJsTarget: Boolean = configuration.wasmTarget == WasmTarget.JS
@@ -78,30 +74,25 @@ class WasmBackendContext(
 
         // Map<Class, List<Pair<AnnotationClass, AnnotationObject>>>
         val classAssociatedObjects: MutableMap<IrClass, MutableList<Pair<IrClass, IrClass>>> = mutableMapOf()
+
+        var testFunctionDeclarator: IrSimpleFunction? = null
     }
 
     val fileContexts = mutableMapOf<IrFile, CrossFileContext>()
     fun getFileContext(irFile: IrFile): CrossFileContext = fileContexts.getOrPut(irFile, ::CrossFileContext)
     inline fun applyIfDefined(irFile: IrFile, body: (CrossFileContext) -> Unit) = fileContexts[irFile]?.apply(body)
 
-    //TODO Move to CrossFileContext
-    override val testFunsPerFile = hashMapOf<IrFile, IrSimpleFunction>()
-
-    override val coroutineSymbols =
-        JsCommonCoroutineSymbols(symbolTable, module,this)
-
     override val jsPromiseSymbol: IrClassSymbol?
-        get() = if (isWasmJsTarget) wasmSymbols.jsRelatedSymbols.jsPromise else null
+        get() = if (configuration.wasmTarget == WasmTarget.JS) wasmSymbols.jsRelatedSymbols.jsPromise else null
 
     override val innerClassesSupport: InnerClassesSupport = JsInnerClassesSupport(mapping, irFactory)
 
     override val internalPackageFqn = FqName("kotlin.wasm")
 
-    val kotlinWasmInternalPackageFqn = internalPackageFqn.child(Name.identifier("internal"))
-
     override val sharedVariablesManager = WasmSharedVariablesManager(this)
 
-    val wasmSymbols: WasmSymbols = WasmSymbols(this@WasmBackendContext, symbolTable)
+    val wasmSymbols: WasmSymbols = WasmSymbols(irBuiltIns, configuration)
+    override val symbols = wasmSymbols
     override val reflectionSymbols: ReflectionSymbols get() = wasmSymbols.reflectionSymbols
 
     override val enumEntries = wasmSymbols.enumEntries
@@ -110,8 +101,8 @@ class WasmBackendContext(
     override val propertyLazyInitialization: PropertyLazyInitialization =
         PropertyLazyInitialization(enabled = propertyLazyInitialization, eagerInitialization = wasmSymbols.eagerInitialization)
 
-    override val ir = object : Ir<WasmBackendContext>(this) {
-        override val symbols: Symbols = wasmSymbols
+    override val ir = object : Ir() {
+        override val symbols: WasmSymbols = wasmSymbols
         override fun shouldGenerateHandlerParameterForDefaultBodyFun() = true
     }
 

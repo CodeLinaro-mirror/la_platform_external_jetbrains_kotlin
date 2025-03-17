@@ -10,19 +10,18 @@ import com.intellij.psi.PsiElementFinder
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.ProjectScope
 import org.jetbrains.kotlin.ObsoleteTestInfrastructure
-import org.jetbrains.kotlin.TestsCompiletimeError
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.analyzer.CompilationErrorException
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
+import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.cli.common.output.writeAllTo
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
-import org.jetbrains.kotlin.cli.jvm.compiler.pipeline.convertToIrAndActualizeForJvm
+import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.convertToIrAndActualizeForJvm
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -37,7 +36,7 @@ import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.ir.backend.jvm.jvmResolveLibraries
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.resolve.AnalyzingUtils
+import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.BindingTrace
 import org.jetbrains.kotlin.resolve.lazy.JvmResolveUtil
 import org.jetbrains.kotlin.test.FirParser
@@ -62,7 +61,7 @@ object GenerationUtils {
         classBuilderFactory: ClassBuilderFactory = ClassBuilderFactories.TEST,
         trace: BindingTrace = NoScopeRecordCliBindingTrace(environment.project)
     ): GenerationState =
-        compileFiles(files, environment.configuration, classBuilderFactory, environment::createPackagePartProvider, trace)
+        compileFiles(files, environment.configuration, classBuilderFactory, environment::createPackagePartProvider, trace).first
 
     @JvmStatic
     @JvmOverloads
@@ -72,22 +71,13 @@ object GenerationUtils {
         classBuilderFactory: ClassBuilderFactory,
         packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
         trace: BindingTrace = NoScopeRecordCliBindingTrace(files.first().project)
-    ): GenerationState {
+    ): Pair<GenerationState, BindingContext> {
         val project = files.first().project
-        val state = if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
-            compileFilesUsingFrontendIR(project, files, configuration, classBuilderFactory, packagePartProvider)
+        return if (configuration.getBoolean(CommonConfigurationKeys.USE_FIR)) {
+            compileFilesUsingFrontendIR(project, files, configuration, classBuilderFactory, packagePartProvider) to BindingContext.EMPTY
         } else {
             compileFilesUsingStandardMode(project, files, configuration, classBuilderFactory, packagePartProvider, trace)
         }
-
-        // For JVM-specific errors
-        try {
-            AnalyzingUtils.throwExceptionOnErrors(state.collectedExtraJvmDiagnostics)
-        } catch (e: Throwable) {
-            throw TestsCompiletimeError(e)
-        }
-
-        return state
     }
 
     @OptIn(ObsoleteTestInfrastructure::class)
@@ -127,38 +117,24 @@ object GenerationUtils {
         val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
         val diagnosticReporter = DiagnosticReporterFactory.createReporter(messageCollector)
         firAnalyzerFacade.runResolution()
+        val irGenerationExtensions = IrGenerationExtension.Companion.getInstances(project)
         val (moduleFragment, components, pluginContext, _, _, symbolTable) = firAnalyzerFacade.result.convertToIrAndActualizeForJvm(
             fir2IrExtensions,
             configuration,
             diagnosticReporter,
-            irGeneratorExtensions = emptyList()
+            irGenerationExtensions
         )
 
-        val dummyBindingContext = NoScopeRecordCliBindingTrace(project).bindingContext
-
-        val codegenFactory = JvmIrCodegenFactory(
-            configuration,
-            configuration.get(CLIConfigurationKeys.PHASE_CONFIG),
+        val generationState = GenerationState(
+            project, moduleFragment.descriptor, configuration, classBuilderFactory,
+            jvmBackendClassResolver = FirJvmBackendClassResolver(components),
+            diagnosticReporter = diagnosticReporter,
         )
-
-        val generationState = GenerationState.Builder(
-            project, classBuilderFactory, moduleFragment.descriptor, dummyBindingContext, configuration
-        ).isIrBackend(
-            true
-        ).jvmBackendClassResolver(
-            FirJvmBackendClassResolver(components)
-        ).diagnosticReporter(
-            diagnosticReporter
-        ).build()
-
-        generationState.beforeCompile()
-        generationState.oldBEInitTrace(files)
-        codegenFactory.generateModuleInFrontendIRMode(
-            generationState, moduleFragment, symbolTable, components.irProviders,
+        val backendInput = JvmIrCodegenFactory.BackendInput(
+            moduleFragment, pluginContext.irBuiltIns, symbolTable, components.irProviders,
             fir2IrExtensions, FirJvmBackendExtension(components, actualizedExpectDeclarations = null), pluginContext,
-        ) {}
-
-        generationState.factory.done()
+        )
+        JvmIrCodegenFactory(configuration).generateModule(generationState, backendInput)
         return generationState
     }
 
@@ -169,7 +145,7 @@ object GenerationUtils {
         classBuilderFactory: ClassBuilderFactory,
         packagePartProvider: (GlobalSearchScope) -> PackagePartProvider,
         trace: BindingTrace
-    ): GenerationState {
+    ): Pair<GenerationState, BindingContext> {
         val resolvedKlibs = configuration.get(JVMConfigurationKeys.KLIB_PATHS)?.let { klibPaths ->
             jvmResolveLibraries(klibPaths, configuration.getLogger(treatWarningsAsErrors = true))
         }
@@ -181,32 +157,20 @@ object GenerationUtils {
             )
         analysisResult.throwIfError()
 
-        return generateFiles(project, files, configuration, classBuilderFactory, analysisResult)
+        return generateFiles(project, files, configuration, classBuilderFactory, analysisResult) to analysisResult.bindingContext
     }
 
-    fun generateFiles(
+    private fun generateFiles(
         project: Project,
         files: List<KtFile>,
         configuration: CompilerConfiguration,
         classBuilderFactory: ClassBuilderFactory,
         analysisResult: AnalysisResult,
-        configureGenerationState: GenerationState.Builder.() -> Unit = {},
     ): GenerationState {
-        val isIrBackend =
-            configuration.getBoolean(JVMConfigurationKeys.IR)
-        val generationState = GenerationState.Builder(
-            project, classBuilderFactory, analysisResult.moduleDescriptor, analysisResult.bindingContext,
-            configuration
-        ).isIrBackend(isIrBackend).apply(configureGenerationState).build()
+        val state = GenerationState(project, analysisResult.moduleDescriptor, configuration, classBuilderFactory)
         if (analysisResult.shouldGenerateCode) {
-            KotlinCodegenFacade.compileCorrectFiles(
-                files,
-                generationState,
-                if (isIrBackend)
-                    JvmIrCodegenFactory(configuration, configuration.get(CLIConfigurationKeys.PHASE_CONFIG))
-                else DefaultCodegenFactory
-            )
+            JvmIrCodegenFactory(configuration).convertAndGenerate(files, state, analysisResult.bindingContext)
         }
-        return generationState
+        return state
     }
 }

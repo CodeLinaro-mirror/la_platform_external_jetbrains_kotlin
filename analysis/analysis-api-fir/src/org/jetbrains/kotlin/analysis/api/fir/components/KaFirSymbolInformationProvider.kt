@@ -7,13 +7,14 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 
 import org.jetbrains.kotlin.analysis.api.components.KaSymbolInformationProvider
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
-import org.jetbrains.kotlin.analysis.api.fir.symbols.*
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirNamedClassSymbolBase
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPackageSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPsiJavaClassSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSymbol
+import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
@@ -26,7 +27,7 @@ import org.jetbrains.kotlin.resolve.deprecation.SimpleDeprecationInfo
 
 internal class KaFirSymbolInformationProvider(
     override val analysisSessionProvider: () -> KaFirSession
-) : KaSessionComponent<KaFirSession>(), KaSymbolInformationProvider, KaFirSessionComponent {
+) : KaBaseSessionComponent<KaFirSession>(), KaSymbolInformationProvider, KaFirSessionComponent {
     override val KaSymbol.deprecationStatus: DeprecationInfo?
         get() = withValidityAssertion {
             if (this is KaFirPackageSymbol || this is KaReceiverParameterSymbol) return null
@@ -49,6 +50,17 @@ internal class KaFirSymbolInformationProvider(
                 }
             }?.toDeprecationInfo()
         }
+
+    override val KaNamedFunctionSymbol.canBeOperator: Boolean
+        get() = withValidityAssertion {
+            val functionFir = this@canBeOperator.firSymbol.fir as? FirSimpleFunction ?: return false
+            return OperatorFunctionChecks.isOperator(
+                functionFir,
+                analysisSession.firSession,
+                analysisSession.getScopeSessionFor(analysisSession.firSession)
+            ).isSuccess
+        }
+
 
     private fun KaFirPsiJavaClassSymbol.mayHaveDeprecation(): Boolean {
         if (!hasAnnotations) return false

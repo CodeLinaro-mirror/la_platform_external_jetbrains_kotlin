@@ -3,6 +3,7 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: null
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: null
   hasBackingField: true
@@ -14,6 +15,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

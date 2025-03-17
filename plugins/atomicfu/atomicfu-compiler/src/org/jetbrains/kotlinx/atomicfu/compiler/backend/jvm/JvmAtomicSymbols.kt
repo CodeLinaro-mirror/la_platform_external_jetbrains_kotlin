@@ -6,7 +6,7 @@
 package org.jetbrains.kotlinx.atomicfu.compiler.backend.jvm
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.backend.common.ir.addExtensionReceiver
+import org.jetbrains.kotlin.backend.common.ir.createExtensionReceiver
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -22,7 +22,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.ir.util.createThisReceiverParameter
 import org.jetbrains.kotlin.ir.util.getSimpleFunction
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.ClassId
@@ -258,7 +258,7 @@ class JvmAtomicSymbols(
         isValue = isValueClass
     }.apply {
         parent = irPackage
-        createImplicitParameterDeclarationWithWrappedDescriptor()
+        createThisReceiverParameter()
     }.symbol
 
     private val kotlinKClassJava: IrPropertySymbol = irFactory.buildProperty {
@@ -266,7 +266,7 @@ class JvmAtomicSymbols(
     }.apply {
         parent = kotlinJvm
         addGetter().apply {
-            addExtensionReceiver(irBuiltIns.kClassClass.starProjectedType)
+            parameters += createExtensionReceiver(irBuiltIns.kClassClass.starProjectedType)
             returnType = javaLangClass.defaultType
         }
     }.symbol

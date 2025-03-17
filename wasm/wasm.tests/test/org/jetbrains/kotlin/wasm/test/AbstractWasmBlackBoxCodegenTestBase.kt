@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
-import org.jetbrains.kotlin.test.backend.handlers.KlibInterpreterDumpHandler
+import org.jetbrains.kotlin.test.backend.handlers.JsKlibInterpreterDumpHandler
 import org.jetbrains.kotlin.test.backend.handlers.WasmIrInterpreterDumpHandler
 import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
@@ -20,10 +20,11 @@ import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHan
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDiagnosticsHandler
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
-import org.jetbrains.kotlin.test.runners.codegen.commonClassicFrontendHandlersForCodegenTest
+import org.jetbrains.kotlin.test.configuration.commonClassicFrontendHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.AdditionalSourceProvider
 import org.jetbrains.kotlin.test.services.EnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.LibraryProvider
+import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
 import org.jetbrains.kotlin.wasm.test.handlers.WasmDtsHandler
 
@@ -64,6 +65,7 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
         useAdditionalSourceProviders(
             ::WasmAdditionalSourceProvider,
             ::CoroutineHelpersSourceFilesProvider,
+            ::AdditionalDiagnosticsSourceFilesProvider,
         )
 
         additionalSourceProvider?.let {
@@ -100,10 +102,13 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
         }
     }
 
-    override fun TestConfigurationBuilder.configuration() {
+    override fun configure(builder: TestConfigurationBuilder) = with(builder) {
         commonConfigurationForWasmBlackBoxCodegenTest()
 
-        forTestsNotMatching("compiler/testData/codegen/box/diagnostics/functions/tailRecursion/*") {
+        forTestsNotMatching(
+            "compiler/testData/codegen/box/diagnostics/functions/tailRecursion/*" or
+                    "compiler/testData/diagnostics/*"
+        ) {
             defaultDirectives {
                 DIAGNOSTICS with "-warnings"
             }
@@ -114,7 +119,7 @@ abstract class AbstractWasmBlackBoxCodegenTestBase<R : ResultingArtifact.Fronten
         forTestsMatching("compiler/testData/codegen/box/involvesIrInterpreter/*") {
             enableMetaInfoHandler()
             configureKlibArtifactsHandlersStep {
-                useHandlers(::KlibInterpreterDumpHandler)
+                useHandlers(::JsKlibInterpreterDumpHandler)
             }
             configureWasmArtifactsHandlersStep {
                 useHandlers(::WasmIrInterpreterDumpHandler)

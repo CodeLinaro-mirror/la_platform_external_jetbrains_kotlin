@@ -30,9 +30,23 @@ sealed class FirClassLikeSymbol<out D : FirClassLikeDeclaration>(
     val name: Name get() = classId.shortClassName
 
     fun getOwnDeprecation(languageVersionSettings: LanguageVersionSettings): DeprecationsPerUseSite? {
-        if (annotations.isEmpty() && fir.versionRequirements.isNullOrEmpty()) return null
+        if (deprecationsAreDefinitelyEmpty()) {
+            // here should probably be `null`, see KT-74133
+            return EmptyDeprecationsPerUseSite
+        }
+
         lazyResolveToPhase(FirResolvePhase.COMPILER_REQUIRED_ANNOTATIONS)
         return fir.deprecationsProvider.getDeprecationsInfo(languageVersionSettings)
+    }
+
+    private fun deprecationsAreDefinitelyEmpty(): Boolean {
+        if (origin is FirDeclarationOrigin.Java) {
+            // Java may perform lazy resolution when accessing FIR tree internals, see KT-55387
+            return false
+        }
+        if (annotations.isEmpty() && fir.versionRequirements.isNullOrEmpty()) return true
+        if (fir.deprecationsProvider == EmptyDeprecationsProvider) return true
+        return false
     }
 
     val rawStatus: FirDeclarationStatus
@@ -52,7 +66,7 @@ sealed class FirClassLikeSymbol<out D : FirClassLikeDeclaration>(
 
 sealed class FirClassSymbol<out C : FirClass>(classId: ClassId) : FirClassLikeSymbol<C>(classId) {
     private val lookupTag: ConeClassLikeLookupTag =
-        if (classId.isLocal) ConeClassLookupTagWithFixedSymbol(classId, this)
+        if (classId.isLocal) ConeClassLikeLookupTagWithFixedSymbol(classId, this)
         else classId.toLookupTag()
 
     override fun toLookupTag(): ConeClassLikeLookupTag = lookupTag
@@ -78,11 +92,11 @@ class FirRegularClassSymbol(classId: ClassId) : FirClassSymbol<FirRegularClass>(
     val companionObjectSymbol: FirRegularClassSymbol?
         get() = fir.companionObjectSymbol
 
-    val resolvedContextReceivers: List<FirContextReceiver>
+    val resolvedContextParameters: List<FirValueParameter>
         get() {
-            if (fir.contextReceivers.isEmpty()) return emptyList()
+            if (fir.contextParameters.isEmpty()) return emptyList()
             lazyResolveToPhase(FirResolvePhase.TYPES)
-            return fir.contextReceivers
+            return fir.contextParameters
         }
 }
 
@@ -91,7 +105,12 @@ class FirAnonymousObjectSymbol(packageFqName: FqName) : FirClassSymbol<FirAnonym
 )
 
 class FirTypeAliasSymbol(classId: ClassId) : FirClassLikeSymbol<FirTypeAlias>(classId), TypeAliasSymbolMarker {
-    override fun toLookupTag(): ConeClassLikeLookupTag = classId.toLookupTag()
+    private val lookupTag: ConeClassLikeLookupTag =
+        if (classId.isLocal) ConeClassLikeLookupTagWithFixedSymbol(classId, this)
+        else classId.toLookupTag()
+
+    override fun toLookupTag(): ConeClassLikeLookupTag = lookupTag
+
 
     val resolvedExpandedTypeRef: FirResolvedTypeRef
         get() {

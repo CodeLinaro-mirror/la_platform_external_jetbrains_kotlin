@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
+import org.jetbrains.kotlin.cli.common.arguments.parseCustomKotlinAbiVersion
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
@@ -23,9 +24,11 @@ import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.ir.linkage.partial.setupPartialLinkageConfig
 import org.jetbrains.kotlin.konan.KonanPendingCompilationError
-import org.jetbrains.kotlin.library.metadata.KlibMetadataVersion
+import org.jetbrains.kotlin.library.KLIB_LEGACY_METADATA_VERSION
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
+import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.util.PerformanceManager
 import org.jetbrains.kotlin.util.profile
 import org.jetbrains.kotlin.utils.KotlinPaths
 
@@ -33,9 +36,9 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
 
     override fun MutableList<String>.addPlatformOptions(arguments: K2NativeCompilerArguments) {}
 
-    override fun createMetadataVersion(versionArray: IntArray): BinaryVersion = KlibMetadataVersion(*versionArray)
+    override fun createMetadataVersion(versionArray: IntArray): BinaryVersion = MetadataVersion(*versionArray)
 
-    override val defaultPerformanceManager: CommonCompilerPerformanceManager by lazy {
+    override val defaultPerformanceManager: PerformanceManager by lazy {
         K2NativeCompilerPerformanceManager()
     }
 
@@ -49,8 +52,9 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
             return ExitCode.OK
         }
 
-        val pluginLoadResult =
-                PluginCliParser.loadPluginsSafe(arguments.pluginClasspaths, arguments.pluginOptions, arguments.pluginConfigurations, configuration)
+        val pluginLoadResult = PluginCliParser.loadPluginsSafe(
+            arguments.pluginClasspaths, arguments.pluginOptions, arguments.pluginConfigurations, configuration, rootDisposable,
+        )
         if (pluginLoadResult != ExitCode.OK) return pluginLoadResult
 
         val enoughArguments = arguments.freeArgs.isNotEmpty() || arguments.isUsefulWithoutFreeArgs
@@ -92,34 +96,36 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
         val environment = KotlinCoreEnvironment.createForProduction(rootDisposable,
                 configuration, EnvironmentConfigFiles.NATIVE_CONFIG_FILES)
 
-        configuration.put(CLIConfigurationKeys.FLEXIBLE_PHASE_CONFIG, createFlexiblePhaseConfig(arguments))
+        configuration.phaseConfig = createPhaseConfig(arguments)
 
         /* Set default version of metadata version */
         val metadataVersionString = arguments.metadataVersion
         if (metadataVersionString == null) {
-            configuration.put(CommonConfigurationKeys.METADATA_VERSION, KlibMetadataVersion.INSTANCE)
+            configuration.put(CommonConfigurationKeys.METADATA_VERSION, KLIB_LEGACY_METADATA_VERSION)
         }
 
         arguments.relativePathBases?.let {
             configuration.put(KlibConfigurationKeys.KLIB_RELATIVE_PATH_BASES, it.toList())
         }
 
+        // Values for keys for non-nullable arguments below must be also copied during 1st stage preparation within `KonanDriver.splitOntoTwoStages()`
         configuration.put(KlibConfigurationKeys.KLIB_NORMALIZE_ABSOLUTE_PATH, arguments.normalizeAbsolutePath)
         configuration.put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
         configuration.put(KlibConfigurationKeys.PRODUCE_KLIB_SIGNATURES_CLASH_CHECKS, arguments.enableSignatureClashChecks)
 
-        configuration.put(KlibConfigurationKeys.NO_DOUBLE_INLINING, arguments.noDoubleInlining)
         arguments.dumpSyntheticAccessorsTo?.let { configuration.put(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_DUMP_DIR, it) }
-        configuration.put(
-            KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY,
-            arguments.narrowedSyntheticAccessorsVisibility
-        )
+        configuration.syntheticAccessorsWithNarrowedVisibility = arguments.narrowedSyntheticAccessorsVisibility
         configuration.put(
             KlibConfigurationKeys.DUPLICATED_UNIQUE_NAME_STRATEGY,
             DuplicatedUniqueNameStrategy.parseOrDefault(
                 arguments.duplicatedUniqueNameStrategy,
                 default = if (arguments.metadataKlib) DuplicatedUniqueNameStrategy.ALLOW_ALL_WITH_WARNING else DuplicatedUniqueNameStrategy.DENY
             )
+        )
+
+        configuration.putIfNotNull(
+            KlibConfigurationKeys.CUSTOM_KLIB_ABI_VERSION,
+            parseCustomKotlinAbiVersion(arguments.customKlibAbiVersion, configuration.messageCollector)
         )
 
         return environment
@@ -161,6 +167,11 @@ class K2Native : CLICompiler<K2NativeCompilerArguments>() {
                 }
                 spawnedConfiguration.setupConfiguration()
                 val spawnedEnvironment = prepareEnvironment(spawnedArguments, spawnedConfiguration, rootDisposable)
+                // KT-71976: Should empty `arguments` be provided, prepareEnvironment() resets the keys for 1st compilation stage
+                // In order to keep them, they should be re-initialized with the second invocation of `setupConfiguration()` lambda below.
+                // Meanwhile, the first invocation is still needed to initialize other important keys before `prepareEnvironment()`
+                // TODO KT-72014: Remove the second invocation of `setupConfiguration()`
+                spawnedConfiguration.setupConfiguration()
                 runKonanDriver(spawnedConfiguration, spawnedEnvironment, rootDisposable)
             }
         })

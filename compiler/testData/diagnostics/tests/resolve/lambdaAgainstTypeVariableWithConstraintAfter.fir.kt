@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-58310
 // LANGUAGE: +CheckLambdaAgainstTypeVariableContradictionInResolution
 
@@ -61,7 +62,7 @@ fun testWithString(box: Inv<String>) {
     topLevelOverload({ "hello" }, (box))
     topLevelOverload1(box) { "hello" }
     topLevelOverload2(box) { "hello" }
-    topLevelOverload2(box) { <!ARGUMENT_TYPE_MISMATCH!>1<!> }
+    topLevelOverload2(box) { <!RETURN_TYPE_MISMATCH!>1<!> }
     topLevelOverload3(box) { param: String -> }
 
     FunHolder().classMemberOverload({ "hello" }, (box))
@@ -152,7 +153,7 @@ fun testSam() {
 fun <T> noOverloads(box: Inv<T>, value: T) {}
 
 fun testError(box: Inv<String>) {
-    noOverloads(box) <!ARGUMENT_TYPE_MISMATCH("T; kotlin.Function0<kotlin.String>")!>{ "hello" }<!>
+    noOverloads(box) <!ARGUMENT_TYPE_MISMATCH("Function0<String>; String")!>{ "hello" }<!>
 }
 
 fun testOk(box1: Inv<Any>, box2: Inv<() -> Any?>) {

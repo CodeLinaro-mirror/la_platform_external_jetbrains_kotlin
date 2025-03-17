@@ -24,11 +24,11 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirReplSnippetSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.*
 import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions.STATEMENT_LIKE_OPERATORS
 import org.jetbrains.kotlin.util.wrapIntoFileAnalysisExceptionIfNeeded
@@ -86,8 +86,6 @@ val FirFile.packageFqName: FqName
 val FirElement.psi: PsiElement? get() = (source as? KtPsiSourceElement)?.psi
 val FirElement.realPsi: PsiElement? get() = (source as? KtRealPsiSourceElement)?.psi
 
-val FirContextReceiver.labelName: Name? get() = customLabelName ?: labelNameFromTypeRef
-
 fun FirElement.renderWithType(): String =
     FirRenderer().renderElementWithTypeAsString(this)
 
@@ -103,6 +101,7 @@ fun FirDeclarationStatus.copy(
     isOperator: Boolean = this.isOperator,
     isInfix: Boolean = this.isInfix,
     isInline: Boolean = this.isInline,
+    isValue: Boolean = this.isValue,
     isTailRec: Boolean = this.isTailRec,
     isExternal: Boolean = this.isExternal,
     isConst: Boolean = this.isConst,
@@ -133,6 +132,7 @@ fun FirDeclarationStatus.copy(
         isOperator = isOperator,
         isInfix = isInfix,
         isInline = isInline,
+        isValue = isValue,
         isTailRec = isTailRec,
         isExternal = isExternal,
         isConst = isConst,
@@ -182,6 +182,7 @@ private fun copyStatusAttributes(
     isOperator: Boolean = from.isOperator,
     isInfix: Boolean = from.isInfix,
     isInline: Boolean = from.isInline,
+    isValue: Boolean = from.isValue,
     isTailRec: Boolean = from.isTailRec,
     isExternal: Boolean = from.isExternal,
     isConst: Boolean = from.isConst,
@@ -202,6 +203,7 @@ private fun copyStatusAttributes(
     to.isOperator = isOperator
     to.isInfix = isInfix
     to.isInline = isInline
+    to.isValue = isValue
     to.isTailRec = isTailRec
     to.isExternal = isExternal
     to.isConst = isConst
@@ -356,6 +358,7 @@ fun FirBasedSymbol<*>.packageFqName(): FqName {
         is FirClassLikeSymbol<*> -> classId.packageFqName
         is FirPropertyAccessorSymbol -> propertySymbol.packageFqName()
         is FirCallableSymbol<*> -> callableId.packageName
+        is FirReplSnippetSymbol -> FqName.ROOT // TODO: add package FQN to snippet symbol (KT-74126)
         else -> error("No package fq name for $this")
     }
 }

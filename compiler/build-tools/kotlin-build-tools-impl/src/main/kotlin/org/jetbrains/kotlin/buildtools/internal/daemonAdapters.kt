@@ -36,9 +36,7 @@ internal val JvmCompilationConfigurationImpl.asDaemonCompilationOptions: Compila
                 val classpathChanges =
                     (aggregatedIcConfiguration as AggregatedIcConfiguration<ClasspathSnapshotBasedIncrementalCompilationApproachParameters>).classpathChanges
                 IncrementalCompilationOptions(
-                    areFileChangesKnown = sourcesChanges is SourcesChanges.Known,
-                    modifiedFiles = if (sourcesChanges is SourcesChanges.Known) sourcesChanges.modifiedFiles else null,
-                    deletedFiles = if (sourcesChanges is SourcesChanges.Known) sourcesChanges.removedFiles else null,
+                    sourcesChanges,
                     classpathChanges = classpathChanges,
                     workingDir = aggregatedIcConfiguration.workingDir,
                     compilerMode = CompilerMode.INCREMENTAL_COMPILER,
@@ -46,7 +44,6 @@ internal val JvmCompilationConfigurationImpl.asDaemonCompilationOptions: Compila
                     reportCategories = reportCategories,
                     reportSeverity = reportSeverity,
                     requestedCompilationResults = requestedCompilationResults,
-                    usePreciseJavaTracking = options.preciseJavaTrackingEnabled,
                     outputFiles = options.outputDirs,
                     multiModuleICSettings = null, // required only for the build history approach
                     modulesInfo = null, // required only for the build history approach
@@ -54,6 +51,7 @@ internal val JvmCompilationConfigurationImpl.asDaemonCompilationOptions: Compila
                     buildDir = options.buildDir,
                     kotlinScriptExtensions = ktsExtensionsAsArray,
                     icFeatures = options.extractIncrementalCompilationFeatures(),
+                    useJvmFirRunner = false,
                 )
             }
             else -> CompilationOptions(

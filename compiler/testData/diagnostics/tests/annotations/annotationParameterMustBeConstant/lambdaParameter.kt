@@ -1,4 +1,7 @@
+// RUN_PIPELINE_TILL: FRONTEND
+// LATEST_LV_DIFFERENCE
 // ISSUE: KT-59565
+// IGNORE_PHASE_VERIFICATION: invalid code inside annotations
 
 @Target(AnnotationTarget.TYPE)
 annotation class Ann(val x: Int)

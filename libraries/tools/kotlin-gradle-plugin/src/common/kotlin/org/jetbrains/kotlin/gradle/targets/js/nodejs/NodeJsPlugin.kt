@@ -50,7 +50,9 @@ open class NodeJsPlugin : Plugin<Project> {
                 )
             )
             download.convention(objects.providerWithLazyConvention { nodeJsConstructor().download })
-            downloadBaseUrl.convention(objects.providerWithLazyConvention { nodeJsConstructor().downloadBaseUrl })
+            // set instead of convention because it is possible to have null value
+            downloadBaseUrl.set(objects.providerWithLazyConvention { nodeJsConstructor().downloadBaseUrl })
+            allowInsecureProtocol.convention(false)
             version.convention(objects.providerWithLazyConvention { nodeJsConstructor().version })
             command.convention(objects.providerWithLazyConvention { nodeJsConstructor().command })
 

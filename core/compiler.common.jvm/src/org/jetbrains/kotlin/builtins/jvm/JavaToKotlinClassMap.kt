@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.builtins.functions.BuiltInFunctionArity
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.resolve.jvm.JvmPrimitiveType
+import java.util.concurrent.atomic.*
 
 object JavaToKotlinClassMap {
     private val NUMBERED_FUNCTION_PREFIX: String =
@@ -101,6 +102,14 @@ object JavaToKotlinClassMap {
             val kSuspendFun = kSuspendFunction.packageFqName.toString() + "." + kSuspendFunction.classNamePrefix
             addKotlinToJava(FqName(kSuspendFun + i), K_FUNCTION_CLASS_ID)
         }
+
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicInt"), classId(AtomicInteger::class.java))
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicLong"), classId(AtomicLong::class.java))
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicBoolean"), classId(AtomicBoolean::class.java))
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicReference"), classId(AtomicReference::class.java))
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicIntArray"), classId(AtomicIntegerArray::class.java))
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicLongArray"), classId(AtomicLongArray::class.java))
+        addKotlinToJava(FqName("kotlin.concurrent.atomics.AtomicArray"), classId(AtomicReferenceArray::class.java))
 
         addKotlinToJava(FqNames.nothing.toSafe(), classId(Void::class.java))
     }

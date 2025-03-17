@@ -1,3 +1,6 @@
+// RUN_PIPELINE_TILL: BACKEND
+// LATEST_LV_DIFFERENCE
+// IGNORE_DEXING
 // LANGUAGE: -ErrorAboutDataClassCopyVisibilityChange, -DataClassCopyRespectsConstructorVisibility
 data class Data private constructor(val x: Int) {
     fun member() {

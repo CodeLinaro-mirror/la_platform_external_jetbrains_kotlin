@@ -36,6 +36,7 @@ dependencies {
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(project(":core:descriptors.jvm"))
     testRuntimeOnly(project(":compiler:fir:fir2ir:jvm-backend"))
+    testRuntimeOnly(project(":kotlin-util-klib-abi"))
     testRuntimeOnly(project(":generators"))
 
     testCompileOnly(intellijCore())
@@ -43,7 +44,7 @@ dependencies {
 
     testRuntimeOnly(toolsJar())
     testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.jna:jna"))
-    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testRuntimeOnly(libs.intellij.fastutil)
     testRuntimeOnly(commonDependency("one.util:streamex"))
 
     testRuntimeOnly(jpsModel())

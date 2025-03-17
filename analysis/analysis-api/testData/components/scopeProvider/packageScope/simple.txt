@@ -26,6 +26,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/testValue
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -57,12 +58,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(2)
+  initializer: KaConstantInitializerValue(2)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -93,6 +95,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/testFunction
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -122,6 +125,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(simple.kt)
   getContainingJvmClassName: test.SimpleKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 

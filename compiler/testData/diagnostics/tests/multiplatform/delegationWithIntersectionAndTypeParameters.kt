@@ -1,11 +1,14 @@
+// RUN_PIPELINE_TILL: BACKEND
+// LATEST_LV_DIFFERENCE
+// IGNORE_DEXING
 // MODULE: common
 // FILE: common.kt
-expect interface <!NO_ACTUAL_FOR_EXPECT!>Base1<!><T>{
+expect interface Base1<T>{
     fun foo(t: T): T
     val a : T
 }
 
-expect interface <!NO_ACTUAL_FOR_EXPECT!>Base2<!><T>{
+expect interface Base2<T>{
     fun foo(t: T): T
     val a : T
 }

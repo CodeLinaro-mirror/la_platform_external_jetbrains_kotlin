@@ -1,3 +1,5 @@
+Captured values:
 ExtensionReceiver[name: apply; isMutated: false; displayText: this@apply]
-    apply@fun R|Foo|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=EXACTLY_ONCE>
+    <explicit receiver parameter>: R|Foo|
     R|Foo|
+No captured files

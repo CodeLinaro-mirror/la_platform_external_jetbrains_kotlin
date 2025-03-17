@@ -5,10 +5,13 @@
 
 package org.jetbrains.kotlin.ir.inline
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.backend.common.lower.inline.KlibSyntheticAccessorGenerator
+import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
+import org.jetbrains.kotlin.backend.common.reportWarning
 import org.jetbrains.kotlin.config.KlibConfigurationKeys
+import org.jetbrains.kotlin.config.syntheticAccessorsWithNarrowedVisibility
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities.isPrivate
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
@@ -33,14 +36,15 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
  * - It's not designed to work with the JVM backend because the visibility rules on JVM are stricter.
  * - By the point it's executed, all _private_ inline functions have already been inlined.
  */
-class SyntheticAccessorLowering(context: CommonBackendContext) : FileLoweringPass {
+@PhaseDescription("SyntheticAccessorLowering")
+class SyntheticAccessorLowering(private val context: LoweringContext, isExecutedOnFirstPhase: Boolean = false) : FileLoweringPass {
     /**
      * Whether the visibility of a generated accessor should be narrowed from _public_ to _internal_ if an accessor is only used
      * in _internal_ inline functions and therefore is not a part of public ABI.
      * This "narrowing" is supposed to be used only during the first phase of compilation.
      */
     private val narrowAccessorVisibilities =
-        context.configuration.getBoolean(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY)
+        context.configuration.syntheticAccessorsWithNarrowedVisibility || isExecutedOnFirstPhase
 
     private val accessorGenerator = KlibSyntheticAccessorGenerator(context)
 
@@ -152,11 +156,11 @@ class SyntheticAccessorLowering(context: CommonBackendContext) : FileLoweringPas
 
     private class TransformerData(val currentInlineFunction: IrFunction)
 
-    private inner class Transformer(irFile: IrFile) : IrTransformer<TransformerData?>() {
-        val generatedAccessors = irFile::generatedAccessors.getOrSetIfNull(::GeneratedAccessors)
+    private inner class Transformer(private val currentFile: IrFile) : IrTransformer<TransformerData?>() {
+        val generatedAccessors = currentFile::generatedAccessors.getOrSetIfNull(::GeneratedAccessors)
 
         override fun visitFunction(declaration: IrFunction, data: TransformerData?): IrStatement {
-            val newData = data ?: runIf(declaration.isInline && !declaration.isConsideredAsPrivateForInlining()) {
+            val newData = data ?: runIf(declaration.isInline && !declaration.symbol.isConsideredAsPrivateForInlining()) {
                 // By the time this lowering is executed, there must be no private inline functions; however,
                 // there are exceptions, for example, `suspendCoroutineUninterceptedOrReturn` which are somewhat magical.
                 // If we encounter one, ignore it.
@@ -171,7 +175,7 @@ class SyntheticAccessorLowering(context: CommonBackendContext) : FileLoweringPas
                 return super.visitFunctionAccess(expression, data = null)
 
             val targetFunction = expression.symbol.owner
-            if (!targetFunction.isNonLocalPrivateFunction())
+            if (!targetFunction.isNonLocalPrivateFunction() || expression.checkIncorrectCrossFileDeclarationAccess())
                 return super.visitFunctionAccess(expression, data)
 
             // Generate and memoize the accessor. The visibility can be narrowed later.
@@ -196,7 +200,7 @@ class SyntheticAccessorLowering(context: CommonBackendContext) : FileLoweringPas
                 return super.visitGetField(expression, data = null)
 
             val targetField = expression.symbol.owner
-            if (!targetField.isNonLocalBackingField())
+            if (!targetField.isNonLocalBackingField() || expression.checkIncorrectCrossFileDeclarationAccess())
                 return super.visitGetField(expression, data)
 
             val accessor = targetField.factory.stageController.restrictTo(targetField) {
@@ -209,6 +213,39 @@ class SyntheticAccessorLowering(context: CommonBackendContext) : FileLoweringPas
             )
 
             return super.visitExpression(accessorGenerator.modifyGetterExpression(expression, accessor.symbol), data)
+        }
+
+        /**
+         * Cross-file accesses should be forbidden entirely. This should be an assertion rather than a warning,
+         * but currently we have to be able to lower older KLIBs that may still have them (and it somehow doesn't explode),
+         * so we just keep things as is. Adding an accessor into another file doesn't make sense anyway.
+         * See [KT-72521](https://youtrack.jetbrains.com/issue/KT-72521) and [KT-72623](https://youtrack.jetbrains.com/issue/KT-72623).
+         */
+        private fun IrDeclarationReference.checkIncorrectCrossFileDeclarationAccess(): Boolean {
+            val callee = symbol.owner as? IrDeclaration ?: return false
+            val isIncorrect = callee.fileOrNull != currentFile
+
+            // We have a bunch of older KLIBs, which have access violations due to the way the Compose plugin used to generate IR.
+            // In newer versions of Compose this has been fixed, but users still can use KLIBs compiled with older versions.
+            // Don't show them the warning, because it's not actionable for them AND cannot be fixed retroactively by us.
+            // Yes, this is very ugly, but it does the job.
+            // See KT-73482
+            val isComposeStableField =
+                callee is IrField &&
+                        callee.correspondingPropertySymbol?.owner?.isConst == true &&
+                        callee.name.asString().endsWith("\$stable")
+
+            if (isIncorrect && !isComposeStableField) {
+                context.reportWarning(
+                    "Accessing a private declaration from another file is not permitted. " +
+                            "This is likely caused by invalid IR generated by a compiler plugin. " +
+                            "Please file a bug on https://kotl.in/issue. " +
+                            "Offending access: ${render()}",
+                    currentFile,
+                    this,
+                )
+            }
+            return isIncorrect
         }
     }
 

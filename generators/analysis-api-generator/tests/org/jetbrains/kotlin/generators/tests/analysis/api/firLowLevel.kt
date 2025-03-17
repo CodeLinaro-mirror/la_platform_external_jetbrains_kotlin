@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.generators.tests.analysis.api
 
 import org.jetbrains.kotlin.analysis.low.level.api.fir.*
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.AbstractResolveToFirSymbolTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.compiler.based.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.*
@@ -42,6 +43,10 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
 
         testClass<AbstractScriptLazyAnnotationsResolveTest> {
             model("lazyAnnotations", pattern = TestGeneratorUtil.KTS)
+        }
+
+        testClass<AbstractSourceDeprecationsResolveTest> {
+            model("lazyResolveDeprecation", pattern = TestGeneratorUtil.KT)
         }
 
         testClass<AbstractFirSourceLazyDeclarationResolveTest> {
@@ -285,15 +290,7 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             model("contextCollector", pattern = TestGeneratorUtil.KT)
         }
 
-        testClass<AbstractDependentContextCollectorSourceTest> {
-            model("contextCollector", pattern = TestGeneratorUtil.KT)
-        }
-
         testClass<AbstractContextCollectorScriptTest> {
-            model("contextCollector", pattern = TestGeneratorUtil.KTS)
-        }
-
-        testClass<AbstractDependentContextCollectorScriptTest> {
             model("contextCollector", pattern = TestGeneratorUtil.KTS)
         }
 
@@ -301,10 +298,21 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             model("resolveExtensionDisposal")
         }
 
+        testClass<AbstractResolveToFirSymbolTest> {
+            model("resolveToFirSymbol")
+        }
+
         testClass<AbstractFirClassByPsiClassProviderTest> {
             model("firClassByPsiClass")
         }
 
+        testClass<AbstractSourcePsiBasedContainingClassCalculatorConsistencyTest> {
+            model("psiBasedContainingClass", pattern = TestGeneratorUtil.KT)
+        }
+
+        testClass<AbstractScriptPsiBasedContainingClassCalculatorConsistencyTest> {
+            model("psiBasedContainingClass", pattern = TestGeneratorUtil.KTS)
+        }
     }
 
     testGroup("analysis/low-level-api-fir/tests", "analysis/analysis-api/testData") {
@@ -329,6 +337,18 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
         testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest>(suiteTestClassName = "LLFirPreresolvedReversedDiagnosticCompilerFirTestDataTestGenerated") {
             modelInit()
         }
+    }
+    testGroup(
+        "analysis/low-level-api-fir/tests",
+        "analysis/low-level-api-fir/testData",
+    ) {
+        testClass<AbstractDiagnosticCompilerTestDataTest>(suiteTestClassName = "DiagnosticCompilerTestAATestdataTestGenerated") {
+            model("compilerLikeAnalysis", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+        }
+        testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest>(suiteTestClassName = "LLFirPreresolvedReversedDiagnosticCompilerAATestDataTestGenerated") {
+            model("compilerLikeAnalysis", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+        }
+
     }
 
     testGroup(

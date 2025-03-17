@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/collections/List.listIterator
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -44,6 +45,7 @@ KaNamedFunctionSymbol:
   getContainingFileSymbol: null
   getContainingJvmClassName: Could not render due to kotlin.NotImplementedError: An operation is not implemented: org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedSimpleFunctionDescriptor
 
+  canBeOperator: false
   getContainingModule: Could not render due to kotlin.NotImplementedError: An operation is not implemented: org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedSimpleFunctionDescriptor
 
   deprecationStatus: null
@@ -52,6 +54,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/collections/List.listIterator
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -126,6 +129,7 @@ KaNamedFunctionSymbol:
   getContainingFileSymbol: null
   getContainingJvmClassName: Could not render due to kotlin.NotImplementedError: An operation is not implemented: org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedSimpleFunctionDescriptor
 
+  canBeOperator: false
   getContainingModule: Could not render due to kotlin.NotImplementedError: An operation is not implemented: org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedSimpleFunctionDescriptor
 
   deprecationStatus: null

@@ -10,7 +10,11 @@ import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
-import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
+import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
+import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpressionCopy
 import org.jetbrains.kotlin.fir.expressions.builder.buildThisReceiverExpressionCopy
 import org.jetbrains.kotlin.fir.expressions.impl.FirExpressionStub
 import org.jetbrains.kotlin.fir.resolve.FirSamResolver
@@ -23,7 +27,6 @@ import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.ConeTypeVariable
-import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemOperation
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintStorage
 import org.jetbrains.kotlin.resolve.calls.inference.model.ConstraintSystemError
 import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImpl
@@ -67,7 +70,7 @@ class Candidate(
     val usedOuterCs: Boolean get() = system.usesOuterCs
 
     private var systemInitialized: Boolean = false
-    val system: NewConstraintSystemImpl by lazy(LazyThreadSafetyMode.NONE) {
+    override val system: NewConstraintSystemImpl by lazy(LazyThreadSafetyMode.NONE) {
         val system = constraintSystemFactory.createConstraintSystem()
 
         val baseCSFromInferenceSession =
@@ -110,38 +113,52 @@ class Candidate(
 
     var resultingTypeForCallableReference: ConeKotlinType? = null
         private set
-    var outerConstraintBuilderEffect: (ConstraintSystemOperation.() -> Unit)? = null
-        private set
-
-    val usesSamConversion: Boolean get() = functionTypesOfSamConversions != null
-    val usesSamConversionOrSamConstructor: Boolean get() = usesSamConversion || symbol.origin == FirDeclarationOrigin.SamConstructor
 
     internal var callableReferenceAdaptation: CallableReferenceAdaptation? = null
         private set
 
     internal fun initializeCallableReferenceAdaptation(
         callableReferenceAdaptation: CallableReferenceAdaptation?,
-        resultingTypeForCallableReference: ConeKotlinType,
-        outerConstraintBuilderEffect: ConstraintSystemOperation.() -> Unit
+        resultingTypeForCallableReference: ConeKotlinType
     ) {
         require(this.callableReferenceAdaptation == null) { "callableReferenceAdaptation already initialized" }
         this.callableReferenceAdaptation = callableReferenceAdaptation
         this.resultingTypeForCallableReference = resultingTypeForCallableReference
-        this.outerConstraintBuilderEffect = outerConstraintBuilderEffect
-        usesFunctionConversion = callableReferenceAdaptation?.suspendConversionStrategy is CallableReferenceConversionStrategy.CustomConversion
         if (callableReferenceAdaptation != null) {
             numDefaults = callableReferenceAdaptation.defaults
         }
     }
 
-    var usesFunctionConversion: Boolean = false
-    var functionTypesOfSamConversions: HashMap<FirExpression, FirSamResolver.SamConversionInfo>? = null
+    /**
+     * Expressions in this set are arguments of the call that have function kind conversion applied (e.g., suspend conversion).
+     */
+    var argumentsWithFunctionKindConversion: HashSet<FirExpression>? = null
         private set
 
-    fun initializeFunctionTypesOfSamConversions(types: HashMap<FirExpression, FirSamResolver.SamConversionInfo>) {
-        require(functionTypesOfSamConversions == null) { "functionTypesOfSamConversions already initialized" }
-        functionTypesOfSamConversions = types
+    fun addFunctionKindConversionOfArgument(element: FirExpression) {
+        val set = argumentsWithFunctionKindConversion ?: HashSet<FirExpression>().also { argumentsWithFunctionKindConversion = it }
+        set += element
     }
+
+    var samConversionInfosOfArguments: HashMap<FirExpression, FirSamResolver.SamConversionInfo>? = null
+        private set
+
+    fun setSamConversionOfArgument(expression: FirExpression, conversionInfo: FirSamResolver.SamConversionInfo) {
+        val map = samConversionInfosOfArguments
+            ?: hashMapOf<FirExpression, FirSamResolver.SamConversionInfo>().also { samConversionInfosOfArguments = it }
+        map[expression] = conversionInfo
+    }
+
+    // Computed getters
+
+    val usesSamConversion: Boolean
+        get() = samConversionInfosOfArguments != null
+
+    val usesSamConversionOrSamConstructor: Boolean
+        get() = usesSamConversion || symbol.origin == FirDeclarationOrigin.SamConstructor
+
+    val usesFunctionKindConversion: Boolean
+        get() = argumentsWithFunctionKindConversion != null || callableReferenceAdaptation?.hasFunctionKindConversion() == true
 
     // ---------------------------------------- Argument mapping ----------------------------------------
 
@@ -167,6 +184,25 @@ class Candidate(
     @UpdatingCandidateInvariants
     fun updateArgumentMapping(argumentMapping: LinkedHashMap<ConeResolutionAtom, FirValueParameter>) {
         _argumentMapping = argumentMapping
+    }
+
+    @UpdatingCandidateInvariants
+    fun replaceArgumentPrefix(newArgumentPrefix: List<ConeResolutionAtom>) {
+        val remainingArguments = arguments.subList(newArgumentPrefix.size, arguments.size)
+
+        val newArgumentMapping = LinkedHashMap<ConeResolutionAtom, FirValueParameter>()
+        for ((oldArgument, newArgument) in arguments.zip(newArgumentPrefix)) {
+            newArgumentMapping[newArgument] = argumentMapping.getValue(oldArgument)
+        }
+
+        for (argument in remainingArguments) {
+            newArgumentMapping[argument] = argumentMapping.getValue(argument)
+        }
+
+        val newArguments = newArgumentPrefix + remainingArguments
+
+        _arguments = newArguments
+        _argumentMapping = newArgumentMapping
     }
 
     var numDefaults: Int = 0
@@ -230,7 +266,13 @@ class Candidate(
 
     override var chosenExtensionReceiver: ConeResolutionAtom? = givenExtensionReceiverOptions.singleOrNull()
 
-    override var contextReceiverArguments: List<ConeResolutionAtom>? = null
+    override var contextArguments: List<ConeResolutionAtom>? = null
+
+    /**
+     * In case `f: context(C..) (V) -> ..`, `f(e..)`, context values are still being introduced as a prefix of
+     * regular arguments for `invoke` function.
+     */
+    var expectedContextParameterTypesForInvoke: List<ConeKotlinType>? = null
 
     // FirExpressionStub can be located here in case of callable reference resolution
     fun dispatchReceiverExpression(): FirExpression? {
@@ -242,8 +284,8 @@ class Candidate(
         return chosenExtensionReceiver?.expression?.takeIf { it !is FirExpressionStub }
     }
 
-    fun contextReceiverArguments(): List<FirExpression> {
-        return contextReceiverArguments?.map { it.expression } ?: emptyList()
+    fun contextArguments(): List<FirExpression> {
+        return contextArguments?.map { it.expression } ?: emptyList()
     }
 
     private var sourcesWereUpdated = false
@@ -256,21 +298,26 @@ class Candidate(
 
         dispatchReceiver = dispatchReceiver?.tryToSetSourceForImplicitReceiver()
         chosenExtensionReceiver = chosenExtensionReceiver?.tryToSetSourceForImplicitReceiver()
-        contextReceiverArguments = contextReceiverArguments?.map { it.tryToSetSourceForImplicitReceiver() }
+        contextArguments = contextArguments?.map { it.tryToSetSourceForImplicitReceiver() }
     }
 
     private fun ConeResolutionAtom.tryToSetSourceForImplicitReceiver(): ConeResolutionAtom {
         if (this !is ConeSimpleLeafResolutionAtom) return this
 
         fun FirExpression.tryToSetSourceForImplicitReceiver(): FirExpression? {
-            return when {
-                this is FirSmartCastExpression -> {
+            return when (this) {
+                is FirSmartCastExpression -> {
                     val newOriginal = this.originalExpression.tryToSetSourceForImplicitReceiver() ?: return null
                     this.apply { replaceOriginalExpression(newOriginal) }
                 }
-                this is FirThisReceiverExpression && isImplicit -> {
+                is FirThisReceiverExpression if isImplicit -> {
                     buildThisReceiverExpressionCopy(this) {
                         source = callInfo.callSite.source?.fakeElement(KtFakeSourceElementKind.ImplicitReceiver)
+                    }
+                }
+                is FirPropertyAccessExpression if source?.kind == KtFakeSourceElementKind.ImplicitContextParameterArgument -> {
+                    buildPropertyAccessExpressionCopy(this) {
+                        source = callInfo.callSite.source?.fakeElement(KtFakeSourceElementKind.ImplicitContextParameterArgument)
                     }
                 }
                 else -> null

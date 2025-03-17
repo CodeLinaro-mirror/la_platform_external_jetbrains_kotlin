@@ -13,24 +13,34 @@ import org.jetbrains.kotlin.test.backend.handlers.SteppingDebugRunner
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.configureJvmArtifactsHandlersStep
+import org.jetbrains.kotlin.test.configuration.commonConfigurationForJvmTest
+import org.jetbrains.kotlin.test.configuration.commonHandlersForCodegenTest
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.REQUIRES_SEPARATE_PROCESS
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO
+import org.jetbrains.kotlin.test.model.BackendFacade
+import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.Frontend2BackendConverter
 import org.jetbrains.kotlin.test.model.FrontendFacade
 import org.jetbrains.kotlin.test.model.FrontendKind
 import org.jetbrains.kotlin.test.model.ResultingArtifact
 import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackendTest
+import org.jetbrains.kotlin.test.services.sourceProviders.MainFunctionForDebugTestsSourceProvider
 
 abstract class AbstractSteppingTestBase<R : ResultingArtifact.FrontendOutput<R>>(
     val targetFrontend: FrontendKind<R>,
 ) : AbstractKotlinCompilerWithTargetBackendTest(TargetBackend.JVM_IR) {
     abstract val frontendFacade: Constructor<FrontendFacade<R>>
     abstract val frontendToBackendConverter: Constructor<Frontend2BackendConverter<R, IrBackendInput>>
+    abstract val backendFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.Jvm>>
 
-    override fun TestConfigurationBuilder.configuration() {
-        commonConfigurationForTest(targetFrontend, frontendFacade, frontendToBackendConverter) {
-            commonServicesConfigurationForDebugTest(it)
-        }
+    override fun configure(builder: TestConfigurationBuilder) = with(builder) {
+        commonConfigurationForJvmTest(
+            targetFrontend,
+            frontendFacade,
+            frontendToBackendConverter,
+            backendFacade,
+            additionalSourceProvider = ::MainFunctionForDebugTestsSourceProvider
+        )
 
         commonHandlersForCodegenTest()
         configureJvmArtifactsHandlersStep {

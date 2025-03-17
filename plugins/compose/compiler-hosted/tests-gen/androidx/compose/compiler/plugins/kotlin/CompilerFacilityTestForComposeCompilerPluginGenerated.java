@@ -24,6 +24,12 @@ public class CompilerFacilityTestForComposeCompilerPluginGenerated extends Abstr
   }
 
   @Test
+  @TestMetadata("annotatedParamInImmutable.kt")
+  public void testAnnotatedParamInImmutable() {
+    runTest("plugins/compose/compiler-hosted/testData/codegen/annotatedParamInImmutable.kt");
+  }
+
+  @Test
   @TestMetadata("classContainingInlineFunction.kt")
   public void testClassContainingInlineFunction() {
     runTest("plugins/compose/compiler-hosted/testData/codegen/classContainingInlineFunction.kt");
@@ -51,6 +57,12 @@ public class CompilerFacilityTestForComposeCompilerPluginGenerated extends Abstr
   @TestMetadata("inlineFuncInDependencyOfDependency.kt")
   public void testInlineFuncInDependencyOfDependency() {
     runTest("plugins/compose/compiler-hosted/testData/codegen/inlineFuncInDependencyOfDependency.kt");
+  }
+
+  @Test
+  @TestMetadata("inlineFuncWithExposedComposableSingleton.kt")
+  public void testInlineFuncWithExposedComposableSingleton() {
+    runTest("plugins/compose/compiler-hosted/testData/codegen/inlineFuncWithExposedComposableSingleton.kt");
   }
 
   @Test

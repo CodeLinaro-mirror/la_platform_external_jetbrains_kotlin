@@ -8,10 +8,13 @@ package org.jetbrains.kotlin.generators.tree.printer
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.generators.tree.*
 import org.jetbrains.kotlin.generators.tree.imports.ImportCollecting
+import org.jetbrains.kotlin.generators.util.printBlock
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.jetbrains.kotlin.utils.IndentingPrinter
 import org.jetbrains.kotlin.utils.addToStdlib.joinToWithBuffer
 import org.jetbrains.kotlin.utils.withIndent
+import kotlin.reflect.KClass
+import kotlin.reflect.full.memberProperties
 
 interface ImportCollectingPrinter : ImportCollecting, IndentingPrinter
 
@@ -96,7 +99,7 @@ fun ImportCollectingPrinter.printFunctionDeclaration(
     }
 
     deprecation?.let {
-        printDeprecation(it)
+        printAnnotation(it)
     }
 
     if (visibility != Visibility.PUBLIC) {
@@ -169,19 +172,58 @@ inline fun ImportCollectingPrinter.printFunctionWithBlockBody(
         allParametersOnSeparateLines,
         deprecation = deprecation,
     )
-    printBlock(blockBody)
+    printBlock(body = blockBody)
 }
 
-private fun IndentingPrinter.printDeprecation(deprecation: Deprecated) {
-    println("@Deprecated(")
-    withIndent {
-        println("message = \"", deprecation.message, "\",")
-        println("replaceWith = ReplaceWith(\"", deprecation.replaceWith.expression, "\"),")
-        println("level = DeprecationLevel.", deprecation.level.name, ",")
+data class PrimaryConstructorParameter(
+    val functionParameter: FunctionParameter,
+    val kind: VariableKind,
+    val visibility: Visibility = Visibility.PUBLIC,
+) {
+    val name by functionParameter::name
+    val type by functionParameter::type
+    val defaultValue by functionParameter::defaultValue
+}
+
+private fun String.asStringLiteral(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\""
+
+private fun ImportCollectingPrinter.printAnnotationArgument(argument: Any?) {
+    when (argument) {
+        is String -> print(argument.asStringLiteral())
+        is Enum<*> -> print(argument::class.asRef<PositionTypeParameterRef>().render(), ".", argument.name)
+        is Array<*> -> {
+            print("[")
+            for ((i, element) in argument.withIndex()) {
+                printAnnotationArgument(element)
+                if (i != argument.lastIndex) {
+                    print(", ")
+                }
+            }
+            print("]")
+        }
+        else -> print(argument)
     }
-    println(")")
 }
 
+fun <A : Annotation> ImportCollectingPrinter.printAnnotation(annotation: A) {
+    @Suppress("UNCHECKED_CAST")
+    val annotationInterface = annotation::class.java.interfaces.single().kotlin as KClass<Annotation>
+    print("@", annotationInterface.asRef<PositionTypeParameterRef>().render())
+    val properties = annotationInterface.memberProperties
+    if (properties.isNotEmpty()) {
+        println("(")
+        withIndent {
+            for (property in properties) {
+                print(property.name, " = ")
+                printAnnotationArgument(property.get(annotation))
+                println(",")
+            }
+        }
+        println(")")
+    } else {
+        println()
+    }
+}
 
 fun ImportCollectingPrinter.printPropertyDeclaration(
     name: String,
@@ -202,7 +244,7 @@ fun ImportCollectingPrinter.printPropertyDeclaration(
     printKDoc(kDoc)
 
     deprecation?.let {
-        printDeprecation(it)
+        printAnnotation(it)
     }
 
     if (isVolatile) {
@@ -249,12 +291,6 @@ fun ImportCollectingPrinter.printPropertyDeclaration(
 }
 
 enum class VariableKind { VAL, VAR, PARAMETER }
-
-inline fun IndentingPrinter.printBlock(body: () -> Unit) {
-    println(" {")
-    withIndent(body)
-    println("}")
-}
 
 private val dataTP = TypeVariable("D")
 private val dataParameter = FunctionParameter("data", dataTP)

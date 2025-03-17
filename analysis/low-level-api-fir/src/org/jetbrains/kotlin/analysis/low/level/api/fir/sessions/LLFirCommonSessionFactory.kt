@@ -12,9 +12,9 @@ import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
-import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLLibrarySymbolProviderFactory
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.factories.LLLibrarySymbolProviderFactory
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.moduleData
-import org.jetbrains.kotlin.analysis.low.level.api.fir.providers.LLFirModuleWithDependenciesSymbolProvider
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.LLModuleWithDependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.SessionConfiguration
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmTypeMapper
 import org.jetbrains.kotlin.fir.deserialization.SingleModuleDataProvider
@@ -32,7 +32,7 @@ internal class LLFirCommonSessionFactory(project: Project) : LLFirAbstractSessio
         return doCreateSourcesSession(module) { context ->
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOfNotNull(
                         context.firProvider.symbolProvider,
@@ -51,7 +51,7 @@ internal class LLFirCommonSessionFactory(project: Project) : LLFirAbstractSessio
         return doCreateLibrarySession(module) { context ->
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOf(
                         context.firProvider.symbolProvider,
@@ -71,15 +71,15 @@ internal class LLFirCommonSessionFactory(project: Project) : LLFirAbstractSessio
     }
 
     override fun createDanglingFileSession(module: KaDanglingFileModule, contextSession: LLFirSession): LLFirSession {
-        return doCreateDanglingFileSession(module, contextSession) {
+        return doCreateDanglingFileSession(module, contextSession) { context ->
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOf(
                         firProvider.symbolProvider,
                     ),
-                    dependencyProvider,
+                    context.dependencyProvider,
                 )
             )
 

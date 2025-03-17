@@ -9,8 +9,6 @@ import kotlinx.cinterop.NativePtr
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlin.native.internal.*
 import kotlin.reflect.*
-import kotlin.concurrent.*
-import kotlin.native.concurrent.*
 
 /**
  * An [Int] value that is always updated atomically.
@@ -78,10 +76,9 @@ public class AtomicInt(@Volatile public var value: Int) {
 /**
  * A [Long] value that is always updated atomically.
  * For additional details about atomicity guarantees for reads and writes see [kotlin.concurrent.Volatile].
- *
  */
 @SinceKotlin("1.9")
-public class AtomicLong(@Volatile public var value: Long)  {
+public class AtomicLong(@Volatile public var value: Long) {
     /**
      * Atomically sets the value to the given [new value][newValue] and returns the old value.
      */
@@ -143,9 +140,7 @@ public class AtomicLong(@Volatile public var value: Long)  {
  * An object reference that is always updated atomically.
  */
 @SinceKotlin("1.9")
-@Suppress("ACTUAL_WITHOUT_EXPECT") // actual visibility mismatch
-public actual class AtomicReference<T> actual constructor(public @Volatile actual var value: T) {
-
+public class AtomicReference<T>(@Volatile public var value: T) {
     /**
      * Atomically sets the value to the given [new value][newValue] and returns the old value.
      */
@@ -159,7 +154,7 @@ public actual class AtomicReference<T> actual constructor(public @Volatile actua
      *
      * Comparison of values is done by reference.
      */
-    public actual fun compareAndSet(expected: T, newValue: T): Boolean = this::value.compareAndSetField(expected, newValue)
+    public fun compareAndSet(expected: T, newValue: T): Boolean = this::value.compareAndSetField(expected, newValue)
 
     /**
      * Atomically sets the value to the given [new value][newValue] if the current value equals the [expected value][expected]
@@ -169,13 +164,13 @@ public actual class AtomicReference<T> actual constructor(public @Volatile actua
      *
      * Comparison of values is done by reference.
      */
-    public actual fun compareAndExchange(expected: T, newValue: T): T = this::value.compareAndExchangeField(expected, newValue)
+    public fun compareAndExchange(expected: T, newValue: T): T = this::value.compareAndExchangeField(expected, newValue)
 
     /**
      * Returns the string representation of the current [value].
      */
     public override fun toString(): String =
-            "${debugString(this)} -> ${debugString(value)}"
+        "${debugString(this)} -> ${debugString(value)}"
 }
 
 /**
@@ -212,7 +207,7 @@ public class AtomicNativePtr(@Volatile public var value: NativePtr) {
      * Comparison of values is done by value.
      */
     public fun compareAndSet(expected: NativePtr, newValue: NativePtr): Boolean =
-            this::value.compareAndSetField(expected, newValue)
+        this::value.compareAndSetField(expected, newValue)
 
     /**
      * Atomically sets the value to the given [new value][newValue] if the current value equals the [expected value][expected]
@@ -223,7 +218,7 @@ public class AtomicNativePtr(@Volatile public var value: NativePtr) {
      * Comparison of values is done by value.
      */
     public fun compareAndExchange(expected: NativePtr, newValue: NativePtr): NativePtr =
-            this::value.compareAndExchangeField(expected, newValue)
+        this::value.compareAndExchangeField(expected, newValue)
 
     /**
      * Returns the string representation of the current [value].
@@ -232,7 +227,7 @@ public class AtomicNativePtr(@Volatile public var value: NativePtr) {
 }
 
 
-private fun idString(value: Any) = "${value.hashCode().toUInt().toString(16)}"
+private fun idString(value: Any) = value.hashCode().toUInt().toString(16)
 
 private fun debugString(value: Any?): String {
     if (value == null) return "null"
@@ -367,7 +362,7 @@ internal external fun KMutableProperty0<Short>.getAndAddField(delta: Short): Sho
  */
 @PublishedApi
 @TypedIntrinsic(IntrinsicType.GET_AND_ADD_FIELD)
-internal external fun KMutableProperty0<Int>.getAndAddField(newValue: Int): Int
+internal external fun KMutableProperty0<Int>.getAndAddField(delta: Int): Int
 
 /**
  * Atomically adds the given [delta] to the value of the field referenced by [this] and returns the old value of the field.
@@ -384,7 +379,7 @@ internal external fun KMutableProperty0<Int>.getAndAddField(newValue: Int): Int
  */
 @PublishedApi
 @TypedIntrinsic(IntrinsicType.GET_AND_ADD_FIELD)
-internal external fun KMutableProperty0<Long>.getAndAddField(newValue: Long): Long
+internal external fun KMutableProperty0<Long>.getAndAddField(delta: Long): Long
 
 /**
  * Atomically adds the given [delta] to the value of the field referenced by [this] and returns the old value of the field.
@@ -401,4 +396,4 @@ internal external fun KMutableProperty0<Long>.getAndAddField(newValue: Long): Lo
  */
 @PublishedApi
 @TypedIntrinsic(IntrinsicType.GET_AND_ADD_FIELD)
-internal external fun KMutableProperty0<Byte>.getAndAddField(newValue: Byte): Byte
+internal external fun KMutableProperty0<Byte>.getAndAddField(delta: Byte): Byte

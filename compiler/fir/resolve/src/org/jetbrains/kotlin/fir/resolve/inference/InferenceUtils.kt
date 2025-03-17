@@ -45,21 +45,21 @@ fun extractLambdaInfoFromFunctionType(
     // For lambdas, the existence of the receiver is always implied by the expected type, and a value parameter
     // can never fill its role.
     val receiverType = if (lambda.isLambda) expectedClassLikeType.receiverType(session) else lambda.receiverType
-    val contextReceiversNumber =
-        if (lambda.isLambda) expectedClassLikeType.contextReceiversNumberForFunctionType else lambda.contextReceivers.size
+    val contextParameterNumber =
+        if (lambda.isLambda) expectedClassLikeType.contextParameterNumberForFunctionType else lambda.contextParameters.size
 
     val valueParametersTypesIncludingReceiver = expectedClassLikeType.valueParameterTypesIncludingReceiver(session)
     val isExtensionFunctionType = expectedClassLikeType.isExtensionFunctionType(session)
     val expectedParameters = valueParametersTypesIncludingReceiver.let {
         val forExtension = if (receiverType != null && isExtensionFunctionType) 1 else 0
-        val toDrop = forExtension + contextReceiversNumber
+        val toDrop = forExtension + contextParameterNumber
 
         if (toDrop > 0) it.drop(toDrop) else it
     }.map {
         // @ParameterName is assumed to be used for Ctrl+P on the call site of a property with a function type.
         // Propagating it further may affect further inference might work weirdly, and for sure,
         // it's not expected to leak in implicitly typed declarations.
-        it.removeParameterNameAnnotation(session)
+        it.removeParameterNameAnnotation()
     }
 
     var coerceFirstParameterToExtensionReceiver = false
@@ -91,11 +91,11 @@ fun extractLambdaInfoFromFunctionType(
         }
     }
 
-    val contextReceivers =
+    val contextParameters =
         when {
-            contextReceiversNumber == 0 -> emptyList()
-            lambda.isLambda -> valueParametersTypesIncludingReceiver.subList(0, contextReceiversNumber)
-            else -> lambda.contextReceivers.map { it.typeRef.coneType }
+            contextParameterNumber == 0 -> emptyList()
+            lambda.isLambda -> valueParametersTypesIncludingReceiver.subList(0, contextParameterNumber)
+            else -> lambda.contextParameters.map { it.returnTypeRef.coneType }
         }
 
     return ConeResolvedLambdaAtom(
@@ -103,7 +103,7 @@ fun extractLambdaInfoFromFunctionType(
         expectedClassLikeType,
         actualFunctionKind ?: expectedFunctionKind,
         receiverType,
-        contextReceivers,
+        contextParameters,
         parameters,
         returnType,
         typeVariableForLambdaReturnType = returnTypeVariable,

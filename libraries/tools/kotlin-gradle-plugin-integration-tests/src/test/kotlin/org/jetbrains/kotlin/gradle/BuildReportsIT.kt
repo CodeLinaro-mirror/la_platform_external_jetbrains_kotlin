@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
 import org.jetbrains.kotlin.gradle.testbase.TestVersions.ThirdPartyDependencies.GRADLE_ENTERPRISE_PLUGIN_VERSION
 import org.jetbrains.kotlin.gradle.util.BuildOperationRecordImpl
 import org.jetbrains.kotlin.gradle.util.readJsonReport
+import org.jetbrains.kotlin.gradle.util.replaceText
 import java.nio.file.Files
 import kotlin.streams.asSequence
 import kotlin.test.assertEquals
@@ -116,6 +117,7 @@ class BuildReportsIT : KGPBaseTest() {
         languageVersion: String = KotlinVersion.KOTLIN_2_0.version,
     ) {
         project(project, gradleVersion) {
+            if (!isWithJavaSupported && project == "mppJvmWithJava") buildGradle.replaceText("withJava()", "")
             build(task) {
                 assertBuildReportPathIsPrinted()
             }
@@ -124,6 +126,7 @@ class BuildReportsIT : KGPBaseTest() {
         }
 
         project(project, gradleVersion, buildOptions = defaultBuildOptions.copy(languageVersion = languageVersion)) {
+            if (!isWithJavaSupported && project == "mppJvmWithJava") buildGradle.replaceText("withJava()", "")
             build(task, buildOptions = buildOptions.copy(languageVersion = languageVersion)) {
                 assertBuildReportPathIsPrinted()
             }
@@ -271,10 +274,10 @@ class BuildReportsIT : KGPBaseTest() {
             val deprecatedMetricsPath = projectPath.resolve("deprecated_metrics.bin")
             build(
                 "compileKotlin", "-Pkotlin.build.report.dir=${projectPath.resolve("reports").pathString}",
-                "-Pkotlin.internal.single.build.metrics.file=${projectPath.resolve("deprecated_metrics.bin").pathString}"
+                "-Pkotlin.internal.single.build.metrics.file=${deprecatedMetricsPath.pathString}"
             ) {
-                assertHasDiagnostic(KotlinToolingDiagnostics.DeprecatedGradleProperties, "kotlin.internal.single.build.metrics.file")
-                assertHasDiagnostic(KotlinToolingDiagnostics.DeprecatedGradleProperties, "kotlin.build.report.dir")
+                assertHasDiagnostic(KotlinToolingDiagnostics.DeprecatedWarningGradleProperties, "kotlin.internal.single.build.metrics.file")
+                assertHasDiagnostic(KotlinToolingDiagnostics.DeprecatedWarningGradleProperties, "kotlin.build.report.dir")
             }
         }
     }

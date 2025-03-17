@@ -7,7 +7,6 @@ plugins {
     id("jps-compatible")
 }
 
-val kotlinpAsmVersion = "9.0"
 val shadows by configurations.creating
 
 dependencies {
@@ -15,7 +14,7 @@ dependencies {
     compileOnly(project(":kotlin-metadata-jvm"))
 
     api(project(":tools:kotlinp"))
-    implementation("org.jetbrains.intellij.deps:asm-all:$kotlinpAsmVersion")
+    implementation(libs.intellij.asm)
 
     testApi(intellijCore())
 
@@ -30,7 +29,7 @@ dependencies {
 
     shadows(project(":kotlin-metadata-jvm"))
     shadows(project(":tools:kotlinp"))
-    shadows("org.jetbrains.intellij.deps:asm-all:$kotlinpAsmVersion")
+    shadows(libs.intellij.asm)
 }
 
 sourceSets {
@@ -52,6 +51,7 @@ val shadowJar by task<ShadowJar> {
     manifest {
         attributes["Main-Class"] = "org.jetbrains.kotlin.kotlinp.jvm.Main"
     }
+    mergeServiceFiles()
 }
 
 tasks {

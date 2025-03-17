@@ -1,16 +1,18 @@
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: FIR2IR
 // LANGUAGE: +MultiPlatformProjects
 
 // MODULE: common
 // FILE: common.kt
-expect class <!NO_ACTUAL_FOR_EXPECT!>A<!> {
+expect class A {
     fun foo()
 }
 
-expect abstract class <!NO_ACTUAL_FOR_EXPECT!>B<!>
+expect abstract class B
 
-expect class <!NO_ACTUAL_FOR_EXPECT!>C<!> : B
+expect class C : B
 
-expect abstract class <!NO_ACTUAL_FOR_EXPECT!>D<!>() {
+expect abstract class D() {
     fun <!AMBIGUOUS_ACTUALS{JVM}!>foo<!>()
 }
 

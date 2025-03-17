@@ -138,9 +138,6 @@ fun createStdLibVersionedDocTask(version: String, isLatest: Boolean) =
 
                 sourceRoots.from("$kotlin_stdlib_dir/js/src/generated")
                 sourceRoots.from("$kotlin_stdlib_dir/js/src/kotlin")
-                // kotlinx and org.w3c might become excluded in future
-                sourceRoots.from("$kotlin_stdlib_dir/js/src/kotlinx")
-                sourceRoots.from("$kotlin_stdlib_dir/js/src/org.w3c")
 
                 sourceRoots.from("$kotlin_stdlib_dir/js/builtins")
 
@@ -155,11 +152,11 @@ fun createStdLibVersionedDocTask(version: String, isLatest: Boolean) =
                     "Number.kt",
                 ).forEach { sourceRoots.from("$kotlin_stdlib_dir/jvm/builtins/$it") }
 
-                perPackageOption("org.w3c") {
-                    reportUndocumented.set(false)
+                perPackageOption("kotlin.browser") {
+                    suppress.set(true)
                 }
-                perPackageOption("org.khronos") {
-                    reportUndocumented.set(false)
+                perPackageOption("kotlin.dom") {
+                    suppress.set(true)
                 }
             }
             register("native") {
@@ -434,10 +431,22 @@ fun createAllLibsVersionedDocTask(version: String, isLatest: Boolean, vararg lib
         pluginsMapConfiguration.put("org.jetbrains.dokka.base.DokkaBase", """{ "templatesDir": "$templatesDir" }""")
         if (isLatest) {
             outputDirectory.set(outputDirLatest.resolve(moduleDirName))
-            pluginsMapConfiguration.put("org.jetbrains.dokka.versioning.VersioningPlugin", """{ "version": "$version", "olderVersionsDir": "${inputDirPrevious.resolve(moduleDirName).invariantSeparatorsPath}" }""")
+            pluginsMapConfiguration.put("org.jetbrains.dokka.versioning.VersioningPlugin", """{ "version": "$version", "olderVersionsDirName": "", "olderVersionsDir": "${inputDirPrevious.resolve(moduleDirName).invariantSeparatorsPath}" }""")
         } else {
             outputDirectory.set(outputDirPrevious.resolve(moduleDirName).resolve(version))
             pluginsMapConfiguration.put("org.jetbrains.dokka.versioning.VersioningPlugin", """{ "version": "$version" }""")
+        }
+
+        doLast {
+            // copy package-list files from partial tasks of single modules
+            libTasks.map { it.get() }.forEach { child ->
+                val originalOutput = child.outputDirectory
+                val mergedOutput = outputDirectory.dir(child.moduleName)
+                project.copy {
+                    from(originalOutput.file("package-list"))
+                    into(mergedOutput)
+                }
+            }
         }
     }
 

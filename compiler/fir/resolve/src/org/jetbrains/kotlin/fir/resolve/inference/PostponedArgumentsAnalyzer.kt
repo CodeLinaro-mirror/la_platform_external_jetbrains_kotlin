@@ -18,7 +18,7 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.lastStatement
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedReferenceError
 import org.jetbrains.kotlin.fir.resolve.inference.model.ConeLambdaArgumentConstraintPosition
 import org.jetbrains.kotlin.fir.resolve.isImplicitUnitForEmptyLambda
-import org.jetbrains.kotlin.fir.resolve.shouldReturnUnit
+import org.jetbrains.kotlin.fir.resolve.lambdaWithExplicitEmptyReturns
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolvedTypeFromPrototype
 import org.jetbrains.kotlin.fir.types.*
@@ -40,7 +40,7 @@ interface LambdaAnalyzer {
     fun analyzeAndGetLambdaReturnArguments(
         lambdaAtom: ConeResolvedLambdaAtom,
         receiverType: ConeKotlinType?,
-        contextReceivers: List<ConeKotlinType>,
+        contextParameters: List<ConeKotlinType>,
         parameters: List<ConeKotlinType>,
         expectedReturnType: ConeKotlinType?, // null means, that return type is not proper i.e. it depends on some type variables
         candidate: Candidate,
@@ -78,10 +78,41 @@ class PostponedArgumentsAnalyzer(
     }
 
     private fun processCallableReference(atom: ConeResolvedCallableReferenceAtom, candidate: Candidate) {
-        if (atom.mightNeedAdditionalResolution) {
+        if (atom.needsResolution) {
+            // Needed only for the assertion below
+            val stateBeforeResolution = atom.state
+
             callResolver.resolveCallableReference(candidate, atom, hasSyntheticOuterCall = false)
+
+            if (atom.isPostponedBecauseOfAmbiguity
+                && candidate.callInfo.session.languageVersionSettings.supportsFeature(
+                    LanguageFeature.CallableReferenceOverloadResolutionInLambda
+                )
+            ) {
+                // If the current state is POSTPONED_BECAUSE_OF_AMBIGUITY, the previous might be only NOT_RESOLVED_YET
+                // That effectively means that it's not `foo(::bar)` case and neither `::foo` in the air because for them,
+                // we would resolve it once at `EagerResolveOfCallableReferences` stage for the containing call.
+                check(stateBeforeResolution == ConeResolvedCallableReferenceAtom.State.NOT_RESOLVED_YET)
+
+                // Here, it's very likely the case like `foo { :::bar }` where we look at the `::bar` as a new atom which might
+                // be resolved at any time as it has empty `inputTypes` and `outputTypes` dependencies
+                //  (see ConeResolvedCallableReferenceAtom.inputTypes).
+                //
+                // So, the idea is to leave the atom postponed and to finalize it until `inputTypes` are ready.
+                //
+                // See similar code in K1
+                // at org.jetbrains.kotlin.resolve.calls.components.CallableReferenceArgumentResolver.processCallableReferenceArgument
+                return
+            }
         }
 
+        // TODO: Consider moving this part to FirCallResolver::resolveCallableReference (KT-74021)
+        // Currently it doesn't work easily because the code inside
+        // FirSyntheticCallGenerator.resolveCallableReferenceWithSyntheticOuterCall for error processing assumes
+        // that the reference is not replaced
+        // (see `check(callableReferenceAccess.calleeReference is FirSimpleNamedReference && !callableReferenceAccess.isResolved)`).
+        // But generally, it should help to get rid of `analyzed` var and replace it with
+        // getter to `ConeResolvedCallableReferenceAtom::state`.
         val callableReferenceAccess = atom.expression
         atom.analyzed = true
 
@@ -133,7 +164,7 @@ class PostponedArgumentsAnalyzer(
         fun substitute(type: ConeKotlinType) = currentSubstitutor.safeSubstitute(c, type) as ConeKotlinType
 
         val receiver = lambda.receiverType?.let(::substitute)
-        val contextReceivers = lambda.contextReceiverTypes.map(::substitute)
+        val contextParameters = lambda.contextParameterTypes.map(::substitute)
         val parameters = lambda.parameterTypes.map(::substitute)
         val lambdaReturnType = lambda.returnType
 
@@ -164,7 +195,7 @@ class PostponedArgumentsAnalyzer(
         val results = lambdaAnalyzer.analyzeAndGetLambdaReturnArguments(
             lambda,
             receiver,
-            contextReceivers,
+            contextParameters,
             parameters,
             expectedTypeForReturnArguments,
             candidate,
@@ -203,7 +234,8 @@ class PostponedArgumentsAnalyzer(
         val returnTypeRef = lambda.anonymousFunction.returnTypeRef.let {
             it as? FirResolvedTypeRef ?: it.resolvedTypeFromPrototype(substituteAlreadyFixedVariables(lambda.returnType))
         }
-        val isUnitLambda = returnTypeRef.coneType.isUnitOrFlexibleUnit || lambda.anonymousFunction.shouldReturnUnit(returnArguments)
+        val isLastExpressionCoercedToUnit =
+            returnTypeRef.coneType.isUnitOrFlexibleUnit || lambda.anonymousFunction.lambdaWithExplicitEmptyReturns(returnArguments)
 
         for (atom in returnAtoms) {
             val expression = atom.expression
@@ -218,8 +250,8 @@ class PostponedArgumentsAnalyzer(
             //      foo() // T = Unit, even though there is no implicit return
             //    }
             //  Things get even weirder if T has an upper bound incompatible with Unit.
-            val haveSubsystem = c.addSubsystemFromExpression(expression)
-            if (isLastExpression && isUnitLambda) {
+            val haveSubsystem = c.addSubsystemFromAtom(atom)
+            if (isLastExpression && isLastExpressionCoercedToUnit) {
                 // That "if" is necessary because otherwise we would force a lambda return type
                 // to be inferred from completed last expression.
                 // See `test1` at testData/diagnostics/tests/inference/coercionToUnit/afterBareReturn.kt
@@ -247,7 +279,8 @@ class PostponedArgumentsAnalyzer(
                     checkerSink,
                     context = resolutionContext,
                     isReceiver = false,
-                    isDispatch = false
+                    isDispatch = false,
+                    anonymousFunctionIfReturnExpression = lambda.anonymousFunction,
                 )
             }
         }

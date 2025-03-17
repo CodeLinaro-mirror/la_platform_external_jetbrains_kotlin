@@ -7,24 +7,30 @@ package org.jetbrains.kotlin.test.backend.handlers
 
 import com.intellij.openapi.util.io.FileUtil.loadFile
 import org.jetbrains.kotlin.config.KlibConfigurationKeys
+import org.jetbrains.kotlin.config.syntheticAccessorsWithNarrowedVisibility
 import org.jetbrains.kotlin.ir.inline.DumpSyntheticAccessors
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.test.Assertions
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.isDirectiveDefined
-import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IDENTICAL_KLIB_SYNTHETIC_ACCESSOR_DUMPS
+import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives
+import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.IDENTICAL_KLIB_SYNTHETIC_ACCESSOR_DUMPS
+import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.*
 import java.io.File
 
 abstract class SyntheticAccessorsDumpHandler<A : ResultingArtifact.Binary<A>>(
     testServices: TestServices,
-    artifactKind: BinaryKind<A>,
+    artifactKind: ArtifactKind<A>,
 ) : BinaryArtifactHandler<A>(
     testServices,
     artifactKind,
     failureDisablesNextSteps = false,
     doNotRunIfThereWerePreviousFailures = false
 ) {
+    override val directiveContainers: List<DirectivesContainer>
+        get() = listOf(KlibBasedCompilerTestDirectives)
+
     final override fun processModule(module: TestModule, info: A) = Unit
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
@@ -32,10 +38,10 @@ abstract class SyntheticAccessorsDumpHandler<A : ResultingArtifact.Binary<A>>(
 
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(testModules.first())
         val dumpDir = DumpSyntheticAccessors.getDumpDirectoryOrNull(configuration) ?: return
-        val withNarrowedVisibility = configuration.getBoolean(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY)
+        val withNarrowedVisibility = configuration.syntheticAccessorsWithNarrowedVisibility
 
         val uniqueIrModuleNames = testModules.mapNotNull { testModule ->
-            testServices.dependencyProvider.getArtifactSafe(testModule, BackendKinds.IrBackend)?.irModuleFragment?.name
+            testServices.artifactsProvider.getArtifactSafe(testModule, BackendKinds.IrBackend)?.irModuleFragment?.name
         }.toSet()
 
         assertions.assertSyntheticAccessorDumpIsCorrect(

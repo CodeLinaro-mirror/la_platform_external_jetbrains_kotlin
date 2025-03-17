@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /JavaClass.bar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -30,6 +31,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -44,7 +46,7 @@ KaJavaFieldSymbol:
   isStatic: true
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: FINAL
   name: superFoo
   origin: JAVA_SOURCE
   receiverParameter: null
@@ -62,6 +64,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /SuperClass.superBar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -90,6 +93,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: null
   getContainingJvmClassName: SuperClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -104,7 +108,7 @@ KaJavaFieldSymbol:
   isStatic: true
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: FINAL
   name: foo
   origin: JAVA_SOURCE
   receiverParameter: null

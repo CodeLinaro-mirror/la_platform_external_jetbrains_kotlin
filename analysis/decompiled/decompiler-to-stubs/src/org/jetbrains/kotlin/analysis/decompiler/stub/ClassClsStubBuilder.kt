@@ -1,4 +1,7 @@
-// Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+/*
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
 
 package org.jetbrains.kotlin.analysis.decompiler.stub
 
@@ -18,6 +21,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.psi.KtClassBody
 import org.jetbrains.kotlin.psi.KtSuperTypeEntry
 import org.jetbrains.kotlin.psi.KtSuperTypeList
+import org.jetbrains.kotlin.psi.stubs.elements.KotlinValueClassRepresentation
 import org.jetbrains.kotlin.psi.stubs.elements.KtClassElementType
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinClassStubImpl
@@ -34,7 +38,7 @@ fun createClassStub(
     nameResolver: NameResolver,
     classId: ClassId,
     source: SourceElement?,
-    context: ClsStubBuilderContext
+    context: ClsStubBuilderContext,
 ) {
     ClassClsStubBuilder(parent, classProto, nameResolver, classId, source, context).build()
 }
@@ -45,7 +49,7 @@ private class ClassClsStubBuilder(
     nameResolver: NameResolver,
     private val classId: ClassId,
     source: SourceElement?,
-    outerContext: ClsStubBuilderContext
+    outerContext: ClsStubBuilderContext,
 ) {
     private val thisAsProtoContainer = ProtoContainer.Class(
         classProto, nameResolver, TypeTable(classProto.typeTable), source, outerContext.protoContainer
@@ -55,7 +59,6 @@ private class ClassClsStubBuilder(
     private val c = outerContext.child(
         classProto.typeParameterList, classId.shortClassName, nameResolver, thisAsProtoContainer.typeTable, thisAsProtoContainer
     )
-    private val contextReceiversListStubBuilder = ContextReceiversListStubBuilder(c)
     private val typeStubBuilder = TypeClsStubBuilder(c)
     private val supertypeIds = run {
         val supertypeIds = classProto.supertypes(c.typeTable).map { c.nameResolver.getClassId(it.className) }
@@ -84,8 +87,8 @@ private class ClassClsStubBuilder(
 
     private fun createClassOrObjectStubAndModifierListStub(): StubElement<out PsiElement> {
         val classOrObjectStub = doCreateClassOrObjectStub()
-        contextReceiversListStubBuilder.createContextReceiverStubs(classOrObjectStub, classProto.contextReceiverTypes(c.typeTable))
         val modifierList = createModifierListForClass(classOrObjectStub)
+        typeStubBuilder.createContextReceiverStubs(modifierList, classProto.contextReceiverTypes(c.typeTable))
         if (Flags.HAS_ANNOTATIONS.get(classProto.flags)) {
             createAnnotationStubs(c.components.annotationLoader.loadClassAnnotations(thisAsProtoContainer), modifierList)
         }
@@ -149,9 +152,16 @@ private class ClassClsStubBuilder(
                     isClsStubCompiledToJvmDefaultImplementation = JvmProtoBufUtil.isNewPlaceForBodyGeneration(classProto),
                     isLocal = false,
                     isTopLevel = !this.classId.isNestedClass,
+                    valueClassRepresentation = valueClassRepresentation(),
                 )
             }
         }
+    }
+
+    private fun valueClassRepresentation(): KotlinValueClassRepresentation? = when {
+        classProto.multiFieldValueClassUnderlyingNameCount > 0 -> KotlinValueClassRepresentation.MULTI_FIELD_VALUE_CLASS
+        classProto.hasInlineClassUnderlyingPropertyName() -> KotlinValueClassRepresentation.INLINE_CLASS
+        else -> null
     }
 
     private fun createConstructorStub() {
@@ -211,8 +221,10 @@ private class ClassClsStubBuilder(
                 isEnumEntry = true,
                 isClsStubCompiledToJvmDefaultImplementation = JvmProtoBufUtil.isNewPlaceForBodyGeneration(classProto),
                 isLocal = false,
-                isTopLevel = false
+                isTopLevel = false,
+                valueClassRepresentation = null,
             )
+
             if (annotations.isNotEmpty()) {
                 createAnnotationStubs(annotations, createEmptyModifierListStub(enumEntryStub))
             }
@@ -280,7 +292,9 @@ private class ClassClsStubBuilder(
                     }
                     return
                 }
-        createClassStub(classBody, classProto, nameResolver, nestedClassId, sourceElement, c)
+        if (nestedClassId == nameResolver.getClassId(classProto.fqName)) {
+            createClassStub(classBody, classProto, nameResolver, nestedClassId, sourceElement, c)
+        }
     }
 
     companion object {

@@ -317,6 +317,12 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
     }
 
     @Test
+    @TestMetadata("annotationAllTarget.kt")
+    public void testAnnotationAllTarget() {
+      runTest("compiler/testData/codegen/bytecodeListing/annotations/annotationAllTarget.kt");
+    }
+
+    @Test
     @TestMetadata("annotationCtorCallGenerateSynthetic.kt")
     public void testAnnotationCtorCallGenerateSynthetic() {
       runTest("compiler/testData/codegen/bytecodeListing/annotations/annotationCtorCallGenerateSynthetic.kt");
@@ -326,6 +332,18 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
     @TestMetadata("annotationCtorCallNoSynthetic.kt")
     public void testAnnotationCtorCallNoSynthetic() {
       runTest("compiler/testData/codegen/bytecodeListing/annotations/annotationCtorCallNoSynthetic.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationDefaultTargetFirstOnly.kt")
+    public void testAnnotationDefaultTargetFirstOnly() {
+      runTest("compiler/testData/codegen/bytecodeListing/annotations/annotationDefaultTargetFirstOnly.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationDefaultTargetParamProperty.kt")
+    public void testAnnotationDefaultTargetParamProperty() {
+      runTest("compiler/testData/codegen/bytecodeListing/annotations/annotationDefaultTargetParamProperty.kt");
     }
 
     @Test
@@ -1421,12 +1439,6 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
     }
 
     @Test
-    @TestMetadata("defaultInterfaceMethodsInInlineClass.kt")
-    public void testDefaultInterfaceMethodsInInlineClass() {
-      runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/defaultInterfaceMethodsInInlineClass.kt");
-    }
-
-    @Test
     @TestMetadata("genericChild.kt")
     public void testGenericChild() {
       runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/genericChild.kt");
@@ -1556,15 +1568,27 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
       }
 
       @Test
+      @TestMetadata("genericSubstitutionJvmDefaultDisable.kt")
+      public void testGenericSubstitutionJvmDefaultDisable() {
+        runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/defaultInterfaceMembers/genericSubstitutionJvmDefaultDisable.kt");
+      }
+
+      @Test
+      @TestMetadata("genericSubstitutionJvmDefaultEnable.kt")
+      public void testGenericSubstitutionJvmDefaultEnable() {
+        runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/defaultInterfaceMembers/genericSubstitutionJvmDefaultEnable.kt");
+      }
+
+      @Test
       @TestMetadata("javaDefaultInterfaceMember.kt")
       public void testJavaDefaultInterfaceMember() {
         runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/defaultInterfaceMembers/javaDefaultInterfaceMember.kt");
       }
 
       @Test
-      @TestMetadata("jvmDefaultAll.kt")
-      public void testJvmDefaultAll() {
-        runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/defaultInterfaceMembers/jvmDefaultAll.kt");
+      @TestMetadata("jvmDefaultNoCompatibility.kt")
+      public void testJvmDefaultNoCompatibility() {
+        runTest("compiler/testData/codegen/bytecodeListing/inlineClasses/defaultInterfaceMembers/jvmDefaultNoCompatibility.kt");
       }
     }
 
@@ -1859,6 +1883,30 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
         }
 
         @Test
+        @TestMetadata("bridgeInInterface.kt")
+        public void testBridgeInInterface() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/allCompatibility/bridgeInInterface.kt");
+        }
+
+        @Test
+        @TestMetadata("bridgeInInterfaceWithProperties.kt")
+        public void testBridgeInInterfaceWithProperties() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/allCompatibility/bridgeInInterfaceWithProperties.kt");
+        }
+
+        @Test
+        @TestMetadata("bridgeWithJava.kt")
+        public void testBridgeWithJava() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/allCompatibility/bridgeWithJava.kt");
+        }
+
+        @Test
+        @TestMetadata("bridgesInClassWithDisableAgainstEnable.kt")
+        public void testBridgesInClassWithDisableAgainstEnable() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/allCompatibility/bridgesInClassWithDisableAgainstEnable.kt");
+        }
+
+        @Test
         @TestMetadata("deprecation.kt")
         public void testDeprecation() {
           runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/allCompatibility/deprecation.kt");
@@ -1912,12 +1960,52 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
       }
 
       @Nested
+      @TestMetadata("compiler/testData/codegen/bytecodeListing/jvm8/defaults/defaultCompatibilityBridges")
+      @TestDataPath("$PROJECT_ROOT")
+      public class DefaultCompatibilityBridges {
+        @Test
+        public void testAllFilesPresentInDefaultCompatibilityBridges() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/bytecodeListing/jvm8/defaults/defaultCompatibilityBridges"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("annotations.kt")
+        public void testAnnotations() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/defaultCompatibilityBridges/annotations.kt");
+        }
+
+        @Test
+        @TestMetadata("noBridgeIfSuperMethodIsAbstract.kt")
+        public void testNoBridgeIfSuperMethodIsAbstract() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/defaultCompatibilityBridges/noBridgeIfSuperMethodIsAbstract.kt");
+        }
+      }
+
+      @Nested
       @TestMetadata("compiler/testData/codegen/bytecodeListing/jvm8/defaults/noDefaultImpl")
       @TestDataPath("$PROJECT_ROOT")
       public class NoDefaultImpl {
         @Test
         public void testAllFilesPresentInNoDefaultImpl() {
           KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/bytecodeListing/jvm8/defaults/noDefaultImpl"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+        }
+
+        @Test
+        @TestMetadata("bridgeInInterface.kt")
+        public void testBridgeInInterface() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/noDefaultImpl/bridgeInInterface.kt");
+        }
+
+        @Test
+        @TestMetadata("bridgeInInterfaceWithProperties.kt")
+        public void testBridgeInInterfaceWithProperties() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/noDefaultImpl/bridgeInInterfaceWithProperties.kt");
+        }
+
+        @Test
+        @TestMetadata("bridgeWithJava.kt")
+        public void testBridgeWithJava() {
+          runTest("compiler/testData/codegen/bytecodeListing/jvm8/defaults/noDefaultImpl/bridgeWithJava.kt");
         }
 
         @Test
@@ -2543,6 +2631,18 @@ public class FirLightTreeBytecodeListingTestGenerated extends AbstractFirLightTr
       @TestMetadata("partiallySpecializedClass.kt")
       public void testPartiallySpecializedClass() {
         runTest("compiler/testData/codegen/bytecodeListing/specialBridges/signatures/partiallySpecializedClass.kt");
+      }
+
+      @Test
+      @TestMetadata("withPlatformDependentDeclarations.kt")
+      public void testWithPlatformDependentDeclarations() {
+        runTest("compiler/testData/codegen/bytecodeListing/specialBridges/signatures/withPlatformDependentDeclarations.kt");
+      }
+
+      @Test
+      @TestMetadata("withoutPlatformDependentDeclarations.kt")
+      public void testWithoutPlatformDependentDeclarations() {
+        runTest("compiler/testData/codegen/bytecodeListing/specialBridges/signatures/withoutPlatformDependentDeclarations.kt");
       }
     }
   }

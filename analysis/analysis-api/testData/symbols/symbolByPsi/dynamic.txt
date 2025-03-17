@@ -25,6 +25,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /Foo.p
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -59,12 +60,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(null)
+  initializer: KaConstantInitializerValue(null)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -98,6 +100,7 @@ KaAnonymousFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   hasStableParameterNames: true
   isActual: false
@@ -121,6 +124,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /Foo.f
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -182,6 +186,7 @@ KaNamedFunctionSymbol:
     type: Foo
   getContainingFileSymbol: KaFileSymbol(dynamic.kt)
   getContainingJvmClassName: Foo
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 

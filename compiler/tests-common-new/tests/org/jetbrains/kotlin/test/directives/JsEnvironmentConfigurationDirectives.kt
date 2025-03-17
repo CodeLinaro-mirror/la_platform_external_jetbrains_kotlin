@@ -74,11 +74,6 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
         applicability = DirectiveApplicability.Global
     )
 
-    val SKIP_MANGLE_VERIFICATION by directive(
-        description = "",
-        applicability = DirectiveApplicability.Global
-    )
-
     val PROPERTY_LAZY_INITIALIZATION by directive(
         description = "",
         applicability = DirectiveApplicability.Global
@@ -86,6 +81,11 @@ object JsEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
 
     val GENERATE_INLINE_ANONYMOUS_FUNCTIONS by directive(
         description = "translate lambdas into in-line anonymous functions",
+        applicability = DirectiveApplicability.Global
+    )
+
+    val DISABLE_ES6_ARROWS by directive(
+        description = "Translate lambdas to ordinary anonymous functions instead of ES6 arrows",
         applicability = DirectiveApplicability.Global
     )
 

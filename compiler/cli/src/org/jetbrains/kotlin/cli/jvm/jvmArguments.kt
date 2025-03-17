@@ -256,15 +256,7 @@ fun KotlinCoreEnvironment.registerJavacIfNeeded(
 }
 
 fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerArguments) {
-
     put(JVMConfigurationKeys.PARAMETERS_METADATA, arguments.javaParameters)
-
-    val useOldBackend = arguments.useOldBackend
-    val useIR = languageVersionSettings.languageVersion.usesK2 || !useOldBackend
-
-    messageCollector.report(LOGGING, "Using ${if (useIR) "JVM IR" else "old JVM"} backend")
-
-    put(JVMConfigurationKeys.IR, useIR)
 
     val abiStability = JvmAbiStability.fromStringOrNull(arguments.abiStability)
     if (arguments.abiStability != null) {
@@ -273,8 +265,6 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
                 ERROR,
                 "Unknown ABI stability mode: ${arguments.abiStability}, supported modes: ${JvmAbiStability.entries.map { it.description }}"
             )
-        } else if (!useIR && abiStability == JvmAbiStability.UNSTABLE) {
-            messageCollector.report(ERROR, "-Xabi-stability=unstable is not supported in the old JVM backend")
         } else {
             put(JVMConfigurationKeys.ABI_STABILITY, abiStability)
         }
@@ -298,7 +288,6 @@ fun CompilerConfiguration.configureAdvancedJvmOptions(arguments: K2JVMCompilerAr
 
     put(JVMConfigurationKeys.ENABLE_DEBUG_MODE, arguments.enableDebugMode)
     put(JVMConfigurationKeys.NO_NEW_JAVA_ANNOTATION_TARGETS, arguments.noNewJavaAnnotationTargets)
-    put(JVMConfigurationKeys.OLD_INNER_CLASSES_LOGIC, arguments.oldInnerClassesLogic)
     put(JVMConfigurationKeys.ENABLE_IR_INLINER, arguments.enableIrInliner)
     put(JVMConfigurationKeys.USE_INLINE_SCOPES_NUMBERS, arguments.useInlineScopesNumbers)
 

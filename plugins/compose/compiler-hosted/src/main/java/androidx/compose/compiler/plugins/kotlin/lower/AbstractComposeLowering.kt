@@ -26,7 +26,9 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.backend.jvm.ir.isInlineClassType
 import org.jetbrains.kotlin.builtins.PrimitiveType
+import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.declarations.utils.klibSourceFile
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyClass
 import org.jetbrains.kotlin.ir.IrElement
@@ -37,7 +39,6 @@ import org.jetbrains.kotlin.ir.builders.declarations.*
 import org.jetbrains.kotlin.ir.builders.irBlockBody
 import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrEnumEntryImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrVariableImpl
 import org.jetbrains.kotlin.ir.expressions.*
@@ -49,6 +50,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -56,6 +58,7 @@ import org.jetbrains.kotlin.library.metadata.DeserializedSourceFile
 import org.jetbrains.kotlin.load.kotlin.computeJvmDescriptor
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.platform.jvm.isJvm
+import org.jetbrains.kotlin.platform.konan.isNative
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.DFS
@@ -78,12 +81,6 @@ abstract class AbstractComposeLowering(
     protected val composableIrClass =
         context.referenceClass(ComposeClassIds.Composable)?.owner
             ?: error("Cannot find the Composable annotation class in the classpath")
-
-    protected val jvmSyntheticIrClass by guardedLazy {
-        context.referenceClass(
-            ClassId(StandardClassIds.BASE_JVM_PACKAGE, Name.identifier("JvmSynthetic"))
-        )!!.owner
-    }
 
     fun getTopLevelClass(classId: ClassId): IrClassSymbol {
         return getTopLevelClassOrNull(classId)
@@ -116,15 +113,34 @@ abstract class AbstractComposeLowering(
     val FeatureFlag.enabled get() = featureFlags.isEnabled(this)
 
     fun metricsFor(function: IrFunction): FunctionMetrics =
-        (function as? IrAttributeContainer)?.let {
-            context.irTrace[ComposeWritableSlices.FUNCTION_METRICS, it] ?: run {
-                val metrics = metrics.makeFunctionMetrics(function)
-                context.irTrace.record(ComposeWritableSlices.FUNCTION_METRICS, it, metrics)
-                metrics
+        context.irTrace[ComposeWritableSlices.FUNCTION_METRICS, function]
+            ?: metrics.makeFunctionMetrics(function).also {
+                context.irTrace.record(ComposeWritableSlices.FUNCTION_METRICS, function, it)
             }
-        } ?: metrics.makeFunctionMetrics(function)
 
     fun IrType.unboxInlineClass() = unboxType() ?: this
+
+    fun IrType.defaultParameterType(): IrType {
+        val type = this
+        val constructorAccessible = !type.isPrimitiveType() &&
+                type.classOrNull?.owner?.primaryConstructor != null
+        return when {
+            type.isPrimitiveType() -> type
+            type.isInlineClassType() -> if (context.platform.isJvm() || constructorAccessible) {
+                if (type.unboxInlineClass().isPrimitiveType()) {
+                    type
+                } else {
+                    type.makeNullable()
+                }
+            } else {
+                // k/js and k/native: private constructors of value classes can be not accessible.
+                // Therefore it won't be possible to create a "fake" default argument for calls.
+                // Making it nullable allows to pass null.
+                type.makeNullable()
+            }
+            else -> type.makeNullable()
+        }
+    }
 
     fun IrType.replaceArgumentsWithStarProjections(): IrType =
         when (this) {
@@ -147,7 +163,7 @@ abstract class AbstractComposeLowering(
         listOf(this),
         { current ->
             (current.parent as? IrSimpleFunction)?.overriddenSymbols?.map { fn ->
-                fn.owner.valueParameters[current.index].also { p ->
+                fn.owner.valueParameters[current.indexInOldValueParameters].also { p ->
                     p.parent = fn.owner
                 }
             } ?: listOf()
@@ -732,7 +748,7 @@ abstract class AbstractComposeLowering(
         type: IrType = context.irBuiltIns.unitType,
         origin: IrStatementOrigin? = null,
         statements: List<IrStatement>,
-    ): IrExpression {
+    ): IrBlock {
         return IrBlockImpl(
             UNDEFINED_OFFSET,
             UNDEFINED_OFFSET,
@@ -796,7 +812,7 @@ abstract class AbstractComposeLowering(
 
     private fun IrClass.getMetadataStabilityGetterFun(): IrSimpleFunctionSymbol? {
         val suitableFunctions = context.referenceFunctions(CallableId(this.packageFqName!!, uniqueStabilityGetterName()))
-        return suitableFunctions.singleOrNull()
+        return suitableFunctions.firstOrNull()
     }
 
     private fun IrClass.getRuntimeStabilityValue(): IrExpression? {
@@ -859,7 +875,7 @@ abstract class AbstractComposeLowering(
             isStatic = true
             isFinal = true
             type = context.irBuiltIns.intType
-            visibility = DescriptorVisibilities.PUBLIC
+            visibility = if (context.platform.isJvm()) DescriptorVisibilities.PUBLIC else DescriptorVisibilities.PRIVATE
         }
     }
 
@@ -897,39 +913,6 @@ abstract class AbstractComposeLowering(
         return property
     }
 
-    private val hiddenFromObjCAnnotationSymbol: IrClassSymbol by lazy {
-        getTopLevelClass(hiddenFromObjCClassId)
-    }
-
-    private val deprecationLevelClass = getTopLevelClass(ClassId.fromString("kotlin/DeprecationLevel"))
-    private val hiddenDeprecationLevel = deprecationLevelClass.owner.declarations.filterIsInstance<IrEnumEntry>()
-        .single { it.name.toString() == "HIDDEN" }.symbol
-
-    private val hiddenDeprecatedAnnotationSymbol = getTopLevelClass(ClassId.fromString("kotlin/Deprecated"))
-    private val hiddenDeprecatedAnnotation = IrConstructorCallImpl.fromSymbolOwner(
-        type = hiddenDeprecatedAnnotationSymbol.defaultType,
-        constructorSymbol = hiddenDeprecatedAnnotationSymbol.constructors.first { it.owner.isPrimary }
-    ).also {
-        it.putValueArgument(
-            0,
-            IrConstImpl.string(
-                SYNTHETIC_OFFSET,
-                SYNTHETIC_OFFSET,
-                context.irBuiltIns.stringType,
-                "Synthetic declaration generated by the Compose compiler. Please do not use."
-            )
-        )
-        it.putValueArgument(
-            2,
-            IrGetEnumValueImpl(
-                SYNTHETIC_OFFSET,
-                SYNTHETIC_OFFSET,
-                deprecationLevelClass.defaultType,
-                hiddenDeprecationLevel
-            )
-        )
-    }
-
     private fun IrClass.buildStabilityGetter(stabilityProp: IrProperty, parent: IrPackageFragment) {
         val getterName = uniqueStabilityGetterName()
 
@@ -951,15 +934,17 @@ abstract class AbstractComposeLowering(
                 +irReturn(irGetField(stabilityField))
             }
             parent.addChild(fn)
+            val hiddenDeprecatedAnnotation = hiddenDeprecated("Synthetic declaration generated by the Compose compiler. Please do not use.")
+            fn.annotations = if (context.platform.isNative()) {
+                listOf(
+                    hiddenFromObjC() ?: error("Expected @HiddenFromObjC annotation to be present."),
+                    hiddenDeprecatedAnnotation
+                )
+            } else {
+                listOf(hiddenDeprecatedAnnotation)
+            }
         }
 
-        val hiddenFromObjCAnnotation = IrConstructorCallImpl.fromSymbolOwner(
-            type = hiddenFromObjCAnnotationSymbol.defaultType,
-            constructorSymbol = hiddenFromObjCAnnotationSymbol.constructors.first()
-        )
-
-        context.metadataDeclarationRegistrar.addMetadataVisibleAnnotationsToElement(stabilityGetter, hiddenFromObjCAnnotation)
-        context.metadataDeclarationRegistrar.addMetadataVisibleAnnotationsToElement(stabilityGetter, hiddenDeprecatedAnnotation)
         context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(stabilityGetter)
     }
 
@@ -1185,8 +1170,8 @@ abstract class AbstractComposeLowering(
             to,
             unsafeCoerceIntrinsic!!
         ).apply {
-            putTypeArgument(0, from)
-            putTypeArgument(1, to)
+            typeArguments[0] = from
+            typeArguments[1] = to
             putValueArgument(0, argument)
         }
 
@@ -1272,7 +1257,7 @@ abstract class AbstractComposeLowering(
             extensionReceiver = currentComposer
             putValueArgument(0, invalid)
             putValueArgument(1, calculation)
-            putTypeArgument(0, returnType)
+            typeArguments[0] = returnType
         }
     }
 
@@ -1292,7 +1277,7 @@ abstract class AbstractComposeLowering(
         // boxed, then we don't want to unnecessarily _unbox_ it. Note that if Kotlin allows for
         // an overridden equals method of inline classes in the future, we may have to avoid the
         // boxing in a different way.
-        val expr = value.unboxValueIfInline()
+        val expr = value.unboxValueIfInline().ordinalIfEnum()
         val type = expr.type
         val stability = stabilityInferencer.stabilityOf(value)
 
@@ -1321,6 +1306,50 @@ abstract class AbstractComposeLowering(
             }
             irMethodCall(currentComposer, descriptor).also {
                 it.putValueArgument(0, expr)
+            }
+        }
+    }
+
+    private val irEnumOrdinal =
+        context.irBuiltIns.enumClass.owner.properties.single { it.name.asString() == "ordinal" }.getter!!
+
+    private val protobufEnumClassId = ClassId.fromString("com/google/protobuf/Internal/EnumLite")
+
+    private fun IrExpression.ordinalIfEnum(): IrExpression {
+        val cls = type.classOrNull?.owner
+        return when (cls?.kind) {
+            ClassKind.ENUM_CLASS, ClassKind.ENUM_ENTRY -> {
+                val function = if (cls.isSubclassOf(protobufEnumClassId)) {
+                    // For protobuf enums, we need to use the `getNumber` method instead of `ordinal`
+                    cls.functions
+                        .single {
+                            it.name.asString() == "getNumber" &&
+                                    it.parameters.size == 1 &&
+                                    it.parameters[0].kind == IrParameterKind.DispatchReceiver
+                        }
+                } else {
+                    irEnumOrdinal
+                }
+                if (type.isNullable()) {
+                    val enumValue = irTemporary(this, "tmpEnum")
+                    irBlock(
+                        context.irBuiltIns.intType,
+                        statements = listOf(
+                            enumValue,
+                            irIfThenElse(
+                                type = context.irBuiltIns.intType,
+                                condition = irEqual(irGet(enumValue), irNull()),
+                                thenPart = irConst(-1),
+                                elsePart = irCall(function.symbol, dispatchReceiver = irGet(enumValue))
+                            )
+                        )
+                    )
+                } else {
+                    irCall(function.symbol, dispatchReceiver = this)
+                }
+            }
+            else -> {
+                this
             }
         }
     }
@@ -1501,7 +1530,7 @@ abstract class AbstractComposeLowering(
                 val valueParameter =
                     (expression.symbol.owner as? IrValueParameter) ?: return original
 
-                val parameterIndex = valueParameter.index
+                val parameterIndex = valueParameter.indexInOldValueParameters
                 if (valueParameter.parent != originalFunction) {
                     return super.visitGetValue(expression)
                 }
@@ -1537,6 +1566,94 @@ abstract class AbstractComposeLowering(
             }
         })
     }
+
+    protected var IrDeclaration.composeMetadata: ComposeMetadata?
+        get() = context.metadataDeclarationRegistrar.getCustomMetadataExtension(this, COMPOSE_PLUGIN_ID)
+            ?.let { ComposeMetadata(it) }
+        set(value) {
+            if (value != null && this.hasFirDeclaration()) {
+                context.metadataDeclarationRegistrar.addCustomMetadataExtension(this, COMPOSE_PLUGIN_ID, value.data)
+            }
+        }
+
+    protected val IrFunction.hasNonRestartableAnnotation: Boolean
+        get() = hasAnnotation(ComposeFqNames.NonRestartableComposable)
+
+    protected val IrFunction.hasReadOnlyAnnotation: Boolean
+        get() = hasAnnotation(ComposeFqNames.ReadOnlyComposable)
+
+    protected val IrFunction.hasExplicitGroups: Boolean
+        get() = hasAnnotation(ComposeFqNames.ExplicitGroupsComposable)
+
+    protected val IrFunction.hasNonSkippableAnnotation: Boolean
+        get() = hasAnnotation(ComposeFqNames.NonSkippableComposable)
+
+    private val jvmSyntheticIrClass =
+        if (context.platform.isJvm()) {
+            getTopLevelClass(
+                ClassId(StandardClassIds.BASE_JVM_PACKAGE, Name.identifier("JvmSynthetic"))
+            ).owner
+        } else {
+            null
+        }
+
+    private val hiddenFromObjCIrClass: IrClass? =
+        if (context.platform.isNative()) {
+            getTopLevelClass(hiddenFromObjCClassId).owner
+        } else {
+            null
+        }
+
+    private val deprecationLevelIrClass = getTopLevelClass(ClassId.fromString("kotlin/DeprecationLevel")).owner
+    private val deprecatedIrClass = getTopLevelClass(ClassId.fromString("kotlin/Deprecated"))
+    private val hiddenDeprecationLevel = deprecationLevelIrClass.declarations.filterIsInstance<IrEnumEntry>()
+        .single { it.name.toString() == "HIDDEN" }.symbol
+
+    private fun jvmSynthetic() = jvmSyntheticIrClass?.let {
+        IrConstructorCallImpl.fromSymbolOwner(
+            type = it.defaultType,
+            constructorSymbol = it.constructors.first().symbol
+        )
+    }
+
+    private fun hiddenFromObjC() = hiddenFromObjCIrClass?.let {
+        IrConstructorCallImpl.fromSymbolOwner(
+            type = it.defaultType,
+            constructorSymbol = it.constructors.first().symbol
+        )
+    }
+
+    private fun hiddenDeprecated(message: String) = IrConstructorCallImpl.fromSymbolOwner(
+        type = deprecatedIrClass.defaultType,
+        constructorSymbol = deprecatedIrClass.constructors.first { it.owner.isPrimary }
+    ).also {
+        it.arguments[0] = IrConstImpl.string(
+            SYNTHETIC_OFFSET,
+            SYNTHETIC_OFFSET,
+            context.irBuiltIns.stringType,
+            message
+        )
+        it.arguments[2] = IrGetEnumValueImpl(
+            SYNTHETIC_OFFSET,
+            SYNTHETIC_OFFSET,
+            deprecationLevelIrClass.defaultType,
+            hiddenDeprecationLevel
+        )
+    }
+
+    protected fun IrSimpleFunction.makeStub(): IrSimpleFunction {
+        val source = this
+        val copy = source.deepCopyWithSymbols(parent)
+        copy.attributeOwnerId = copy
+        copy.isDefaultParamStub = true
+        copy.annotations += listOfNotNull(
+            jvmSynthetic(),
+            hiddenFromObjC(),
+            hiddenDeprecated("Binary compatibility stub for default parameters")
+        )
+        copy.body = null
+        return copy
+    }
 }
 
 private val unsafeSymbolsRegex = "[ <>]".toRegex()
@@ -1569,6 +1686,8 @@ fun IrAnnotationContainer.hasAnnotationSafe(fqName: FqName): Boolean =
 val IrConstructorCall.annotationClass
     get() = type.classOrNull
 
+fun IrDeclaration.hasFirDeclaration(): Boolean = ((this as? IrMetadataSourceOwner)?.metadata as? FirMetadataSource)?.fir != null
+
 inline fun <T> includeFileNameInExceptionTrace(file: IrFile, body: () -> T): T {
     try {
         return body()
@@ -1580,6 +1699,9 @@ inline fun <T> includeFileNameInExceptionTrace(file: IrFile, body: () -> T): T {
 
 fun FqName.topLevelName() =
     asString().substringBefore(".")
+
+private fun IrClass.isSubclassOf(classId: ClassId) =
+    superTypes.any { it.classOrNull?.owner?.classId == classId }
 
 internal inline fun <reified T : IrElement> T.copyWithNewTypeParams(
     source: IrFunction,
@@ -1604,4 +1726,11 @@ internal inline fun <reified T : IrElement> T.copyWithNewTypeParams(
 
     acceptVoid(typeParamsAwareSymbolRemapper)
     return transform(deepCopy, null).patchDeclarationParents(target) as T
+}
+
+// Stub origin indicates that function should not be transformed in any way
+// and only exists for backwards compatibility.
+object ComposeBackwardsCompatibleStubOrigin : IrDeclarationOrigin {
+    override val name = "ComposeBackwardsCompatibleStubOrigin"
+    override val isSynthetic = true
 }

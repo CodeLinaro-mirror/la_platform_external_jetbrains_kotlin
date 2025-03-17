@@ -1,190 +1,204 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.symbols
 
-import org.jetbrains.kotlin.analysis.api.KaSession
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
+import org.jetbrains.kotlin.analysis.api.components.KaSessionComponent
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 
-public interface KaSymbolProvider {
+/**
+ * [KaSymbolProvider] provides [KaSymbol]s for given PSI elements.
+ *
+ * **Important**: Symbols can be created only for elements which are a part of the current [KaSession][org.jetbrains.kotlin.analysis.api.KaSession],
+ * where [KaAnalysisScopeProvider.canBeAnalysed][org.jetbrains.kotlin.analysis.api.components.KaAnalysisScopeProvider.canBeAnalysed]
+ * is **true**.
+ *
+ * @see org.jetbrains.kotlin.analysis.api.components.KaAnalysisScopeProvider
+ */
+public interface KaSymbolProvider : KaSessionComponent {
+    /**
+     * A [KaDeclarationSymbol] for the given [KtDeclaration].
+     *
+     * There are more specific `symbol` endpoints, such as [KtNamedFunction.symbol] and [KtClassOrObject.classSymbol], which can be used
+     * when more specific PSI elements are available.
+     */
     public val KtDeclaration.symbol: KaDeclarationSymbol
 
     /**
-     * Creates [KaVariableSymbol] by [KtParameter].
+     * A [KaVariableSymbol] for the given [KtParameter].
      *
      * Unfortunately, [KtParameter] in PSI stands for many things, and not all of them are represented by a single type of symbol,
      * so this function does not work for all possible [KtParameter]s.
      *
-     * If [KtParameter.isFunctionTypeParameter] is `true`, i.e., if the given [KtParameter] is used as a function type parameter,
+     * If [KtParameter.isFunctionTypeParameter] is `true`, i.e. if the given [KtParameter] is used as a function type parameter,
      * it is not possible to create [KaValueParameterSymbol], hence an error will be raised.
      *
      * If [KtParameter.isLoopParameter] is `true`, i.e. if the given [KtParameter] is a loop variable in `for` expression, then the function
      * returns [KaLocalVariableSymbol].
+     *
+     * If [KtParameter.isContextParameter] is `true`, i.e. if the given [KtParameter] is used as a context parameter, then the function
+     * returns [KaContextParameterSymbol].
      *
      * Otherwise, returns [KaValueParameterSymbol].
      */
     public val KtParameter.symbol: KaVariableSymbol
 
     /**
-     * Creates [KaFunctionSymbol] by [KtNamedFunction]
+     * A [KaFunctionSymbol] for the given [KtNamedFunction].
      *
-     * If [KtNamedFunction.getName] is `null` then returns [KaAnonymousFunctionSymbol]
-     * Otherwise, returns [KaNamedFunctionSymbol]
+     * If [KtNamedFunction.getName] is `null`, the symbol is a [KaAnonymousFunctionSymbol], and otherwise a [KaNamedFunctionSymbol].
      */
     public val KtNamedFunction.symbol: KaFunctionSymbol
 
+    /**
+     * A [KaConstructorSymbol] for the given [KtConstructor].
+     */
     public val KtConstructor<*>.symbol: KaConstructorSymbol
 
+    /**
+     * A [KaTypeParameterSymbol] for the given [KtTypeParameter].
+     */
     public val KtTypeParameter.symbol: KaTypeParameterSymbol
 
+    /**
+     * A [KaTypeAliasSymbol] for the given [KtTypeAlias].
+     */
     public val KtTypeAlias.symbol: KaTypeAliasSymbol
 
+    /**
+     * A [KaEnumEntrySymbol] for the given [KtEnumEntry].
+     */
     public val KtEnumEntry.symbol: KaEnumEntrySymbol
 
-    @Deprecated("This API is unsafe. Use 'symbol' instead", replaceWith = ReplaceWith("symbol as KaAnonymousFunctionSymbol"))
-    public val KtNamedFunction.anonymousSymbol: KaAnonymousFunctionSymbol
-        get() = symbol as KaAnonymousFunctionSymbol
-
+    /**
+     * A [KaAnonymousFunctionSymbol] for the given [KtFunctionLiteral].
+     */
     public val KtFunctionLiteral.symbol: KaAnonymousFunctionSymbol
 
+    /**
+     * A [KaVariableSymbol] for the given [KtProperty].
+     *
+     * The symbol is a [KaKotlinPropertySymbol] for non-local properties, and a [KaLocalVariableSymbol] for local ones.
+     */
     public val KtProperty.symbol: KaVariableSymbol
 
+    /**
+     * A [KaAnonymousObjectSymbol] for the given [KtObjectLiteralExpression].
+     */
     public val KtObjectLiteralExpression.symbol: KaAnonymousObjectSymbol
 
-    /** Returns a symbol for a given [KtClassOrObject]. Returns `null` for [KtEnumEntry] declarations. */
+    /**
+     * A [KaClassSymbol] for the given [KtClassOrObject], or `null` for [KtEnumEntry] declarations.
+     *
+     * To retrieve a [KaEnumEntrySymbol], please refer to [KtEnumEntry.symbol].
+     */
     public val KtClassOrObject.classSymbol: KaClassSymbol?
 
+    /**
+     * A [KaClassSymbol] for the given [KtObjectDeclaration].
+     *
+     * The symbol may either be a [KaAnonymousObjectSymbol] if the given declaration is an [object expression](https://kotlinlang.org/docs/object-declarations.html#object-expressions),
+     * or a [KaNamedClassSymbol] if it is a named object declaration.
+     */
     public val KtObjectDeclaration.symbol: KaClassSymbol
 
-    /** Returns a symbol for a given named [KtClassOrObject]. Returns `null` for [KtEnumEntry] declarations and object literals. */
+    /**
+     * A [KaNamedClassSymbol] for the given named [KtClassOrObject], or `null` for [KtEnumEntry] declarations and object literals.
+     */
     public val KtClassOrObject.namedClassSymbol: KaNamedClassSymbol?
 
+    /**
+     * A [KaPropertyAccessorSymbol] for the given [KtPropertyAccessor].
+     */
     public val KtPropertyAccessor.symbol: KaPropertyAccessorSymbol
 
+    /**
+     * A [KaClassInitializerSymbol] for the given [KtClassInitializer].
+     */
     public val KtClassInitializer.symbol: KaClassInitializerSymbol
 
     /**
-     * @return symbol corresponding to the local variable introduced by individual destructuring declaration entries.
-     * E.g. `val (x, y) = p` has two declaration entries, one corresponding to `x`, one to `y`.
+     * A [KaVariableSymbol] that corresponds to the local variable introduced by the given [KtDestructuringDeclarationEntry].
+     *
+     * The symbol is usually a [KaLocalVariableSymbol]. However, for a top-level destructuring declaration in a script, the symbol is a
+     * [KaKotlinPropertySymbol].
+     *
+     * #### Example
+     *
+     * ```kotlin
+     * val (x, y) = p
+     * ```
+     *
+     * The destructuring declaration above has two entries, one corresponding to `x` and another to `y`. For both of these entries, we can
+     * retrieve a [KaVariableSymbol] which describes the entry.
      */
     public val KtDestructuringDeclarationEntry.symbol: KaVariableSymbol
 
+    /**
+     * A [KaDestructuringDeclarationSymbol] for the given [KtDestructuringDeclaration].
+     */
     public val KtDestructuringDeclaration.symbol: KaDestructuringDeclarationSymbol
 
+    /**
+     * A [KaFileSymbol] for a [KtFile].
+     */
     public val KtFile.symbol: KaFileSymbol
 
+    /**
+     * A [KaScriptSymbol] for a [KtScript].
+     */
     public val KtScript.symbol: KaScriptSymbol
 
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtParameter.getParameterSymbol(): KaVariableSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtNamedFunction.getFunctionLikeSymbol(): KaFunctionSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtConstructor<*>.getConstructorSymbol(): KaConstructorSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtTypeParameter.getTypeParameterSymbol(): KaTypeParameterSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtTypeAlias.getTypeAliasSymbol(): KaTypeAliasSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtEnumEntry.getEnumEntrySymbol(): KaEnumEntrySymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol as KaAnonymousFunctionSymbol"))
-    public fun KtNamedFunction.getAnonymousFunctionSymbol(): KaAnonymousFunctionSymbol = symbol as KaAnonymousFunctionSymbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtFunctionLiteral.getAnonymousFunctionSymbol(): KaAnonymousFunctionSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtProperty.getVariableSymbol(): KaVariableSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtObjectLiteralExpression.getAnonymousObjectSymbol(): KaAnonymousObjectSymbol = symbol
-
-    @Deprecated("Use 'classSymbol' instead", replaceWith = ReplaceWith("classSymbol"))
-    public fun KtClassOrObject.getClassOrObjectSymbol(): KaClassSymbol? = classSymbol
-
-    @Deprecated("Use 'namedClassSymbol' instead", replaceWith = ReplaceWith("namedClassSymbol"))
-    public fun KtClassOrObject.getNamedClassOrObjectSymbol(): KaNamedClassSymbol? = namedClassSymbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtPropertyAccessor.getPropertyAccessorSymbol(): KaPropertyAccessorSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtFile.getFileSymbol(): KaFileSymbol = symbol
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtScript.getScriptSymbol(): KaScriptSymbol = symbol
+    /**
+     * Represents [KtContextReceiver] as a [KaContextParameterSymbol].
+     *
+     * This is a temporary API for simplicity during the transition from context receivers to context parameters.
+     *
+     * **Note**: context receivers inside [KtFunctionType] are not supported.
+     */
+    @KaExperimentalApi
+    public val KtContextReceiver.symbol: KaContextParameterSymbol
 
     /**
-     * Returns [KaPackageSymbol] corresponding to [fqName] if corresponding package exists and visible from current uses-site scope,
-     * `null` otherwise
+     * Returns a [KaPackageSymbol] corresponding to the given [fqName] if that package exists and is visible from the current use site, or
+     * `null` otherwise.
      */
     public fun findPackage(fqName: FqName): KaPackageSymbol?
 
-    @Deprecated("Use 'findPackage()' instead.", replaceWith = ReplaceWith("findPackage(packageFqName)"))
-    public fun getPackageSymbolIfPackageExists(packageFqName: FqName): KaPackageSymbol? = findPackage(packageFqName)
-
     /**
-     * @return symbol with specified [classId] or `null` in case such a symbol is not found
+     * Returns a [KaClassSymbol] for the specified [ClassId], or `null` if such a symbol cannot be found.
      */
     public fun findClass(classId: ClassId): KaClassSymbol?
 
-    @Deprecated("Use 'findClass() instead.", replaceWith = ReplaceWith("findClass(classId)"))
+    @Deprecated("Use 'findClass() instead.", replaceWith = ReplaceWith("findClass(classId)"), level = DeprecationLevel.HIDDEN)
     public fun getClassOrObjectSymbolByClassId(classId: ClassId): KaClassSymbol? = findClass(classId)
 
     /**
-     * @return [KaTypeAliasSymbol] with specified [classId] or `null` in case such a symbol is not found
+     * Returns a [KaTypeAliasSymbol] for the specified [ClassId], or `null` if such a symbol cannot be found.
      */
     public fun findTypeAlias(classId: ClassId): KaTypeAliasSymbol?
 
-    @Deprecated("Use 'findTypeAlias()' instead.", replaceWith = ReplaceWith("findTypeAlias(classId)"))
-    public fun getTypeAliasByClassId(classId: ClassId): KaTypeAliasSymbol? = findTypeAlias(classId)
+    /**
+     * Returns a [KaClassLikeSymbol] for the specified [ClassId], or `null` if such a symbol cannot be found.
+     *
+     * The function combines both class search (see [findClass]) and type alias search (see [findTypeAlias]).
+     */
+    public fun findClassLike(classId: ClassId): KaClassLikeSymbol?
 
     /**
-     * @return list of top-level functions and properties which are visible from the current use-site module
-     *
-     * @param packageFqName package name in which callable symbols should be declared
-     * @param name callable symbol name
+     * Finds top-level functions and properties called [name] in the package called [packageFqName]. Returns only symbols that are visible
+     * from the current use-site module.
      */
     public fun findTopLevelCallables(packageFqName: FqName, name: Name): Sequence<KaCallableSymbol>
 
-    @Deprecated(
-        "Use 'findTopLevelCallables()' instead.",
-        replaceWith = ReplaceWith("findTopLevelCallables(packageFqName, name)")
-    )
-    public fun getTopLevelCallableSymbols(packageFqName: FqName, name: Name): Sequence<KaCallableSymbol> =
-        findTopLevelCallables(packageFqName, name)
-
-    @Deprecated("Use 'symbol' instead", replaceWith = ReplaceWith("symbol"))
-    public fun KtDestructuringDeclarationEntry.getDestructuringDeclarationEntrySymbol(): KaVariableSymbol = symbol
-
+    /**
+     * A [KaPackageSymbol] for the *root package*, which is the special package with an empty fully-qualified name.
+     */
     public val rootPackageSymbol: KaPackageSymbol
-
-    @Suppress("PropertyName")
-    @Deprecated("Use 'rootPackageSymbol' instead.", replaceWith = ReplaceWith("rootPackageSymbol"))
-    public val ROOT_PACKAGE_SYMBOL: KaPackageSymbol
-        get() = rootPackageSymbol
 }
-
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-@Deprecated("Use 'getSymbol()' instead", ReplaceWith("this.getSymbol() as S"))
-public inline fun <reified S : KaSymbol> KtDeclaration.getSymbolOfType(): S =
-    withValidityAssertion { symbol } as S
-
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-@Deprecated("Use 'getSymbol()' instead", ReplaceWith("this.getSymbol() as? S"))
-public inline fun <reified S : KaSymbol> KtDeclaration.getSymbolOfTypeSafe(): S? =
-    withValidityAssertion { symbol } as? S

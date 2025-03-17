@@ -20,8 +20,6 @@ import org.jetbrains.kotlin.backend.common.overrides.FakeOverrideChecker
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
 import org.jetbrains.kotlin.backend.common.serialization.ICData
 import org.jetbrains.kotlin.backend.common.serialization.KotlinFileSerializedData
-import org.jetbrains.kotlin.backend.common.serialization.mangle.ManglerChecker
-import org.jetbrains.kotlin.backend.common.serialization.mangle.descriptor.Ir2DescriptorManglerAdapter
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -36,7 +34,6 @@ import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.ir.util.SymbolTable
-import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.psi.KtFile
@@ -52,7 +49,6 @@ fun generateIrForKlibSerialization(
     sortedDependencies: Collection<KotlinLibrary>,
     icData: List<KotlinFileSerializedData>,
     irFactory: IrFactory,
-    verifySignatures: Boolean = true,
     getDescriptorByLibrary: (KotlinLibrary) -> ModuleDescriptor,
 ): Pair<IrModuleFragment, IrPluginContext> {
     val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
@@ -66,15 +62,11 @@ fun generateIrForKlibSerialization(
         messageCollector::checkNoUnboundSymbols
     )
     val psi2IrContext = psi2Ir.createGeneratorContext(analysisResult.moduleDescriptor, analysisResult.bindingContext, symbolTable)
-    val irBuiltIns = psi2IrContext.irBuiltIns
 
-    val feContext = psi2IrContext.run {
-        JsIrLinker.JsFePluginContext(moduleDescriptor, symbolTable, typeTranslator, irBuiltIns)
-    }
     val stubGenerator = DeclarationStubGeneratorImpl(
         psi2IrContext.moduleDescriptor,
         symbolTable,
-        irBuiltIns,
+        psi2IrContext.irBuiltIns,
         DescriptorByIdSignatureFinderImpl(psi2IrContext.moduleDescriptor, JsManglerDesc),
     )
     val irLinker = JsIrLinker(
@@ -87,7 +79,6 @@ fun generateIrForKlibSerialization(
             builtIns = psi2IrContext.irBuiltIns,
             messageCollector = messageCollector
         ),
-        feContext,
         ICData(icData.map { it.irData!! }, containsErrorCode = false),
         stubGenerator = stubGenerator
     )
@@ -102,9 +93,6 @@ fun generateIrForKlibSerialization(
         stubGenerator
     )
 
-    if (verifySignatures) {
-        moduleFragment.acceptVoid(ManglerChecker(JsManglerIr, Ir2DescriptorManglerAdapter(JsManglerDesc)))
-    }
     if (configuration.getBoolean(JSConfigurationKeys.FAKE_OVERRIDE_VALIDATOR)) {
         val fakeOverrideChecker = FakeOverrideChecker(JsManglerIr, JsManglerDesc)
         irLinker.modules.forEach { fakeOverrideChecker.check(it) }

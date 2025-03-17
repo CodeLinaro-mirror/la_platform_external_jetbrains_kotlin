@@ -32,7 +32,7 @@ import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 
 @FirBuilderDsl
-class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBuilder {
+class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirTypeParametersOwnerBuilder, FirAnnotationContainerBuilder {
     override var source: KtSourceElement? = null
     override var resolvePhase: FirResolvePhase = FirResolvePhase.RAW_FIR
     override val annotations: MutableList<FirAnnotation> = mutableListOf()
@@ -43,9 +43,8 @@ class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBu
     override lateinit var returnTypeRef: FirTypeRef
     var receiverParameter: FirReceiverParameter? = null
     override var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
-    override var containerSource: DeserializedContainerSource? = null
     override var dispatchReceiverType: ConeSimpleKotlinType? = null
-    override val contextReceivers: MutableList<FirContextReceiver> = mutableListOf()
+    override val contextParameters: MutableList<FirValueParameter> = mutableListOf()
     var controlFlowGraphReference: FirControlFlowGraphReference? = null
     override val valueParameters: MutableList<FirValueParameter> = mutableListOf()
     override var body: FirBlock? = null
@@ -56,7 +55,7 @@ class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBu
     var inlineStatus: InlineStatus = InlineStatus.Unknown
     var isLambda: Boolean by kotlin.properties.Delegates.notNull<Boolean>()
     var hasExplicitParameterList: Boolean by kotlin.properties.Delegates.notNull<Boolean>()
-    val typeParameters: MutableList<FirTypeParameter> = mutableListOf()
+    override val typeParameters: MutableList<FirTypeParameter> = mutableListOf()
     var typeRef: FirTypeRef = FirImplicitTypeRefImplWithoutSource
 
     override fun build(): FirAnonymousFunction {
@@ -71,9 +70,8 @@ class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBu
             returnTypeRef,
             receiverParameter,
             deprecationsProvider,
-            containerSource,
             dispatchReceiverType,
-            contextReceivers.toMutableOrEmpty(),
+            contextParameters.toMutableOrEmpty(),
             controlFlowGraphReference,
             valueParameters,
             body,
@@ -89,6 +87,13 @@ class FirAnonymousFunctionBuilder : FirFunctionBuilder, FirAnnotationContainerBu
         )
     }
 
+
+    @Deprecated("Modification of 'containerSource' has no impact for FirAnonymousFunctionBuilder", level = DeprecationLevel.HIDDEN)
+    override var containerSource: DeserializedContainerSource?
+        get() = throw IllegalStateException()
+        set(_) {
+            throw IllegalStateException()
+        }
 }
 
 @OptIn(ExperimentalContracts::class)

@@ -13,8 +13,8 @@ import org.jetbrains.kotlin.backend.jvm.createJvmFileFacadeClass
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
-import org.jetbrains.kotlin.ir.util.createParameterDeclarations
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.util.createThisReceiverParameter
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.load.kotlin.FacadeClassSource
@@ -30,7 +30,7 @@ internal class ExternalPackageParentPatcherLowering(val context: JvmBackendConte
         }
     }
 
-    private inner class Visitor : IrElementVisitorVoid {
+    private inner class Visitor : IrVisitorVoid() {
         override fun visitElement(element: IrElement) {
             element.acceptChildrenVoid(this)
         }
@@ -59,7 +59,7 @@ internal class ExternalPackageParentPatcherLowering(val context: JvmBackendConte
                 deserializedSource,
                 deserializeIr = { irClass -> deserializeTopLevelClass(irClass) }
             ).also {
-                it.createParameterDeclarations()
+                it.createThisReceiverParameter()
                 it.classNameOverride = facadeName
             }
         }

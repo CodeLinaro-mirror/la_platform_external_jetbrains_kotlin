@@ -277,10 +277,6 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
         doTest(headersTestDataDir.resolve("sinceVersionAnnotation"))
     }
 
-    /**
-     * - requires mangling
-     */
-    @TodoAnalysisApi
     @Test
     fun `test - constructors`() {
         doTest(headersTestDataDir.resolve("constructors"))
@@ -566,6 +562,41 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
     @Test
     fun `test - mangle property`() {
         doTest(headersTestDataDir.resolve("mangleProperty"))
+    }
+
+    @Test
+    fun `test - subclass parameter type translation without upper bound`() {
+        doTest(headersTestDataDir.resolve("subclassParameterTypeTranslationWithoutUpperBound"))
+    }
+
+    @Test
+    fun `test - mangle init constructors`() {
+        doTest(headersTestDataDir.resolve("mangleInitConstructors"))
+    }
+
+    @Test
+    fun `test - generic extension property is not translated as static one`() {
+        doTest(headersTestDataDir.resolve("genericExtensionPropertyIsNotTranslatedAsStaticOne"))
+    }
+
+    @Test
+    fun `test - mangle generics`() {
+        doTest(headersTestDataDir.resolve("mangleGenerics"))
+    }
+
+    @Test
+    fun `test - class type property translation`() {
+        doTest(headersTestDataDir.resolve("classTypePropertyTranslation"))
+    }
+
+    @Test
+    fun `test - extensions mangling`() {
+        doTest(headersTestDataDir.resolve("extensionsMangling"))
+    }
+
+    @Test
+    fun `test - var with private setter translated as immutable property`() {
+        doTest(headersTestDataDir.resolve("varWithPrivateSetterTranslatedAsImmutableProperty"))
     }
 
     private fun doTest(root: File, configuration: Configuration = Configuration()) {

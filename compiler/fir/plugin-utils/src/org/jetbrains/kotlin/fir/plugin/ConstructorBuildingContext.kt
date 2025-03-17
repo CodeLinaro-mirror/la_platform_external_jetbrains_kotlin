@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.name.Name
@@ -60,8 +61,11 @@ public class ConstructorBuildingContext(
             }
             this@ConstructorBuildingContext.valueParameters.mapTo(valueParameters) { generateValueParameter(it, symbol, typeParameters) }
             if (owner is FirRegularClassSymbol) {
-                owner.resolvedContextReceivers.mapTo(contextReceivers) {
-                    buildContextReceiver { typeRef = it.typeRef.coneType.toFirResolvedTypeRef() }
+                owner.resolvedContextParameters.mapTo(contextParameters) {
+                    buildValueParameterCopy(it) {
+                        symbol = FirValueParameterSymbol(name)
+                        containingDeclarationSymbol = owner
+                    }
                 }
             }
         }

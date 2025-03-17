@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisS
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiMode;
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.resolver.AbstractResolveReferenceByFileTest;
 import org.jetbrains.kotlin.test.TestMetadata;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -118,6 +119,12 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
   }
 
   @Test
+  @TestMetadata("contextParameters.kt")
+  public void testContextParameters() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/contextParameters.kt");
+  }
+
+  @Test
   @TestMetadata("delegatedFieldNestedName.kt")
   public void testDelegatedFieldNestedName() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/delegatedFieldNestedName.kt");
@@ -190,6 +197,12 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
   }
 
   @Test
+  @TestMetadata("operatorsWithContextParameters.kt")
+  public void testOperatorsWithContextParameters() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/operatorsWithContextParameters.kt");
+  }
+
+  @Test
   @TestMetadata("providedDelegate.kt")
   public void testProvidedDelegate() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/providedDelegate.kt");
@@ -205,6 +218,12 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
   @TestMetadata("staticImports.kt")
   public void testStaticImports() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/staticImports.kt");
+  }
+
+  @Test
+  @TestMetadata("stringConcatenation.kt")
+  public void testStringConcatenation() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/stringConcatenation.kt");
   }
 
   @Test
@@ -235,5 +254,69 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
   @TestMetadata("unaryOperators.kt")
   public void testUnaryOperators() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/unaryOperators.kt");
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/allByPsi/imports")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Imports {
+    @Test
+    public void testAllFilesPresentInImports() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/allByPsi/imports"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("enumEntry.kt")
+    public void testEnumEntry() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/enumEntry.kt");
+    }
+
+    @Test
+    @TestMetadata("javaClass.kt")
+    public void testJavaClass() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/javaClass.kt");
+    }
+
+    @Test
+    @TestMetadata("javaClassWithBaseClass.kt")
+    public void testJavaClassWithBaseClass() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/javaClassWithBaseClass.kt");
+    }
+
+    @Test
+    @TestMetadata("javaClass_rootPackage.kt")
+    public void testJavaClass_rootPackage() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/javaClass_rootPackage.kt");
+    }
+
+    @Test
+    @TestMetadata("simple.kt")
+    public void testSimple() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/simple.kt");
+    }
+
+    @Test
+    @TestMetadata("star.kt")
+    public void testStar() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/star.kt");
+    }
+
+    @Test
+    @TestMetadata("topLevelObject.kt")
+    public void testTopLevelObject() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/topLevelObject.kt");
+    }
+
+    @Test
+    @TestMetadata("topLevelObjectWithBaseClass.kt")
+    public void testTopLevelObjectWithBaseClass() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/topLevelObjectWithBaseClass.kt");
+    }
+
+    @Test
+    @TestMetadata("topLevelObject_rootPackage.kt")
+    public void testTopLevelObject_rootPackage() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/topLevelObject_rootPackage.kt");
+    }
   }
 }

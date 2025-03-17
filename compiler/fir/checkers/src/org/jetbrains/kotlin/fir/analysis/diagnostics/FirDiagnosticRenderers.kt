@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers
 import org.jetbrains.kotlin.diagnostics.WhenMissingCase
 import org.jetbrains.kotlin.diagnostics.rendering.*
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.analysis.checkers.getParameterNameFromAnnotation
 import org.jetbrains.kotlin.fir.containingClassLookupTag
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirExpression
@@ -32,6 +31,7 @@ import org.jetbrains.kotlin.metadata.deserialization.VersionRequirement
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
+import java.text.MessageFormat
 
 @Suppress("NO_EXPLICIT_RETURN_TYPE_IN_API_MODE_WARNING")
 object FirDiagnosticRenderers {
@@ -46,10 +46,34 @@ object FirDiagnosticRenderers {
                 propertyAccessorRenderer = null,
                 callArgumentsRenderer = FirCallNoArgumentsRenderer(),
                 modifierRenderer = FirPartialModifierRenderer(),
-                valueParameterRenderer = FirValueParameterRendererForReadability(),
+                callableSignatureRenderer = FirCallableSignatureRendererForReadability(),
                 declarationRenderer = FirDeclarationRenderer("local "),
                 annotationRenderer = null,
-                lineBreakAfterContextReceivers = false,
+                lineBreakAfterContextParameters = false,
+                renderFieldAnnotationSeparately = false,
+            ).renderElementAsString(symbol.fir, trim = true)
+            is FirTypeParameterSymbol -> symbol.name.asString()
+            else -> "???"
+        }
+    }
+
+    @OptIn(SymbolInternals::class)
+    val TYPE_PARAMETER_OWNER_SYMBOL = Renderer { symbol: FirBasedSymbol<*> ->
+        when (symbol) {
+            is FirClassLikeSymbol, is FirCallableSymbol -> FirRenderer(
+                typeRenderer = ConeTypeRendererForReadability { ConeIdShortRenderer() },
+                idRenderer = ConeIdShortRenderer(),
+                classMemberRenderer = FirNoClassMemberRenderer(),
+                bodyRenderer = null,
+                propertyAccessorRenderer = null,
+                callArgumentsRenderer = FirCallNoArgumentsRenderer(),
+                modifierRenderer = null,
+                callableSignatureRenderer = null,
+                declarationRenderer = FirDeclarationRenderer("local "),
+                annotationRenderer = null,
+                contractRenderer = null,
+                supertypeRenderer = null,
+                lineBreakAfterContextParameters = false,
                 renderFieldAnnotationSeparately = false,
             ).renderElementAsString(symbol.fir, trim = true)
             is FirTypeParameterSymbol -> symbol.name.asString()
@@ -63,6 +87,37 @@ object FirDiagnosticRenderers {
     val SYMBOLS_ON_NEXT_LINES = Renderer { symbols: Collection<FirBasedSymbol<*>> ->
         symbols.joinToString(separator = "\n", prefix = "\n", transform = SYMBOL::render)
     }
+
+    /**
+     * Prepends [singular] or [plural] depending on the elements count.
+     */
+    fun <Q> prefix(
+        singular: String,
+        plural: String,
+        renderer: ContextIndependentParameterRenderer<Collection<Q>>,
+    ): ContextIndependentParameterRenderer<Collection<Q>> {
+        return Renderer { elements ->
+            val decoration = if (elements.size == 1) singular else plural
+            decoration + renderer.render(elements)
+        }
+    }
+
+    fun <Q> formatted(message: String, renderer: DiagnosticParameterRenderer<Q>): DiagnosticParameterRenderer<Q> =
+        ContextDependentRenderer { value, context ->
+            MessageFormat(message).format(arrayOf(renderer.render(value, context)))
+        }
+
+    fun <Q : Any> emptyStringIfNullOr(renderer: DiagnosticParameterRenderer<Q>): DiagnosticParameterRenderer<Q?> =
+        ContextDependentRenderer { value, context ->
+            value?.let { renderer.render(it, context) } ?: ""
+        }
+
+    /**
+     * Formats the formatted [message] if the value is not `null`.
+     * Returns an empty string otherwise.
+     */
+    fun <Q : Any> suggestIfNotNull(message: String, renderer: DiagnosticParameterRenderer<Q>): DiagnosticParameterRenderer<Q?> =
+        emptyStringIfNullOr(formatted(message, renderer))
 
     val SYMBOLS_ON_NEWLINE_WITH_INDENT = object : ContextIndependentParameterRenderer<Collection<FirCallableSymbol<*>>> {
         private val mode = MultiplatformDiagnosticRenderingMode()
@@ -106,7 +161,7 @@ object FirDiagnosticRenderers {
 
     val DECLARATION_NAME = Renderer { symbol: FirBasedSymbol<*> ->
         when (symbol) {
-            is FirValueParameterSymbol -> symbol.getParameterNameFromAnnotation() ?: symbol.name.asString()
+            is FirValueParameterSymbol -> (symbol.resolvedReturnType.parameterName ?: symbol.name).asString()
             is FirCallableSymbol<*> -> symbol.name.asString()
             is FirClassLikeSymbol<*> -> symbol.classId.shortClassName.asString()
             else -> return@Renderer "???"
@@ -182,7 +237,7 @@ object FirDiagnosticRenderers {
                 }
 
                 val simpleRepresentationsByConstructor: Map<TypeConstructorMarker, String> = constructors.associateWith {
-                    buildString { ConeTypeRendererForReadability(this) { ConeIdRendererForDiagnostics() }.renderConstructor(it) }
+                    buildString { ConeTypeRendererForReadability(this) { ConeIdShortRenderer() }.renderConstructor(it) }
                 }
 
                 val constructorsByRepresentation: Map<String, List<TypeConstructorMarker>> =
@@ -192,18 +247,31 @@ object FirDiagnosticRenderers {
                     val representation = simpleRepresentationsByConstructor.getValue(it)
 
                     val typesWithSameRepresentation = constructorsByRepresentation.getValue(representation)
-                    if (typesWithSameRepresentation.size == 1) return@associateWith representation
+                    val isAmbiguous = typesWithSameRepresentation.size > 1
 
-                    val index = typesWithSameRepresentation.indexOf(it) + 1
+                    if (!isAmbiguous && typesWithSameRepresentation.single() !is ConeTypeParameterLookupTag) {
+                        return@associateWith "$representation^"
+                    }
 
                     buildString {
-                        append(representation)
-                        append('#')
-                        append(index)
+                        val isClassLike = it is ConeClassLikeLookupTag
+
+                        if (isClassLike && isAmbiguous) {
+                            ConeTypeRendererForReadability(this) { ConeIdRendererForDiagnostics() }.renderConstructor(it)
+                        } else {
+                            append(representation)
+                        }
+
+                        if (!isClassLike && isAmbiguous) {
+                            append('#')
+                            append(typesWithSameRepresentation.indexOf(it) + 1)
+                        }
+                        // Special symbol to be replaced with a nullability marker, like "", "?", "!", or maybe something else in future
+                        append("^")
 
                         if (it is ConeTypeParameterLookupTag) {
-                            append(" (type parameter of ")
-                            append(SYMBOL.render(it.typeParameterSymbol.containingDeclarationSymbol))
+                            append(" (of ")
+                            append(TYPE_PARAMETER_OWNER_SYMBOL.render(it.typeParameterSymbol.containingDeclarationSymbol))
                             append(')')
                         }
                     }
@@ -280,8 +348,13 @@ object FirDiagnosticRenderers {
         if (!it.isNullOrBlank()) " for operator '$it'" else ""
     }
 
-    val SYMBOL_WITH_CONTAINING_DECLARATION = Renderer { symbol: FirCallableSymbol<*> ->
-        "'${SYMBOL.render(symbol)}' defined in ${NAME_OF_CONTAINING_DECLARATION_OR_FILE.render(symbol.callableId)}"
+    val SYMBOL_WITH_CONTAINING_DECLARATION = Renderer { symbol: FirBasedSymbol<*> ->
+        val containingClassId = when (symbol) {
+            is FirCallableSymbol<*> -> symbol.callableId.classId
+            is FirTypeParameterSymbol -> (symbol.containingDeclarationSymbol as? FirClassLikeSymbol<*>)?.classId
+            else -> null
+        }
+        "'${SYMBOL.render(symbol)}' defined in ${NAME_OF_DECLARATION_OR_FILE.render(containingClassId)}"
     }
 
     val SYMBOL_KIND = Renderer { symbol: FirBasedSymbol<*> ->
@@ -314,6 +387,15 @@ object FirDiagnosticRenderers {
 
     val KOTLIN_TARGETS = Renderer { targets: Collection<KotlinTarget> ->
         targets.joinToString { it.description }
+    }
+
+    val STRING_TARGETS = Renderer { targets: Collection<String> ->
+        val quotedTargets = targets.joinToString { "'$it'" }
+        when (targets.size) {
+            0 -> "no targets"
+            1 -> "target $quotedTargets"
+            else -> "targets $quotedTargets"
+        }
     }
 }
 

@@ -1,55 +1,40 @@
 package org.jetbrains.kotlin.objcexport.mangling
 
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportStub
-import org.jetbrains.kotlin.backend.konan.objcexport.ObjCInstanceType
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCMethod
+import org.jetbrains.kotlin.objcexport.ObjCExportContext
 
-/**
- * ObjC method consists of 3 parts, each part needs to be mangled
- * - selectors [buildMangledSelectors]
- * - parameters [buildMangledParameters]
- * - swift_name attribute [buildMangledSwiftNameAttribute]
- */
-internal fun List<ObjCExportStub>.mangleObjCMethods(): List<ObjCExportStub> {
-    if (!hasMethodConflicts()) return this
-    val attributes = mutableMapOf<String, SwiftNameAttribute>()
-    return map { member ->
-        if (member is ObjCMethod && member.isSwiftNameMethod()) {
-            val selector = getSwiftNameAttribute(member)
-            val attribute = attributes[selector]
-            if (attribute != null) {
-                val mangledAttribute = attribute.mangleAttribute()
-                val cloned = member.copy(
-                    buildMangledSelectors(mangledAttribute),
-                    buildMangledParameters(mangledAttribute),
-                    buildMangledSwiftNameAttribute(mangledAttribute)
-                )
-                attributes[selector] = mangledAttribute
-                cloned
-            } else {
-                attributes[selector] = parseSwiftNameAttribute(getSwiftNameAttribute(member))
-                member
-            }
-        } else member
-    }
+
+internal fun ObjCExportContext.mangleObjCMethods(
+  stubs: List<ObjCExportStub>,
+  containingStub: ObjCExportStub,
+): List<ObjCExportStub> {
+    if (!stubs.hasMethodConflicts()) return stubs
+  val mangler = ObjCMethodMangler()
+    return stubs.map { member ->
+      if (member.isSwiftNameMethod()) mangler.mangle(member, containingStub)
+      else member
+    }.map { stub -> mangleObjCMemberGenerics(stub) }
 }
 
-internal fun buildMangledSelectors(attribute: SwiftNameAttribute): List<String> {
+internal fun buildMangledSelectors(attribute: ObjCMemberDetails): List<String> {
+    val with = if (attribute.isConstructor) "With" else ""
     return if (attribute.parameters.isEmpty())
-        listOf(attribute.methodName)
+      listOf(attribute.name + attribute.postfix)
     else if (attribute.parameters.size == 1) {
         listOf(
-            (attribute.methodName + attribute.parameters.first().replaceFirstChar { it.uppercaseChar() }).mangleSelector(attribute.postfix)
+            (attribute.name + with + attribute.parameters.first()
+                .replaceFirstChar { it.uppercaseChar() }).mangleSelector(attribute.postfix)
         )
     } else {
         attribute.parameters.mapIndexed { index, param ->
             when (index) {
                 0 -> {
                     if (param.isReceiver) {
-                        attribute.methodName + ":"
+                        attribute.name + ":"
                     } else {
                         /** First selector is a combination of a method name and first parameter */
-                        attribute.methodName + param.replaceFirstChar { it.uppercaseChar() }
+                        attribute.name + with + param.replaceFirstChar { it.uppercaseChar() }
                     }
                 }
                 /** Last selector always mangled */
@@ -62,18 +47,20 @@ internal fun buildMangledSelectors(attribute: SwiftNameAttribute): List<String> 
 }
 
 
-private fun buildMangledSwiftNameAttribute(attribute: SwiftNameAttribute): String {
+internal fun buildMangledSwiftNameMethodAttribute(attribute: ObjCMemberDetails, containingStub: ObjCExportStub): String {
     val parameters = attribute.parameters.mapIndexed { index, parameter ->
-        if (index == attribute.parameters.size - 1) {
-            parameter.mangleSelector(attribute.postfix)
-        } else {
-            parameter
-        }
+      if (index == attribute.parameters.size - 1) parameter.mangleSelector(attribute.postfix)
+      else parameter
     }
-    return "swift_name(\"${attribute.methodName}(${parameters.joinToString(separator = "")})\")"
+
+  val name = if (containingStub.isExtensionFacade && attribute.parameters.isEmpty()) {
+    attribute.name + attribute.postfix
+  } else attribute.name
+
+  return "swift_name(\"${name}(${parameters.joinToString(separator = "")})\")"
 }
 
-private fun buildMangledParameters(attribute: SwiftNameAttribute): List<String> {
+internal fun buildMangledParameters(attribute: ObjCMemberDetails): List<String> {
     return attribute.parameters.mapIndexed { index, parameter ->
         when (index) {
             /** Last parameter goes always mangled */
@@ -84,14 +71,16 @@ private fun buildMangledParameters(attribute: SwiftNameAttribute): List<String> 
     }
 }
 
-internal fun ObjCMethod.isSwiftNameMethod(): Boolean {
-    if (returnType == ObjCInstanceType) return false // Skip constructors
-    if (attributes.firstOrNull { attr -> attr.startsWith("swift_name") } == null) return false
-    return true
+internal fun ObjCExportStub.isSwiftNameMethod(): Boolean {
+  return this is ObjCMethod && isSwiftNameMethod()
 }
 
-internal fun SwiftNameAttribute.mangleAttribute(): SwiftNameAttribute {
-    return SwiftNameAttribute(methodName, parameters, postfix + "_")
+internal fun ObjCMethod.isSwiftNameMethod(): Boolean {
+    return attributes.firstOrNull { attr -> attr.startsWith("swift_name") } != null
+}
+
+internal fun ObjCMemberDetails.mangleAttribute(): ObjCMemberDetails {
+    return ObjCMemberDetails(name, parameters, isConstructor, postfix + "_")
 }
 
 /**
@@ -102,7 +91,7 @@ internal fun List<ObjCExportStub>.hasMethodConflicts(): Boolean {
     val swiftNameAttributes = mutableSetOf<String>()
     forEach { method ->
         if (method is ObjCMethod && method.isSwiftNameMethod()) {
-            val swiftNameAttribute = getSwiftNameAttribute(method)
+            val swiftNameAttribute = getMemberKey(method)
             if (swiftNameAttributes.add(swiftNameAttribute)) return true
         }
     }
@@ -113,6 +102,14 @@ internal val String.isReceiver: Boolean
     get() {
         return this == "_:"
     }
+
+internal val ObjCMethod.isInstance: String
+    get() {
+        return if (this.isInstanceMethod) "+" else "-"
+    }
+
+internal fun getMemberKey(method: ObjCMethod) =
+    method.isInstance + getSwiftNameAttribute(method)
 
 internal fun getSwiftNameAttribute(method: ObjCMethod) =
     method.attributes.first { attr -> attr.startsWith("swift_name") }

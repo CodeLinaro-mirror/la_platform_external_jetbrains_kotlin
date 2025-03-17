@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,16 +16,11 @@ import org.jetbrains.kotlin.analysis.api.fir.utils.ConeSupertypeCalculationMode
 import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.fir.utils.getAllStrictSupertypes
 import org.jetbrains.kotlin.analysis.api.fir.utils.getDirectSupertypes
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.analysis.api.symbols.KaAnonymousObjectSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassLikeSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaTypeAliasSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaTypeParameterSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.*
@@ -44,13 +39,9 @@ import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
-import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirSymbolEntry
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.*
@@ -59,7 +50,7 @@ import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 
 internal class KaFirTypeProvider(
     override val analysisSessionProvider: () -> KaFirSession,
-) : KaSessionComponent<KaFirSession>(), KaTypeProvider, KaFirSessionComponent {
+) : KaBaseSessionComponent<KaFirSession>(), KaTypeProvider, KaFirSessionComponent {
     override val builtinTypes: KaBuiltinTypes by lazy {
         KaFirBuiltInTypes(rootModuleSession.builtinTypes, firSymbolBuilder, token)
     }
@@ -103,17 +94,7 @@ internal class KaFirTypeProvider(
                 val firSymbol = firSymbol
                 val defaultConeType = when (firSymbol) {
                     is FirTypeParameterSymbol -> firSymbol.defaultType
-                    is FirClassLikeSymbol<*> -> ConeClassLikeTypeImpl(
-                        firSymbol.toLookupTag(),
-                        firSymbol.typeParameterSymbols.map {
-                            ConeTypeParameterTypeImpl(
-                                it.toLookupTag(),
-                                isMarkedNullable = false
-                            )
-                        }.toTypedArray(),
-                        isMarkedNullable = false,
-                    )
-
+                    is FirClassLikeSymbol<*> -> firSymbol.defaultType()
                     else -> errorWithAttachment("Unexpected ${firSymbol::class.simpleName}") {
                         withFirSymbolEntry("symbol", firSymbol)
                     }
@@ -156,7 +137,7 @@ internal class KaFirTypeProvider(
     private fun KtTypeReference.getFirBySymbols(): FirElement? {
         val parent = parent
         return when {
-            parent is KtParameter && parent.ownerFunction != null && parent.typeReference === this ->
+            parent is KtParameter && parent.ownerDeclaration != null && parent.typeReference === this ->
                 parent.resolveToFirSymbolOfTypeSafe<FirValueParameterSymbol>(firResolveSession, FirResolvePhase.TYPES)?.fir?.returnTypeRef
 
             parent is KtCallableDeclaration && (parent is KtNamedFunction || parent is KtProperty)
@@ -273,7 +254,7 @@ internal class KaFirTypeProvider(
                 withPsiEntry("position", position)
             }
 
-        return context.towerDataContext.implicitReceiverStack.map { it.type.asKtType() }
+        return context.towerDataContext.implicitValueStorage.implicitReceivers.map { it.type.asKtType() }
     }
 
     override fun KaType.directSupertypes(shouldApproximate: Boolean): Sequence<KaType> = withValidityAssertion {

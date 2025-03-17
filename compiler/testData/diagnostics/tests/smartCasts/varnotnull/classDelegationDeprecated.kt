@@ -1,4 +1,4 @@
-// LATEST_LV_DIFFERENCE
+// RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-57417
 
 interface HasProperty {

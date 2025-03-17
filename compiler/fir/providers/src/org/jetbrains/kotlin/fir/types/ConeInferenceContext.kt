@@ -131,10 +131,12 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
     override fun newTypeCheckerState(
         errorTypesEqualToAnything: Boolean,
-        stubTypesEqualToAnything: Boolean
+        stubTypesEqualToAnything: Boolean,
+        dnnTypesEqualToFlexible: Boolean,
     ): TypeCheckerState = TypeCheckerState(
         errorTypesEqualToAnything,
         stubTypesEqualToAnything,
+        dnnTypesEqualToFlexible,
         allowedTypeVariable = true,
         typeSystemContext = this,
         kotlinTypePreparator = ConeTypePreparator(session),
@@ -481,7 +483,9 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
     private fun AnnotationMarker.isCustomAttribute(): Boolean {
         val compilerAttributes = CompilerConeAttributes.classIdByCompilerAttributeKey
-        return (this as? ConeAttribute<*>)?.key !in compilerAttributes && this !is CustomAnnotationTypeAttribute
+        return (this as? ConeAttribute<*>)?.key !in compilerAttributes &&
+                this !is ParameterNameTypeAttribute &&
+                this !is CustomAnnotationTypeAttribute
     }
 
     override fun KotlinTypeMarker.replaceCustomAttributes(newAttributes: List<AnnotationMarker>): KotlinTypeMarker {
@@ -562,10 +566,13 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
         return when {
             rigidType.isSomeFunctionType(session) -> this
             rigidType is ConeCapturedType -> {
-                rigidType.constructor.supertypes?.firstNotNullOfOrNull { it.getFunctionTypeFromSupertypes() }
+                rigidType.constructor.supertypes?.firstNotNullOfOrNull { it.getFunctionTypeFromSupertypesOrNull() }
             }
             rigidType is ConeTypeParameterType -> {
-                rigidType.lookupTag.typeParameterSymbol.resolvedBounds.firstNotNullOfOrNull { it.coneType.getFunctionTypeFromSupertypes() }
+                rigidType.lookupTag.typeParameterSymbol.resolvedBounds.firstNotNullOfOrNull { it.coneType.getFunctionTypeFromSupertypesOrNull() }
+            }
+            rigidType is ConeIntersectionType -> {
+                rigidType.intersectedTypes.firstNotNullOfOrNull { it.getFunctionTypeFromSupertypesOrNull() }
             }
             else -> {
                 var functionalSupertype: KotlinTypeMarker? = null
@@ -590,6 +597,14 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
             """.trimIndent()
         ) {
             withConeTypeEntry("type", rigidType)
+        }
+    }
+
+    private fun KotlinTypeMarker.getFunctionTypeFromSupertypesOrNull(): KotlinTypeMarker? {
+        return if (isBuiltinFunctionTypeOrSubtype()) {
+            getFunctionTypeFromSupertypes()
+        } else {
+            null
         }
     }
 
@@ -618,7 +633,7 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
         return intersectionType.withUpperBound(secondCandidate)
     }
 
-    override fun KotlinTypeMarker.getUpperBoundForApproximationOfIntersectionType(): KotlinTypeMarker? {
+    override fun RigidTypeMarker.getUpperBoundForApproximationOfIntersectionType(): KotlinTypeMarker? {
         return (this as? ConeIntersectionType)?.upperBoundForApproximation
     }
 

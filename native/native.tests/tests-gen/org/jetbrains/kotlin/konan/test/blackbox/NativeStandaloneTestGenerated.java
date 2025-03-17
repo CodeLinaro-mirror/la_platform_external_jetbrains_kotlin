@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedProperty;
 import org.jetbrains.kotlin.konan.test.blackbox.support.ClassLevelProperty;
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseStandardTestCaseGroupProvider;
+import org.jetbrains.kotlin.konan.test.blackbox.support.group.ClassicPipeline;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import java.util.regex.Pattern;
 @Tag("standalone")
 @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
 @UseStandardTestCaseGroupProvider()
+@ClassicPipeline()
 public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Test
   public void testAllFilesPresentInStandalone() {
@@ -55,6 +57,7 @@ public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
+  @ClassicPipeline()
   public class Checkers {
     @Test
     public void testAllFilesPresentInCheckers() {
@@ -146,6 +149,7 @@ public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
+  @ClassicPipeline()
   public class Console {
     @Test
     public void testAllFilesPresentInConsole() {
@@ -219,6 +223,7 @@ public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
+  @ClassicPipeline()
   public class EntryPoint {
     @Test
     public void testAllFilesPresentInEntryPoint() {
@@ -260,6 +265,12 @@ public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
     public void testMainOverloadingNoArgs() {
       runTest("native/native.tests/testData/standalone/entryPoint/mainOverloadingNoArgs.kt");
     }
+
+    @Test
+    @TestMetadata("programName.kt")
+    public void testProgramName() {
+      runTest("native/native.tests/testData/standalone/entryPoint/programName.kt");
+    }
   }
 
   @Nested
@@ -268,6 +279,7 @@ public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
+  @ClassicPipeline()
   public class RuntimeLogging {
     @Test
     public void testAllFilesPresentInRuntimeLogging() {
@@ -293,6 +305,7 @@ public class NativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
+  @ClassicPipeline()
   public class Termination {
     @Test
     public void testAllFilesPresentInTermination() {

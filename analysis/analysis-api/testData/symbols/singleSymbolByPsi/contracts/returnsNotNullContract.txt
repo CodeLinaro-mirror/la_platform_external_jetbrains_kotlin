@@ -5,6 +5,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: /returnsNotNullContract
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: [
     KaContractConditionalContractEffectDeclaration:
@@ -13,8 +14,8 @@ KaNamedFunctionSymbol:
       condition:
         KaContractIsNullPredicateExpression:
           argument:
-            KaContractParameterValue:
-              parameterSymbol:
+            KaContractExplicitParameterValue:
+              symbol:
                 KaValueParameterSymbol:
                   annotations: []
                   callableId: null
@@ -103,5 +104,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(returnsNotNullContract.kt)
   getContainingJvmClassName: ReturnsNotNullContractKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

@@ -7,18 +7,18 @@ package org.jetbrains.kotlin.fir.resolve.calls.candidate
 
 import org.jetbrains.kotlin.fir.resolve.calls.stages.*
 
-sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
+sealed class CallKind(vararg val resolutionSequence: ResolutionStage) {
     object VariableAccess : CallKind(
         CheckHiddenDeclaration,
         CheckVisibility,
-        DiscriminateSyntheticProperties,
+        DiscriminateSyntheticAndForbiddenProperties,
         NoTypeArguments,
         InitializeEmptyArgumentMap,
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
-        CheckContextReceivers,
+        CheckContextArguments,
         CheckDslScopeViolation,
         CheckLowPriorityInOverloadResolution,
         ProcessDynamicExtensionAnnotation,
@@ -43,16 +43,16 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
     object Function : CallKind(
         CheckHiddenDeclaration,
         CheckVisibility,
-        DiscriminateSyntheticProperties,
+        DiscriminateSyntheticAndForbiddenProperties,
         MapArguments,
         MapTypeArguments,
         CreateFreshTypeVariableSubstitutorStage,
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
-        CheckContextReceivers,
-        CheckDslScopeViolation,
         CheckArguments,
+        CheckContextArguments,
+        CheckDslScopeViolation,
         CheckCallModifiers,
         EagerResolveOfCallableReferences,
         CheckLowPriorityInOverloadResolution,
@@ -74,9 +74,9 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
         CollectTypeVariableUsagesInfo,
         CheckDispatchReceiver,
         CheckExtensionReceiver,
-        CheckContextReceivers,
-        CheckDslScopeViolation,
         CheckArguments,
+        CheckContextArguments,
+        CheckDslScopeViolation,
         EagerResolveOfCallableReferences,
         ConstraintSystemForks,
         CheckIncompatibleTypeVariableUpperBounds,
@@ -86,7 +86,7 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
     object CallableReference : CallKind(
         CheckHiddenDeclaration,
         CheckVisibility,
-        DiscriminateSyntheticProperties,
+        DiscriminateSyntheticAndForbiddenProperties,
         NoTypeArguments,
         InitializeEmptyArgumentMap,
         CreateFreshTypeVariableSubstitutorStage,
@@ -115,8 +115,6 @@ sealed class CallKind(vararg resolutionSequence: ResolutionStage) {
 
     internal class CustomForIde(vararg resolutionSequence: ResolutionStage) : CallKind(*resolutionSequence)
 
-    val resolutionSequence: List<ResolutionStage> = resolutionSequence.toList()
-
     final override fun toString(): String {
         return this::class.simpleName ?: super.toString()
     }
@@ -132,19 +130,19 @@ class ResolutionSequenceBuilder(
     var mapTypeArguments: Boolean = false,
     var resolveCallableReferenceArguments: Boolean = false,
     var checkCallableReferenceExpectedType: Boolean = false,
-    val checkContextReceivers: Boolean = false,
+    val checkContextParameters: Boolean = false,
 ) {
     fun build(): CallKind {
         val stages = mutableListOf<ResolutionStage>().apply {
             if (checkVisibility) add(CheckVisibility)
-            if (discriminateSynthetics) add(DiscriminateSyntheticProperties)
+            if (discriminateSynthetics) add(DiscriminateSyntheticAndForbiddenProperties)
             if (checkArguments) add(MapArguments) else add(InitializeEmptyArgumentMap)
             if (mapTypeArguments) add(MapTypeArguments) else add(NoTypeArguments)
             if (checkArguments || checkDispatchReceiver || checkExtensionReceiver) add(CreateFreshTypeVariableSubstitutorStage)
             if (checkDispatchReceiver) add(CheckDispatchReceiver)
             if (checkExtensionReceiver) add(CheckExtensionReceiver)
             if (checkArguments) add(CheckArguments)
-            if (checkContextReceivers) add(CheckContextReceivers)
+            if (checkContextParameters) add(CheckContextArguments)
             if (resolveCallableReferenceArguments) add(EagerResolveOfCallableReferences)
             if (checkLowPriorityInOverloadResolution) add(CheckLowPriorityInOverloadResolution)
             if (checkCallableReferenceExpectedType) add(CheckCallableReferenceExpectedType)

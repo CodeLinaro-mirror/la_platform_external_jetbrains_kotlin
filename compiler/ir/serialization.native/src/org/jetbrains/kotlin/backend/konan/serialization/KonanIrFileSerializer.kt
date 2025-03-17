@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.backend.konan.serialization
 
-import org.jetbrains.kotlin.backend.common.serialization.DeclarationTable
 import org.jetbrains.kotlin.backend.common.serialization.IrFileSerializer
 import org.jetbrains.kotlin.backend.common.serialization.IrSerializationSettings
 import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
@@ -14,9 +13,9 @@ import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.name.NativeRuntimeNames
 
-class KonanIrFileSerializer(
+open class KonanIrFileSerializer(
     settings: IrSerializationSettings,
-    declarationTable: DeclarationTable,
+    declarationTable: KonanDeclarationTable,
 ) : IrFileSerializer(settings, declarationTable) {
 
     override fun backendSpecificExplicitRoot(node: IrAnnotationContainer): Boolean {

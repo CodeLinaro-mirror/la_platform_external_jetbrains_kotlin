@@ -73,7 +73,7 @@ open class YarnPlugin : Plugin<Project> {
         }
 
         yarnRootExtension.nodeJsEnvironment.value(
-            nodeJs.produceEnv(project.providers)
+            nodeJs.env
         ).disallowChanges()
 
         tasks.register("yarn" + CleanDataTask.NAME_SUFFIX, CleanDataTask::class.java) {
@@ -137,6 +137,7 @@ open class YarnPlugin : Plugin<Project> {
     ) {
         download.convention(yarnRootExtension.downloadProperty)
         downloadBaseUrl.convention(yarnRootExtension.downloadBaseUrlProperty)
+        allowInsecureProtocol.convention(false)
         installationDirectory.convention(yarnRootExtension.installationDirectory)
         version.convention(yarnRootExtension.versionProperty)
         command.convention(yarnRootExtension.commandProperty)

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.generateTestCaseWithSingleModule
 import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationArtifact
+import org.jetbrains.kotlin.konan.test.blackbox.support.group.FirPipeline
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Binaries
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.CacheMode
@@ -33,6 +34,7 @@ import kotlin.time.Duration.Companion.minutes
 
 @Tag("driver")
 @TestDataPath("\$PROJECT_ROOT")
+@FirPipeline
 class KonanDriverTest : AbstractNativeSimpleTest() {
     private val konanHome get() = testRunSettings.get<KotlinNativeHome>().dir
     private val buildDir get() = testRunSettings.get<Binaries>().testBinariesDir
@@ -96,7 +98,6 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
     @Test
     fun testDriverProducesRunnableBinaries() {
         Assumptions.assumeFalse(HostManager.hostIsMingw &&
-            testRunSettings.get<CacheMode>() == CacheMode.WithoutCache &&
             testRunSettings.get<OptimizationMode>() == OptimizationMode.DEBUG
         ) // KT-65963
 
@@ -126,7 +127,6 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
     @Test
     fun testDriverVersion() {
         Assumptions.assumeFalse(HostManager.hostIsMingw &&
-                                        testRunSettings.get<CacheMode>() == CacheMode.WithoutCache &&
                                         testRunSettings.get<OptimizationMode>() == OptimizationMode.DEBUG
         ) // KT-65963
         // No need to test with different GC schedulers
@@ -267,6 +267,47 @@ class KonanDriverTest : AbstractNativeSimpleTest() {
         val output = testRunSettings.testProcessExecutor.runProcess(kexe.absolutePath).output
         Assumptions.assumeFalse(testRunSettings.testProcessExecutor is NoOpExecutor) // no output in that case.
         KotlinTestUtils.assertEqualsToFile(rootDir.resolve("override_main.out"), output)
+    }
+
+    @Test
+    fun testSplitCompilationPipelineWithKlibResolverFlags() {
+        Assumptions.assumeFalse(HostManager.hostIsMingw &&
+                                        testRunSettings.get<OptimizationMode>() == OptimizationMode.DEBUG
+        ) // KT-65963
+
+        val rootDir = testSuiteDir.resolve("split_compilation_pipeline")
+        val libFile = buildDir.resolve("lib.klib")
+        runProcess(
+            konanc.absolutePath,
+            rootDir.resolve("override_lib.kt").absolutePath,
+            "-produce", "library",
+            "-o", libFile.absolutePath,
+            "-target", targets.testTarget.visibleName,
+        ) {
+            timeout = konancTimeout
+        }
+
+        val libFile2 = buildDir.resolve("lib2.klib")
+        File(libFile.absolutePath).copyRecursively(libFile2)
+
+        val mainFile = buildDir.resolve("out.klib")
+        runProcess(
+            konanc.absolutePath,
+            rootDir.resolve("override_main.kt").absolutePath,
+            "-o", mainFile.absolutePath,
+            "-target", targets.testTarget.visibleName,
+            "-l", libFile.absolutePath,
+            "-l", libFile2.absolutePath,
+            "-Xklib-duplicated-unique-name-strategy=allow-all-with-warning",
+        ) {
+            timeout = konancTimeout
+        }.let {
+            assertTrue(
+                it.stderr.contains("warning: KLIB resolver: The same 'unique_name=lib' found in more than one library"),
+                "`warning: KLIB resolver: The same 'unique_name=lib' found in more than one library` must be in stdout." +
+                        "\nSTDOUT: ${it.stdout}\nSTDERR: ${it.stderr}\n---"
+            )
+        }
     }
 
     @Test

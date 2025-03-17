@@ -26,6 +26,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /I.p
   compilerVisibility: Private
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -67,6 +68,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -125,6 +127,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /I.bar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -166,6 +169,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: true
@@ -313,6 +317,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /I.doo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -377,6 +382,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: true
@@ -434,6 +440,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /I.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -467,6 +474,7 @@ KaNamedFunctionSymbol:
     type: I
   getContainingFileSymbol: KaFileSymbol(I.class)
   getContainingJvmClassName: I
+  canBeOperator: false
   getContainingModule: KaLibraryModule "Library main"
   deprecationStatus: null
 
@@ -498,6 +506,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /I.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -539,6 +548,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: true
@@ -597,6 +607,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /I.zoo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -661,6 +672,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: true
@@ -830,6 +842,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /I.smth
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -886,6 +899,7 @@ KaNamedFunctionSymbol:
     type: I
   getContainingFileSymbol: KaFileSymbol(I.class)
   getContainingJvmClassName: I
+  canBeOperator: false
   getContainingModule: KaLibraryModule "Library main"
   deprecationStatus: null
 

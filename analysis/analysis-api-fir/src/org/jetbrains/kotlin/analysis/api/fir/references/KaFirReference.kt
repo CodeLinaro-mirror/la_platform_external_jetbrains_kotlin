@@ -6,9 +6,12 @@
 package org.jetbrains.kotlin.analysis.api.fir.references
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.findReferencePsi
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSymbol
+import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.resolution.KaSymbolBasedReference
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbol
@@ -16,15 +19,22 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.idea.references.KtReference
 import org.jetbrains.kotlin.idea.references.isConstructorOf
 import org.jetbrains.kotlin.idea.references.mainReference
-import org.jetbrains.kotlin.psi.KtClass
-import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
-import org.jetbrains.kotlin.psi.KtImportAlias
-import org.jetbrains.kotlin.psi.KtImportDirective
-import org.jetbrains.kotlin.psi.KtObjectDeclaration
-import org.jetbrains.kotlin.psi.KtSimpleNameExpression
+import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getNonStrictParentOfType
 
 internal interface KaFirReference : KtReference, KaSymbolBasedReference {
+    override fun KaSession.resolveToSymbols(): Collection<KaSymbol> = withValidityAssertion {
+        check(this is KaFirSession)
+        this.cacheStorage.resolveToSymbolsCache.value.getOrPut(this@KaFirReference) {
+            computeSymbols()
+        }
+    }
+
+    /**
+     * The result of this method will be used by [resolveToSymbols] and can be cached
+     */
+    fun KaFirSession.computeSymbols(): Collection<KaSymbol>
+
     fun getResolvedToPsi(analysisSession: KaSession, referenceTargetSymbols: Collection<KaSymbol>): Collection<PsiElement> =
         with(analysisSession) {
             referenceTargetSymbols.flatMap { symbol ->
@@ -75,10 +85,10 @@ internal fun KaSession.getPsiDeclarations(symbol: KaFirSymbol<*>): Collection<Ps
         symbol.origin == KaSymbolOrigin.INTERSECTION_OVERRIDE && symbol is KaCallableSymbol -> symbol.intersectionOverriddenSymbols
         else -> listOf(symbol)
     }
-    return intersectionOverriddenSymbolsOrSingle.mapNotNull { it.findPsiForReferenceResolve() }
+    return intersectionOverriddenSymbolsOrSingle.mapNotNull { it.findPsiForReferenceResolve(analysisScope) }
 }
 
-private fun KaSymbol.findPsiForReferenceResolve(): PsiElement? {
+private fun KaSymbol.findPsiForReferenceResolve(scope: GlobalSearchScope): PsiElement? {
     require(this is KaFirSymbol<*>)
-    return firSymbol.fir.findReferencePsi()
+    return firSymbol.fir.findReferencePsi(scope)
 }

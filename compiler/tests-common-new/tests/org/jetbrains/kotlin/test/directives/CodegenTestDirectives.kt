@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.test.directives
 
-import org.jetbrains.kotlin.backend.common.phaser.AnyNamedPhase
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.TargetInliner
 import org.jetbrains.kotlin.test.backend.handlers.*
@@ -17,6 +16,7 @@ import org.jetbrains.kotlin.test.directives.model.ValueDirective
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.moduleStructure
 
 object CodegenTestDirectives : SimpleDirectivesContainer() {
@@ -120,16 +120,16 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val IGNORE_JAVA_ERRORS by directive(
-        description = "Ignore compilation errors from java"
-    )
-
     val IGNORE_FIR_DIAGNOSTICS by directive(
         description = "Run backend even FIR reported some diagnostics with ERROR severity"
     )
 
     val IGNORE_FIR_DIAGNOSTICS_DIFF by directive(
         description = "Don't compare diagnostics in testdata for FIR codegen tests"
+    )
+
+    val IGNORE_BACKEND_DIAGNOSTICS by directive(
+        description = "Prevent adding backend diagnostics to GlobalMetadataInfoHandler. This is needed when the backend is executed for tests that originally were not designed for it."
     )
 
     val DUMP_IR by directive(
@@ -177,21 +177,8 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         description = "Ignores failures of signature dump comparison for tests with the $DUMP_SIGNATURES directive if the test uses the K2 frontend and the specified backend."
     )
 
-    val SKIP_IR_SERIALIZATION by directive(
-        description = """
-        Skips serializing IR to KLIB when running tests
-        """
-    )
-
-    val SKIP_DESERIALIZED_IR_TEXT_DUMP by directive(
-        description = """
-        Skips ${IrTextDumpHandler::class}, when running a test against the deserialized IR
-        """
-    )
-
-    val DUMP_IR_FOR_GIVEN_PHASES by valueDirective<AnyNamedPhase>(
+    val DUMP_IR_FOR_GIVEN_PHASES by stringDirective(
         description = "Dumps backend IR after given lowerings (enables ${PhasedIrDumpHandler::class})",
-        parser = { error("Cannot parse value $it for \"DUMP_IR_FOR_GIVEN_PHASES\" directive. All arguments must be specified via code in test system") }
     )
 
     val TREAT_AS_ONE_FILE by directive(
@@ -271,50 +258,23 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         description = "Don't check for visibility violations when validating IR on the target backend"
     )
 
-    val ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING by directive(
-        description = """
-        Check for visibility violation when validating IR after inlining.
-        Equivalent to passing the '-Xverify-ir-visibility-after-inlining' CLI flag.
-        
-        This directive is opt-in rather than opt-out (like $DISABLE_IR_VISIBILITY_CHECKS) because right now most test pass with
-        visibility checks enabled before lowering, but enabling these checks after inlining by default will cause most tests to fail,
-        because some lowerings that are run before inlining generate calls to internal intrinsics (KT-70295), and inlining in general may
-        cause visibility violations until we start generating synthetic accessors (KT-64865).
-        """.trimIndent()
-    )
-
-    val KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY by directive(
-        """
-            Narrow the visibility of generated synthetic accessors to _internal_" +
-            if such accessors are only used in inline functions that are not a part of public ABI
-            Equivalent to passing the '-Xsynthetic-accessors-with-narrowed-visibility' CLI flag.
-        """.trimIndent()
-    )
-
-    val DUMP_KLIB_SYNTHETIC_ACCESSORS by directive(
-        """
-            Enable dumping synthetic accessors and their use-sites immediately generation.
-            This directive makes sense only for KLIB-based backends.
-            Equivalent to passing the '-Xdump-synthetic-accessors-to=<tempDir>/synthetic-accessors' CLI flag.
-        """.trimIndent()
-    )
-
-    val IDENTICAL_KLIB_SYNTHETIC_ACCESSOR_DUMPS by directive(
-        """
-            Normally, there should be different dumps of synthetic accessors generated with and without
-            narrowing visibility (see ${::KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY.name} directive
-            for details). But sometimes these dumps are identical. In such cases with this directive
-            it's possible to have just one dump file.
-        """.trimIndent()
+    val DISABLE_IR_VARARG_TYPE_CHECKS by enumDirective<TargetBackend>(
+        description = "Don't check for vararg type mismatches when validating IR on the target backend"
     )
 }
 
+fun ValueDirective<TargetBackend>.isApplicableTo(module: TestModule, testServices: TestServices): Boolean {
+    val specifiedBackends = module.directives[this]
+    return testServices.defaultsProvider.targetBackend in specifiedBackends || TargetBackend.ANY in specifiedBackends
+}
+
 fun extractIgnoredDirectiveForTargetBackend(
+    testServices: TestServices,
     module: TestModule,
     targetBackend: TargetBackend,
     customIgnoreDirective: ValueDirective<TargetBackend>? = null,
 ): ValueDirective<TargetBackend>? =
-    when (module.frontendKind) {
+    when (testServices.defaultsProvider.frontendKind) {
         FrontendKinds.ClassicFrontend -> CodegenTestDirectives.IGNORE_BACKEND_K1
         FrontendKinds.FIR -> CodegenTestDirectives.IGNORE_BACKEND_K2
         else -> null

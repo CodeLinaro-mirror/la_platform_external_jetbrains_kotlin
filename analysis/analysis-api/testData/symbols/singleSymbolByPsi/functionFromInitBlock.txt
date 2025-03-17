@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Local
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -61,5 +62,6 @@ KaNamedFunctionSymbol:
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(functionFromInitBlock.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

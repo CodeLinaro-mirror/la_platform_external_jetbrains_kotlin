@@ -1,3 +1,5 @@
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: BACKEND
 // LANGUAGE: +MultiPlatformProjects
 // MODULE: common
 // FILE: common.kt

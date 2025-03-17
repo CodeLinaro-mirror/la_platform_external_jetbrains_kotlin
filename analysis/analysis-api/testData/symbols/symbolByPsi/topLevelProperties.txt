@@ -26,6 +26,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /x
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -57,12 +58,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(10)
+  initializer: KaConstantInitializerValue(10)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -117,6 +119,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /y
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -177,6 +180,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -254,6 +258,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /get
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -314,6 +319,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

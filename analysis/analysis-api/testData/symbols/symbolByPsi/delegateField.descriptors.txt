@@ -52,6 +52,7 @@ KaConstructorSymbol:
           deprecationStatus: null
         callableId: /MyColor.x
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
@@ -87,12 +88,13 @@ KaConstructorSymbol:
         hasBackingField: true
         hasGetter: true
         hasSetter: false
-        initializer: KtNonConstantInitializerValue(val x: Int)
+        initializer: KaNonConstantInitializerValue(val x: Int)
         isActual: false
         isConst: false
         isDelegatedProperty: false
         isExpect: false
         isExtension: false
+        isExternal: false
         isFromPrimaryConstructor: true
         isLateInit: false
         isOverride: false
@@ -178,6 +180,7 @@ KaConstructorSymbol:
           deprecationStatus: null
         callableId: /MyColor.y
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
@@ -213,12 +216,13 @@ KaConstructorSymbol:
         hasBackingField: true
         hasGetter: true
         hasSetter: false
-        initializer: KtNonConstantInitializerValue(val y: Int)
+        initializer: KaNonConstantInitializerValue(val y: Int)
         isActual: false
         isConst: false
         isDelegatedProperty: false
         isExpect: false
         isExtension: false
+        isExternal: false
         isFromPrimaryConstructor: true
         isLateInit: false
         isOverride: false
@@ -304,6 +308,7 @@ KaConstructorSymbol:
           deprecationStatus: null
         callableId: /MyColor.z
         compilerVisibility: Public
+        contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
@@ -339,12 +344,13 @@ KaConstructorSymbol:
         hasBackingField: true
         hasGetter: true
         hasSetter: false
-        initializer: KtNonConstantInitializerValue(val z: Int)
+        initializer: KaNonConstantInitializerValue(val z: Int)
         isActual: false
         isConst: false
         isDelegatedProperty: false
         isExpect: false
         isExtension: false
+        isExternal: false
         isFromPrimaryConstructor: true
         isLateInit: false
         isOverride: false
@@ -439,6 +445,7 @@ KaAnonymousFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Local
+  contextParameters: []
   contextReceivers: []
   hasStableParameterNames: true
   isActual: false
@@ -487,6 +494,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /Some.delegate
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -528,6 +536,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: true
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -562,6 +571,7 @@ KaAnonymousFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Local
+  contextParameters: []
   contextReceivers: []
   hasStableParameterNames: true
   isActual: false
@@ -615,6 +625,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /Some.lambda
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -655,12 +666,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(lazy { MyColor(1, 2, 3) })
+  initializer: KaNonConstantInitializerValue(lazy { MyColor(1, 2, 3) })
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -724,6 +736,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /Some.nonLazy
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -759,12 +772,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(MyColor(1, 2, 3))
+  initializer: KaNonConstantInitializerValue(MyColor(1, 2, 3))
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

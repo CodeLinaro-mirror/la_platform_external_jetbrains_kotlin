@@ -4,10 +4,10 @@ import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCMethod
+import org.jetbrains.kotlin.export.test.InlineSourceCodeAnalysis
 import org.jetbrains.kotlin.objcexport.KtObjCExportConfiguration
 import org.jetbrains.kotlin.objcexport.ObjCExportContext
 import org.jetbrains.kotlin.objcexport.mangling.mangleObjCMethods
-import org.jetbrains.kotlin.objcexport.testUtils.InlineSourceCodeAnalysis
 import org.jetbrains.kotlin.objcexport.testUtils.getClassOrFail
 import org.jetbrains.kotlin.objcexport.translateToObjCExportStub
 import org.jetbrains.kotlin.objcexport.withKtObjCExportSession
@@ -29,8 +29,9 @@ class MethodManglingTest(
             }            
         """.trimMargin()
         ) { foo ->
-            val methods = translateToObjCExportStub(foo)?.members ?: error("no translated members")
-            val mangledMethods = methods.mangleObjCMethods().filterIsInstance<ObjCMethod>().filter { it.name.startsWith("bar") }
+            val stub = translateToObjCExportStub(foo)
+            val methods = stub?.members ?: error("no translated members")
+            val mangledMethods = mangleObjCMethods(methods, stub).filterIsInstance<ObjCMethod>().filter { it.name.startsWith("bar") }
 
             assertEquals("barValue:", mangledMethods[0].name)
             assertEquals("barValue_:", mangledMethods[1].name)
@@ -48,8 +49,9 @@ class MethodManglingTest(
             }            
         """.trimMargin()
         ) { foo ->
-            val methods = translateToObjCExportStub(foo)?.members ?: error("no translated members")
-            val mangledMethods = methods.mangleObjCMethods().filterIsInstance<ObjCMethod>().filter { it.name.startsWith("bar") }
+            val stub = translateToObjCExportStub(foo)
+            val methods = stub?.members ?: error("no translated members")
+            val mangledMethods = mangleObjCMethods(methods, stub).filterIsInstance<ObjCMethod>().filter { it.name.startsWith("bar") }
 
             assertEquals("barValue:value:", mangledMethods[0].name)
             assertEquals("barValue:value_:", mangledMethods[1].name)

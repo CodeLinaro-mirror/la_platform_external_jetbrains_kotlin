@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.name.Name
 
 internal class OperatorExpressionGenerator(
@@ -82,8 +83,8 @@ internal class OperatorExpressionGenerator(
                 hasExtensionReceiver = false,
                 origin = origin,
             ).apply {
-                putValueArgument(0, irCompareToCall)
-                putValueArgument(1, IrConstImpl.int(startOffset, endOffset, builtins.intType, 0))
+                arguments[0] = irCompareToCall
+                arguments[1] = IrConstImpl.int(startOffset, endOffset, builtins.intType, 0)
             }
         }
 
@@ -109,14 +110,14 @@ internal class OperatorExpressionGenerator(
             hasExtensionReceiver = false,
             origin = origin,
         ).apply {
-            putValueArgument(0, comparisonExpression.left.convertToIrExpression(comparisonInfo, isLeftType = true))
-            putValueArgument(1,  comparisonExpression.right.convertToIrExpression(comparisonInfo, isLeftType = false))
+            arguments[0] = comparisonExpression.left.convertToIrExpression(comparisonInfo, isLeftType = true)
+            arguments[1] = comparisonExpression.right.convertToIrExpression(comparisonInfo, isLeftType = false)
         }
     }
 
     private fun getSymbolAndOriginForComparison(
         operation: FirOperation,
-        classifier: IrClassifierSymbol
+        classifier: IrClassifierSymbol,
     ): Pair<IrSimpleFunctionSymbol?, IrStatementOriginImpl> {
         return when (operation) {
             FirOperation.LT -> builtins.lessFunByOperandType[classifier] to IrStatementOrigin.LT
@@ -213,8 +214,8 @@ internal class OperatorExpressionGenerator(
             hasExtensionReceiver = false,
             origin = origin
         ).apply {
-            putValueArgument(0, convertedLeft)
-            putValueArgument(1, convertedRight)
+            this.arguments[0] = convertedLeft
+            this.arguments[1] = convertedRight
         }
         return if (operation == FirOperation.EQ) {
             equalsCall
@@ -254,8 +255,8 @@ internal class OperatorExpressionGenerator(
             hasExtensionReceiver = false,
             origin = origin,
         ).apply {
-            putValueArgument(0, convertedLeft)
-            putValueArgument(1, convertedRight)
+            this.arguments[0] = convertedLeft
+            this.arguments[1] = convertedRight
         }
 
         return if (operation == FirOperation.IDENTITY) {

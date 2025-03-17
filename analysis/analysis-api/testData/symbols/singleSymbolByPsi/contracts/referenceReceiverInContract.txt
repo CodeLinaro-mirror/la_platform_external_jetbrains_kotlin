@@ -5,12 +5,13 @@ KaNamedFunctionSymbol:
   ]
   callableId: /referenceReceiverInContract
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: [
     KaContractCallsInPlaceContractEffectDeclaration:
       valueParameterReference:
-        KaContractParameterValue:
-          parameterSymbol:
+        KaContractExplicitParameterValue:
+          symbol:
             KaReceiverParameterSymbol:
               annotations: []
               callableId: null
@@ -97,5 +98,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(referenceReceiverInContract.kt)
   getContainingJvmClassName: ReferenceReceiverInContractKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

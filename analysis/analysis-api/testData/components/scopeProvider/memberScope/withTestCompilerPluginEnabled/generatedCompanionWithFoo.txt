@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/WithGeneratedCompanion.Companion.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -35,6 +36,7 @@ KaNamedFunctionSymbol:
     type: test/WithGeneratedCompanion.Companion
   getContainingFileSymbol: KaFileSymbol(generatedCompanionWithFoo.kt)
   getContainingJvmClassName: test.WithGeneratedCompanion.Companion
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -42,6 +44,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -105,6 +108,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -112,6 +116,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -145,6 +150,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -152,6 +158,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -185,6 +192,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 

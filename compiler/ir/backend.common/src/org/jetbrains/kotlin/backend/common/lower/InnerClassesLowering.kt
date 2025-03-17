@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
+import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 
 interface InnerClassesSupport {
     fun getOuterThisField(innerClass: IrClass): IrField
@@ -66,7 +67,7 @@ open class InnerClassesLowering(val context: CommonBackendContext) : Declaration
 
     private fun lowerConstructor(irConstructor: IrConstructor): IrConstructor {
         val loweredConstructor = innerClassesSupport.getInnerClassConstructorWithOuterThisParameter(irConstructor)
-        val outerThisParameter = loweredConstructor.valueParameters[0]
+        val outerThisParameter = loweredConstructor.parameters[0]
 
         val irClass = irConstructor.parentAsClass
         val parentThisField = innerClassesSupport.getOuterThisField(irClass)
@@ -116,17 +117,11 @@ private fun InnerClassesSupport.primaryConstructorParameterMap(originalConstruct
 
     val loweredConstructor = getInnerClassConstructorWithOuterThisParameter(originalConstructor)
 
-    var index = 0
-
-    originalConstructor.dispatchReceiverParameter?.let {
-        oldConstructorParameterToNew[it] = loweredConstructor.valueParameters[index++]
+    originalConstructor.parameters.forEachIndexed { index, parameter ->
+        oldConstructorParameterToNew[parameter] = loweredConstructor.parameters[index]
     }
 
-    originalConstructor.valueParameters.forEach { old ->
-        oldConstructorParameterToNew[old] = loweredConstructor.valueParameters[index++]
-    }
-
-    assert(loweredConstructor.valueParameters.size == index)
+    assert(loweredConstructor.parameters.size == originalConstructor.parameters.size)
 
     return oldConstructorParameterToNew
 }
@@ -144,10 +139,7 @@ open class InnerClassesMemberBodyLowering(val context: CommonBackendContext) : B
     private val IrValueSymbol.classForImplicitThis: IrClass?
         // TODO: is this the correct way to get the class?
         get() =
-            if (this is IrValueParameterSymbol && owner.index == -1 &&
-                (owner == (owner.parent as? IrFunction)?.dispatchReceiverParameter ||
-                        owner == (owner.parent as? IrClass)?.thisReceiver)
-            ) {
+            if (this is IrValueParameterSymbol && owner.kind == IrParameterKind.DispatchReceiver) {
                 owner.type.classOrNull?.owner
             } else
                 null
@@ -166,7 +158,7 @@ open class InnerClassesMemberBodyLowering(val context: CommonBackendContext) : B
         }
 
         if (container is IrFunction) {
-            for (parameter in container.valueParameters) {
+            container.parameters.forEach { parameter ->
                 parameter.defaultValue?.fixThisReference(irClass, container)
             }
         }
@@ -210,7 +202,7 @@ open class InnerClassesMemberBodyLowering(val context: CommonBackendContext) : B
                     irThis = if (function is IrConstructor && irClass == innerClass) {
                         // Might be before a super() call (e.g. an argument to one), in which case the JVM bytecode verifier will reject
                         // an attempt to access the field. Good thing we have a local variable as well.
-                        IrGetValueImpl(startOffset, endOffset, function.valueParameters[0].symbol, origin)
+                        IrGetValueImpl(startOffset, endOffset, function.parameters[0].symbol, origin)
                     } else {
                         val outerThisField = innerClassesSupport.getOuterThisField(innerClass)
                         IrGetFieldImpl(startOffset, endOffset, outerThisField.symbol, outerThisField.type, irThis, origin)
@@ -231,22 +223,19 @@ open class InnerClassConstructorCallsLowering(val context: CommonBackendContext)
             override fun visitConstructorCall(expression: IrConstructorCall): IrExpression {
                 expression.transformChildrenVoid(this)
 
-                val dispatchReceiver = expression.dispatchReceiver ?: return expression
+                if (expression.dispatchReceiver == null) return expression
                 val callee = expression.symbol
                 val parent = callee.owner.parentAsClass
                 if (!parent.isInner) return expression
 
                 val newCallee = innerClassesSupport.getInnerClassConstructorWithOuterThisParameter(callee.owner)
-                val classTypeParametersCount = expression.typeArgumentsCount - expression.constructorTypeArgumentsCount
+                val classTypeParametersCount = expression.typeArguments.size - expression.constructorTypeArgumentsCount
                 val newCall = IrConstructorCallImpl.fromSymbolOwner(
                     expression.startOffset, expression.endOffset, expression.type, newCallee.symbol, classTypeParametersCount, expression.origin
                 )
 
                 newCall.copyTypeArgumentsFrom(expression)
-                newCall.putValueArgument(0, dispatchReceiver)
-                for (i in 1..newCallee.valueParameters.lastIndex) {
-                    newCall.putValueArgument(i, expression.getValueArgument(i - 1))
-                }
+                newCall.arguments.assignFrom(expression.arguments)
 
                 return newCall
             }
@@ -254,20 +243,17 @@ open class InnerClassConstructorCallsLowering(val context: CommonBackendContext)
             override fun visitDelegatingConstructorCall(expression: IrDelegatingConstructorCall): IrExpression {
                 expression.transformChildrenVoid(this)
 
-                val dispatchReceiver = expression.dispatchReceiver ?: return expression
+                if (expression.dispatchReceiver == null) return expression
                 val classConstructor = expression.symbol.owner
                 if (!classConstructor.parentAsClass.isInner) return expression
 
                 val newCallee = innerClassesSupport.getInnerClassConstructorWithOuterThisParameter(classConstructor)
                 val newCall = IrDelegatingConstructorCallImpl(
                     expression.startOffset, expression.endOffset, context.irBuiltIns.unitType, newCallee.symbol,
-                    typeArgumentsCount = expression.typeArgumentsCount,
+                    typeArgumentsCount = expression.typeArguments.size,
                 ).apply { copyTypeArgumentsFrom(expression) }
 
-                newCall.putValueArgument(0, dispatchReceiver)
-                for (i in 1..newCallee.valueParameters.lastIndex) {
-                    newCall.putValueArgument(i, expression.getValueArgument(i - 1))
-                }
+                newCall.arguments.assignFrom(expression.arguments)
 
                 return newCall
             }
@@ -293,7 +279,7 @@ open class InnerClassConstructorCallsLowering(val context: CommonBackendContext)
                         endOffset,
                         type,
                         newCallee.symbol,
-                        typeArgumentsCount = typeArgumentsCount,
+                        typeArgumentsCount = typeArguments.size,
                         reflectionTarget = newReflectionTarget?.symbol,
                         origin = origin
                     )

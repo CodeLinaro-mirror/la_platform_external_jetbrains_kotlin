@@ -93,20 +93,6 @@ class FirPCLAInferenceSession(
         return null
     }
 
-    override fun <T> runCallableReferenceResolution(candidate: Candidate, block: () -> T): T {
-        candidate.system.apply {
-            // It's necessary because otherwise when we create CS for a child, it would simplify constraints
-            // (see 3rd constructor of MutableVariableWithConstraints)
-            // and merging it back might become a problem for transaction logic because the latter literally remembers
-            // the number of constraints for each variable and then restores it back.
-            // But since the constraints are simplified in the child, their number might become even fewer, leading to incorrect behavior
-            // or runtime exceptions.
-            // See callableReferenceAsArgumentForTransaction.kt test data
-            notFixedTypeVariables.values.forEach { it.runConstraintsSimplification() }
-        }
-        return runWithSpecifiedCurrentCommonSystem(candidate.system, block)
-    }
-
     private fun <T> runWithSpecifiedCurrentCommonSystem(newSystem: NewConstraintSystemImpl, block: () -> T): T {
         val previous = currentCommonSystem
         return try {
@@ -121,13 +107,17 @@ class FirPCLAInferenceSession(
         outerCandidate.system.replaceContentWith(currentCommonSystem.currentStorage())
     }
 
+    // Currently used only from FirDelegatedPropertyInferenceSession.completeSessionOrPostponeIfNonRoot
     fun integrateChildSession(
         childCalls: Collection<ConeResolutionAtom>,
         childStorage: ConstraintStorage,
         onCompletionResultsWriting: (ConeSubstitutor) -> Unit,
     ) {
         outerCandidate.postponedPCLACalls += childCalls
-        currentCommonSystem.addOtherSystem(childStorage)
+        // When a delegated property belongs to a PCLA lambda, the delegate session is guaranteed either use
+        // - either a delegate call which is always a nested PCLA call with an outer CS
+        // - or it literally uses `currentCommonSystem` (see the definition of FirDelegatedPropertyInferenceSession.parentConstraintSystem)
+        currentCommonSystem.replaceContentWith(childStorage)
         outerCandidate.onPCLACompletionResultsWritingCallbacks += onCompletionResultsWriting
     }
 
@@ -242,9 +232,9 @@ class FirPCLAInferenceSession(
             is ResolutionMode.WithExpectedType -> when {
                 // For assignments like myVarContainingTV = SomeCallWithNonTrivialInference(...)
                 // We should integrate even simple calls into the PCLA tree, too
-                callInfo.resolutionMode.expectedTypeRef.coneType.containsNotFixedTypeVariables() -> return false
+                callInfo.resolutionMode.expectedType.containsNotFixedTypeVariables() -> return false
             }
-            is ResolutionMode.WithStatus, is ResolutionMode.LambdaResolution ->
+            is ResolutionMode.WithStatus ->
                 error("$this call should not be analyzed in ${callInfo.resolutionMode}")
 
             is ResolutionMode.AssignmentLValue,
@@ -270,9 +260,9 @@ class FirPCLAInferenceSession(
         if (dispatchReceiver?.expression?.isReceiverPostponed() == true) return false
         if (givenExtensionReceiverOptions.any { it.expression.isReceiverPostponed() }) return false
         // At the step of candidate's system creation, there are no chosen context receiver values, yet
-        // (see org.jetbrains.kotlin.fir.resolve.calls.CheckContextReceivers)
+        // (see org.jetbrains.kotlin.fir.resolve.calls.CheckContextArguments)
         // Thus, we just postpone everything with symbols requiring some context receivers
-        if ((symbol as? FirCallableSymbol)?.resolvedContextReceivers?.isNotEmpty() == true) return false
+        if ((symbol as? FirCallableSymbol)?.resolvedContextParameters?.isNotEmpty() == true) return false
 
         // Accesses to local variables or local functions which return types contain not fixed TVs
         val returnType = (symbol as? FirCallableSymbol)?.let(returnTypeCalculator::tryCalculateReturnType)
@@ -349,7 +339,9 @@ class FirTypeVariablesAfterPCLATransformer(private val substitutor: ConeSubstitu
         // FirAnonymousFunctionExpression doesn't support replacing the type
         // since it delegates the getter to the underlying FirAnonymousFunction.
         // WrappedArgumentExpression delegates the type to the inner expression and doesn't need to be updated.
-        if (element is FirExpression && element !is FirAnonymousFunctionExpression && element !is FirWrappedArgumentExpression) {
+        if (element is FirExpression && element !is FirAnonymousFunctionExpression &&
+            element !is FirWrappedArgumentExpression && element !is FirErrorExpression
+        ) {
             element.resolvedType
                 .let(substitutor::substituteOrNull)
                 ?.let { element.replaceConeTypeOrNull(it) }
@@ -376,7 +368,7 @@ class FirTypeVariablesAfterPCLATransformer(private val substitutor: ConeSubstitu
         candidate.chosenExtensionReceiver = ConeResolutionAtom.createRawAtom(
             candidate.chosenExtensionReceiver?.expression?.transform(this, data = null)
         )
-        candidate.contextReceiverArguments = candidate.contextReceiverArguments?.map {
+        candidate.contextArguments = candidate.contextArguments?.map {
             ConeResolutionAtom.createRawAtom(it.expression.transform(this, data = null))
         }
     }

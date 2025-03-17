@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // LANGUAGE: -JavaTypeParameterDefaultRepresentationWithDNN -ProhibitReturningIncorrectNullabilityValuesFromSamConstructorLambdaOfJdkInterfaces
 // RENDER_DIAGNOSTICS_FULL_TEXT
 // ISSUE: KT-57014, KT-66730
@@ -64,6 +65,16 @@ fun main() {
             2
         } finally {
             Unit
+        }
+        ""
+    }
+
+    Supplier<String> {
+        try {
+            if (1 == 2) return@Supplier returnNullableString()
+        } catch(e: Exception) {
+        } finally {
+            run { return@Supplier returnNullableString() }
         }
         ""
     }

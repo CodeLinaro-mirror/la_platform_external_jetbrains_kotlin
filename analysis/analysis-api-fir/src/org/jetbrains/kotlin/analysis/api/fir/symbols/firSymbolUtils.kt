@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.analysis.api.fir.KaSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.fir.utils.asKaInitializerValue
 import org.jetbrains.kotlin.analysis.api.impl.base.KaBaseContextReceiver
 import org.jetbrains.kotlin.analysis.api.impl.base.symbols.asKaSymbolModality
+import org.jetbrains.kotlin.analysis.api.symbols.KaContextParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.analysis.api.symbols.KaTypeParameterSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaValueParameterSymbol
@@ -43,6 +44,12 @@ internal fun FirFunctionSymbol<*>.createKtValueParameters(builder: KaSymbolByFir
     }
 }
 
+internal fun FirCallableSymbol<*>.createKaContextParameters(builder: KaSymbolByFirBuilder): List<KaContextParameterSymbol> {
+    return fir.contextParameters.map { contextParameter ->
+        builder.variableBuilder.buildContextParameterSymbol(contextParameter.symbol)
+    }
+}
+
 internal fun <D> FirBasedSymbol<D>.createKtTypeParameters(
     builder: KaSymbolByFirBuilder
 ): List<KaTypeParameterSymbol> where D : FirTypeParameterRefsOwner, D : FirDeclaration {
@@ -62,21 +69,21 @@ internal fun <D> FirBasedSymbol<D>.createRegularKtTypeParameters(
 internal fun FirCallableSymbol<*>.createContextReceivers(
     builder: KaSymbolByFirBuilder
 ): List<KaContextReceiver> {
-    return resolvedContextReceivers.map { createContextReceiver(builder, it) }
+    return resolvedContextParameters.map { createContextReceiver(builder, it) }
 }
 
 internal fun FirRegularClassSymbol.createContextReceivers(
     builder: KaSymbolByFirBuilder
 ): List<KaContextReceiver> {
-    return resolvedContextReceivers.map { createContextReceiver(builder, it) }
+    return resolvedContextParameters.map { createContextReceiver(builder, it) }
 }
 
 private fun createContextReceiver(
     builder: KaSymbolByFirBuilder,
-    contextReceiver: FirContextReceiver
+    contextReceiver: FirValueParameter
 ) = KaBaseContextReceiver(
-    builder.typeBuilder.buildKtType(contextReceiver.typeRef),
-    contextReceiver.customLabelName,
+    builder.typeBuilder.buildKtType(contextReceiver.returnTypeRef),
+    contextReceiver.name,
     builder.token
 )
 

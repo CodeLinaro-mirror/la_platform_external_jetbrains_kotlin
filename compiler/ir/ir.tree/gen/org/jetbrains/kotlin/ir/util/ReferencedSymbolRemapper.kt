@@ -25,6 +25,8 @@ interface ReferencedSymbolRemapper {
      * Remaps symbols stored, e.g., in the following properties (not necessarily limited to those properties):
      * - [IrClass.sealedSubclasses]
      * - [IrScript.targetClass]
+     * - [IrReplSnippet.stateObject]
+     * - [IrReplSnippet.targetClass]
      * - [IrGetObjectValue.symbol]
      * - [IrCall.superQualifierSymbol]
      * - [IrInstanceInitializerCall.classSymbol]
@@ -41,6 +43,7 @@ interface ReferencedSymbolRemapper {
      * - [IrScript.resultProperty]
      * - [IrSimpleFunction.correspondingPropertySymbol]
      * - [IrPropertyReference.symbol]
+     * - [IrRichPropertyReference.reflectionTargetSymbol]
      */
     fun getReferencedProperty(symbol: IrPropertySymbol): IrPropertySymbol
 
@@ -61,6 +64,7 @@ interface ReferencedSymbolRemapper {
      * - [IrEnumConstructorCall.symbol]
      * - [IrRawFunctionReference.symbol]
      * - [IrFunctionReference.symbol]
+     * - [IrRichFunctionReference.reflectionTargetSymbol]
      * - [IrReturn.returnTargetSymbol]
      */
     fun getReferencedConstructor(symbol: IrConstructorSymbol): IrConstructorSymbol
@@ -75,6 +79,7 @@ interface ReferencedSymbolRemapper {
      * Remaps symbols stored, e.g., in the following properties (not necessarily limited to those properties):
      * - [IrRawFunctionReference.symbol]
      * - [IrFunctionReference.symbol]
+     * - [IrRichFunctionReference.reflectionTargetSymbol]
      * - [IrReturn.returnTargetSymbol]
      */
     fun getReferencedFunction(symbol: IrFunctionSymbol): IrFunctionSymbol = when (symbol) {
@@ -89,8 +94,10 @@ interface ReferencedSymbolRemapper {
      * - [IrPropertyReference.setter]
      * - [IrLocalDelegatedPropertyReference.getter]
      * - [IrLocalDelegatedPropertyReference.setter]
+     * - [IrRichFunctionReference.overriddenFunctionSymbol]
      * - [IrRawFunctionReference.symbol]
      * - [IrFunctionReference.symbol]
+     * - [IrRichFunctionReference.reflectionTargetSymbol]
      * - [IrReturn.returnTargetSymbol]
      */
     fun getReferencedSimpleFunction(symbol: IrSimpleFunctionSymbol): IrSimpleFunctionSymbol
@@ -106,6 +113,7 @@ interface ReferencedSymbolRemapper {
     /**
      * Remaps symbols stored, e.g., in the following properties (not necessarily limited to those properties):
      * - [IrLocalDelegatedPropertyReference.symbol]
+     * - [IrRichPropertyReference.reflectionTargetSymbol]
      */
     fun getReferencedLocalDelegatedProperty(symbol: IrLocalDelegatedPropertySymbol): IrLocalDelegatedPropertySymbol
 
@@ -116,6 +124,15 @@ interface ReferencedSymbolRemapper {
      * - [IrSetValue.symbol]
      */
     fun getReferencedVariable(symbol: IrVariableSymbol): IrVariableSymbol
+
+    /**
+     * Remaps symbols stored, e.g., in the following properties (not necessarily limited to those properties):
+     * - [IrRichPropertyReference.reflectionTargetSymbol]
+     */
+    fun getReferencedDeclarationWithAccessors(symbol: IrDeclarationWithAccessorsSymbol): IrDeclarationWithAccessorsSymbol = when (symbol) {
+        is IrPropertySymbol -> getReferencedProperty(symbol)
+        is IrLocalDelegatedPropertySymbol -> getReferencedLocalDelegatedProperty(symbol)
+    }
 
     /**
      * Remaps symbols stored, e.g., in the following properties (not necessarily limited to those properties):

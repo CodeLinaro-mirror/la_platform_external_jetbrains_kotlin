@@ -490,7 +490,7 @@ class KotlinGradleIT : KGPBaseTest() {
     }
 
     @DisplayName("KGP dependencies in buildSrc module")
-    @GradleTestVersions(minVersion = TestVersions.Gradle.G_8_2) // FIXME: KT-71711
+    @GradleTestVersions
     @GradleTest
     fun testKotlinPluginDependenciesInBuildSrc(gradleVersion: GradleVersion) {
         project("kotlinPluginDepsInBuildSrc", gradleVersion) {
@@ -801,6 +801,7 @@ class KotlinGradleIT : KGPBaseTest() {
 
     @DisplayName("KT-51913: KGP should not add attributes to 'legacy' configurations")
     @GradleTest
+    @BrokenOnMacosTest
     fun noAttributesLegacyConfigurations(gradleVersion: GradleVersion) {
         project(
             "legacyConfigurationConsumer",

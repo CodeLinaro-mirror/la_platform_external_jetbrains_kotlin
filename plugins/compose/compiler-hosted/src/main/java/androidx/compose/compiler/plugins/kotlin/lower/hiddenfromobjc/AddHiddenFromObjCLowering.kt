@@ -21,6 +21,7 @@ import androidx.compose.compiler.plugins.kotlin.ModuleMetrics
 import androidx.compose.compiler.plugins.kotlin.analysis.StabilityInferencer
 import androidx.compose.compiler.plugins.kotlin.lower.AbstractComposeLowering
 import androidx.compose.compiler.plugins.kotlin.lower.containsComposableAnnotation
+import androidx.compose.compiler.plugins.kotlin.lower.hasFirDeclaration
 import androidx.compose.compiler.plugins.kotlin.lower.needsComposableRemapping
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -62,12 +63,12 @@ class AddHiddenFromObjCLowering(
 
     private var currentShouldAnnotateClass = false
 
-    override fun lower(module: IrModuleFragment) {
+    override fun lower(irModule: IrModuleFragment) {
         require(context.platform.isNative()) {
             "AddHiddenFromObjCLowering is expected to run only for k/native. " +
                     "The platform - ${context.platform}"
         }
-        module.transformChildrenVoid(this)
+        irModule.transformChildrenVoid(this)
     }
 
     /** `visitClass` is only needed until [issue](https://youtrack.jetbrains.com/issue/KT-65288/) fix
@@ -114,7 +115,7 @@ class AddHiddenFromObjCLowering(
 
     override fun visitProperty(declaration: IrProperty): IrStatement {
         val p = super.visitProperty(declaration) as IrProperty
-        if (p.isLocal || p.visibility != DescriptorVisibilities.PUBLIC) return p
+        if (p.isLocal || p.getter?.isSyntheticFun() == true || p.visibility != DescriptorVisibilities.PUBLIC) return p
 
         val shouldAdd = p.getter?.hasComposableAnnotation() ?: false ||
                 p.getter?.needsComposableRemapping() ?: false ||
@@ -130,6 +131,9 @@ class AddHiddenFromObjCLowering(
     }
 
     private fun IrDeclaration.addHiddenFromObjCAnnotation() {
+        if (!hasFirDeclaration()) {
+            return
+        }
         val annotation = IrConstructorCallImpl.fromSymbolOwner(
             type = hiddenFromObjCAnnotation.defaultType,
             constructorSymbol = hiddenFromObjCAnnotation.constructors.first()

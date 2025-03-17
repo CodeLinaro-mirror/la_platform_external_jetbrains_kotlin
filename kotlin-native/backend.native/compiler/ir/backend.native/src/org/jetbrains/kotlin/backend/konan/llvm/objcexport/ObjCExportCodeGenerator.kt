@@ -795,7 +795,6 @@ private fun ObjCExportCodeGenerator.generateObjCImp(
 } else {
     generateObjCImp(
             methodBridge,
-            isDirect = !isVirtual,
             baseMethod = baseMethod,
             bridgeSuffix = customBridgeSuffix ?: ((if (isVirtual) "virtual_" else "") + target.computeSymbolName())
     ) { args, resultLifetime, exceptionHandler ->
@@ -816,7 +815,6 @@ private fun ObjCExportCodeGenerator.generateObjCImp(
 
 private fun ObjCExportCodeGenerator.generateObjCImp(
     methodBridge: MethodBridge,
-    isDirect: Boolean,
     baseMethod: IrFunction? = null,
     bridgeSuffix: String,
     callKotlin: ObjCExportFunctionGenerationContext.(
@@ -826,14 +824,9 @@ private fun ObjCExportCodeGenerator.generateObjCImp(
         ) -> LLVMValueRef?
 ): LlvmCallable = generateObjCImpBy(
         methodBridge,
-        debugInfo = isDirect /* see below */,
+        debugInfo = true,
         suffix = bridgeSuffix,
 ) {
-    // Considering direct calls inlinable above. If such a call is inlined into a bridge with no debug information,
-    // lldb will not decode the inlined frame even if the callee has debug information.
-    // So generate dummy debug information for bridge in this case.
-    // TODO: consider adding debug info to other bridges.
-
     val returnType = methodBridge.returnBridge
 
     // TODO: call [NSObject init] if it is a constructor?
@@ -998,7 +991,7 @@ private fun ObjCExportCodeGenerator.effectiveThrowsClasses(method: IrFunction, s
                 emptyList()
             }
 
-    val throwsVararg = throwsAnnotation.getValueArgument(0)
+    val throwsVararg = throwsAnnotation.arguments[0]
             ?: return emptyList()
 
     if (throwsVararg !is IrVararg) error(method.fileOrNull, throwsVararg, "unexpected vararg")
@@ -1014,7 +1007,7 @@ private fun ObjCExportCodeGenerator.generateObjCImpForArrayConstructor(
         methodBridge: MethodBridge
 ): LlvmCallable {
     val targetFunction = context.getLoweredConstructorFunction(target)
-    return generateObjCImp(methodBridge, bridgeSuffix = targetFunction.computeSymbolName(), isDirect = true) { args, resultLifetime, exceptionHandler ->
+    return generateObjCImp(methodBridge, bridgeSuffix = targetFunction.computeSymbolName()) { args, resultLifetime, exceptionHandler ->
         val arrayInstance = callFromBridge(
                 llvm.allocArrayFunction,
                 listOf(target.constructedClass.llvmTypeInfoPtr, args.first()),
@@ -1035,14 +1028,14 @@ private fun ObjCExportCodeGenerator.generateKotlinToObjCBridge(
 
     val methodBridge = baseMethod.bridge
 
-    val parameterToBase = irFunction.allParameters.zip(baseIrFunction.allParameters).toMap()
+    val parameterToBase = irFunction.parameters.zip(baseIrFunction.parameters).toMap()
 
     val functionType = LlvmFunctionSignature(irFunction, codegen)
     val functionName = "kotlin2objc_${baseIrFunction.computeSymbolName()}"
     val result = functionGenerator(functionType.toProto(functionName, null, LLVMLinkage.LLVMInternalLinkage)).generate {
         var errorOutPtr: LLVMValueRef? = null
 
-        val parameters = irFunction.allParameters.mapIndexed { index, parameterDescriptor ->
+        val parameters = irFunction.parameters.mapIndexed { index, parameterDescriptor ->
             parameterDescriptor to param(index)
         }.toMap()
 

@@ -21,29 +21,27 @@ Tower Data Context:
                 FirValueParameterSymbol param: R|kotlin/String|
     Element 8
         Context receivers:
-            FirNamedFunctionSymbol context(R|test/ContextReceiver|)
-            public final fun <T> R|test/Receiver|.test(param: R|kotlin/String|): R|T|
+            FirValueParameterSymbol R|test/ContextReceiver|
                 Type: test.ContextReceiver
                 Label: ContextReceiver
     Element 9
         Implicit receiver:
-            FirNamedFunctionSymbol context(R|test/ContextReceiver|)
-            public final fun <T> R|test/Receiver|.test(param: R|kotlin/String|): R|T|
+            FirReceiverParameterSymbol <explicit receiver parameter>: R|test/Receiver|
                 Type: test.Receiver
 
 FILE: [ResolvedTo(IMPORTS)] wholeDeclaration_fun.kt
-    public final [ResolvedTo(STATUS)] class ContextReceiver : R|kotlin/Any| {
-        public [ResolvedTo(STATUS)] constructor(): R|test/ContextReceiver| {
+    public final? [ResolvedTo(RAW_FIR)] class ContextReceiver : R|kotlin/Any| {
+        public? [ResolvedTo(RAW_FIR)] constructor(): R|test/ContextReceiver| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    public final [ResolvedTo(STATUS)] class Receiver : R|kotlin/Any| {
-        public [ResolvedTo(STATUS)] constructor(): R|test/Receiver| {
+    public final? [ResolvedTo(RAW_FIR)] class Receiver : R|kotlin/Any| {
+        public? [ResolvedTo(RAW_FIR)] constructor(): R|test/Receiver| {
             LAZY_super<R|kotlin/Any|>
         }
 
     }
-    context(R|test/ContextReceiver|)
-    public final [ResolvedTo(BODY_RESOLVE)] fun <[ResolvedTo(BODY_RESOLVE)] T> R|test/Receiver|.test([ResolvedTo(BODY_RESOLVE)] param: R|kotlin/String|): R|T| {
+    context([ResolvedTo(BODY_RESOLVE)] R|test/ContextReceiver|)
+    public final [ResolvedTo(BODY_RESOLVE)] fun <[ResolvedTo(BODY_RESOLVE)] T> [ResolvedTo(BODY_RESOLVE)] R|test/Receiver|.test([ResolvedTo(BODY_RESOLVE)] param: R|kotlin/String|): R|T| {
     }

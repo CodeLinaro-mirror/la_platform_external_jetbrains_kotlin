@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.ClassLoweringPass
+import org.jetbrains.kotlin.backend.common.defaultArgumentsOriginalFunction
 import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
-import org.jetbrains.kotlin.backend.common.lower.LoweredDeclarationOrigins
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
@@ -21,11 +21,7 @@ import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
 import org.jetbrains.kotlin.ir.expressions.IrReturn
-import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionReferenceImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
-import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
+import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.functions
@@ -72,8 +68,8 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
     private fun handleInterface(irClass: IrClass) {
         val jvmDefaultMode = context.config.jvmDefaultMode
         val isCompatibilityMode =
-            (jvmDefaultMode == JvmDefaultMode.ALL_COMPATIBILITY && !irClass.hasJvmDefaultNoCompatibilityAnnotation()) ||
-                    (jvmDefaultMode == JvmDefaultMode.ALL && irClass.hasJvmDefaultWithCompatibilityAnnotation())
+            (jvmDefaultMode == JvmDefaultMode.ENABLE && !irClass.hasJvmDefaultNoCompatibilityAnnotation()) ||
+                    (jvmDefaultMode == JvmDefaultMode.NO_COMPATIBILITY && irClass.hasJvmDefaultWithCompatibilityAnnotation())
         // There are 6 cases for functions on interfaces:
         for (function in irClass.functions) {
             when {
@@ -88,9 +84,10 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
                  *    create a bridge from DefaultImpls of derived to DefaultImpls of base, unless
                  *    - the implementation is private, or belongs to java.lang.Object,
                  *      or is a stub for function with default parameters ($default)
-                 *    - we're in -Xjvm-default=all-compatibility mode, in which case we go via
-                 *      accessors on the parent class rather than the DefaultImpls if inherited method is compiled to JVM default
-                 *    - we're in -Xjvm-default=all mode, and we have that default implementation, in which case we simply leave it.
+                 *    - we're in -jvm-default=enable mode, in which case we go via accessors on the parent class rather than
+                 *      the DefaultImpls if inherited method is compiled to JVM default
+                 *    - we're in -jvm-default=no-compatibility mode, and we have that default implementation, in which case
+                 *      we simply leave it.
                  *
                  *    ```
                  *    interface A { fun foo() = 0 }
@@ -138,7 +135,7 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
                         || function.origin == JvmLoweredDeclarationOrigin.SYNTHETIC_METHOD_FOR_PROPERTY_OR_TYPEALIAS_ANNOTATIONS)) ||
                         (function.origin == JvmLoweredDeclarationOrigin.SYNTHETIC_METHOD_FOR_PROPERTY_OR_TYPEALIAS_ANNOTATIONS &&
                                 isCompatibilityMode && function.isCompiledToJvmDefault(jvmDefaultMode)) -> {
-                    if (function.origin == LoweredDeclarationOrigins.INLINE_LAMBDA) {
+                    if (function.origin == IrDeclarationOrigin.INLINE_LAMBDA) {
                         //move as is
                         val defaultImplsClass = context.cachedDeclarations.getDefaultImplsClass(irClass)
                         defaultImplsClass.declarations.add(function)
@@ -168,7 +165,7 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
                 isCompatibilityMode -> {
                     val visibility =
                         if (function.origin == IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER)
-                            context.mapping.defaultArgumentsOriginalFunction[function]!!.visibility
+                            function.defaultArgumentsOriginalFunction!!.visibility
                         else function.visibility
                     if (!DescriptorVisibilities.isPrivate(visibility)) {
                         createJvmDefaultCompatibilityDelegate(function)
@@ -224,7 +221,7 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
             IrCallImpl.fromSymbolOwner(startOffset, endOffset, returnType, callTarget.symbol).also { call ->
 
                 callTarget.typeParameters.forEachIndexed { i, _ ->
-                    call.putTypeArgument(i, createPlaceholderAnyNType(context.irBuiltIns))
+                    call.typeArguments[i] = createPlaceholderAnyNType(context.irBuiltIns)
                 }
 
                 valueParameters.forEachIndexed { i, it ->
@@ -246,7 +243,7 @@ internal class InterfaceLowering(val context: JvmBackendContext) : IrElementTran
                 superQualifierSymbol = callTarget.parentAsClass.symbol
             ).also { call ->
                 this.typeParameters.drop(callTarget.parentAsClass.typeParameters.size).forEachIndexed { i, typeParameter ->
-                    call.putTypeArgument(i, typeParameter.defaultType)
+                    call.typeArguments[i] = typeParameter.defaultType
                 }
 
                 var offset = 0

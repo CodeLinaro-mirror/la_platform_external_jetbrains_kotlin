@@ -10,11 +10,12 @@ import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.fir.components.*
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSymbolProvider
 import org.jetbrains.kotlin.analysis.api.impl.base.KaBaseSession
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaAnalysisScopeProviderImpl
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseAnalysisScopeProviderImpl
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaRendererImpl
 import org.jetbrains.kotlin.analysis.api.impl.base.sessions.KaGlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.impl.base.util.createSession
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
+import org.jetbrains.kotlin.analysis.api.lifetime.assertIsValid
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinCompositeDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinDeclarationProvider
@@ -72,12 +73,11 @@ private constructor(
     visibilityChecker = KaFirVisibilityChecker(analysisSessionProvider),
     originalPsiProvider = KaFirOriginalPsiProvider(analysisSessionProvider),
     typeCreator = KaFirTypeCreator(analysisSessionProvider),
-    analysisScopeProvider = KaAnalysisScopeProviderImpl(analysisSessionProvider, useSiteScope),
+    analysisScopeProvider = KaBaseAnalysisScopeProviderImpl(analysisSessionProvider, useSiteScope),
     signatureSubstitutor = KaFirSignatureSubstitutor(analysisSessionProvider),
     resolveExtensionInfoProvider = KaFirResolveExtensionInfoProvider(analysisSessionProvider),
     compilerPluginGeneratedDeclarationsProvider = KaFirCompilerPluginGeneratedDeclarationsProvider(analysisSessionProvider),
     compilerFacility = KaFirCompilerFacility(analysisSessionProvider),
-    metadataCalculator = KaFirMetadataCalculator(analysisSessionProvider),
     substitutorProvider = KaFirSubstitutorProvider(analysisSessionProvider),
     dataFlowProvider = KaFirDataFlowProvider(analysisSessionProvider),
     sourceProvider = KaFirSourceProvider(analysisSessionProvider)
@@ -112,6 +112,10 @@ private constructor(
         )
     }
 
+    val cacheStorage: KaFirInternalCacheStorage by lazy {
+        KaFirInternalCacheStorage(this)
+    }
+
     fun getScopeSessionFor(session: FirSession): ScopeSession = withValidityAssertion { firResolveSession.getScopeSessionFor(session) }
 
     companion object {
@@ -119,6 +123,7 @@ private constructor(
             firResolveSession: LLFirResolveSession,
             token: KaLifetimeToken,
         ): KaFirSession {
+            token.assertIsValid()
             val useSiteModule = firResolveSession.useSiteKtModule
             val useSiteSession = firResolveSession.useSiteFirSession
 

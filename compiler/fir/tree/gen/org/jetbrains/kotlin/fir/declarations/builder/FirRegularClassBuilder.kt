@@ -35,15 +35,15 @@ open class FirRegularClassBuilder : FirClassBuilder, FirTypeParameterRefsOwnerBu
     override val typeParameters: MutableList<FirTypeParameterRef> = mutableListOf()
     override lateinit var status: FirDeclarationStatus
     override var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
+    override lateinit var scopeProvider: FirScopeProvider
     override lateinit var classKind: ClassKind
     override val declarations: MutableList<FirDeclaration> = mutableListOf()
     override val annotations: MutableList<FirAnnotation> = mutableListOf()
-    override lateinit var scopeProvider: FirScopeProvider
     open lateinit var name: Name
     open lateinit var symbol: FirRegularClassSymbol
     open var companionObjectSymbol: FirRegularClassSymbol? = null
     override val superTypeRefs: MutableList<FirTypeRef> = mutableListOf()
-    open val contextReceivers: MutableList<FirContextReceiver> = mutableListOf()
+    open val contextParameters: MutableList<FirValueParameter> = mutableListOf()
 
     override fun build(): FirRegularClass {
         return FirRegularClassImpl(
@@ -55,15 +55,15 @@ open class FirRegularClassBuilder : FirClassBuilder, FirTypeParameterRefsOwnerBu
             typeParameters,
             status,
             deprecationsProvider,
+            scopeProvider,
             classKind,
             declarations,
             annotations.toMutableOrEmpty(),
-            scopeProvider,
             name,
             symbol,
             companionObjectSymbol,
             superTypeRefs,
-            contextReceivers.toMutableOrEmpty(),
+            contextParameters.toMutableOrEmpty(),
         )
     }
 
@@ -91,13 +91,13 @@ inline fun buildRegularClassCopy(original: FirRegularClass, init: FirRegularClas
     copyBuilder.typeParameters.addAll(original.typeParameters)
     copyBuilder.status = original.status
     copyBuilder.deprecationsProvider = original.deprecationsProvider
+    copyBuilder.scopeProvider = original.scopeProvider
     copyBuilder.classKind = original.classKind
     copyBuilder.declarations.addAll(original.declarations)
     copyBuilder.annotations.addAll(original.annotations)
-    copyBuilder.scopeProvider = original.scopeProvider
     copyBuilder.name = original.name
     copyBuilder.companionObjectSymbol = original.companionObjectSymbol
     copyBuilder.superTypeRefs.addAll(original.superTypeRefs)
-    copyBuilder.contextReceivers.addAll(original.contextReceivers)
+    copyBuilder.contextParameters.addAll(original.contextParameters)
     return copyBuilder.apply(init).build()
 }

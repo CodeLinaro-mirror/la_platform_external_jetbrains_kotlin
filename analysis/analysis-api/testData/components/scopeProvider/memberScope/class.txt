@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/C.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -35,6 +36,7 @@ KaNamedFunctionSymbol:
     type: test/C
   getContainingFileSymbol: KaFileSymbol(class.kt)
   getContainingJvmClassName: test.C
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -66,6 +68,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/C.bar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -101,12 +104,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue("")
+  initializer: KaConstantInitializerValue("")
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -141,6 +145,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/A.perform
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -174,6 +179,7 @@ KaNamedFunctionSymbol:
     type: test/A
   getContainingFileSymbol: KaFileSymbol(class.kt)
   getContainingJvmClassName: test.A
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -205,6 +211,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/A.x
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -240,12 +247,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(0)
+  initializer: KaConstantInitializerValue(0)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -280,6 +288,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -343,6 +352,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -350,6 +360,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -383,6 +394,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -390,6 +402,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -423,6 +436,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 

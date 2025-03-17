@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.library.KLIB_PROPERTY_INCLUDED_FORWARD_DECLARATIONS
 import org.jetbrains.kotlin.native.interop.gen.jvm.GenerationMode
 import org.jetbrains.kotlin.native.interop.gen.jvm.InteropConfiguration
 import org.jetbrains.kotlin.native.interop.gen.jvm.KotlinPlatform
-import org.jetbrains.kotlin.native.interop.gen.jvm.Plugin
 import org.jetbrains.kotlin.native.interop.indexer.*
 import java.io.File
 import java.util.*
@@ -23,7 +22,7 @@ class StubIrContext(
         val platform: KotlinPlatform,
         val generationMode: GenerationMode,
         val libName: String,
-        val plugin: Plugin
+        val allowPrecompiledHeaders: Boolean,
 ) {
     val libraryForCStubs = configuration.library.copy(
             includes = mutableListOf<IncludeInfo>().apply {
@@ -43,7 +42,9 @@ class StubIrContext(
                         Language.C, Language.CPP -> emptyList()
                         Language.OBJECTIVE_C -> listOf("void objc_terminate();")
                     }
-    ).precompileHeaders()
+    ).let {
+        if (allowPrecompiledHeaders) it.precompileHeaders() else it
+    }
 
     // TODO: Used only for JVM.
     val jvmFileClassName = if (configuration.pkgName.isEmpty()) {

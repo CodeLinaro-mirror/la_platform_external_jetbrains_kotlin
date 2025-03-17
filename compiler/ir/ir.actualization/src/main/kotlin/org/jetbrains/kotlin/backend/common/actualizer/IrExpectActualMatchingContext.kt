@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.util.functions
 import org.jetbrains.kotlin.mpp.*
 import org.jetbrains.kotlin.name.CallableId
@@ -118,9 +119,7 @@ internal abstract class IrExpectActualMatchingContext(
         get() = asIr().isCompanion
     override val RegularClassSymbolMarker.isInner: Boolean
         get() = asIr().isInner
-    override val RegularClassSymbolMarker.isInline: Boolean
-        get() = asIr().isValue
-    override val RegularClassSymbolMarker.isValue: Boolean
+    override val RegularClassSymbolMarker.isInlineOrValue: Boolean
         get() = asIr().isValue
 
     override val RegularClassSymbolMarker.isFun: Boolean
@@ -233,6 +232,14 @@ internal abstract class IrExpectActualMatchingContext(
     override val PropertySymbolMarker.setter: FunctionSymbolMarker?
         get() = asIr().setter?.symbol
 
+    override val PropertySymbolMarker.contextParameters: List<ValueParameterSymbolMarker>
+        get() = asIr()
+            .getter
+            ?.parameters
+            ?.filter { it.kind == IrParameterKind.Context }
+            ?.map { it.symbol }
+            ?: emptyList()
+
     override fun createExpectActualTypeParameterSubstitutor(
         expectActualTypeParameters: List<Pair<TypeParameterSymbolMarker, TypeParameterSymbolMarker>>,
         parentSubstitutor: TypeSubstitutorMarker?,
@@ -278,8 +285,8 @@ internal abstract class IrExpectActualMatchingContext(
 
     override val CallableSymbolMarker.extensionReceiverType: IrType?
         get() = when (this) {
-            is IrFunctionSymbol -> owner.extensionReceiverParameter?.type
-            is IrPropertySymbol -> owner.getter?.extensionReceiverParameter?.type
+            is IrFunctionSymbol -> owner.parameters.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }?.type
+            is IrPropertySymbol -> owner.getter?.parameters?.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }?.type
             else -> null
         }
 
@@ -319,7 +326,14 @@ internal abstract class IrExpectActualMatchingContext(
         }
 
     override val FunctionSymbolMarker.valueParameters: List<ValueParameterSymbolMarker>
-        get() = asIr().valueParameters.map { it.symbol }
+        get() = asIr().parameters
+            .filter { it.kind == IrParameterKind.Regular }
+            .map { it.symbol }
+
+    override val FunctionSymbolMarker.contextParameters: List<ValueParameterSymbolMarker>
+        get() = asIr().parameters
+            .filter { it.kind == IrParameterKind.Context }
+            .map { it.symbol }
 
     override val ValueParameterSymbolMarker.isVararg: Boolean
         get() = asIr().isVararg

@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
-import org.jetbrains.kotlin.backend.common.lower.LoweredStatementOrigins
 import org.jetbrains.kotlin.backend.common.lower.SamEqualsHashCodeMethodsGenerator
 import org.jetbrains.kotlin.backend.common.lower.VariableRemapper
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
@@ -47,7 +46,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
     private val crossinlineLambdas = HashSet<IrSimpleFunction>()
 
     private val IrFunctionReference.isIgnored: Boolean
-        get() = (!type.isFunctionOrKFunction() && !isSuspendFunctionReference()) || origin == LoweredStatementOrigins.INLINE_LAMBDA
+        get() = (!type.isFunctionOrKFunction() && !isSuspendFunctionReference()) || origin == IrStatementOrigin.INLINE_LAMBDA
 
     // `suspend` function references are the same as non-`suspend` ones, just with an extra continuation parameter;
     // however, suspending lambdas require different generation implemented in SuspendLambdaLowering
@@ -69,11 +68,14 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
     private val shouldGenerateIndySamConversions =
         context.config.samConversionsScheme == JvmClosureGenerationScheme.INDY
 
-    private val shouldGenerateIndyLambdas =
-        context.config.lambdasScheme == JvmClosureGenerationScheme.INDY
+    private val shouldGenerateIndyLambdas: Boolean
+        get() = context.config.lambdasScheme == JvmClosureGenerationScheme.INDY
+                // We prefer CLASS lambdas when evaluating expression in debugger, as such lambdas have pretty toString implementation
+                // However, it's safe to change compilation scheme only for lambdas defined in code fragment, not it's dependencies
+                && allScopes.none { (it.irElement as? IrMetadataSourceOwner)?.metadata is MetadataSource.CodeFragment }
 
-    private val shouldGenerateLightweightLambdas =
-        shouldGenerateIndyLambdas && context.config.languageVersionSettings.supportsFeature(LanguageFeature.LightweightLambdas)
+    private val shouldGenerateLightweightLambdas: Boolean
+        get() = shouldGenerateIndyLambdas && context.config.languageVersionSettings.supportsFeature(LanguageFeature.LightweightLambdas)
 
     private val isJavaSamConversionWithEqualsHashCode =
         context.config.languageVersionSettings.supportsFeature(LanguageFeature.JavaSamConversionEqualsHashCode)
@@ -315,7 +317,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
             }
 
             for (typeParameterIndex in targetFun.typeParameters.indices) {
-                targetCall.putTypeArgument(typeParameterIndex, reference.getTypeArgument(typeParameterIndex))
+                targetCall.typeArguments[typeParameterIndex] = reference.typeArguments[typeParameterIndex]
             }
 
             val proxyFunBody = context.irFactory.createBlockBody(startOffset, endOffset).also { proxyFun.body = it }
@@ -415,7 +417,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
         return context.createJvmIrBuilder(currentScope!!, startOffset, endOffset).run {
             // See [org.jetbrains.kotlin.backend.jvm.JvmSymbols::indyLambdaMetafactoryIntrinsic].
             irCall(jvmIndyLambdaMetafactoryIntrinsic, notNullSamType).apply {
-                putTypeArgument(0, notNullSamType)
+                typeArguments[0] = notNullSamType
                 putValueArgument(0, irRawFunctionRef(lambdaMetafactoryArguments.samMethod))
                 putValueArgument(1, lambdaMetafactoryArguments.implMethodReference)
                 putValueArgument(2, irRawFunctionRef(lambdaMetafactoryArguments.fakeInstanceMethod))
@@ -548,7 +550,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                 // NB this would no longer matter if we generate SAM wrapper classes as synthetic.
                 typeParameters = createFakeFormalTypeParameters(samInterface.typeParameters, this)
             }
-            createImplicitParameterDeclarationWithWrappedDescriptor()
+            createThisReceiverParameter()
             copyAttributes(irFunctionReference)
             if (isHeavyweightLambda) {
                 metadata = irFunctionReference.symbol.owner.metadata
@@ -728,11 +730,10 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
             }.apply {
                 metadata = functionReferenceClass.metadata
                 overriddenSymbols += superMethod.symbol
-                dispatchReceiverParameter = buildReceiverParameter(
-                    this,
-                    IrDeclarationOrigin.INSTANCE_RECEIVER,
-                    functionReferenceClass.symbol.defaultType
-                )
+                dispatchReceiverParameter = buildReceiverParameter {
+                    origin = IrDeclarationOrigin.INSTANCE_RECEIVER
+                    type = functionReferenceClass.symbol.defaultType
+                }
 
                 when {
                     isLambda ->
@@ -747,7 +748,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
         // Inline the body of an anonymous function into the generated lambda subclass.
         private fun IrSimpleFunction.createLambdaInvokeMethod() {
             annotations += callee.annotations
-            val valueParameterMap = callee.explicitParameters.associate { param ->
+            val valueParameterMap = callee.parameters.associate { param ->
                 param to param.copyTo(this)
             }
             valueParameters += valueParameterMap.values
@@ -776,10 +777,10 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                 var unboundIndex = 0
                 val call = irCall(callee.symbol, referenceReturnType).apply {
                     for (typeParameter in irFunctionReference.symbol.owner.allTypeParameters) {
-                        putTypeArgument(typeParameter.index, typeArgumentsMap[typeParameter.symbol])
+                        typeArguments[typeParameter.index] = typeArgumentsMap[typeParameter.symbol]
                     }
 
-                    for (parameter in callee.explicitParameters) {
+                    for (parameter in callee.parameters) {
                         when {
                             boundReceiver?.first == parameter ->
                                 // Bound receiver parameter. For function references, this is stored in a field of the superclass.
@@ -888,8 +889,8 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
             }
             for (valueParameter in callee.valueParameters) {
                 callArguments[valueParameter] = wrapIntoTemporaryVariableIfNecessary(
-                    irCall.getValueArgument(valueParameter.index)
-                        ?: throw AssertionError("No value argument #${valueParameter.index} in adapter call: ${irCall.dump()}")
+                    irCall.getValueArgument(valueParameter.indexInOldValueParameters)
+                        ?: throw AssertionError("No value argument #${valueParameter.indexInOldValueParameters} in adapter call: ${irCall.dump()}")
                 )
             }
 
@@ -910,7 +911,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                     //don't pass receivers otherwise LocalDeclarationLowering will create additional captured parameters
                     IrFunctionReferenceImpl(
                         UNDEFINED_OFFSET, UNDEFINED_OFFSET, irFunctionReference.type, target,
-                        irFunctionReference.typeArgumentsCount,
+                        irFunctionReference.typeArguments.size,
                         irFunctionReference.reflectionTarget, null
                     ).apply {
                         copyTypeArgumentsFrom(irFunctionReference)

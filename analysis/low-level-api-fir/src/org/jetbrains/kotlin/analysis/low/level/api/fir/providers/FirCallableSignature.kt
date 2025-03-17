@@ -34,16 +34,16 @@ class FirCallableSignature private constructor(
 
     fun hasTheSameSignature(declaration: FirCallableDeclaration): Boolean {
         if ((receiverType == null) != (declaration.receiverParameter == null)) return false
-        if (contextReceiverTypes.size != declaration.contextReceivers.size) return false
+        if (contextReceiverTypes.size != declaration.contextParameters.size) return false
         if (typeParametersCount != declaration.typeParameters.size) return false
         if (parameters?.size != (declaration as? FirFunction)?.valueParameters?.size) return false
 
         declaration.lazyResolveToPhase(FirResolvePhase.TYPES)
         if (receiverType != declaration.receiverParameter?.typeRef?.renderType()) return false
 
-        val receivers = declaration.contextReceivers
+        val receivers = declaration.contextParameters
         for ((index, parameter) in contextReceiverTypes.withIndex()) {
-            if (receivers[index].typeRef.renderType() != parameter) return false
+            if (receivers[index].returnTypeRef.renderType() != parameter) return false
         }
 
         if (declaration is FirFunction) {
@@ -85,7 +85,7 @@ class FirCallableSignature private constructor(
 
             return FirCallableSignature(
                 receiverType = callableDeclaration.receiverParameter?.typeRef?.renderType(),
-                contextReceiverTypes = callableDeclaration.contextReceivers.map { it.typeRef.renderType() },
+                contextReceiverTypes = callableDeclaration.contextParameters.map { it.returnTypeRef.renderType() },
                 parameters = if (callableDeclaration is FirFunction) {
                     callableDeclaration.valueParameters.map { it.returnTypeRef.renderType() }
                 } else {
@@ -112,7 +112,7 @@ private fun FirTypeRef.renderType(builder: StringBuilder = StringBuilder()): Str
     propertyAccessorRenderer = null,
     resolvePhaseRenderer = null,
     typeRenderer = ConeTypeRenderer(attributeRenderer = MinimalConeTypeAttributeRenderer),
-    valueParameterRenderer = null,
+    callableSignatureRenderer = null,
     errorExpressionRenderer = null,
 ).renderElementAsString(this)
 

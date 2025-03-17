@@ -8,12 +8,13 @@ package org.jetbrains.kotlin.cli.common
 import com.intellij.ide.highlighter.JavaFileType
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.CommonToolArguments
-import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.ManualLanguageFeatureSetting
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
+import org.jetbrains.kotlin.types.AbstractTypeChecker
+import org.jetbrains.kotlin.types.FlexibleTypeImpl
 import org.jetbrains.kotlin.utils.DFS
 import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.KotlinPathsFromHomeDir
@@ -55,16 +56,6 @@ fun CompilerConfiguration.setupCommonArguments(
         }
     }
 
-    if (arguments.verifyIrVisibilityAfterInlining) {
-        put(CommonConfigurationKeys.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING, true)
-        if (irVerificationMode == IrVerificationMode.NONE) {
-            messageCollector.report(
-                CompilerMessageSeverity.WARNING,
-                "'-Xverify-ir-visibility-after-inlining' has no effect unless '-Xverify-ir=warning' or '-Xverify-ir=error' is specified"
-            )
-        }
-    }
-
     val metadataVersionString = arguments.metadataVersion
     if (metadataVersionString != null) {
         val versionArray = BinaryVersion.parseVersionArray(metadataVersionString)
@@ -77,39 +68,16 @@ fun CompilerConfiguration.setupCommonArguments(
         }
     }
 
-    switchToFallbackModeIfNecessary(arguments, messageCollector)
     setupLanguageVersionSettings(arguments)
 
     val usesK2 = languageVersionSettings.languageVersion.usesK2
     put(CommonConfigurationKeys.USE_FIR, usesK2)
     put(CommonConfigurationKeys.USE_LIGHT_TREE, arguments.useFirLT)
     buildHmppModuleStructure(arguments)?.let { put(CommonConfigurationKeys.HMPP_MODULE_STRUCTURE, it) }
-}
 
-private fun switchToFallbackModeIfNecessary(arguments: CommonCompilerArguments, messageCollector: MessageCollector) {
-    fun warn(message: String) {
-        if (!arguments.suppressVersionWarnings) messageCollector.report(CompilerMessageSeverity.STRONG_WARNING, message)
-    }
-
-    if (arguments !is K2JVMCompilerArguments) return
-    //coordinated with org.jetbrains.kotlin.incremental.CompilerRunnerUtils.isK1ForcedByKapt
-    val isK2 = (arguments.languageVersion?.startsWith('2') ?: (LanguageVersion.LATEST_STABLE >= LanguageVersion.KOTLIN_2_0))
-    val isKaptUsed = arguments.pluginOptions?.any { it.startsWith("plugin:org.jetbrains.kotlin.kapt3") } == true
-    when {
-        isK2 && isKaptUsed && !arguments.useK2Kapt -> {
-            warn("Support for language version 2.0+ in kapt is in Alpha and must be enabled explicitly. Falling back to 1.9.")
-            arguments.languageVersion = LanguageVersion.KOTLIN_1_9.versionString
-            if (arguments.apiVersion?.startsWith("2") == true) {
-                arguments.apiVersion = ApiVersion.KOTLIN_1_9.versionString
-            }
-            arguments.skipMetadataVersionCheck = true
-            arguments.skipPrereleaseCheck = true
-            arguments.allowUnstableDependencies = true
-        }
-        arguments.useK2Kapt -> warn(
-            if (isK2) "K2 kapt is in Alpha. Use with caution."
-            else "-Xuse-k2-kapt flag can be only used with language version 2.0+."
-        )
+    if (arguments.debugLevelCompilerChecks) {
+        FlexibleTypeImpl.RUN_SLOW_ASSERTIONS = true
+        AbstractTypeChecker.RUN_SLOW_ASSERTIONS = true
     }
 }
 
@@ -162,8 +130,8 @@ fun MessageCollector.reportArgumentParseProblems(arguments: CommonToolArguments)
 
     reportUnsafeInternalArgumentsIfAny(arguments)
 
-    for (internalArgumentsError in errors.internalArgumentsParsingProblems) {
-        report(CompilerMessageSeverity.STRONG_WARNING, internalArgumentsError)
+    for ((severity, internalArgumentsProblem) in errors.internalArgumentsParsingProblems) {
+        report(severity, internalArgumentsProblem)
     }
 }
 

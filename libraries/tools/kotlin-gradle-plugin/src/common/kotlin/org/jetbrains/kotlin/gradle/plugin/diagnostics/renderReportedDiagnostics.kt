@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.plugin.diagnostics
 
 import org.gradle.api.InvalidUserCodeException
 import org.gradle.api.logging.Logger
+import org.gradle.api.logging.configuration.WarningMode
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity.*
 
 internal fun renderReportedDiagnostics(
@@ -24,36 +25,70 @@ internal fun renderReportedDiagnostic(
     logger: Logger,
     renderingOptions: ToolingDiagnosticRenderingOptions
 ) {
-    when (diagnostic.severity) {
-        WARNING -> logger.warn("w: ${diagnostic.render(renderingOptions.useParsableFormat, renderingOptions.showStacktrace)}\n")
+    val effectiveSeverity = if (renderingOptions.ignoreWarningMode) {
+        diagnostic.severity
+    } else {
+        // Early return if warnings are disabled and it's not an error and not fatal
+        if (renderingOptions.warningMode == WarningMode.None && diagnostic.severity == WARNING) {
+            return
+        }
 
-        ERROR -> logger.error("e: ${diagnostic.render(renderingOptions.useParsableFormat, renderingOptions.showStacktrace)}\n")
+        if (diagnostic.severity == WARNING && renderingOptions.warningMode == WarningMode.Fail)
+            ERROR
+        else
+            diagnostic.severity
 
+        //TODO: KT-74986 Support WarningMode.Summary mode for gradle diagnostics
+    }
+
+    when (effectiveSeverity) {
+        WARNING -> logger.warn("w: ${diagnostic.render(renderingOptions)}\n")
+        ERROR -> logger.error("e: ${diagnostic.render(renderingOptions)}\n")
         FATAL -> throw diagnostic.createAnExceptionForFatalDiagnostic(renderingOptions)
     }
 }
 
+internal typealias KotlinDiagnosticsException = InvalidUserCodeException
+
 internal fun ToolingDiagnostic.createAnExceptionForFatalDiagnostic(
     renderingOptions: ToolingDiagnosticRenderingOptions
-): InvalidUserCodeException {
+): KotlinDiagnosticsException {
     // NB: override showStacktrace to false, because it will be shown as 'cause' anyways
-    val message = render(renderingOptions.useParsableFormat, showStacktrace = false)
+    val message = render(renderingOptions, showStacktrace = false)
     if (throwable != null)
-        throw InvalidUserCodeException(message, throwable)
+        throw KotlinDiagnosticsException(message, throwable)
     else
-        throw InvalidUserCodeException(message)
+        throw KotlinDiagnosticsException(message)
 }
 
-private fun ToolingDiagnostic.render(useParsableFormatting: Boolean, showStacktrace: Boolean): String = buildString {
-    // Main message
-    if (useParsableFormatting) appendLine(this@render) else append(message)
+private fun ToolingDiagnostic.render(
+    renderingOptions: ToolingDiagnosticRenderingOptions,
+    showStacktrace: Boolean = renderingOptions.showStacktrace,
+): String = buildString {
+    with(renderingOptions) {
+        val diagnosticOutput = if (coloredOutput) styled(showSeverityEmoji) else plain(showSeverityEmoji)
 
-    // Additional stacktrace, if requested
-    if (showStacktrace) renderStacktrace(this@render.throwable, useParsableFormatting)
+        // Main message
+        if (useParsableFormat) {
+            appendLine(this@render)
+        } else {
+            appendLine(diagnosticOutput.name)
+            appendLine(diagnosticOutput.message)
+            diagnosticOutput.solution?.let {
+                appendLine(it)
+            }
+            diagnosticOutput.documentation?.let {
+                appendLine(it)
+            }
+        }
 
-    // Separator, if in verbose mode
-    if (useParsableFormatting) appendLine(DIAGNOSTIC_SEPARATOR)
-}
+        // Additional stacktrace, if requested
+        if (showStacktrace) renderStacktrace(this@render.throwable, useParsableFormat)
+
+        // Separator, if in verbose mode
+        if (useParsableFormat) appendLine(DIAGNOSTIC_SEPARATOR)
+    }
+}.trimEnd()
 
 private fun StringBuilder.renderStacktrace(throwable: Throwable?, useParsableFormatting: Boolean) {
     if (throwable == null) return

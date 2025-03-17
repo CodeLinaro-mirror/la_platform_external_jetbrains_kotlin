@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.fir.packageFqName
 import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
+import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.serialization.FirAdditionalMetadataProvider
 import org.jetbrains.kotlin.fir.serialization.FirElementSerializer
 import org.jetbrains.kotlin.fir.serialization.FirSerializerExtensionBase
@@ -31,7 +32,7 @@ import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.metadata.jvm.JvmModuleProtoBuf
-import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
+import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.PackageParts
 import org.jetbrains.kotlin.metadata.jvm.deserialization.serializeToByteArray
 import org.jetbrains.kotlin.name.FqName
@@ -80,7 +81,7 @@ internal open class FirLegacyMetadataSerializer(
             for (table in packageTable.values) {
                 table.addTo(this)
             }
-        }.build().serializeToByteArray(JvmMetadataVersion.INSTANCE, 0)
+        }.build().serializeToByteArray(MetadataVersion.INSTANCE, 0)
 
         kotlinModuleFile.parentFile.mkdirs()
         kotlinModuleFile.writeBytes(packageTableBytes)
@@ -152,7 +153,8 @@ internal open class FirLegacyMetadataSerializer(
                     serializeClasses(nestedClasses, classSerializer)
                 }
 
-                val classProto = classSerializer.classProto(klass)
+                val file = session.firProvider.getFirClassifierContainerFileIfAny(klass.symbol)
+                val classProto = classSerializer.classProto(klass, file)
                 proto.addClass_(classProto.build())
             }
         }

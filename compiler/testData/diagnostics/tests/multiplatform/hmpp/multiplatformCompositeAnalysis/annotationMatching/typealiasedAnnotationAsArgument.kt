@@ -1,7 +1,7 @@
+// RUN_PIPELINE_TILL: BACKEND
 // FIR_IDENTICAL
 // DIAGNOSTICS: -TYPE_MISMATCH
 // MODULE: common
-// TARGET_PLATFORM: Common
 expect annotation class Typealiased()
 
 annotation class Ann(val p: Typealiased)

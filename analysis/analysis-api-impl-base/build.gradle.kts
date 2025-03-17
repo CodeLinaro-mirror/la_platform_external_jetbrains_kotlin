@@ -8,11 +8,12 @@ plugins {
 dependencies {
     api(project(":compiler:psi"))
     api(project(":analysis:analysis-api"))
-    api(project(":analysis:analysis-api-impl-barebone"))
+    api(project(":analysis:analysis-api-platform-interface"))
     api(project(":analysis:kt-references"))
     api(project(":compiler:resolution.common.jvm"))
     implementation(project(":analysis:decompiled:decompiler-to-psi"))
     implementation(project(":compiler:backend-common"))
+    implementation(project(":compiler:backend"))
     implementation(kotlinxCollectionsImmutable())
     api(intellijCore())
     implementation(project(":analysis:analysis-internal-utils"))
@@ -28,7 +29,6 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure"))
     testImplementation(projectTests(":plugins:plugin-sandbox"))
     testImplementation(projectTests(":compiler:tests-common-new"))
-    testImplementation(projectTests(":analysis:analysis-api-impl-barebone"))
     testImplementation(project(":analysis:symbol-light-classes"))
     testImplementation(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
@@ -46,7 +46,7 @@ sourceSets {
 }
 
 tasks.withType<KotlinJvmCompile>().configureEach {
-    compilerOptions.freeCompilerArgs.add("-Xcontext-receivers")
+    compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
     compilerOptions.optIn.addAll(
         listOf(
             "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",

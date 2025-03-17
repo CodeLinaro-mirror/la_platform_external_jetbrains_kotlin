@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.Mapping
+import org.jetbrains.kotlin.backend.common.ir.SharedVariablesManager
 import org.jetbrains.kotlin.backend.konan.driver.BasicPhaseContext
 import org.jetbrains.kotlin.backend.konan.ir.KonanIr
 import org.jetbrains.kotlin.backend.konan.ir.KonanSharedVariablesManager
@@ -16,19 +17,15 @@ import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 
 internal abstract class KonanBackendContext(config: KonanConfig) : BasicPhaseContext(config), CommonBackendContext {
-    abstract override val builtIns: KonanBuiltIns
+    abstract val builtIns: KonanBuiltIns
 
     abstract override val ir: KonanIr
 
-    override val scriptMode: Boolean = false
-
-    override val sharedVariablesManager by lazy {
+    override val sharedVariablesManager: SharedVariablesManager by lazy {
         // Creating lazily because builtIns module seems to be incomplete during `link` test;
         // TODO: investigate this.
-        KonanSharedVariablesManager(this)
+        KonanSharedVariablesManager(irBuiltIns, ir.symbols)
     }
-
-    override val internalPackageFqn = KonanFqNames.internalPackageName
 
     override val mapping: Mapping = Mapping()
 

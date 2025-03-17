@@ -108,14 +108,18 @@ object AbstractExpectActualChecker {
 
         val actualClass = when (actualClassLikeSymbol) {
             is RegularClassSymbolMarker -> actualClassLikeSymbol
-            is TypeAliasSymbolMarker -> actualClassLikeSymbol.expandToRegularClass()
-                ?: return ExpectActualCheckingCompatibility.Compatible // do not report extra error on erroneous typealias
+            is TypeAliasSymbolMarker -> if (actualClassLikeSymbol.classId.isNestedClass) {
+                return ExpectActualCheckingCompatibility.NestedTypeAlias
+            } else {
+                // do not report extra error on erroneous typealias
+                actualClassLikeSymbol.expandToRegularClass() ?: return ExpectActualCheckingCompatibility.Compatible
+            }
             else -> error("Incorrect actual classifier for $expectClassSymbol: $actualClassLikeSymbol")
         }
 
         if (!areCompatibleClassKinds(expectClassSymbol, actualClass)) return ExpectActualCheckingCompatibility.ClassKind
 
-        if (!equalBy(expectClassSymbol, actualClass) { listOf(it.isCompanion, it.isInner, it.isInline || it.isValue) }) {
+        if (!equalBy(expectClassSymbol, actualClass) { listOf(it.isCompanion, it.isInner, it.isInlineOrValue) }) {
             return ExpectActualCheckingCompatibility.ClassModifiers
         }
 
@@ -326,6 +330,8 @@ object AbstractExpectActualChecker {
         val actualTypeParameters = actualDeclaration.typeParameters
         val expectedValueParameters = expectDeclaration.valueParameters
         val actualValueParameters = actualDeclaration.valueParameters
+        val expectedContextParameters = expectDeclaration.contextParameters
+        val actualContextParameters = actualDeclaration.contextParameters
 
         val substitutor = createExpectActualTypeParameterSubstitutor(
             (expectedTypeParameters zipIfSizesAreEqual actualTypeParameters)
@@ -349,6 +355,15 @@ object AbstractExpectActualChecker {
             !equalsBy(expectedValueParameters, actualValueParameters) { nameOf(it) }
         ) {
             return ExpectActualCheckingCompatibility.ParameterNames
+        }
+
+        if (
+            languageVersionSettings.supportsFeature(LanguageFeature.ContextParameters) &&
+            actualDeclaration.hasStableParameterNames &&
+            expectDeclaration.hasStableParameterNames &&
+            !equalsBy(expectedContextParameters, actualContextParameters) { nameOf(it) }
+        ) {
+            return ExpectActualCheckingCompatibility.ContextParameterNames
         }
 
         if (!equalsBy(expectedTypeParameters, actualTypeParameters) { nameOf(it) }) {
@@ -499,9 +514,10 @@ object AbstractExpectActualChecker {
     ): Boolean {
         // In the case of actualization by a Java declaration such as a field or a method normalize the Java visibility
         // to the closest Kotlin visibility.Example: "protected_and_package" -> "protected".
+        val normalizedExpectVisibility = expectVisibility.normalize()
         val normalizedActualVisibility = actualVisibility.normalize()
 
-        val compare = Visibilities.compare(expectVisibility, normalizedActualVisibility)
+        val compare = Visibilities.compare(normalizedExpectVisibility, normalizedActualVisibility)
 
         val effectiveModality =
             when (languageVersionSettings.supportsFeature(LanguageFeature.SupportEffectivelyFinalInExpectActualVisibilityCheck)) {

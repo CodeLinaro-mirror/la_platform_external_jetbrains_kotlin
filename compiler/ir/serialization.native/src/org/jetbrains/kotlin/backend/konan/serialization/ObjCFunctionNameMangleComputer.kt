@@ -9,10 +9,7 @@ import org.jetbrains.kotlin.backend.common.serialization.mangle.MangleConstant
 import org.jetbrains.kotlin.backend.common.serialization.mangle.PlatformSpecificFunctionNameMangleComputer
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
-import org.jetbrains.kotlin.ir.declarations.IrConstructor
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.declarations.IrValueParameter
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.objcinterop.*
 import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.util.hasAnnotation
@@ -71,7 +68,7 @@ abstract class ObjCFunctionNameMangleComputer<ValueParameter : Any> : PlatformSp
 @ObsoleteDescriptorBasedAPI
 class DescriptorObjCFunctionNameMangleComputer(
     private val function: FunctionDescriptor
-) : ObjCFunctionNameMangleComputer<ValueParameterDescriptor>() {
+) : ObjCFunctionNameMangleComputer<ParameterDescriptor>() {
 
     override fun getObjCMethodInfo(): ObjCMethodInfo? =
         (if (function is ConstructorDescriptor && function.isObjCConstructor) function.getObjCInitMethod() else function)
@@ -92,7 +89,7 @@ class DescriptorObjCFunctionNameMangleComputer(
 
     override fun isObjCClassMethod(): Boolean = function.containingDeclaration.let { it is ClassDescriptor && it.isObjCClass() }
 
-    override fun getValueParameterName(valueParameter: ValueParameterDescriptor): Name = valueParameter.name
+    override fun getValueParameterName(valueParameter: ParameterDescriptor): Name = valueParameter.name
 }
 
 class IrObjCFunctionNameMangleComputer(private val function: IrFunction) : ObjCFunctionNameMangleComputer<IrValueParameter>() {
@@ -100,7 +97,7 @@ class IrObjCFunctionNameMangleComputer(private val function: IrFunction) : ObjCF
         (if (function is IrConstructor && function.isObjCConstructor) function.getObjCInitMethod() else function)?.getObjCMethodInfo()
 
     override fun getExtensionReceiverClassName(): Name? =
-        function.extensionReceiverParameter?.run { type.getClass()!!.name }
+        function.parameters.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }?.run { type.getClass()!!.name }
 
     override fun isObjCConstructor(): Boolean =
         function is IrConstructor && function.isObjCConstructor

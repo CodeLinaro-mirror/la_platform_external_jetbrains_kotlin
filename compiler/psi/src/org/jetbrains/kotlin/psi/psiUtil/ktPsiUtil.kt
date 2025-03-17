@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.lexer.KotlinLexer
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.lexer.KtTokens.MODALITY_MODIFIERS
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
@@ -327,7 +328,7 @@ fun PsiElement.isExtensionDeclaration(): Boolean {
 
 fun KtDeclaration.isExpectDeclaration(): Boolean = when {
     hasExpectModifier() -> true
-    this is KtParameter -> ownerFunction?.isExpectDeclaration() == true
+    this is KtParameter -> ownerDeclaration?.isExpectDeclaration() == true
     else -> containingClassOrObject?.isExpectDeclaration() == true
 }
 
@@ -345,9 +346,10 @@ fun KtClassOrObject.isObjectLiteral(): Boolean = this is KtObjectDeclaration && 
 //TODO: strange method, and not only Kotlin specific (also Java)
 fun PsiElement.parameterIndex(): Int {
     val parent = parent
-    return when {
-        this is KtParameter && parent is KtParameterList -> parent.parameters.indexOf(this)
-        this is PsiParameter && parent is PsiParameterList -> parent.getParameterIndex(this)
+    return when (this) {
+        is KtParameter if parent is KtParameterList -> parent.parameters.indexOf(this)
+        is KtParameter if parent is KtContextReceiverList -> parent.contextParameters().indexOf(this)
+        is PsiParameter if parent is PsiParameterList -> parent.getParameterIndex(this)
         else -> -1
     }
 }
@@ -711,7 +713,6 @@ fun getTrailingCommaByElementsList(elementList: PsiElement?): PsiElement? {
 val KtNameReferenceExpression.isUnderscoreInBackticks
     get() = getReferencedName() == "`_`"
 
-@Suppress("NO_TAIL_CALLS_FOUND", "NON_TAIL_RECURSIVE_CALL") // K2 warning suppression, TODO: KT-62472
 tailrec fun KtTypeElement.unwrapNullability(): KtTypeElement? {
     return when (this) {
         is KtNullableType -> this.innerType?.unwrapNullability()
@@ -738,3 +739,9 @@ fun getImportedSimpleNameByImportAlias(file: KtFile, aliasName: String): String?
 
     return null
 }
+
+/**
+ * A best-effort way to get the class id of expression's type without resolve.
+ */
+fun KtConstantExpression.inferClassIdByPsi(): ClassId? =
+    ClassIdCalculator.inferConstantExpressionClassIdByPsi(this)
