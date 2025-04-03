@@ -5,21 +5,7 @@
 
 package org.jetbrains.kotlin.sir.mangler
 
-import org.jetbrains.kotlin.sir.SirClass
-import org.jetbrains.kotlin.sir.SirDeclarationParent
-import org.jetbrains.kotlin.sir.SirEnum
-import org.jetbrains.kotlin.sir.SirErrorType
-import org.jetbrains.kotlin.sir.SirExistentialType
-import org.jetbrains.kotlin.sir.SirExtension
-import org.jetbrains.kotlin.sir.SirModule
-import org.jetbrains.kotlin.sir.SirNamed
-import org.jetbrains.kotlin.sir.SirNamedDeclaration
-import org.jetbrains.kotlin.sir.SirNominalType
-import org.jetbrains.kotlin.sir.SirStruct
-import org.jetbrains.kotlin.sir.SirType
-import org.jetbrains.kotlin.sir.SirTypealias
-import org.jetbrains.kotlin.sir.SirUnsupportedType
-import org.jetbrains.kotlin.sir.SirVariable
+import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
 
 // See https://github.com/swiftlang/swift/blob/main/docs/ABI/Mangling.rst for details
@@ -72,6 +58,7 @@ public val SirDeclarationParent.mangledNameOrNull: String?
         is SirEnum -> mangledNameOrNull
         is SirExtension -> mangledNameOrNull
         is SirVariable -> TODO()
+        is SirProtocol -> mangledNameOrNull
     }
 
 /**
@@ -83,6 +70,7 @@ public val SirNamedDeclaration.mangledNameOrNull: String?
         is SirEnum -> mangledNameOrNull
         is SirStruct -> mangledNameOrNull
         is SirTypealias -> TODO()
+        is SirProtocol -> mangledNameOrNull
     }
 
 /**
@@ -91,9 +79,10 @@ public val SirNamedDeclaration.mangledNameOrNull: String?
 public val SirType.mangledNameOrNull: String?
     get() = when (this) {
         is SirNominalType -> typeDeclaration.mangledNameOrNull
-        is SirExistentialType -> TODO()
+        is SirExistentialType -> null
         is SirErrorType -> null
         is SirUnsupportedType -> null
+        is SirFunctionalType -> null
     }
 
 /**
@@ -140,4 +129,19 @@ public val SirStruct.mangledNameOrNull: String?
 public val SirEnum.mangledNameOrNull: String?
     get() {
         return "${parent.mangledNameOrNull ?: return null}${identifier.mangledNameOrNull ?: return null}O"
+    }
+
+/**
+ * `protocol 'P'`
+ *
+ * See [spec](https://github.com/swiftlang/swift/blob/main/docs/ABI/Mangling.rst#types) for `nominal protocol type`
+ *
+ * Assumes that `decl-name` is always just an `identifier`.
+ *
+ * Note: Although the linked document has not been updated, SE-404/Swift5.10 nested protocols follow the same scheme as nested classes
+ *
+ */
+public val SirProtocol.mangledNameOrNull: String?
+    get() {
+        return "${parent.mangledNameOrNull ?: return null}${identifier.mangledNameOrNull ?: return null}P"
     }

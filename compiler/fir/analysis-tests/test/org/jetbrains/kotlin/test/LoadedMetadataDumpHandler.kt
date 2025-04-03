@@ -8,11 +8,14 @@ package org.jetbrains.kotlin.test
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFileManager
 import org.jetbrains.kotlin.backend.common.CommonKLibResolver
+import org.jetbrains.kotlin.cli.common.LegacyK2CliPipeline
 import org.jetbrains.kotlin.cli.common.SessionWithSources
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.cli.common.prepareJsSessions
-import org.jetbrains.kotlin.cli.common.prepareJvmSessionsWithoutFiles
+import org.jetbrains.kotlin.cli.common.prepareJvmSessions
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.MinimizedFrontendContext
 import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
@@ -68,6 +71,7 @@ class JvmLoadedMetadataDumpHandler(testServices: TestServices) : AbstractLoadedM
     override val dependencyKind: DependencyKind
         get() = DependencyKind.Binary
 
+    @OptIn(LegacyK2CliPipeline::class)
     override fun prepareSessions(
         module: TestModule,
         configuration: CompilerConfiguration,
@@ -77,6 +81,26 @@ class JvmLoadedMetadataDumpHandler(testServices: TestServices) : AbstractLoadedM
     ): List<SessionWithSources<KtFile>> {
         return prepareJvmSessionsWithoutFiles(configuration, environment, moduleName, libraryList)
     }
+
+    @LegacyK2CliPipeline
+    private fun prepareJvmSessionsWithoutFiles(
+        configuration: CompilerConfiguration,
+        environment: VfsBasedProjectEnvironment,
+        moduleName: Name,
+        libraryList: DependencyListForCliModule
+    ): List<SessionWithSources<KtFile>> {
+        return MinimizedFrontendContext(environment, MessageCollector.NONE, emptyList(), configuration).prepareJvmSessions(
+            files = emptyList(),
+            moduleName,
+            environment.getSearchScopeForProjectLibraries(),
+            libraryList,
+            isCommonSource = { false },
+            isScript = { false },
+            fileBelongsToModule = { _, _ -> false },
+            createProviderAndScopeForIncrementalCompilation = { null }
+        )
+    }
+
 }
 
 class KlibLoadedMetadataDumpHandler(testServices: TestServices) : AbstractLoadedMetadataDumpHandler<BinaryArtifacts.KLib>(
@@ -120,7 +144,7 @@ class KlibLoadedMetadataDumpHandler(testServices: TestServices) : AbstractLoaded
 
 abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>>(
     testServices: TestServices,
-    override val artifactKind: BinaryKind<A>
+    override val artifactKind: ArtifactKind<A>
 ) : BinaryArtifactHandler<A>(
     testServices,
     artifactKind,
@@ -142,9 +166,8 @@ abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>
         }
 
         val emptyModule = TestModule(
-            name = "dump-${module.name}", module.targetPlatform, module.targetBackend, FrontendKinds.FIR,
-            BackendKinds.IrBackend, module.binaryKind, files = emptyList(),
-            allDependencies = listOf(DependencyDescription(module.name, dependencyKind, DependencyRelation.RegularDependency)),
+            name = "dump-${module.name}", files = emptyList(),
+            allDependencies = listOf(DependencyDescription(module, dependencyKind, DependencyRelation.RegularDependency)),
             RegisteredDirectives.Empty, languageVersionSettings
         )
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(emptyModule)
@@ -192,7 +215,7 @@ abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>
         if (dumper.isEmpty()) return
         val testDataFile = testServices.moduleStructure.originalTestDataFiles.first()
 
-        val frontendKind = testServices.defaultsProvider.defaultFrontend
+        val frontendKind = testServices.defaultsProvider.frontendKind
 
         val commonExtension = ".fir.txt"
         val (specificExtension, otherSpecificExtension) = when (frontendKind) {
@@ -201,7 +224,7 @@ abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>
             else -> shouldNotBeCalled()
         }
 
-        val targetPlatform = testServices.defaultsProvider.defaultPlatform
+        val targetPlatform = testServices.moduleStructure.modules.last().targetPlatform(testServices)
         if (PLATFORM_DEPENDANT_METADATA in testServices.moduleStructure.allDirectives) {
             val platformExtension = specificExtension.replace(".txt", "${targetPlatform.suffix}.txt")
             val otherPlatformExtension = specificExtension.replace(".txt", "${targetPlatform.oppositeSuffix}.txt")
@@ -323,9 +346,9 @@ abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>
     }
 
     private fun extractNames(module: TestModule, packageFqName: FqName): Collection<Name> {
-        testServices.dependencyProvider.getArtifactSafe(module, FrontendKinds.ClassicFrontend)
+        testServices.artifactsProvider.getArtifactSafe(module, FrontendKinds.ClassicFrontend)
             ?.let { return extractNames(it, packageFqName) }
-        testServices.dependencyProvider.getArtifactSafe(module, FrontendKinds.FIR)
+        testServices.artifactsProvider.getArtifactSafe(module, FrontendKinds.FIR)
             ?.let { return extractNames(it, packageFqName) }
         error("Frontend artifact for module $module not found")
     }

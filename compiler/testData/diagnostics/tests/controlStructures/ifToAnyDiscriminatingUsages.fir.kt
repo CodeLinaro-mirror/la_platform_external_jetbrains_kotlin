@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -UNUSED_PARAMETER -UNUSED_VARIABLE
 
 fun println() {}
@@ -27,7 +28,7 @@ fun testResultOfAnonFun2() =
 
 fun testReturnFromAnonFun() =
         run(fun () {
-            return <!ARGUMENT_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>if (true) 42 else println()<!>
+            return <!RETURN_TYPE_MISMATCH, RETURN_TYPE_MISMATCH!>if (true) 42 else println()<!>
         })
 
 fun <!IMPLICIT_NOTHING_RETURN_TYPE!>testReturn1<!>() =

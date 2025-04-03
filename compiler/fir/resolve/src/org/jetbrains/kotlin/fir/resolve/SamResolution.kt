@@ -34,7 +34,9 @@ import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticFunctionSymbol
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.impl.FirFakeOverrideGenerator
+import org.jetbrains.kotlin.fir.scopes.impl.TypeAliasConstructorInfo
 import org.jetbrains.kotlin.fir.scopes.impl.hasTypeOf
+import org.jetbrains.kotlin.fir.scopes.impl.typeAliasConstructorInfo
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
@@ -204,7 +206,7 @@ class FirSamResolver(
 
             valueParameters += buildValueParameter {
                 moduleData = session.moduleData
-                containingFunctionSymbol = syntheticFunctionSymbol
+                containingDeclarationSymbol = syntheticFunctionSymbol
                 origin = FirDeclarationOrigin.SamConstructor
                 returnTypeRef = buildResolvedTypeRef {
                     source = firRegularClass.source
@@ -237,16 +239,11 @@ class FirSamResolver(
         // we need to replace are owned by it, not by the class (see the substitutor in `buildSamConstructor`
         // for `FirRegularClass` above).
         val substitutor = samConstructorForClass.buildSubstitutorWithUpperBounds(session, type)
-            ?: return samConstructorForClass.symbol
-        val newReturnType = substitutor.substituteOrNull(samConstructorForClass.returnTypeRef.coneType)
         val newParameterTypes = samConstructorForClass.valueParameters.map {
-            substitutor.substituteOrNull(it.returnTypeRef.coneType)
+            substitutor.substituteOrSelf(it.returnTypeRef.coneType)
         }
-        val newContextReceiverTypes = samConstructorForClass.contextReceivers.map {
-            substitutor.substituteOrNull(it.typeRef.coneType)
-        }
-        if (newReturnType == null && newParameterTypes.all { it == null } && newContextReceiverTypes.all { it == null }) {
-            return samConstructorForClass.symbol
+        val newContextParameterTypes = samConstructorForClass.contextParameters.map {
+            substitutor.substituteOrSelf(it.returnTypeRef.coneType)
         }
 
         return FirFakeOverrideGenerator.createCopyForFirFunction(
@@ -255,11 +252,18 @@ class FirSamResolver(
             session, FirDeclarationOrigin.SamConstructor,
             newDispatchReceiverType = null,
             newReceiverType = null,
-            newContextReceiverTypes = newContextReceiverTypes,
-            newReturnType = newReturnType,
+            newContextParameterTypes = newContextParameterTypes,
+            newReturnType = type.withAbbreviation(AbbreviatedTypeAttribute(typeAliasSymbol.defaultType())),
             newParameterTypes = newParameterTypes,
             newTypeParameters = typeAliasSymbol.fir.typeParameters,
-        ).symbol
+            markAsOverride = true
+        ).also {
+            it.typeAliasConstructorInfo = TypeAliasConstructorInfo(
+                samConstructorForClass,
+                typeAliasSymbol,
+                substitutor = null,
+            )
+        }.symbol
     }
 
     private fun FirClassLikeSymbol<*>.createSyntheticConstructorSymbol() =
@@ -289,9 +293,18 @@ class FirSamResolver(
 /**
  * This function creates a substitutor for SAM class/SAM constructor based on the expected SAM type.
  * If there is a typeless projection in some argument of the expected type then the upper bound of the corresponding type parameters is used
+ *
+ * If type 'samType' contains no projection, then it's non-projection parametrization is 'samType' itself
+ * Else each projection type argument 'out/in A_i' (but star projections) is replaced with it's bound 'A_i'
+ * Star projections are treated specially:
+ * - If first upper bound of corresponding type parameter does not contain any type parameter of 'samType' class,
+ *   then use this upper bound instead of star projection
+ * - Otherwise no non-projection parametrization exists for such 'samType'
+ *
+ * See Non-wildcard parametrization in JLS 8 p.9.9 for clarification
  */
-private fun FirTypeParameterRefsOwner.buildSubstitutorWithUpperBounds(session: FirSession, type: ConeClassLikeType): ConeSubstitutor? {
-    if (typeParameters.isEmpty()) return null
+private fun FirTypeParameterRefsOwner.buildSubstitutorWithUpperBounds(session: FirSession, type: ConeClassLikeType): ConeSubstitutor {
+    if (typeParameters.isEmpty()) return ConeSubstitutor.Empty
 
     var containsNonSubstitutedArguments = false
 
@@ -513,8 +526,8 @@ private fun FirSimpleFunction.getFunctionTypeForAbstractMethod(session: FirSessi
     val parameterTypes = valueParameters.map {
         it.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: ConeErrorType(ConeIntermediateDiagnostic("No type for parameter $it"))
     }
-    val contextReceiversTypes = contextReceivers.map {
-        it.typeRef.coneTypeSafe<ConeKotlinType>() ?: ConeErrorType(ConeIntermediateDiagnostic("No type for context receiver $it"))
+    val contextParameterTypes = contextParameters.map {
+        it.returnTypeRef.coneTypeSafe<ConeKotlinType>() ?: ConeErrorType(ConeIntermediateDiagnostic("No type for context receiver $it"))
     }
     val kind = session.functionTypeService.extractSingleSpecialKindForFunction(symbol) ?: FunctionTypeKind.Function
     return createFunctionType(
@@ -522,7 +535,7 @@ private fun FirSimpleFunction.getFunctionTypeForAbstractMethod(session: FirSessi
         parameterTypes,
         receiverType = receiverParameter?.typeRef?.coneType,
         rawReturnType = returnTypeRef.coneType,
-        contextReceivers = contextReceiversTypes
+        contextParameters = contextParameterTypes
     )
 }
 

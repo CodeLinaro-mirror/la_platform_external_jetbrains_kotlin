@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.codegen.state
 
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
-import org.jetbrains.kotlin.utils.metadataVersion
+import org.jetbrains.kotlin.util.metadataVersion
 
 class JvmBackendConfig(configuration: CompilerConfiguration) {
     val languageVersionSettings: LanguageVersionSettings = configuration.languageVersionSettings
@@ -90,8 +90,6 @@ class JvmBackendConfig(configuration: CompilerConfiguration) {
 
     val noNewJavaAnnotationTargets: Boolean = configuration.getBoolean(JVMConfigurationKeys.NO_NEW_JAVA_ANNOTATION_TARGETS)
 
-    val oldInnerClassesLogic: Boolean = configuration.getBoolean(JVMConfigurationKeys.OLD_INNER_CLASSES_LOGIC)
-
     val supportMultiFieldValueClasses: Boolean = languageVersionSettings.supportsFeature(LanguageFeature.ValueClasses)
 
     val enableDebugMode: Boolean = configuration.getBoolean(JVMConfigurationKeys.ENABLE_DEBUG_MODE)
@@ -101,4 +99,9 @@ class JvmBackendConfig(configuration: CompilerConfiguration) {
     val useFir: Boolean = configuration.getBoolean(CommonConfigurationKeys.USE_FIR)
 
     val emitJvmTypeAnnotations: Boolean = configuration.getBoolean(JVMConfigurationKeys.EMIT_JVM_TYPE_ANNOTATIONS)
+
+    // Fixed coroutines debugging uses stdlib function to null out spilled locals.
+    // By default the function returns `null`, the debugger replaces it with implementation, that returns its argument.
+    // This way we avoid memory leaks in release builds and do not make coroutines undebuggable.
+    val nullOutSpilledCoroutineLocalsUsingStdlibFunction: Boolean = languageVersionSettings.apiVersion >= ApiVersion.KOTLIN_2_2
 }

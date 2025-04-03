@@ -20,18 +20,15 @@ import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticProperty
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirLazyBlock
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirBackingFieldSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.customAnnotations
 import org.jetbrains.kotlin.fir.types.forEachType
+import org.jetbrains.kotlin.fir.types.typeAnnotations
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
@@ -50,7 +47,7 @@ abstract class AbstractLazyTypeAnnotationsTest : AbstractFirLazyDeclarationResol
         val builderAfterAnnotationResolve = StringBuilder()
 
         val allKtFiles = testServices.ktTestModuleStructure.allMainKtFiles
-        resolveWithClearCaches(mainFile) { session ->
+        withResolveSession(mainFile) { session ->
             val (declaration, resolver) = findFirDeclarationToResolve(mainFile, testServices, session)
             resolver.invoke(FirResolvePhase.TYPES)
 
@@ -86,17 +83,15 @@ abstract class AbstractLazyTypeAnnotationsTest : AbstractFirLazyDeclarationResol
         )
     }
 
-    override fun configureTest(builder: TestConfigurationBuilder) {
-        super.configureTest(builder)
-        builder.useDirectives(Directives)
-    }
+    override val additionalDirectives: List<DirectivesContainer>
+        get() = super.additionalDirectives + listOf(Directives)
 
     private object Directives : SimpleDirectivesContainer() {
         val BODY_RESOLVE by directive("Resolve a declaration to body to collect types from the body as well")
     }
 }
 
-private fun ConeKotlinType.annotationContainingSymbols(): List<FirBasedSymbol<*>> = customAnnotations.mapNotNull {
+private fun ConeKotlinType.annotationContainingSymbols(): List<FirBasedSymbol<*>> = typeAnnotations.mapNotNull {
     (it as? FirAnnotationCall)?.containingDeclarationSymbol
 }
 
@@ -141,10 +136,11 @@ private fun dumpFir(
 private fun FirBasedSymbol<*>.toStringWithContext(): String {
     val base = toString()
     val parentSymbol: FirBasedSymbol<*>? = when (this) {
-        is FirValueParameterSymbol -> containingFunctionSymbol
+        is FirValueParameterSymbol -> containingDeclarationSymbol
         is FirPropertyAccessorSymbol -> propertySymbol
         is FirTypeParameterSymbol -> containingDeclarationSymbol
         is FirBackingFieldSymbol -> propertySymbol
+        is FirReceiverParameterSymbol -> containingDeclarationSymbol
         else -> null
     }
 
@@ -162,7 +158,7 @@ private fun FirElementWithResolveState.collectConeTypes(): Collection<ConeTypeWi
             contextStack.withStack(element) {
                 when (element) {
                     is FirResolvedTypeRef -> element.coneType.forEachType {
-                        if (it.customAnnotations.isNotEmpty()) {
+                        if (it.typeAnnotations.isNotEmpty()) {
                             types += ConeTypeWithContext(it, contextStack.dumpContext())
                         }
                     }

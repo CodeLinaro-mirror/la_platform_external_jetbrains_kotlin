@@ -4,6 +4,28 @@
  */
 package org.jetbrains.kotlin.name
 
+/**
+ * A *fully-qualified* name of a declaration or package. An [FqName] not only contains the declaration's or package's simple name, but also
+ * the full name of the package it's contained in.
+ *
+ * #### Example
+ *
+ * ```kotlin
+ * package foo.bar
+ *
+ * class A
+ *
+ * fun main() {}
+ * ```
+ *
+ * The declarations above have the following fully-qualified names:
+ *
+ * - `A`: `foo.bar.A`
+ * - `main`: `foo.bar.main`
+ *
+ * @see ClassId
+ * @see CallableId
+ */
 class FqName {
     private val fqName: FqNameUnsafe
 
@@ -75,11 +97,11 @@ class FqName {
         return fqName.toString()
     }
 
-    override fun equals(o: Any?): Boolean {
-        if (this === o) return true
-        if (o !is FqName) return false
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is FqName) return false
 
-        if (fqName != o.fqName) return false
+        if (fqName != other.fqName) return false
 
         return true
     }

@@ -444,6 +444,18 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
+    @TestMetadata("functionWithNestedJavaClass.kt")
+    public void testFunctionWithNestedJavaClass() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/functionWithNestedJavaClass.kt");
+    }
+
+    @Test
+    @TestMetadata("functionWithNestedJavaClass2.kt")
+    public void testFunctionWithNestedJavaClass2() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/functionWithNestedJavaClass2.kt");
+    }
+
+    @Test
     @TestMetadata("incWithArrayAccessConvention.kt")
     public void testIncWithArrayAccessConvention() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/incWithArrayAccessConvention.kt");
@@ -465,6 +477,12 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     @TestMetadata("invokeCallArgumentList.kt")
     public void testInvokeCallArgumentList() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/invokeCallArgumentList.kt");
+    }
+
+    @Test
+    @TestMetadata("isInitializedCommonModule.kt")
+    public void testIsInitializedCommonModule() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/isInitializedCommonModule.kt");
     }
 
     @Test
@@ -516,9 +534,45 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
+    @TestMetadata("qualifiedReferenceSelector.kt")
+    public void testQualifiedReferenceSelector() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/qualifiedReferenceSelector.kt");
+    }
+
+    @Test
     @TestMetadata("qualifiedWholeCall.kt")
     public void testQualifiedWholeCall() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/qualifiedWholeCall.kt");
+    }
+
+    @Test
+    @TestMetadata("qualifiedWholeReferenceSelector.kt")
+    public void testQualifiedWholeReferenceSelector() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/qualifiedWholeReferenceSelector.kt");
+    }
+
+    @Test
+    @TestMetadata("safeQualifiedCallSelector.kt")
+    public void testSafeQualifiedCallSelector() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/safeQualifiedCallSelector.kt");
+    }
+
+    @Test
+    @TestMetadata("safeQualifiedReferenceSelector.kt")
+    public void testSafeQualifiedReferenceSelector() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/safeQualifiedReferenceSelector.kt");
+    }
+
+    @Test
+    @TestMetadata("safeQualifiedWholeCall.kt")
+    public void testSafeQualifiedWholeCall() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/safeQualifiedWholeCall.kt");
+    }
+
+    @Test
+    @TestMetadata("safeQualifiedWholeReferenceSelector.kt")
+    public void testSafeQualifiedWholeReferenceSelector() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/safeQualifiedWholeReferenceSelector.kt");
     }
 
     @Test
@@ -910,6 +964,48 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
+    @TestMetadata("stringConcatenation.kt")
+    public void testStringConcatenation() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation.kt");
+    }
+
+    @Test
+    @TestMetadata("stringConcatenation_lhs1.kt")
+    public void testStringConcatenation_lhs1() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation_lhs1.kt");
+    }
+
+    @Test
+    @TestMetadata("stringConcatenation_lhs2.kt")
+    public void testStringConcatenation_lhs2() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation_lhs2.kt");
+    }
+
+    @Test
+    @TestMetadata("stringConcatenation_op1.kt")
+    public void testStringConcatenation_op1() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation_op1.kt");
+    }
+
+    @Test
+    @TestMetadata("stringConcatenation_op2.kt")
+    public void testStringConcatenation_op2() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation_op2.kt");
+    }
+
+    @Test
+    @TestMetadata("stringConcatenation_rhs1.kt")
+    public void testStringConcatenation_rhs1() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation_rhs1.kt");
+    }
+
+    @Test
+    @TestMetadata("stringConcatenation_rhs2.kt")
+    public void testStringConcatenation_rhs2() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringConcatenation_rhs2.kt");
+    }
+
+    @Test
     @TestMetadata("stringLiteral.kt")
     public void testStringLiteral() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringLiteral.kt");
@@ -919,6 +1015,66 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     @TestMetadata("stringTemplateExpressionEntry.kt")
     public void testStringTemplateExpressionEntry() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/stringTemplateExpressionEntry.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_anonymous_reference.kt")
+    public void testThisExpression_anonymous_reference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_anonymous_reference.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_anonymous_this.kt")
+    public void testThisExpression_anonymous_this() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_anonymous_this.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_arrayAccessConvention_reference.kt")
+    public void testThisExpression_arrayAccessConvention_reference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_arrayAccessConvention_reference.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_arrayAccessConvention_this.kt")
+    public void testThisExpression_arrayAccessConvention_this() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_arrayAccessConvention_this.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_plusAssignWithArrayGetConvention_reference.kt")
+    public void testThisExpression_plusAssignWithArrayGetConvention_reference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_plusAssignWithArrayGetConvention_reference.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_plusAssignWithArrayGetConvention_this.kt")
+    public void testThisExpression_plusAssignWithArrayGetConvention_this() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_plusAssignWithArrayGetConvention_this.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_plusAssign_reference.kt")
+    public void testThisExpression_plusAssign_reference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_plusAssign_reference.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_plusAssign_this.kt")
+    public void testThisExpression_plusAssign_this() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_plusAssign_this.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_regular_reference.kt")
+    public void testThisExpression_regular_reference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_regular_reference.kt");
+    }
+
+    @Test
+    @TestMetadata("thisExpression_regular_this.kt")
+    public void testThisExpression_regular_this() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/expressions/thisExpression_regular_this.kt");
     }
 
     @Test
@@ -1066,6 +1222,30 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
+    @TestMetadata("destructuringNonLocal2.kt")
+    public void testDestructuringNonLocal2() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/destructuringNonLocal2.kt");
+    }
+
+    @Test
+    @TestMetadata("destructuringNonLocalBeforeInitBlock.kt")
+    public void testDestructuringNonLocalBeforeInitBlock() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/destructuringNonLocalBeforeInitBlock.kt");
+    }
+
+    @Test
+    @TestMetadata("destructuringTopLevel.kt")
+    public void testDestructuringTopLevel() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/destructuringTopLevel.kt");
+    }
+
+    @Test
+    @TestMetadata("destructuringTopLevel2.kt")
+    public void testDestructuringTopLevel2() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/destructuringTopLevel2.kt");
+    }
+
+    @Test
     @TestMetadata("duplicatedClasses.kt")
     public void testDuplicatedClasses() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/duplicatedClasses.kt");
@@ -1096,6 +1276,18 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
+    @TestMetadata("labelMultiple.kt")
+    public void testLabelMultiple() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/labelMultiple.kt");
+    }
+
+    @Test
+    @TestMetadata("labelUnderscore.kt")
+    public void testLabelUnderscore() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/labelUnderscore.kt");
+    }
+
+    @Test
     @TestMetadata("longStringTemplateEntryWithTwoExpressions.kt")
     public void testLongStringTemplateEntryWithTwoExpressions() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/longStringTemplateEntryWithTwoExpressions.kt");
@@ -1117,6 +1309,12 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     @TestMetadata("setterWithoutBodyValueParameterType.kt")
     public void testSetterWithoutBodyValueParameterType() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/setterWithoutBodyValueParameterType.kt");
+    }
+
+    @Test
+    @TestMetadata("typeParameterOnAnonymousFunction.kt")
+    public void testTypeParameterOnAnonymousFunction() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/invalidCode/typeParameterOnAnonymousFunction.kt");
     }
   }
 
@@ -1179,6 +1377,18 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     @Test
     public void testAllFilesPresentInTypes() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/getOrBuildFir/types"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("definitelyNotNullType.kt")
+    public void testDefinitelyNotNullType() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/definitelyNotNullType.kt");
+    }
+
+    @Test
+    @TestMetadata("functionWithDeprecatedJavaClass.kt")
+    public void testFunctionWithDeprecatedJavaClass() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/functionWithDeprecatedJavaClass.kt");
     }
 
     @Test

@@ -35,6 +35,8 @@ class SimpleTestClassModel(
     private val additionalMethods: Collection<MethodModel>,
     val skipSpecificFile: (File) -> Boolean,
     val skipTestAllFilesCheck: Boolean,
+    val generateEmptyTestClasses: Boolean,
+    val nativeTestInNonNativeTestInfra: Boolean,
 ) : TestClassModel() {
     override val name: String
         get() = testClassName
@@ -72,7 +74,9 @@ class SimpleTestClassModel(
                         extractTagsFromDirectory(file),
                         additionalMethods.filter { it.shouldBeGeneratedForInnerTestClass() },
                         skipSpecificFile,
-                        skipTestAllFilesCheck
+                        skipTestAllFilesCheck,
+                        generateEmptyTestClasses,
+                        nativeTestInNonNativeTestInfra
                     )
                 )
             }
@@ -103,7 +107,8 @@ class SimpleTestClassModel(
                 checkFilenameStartsLowerCase,
                 targetBackend,
                 skipIgnored,
-                extractTagsFromTestFile(rootFile)
+                extractTagsFromTestFile(rootFile),
+                nativeTestInNonNativeTestInfra
             )
         }
         val result = mutableListOf<MethodModel>()
@@ -136,7 +141,8 @@ class SimpleTestClassModel(
                         result.addAll(
                             methodModelLocator(
                                 rootFile, file, filenamePattern,
-                                checkFilenameStartsLowerCase, targetBackend, skipIgnored, extractTagsFromTestFile(file)
+                                checkFilenameStartsLowerCase, targetBackend, skipIgnored, extractTagsFromTestFile(file),
+                                nativeTestInNonNativeTestInfra
                             )
                         )
                     }

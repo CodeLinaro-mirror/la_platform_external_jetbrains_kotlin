@@ -9,9 +9,9 @@ import kotlin.metadata.KmClass
 import kotlin.metadata.jvm.JvmMetadataVersion
 import kotlin.metadata.jvm.KotlinClassMetadata
 import kotlin.metadata.jvm.Metadata
-import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion as CompilerMetadataVersion
+import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion as CompilerMetadataVersion
 import org.jetbrains.kotlin.protobuf.InvalidProtocolBufferException
-import org.junit.Test
+import org.junit.jupiter.api.Test
 import kotlin.test.*
 
 class MetadataExceptionsTest {

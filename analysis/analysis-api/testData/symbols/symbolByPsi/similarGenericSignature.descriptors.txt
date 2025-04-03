@@ -55,6 +55,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -79,7 +80,27 @@ KaNamedFunctionSymbol:
     annotations: []
     type: J
   typeParameters: [
-    KaTypeParameterSymbol(J)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: J
+      origin: SOURCE
+      upperBounds: [
+        KaUsualClassType:
+          annotations: []
+          typeArguments: []
+          type: A
+      ]
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(similarGenericSignature.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: [
     KaValueParameterSymbol:
@@ -114,6 +135,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(similarGenericSignature.kt)
   getContainingJvmClassName: SimilarGenericSignatureKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -138,6 +160,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -162,7 +185,22 @@ KaNamedFunctionSymbol:
     annotations: []
     type: T
   typeParameters: [
-    KaTypeParameterSymbol(T)
+    KaTypeParameterSymbol:
+      annotations: []
+      compilerVisibility: Local
+      isActual: false
+      isExpect: false
+      isReified: false
+      location: LOCAL
+      modality: FINAL
+      name: T
+      origin: SOURCE
+      upperBounds: []
+      variance: INVARIANT
+      visibility: LOCAL
+      getContainingFileSymbol: KaFileSymbol(similarGenericSignature.kt)
+      getContainingModule: KaSourceModule "Sources of main"
+      deprecationStatus: null
   ]
   valueParameters: [
     KaValueParameterSymbol:
@@ -197,5 +235,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(similarGenericSignature.kt)
   getContainingJvmClassName: SimilarGenericSignatureKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

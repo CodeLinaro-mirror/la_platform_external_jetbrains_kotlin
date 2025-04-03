@@ -111,6 +111,8 @@ internal val FirBasedSymbol<*>.isLocalMember: Boolean
         is FirPropertySymbol -> this.isLocal
         is FirRegularClassSymbol -> this.isLocal
         is FirNamedFunctionSymbol -> this.isLocal
+        // Anonymous functions and lambdas use DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS which has visibility public.
+        is FirAnonymousFunctionSymbol -> true
         else -> false
     }
 
@@ -133,3 +135,16 @@ val FirCallableSymbol<*>.hasExplicitReturnType: Boolean
         val returnTypeRef = resolvedReturnTypeRef
         return returnTypeRef.delegatedTypeRef != null || returnTypeRef is FirImplicitUnitTypeRef
     }
+
+fun FirNamedFunctionSymbol.checkValueParameterNamesWith(
+    otherFunctionSymbol: FirNamedFunctionSymbol,
+    reportAction: (currentParameter: FirValueParameterSymbol, conflictingParameter: FirValueParameterSymbol, parameterIndex: Int) -> Unit
+) {
+    val valueParameterPairs = valueParameterSymbols.zip(otherFunctionSymbol.valueParameterSymbols)
+    for ((index, valueParameterPair) in valueParameterPairs.withIndex()) {
+        val (currentValueParameter, otherValueParameter) = valueParameterPair
+        if (currentValueParameter.name != otherValueParameter.name) {
+            reportAction(currentValueParameter, otherValueParameter, index)
+        }
+    }
+}

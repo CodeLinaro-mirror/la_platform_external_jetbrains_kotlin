@@ -11,15 +11,19 @@ import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleVersionIdentifier
 import org.gradle.api.artifacts.dsl.DependencyHandler
 import org.gradle.api.model.ObjectFactory
-import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
-import org.gradle.api.provider.ProviderFactory
+import org.gradle.api.provider.*
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.Optional
-import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractNativeLibrary
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.exportedSwiftExportApiConfigurationName
+import org.jetbrains.kotlin.gradle.plugin.mpp.getCoordinatesFromGroupNameAndVersion
+import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl
+import org.jetbrains.kotlin.gradle.tasks.KotlinNativeLink
+import org.jetbrains.kotlin.gradle.utils.domainObjectSet
+import org.jetbrains.kotlin.gradle.utils.getValue
+import org.jetbrains.kotlin.gradle.utils.namedDomainObjectSet
 import javax.inject.Inject
 
 interface SwiftExportedModuleMetadata {
@@ -36,6 +40,22 @@ interface SwiftExportedModuleMetadata {
     @get:Input
     @get:Optional
     val flattenPackage: Property<String>
+}
+
+interface SwiftExportAdvancedConfiguration {
+    /**
+     * Configure SwiftExportConfig.settings parameters
+     */
+    @get:Input
+    @get:Optional
+    val settings: MapProperty<String, String>
+
+    /**
+     * Specifies additional compiler arguments to be passed to the compiler.
+     */
+    @get:Input
+    @get:Optional
+    val freeCompilerArgs: ListProperty<String>
 }
 
 interface SwiftExportedModuleVersionMetadata : SwiftExportedModuleMetadata {
@@ -58,16 +78,34 @@ abstract class SwiftExportExtension @Inject constructor(
 ) : SwiftExportedModuleMetadata {
 
     /**
-     * Configure binaries of the Swift Export built from this project.
+     * Configure Link task.
      */
-    fun binaries(configure: AbstractNativeLibrary.() -> Unit) {
-        forAllSwiftExportBinaries(configure)
+    fun linkTask(configure: KotlinNativeLink.() -> Unit = {}) {
+        forAllSwiftExportBinaries {
+            linkTaskProvider.configure { linkTask ->
+                configure(linkTask)
+            }
+        }
     }
 
     /**
-     * Configure binaries of the Swift Export built from this project.
+     * Configure Link task.
      */
-    fun binaries(configure: Action<AbstractNativeLibrary>) = binaries {
+    fun linkTask(configure: Action<KotlinNativeLink>) = linkTask {
+        configure.execute(this)
+    }
+
+    /**
+     * Configure Swift Export Advanced parameters.
+     */
+    fun configure(configure: SwiftExportAdvancedConfiguration.() -> Unit = {}) {
+        advancedConfiguration.configure()
+    }
+
+    /**
+     * Configure Swift Export Advanced parameters.
+     */
+    fun configure(configure: Action<SwiftExportAdvancedConfiguration>) = configure {
         configure.execute(this)
     }
 
@@ -86,15 +124,17 @@ abstract class SwiftExportExtension @Inject constructor(
         }
 
         forAllSwiftExportBinaries {
-            val compileDependencyConfiguration = compilation.internal.configurations.compileDependencyConfiguration
+            val swiftExportCompilation = target.compilations.getByName(SwiftExportConstants.SWIFT_EXPORT_COMPILATION)
+            val compileDependencyConfiguration = swiftExportCompilation.internal.configurations.compileDependencyConfiguration
+            val exportedSwiftExportApiConfigurationName = target.exportedSwiftExportApiConfigurationName(buildType)
 
-            dependencyHandler.addProvider(exportConfigurationName, dependencyProvider)
+            dependencyHandler.addProvider(exportedSwiftExportApiConfigurationName, dependencyProvider)
             dependencyHandler.addProvider(
                 compileDependencyConfiguration.name,
                 dependencyProvider
             )
 
-            project.configurations.getByName(exportConfigurationName).shouldResolveConsistentlyWith(
+            project.configurations.getByName(exportedSwiftExportApiConfigurationName).shouldResolveConsistentlyWith(
                 compileDependencyConfiguration
             )
         }
@@ -125,6 +165,11 @@ abstract class SwiftExportExtension @Inject constructor(
     internal val exportedModules: Provider<Set<SwiftExportedModuleVersionMetadata>> = providerFactory.provider {
         _exportedModules
     }
+
+    /**
+     * Advanced configuration settings.
+     */
+    internal val advancedConfiguration = objectFactory.newInstance(SwiftExportAdvancedConfiguration::class.java)
 
     private val _swiftExportBinaries = objectFactory.domainObjectSet<AbstractNativeLibrary>()
 

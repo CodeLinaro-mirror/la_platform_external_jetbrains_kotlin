@@ -6,12 +6,16 @@
 package org.jetbrains.kotlin.analysis.api.fir
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.parentOfType
-import org.jetbrains.kotlin.KtFakeSourceElement
+import org.jetbrains.kotlin.KtFakePsiSourceElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtRealPsiSourceElement
+import org.jetbrains.kotlin.SuspiciousFakeSourceCheck
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPropertySetterSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSymbol
+import org.jetbrains.kotlin.analysis.api.fir.symbols.isTypeAliasedConstructor
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolLocation
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -44,10 +48,11 @@ private val allowedFakeElementKinds = setOf(
     KtFakeSourceElementKind.ImplicitJavaAnnotationConstructor,
 )
 
+@OptIn(SuspiciousFakeSourceCheck::class)
 internal fun FirElement.getAllowedPsi() = when (val source = source) {
     null -> null
     is KtRealPsiSourceElement -> source.psi
-    is KtFakeSourceElement -> if (source.kind in allowedFakeElementKinds) psi else null
+    is KtFakePsiSourceElement -> if (source.kind in allowedFakeElementKinds) psi else null
     else -> null
 }
 
@@ -55,12 +60,20 @@ internal fun FirElement.findPsi(): PsiElement? =
     getAllowedPsi()
 
 @KaImplementationDetail
-fun FirBasedSymbol<*>.findPsi(): PsiElement? {
-    return if (this is FirCallableSymbol<*>) {
+internal fun KaFirSymbol<*>.findPsi(): PsiElement? {
+    return firSymbol.findPsi(analysisSession.analysisScope)
+}
+
+@KaImplementationDetail
+fun FirBasedSymbol<*>.findPsi(scope: GlobalSearchScope): PsiElement? {
+    return if (
+        this is FirCallableSymbol<*> &&
+        !this.isTypeAliasedConstructor // typealiased constructors should not be unwrapped
+    ) {
         fir.unwrapFakeOverridesOrDelegated().findPsi()
     } else {
         fir.findPsi()
-    } ?: FirSyntheticFunctionInterfaceSourceProvider.findPsi(fir)
+    } ?: FirSyntheticFunctionInterfaceSourceProvider.findPsi(fir, scope)
 }
 
 /**
@@ -68,12 +81,15 @@ fun FirBasedSymbol<*>.findPsi(): PsiElement? {
  * For data classes & enums generated members like `copy` `componentN`, `values` it will return corresponding enum/data class
  * Otherwise, behaves the same way as [findPsi] returns exact PSI declaration corresponding to passed [FirDeclaration]
  */
-internal fun FirDeclaration.findReferencePsi(): PsiElement? {
-    return if (this is FirCallableDeclaration) {
+internal fun FirDeclaration.findReferencePsi(scope: GlobalSearchScope): PsiElement? {
+    return if (
+        this is FirCallableDeclaration &&
+        !this.symbol.isTypeAliasedConstructor // typealiased constructors should not be unwrapped 
+    ) {
         unwrapFakeOverridesOrDelegated().psi
     } else {
         psi
-    } ?: FirSyntheticFunctionInterfaceSourceProvider.findPsi(this)
+    } ?: FirSyntheticFunctionInterfaceSourceProvider.findPsi(this, scope)
 }
 
 /**

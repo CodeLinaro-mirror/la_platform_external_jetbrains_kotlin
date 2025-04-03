@@ -9,11 +9,11 @@ import org.jetbrains.kotlin.backend.common.copy
 import org.jetbrains.kotlin.backend.common.ir.isUnconditional
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irBlock
+import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.DirectedGraphCondensationBuilder
 import org.jetbrains.kotlin.backend.konan.DirectedGraphMultiNode
 import org.jetbrains.kotlin.backend.konan.ir.actualCallee
-import org.jetbrains.kotlin.backend.konan.ir.isVirtualCall
 import org.jetbrains.kotlin.backend.konan.logMultiple
 import org.jetbrains.kotlin.backend.konan.lower.*
 import org.jetbrains.kotlin.ir.IrElement
@@ -25,8 +25,8 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
 import org.jetbrains.kotlin.ir.visitors.IrTransformer
+import org.jetbrains.kotlin.ir.visitors.IrVisitor
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import java.util.*
 
@@ -287,7 +287,7 @@ internal object StaticInitializersOptimization {
             val initializedFilesAtLoopsContinues = mutableMapOf<IrLoop, BitSet>()
             // Each visitXXX function gets as [data] parameter the set of initialized files before evaluating
             // current element and returns the set of initialized files after evaluating this element.
-            val callerResult = body.accept(object : IrElementVisitor<BitSet, BitSet> {
+            val callerResult = body.accept(object : IrVisitor<BitSet, BitSet>() {
                 private fun intersectInitializedFiles(previous: BitSet?, current: BitSet) =
                         previous?.copy()?.also { it.and(current) } ?: current
 
@@ -318,7 +318,7 @@ internal object StaticInitializersOptimization {
                 override fun visitSetField(expression: IrSetField, data: BitSet) =
                         expression.value.accept(this, expression.receiver?.accept(this, data) ?: data)
 
-                override fun visitFunctionReference(expression: IrFunctionReference, data: BitSet) = data
+                override fun visitRawFunctionReference(expression: IrRawFunctionReference, data: BitSet) = data
                 override fun visitVararg(expression: IrVararg, data: BitSet) = data
 
                 override fun visitConstantValue(expression: IrConstantValue, data: BitSet) = data
@@ -511,7 +511,14 @@ internal object StaticInitializersOptimization {
         }
     }
 
-    fun removeRedundantCalls(context: Context, irModule: IrModuleFragment, callGraph: CallGraph, rootSet: Set<IrSimpleFunction>) {
+    fun removeRedundantCalls(
+            generationState: NativeGenerationState,
+            irModule: IrModuleFragment,
+            moduleDFG: ModuleDFG,
+            callGraph: CallGraph,
+            rootSet: Set<IrSimpleFunction>
+    ) {
+        val context = generationState.context
         val analysisResult = InterproceduralAnalysis(context, callGraph, rootSet).analyze()
 
         var numberOfFunctionsWithGlobalInitializerCall = 0
@@ -523,9 +530,15 @@ internal object StaticInitializersOptimization {
         var numberOfCallSitesWithExtractedGlobalInitializerCall = 0
         var numberOfCallSitesWithExtractedThreadLocalInitializerCall = 0
 
+        val changedDeclarations = mutableSetOf<IrDeclaration>()
         irModule.transformChildren(object : IrTransformer<IrBuilderWithScope?>() {
             override fun visitDeclaration(declaration: IrDeclarationBase, data: IrBuilderWithScope?): IrStatement {
-                return super.visitDeclaration(declaration, context.createIrBuilder(declaration.symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET))
+                return super.visitDeclaration(declaration,
+                        if (declaration is IrVariable) // It doesn't make sense to create a new builder for just a variable.
+                            data ?: error("A standalone variable: ${declaration.render()}")
+                        else
+                            context.createIrBuilder(declaration.symbol, SYNTHETIC_OFFSET, SYNTHETIC_OFFSET)
+                )
             }
 
             override fun visitCall(expression: IrCall, data: IrBuilderWithScope?): IrExpression {
@@ -558,7 +571,8 @@ internal object StaticInitializersOptimization {
                         }
                 if (initializerCalls.isEmpty()) return expression
 
-                return data!!.irBlock(expression) {
+                changedDeclarations.add(data!!.scope.scopeOwnerSymbol.owner as IrDeclaration)
+                return data.irBlock(expression) {
                     initializerCalls.forEach { +irCallFileInitializer((it as IrCall).symbol) }
                     +expression
                 }
@@ -580,6 +594,7 @@ internal object StaticInitializersOptimization {
                     if (declaration !in analysisResult.functionsRequiringGlobalInitializerCall) {
                         ++numberOfRemovedGlobalInitializerCalls
                         statements.removeAt(globalInitializerCallIndex)
+                        changedDeclarations.add(declaration)
                     }
                 }
                 val threadLocalInitializerCallIndex = statements
@@ -594,11 +609,19 @@ internal object StaticInitializersOptimization {
                     if (declaration !in analysisResult.functionsRequiringThreadLocalInitializerCall) {
                         ++numberOfRemovedThreadLocalInitializerCalls
                         statements.removeAt(threadLocalInitializerCallIndex)
+                        changedDeclarations.add(declaration)
                     }
                 }
                 return declaration
             }
         })
+
+
+        for (declaration in changedDeclarations) {
+            val rebuiltFunction = FunctionDFGBuilder(generationState, moduleDFG.symbolTable).build(declaration)
+            val functionSymbol = moduleDFG.symbolTable.mapFunction(declaration)
+            moduleDFG.functions[functionSymbol] = rebuiltFunction
+        }
 
         context.log { "Removed ${numberOfRemovedGlobalInitializerCalls * 100.0 / numberOfFunctionsWithGlobalInitializerCall}% global initializers" }
         context.log { "Removed ${numberOfRemovedThreadLocalInitializerCalls * 100.0 / numberOfFunctionsWithThreadLocalInitializerCall}% thread local initializers" }

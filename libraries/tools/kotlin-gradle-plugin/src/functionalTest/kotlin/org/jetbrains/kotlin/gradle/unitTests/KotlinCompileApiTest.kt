@@ -22,6 +22,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 
 class KotlinCompileApiTest {
 
@@ -199,6 +200,9 @@ class KotlinCompileApiTest {
         jvmExtension.compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
         jvmExtension.compilerOptions.javaParameters.set(true)
         jvmExtension.explicitApi = ExplicitApiMode.Strict
+        jvmExtension.sourceSets.register("main")
+        jvmExtension.target.withSourcesJar(false)
+        jvmExtension.target.compilations.register("main")
 
         project.evaluate()
 
@@ -208,6 +212,7 @@ class KotlinCompileApiTest {
             ExplicitApiMode.Strict,
             (jvmTask.get() as KotlinCompile).explicitApiMode.get()
         )
+        assertNotNull(jvmExtension.sourceSets.findByName("main"))
     }
 
     @Test
@@ -231,6 +236,9 @@ class KotlinCompileApiTest {
         androidExtension.compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
         androidExtension.compilerOptions.javaParameters.set(true)
         androidExtension.explicitApi = ExplicitApiMode.Strict
+        androidExtension.sourceSets.register("main")
+        androidExtension.target.withSourcesJar(false)
+        androidExtension.target.compilations.register("main")
 
         project.evaluate()
 
@@ -240,6 +248,7 @@ class KotlinCompileApiTest {
             ExplicitApiMode.Strict,
             (androidTask.get() as KotlinCompile).explicitApiMode.get()
         )
+        assertNotNull(androidExtension.sourceSets.findByName("main"))
     }
 
     @Test

@@ -3,21 +3,14 @@ package org.jetbrains.kotlin.objcexport.mangling
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportStub
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCMethod
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCProperty
+import org.jetbrains.kotlin.objcexport.ObjCExportContext
 
-internal fun List<ObjCExportStub>.mangleObjCProperties(): List<ObjCExportStub> {
-    if (!hasPropertiesConflicts()) return this
-    val swiftNameAttributes = hashSetOf<String>()
-    return map { member ->
-        if (member is ObjCProperty) {
-            val attr = getSwiftNameAttribute(member)
-            if (swiftNameAttributes.contains(attr)) {
-                member.copy("getter=${member.name}_")
-            } else member
-        } else if (member is ObjCMethod && member.isSwiftNameMethod()) {
-            swiftNameAttributes.add(getSwiftNameAttribute(member).replace("()", ""))
-            member
-        } else member
-    }
+internal fun ObjCExportContext.mangleObjCProperties(stubs: List<ObjCExportStub>): List<ObjCExportStub> {
+    if (!stubs.hasPropertiesConflicts()) return stubs
+    val mangler = ObjCPropertyMangler()
+    return stubs.map { member ->
+        mangler.mangle(member, containingStub = member)
+    }.map { stub -> mangleObjCMemberGenerics(stub) }
 }
 
 internal fun getSwiftNameAttribute(property: ObjCProperty) =
@@ -39,6 +32,10 @@ internal fun List<ObjCExportStub>.hasPropertiesConflicts(): Boolean {
         }
     }
     return false
+}
+
+internal fun ObjCExportStub.isSwiftNameProperty(): Boolean {
+    return (this as? ObjCProperty)?.isSwiftNameProperty() ?: false
 }
 
 internal fun ObjCProperty.isSwiftNameProperty(): Boolean {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.light.classes.symbol.codeReferences.SymbolLightPsiJa
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightField
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightFieldForEnumEntry
 import org.jetbrains.kotlin.light.classes.symbol.isOriginEquivalentTo
+import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightConstructor.Companion.createConstructors
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.InitializedModifiersBox
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.SymbolLightClassModifierList
 import org.jetbrains.kotlin.load.java.structure.LightClassOriginKind
@@ -81,7 +82,6 @@ internal class SymbolLightClassForEnumEntry(
                 this@SymbolLightClassForEnumEntry,
                 allowErrorTypes = true,
                 KaTypeMappingMode.SUPER_TYPE,
-                forceValueClassResolution = false,
                 allowNonJvmPlatforms = true,
             ) as? PsiClassType
         } ?: return@lazyPub null
@@ -115,13 +115,14 @@ internal class SymbolLightClassForEnumEntry(
             // Then, add instance fields: properties from parameters, and then member properties
             enumEntrySymbol.enumEntryInitializer?.let { initializer ->
                 addPropertyBackingFields(
+                    this@SymbolLightClassForEnumEntry,
                     result,
                     initializer,
-                    SymbolLightField.FieldNameGenerator(),
 
                     // `addPropertyBackingFields` detects that property fields should be static when the given symbol with members is an
                     // object. Unfortunately, the enum entry's initializer is an anonymous object, yet we want the enum entry's light class
                     // to have non-static properties.
+                    SymbolLightField.FieldNameGenerator(),
                     forceIsStaticTo = false,
                 )
             }
@@ -138,8 +139,8 @@ internal class SymbolLightClassForEnumEntry(
                 val declaredMemberScope = initializer.declaredMemberScope
                 val visibleDeclarations = declaredMemberScope.callables
 
-                createMethods(visibleDeclarations, result)
-                createConstructors(declaredMemberScope.constructors, result)
+                createMethods(this@SymbolLightClassForEnumEntry, visibleDeclarations, result)
+                createConstructors(this@SymbolLightClassForEnumEntry, declaredMemberScope.constructors, result)
             }
 
             result

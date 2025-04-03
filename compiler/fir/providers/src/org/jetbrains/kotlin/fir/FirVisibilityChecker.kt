@@ -47,6 +47,14 @@ abstract class FirModuleVisibilityChecker : FirSessionComponent {
     }
 }
 
+/**
+ * Extension to support cases where private declarations are visible despite the different module.
+ */
+abstract class FirPrivateVisibleFromDifferentModuleExtension : FirSessionComponent {
+    abstract fun canSeePrivateDeclarationsOfModule(otherModuleData: FirModuleData): Boolean
+    abstract fun canSeePrivateTopLevelDeclarationsFromFile(useSiteFile: FirFile, targetFile: FirFile): Boolean
+}
+
 abstract class FirVisibilityChecker : FirSessionComponent {
     @NoMutableState
     object Default : FirVisibilityChecker() {
@@ -201,7 +209,6 @@ abstract class FirVisibilityChecker : FirSessionComponent {
         supertypeSupplier: SupertypeSupplier
     ): Boolean {
         val symbol = declaration.symbol
-        val provider = session.firProvider
 
         return when (declaration.visibility) {
             Visibilities.Internal -> {
@@ -209,11 +216,11 @@ abstract class FirVisibilityChecker : FirSessionComponent {
             }
             Visibilities.Private, Visibilities.PrivateToThis -> {
                 val ownerLookupTag = symbol.getOwnerLookupTag()
-                if (declaration.moduleData == session.moduleData) {
+                if (canSeePrivateDeclarationsOfModule(session, declaration.moduleData)) {
                     when {
                         ownerLookupTag == null -> {
                             // Top-level: visible in file
-                            provider.getContainingFile(symbol) == useSiteFile
+                            canSeePrivateTopLevelDeclarationFromFile(session, useSiteFile, symbol)
                         }
                         else -> {
                             // Member: visible inside parent class, including all its member classes
@@ -411,7 +418,7 @@ abstract class FirVisibilityChecker : FirSessionComponent {
 
     private fun FirExpression?.ownerIfCompanion(session: FirSession): ConeClassLikeLookupTag? =
         // TODO: what if there is an intersection type from smartcast?
-        (this?.resolvedType as? ConeClassLikeType)?.lookupTag?.ownerIfCompanion(session)
+        (this?.resolvedType?.lowerBoundIfFlexible() as? ConeClassLikeType)?.lookupTag?.ownerIfCompanion(session)
 
     // monitorEnter/monitorExit are the only functions which are accessed "illegally" (see kotlin/util/Synchronized.kt).
     // Since they are intrinsified in the codegen, FIR should treat it as visible.
@@ -468,9 +475,29 @@ abstract class FirVisibilityChecker : FirSessionComponent {
 
         return false
     }
+
+    private fun canSeePrivateDeclarationsOfModule(session: FirSession, otherModuleData: FirModuleData): Boolean {
+        return session.moduleData == otherModuleData ||
+                session.privateVisibleFromDifferentModulesExtension?.canSeePrivateDeclarationsOfModule(otherModuleData) == true
+    }
+
+    private fun canSeePrivateTopLevelDeclarationFromFile(
+        session: FirSession,
+        useSiteFile: FirFile,
+        declarationSymbol: FirBasedSymbol<*>,
+    ): Boolean {
+        val declarationContainingFile = declarationSymbol.moduleData.session.firProvider.getContainingFile(declarationSymbol)
+            ?: return false
+        return useSiteFile == declarationContainingFile ||
+                session.privateVisibleFromDifferentModulesExtension?.canSeePrivateTopLevelDeclarationsFromFile(
+                    useSiteFile,
+                    declarationContainingFile
+                ) == true
+    }
 }
 
 val FirSession.moduleVisibilityChecker: FirModuleVisibilityChecker? by FirSession.nullableSessionComponentAccessor()
+private val FirSession.privateVisibleFromDifferentModulesExtension: FirPrivateVisibleFromDifferentModuleExtension? by FirSession.nullableSessionComponentAccessor()
 val FirSession.visibilityChecker: FirVisibilityChecker by FirSession.sessionComponentAccessor()
 
 fun FirBasedSymbol<*>.getOwnerLookupTag(): ConeClassLikeLookupTag? {

@@ -11,6 +11,7 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.file.ArchiveOperations
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileSystemOperations
 import org.gradle.api.logging.Logger
 import org.gradle.api.provider.Property
@@ -18,6 +19,8 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
 import org.gradle.api.tasks.Internal
+import org.jetbrains.kotlin.commonizer.CommonizerTarget
+import org.jetbrains.kotlin.commonizer.konanTargets
 import org.jetbrains.kotlin.gradle.internal.ClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
@@ -28,9 +31,11 @@ import org.jetbrains.kotlin.gradle.targets.native.KonanPropertiesBuildService
 import org.jetbrains.kotlin.gradle.targets.native.internal.NativeDistributionCommonizerLock
 import org.jetbrains.kotlin.gradle.targets.native.internal.NativeDistributionTypeProvider
 import org.jetbrains.kotlin.gradle.targets.native.internal.PlatformLibrariesGenerator
+import org.jetbrains.kotlin.gradle.targets.native.internal.getNativeDistributionDependencies
 import org.jetbrains.kotlin.gradle.tasks.withType
 import org.jetbrains.kotlin.gradle.utils.SingleActionPerProject
 import org.jetbrains.kotlin.gradle.utils.property
+import org.jetbrains.kotlin.konan.file.unzipTo
 import org.jetbrains.kotlin.konan.properties.KonanPropertiesLoader
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.KonanTarget
@@ -97,6 +102,19 @@ internal abstract class KotlinNativeBundleBuildService : BuildService<KotlinNati
                     }
                 }
             }
+        }
+
+        internal fun getNativeDistributionDependencies(
+            project: Project,
+            commonizerTarget: CommonizerTarget,
+            kotlinNativeBundleBuildService: Provider<KotlinNativeBundleBuildService>,
+        ): FileCollection {
+            val kotlinNativeProvider =
+                KotlinNativeFromToolchainProvider(project, commonizerTarget.konanTargets, kotlinNativeBundleBuildService)
+            return project.getNativeDistributionDependencies(
+                kotlinNativeProvider.konanDistributionProvider,
+                commonizerTarget
+            )
         }
     }
 
@@ -249,7 +267,7 @@ internal abstract class KotlinNativeBundleBuildService : BuildService<KotlinNati
 
         override fun extract(archive: File, targetDirectory: File, archiveType: ArchiveType) {
             when (archiveType) {
-                ArchiveType.ZIP -> archiveOperations.zipTree(archive)
+                ArchiveType.ZIP -> archive.toPath().unzipTo(targetDirectory.toPath())
                 ArchiveType.TAR_GZ -> unzipTarGz(archive, targetDirectory)
                 else -> error("Unsupported format for unzipping $archive")
             }

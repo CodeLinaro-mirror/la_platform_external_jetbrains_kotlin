@@ -9,11 +9,13 @@ import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.*
 import org.jetbrains.kotlin.backend.wasm.utils.*
 import org.jetbrains.kotlin.ir.backend.js.dce.UsefulDeclarationProcessor
+import org.jetbrains.kotlin.ir.backend.js.objectGetInstanceFunction
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.erasedUpperBound
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 
 internal class WasmUsefulDeclarationProcessor(
@@ -66,9 +68,9 @@ internal class WasmUsefulDeclarationProcessor(
 
         private fun tryToProcessIntrinsicCall(from: IrDeclaration, call: IrCall): Boolean = when (call.symbol) {
             context.wasmSymbols.unboxIntrinsic -> {
-                val fromType = call.getTypeArgument(0)
+                val fromType = call.typeArguments[0]
                 if (fromType != null && !fromType.isNothing() && !fromType.isNullableNothing()) {
-                    val backingField = call.getTypeArgument(1)
+                    val backingField = call.typeArguments[1]
                         ?.let { context.inlineClassesUtils.getInlinedClass(it) }
                         ?.let { getInlineClassBackingField(it) }
                     backingField?.enqueue(from, "backing inline class field for unboxIntrinsic")
@@ -80,11 +82,11 @@ internal class WasmUsefulDeclarationProcessor(
             context.wasmSymbols.refCastNull,
             context.wasmSymbols.refTest,
             context.wasmSymbols.wasmArrayCopy -> {
-                call.getTypeArgument(0)?.enqueueRuntimeClassOrAny(from, "intrinsic ${call.symbol.owner.name}")
+                call.typeArguments[0]?.enqueueRuntimeClassOrAny(from, "intrinsic ${call.symbol.owner.name}")
                 true
             }
             context.wasmSymbols.boxIntrinsic -> {
-                val type = call.getTypeArgument(0)!!
+                val type = call.typeArguments[0]!!
                 if (type == context.irBuiltIns.booleanType) {
                     context.wasmSymbols.getBoxedBoolean.owner.enqueue(from, "intrinsic boxIntrinsic")
                 } else {
@@ -127,9 +129,7 @@ internal class WasmUsefulDeclarationProcessor(
                 val annotationClass = annotation.symbol.owner.constructedClass
                 if (removeUnusedAssociatedObjects && !annotationClass.isReachable()) continue
 
-                annotation.associatedObject()?.let { obj ->
-                    context.mapping.objectToGetInstanceFunction[obj]?.enqueue(klass, "associated object factory")
-                }
+                annotation.associatedObject()?.objectGetInstanceFunction?.enqueue(klass, "associated object factory")
             }
         }
     }
@@ -148,7 +148,7 @@ internal class WasmUsefulDeclarationProcessor(
         context.wasmSymbols.voidType -> null
         else -> when {
             isBuiltInWasmRefType(this) -> null
-            erasedUpperBound?.isExternal == true -> null
+            erasedUpperBound.isExternal -> null
             else -> when (val ic = context.inlineClassesUtils.getInlinedClass(this)) {
                 null -> this
                 else -> context.inlineClassesUtils.getInlineClassUnderlyingType(ic).getInlinedValueTypeIfAny()

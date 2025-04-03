@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: pack/topLevelFun
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -61,5 +62,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(topLevelScriptFunction.kts)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaScriptModule "Script topLevelScriptFunction.kts"
   deprecationStatus: null

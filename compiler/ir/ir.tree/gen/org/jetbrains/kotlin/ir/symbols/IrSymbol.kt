@@ -101,6 +101,8 @@ sealed interface IrClassifierSymbol : IrSymbol, TypeConstructorMarker {
  *
  * @see IrClass.sealedSubclasses
  * @see IrScript.targetClass
+ * @see IrReplSnippet.stateObject
+ * @see IrReplSnippet.targetClass
  * @see IrGetObjectValue.symbol
  * @see IrCall.superQualifierSymbol
  * @see IrInstanceInitializerCall.classSymbol
@@ -116,6 +118,13 @@ interface IrClassSymbol : IrClassifierSymbol, IrBindableSymbol<ClassDescriptor, 
  * @see IrScript.earlierScripts
  */
 interface IrScriptSymbol : IrClassifierSymbol, IrBindableSymbol<ScriptDescriptor, IrScript>
+
+/**
+ * A symbol whose [owner] is [IrReplSnippet].
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrSymbolTree.replSnippetSymbol]
+ */
+interface IrReplSnippetSymbol : IrBindableSymbol<Nothing, IrReplSnippet>, TypeConstructorMarker
 
 /**
  * A symbol whose [owner] is [IrTypeParameter].
@@ -178,6 +187,7 @@ sealed interface IrReturnTargetSymbol : IrSymbol {
  *
  * @see IrRawFunctionReference.symbol
  * @see IrFunctionReference.symbol
+ * @see IrRichFunctionReference.reflectionTargetSymbol
  */
 sealed interface IrFunctionSymbol : IrReturnTargetSymbol, FunctionSymbolMarker {
     @UnsafeDuringIrConstructionAPI
@@ -206,6 +216,7 @@ interface IrConstructorSymbol : IrFunctionSymbol, IrBindableSymbol<ClassConstruc
  * @see IrPropertyReference.setter
  * @see IrLocalDelegatedPropertyReference.getter
  * @see IrLocalDelegatedPropertyReference.setter
+ * @see IrRichFunctionReference.overriddenFunctionSymbol
  */
 interface IrSimpleFunctionSymbol : IrFunctionSymbol, IrBindableSymbol<FunctionDescriptor, IrSimpleFunction>, SimpleFunctionSymbolMarker
 
@@ -215,6 +226,15 @@ interface IrSimpleFunctionSymbol : IrFunctionSymbol, IrBindableSymbol<FunctionDe
  * Generated from: [org.jetbrains.kotlin.ir.generator.IrSymbolTree.returnableBlockSymbol]
  */
 interface IrReturnableBlockSymbol : IrReturnTargetSymbol, IrBindableSymbol<FunctionDescriptor, IrReturnableBlock>
+
+/**
+ * A symbol whose [owner] is either [IrProperty] or [IrLocalDelegatedProperty].
+ *
+ * Generated from: [org.jetbrains.kotlin.ir.generator.IrSymbolTree.declarationWithAccessorsSymbol]
+ *
+ * @see IrRichPropertyReference.reflectionTargetSymbol
+ */
+sealed interface IrDeclarationWithAccessorsSymbol : IrSymbol
 
 /**
  * A symbol whose [owner] is [IrProperty].
@@ -228,7 +248,7 @@ interface IrReturnableBlockSymbol : IrReturnTargetSymbol, IrBindableSymbol<Funct
  * @see IrSimpleFunction.correspondingPropertySymbol
  * @see IrPropertyReference.symbol
  */
-interface IrPropertySymbol : IrBindableSymbol<PropertyDescriptor, IrProperty>, PropertySymbolMarker
+interface IrPropertySymbol : IrBindableSymbol<PropertyDescriptor, IrProperty>, IrDeclarationWithAccessorsSymbol, PropertySymbolMarker
 
 /**
  * A symbol whose [owner] is [IrLocalDelegatedProperty].
@@ -237,7 +257,7 @@ interface IrPropertySymbol : IrBindableSymbol<PropertyDescriptor, IrProperty>, P
  *
  * @see IrLocalDelegatedPropertyReference.symbol
  */
-interface IrLocalDelegatedPropertySymbol : IrBindableSymbol<VariableDescriptorWithAccessors, IrLocalDelegatedProperty>
+interface IrLocalDelegatedPropertySymbol : IrDeclarationWithAccessorsSymbol, IrBindableSymbol<VariableDescriptorWithAccessors, IrLocalDelegatedProperty>
 
 /**
  * A symbol whose [owner] is [IrTypeAlias].

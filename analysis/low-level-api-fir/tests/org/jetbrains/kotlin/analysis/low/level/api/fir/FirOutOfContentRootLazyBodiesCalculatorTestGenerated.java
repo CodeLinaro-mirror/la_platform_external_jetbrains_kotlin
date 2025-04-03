@@ -40,6 +40,12 @@ public class FirOutOfContentRootLazyBodiesCalculatorTestGenerated extends Abstra
     }
 
     @Test
+    @TestMetadata("annotationOnContextParameters.kt")
+    public void testAnnotationOnContextParameters() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnContextParameters.kt");
+    }
+
+    @Test
     @TestMetadata("annotationOnDelegatedInterface.kt")
     public void testAnnotationOnDelegatedInterface() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnDelegatedInterface.kt");
@@ -55,6 +61,12 @@ public class FirOutOfContentRootLazyBodiesCalculatorTestGenerated extends Abstra
     @TestMetadata("annotationOnProperty.kt")
     public void testAnnotationOnProperty() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnProperty.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationOnReceiver.kt")
+    public void testAnnotationOnReceiver() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnReceiver.kt");
     }
 
     @Test
@@ -133,6 +145,18 @@ public class FirOutOfContentRootLazyBodiesCalculatorTestGenerated extends Abstra
     @TestMetadata("constructorWithLocalDeclarations.kt")
     public void testConstructorWithLocalDeclarations() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/constructorWithLocalDeclarations.kt");
+    }
+
+    @Test
+    @TestMetadata("contextParameterDefaultValue.kt")
+    public void testContextParameterDefaultValue() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contextParameterDefaultValue.kt");
+    }
+
+    @Test
+    @TestMetadata("contextParameters.kt")
+    public void testContextParameters() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contextParameters.kt");
     }
 
     @Test
@@ -439,6 +463,12 @@ public class FirOutOfContentRootLazyBodiesCalculatorTestGenerated extends Abstra
     @TestMetadata("topLevelDestructuringWithAnnotation.kt")
     public void testTopLevelDestructuringWithAnnotation() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/topLevelDestructuringWithAnnotation.kt");
+    }
+
+    @Test
+    @TestMetadata("topLevelDestructuringWithoutInitializer.kt")
+    public void testTopLevelDestructuringWithoutInitializer() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/topLevelDestructuringWithoutInitializer.kt");
     }
 
     @Test

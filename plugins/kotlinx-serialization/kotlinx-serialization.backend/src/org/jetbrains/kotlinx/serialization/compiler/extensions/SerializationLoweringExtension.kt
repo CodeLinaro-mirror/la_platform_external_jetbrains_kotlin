@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlinx.serialization.compiler.extensions
 
-import org.jetbrains.kotlin.backend.common.BackendContext
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.backend.common.ClassLoweringPass
 import org.jetbrains.kotlin.backend.common.CompilationException
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.name.*
@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Copy of [runOnFilePostfix], but this implementation first lowers declaration, then its children.
  */
 fun ClassLoweringPass.runOnFileInOrder(irFile: IrFile) {
-    irFile.acceptVoid(object : IrElementVisitorVoid {
+    irFile.acceptVoid(object : IrVisitorVoid() {
         override fun visitElement(element: IrElement) {
             element.acceptChildrenVoid(this)
         }
@@ -194,8 +194,8 @@ open class SerializationLoweringExtension @JvmOverloads constructor(
         moduleFragment.files.forEach(pass2::runOnFileInOrder)
     }
 
-    override fun getPlatformIntrinsicExtension(backendContext: BackendContext): IrIntrinsicExtension? {
-        val ctx = backendContext as? JvmBackendContext ?: return null
+    override fun getPlatformIntrinsicExtension(loweringContext: LoweringContext): IrIntrinsicExtension? {
+        val ctx = loweringContext as? JvmBackendContext ?: return null
         if (!canEnableIntrinsics(ctx)) return null
         return SerializationJvmIrIntrinsicSupport(
             ctx,

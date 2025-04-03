@@ -86,6 +86,12 @@ public class FirPsiPluginDiagnosticTestGenerated extends AbstractFirPsiPluginDia
     }
 
     @Test
+    @TestMetadata("customKindInIncompleteCall.kt")
+    public void testCustomKindInIncompleteCall() {
+      runTest("plugins/plugin-sandbox/testData/diagnostics/functionalTypes/customKindInIncompleteCall.kt");
+    }
+
+    @Test
     @TestMetadata("dependencyWithoutFunctionalKindPlugin.kt")
     public void testDependencyWithoutFunctionalKindPlugin() {
       runTest("plugins/plugin-sandbox/testData/diagnostics/functionalTypes/dependencyWithoutFunctionalKindPlugin.kt");
@@ -179,6 +185,18 @@ public class FirPsiPluginDiagnosticTestGenerated extends AbstractFirPsiPluginDia
     @Test
     public void testAllFilesPresentInStatus() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/plugin-sandbox/testData/diagnostics/status"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("functionWithNestedJavaClass.kt")
+    public void testFunctionWithNestedJavaClass() {
+      runTest("plugins/plugin-sandbox/testData/diagnostics/status/functionWithNestedJavaClass.kt");
+    }
+
+    @Test
+    @TestMetadata("javaVisibilityTransformationViolation.kt")
+    public void testJavaVisibilityTransformationViolation() {
+      runTest("plugins/plugin-sandbox/testData/diagnostics/status/javaVisibilityTransformationViolation.kt");
     }
 
     @Test

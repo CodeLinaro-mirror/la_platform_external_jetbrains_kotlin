@@ -43,9 +43,7 @@ dependencies {
     testApi(project(":kotlin-preloader"))
     testApi(project(":compiler:cli-common"))
     testApi(project(":daemon-common"))
-    testApi(project(":js:js.serializer"))
     testApi(project(":js:js.frontend"))
-    testApi(project(":js:js.translator"))
     testApi(project(":native:frontend.native"))
     testCompileOnly(project(":plugins:android-extensions-compiler"))
     testApi(projectTests(":generators:test-generator"))
@@ -66,7 +64,7 @@ dependencies {
      *   declared as Api dependencies to propagate them to all modules
      *   which depend on current one
      */
-    testApi(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testApi(libs.intellij.fastutil)
     testApi(commonDependency("org.jetbrains.intellij.deps.jna:jna"))
     testApi(commonDependency("one.util:streamex"))
     testApi(commonDependency("org.codehaus.woodstox:stax2-api"))
@@ -75,7 +73,6 @@ dependencies {
 
     testApi(jpsModel()) { isTransitive = false }
     testApi(jpsModelImpl()) { isTransitive = false }
-    testApi(intellijJavaRt()) // for FileComparisonFailure
 
     testImplementation(libs.guava)
     testImplementation(libs.intellij.asm)

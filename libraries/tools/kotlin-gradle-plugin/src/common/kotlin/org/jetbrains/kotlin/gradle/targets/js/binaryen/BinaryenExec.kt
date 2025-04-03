@@ -16,6 +16,7 @@ import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsExec
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 import org.jetbrains.kotlin.platform.wasm.BinaryenConfig
@@ -57,9 +58,9 @@ constructor() : AbstractExecTask<BinaryenExec>(BinaryenExec::class.java) {
         val inputFile = inputFileProperty.asFile.get()
         val newArgs = mutableListOf<String>()
         newArgs.addAll(binaryenArgs)
-        newArgs.add(inputFile.canonicalPath)
+        newArgs.add(inputFile.absolutePath)
         newArgs.add("-o")
-        newArgs.add(outputDirectory.file(outputFileName).get().asFile.normalize().absolutePath)
+        newArgs.add(outputDirectory.file(outputFileName).get().asFile.absolutePath)
         workingDir = inputFile.parentFile
         this.args = newArgs
         super.exec()
@@ -67,14 +68,14 @@ constructor() : AbstractExecTask<BinaryenExec>(BinaryenExec::class.java) {
 
     companion object {
         @ExperimentalWasmDsl
-        fun create(
+        fun register(
             compilation: KotlinJsIrCompilation,
             name: String,
             configuration: BinaryenExec.() -> Unit = {},
         ): TaskProvider<BinaryenExec> {
             val target = compilation.target
             val project = target.project
-            val binaryen = BinaryenRootPlugin.apply(project.rootProject)
+            val binaryen = BinaryenPlugin.apply(project)
             return project.registerTask(
                 name,
             ) {
@@ -84,5 +85,16 @@ constructor() : AbstractExecTask<BinaryenExec>(BinaryenExec::class.java) {
                 it.configuration()
             }
         }
+
+        @ExperimentalWasmDsl
+        @Deprecated(
+            "Use register instead",
+            ReplaceWith("register(compilation, name, configuration)")
+        )
+        fun create(
+            compilation: KotlinJsIrCompilation,
+            name: String,
+            configuration: BinaryenExec.() -> Unit = {},
+        ): TaskProvider<BinaryenExec> = register(compilation, name, configuration)
     }
 }

@@ -22,9 +22,8 @@ import org.jetbrains.kotlin.utils.withIndent
 
 object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
     override fun configure(model: Model): Unit = with(IrTree) {
-        allImplOf(attributeContainer) {
+        allImplOf(rootElement) {
             default("attributeOwnerId", "this")
-            defaultNull("originalBeforeInline")
         }
 
         allImplOf(metadataSourceOwner) {
@@ -56,8 +55,7 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
         }
 
         allImplOf(function) {
-            defaultNull("dispatchReceiverParameter", "extensionReceiverParameter", "body")
-            default("contextReceiverParametersCount", "0")
+            defaultNull("body")
             isLateinit("returnType")
         }
 
@@ -100,6 +98,7 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
 
         impl(variable) {
             implementation.isConstructorPublic = false
+            implementation.hasConstructorIndicator = true
             defaultNull("initializer")
             default("factory") {
                 value = "error(\"Create IrVariableImpl directly\")"
@@ -108,9 +107,17 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
         }
 
         impl(`class`) {
-            defaultNull("thisReceiver", "valueClassRepresentation")
+            additionalImports(ArbitraryImportable("org.jetbrains.kotlin.ir.declarations", "IrParameterKind"))
+            defaultNull("valueClassRepresentation")
             defaultEmptyList("superTypes", "sealedSubclasses")
             defaultFalse("isExternal", "isCompanion", "isInner", "isData", "isValue", "isExpect", "isFun", "hasEnumEntries")
+            default("thisReceiver") {
+                value = "null"
+                customSetter = """
+                    field = value
+                    value?.kind = IrParameterKind.DispatchReceiver
+                """.trimIndent()
+            }
         }
 
         impl(enumEntry) {
@@ -128,21 +135,19 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
             default("origin", "SCRIPT_ORIGIN")
         }
 
+        impl(replSnippet) {
+            implementation.putImplementationOptInInConstructor = false
+            defaultNull("returnType", "stateObject", "targetClass")
+            isLateinit("receiverParameters", "body")
+            default("origin", "REPL_SNIPPET_ORIGIN")
+            default("declarationsFromOtherSnippets", "ArrayList()")
+        }
+
         impl(moduleFragment) {
             implementation.putImplementationOptInInConstructor = false
             default("startOffset", undefinedOffset(), withGetter = true)
             default("endOffset", undefinedOffset(), withGetter = true)
             default("name", "descriptor.name", withGetter = true)
-        }
-
-        impl(errorDeclaration) {
-            implementation.bindOwnedSymbol = false
-            default("symbol") {
-                value = "error(\"Should never be called\")"
-                withGetter = true
-            }
-            isMutable("descriptor")
-            isLateinit("descriptor")
         }
 
         impl(externalPackageFragment) {
@@ -350,7 +355,7 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
         }
 
         allImplOf(memberAccessExpression) {
-            defaultNull("dispatchReceiver", "extensionReceiver")
+            default("typeArguments", "ArrayList(0)")
         }
 
         impl(call) {
@@ -358,6 +363,8 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
                 println()
                 println("companion object")
             }
+
+            recordTargetShapeOnSymbolChange()
         }
 
         impl(constructorCall) {
@@ -367,6 +374,8 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
                 println()
                 println("companion object")
             }
+
+            recordTargetShapeOnSymbolChange()
         }
 
         impl(delegatingConstructorCall) {
@@ -374,6 +383,8 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
                 println()
                 println("companion object")
             }
+
+            recordTargetShapeOnSymbolChange()
         }
 
         impl(enumConstructorCall) {
@@ -381,6 +392,8 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
                 println()
                 println("companion object")
             }
+
+            recordTargetShapeOnSymbolChange()
         }
 
         impl(functionReference) {
@@ -388,6 +401,27 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
                 println()
                 println("companion object")
             }
+
+            recordTargetShapeOnSymbolChange()
+        }
+
+        impl(propertyReference) {
+            recordTargetShapeOnSymbolChange()
+        }
+
+        impl(localDelegatedPropertyReference) {
+            recordTargetShapeOnSymbolChange()
+        }
+    }
+
+    private fun ImplementationContext.recordTargetShapeOnSymbolChange() {
+        default("symbol") {
+            customSetter = """
+                if (field !== value) {
+                    field = value
+                    updateTargetSymbol()
+                }
+            """.trimIndent()
         }
     }
 
@@ -444,6 +478,7 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
             for (implementation in element.implementations) {
                 if (element.category == Element.Category.Expression) {
                     implementation.isConstructorPublic = false
+                    implementation.hasConstructorIndicator = true
                 }
             }
         }

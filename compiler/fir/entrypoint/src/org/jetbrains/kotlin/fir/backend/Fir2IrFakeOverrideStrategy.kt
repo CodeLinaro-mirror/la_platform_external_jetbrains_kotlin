@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.isSubtypeOfClass
 import org.jetbrains.kotlin.name.StandardClassIds.Annotations.EnhancedNullability
 import org.jetbrains.kotlin.name.StandardClassIds.Annotations.FlexibleNullability
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
@@ -177,8 +178,8 @@ class Fir2IrDelegatedMembersGenerationStrategy(
         origin = IrDeclarationOrigin.DELEGATED_MEMBER
         modality = Modality.OPEN
         if (this is IrSimpleFunction) {
-            dispatchReceiverParameter = null
-            createDispatchReceiverParameter()
+            val dispatchReceiver = createDispatchReceiverParameterWithClassParent()
+            parameters = listOf(dispatchReceiver) + nonDispatchParameters
         }
     }
 
@@ -381,17 +382,15 @@ class Fir2IrDelegatedMembersGenerationStrategy(
                 IrGetValueImpl(offset, offset, extensionReceiver.type, extensionReceiver.symbol)
             }
             delegatedFunction.valueParameters.forEach {
-                putValueArgument(it.index, IrGetValueImpl(offset, offset, it.type, it.symbol))
+                putValueArgument(it.indexInOldValueParameters, IrGetValueImpl(offset, offset, it.type, it.symbol))
             }
             for (index in delegatedFunction.typeParameters.indices) {
                 val parameter = delegatedFunction.typeParameters[index]
-                putTypeArgument(
-                    index, IrSimpleTypeImpl(
-                        parameter.symbol,
-                        hasQuestionMark = false,
-                        arguments = emptyList(),
-                        annotations = emptyList()
-                    )
+                typeArguments[index] = IrSimpleTypeImpl(
+                    parameter.symbol,
+                    hasQuestionMark = false,
+                    arguments = emptyList(),
+                    annotations = emptyList()
                 )
             }
         }
@@ -462,9 +461,21 @@ class Fir2IrDelegatedMembersGenerationStrategy(
          * Type of delegate field may be a local class that captures type parameters of outer function, so we need to take only first
          *   arguments, which correspond to type parameters of actual class declaration
          */
+        val typeArgumentsForSubstitutor = typeOfDelegatedField.arguments
+            .take(typeParametersOfClassOfDelegateField.size)
+            .mapIndexed { index, argument ->
+                when (argument) {
+                    is IrStarProjection -> {
+                        val parameter = typeParametersOfClassOfDelegateField[index]
+                        parameter.owner.superTypes.first()
+                    }
+                    else -> argument
+                }
+            }
+
         val substitutor = IrTypeSubstitutor(
             typeParametersOfClassOfDelegateField,
-            typeOfDelegatedField.arguments.take(typeParametersOfClassOfDelegateField.size),
+            typeArgumentsForSubstitutor,
             allowEmptySubstitution = true
         )
         return DelegatedFunctionBodyInfo(

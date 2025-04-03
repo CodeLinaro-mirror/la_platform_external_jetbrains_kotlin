@@ -7,9 +7,6 @@ package org.jetbrains.kotlin.js.test.fir
 
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.js.test.converters.FirJsKlibSerializerFacade
-import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade
-import org.jetbrains.kotlin.js.test.converters.JsIrInliningFacade
-import org.jetbrains.kotlin.js.test.converters.incremental.RecompileModuleJsIrBackendFacade
 import org.jetbrains.kotlin.js.test.handlers.JsIrRecompiledArtifactsIdentityHandler
 import org.jetbrains.kotlin.js.test.handlers.JsWrongModuleHandler
 import org.jetbrains.kotlin.js.test.handlers.createFirJsLineNumberHandler
@@ -24,7 +21,9 @@ import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.directives.*
+import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.IGNORE_KLIB_SYNTHETIC_ACCESSORS_CHECKS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
+import org.jetbrains.kotlin.test.directives.model.ValueDirective
 import org.jetbrains.kotlin.test.frontend.fir.Fir2IrResultsConverter
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirMetaInfoDiffSuppressor
@@ -34,7 +33,7 @@ import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgDumpHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDumpHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirResolvedTypesVerifier
 import org.jetbrains.kotlin.test.model.*
-import org.jetbrains.kotlin.test.runners.codegen.commonFirHandlersForCodegenTest
+import org.jetbrains.kotlin.test.configuration.commonFirHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import java.lang.Boolean.getBoolean
 
@@ -44,26 +43,20 @@ open class AbstractFirJsTest(
     testGroupOutputDirPrefix: String,
     targetBackend: TargetBackend = TargetBackend.JS_IR,
     val parser: FirParser = FirParser.Psi,
-) : AbstractJsBlackBoxCodegenTestBase<FirOutputArtifact, IrBackendInput, BinaryArtifacts.KLib>(
+) : AbstractJsBlackBoxCodegenTestBase<FirOutputArtifact>(
     FrontendKinds.FIR, targetBackend, pathToTestDir, testGroupOutputDirPrefix
 ) {
     override val frontendFacade: Constructor<FrontendFacade<FirOutputArtifact>>
         get() = ::FirFrontendFacade
 
-    override val frontendToBackendConverter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
+    override val frontendToIrConverter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
         get() = ::Fir2IrResultsConverter
 
-    override val irInliningFacade: Constructor<IrInliningFacade<IrBackendInput>>
-        get() = ::JsIrInliningFacade
-
-    override val backendFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.KLib>>
+    override val serializerFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.KLib>>
         get() = ::FirJsKlibSerializerFacade
 
-    override val afterBackendFacade: Constructor<AbstractTestFacade<BinaryArtifacts.KLib, BinaryArtifacts.Js>>?
-        get() = ::JsIrBackendFacade
-
-    override val recompileFacade: Constructor<AbstractTestFacade<BinaryArtifacts.Js, BinaryArtifacts.Js>>
-        get() = { RecompileModuleJsIrBackendFacade(it) }
+    override val backendFacades: JsBackendFacades
+        get() = JsBackendFacades.WithRecompilation
 
     private fun getBoolean(s: String, default: Boolean) = System.getProperty(s)?.let { parseBoolean(it) } ?: default
 
@@ -118,9 +111,9 @@ open class AbstractFirLightTreeJsBoxTest : AbstractFirJsTest(
     parser = FirParser.LightTree,
 )
 
-open class AbstractFirJsCodegenBoxTest : AbstractFirJsTest(
+open class AbstractFirJsCodegenBoxTestBase(testGroupOutputDirPrefix: String) : AbstractFirJsTest(
     pathToTestDir = "compiler/testData/codegen/box/",
-    testGroupOutputDirPrefix = "codegen/firBox/"
+    testGroupOutputDirPrefix = testGroupOutputDirPrefix
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
@@ -134,7 +127,12 @@ open class AbstractFirJsCodegenBoxTest : AbstractFirJsTest(
     }
 }
 
-open class AbstractFirJsCodegenBoxWithInlinedFunInKlibTest : AbstractFirJsCodegenBoxTest() {
+open class AbstractFirJsCodegenBoxTest : AbstractFirJsCodegenBoxTestBase(
+    testGroupOutputDirPrefix = "codegen/firBox/"
+)
+open class AbstractFirJsCodegenBoxWithInlinedFunInKlibTest : AbstractFirJsCodegenBoxTestBase(
+    testGroupOutputDirPrefix = "codegen/firBoxWithInlinedFunInKlib"
+) {
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         with(builder) {
@@ -215,9 +213,12 @@ open class AbstractFirJsSteppingTest : AbstractFirJsTest(
     pathToTestDir = "compiler/testData/debug/stepping/",
     testGroupOutputDirPrefix = "debug/firStepping/"
 ) {
-    override fun TestConfigurationBuilder.configuration() {
-        commonConfigurationForJsBlackBoxCodegenTest()
-        configureSteppingTests()
+    override val enableBoxHandlers: Boolean
+        get() = false
+
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        builder.configureSteppingTests()
     }
 }
 
@@ -234,12 +235,19 @@ abstract class AbstractFirJsKlibSyntheticAccessorTest(
     pathToTestDir = "compiler/testData/klib/syntheticAccessors/",
     testGroupOutputDirPrefix,
 ) {
-    override fun TestConfigurationBuilder.configuration() {
-        commonConfigurationForJsBlackBoxCodegenTest()
-        defaultDirectives {
-            +CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING
-            +CodegenTestDirectives.DUMP_KLIB_SYNTHETIC_ACCESSORS
-            if (narrowedAccessorVisibility) +CodegenTestDirectives.KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY
+    override val customIgnoreDirective: ValueDirective<TargetBackend>?
+        get() = IGNORE_KLIB_SYNTHETIC_ACCESSORS_CHECKS
+
+    override val enableBoxHandlers: Boolean
+        get() = false
+
+    override fun configure(builder: TestConfigurationBuilder) {
+        super.configure(builder)
+        with(builder) {
+            defaultDirectives {
+                +KlibBasedCompilerTestDirectives.DUMP_KLIB_SYNTHETIC_ACCESSORS
+                if (narrowedAccessorVisibility) +KlibBasedCompilerTestDirectives.KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY
+            }
         }
     }
 }

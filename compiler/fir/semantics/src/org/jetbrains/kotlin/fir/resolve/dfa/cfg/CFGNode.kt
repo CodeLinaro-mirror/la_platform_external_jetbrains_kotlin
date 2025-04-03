@@ -379,6 +379,21 @@ class CodeFragmentExitNode(owner: ControlFlowGraph, override val fir: FirCodeFra
         return visitor.visitCodeFragmentExitNode(this, data)
     }
 }
+
+// ----------------------------------- REPL Snippets ------------------------------------------
+
+class ReplSnippetEnterNode(owner: ControlFlowGraph, override val fir: FirReplSnippet, level: Int) : CFGNode<FirReplSnippet>(owner, level), GraphEnterNodeMarker {
+    override fun <R, D> accept(visitor: ControlFlowGraphVisitor<R, D>, data: D): R {
+        return visitor.visitReplSnippetEnterNode(this, data)
+    }
+}
+
+class ReplSnippetExitNode(owner: ControlFlowGraph, override val fir: FirReplSnippet, level: Int) : CFGNode<FirReplSnippet>(owner, level), GraphExitNodeMarker {
+    override fun <R, D> accept(visitor: ControlFlowGraphVisitor<R, D>, data: D): R {
+        return visitor.visitReplSnippetExitNode(this, data)
+    }
+}
+
 // ----------------------------------- Property -----------------------------------
 
 class PropertyInitializerEnterNode(owner: ControlFlowGraph, override val fir: FirProperty, level: Int) : CFGNode<FirProperty>(owner, level),
@@ -582,8 +597,12 @@ class FinallyBlockEnterNode(owner: ControlFlowGraph, override val fir: FirTryExp
         return visitor.visitFinallyBlockEnterNode(this, data)
     }
 }
-class FinallyBlockExitNode(owner: ControlFlowGraph, override val fir: FirTryExpression, level: Int) : CFGNode<FirTryExpression>(owner, level),
-    ExitNodeMarker {
+class FinallyBlockExitNode(
+    owner: ControlFlowGraph,
+    override val fir: FirTryExpression,
+    val enterNode: FinallyBlockEnterNode,
+    level: Int,
+) : CFGNode<FirTryExpression>(owner, level), ExitNodeMarker {
     override fun <R, D> accept(visitor: ControlFlowGraphVisitor<R, D>, data: D): R {
         return visitor.visitFinallyBlockExitNode(this, data)
     }

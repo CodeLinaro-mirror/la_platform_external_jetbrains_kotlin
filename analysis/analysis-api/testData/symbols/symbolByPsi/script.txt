@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -31,6 +32,7 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(script.kts)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaScriptModule "Script script.kts"
   deprecationStatus: null
 
@@ -62,6 +64,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /b
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -93,12 +96,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(42)
+  initializer: KaConstantInitializerValue(42)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -129,6 +133,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /C.member
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -162,6 +167,7 @@ KaNamedFunctionSymbol:
     type: C
   getContainingFileSymbol: KaFileSymbol(script.kts)
   getContainingJvmClassName: C
+  canBeOperator: false
   getContainingModule: KaScriptModule "Script script.kts"
   deprecationStatus: null
 
@@ -193,6 +199,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /C.prop
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -228,12 +235,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtNonConstantInitializerValue(foo())
+  initializer: KaNonConstantInitializerValue(foo())
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

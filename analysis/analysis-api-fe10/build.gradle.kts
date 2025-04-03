@@ -29,7 +29,6 @@ dependencies {
     testApi(projectTests(":compiler:test-infrastructure-utils"))
     testApi(projectTests(":compiler:test-infrastructure"))
     testImplementation(projectTests(":compiler:tests-common-new"))
-    testImplementation(projectTests(":analysis:analysis-api-impl-barebone"))
     testImplementation(projectTests(":analysis:analysis-api-impl-base"))
     testImplementation(projectTests(":analysis:analysis-test-framework"))
 
@@ -56,7 +55,7 @@ tasks.withType<KotlinJvmCompile>().configureEach {
                 "org.jetbrains.kotlin.analysis.api.permissions.KaAllowProhibitedAnalyzeFromWriteAction",
             )
         )
-        freeCompilerArgs.add("-Xcontext-receivers")
+        freeCompilerArgs.add("-Xcontext-parameters")
     }
 }
 

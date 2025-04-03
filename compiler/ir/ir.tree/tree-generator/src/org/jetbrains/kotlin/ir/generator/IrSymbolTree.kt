@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.ir.generator.IrTree.getField
 import org.jetbrains.kotlin.ir.generator.IrTree.getValue
 import org.jetbrains.kotlin.ir.generator.IrTree.localDelegatedProperty
 import org.jetbrains.kotlin.ir.generator.IrTree.property
+import org.jetbrains.kotlin.ir.generator.IrTree.replSnippet
 import org.jetbrains.kotlin.ir.generator.IrTree.`return`
 import org.jetbrains.kotlin.ir.generator.IrTree.returnTarget
 import org.jetbrains.kotlin.ir.generator.IrTree.returnableBlock
@@ -130,6 +131,11 @@ object IrSymbolTree : AbstractIrSymbolTreeBuilder() {
         bindableSymbolParent("ScriptDescriptor", script)
     }
 
+    val replSnippetSymbol by element {
+        parent(type<TypeConstructorMarker>())
+        bindableSymbolParent("Nothing", replSnippet)
+    }
+
     val typeParameterSymbol by element {
         parent(classifierSymbol)
         bindableSymbolParent("TypeParameterDescriptor", typeParameter)
@@ -183,12 +189,18 @@ object IrSymbolTree : AbstractIrSymbolTreeBuilder() {
         bindableSymbolParent("FunctionDescriptor", returnableBlock)
     }
 
+    val declarationWithAccessorsSymbol by element {
+        isSealed = true
+    }
+
     val propertySymbol by element {
         bindableSymbolParent("PropertyDescriptor", property)
+        parent(declarationWithAccessorsSymbol)
         parent(type<PropertySymbolMarker>())
     }
 
     val localDelegatedPropertySymbol by element {
+        parent(declarationWithAccessorsSymbol)
         bindableSymbolParent("VariableDescriptorWithAccessors", localDelegatedProperty)
     }
 

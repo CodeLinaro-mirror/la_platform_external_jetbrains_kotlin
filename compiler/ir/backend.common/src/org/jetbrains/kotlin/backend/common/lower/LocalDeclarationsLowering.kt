@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.backend.common.capturedFields
 import org.jetbrains.kotlin.backend.common.descriptors.synthesizedString
 import org.jetbrains.kotlin.backend.common.runOnFilePostfix
@@ -31,7 +31,7 @@ import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
+import org.jetbrains.kotlin.ir.visitors.IrVisitor
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
@@ -64,7 +64,7 @@ val BOUND_RECEIVER_PARAMETER by IrDeclarationOriginImpl.Synthetic
  * seems to proceed nevertheless.
 */
 open class LocalDeclarationsLowering(
-    val context: CommonBackendContext,
+    val context: LoweringContext,
     val localNameSanitizer: (String) -> String = { it },
     val visibilityPolicy: VisibilityPolicy = VisibilityPolicy.DEFAULT,
     val suggestUniqueNames: Boolean = true, // When `true` appends a `$#index` suffix to lifted declaration names
@@ -448,7 +448,7 @@ open class LocalDeclarationsLowering(
                     expression.startOffset, expression.endOffset,
                     context.irBuiltIns.unitType,
                     newCallee.symbol,
-                    typeArgumentsCount = expression.typeArgumentsCount,
+                    typeArgumentsCount = expression.typeArguments.size,
                 ).also {
                     it.fillArguments2(expression, newCallee)
                     it.copyTypeArgumentsFrom(expression)
@@ -461,7 +461,7 @@ open class LocalDeclarationsLowering(
             ): T =
                 apply {
                     for (p in newTarget.valueParameters) {
-                        putValueArgument(p.index, transform(p))
+                        putValueArgument(p.indexInOldValueParameters, transform(p))
                     }
                 }
 
@@ -473,7 +473,7 @@ open class LocalDeclarationsLowering(
                     val oldParameter = newParameterToOld[newValueParameterDeclaration]
 
                     if (oldParameter != null) {
-                        oldExpression.getValueArgument(oldParameter.index)
+                        oldExpression.getValueArgument(oldParameter.indexInOldValueParameters)
                     } else {
                         // The callee expects captured value as argument.
                         val capturedValueSymbol =
@@ -518,9 +518,16 @@ open class LocalDeclarationsLowering(
                 ).also {
                     it.fillArguments2(expression, newCallee)
                     it.setLocalTypeArguments(oldCallee)
-                    it.copyTypeArgumentsFrom(expression, shift = typeParameters.size - expression.typeArgumentsCount)
+                    it.copyTypeArgumentsFrom(expression, shift = typeParameters.size - expression.typeArguments.size)
                     it.copyAttributes(expression)
                 }
+            }
+
+            // note: we don't need to upgrade property references as properties are not moved by the lowering
+            override fun visitRichFunctionReference(expression: IrRichFunctionReference): IrExpression {
+                expression.transformChildrenVoid(this)
+                expression.reflectionTargetSymbol = expression.reflectionTargetSymbol?.run { owner.transformed ?: owner }?.symbol
+                return expression
             }
 
             override fun visitReturn(expression: IrReturn): IrExpression {
@@ -536,9 +543,23 @@ open class LocalDeclarationsLowering(
                 )
             }
 
+            override fun visitRawFunctionReference(expression: IrRawFunctionReference): IrExpression {
+                expression.transformChildrenVoid(this)
+
+                val oldFunction = expression.symbol.owner
+                val newFunction = oldFunction.transformed
+                if (newFunction != null) {
+                    require(newFunction.valueParameters.size == oldFunction.valueParameters.size) {
+                        "Capturing variables is not supported for raw function references"
+                    }
+                    expression.symbol = newFunction.symbol
+                }
+                return expression
+            }
+
             override fun visitDeclarationReference(expression: IrDeclarationReference): IrExpression {
                 if (expression.symbol.owner in transformedDeclarations) {
-                    TODO()
+                    TODO("Unsupported reference type ${expression::class} for local declaration")
                 }
                 return super.visitDeclarationReference(expression)
             }
@@ -593,7 +614,7 @@ open class LocalDeclarationsLowering(
                             IrGetValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, irClass.thisReceiver!!.symbol),
                             constructorContext.irGet(UNDEFINED_OFFSET, UNDEFINED_OFFSET, capturedValue)!!,
                             context.irBuiltIns.unitType,
-                            LoweredStatementOrigins.STATEMENT_ORIGIN_INITIALIZER_OF_FIELD_FOR_CAPTURED_VALUE
+                            IrStatementOrigin.STATEMENT_ORIGIN_INITIALIZER_OF_FIELD_FOR_CAPTURED_VALUE
                         )
                     }
                 )
@@ -632,7 +653,7 @@ open class LocalDeclarationsLowering(
                 superQualifierSymbol = oldCall.superQualifierSymbol
             ).also {
                 it.setLocalTypeArguments(oldCall.symbol.owner)
-                it.copyTypeArgumentsFrom(oldCall, shift = newCallee.typeParameters.size - oldCall.typeArgumentsCount)
+                it.copyTypeArgumentsFrom(oldCall, shift = newCallee.typeParameters.size - oldCall.typeArguments.size)
             }
 
         private fun createNewCall(oldCall: IrConstructorCall, newCallee: IrConstructor) =
@@ -649,7 +670,8 @@ open class LocalDeclarationsLowering(
         private fun IrMemberAccessExpression<*>.setLocalTypeArguments(callee: IrFunction) {
             val context = localFunctions[callee] ?: return
             for ((outerTypeParameter, innerTypeParameter) in context.capturedTypeParameterToTypeParameter) {
-                putTypeArgument(innerTypeParameter.index, outerTypeParameter.defaultType) // TODO: remap default type!
+                // TODO: remap default type!
+                this.typeArguments[innerTypeParameter.index] = outerTypeParameter.defaultType
             }
         }
 
@@ -801,7 +823,7 @@ open class LocalDeclarationsLowering(
                     startOffset = p.startOffset
                     endOffset = p.endOffset
                     origin =
-                        if (p is IrValueParameter && p.index < 0 && newDeclaration is IrConstructor) BOUND_RECEIVER_PARAMETER
+                        if (p is IrValueParameter && p.indexInOldValueParameters < 0 && newDeclaration is IrConstructor) BOUND_RECEIVER_PARAMETER
                         else BOUND_VALUE_PARAMETER
                     name = suggestNameForCapturedValue(p, generatedNames, isExplicitLocalFunction = isExplicitLocalFunction)
                     type = localFunctionContext.remapType(p.type)
@@ -1036,7 +1058,7 @@ open class LocalDeclarationsLowering(
                     if (isInline && !isInInlineFunction) Data(currentClass, true) else this
             }
 
-            irElement.accept(object : IrElementVisitor<Unit, Data> {
+            irElement.accept(object : IrVisitor<Unit, Data>() {
                 override fun visitElement(element: IrElement, data: Data) {
                     element.acceptChildren(this, data)
                 }
@@ -1052,6 +1074,17 @@ open class LocalDeclarationsLowering(
                     // Also, a note: even if a lambda is not an inline one, there still cannot be a reference to it
                     // from an outside declaration, so it is safe to skip them here and correctly handle later, after the above conversion.
                     expression.function.acceptChildren(this, data)
+                }
+
+                override fun visitRichFunctionReference(expression: IrRichFunctionReference, data: Data) {
+                    expression.boundValues.forEach { it.accept(this, data) }
+                    expression.invokeFunction.acceptChildren(this, data)
+                }
+
+                override fun visitRichPropertyReference(expression: IrRichPropertyReference, data: Data) {
+                    expression.boundValues.forEach { it.accept(this, data) }
+                    expression.getterFunction.acceptChildren(this, data)
+                    expression.setterFunction?.acceptChildren(this, data)
                 }
 
                 override fun visitSimpleFunction(declaration: IrSimpleFunction, data: Data) {

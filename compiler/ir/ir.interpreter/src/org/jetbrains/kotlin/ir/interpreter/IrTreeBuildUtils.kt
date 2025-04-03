@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrVariableSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 internal val TEMP_CLASS_FOR_INTERPRETER = IrDeclarationOriginImpl("TEMP_CLASS_FOR_INTERPRETER")
@@ -101,10 +102,9 @@ internal fun createTempClass(name: Name, origin: IrDeclarationOrigin = TEMP_CLAS
     )
 }
 
-internal fun IrFunction.createGetField(): IrExpression {
+internal fun IrFunction.createGetFieldOfCorrespondingProperty(): IrExpression {
     val backingField = this.property!!.backingField!!
-    val receiver = dispatchReceiverParameter ?: extensionReceiverParameter
-    return backingField.createGetField(receiver)
+    return backingField.createGetField(dispatchReceiverParameter)
 }
 
 internal fun IrField.createGetField(receiver: IrValueParameter? = null): IrGetField {
@@ -121,28 +121,24 @@ internal fun IrFunctionAccessExpression.shallowCopy(copyTypeArguments: Boolean =
         is IrConstructorCall -> symbol.owner.createConstructorCall()
         is IrDelegatingConstructorCall -> IrDelegatingConstructorCallImpl.fromSymbolOwner(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, type, symbol)
         is IrEnumConstructorCall ->
-            IrEnumConstructorCallImpl(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, type, symbol, typeArgumentsCount)
+            IrEnumConstructorCallImpl(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, type, symbol, typeArguments.size)
     }.apply {
         if (copyTypeArguments) {
-            (0 until this@shallowCopy.typeArgumentsCount).forEach { this.putTypeArgument(it, this@shallowCopy.getTypeArgument(it)) }
+            this@shallowCopy.typeArguments.indices.forEach {
+                typeArguments[it] = this@shallowCopy.typeArguments[it]
+            }
         }
     }
 }
 
-internal fun IrBuiltIns.copyArgs(from: IrFunctionAccessExpression, into: IrFunctionAccessExpression) {
-    into.dispatchReceiver = from.dispatchReceiver
-    into.extensionReceiver = from.extensionReceiver
-    (0 until from.valueArgumentsCount)
-        .map { from.getValueArgument(it) }
-        .forEachIndexed { i, arg ->
-            into.putValueArgument(i, arg ?: IrConstImpl.constNull(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, this.anyNType))
-        }
+internal fun IrBuiltIns.copyArgumentsPassingNullOnDefault(from: IrFunctionAccessExpression, into: IrFunctionAccessExpression) {
+    into.arguments.assignFrom(from.arguments) { it ?: IrConstImpl.constNull(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, this.anyNType) }
 }
 
 internal fun IrBuiltIns.irEquals(arg1: IrExpression, arg2: IrExpression): IrCall {
     val equalsCall = this.eqeqSymbol.owner.createCall(IrStatementOrigin.EQEQ)
-    equalsCall.putValueArgument(0, arg1)
-    equalsCall.putValueArgument(1, arg2)
+    equalsCall.arguments[0] = arg1
+    equalsCall.arguments[1] = arg2
     return equalsCall
 }
 
@@ -156,17 +152,23 @@ internal fun IrBuiltIns.irIfNullThenElse(nullableArg: IrExpression, ifTrue: IrEx
 
 internal fun IrBuiltIns.emptyArrayConstructor(arrayType: IrType): IrConstructorCall {
     val arrayClass = arrayType.classOrNull!!.owner
-    val constructor = arrayClass.constructors.firstOrNull { it.valueParameters.size == 1 } ?: arrayClass.constructors.first()
+    val constructor = arrayClass.constructors.firstOrNull { it.hasShape(regularParameters = 1) } ?: arrayClass.constructors.first()
     val constructorCall = constructor.createConstructorCall(arrayType)
 
-    constructorCall.putValueArgument(0, 0.toIrConst(this.intType))
-    if (constructor.valueParameters.size == 2) {
+    constructorCall.arguments[0] = 0.toIrConst(this.intType)
+    if (constructor.parameters.size == 2) {
         // TODO find a way to avoid creation of empty lambda
         val tempFunction = createTempFunction(Name.identifier("TempForVararg"), this.anyType)
         tempFunction.parent = arrayClass // can be anything, will not be used in any case
-        val initLambda = IrFunctionExpressionImpl(SYNTHETIC_OFFSET, SYNTHETIC_OFFSET, constructor.valueParameters[1].type, tempFunction, IrStatementOrigin.LAMBDA)
-        constructorCall.putValueArgument(1, initLambda)
-        constructorCall.putTypeArgument(0, (arrayType as IrSimpleType).arguments.singleOrNull()?.typeOrNull)
+        val initLambda = IrFunctionExpressionImpl(
+            SYNTHETIC_OFFSET,
+            SYNTHETIC_OFFSET,
+            constructor.parameters[1].type,
+            tempFunction,
+            IrStatementOrigin.LAMBDA
+        )
+        constructorCall.arguments[1] = initLambda
+        constructorCall.typeArguments[0] = (arrayType as IrSimpleType).arguments.singleOrNull()?.typeOrNull
     }
     return constructorCall
 }
@@ -217,8 +219,11 @@ internal fun IrElement.toConstantValueOrNull(): ConstantValue<*>? {
             arrayDimensions++
         }
 
-        if (type.getClass()?.isLocal == true) return KClassValue()
-        val classId = type.getClass()?.classId ?: return null
+        val irClass = type.getClass() ?: return null
+        if (irClass.isLocal == true) {
+            return KClassValue(KClassValue.Value.LocalClass(irClass))
+        }
+        val classId = irClass.classId ?: return null
         return KClassValue(classId, arrayDimensions)
     }
 

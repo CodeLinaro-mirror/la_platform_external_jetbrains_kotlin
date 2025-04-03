@@ -558,7 +558,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
     @Override
     public void visitExpressionStatement(@NotNull JsExpressionStatement x) {
-        Object source = x.getSource();
+        JsLocationWithSource source = x.getSource();
         if (source == null && !(x.getExpression() instanceof JsFunction)) {
             source = x.getExpression().getSource();
         }
@@ -1047,14 +1047,14 @@ public class JsToStringGenerationVisitor extends JsVisitor {
                     String escaped = IdentifierPolicyKt.getRESERVED_KEYWORDS().contains(value) ? "'" + value + "'" : value;
                     labelExpr = new JsNameRef(escaped).withMetadataFrom(stringLiteral);
                 }
-            }
-            // labels can be either string, integral, or decimal literals
-            if (labelExpr instanceof JsNameRef) {
-                visitNameRef((JsNameRef) labelExpr, false);
-            } else {
                 accept(labelExpr);
+            } else if (labelExpr instanceof JsNumberLiteral) {
+                accept(labelExpr);
+            } else {
+                leftSquare();
+                accept(labelExpr);
+                rightSquare();
             }
-
             _colon();
             space();
             JsExpression valueExpr = item.getValueExpr();
@@ -1465,7 +1465,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
         sourceLocationConsumer.newLine();
     }
 
-    private void pushSourceInfo(Object location) {
+    private void pushSourceInfo(JsLocationWithSource location) {
         p.maybeIndent();
         sourceInfoStack.add(location);
         if (location != null) {
@@ -1505,7 +1505,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
         }
     }
 
-    private void printJsBlock(JsBlock x, boolean finalNewline, @Nullable Object defaultClosingBraceLocation) {
+    private void printJsBlock(JsBlock x, boolean finalNewline, @Nullable JsLocationWithSource defaultClosingBraceLocation) {
         if (!lineBreakAfterBlock) {
             finalNewline = false;
             lineBreakAfterBlock = true;
@@ -1585,7 +1585,7 @@ public class JsToStringGenerationVisitor extends JsVisitor {
 
             sourceLocationConsumer.popSourceInfo();
 
-            Object closingBraceLocation = x.getClosingBraceSource();
+            JsLocationWithSource closingBraceLocation = x.getClosingBraceSource();
             if (closingBraceLocation == null)
                 closingBraceLocation = defaultClosingBraceLocation;
 

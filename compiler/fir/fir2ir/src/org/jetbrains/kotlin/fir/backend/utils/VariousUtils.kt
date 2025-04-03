@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.isStatic
 import org.jetbrains.kotlin.fir.expressions.FirComponentCall
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
@@ -32,6 +31,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrTypeOperatorCallImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
+import org.jetbrains.kotlin.ir.util.isBoxedArray
 import org.jetbrains.kotlin.utils.exceptions.rethrowExceptionWithDetails
 import kotlin.collections.set
 
@@ -41,12 +41,6 @@ fun FirRegularClass.getIrSymbolsForSealedSubclasses(c: Fir2IrComponents): List<I
         symbolProvider.getClassLikeSymbolByClassId(it)?.toIrSymbol(c)
     }.filterIsInstance<IrClassSymbol>()
 }
-
-fun FirCallableDeclaration.contextReceiversForFunctionOrContainingProperty(): List<FirContextReceiver> =
-    if (this is FirPropertyAccessor)
-        this.propertySymbol.fir.contextReceivers
-    else
-        this.contextReceivers
 
 fun List<IrDeclaration>.extractFirDeclarations(): Set<FirDeclaration> {
     return this.mapTo(mutableSetOf()) { ((it as IrMetadataSourceOwner).metadata as FirMetadataSource).fir }
@@ -167,7 +161,7 @@ val IrClassSymbol.defaultTypeWithoutArguments: IrSimpleType
 
 val FirCallableSymbol<*>.isInlineClassProperty: Boolean
     get() {
-        if (this !is FirPropertySymbol || dispatchReceiverType == null || receiverParameter != null || resolvedContextReceivers.isNotEmpty()) return false
+        if (this !is FirPropertySymbol || dispatchReceiverType == null || receiverParameter != null || resolvedContextParameters.isNotEmpty()) return false
         val containingClass = getContainingClassSymbol() as? FirRegularClassSymbol ?: return false
         val inlineClassRepresentation = containingClass.fir.inlineClassRepresentation ?: return false
         return inlineClassRepresentation.underlyingPropertyName == this.name

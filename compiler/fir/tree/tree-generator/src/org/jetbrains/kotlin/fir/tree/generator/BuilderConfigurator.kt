@@ -103,7 +103,6 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
 
         builder(constructor, "FirConstructorImpl") {
             openBuilder()
-            withCopy()
         }
 
         builder(typeParameter) {
@@ -117,7 +116,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
 
         builder(typeAlias) {
             parents += declarationBuilder
-            parents += typeParametersOwnerBuilder
+            parents += typeParameterRefsOwnerBuilder
             withCopy()
         }
 
@@ -161,6 +160,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
         builder(propertyAccessExpression) {
             parents += qualifiedAccessExpressionBuilder
             defaultNoReceivers()
+            withCopy()
         }
 
         builder(callableReferenceAccess) {
@@ -246,6 +246,13 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             withCopy()
         }
 
+        builder(errorProperty) {
+            parents += variableBuilder
+            parents += typeParametersOwnerBuilder
+            defaultFalse("isLocal")
+            default("bodyResolveState", "FirPropertyBodyResolveState.NOTHING_RESOLVED")
+        }
+
         builder(field) {
             parents += variableBuilder
             default("resolvePhase", "FirResolvePhase.DECLARATIONS")
@@ -272,6 +279,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
 
         builder(stringConcatenationCall) {
             parents += callBuilder
+            defaultFalse("isFoldedStrings")
         }
 
         builder(thisReceiverExpression) {
@@ -280,16 +288,9 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             withCopy()
         }
 
-        builder(thisReference, "FirExplicitThisReference") {
-            default("contextReceiverNumber", "-1")
-        }
-
-        builder(thisReference, "FirImplicitThisReference") {
-            default("contextReceiverNumber", "-1")
-        }
-
         builder(anonymousFunction) {
             parents += functionBuilder
+            parents += typeParametersOwnerBuilder
             defaultNull("invocationKind", "label", "body", "controlFlowGraphReference", "contractDescription")
             default("inlineStatus", "InlineStatus.Unknown")
             default("status", "FirResolvedDeclarationStatusImpl.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS")
@@ -326,19 +327,14 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             parents += loopJumpBuilder
         }
 
-        builder(contextReceiver) {
-            withCopy()
-        }
-
         builder(valueParameter, type = "FirValueParameterImpl") {
             openBuilder()
             withCopy()
+            defaultFalse("isCrossinline", "isNoinline", "isVararg")
+            default("valueParameterKind", "FirValueParameterKind.Regular")
         }
 
         builder(valueParameter, type = "FirDefaultSetterValueParameter") {
-            defaultNull("defaultValue", "initializer", "delegate", "receiverParameter", "getter", "setter")
-            defaultFalse("isCrossinline", "isNoinline", "isVararg", "isVar")
-            defaultTrue("isVal")
         }
 
         builder(simpleFunction) {

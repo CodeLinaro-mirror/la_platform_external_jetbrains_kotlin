@@ -6,13 +6,29 @@
 package org.jetbrains.kotlin.sir
 
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
+import org.jetbrains.kotlin.sir.util.swiftFqName
 
-sealed interface SirType
+sealed interface SirType {
+    val attributes: List<SirAttribute>
+
+    companion object {
+        val any get() = SirExistentialType()
+        val never get() = SirNominalType(SirSwiftModule.never)
+        val void get() = SirNominalType(SirSwiftModule.void)
+    }
+}
+
+class SirFunctionalType(
+    val parameterTypes: List<SirType>,
+    val returnType: SirType,
+    override val attributes: List<SirAttribute> = emptyList(),
+) : SirType
 
 open class SirNominalType(
     val typeDeclaration: SirNamedDeclaration,
     val typeArguments: List<SirType> = emptyList(),
     val parent: SirNominalType? = null,
+    override val attributes: List<SirAttribute> = emptyList(),
 ) : SirType {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -35,7 +51,7 @@ open class SirNominalType(
     }
 }
 
-class SirOptionalType(type: SirType): SirNominalType(
+class SirOptionalType(type: SirType) : SirNominalType(
     typeDeclaration = SirSwiftModule.optional,
     typeArguments = listOf(type)
 ) {
@@ -49,14 +65,27 @@ class SirArrayType(type: SirType): SirNominalType(
     val elementType: SirType get() = super.typeArguments.single()
 }
 
+class SirDictionaryType(keyType: SirType, valueType: SirType): SirNominalType(
+    typeDeclaration = SirSwiftModule.dictionary,
+    typeArguments = listOf(keyType, valueType)
+) {
+    val keyType: SirType get() = super.typeArguments[0]
+    val valueType: SirType get() = super.typeArguments[1]
+}
+
 class SirExistentialType(
-    // TODO: Protocols. For now, only `any Any` is supported
+    protocols: List<SirProtocol>,
 ) : SirType {
+    override val attributes: List<SirAttribute> = emptyList()
+    
+    val protocols: List<SirProtocol> = protocols.sortedBy { it.swiftFqName }
+
+    constructor(vararg protocols: SirProtocol) : this(protocols.toList())
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other != null && this::class != other::class) return false
-        return true
+        if (other == null || other !is SirExistentialType) return false
+        return protocols == other.protocols
     }
 
     override fun hashCode(): Int {
@@ -69,11 +98,15 @@ class SirExistentialType(
  * it might be an incomplete declaration in IDE or declaration from a not imported library.
  *
  */
-class SirErrorType(val reason: String) : SirType
+class SirErrorType(val reason: String) : SirType {
+    override val attributes: List<SirAttribute> = emptyList()
+}
 
 /**
  * A synthetic type for not yet supported Kotlin types.
  */
-data object SirUnsupportedType : SirType
+data object SirUnsupportedType : SirType {
+    override val attributes: List<SirAttribute> = emptyList()
+}
 
 fun SirType.optional(): SirNominalType = SirOptionalType(this)

@@ -21,7 +21,6 @@ import org.jetbrains.kotlin.fir.declarations.FirDeclarationStatus
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.statusTransformerExtensions
-import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.ClassId
@@ -56,12 +55,12 @@ internal class KaFirNamedClassSymbol private constructor(
     )
 
     constructor(symbol: FirRegularClassSymbol, session: KaFirSession) : this(
-        backingPsi = symbol.fir.realPsi as? KtClassOrObject,
+        backingPsi = symbol.backingPsiIfApplicable as? KtClassOrObject,
         lazyFirSymbol = lazyOf(symbol),
         analysisSession = session,
     )
 
-    override val psi: PsiElement? get() = withValidityAssertion { backingPsi ?: firSymbol.findPsi() }
+    override val psi: PsiElement? get() = withValidityAssertion { backingPsi ?: findPsi() }
 
     override val name: Name
         get() = withValidityAssertion { backingPsi?.nameAsSafeName ?: firSymbol.name }
@@ -115,7 +114,7 @@ internal class KaFirNamedClassSymbol private constructor(
             if (backingPsi != null) {
                 backingPsi.hasModifier(KtTokens.VALUE_KEYWORD) || backingPsi.hasModifier(KtTokens.INLINE_KEYWORD)
             } else {
-                firSymbol.isInline
+                firSymbol.isInlineOrValue
             }
         }
 
@@ -133,7 +132,7 @@ internal class KaFirNamedClassSymbol private constructor(
 
     override val contextReceivers: List<KaContextReceiver>
         get() = withValidityAssertion {
-            if (backingPsi?.contextReceivers?.isEmpty() == true)
+            if (backingPsi != null && backingPsi.contextReceiverList == null)
                 emptyList()
             else
                 firSymbol.createContextReceivers(builder)
@@ -142,7 +141,7 @@ internal class KaFirNamedClassSymbol private constructor(
     override val companionObject: KaNamedClassSymbol?
         get() = withValidityAssertion {
             firSymbol.companionObjectSymbol?.let {
-                builder.classifierBuilder.buildNamedClassOrObjectSymbol(it)
+                builder.classifierBuilder.buildNamedClassSymbol(it)
             }
         }
 

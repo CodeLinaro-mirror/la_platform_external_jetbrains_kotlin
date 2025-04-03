@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,35 +13,33 @@ import org.jetbrains.kotlin.name.Name
 @KaExperimentalApi
 public interface KaScopeLike : KaLifetimeOwner {
     /**
-     * Returns a **superset** of names which current scope may contain.
-     * In other words `ALL_NAMES(scope)` is a subset of `scope.getAllNames()`
+     * Returns the set of top-level declaration names contained in the scope. The set may contain false positives, i.e. names which aren't
+     * contained in the scope.
      */
     public fun getAllPossibleNames(): Set<Name> = withValidityAssertion {
         getPossibleCallableNames() + getPossibleClassifierNames()
     }
 
     /**
-     * Returns a **superset** of callable names which current scope may contain.
-     * In other words `ALL_CALLABLE_NAMES(scope)` is a subset of `scope.getCallableNames()`
+     * Returns the set of top-level callable names contained in the scope. The set may contain false positives, i.e. names which aren't
+     * contained in the scope.
      */
     public fun getPossibleCallableNames(): Set<Name>
 
     /**
-     * Returns a **superset** of classifier names which current scope may contain.
-     * In other words `ALL_CLASSIFIER_NAMES(scope)` is a subset of `scope.getClassifierNames()`
+     * Returns the set of top-level classifier names contained in the scope. The set may contain false positives, i.e. names which aren't
+     * contained in the scope.
      */
     public fun getPossibleClassifierNames(): Set<Name>
 
     /**
-     * return true if the scope may contain name, false otherwise.
+     * Checks whether the scope *might* contain the given [name].
      *
-     * In other words `(mayContainName(name) == false) => (name !in scope)`; vice versa is not always true
+     * Since [getPossibleCallableNames] and [getPossibleClassifierNames] admit false positives, the result may be `true` even if the scope
+     * doesn't contain a declaration with such a name. The reverse is not so: when [mayContainName] is `false`, the scope definitely doesn't
+     * contain a declaration with that name.
      */
     public fun mayContainName(name: Name): Boolean = withValidityAssertion {
         name in getPossibleCallableNames() || name in getPossibleClassifierNames()
     }
 }
-
-@KaExperimentalApi
-@Deprecated("Use 'KaScopeLike' instead", ReplaceWith("KaScopeLike"))
-public typealias KtScopeLike = KaScopeLike

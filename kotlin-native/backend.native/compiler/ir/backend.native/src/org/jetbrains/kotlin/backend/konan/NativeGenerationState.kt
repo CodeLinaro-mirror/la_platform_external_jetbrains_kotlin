@@ -14,21 +14,17 @@ import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
 import org.jetbrains.kotlin.backend.konan.driver.utilities.LlvmIrHolder
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExport
+import org.jetbrains.kotlin.backend.konan.serialization.CacheDeserializationStrategy
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedClassFields
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedEagerInitializedFile
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedInlineFunctionReference
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrSuspensionPoint
 
-internal class InlineFunctionOriginInfo(val irFunction: IrFunction, val irFile: IrFile, val startOffset: Int, val endOffset: Int)
-
 internal class FileLowerState {
     private var functionReferenceCount = 0
     private var coroutineCount = 0
     private var cStubCount = 0
-
-    fun getFunctionReferenceImplUniqueName(targetFunction: IrFunction): String =
-            getFunctionReferenceImplUniqueName("${targetFunction.name}\$FUNCTION_REFERENCE\$")
 
     fun getCoroutineImplUniqueName(function: IrFunction): String =
             "${function.name}COROUTINE\$${coroutineCount++}"
@@ -54,15 +50,15 @@ internal class BitcodePostProcessingContextImpl(
 }
 
 internal class NativeGenerationState(
-        config: KonanConfig,
+    config: KonanConfig,
         // TODO: Get rid of this property completely once transition to the dynamic driver is complete.
         //  It will reduce code coupling and make it easier to create NativeGenerationState instances.
-        val context: Context,
-        val cacheDeserializationStrategy: CacheDeserializationStrategy?,
-        val dependenciesTracker: DependenciesTracker,
-        val llvmModuleSpecification: LlvmModuleSpecification,
-        val outputFiles: OutputFiles,
-        val llvmModuleName: String,
+    val context: Context,
+    val cacheDeserializationStrategy: CacheDeserializationStrategy?,
+    val dependenciesTracker: DependenciesTracker,
+    val llvmModuleSpecification: LlvmModuleSpecification,
+    val outputFiles: OutputFiles,
+    val llvmModuleName: String,
 ) : BasicPhaseContext(config), BackendContextHolder, LlvmIrHolder, BitcodePostProcessingContext {
     val outputFile = outputFiles.mainFileName
 
@@ -73,18 +69,8 @@ internal class NativeGenerationState(
     val eagerInitializedFiles = mutableListOf<SerializedEagerInitializedFile>()
     val calledFromExportedInlineFunctions = mutableSetOf<IrFunction>()
     val constructedFromExportedInlineFunctions = mutableSetOf<IrClass>()
-    val inlineFunctionOrigins = mutableMapOf<IrFunction, InlineFunctionOriginInfo>()
     val liveVariablesAtSuspensionPoints = mutableMapOf<IrSuspensionPoint, List<IrVariable>>()
     val visibleVariablesAtSuspensionPoints = mutableMapOf<IrSuspensionPoint, List<IrVariable>>()
-
-    private val localClassNames = mutableMapOf<IrAttributeContainer, String>()
-    fun getLocalClassName(container: IrAttributeContainer): String? = localClassNames[container.attributeOwnerId]
-    fun putLocalClassName(container: IrAttributeContainer, name: String) {
-        localClassNames[container.attributeOwnerId] = name
-    }
-    fun copyLocalClassName(source: IrAttributeContainer, destination: IrAttributeContainer) {
-        getLocalClassName(source)?.let { name -> putLocalClassName(destination, name) }
-    }
 
     lateinit var fileLowerState: FileLowerState
 

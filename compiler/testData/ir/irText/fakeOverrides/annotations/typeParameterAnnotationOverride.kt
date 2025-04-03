@@ -1,6 +1,6 @@
 // SKIP_KT_DUMP
 // TARGET_BACKEND: JVM
-// SEPARATE_SIGNATURE_DUMP_FOR_K2
+// DISABLE_JAVA_FACADE
 
 // FILE: Java1.java
 import org.jetbrains.annotations.NotNull;

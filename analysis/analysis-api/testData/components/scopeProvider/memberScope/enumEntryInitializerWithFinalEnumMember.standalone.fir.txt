@@ -26,6 +26,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -61,12 +62,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue("")
+  initializer: KaConstantInitializerValue("")
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -125,6 +127,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: test/E.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -160,12 +163,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(5)
+  initializer: KaConstantInitializerValue(5)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -200,6 +204,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -263,6 +268,7 @@ KaNamedFunctionSymbol:
     type: test/E
   getContainingFileSymbol: KaFileSymbol(enumEntryInitializerWithFinalEnumMember.kt)
   getContainingJvmClassName: test.E
+  canBeOperator: true
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -270,6 +276,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Enum.clone
   compilerVisibility: Protected
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -307,6 +314,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Enum<E>
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Enum
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -314,6 +322,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Enum.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -381,6 +390,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Enum<E>
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Enum
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -388,6 +398,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Enum.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -425,6 +436,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Enum<E>
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Enum
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -432,6 +444,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Enum.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -469,6 +482,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Enum<E>
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Enum
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -503,6 +517,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: kotlin/Enum.name
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -548,6 +563,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -610,6 +626,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: kotlin/Enum.ordinal
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -655,6 +672,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -693,6 +711,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.getDeclaringClass
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -725,6 +744,7 @@ KaNamedFunctionSymbol:
     type: test/E
   getContainingFileSymbol: KaFileSymbol(enumEntryInitializerWithFinalEnumMember.kt)
   getContainingJvmClassName: test.E
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -732,6 +752,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Enum.finalize
   compilerVisibility: ProtectedAndPackage
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -769,6 +790,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Enum<E>
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Enum
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 

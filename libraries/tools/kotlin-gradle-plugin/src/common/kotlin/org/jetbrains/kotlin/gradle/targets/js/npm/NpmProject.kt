@@ -10,7 +10,6 @@ import org.gradle.api.file.Directory
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.process.ExecSpec
-import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.disambiguateName
 import org.jetbrains.kotlin.gradle.plugin.mpp.fileExtension
@@ -20,7 +19,6 @@ import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin.Companion.kotl
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.kotlinNodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinPackageJsonTask
 import org.jetbrains.kotlin.gradle.utils.getFile
-import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.io.File
 import java.io.Serializable
 
@@ -42,9 +40,7 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
 
     private val extension: Provider<String> = compilation.fileExtension
 
-    val name: String by lazy {
-        buildNpmProjectName()
-    }
+    val name: Provider<String> = compilation.outputModuleName
 
     @delegate:Transient
     val nodeJsRoot by lazy {
@@ -56,10 +52,12 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
         project.kotlinNodeJsEnvSpec
     }
 
-    val dir: Provider<Directory> = nodeJsRoot.projectPackagesDirectory.map { it.dir(name) }
+    val dir: Provider<Directory> = nodeJsRoot.projectPackagesDirectory.zip(name) { directory, name ->
+        directory.dir(name)
+    }
 
     val target: KotlinJsTargetDsl
-        get() = compilation.target as KotlinJsTargetDsl
+        get() = compilation.target
 
     val project: Project
         get() = target.project
@@ -82,7 +80,9 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
     val dist: Provider<Directory>
         get() = dir.map { it.dir(DIST_FOLDER) }
 
-    val main: Provider<String> = extension.map { "${DIST_FOLDER}/$name.$it" }
+    val main: Provider<String> = extension.zip(name) { ext, name ->
+        "${DIST_FOLDER}/$name.$ext"
+    }
 
     val publicPackageJsonTaskName: String
         get() = compilation.disambiguateName(PublicPackageJsonTask.NAME)
@@ -92,7 +92,7 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
     }
 
     private val nodeExecutable by lazy {
-        nodeJs.produceEnv(project.providers).get().executable
+        nodeJs.executable.get()
     }
 
     fun useTool(
@@ -120,57 +120,11 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
      */
     internal fun resolve(name: String): File? = modules.resolve(name)
 
-    private fun buildNpmProjectName(): String {
-        compilation.outputModuleName?.let {
-            return it
-        }
-
-        val project = target.project
-
-        val moduleName = target.moduleName
-
-        val compilationName = if (compilation.name != KotlinCompilation.MAIN_COMPILATION_NAME) {
-            compilation.name
-        } else null
-
-        if (moduleName != null) {
-            return sequenceOf(moduleName, compilationName)
-                .filterNotNull()
-                .joinToString("-")
-        }
-
-        val rootProjectName = project.rootProject.name
-
-        val localName = if (project != project.rootProject) {
-            (rootProjectName + project.path).replace(":", "-")
-        } else rootProjectName
-
-        val targetName = if (target.name.isNotEmpty() && target.name.toLowerCaseAsciiOnly() != "js") {
-            target.name
-                .replace(DECAMELIZE_REGEX) {
-                    it.groupValues
-                        .drop(1)
-                        .joinToString(prefix = "-", separator = "-")
-                }
-                .toLowerCaseAsciiOnly()
-        } else null
-
-        return sequenceOf(
-            localName,
-            targetName,
-            compilationName
-        )
-            .filterNotNull()
-            .joinToString("-")
-    }
-
-    override fun toString() = "NpmProject($name)"
+    override fun toString() = "NpmProject(${name.get()})"
 
     companion object {
         const val PACKAGE_JSON = "package.json"
         const val NODE_MODULES = "node_modules"
         const val DIST_FOLDER = "kotlin"
-
-        private val DECAMELIZE_REGEX = "([A-Z])".toRegex()
     }
 }

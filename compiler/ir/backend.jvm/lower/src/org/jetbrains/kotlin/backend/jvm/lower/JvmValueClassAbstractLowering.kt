@@ -174,6 +174,7 @@ internal abstract class JvmValueClassAbstractLowering(
     protected enum class SpecificMangle { Inline, MultiField }
 
     protected abstract val specificMangle: SpecificMangle
+
     private fun createBridgeFunction(
         function: IrSimpleFunction,
         replacement: IrSimpleFunction
@@ -189,10 +190,10 @@ internal abstract class JvmValueClassAbstractLowering(
                     useOldMangleRules = false
                 )
                 // If the original function has signature which need mangling we still need to replace it with a mangled version.
-                (!function.isFakeOverride || function.findInterfaceImplementation(context.config.jvmDefaultMode) != null) && when (specificMangle) {
-                    SpecificMangle.Inline -> function.signatureRequiresMangling(includeInline = true, includeMFVC = false)
-                    SpecificMangle.MultiField -> function.signatureRequiresMangling(includeInline = false, includeMFVC = true)
-                } -> replacement.name
+                (!function.isFakeOverride ||
+                        context.cachedDeclarations.getClassFakeOverrideReplacement(function) != ClassFakeOverrideReplacement.None) &&
+                        function.signatureRequiresMangling()
+                    -> replacement.name
                 // Since we remove the corresponding property symbol from the bridge we need to resolve getter/setter
                 // names at this point.
                 replacement.isGetter ->
@@ -219,15 +220,18 @@ internal abstract class JvmValueClassAbstractLowering(
         return bridgeFunction
     }
 
-    private fun IrSimpleFunction.signatureRequiresMangling(includeInline: Boolean = true, includeMFVC: Boolean = true) =
-        fullValueParameterList.any { it.type.getRequiresMangling(includeInline, includeMFVC) } ||
+    private fun IrSimpleFunction.signatureRequiresMangling(): Boolean {
+        val includeInline = specificMangle == SpecificMangle.Inline
+        val includeMFVC = specificMangle == SpecificMangle.MultiField
+        return nonDispatchParameters.any { it.type.getRequiresMangling(includeInline, includeMFVC) } ||
                 context.config.functionsWithInlineClassReturnTypesMangled &&
-                returnType.getRequiresMangling(includeInline = includeInline, includeMFVC = false)
+                returnType.getRequiresMangling(includeInline, includeMFVC = false)
+    }
 
     protected fun typedArgumentList(function: IrFunction, expression: IrMemberAccessExpression<*>) = listOfNotNull(
         function.dispatchReceiverParameter?.let { it to expression.dispatchReceiver },
         function.extensionReceiverParameter?.let { it to expression.extensionReceiver }
-    ) + function.valueParameters.map { it to expression.getValueArgument(it.index) }
+    ) + function.valueParameters.map { it to expression.getValueArgument(it.indexInOldValueParameters) }
 
 
     // We may need to add a bridge method for inline class methods with static replacements. Ideally, we'd do this in BridgeLowering,
@@ -309,7 +313,6 @@ internal abstract class JvmValueClassAbstractLowering(
         super.visitDynamicOperatorExpression(expression)
 
     final override fun visitDynamicMemberExpression(expression: IrDynamicMemberExpression) = super.visitDynamicMemberExpression(expression)
-    final override fun visitErrorDeclaration(declaration: IrErrorDeclaration) = super.visitErrorDeclaration(declaration)
     final override fun visitErrorExpression(expression: IrErrorExpression) = super.visitErrorExpression(expression)
     final override fun visitErrorCallExpression(expression: IrErrorCallExpression) = super.visitErrorCallExpression(expression)
 

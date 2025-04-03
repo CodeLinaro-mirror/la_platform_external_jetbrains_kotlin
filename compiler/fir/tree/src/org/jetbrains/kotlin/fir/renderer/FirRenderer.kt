@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirLazyDelegatedConstructorCall
 import org.jetbrains.kotlin.fir.expressions.impl.FirUnitExpression
 import org.jetbrains.kotlin.fir.isCatchParameter
 import org.jetbrains.kotlin.fir.references.*
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.name.StandardClassIds
@@ -46,12 +47,13 @@ class FirRenderer(
     override val resolvePhaseRenderer: FirResolvePhaseRenderer? = null,
     override val typeRenderer: ConeTypeRenderer = ConeTypeRendererForDebugging(),
     override val referencedSymbolRenderer: FirSymbolRenderer = FirSymbolRenderer(),
-    override val valueParameterRenderer: FirValueParameterRenderer? = FirValueParameterRenderer(),
+    override val callableSignatureRenderer: FirCallableSignatureRenderer? = FirCallableSignatureRenderer(),
     override val errorExpressionRenderer: FirErrorExpressionRenderer? = FirErrorExpressionOnlyErrorRenderer(),
     override val resolvedNamedReferenceRenderer: FirResolvedNamedReferenceRenderer = FirResolvedNamedReferenceRendererWithLabel(),
     override val resolvedQualifierRenderer: FirResolvedQualifierRenderer = FirResolvedQualifierRendererWithLabel(),
     override val getClassCallRenderer: FirGetClassCallRenderer = FirGetClassCallRendererForDebugging(),
-    private val lineBreakAfterContextReceivers: Boolean = true,
+    override val supertypeRenderer: FirSupertypeRenderer? = FirSupertypeRenderer(),
+    private val lineBreakAfterContextParameters: Boolean = true,
     private val renderFieldAnnotationSeparately: Boolean = true,
     private val renderVarargTypes: Boolean = false,
 ) : FirRendererComponents {
@@ -65,6 +67,7 @@ class FirRenderer(
             bodyRenderer = null,
             propertyAccessorRenderer = null,
             callArgumentsRenderer = FirCallNoArgumentsRenderer(),
+            lineBreakAfterContextParameters = false,
         )
 
         fun withResolvePhase(): FirRenderer = FirRenderer(
@@ -83,7 +86,7 @@ class FirRenderer(
             propertyAccessorRenderer = null,
             callArgumentsRenderer = FirCallNoArgumentsRenderer(),
             modifierRenderer = FirPartialModifierRenderer(),
-            valueParameterRenderer = FirValueParameterRendererForReadability(),
+            callableSignatureRenderer = FirCallableSignatureRendererForReadability(),
             declarationRenderer = FirDeclarationRenderer("local "),
         )
     }
@@ -103,11 +106,12 @@ class FirRenderer(
         typeRenderer.builder = builder
         typeRenderer.idRenderer = idRenderer
         referencedSymbolRenderer.components = this
-        valueParameterRenderer?.components = this
+        callableSignatureRenderer?.components = this
         errorExpressionRenderer?.components = this
         resolvedNamedReferenceRenderer.components = this
         resolvedQualifierRenderer.components = this
         getClassCallRenderer.components = this
+        supertypeRenderer?.components = this
     }
 
     fun renderElementAsString(element: FirElement, trim: Boolean = false): String {
@@ -134,13 +138,6 @@ class FirRenderer(
         annotationRenderer?.render(annotationContainer)
     }
 
-    fun renderSupertypes(regularClass: FirRegularClass) {
-        if (regularClass.superTypeRefs.isNotEmpty()) {
-            print(" : ")
-            renderSeparated(regularClass.superTypeRefs, visitor)
-        }
-    }
-
     private fun Variance.renderVariance() {
         label.let {
             print(it)
@@ -150,13 +147,13 @@ class FirRenderer(
         }
     }
 
-    private fun renderContexts(contextReceivers: List<FirContextReceiver>) {
-        if (contextReceivers.isEmpty()) return
+    private fun renderContexts(contextParameters: List<FirValueParameter>, lineBreakAfter: Boolean = lineBreakAfterContextParameters) {
+        if (contextParameters.isEmpty()) return
         print("context(")
-        renderSeparated(contextReceivers, visitor)
+        renderSeparated(contextParameters, visitor)
         print(")")
 
-        if (lineBreakAfterContextReceivers) {
+        if (lineBreakAfter) {
             printer.newLine()
         } else {
             print(" ")
@@ -194,6 +191,10 @@ class FirRenderer(
         print("|")
     }
 
+    private fun renderPhaseAndAttributes(declaration: FirDeclaration) {
+        declarationRenderer?.renderPhaseAndAttributes(declaration) ?: resolvePhaseRenderer?.render(declaration)
+    }
+
     inner class Visitor internal constructor() : FirVisitorVoid() {
 
         override fun visitElement(element: FirElement) {
@@ -202,7 +203,7 @@ class FirRenderer(
 
         override fun visitFile(file: FirFile) {
             printer.print("FILE: ")
-            resolvePhaseRenderer?.render(file)
+            renderPhaseAndAttributes(file)
             printer.println(file.name)
 
             printer.pushIndent()
@@ -216,7 +217,7 @@ class FirRenderer(
         override fun visitScript(script: FirScript) {
             annotationRenderer?.render(script)
             printer.print("SCRIPT: ")
-            declarationRenderer?.renderPhaseAndAttributes(script) ?: resolvePhaseRenderer?.render(script)
+            renderPhaseAndAttributes(script)
             printer.println(script.name)
 
             printer.pushIndent()
@@ -241,8 +242,9 @@ class FirRenderer(
         }
 
         override fun visitScriptReceiverParameter(scriptReceiverParameter: FirScriptReceiverParameter) {
-            print("<script receiver parameter>: ")
+            renderPhaseAndAttributes(scriptReceiverParameter)
             annotationRenderer?.render(scriptReceiverParameter)
+            print("<script receiver parameter>: ")
             scriptReceiverParameter.typeRef.accept(this)
         }
 
@@ -260,7 +262,7 @@ class FirRenderer(
         }
 
         override fun visitCallableDeclaration(callableDeclaration: FirCallableDeclaration) {
-            renderContexts(callableDeclaration.contextReceivers)
+            renderContexts(callableDeclaration.contextParameters)
             annotationRenderer?.render(callableDeclaration)
             if (callableDeclaration is FirProperty) {
                 val backingField = callableDeclaration.backingField
@@ -272,13 +274,13 @@ class FirRenderer(
                 }
             }
             visitMemberDeclaration(callableDeclaration)
-            val receiverParameter = callableDeclaration.receiverParameter
             if (callableDeclaration !is FirProperty || callableDeclaration.isCatchParameter != true) {
                 print(" ")
             }
+
+            val receiverParameter = callableDeclaration.receiverParameter
             if (receiverParameter != null) {
-                annotationRenderer?.render(receiverParameter, AnnotationUseSiteTarget.RECEIVER)
-                receiverParameter.typeRef.accept(this)
+                renderReceiverParameter(receiverParameter, isExplicit = false)
                 print(".")
             }
             when (callableDeclaration) {
@@ -292,19 +294,11 @@ class FirRenderer(
             }
 
             if (callableDeclaration is FirFunction) {
-                valueParameterRenderer?.renderParameters(callableDeclaration.valueParameters)
+                callableSignatureRenderer?.renderParameters(callableDeclaration.valueParameters)
             }
-            print(": ")
-            callableDeclaration.returnTypeRef.accept(this)
+            callableSignatureRenderer?.renderReturnTypePrefix()
+            callableSignatureRenderer?.renderCallableType(callableDeclaration)
             contractRenderer?.render(callableDeclaration)
-        }
-
-        override fun visitContextReceiver(contextReceiver: FirContextReceiver) {
-            contextReceiver.customLabelName?.let {
-                print(it.asString() + "@")
-            }
-
-            contextReceiver.typeRef.accept(this)
         }
 
         override fun visitTypeParameterRef(typeParameterRef: FirTypeParameterRef) {
@@ -343,10 +337,10 @@ class FirRenderer(
         }
 
         override fun visitRegularClass(regularClass: FirRegularClass) {
-            renderContexts(regularClass.contextReceivers)
+            renderContexts(regularClass.contextParameters)
             annotationRenderer?.render(regularClass)
             visitMemberDeclaration(regularClass)
-            renderSupertypes(regularClass)
+            supertypeRenderer?.renderSupertypes(regularClass)
             classMemberRenderer?.render(regularClass)
         }
 
@@ -382,13 +376,11 @@ class FirRenderer(
         }
 
         override fun visitErrorProperty(errorProperty: FirErrorProperty) {
-            print("<ERROR PROPERTY: ${errorProperty.diagnostic.reason}>")
-            printer.newLine()
+            visitProperty(errorProperty)
         }
 
         override fun visitErrorFunction(errorFunction: FirErrorFunction) {
-            print("<ERROR FUNCTION: ${errorFunction.diagnostic.reason}>")
-            printer.newLine()
+            visitFunction(errorFunction)
         }
 
         override fun visitBackingField(backingField: FirBackingField) {
@@ -396,26 +388,34 @@ class FirRenderer(
         }
 
         override fun visitReceiverParameter(receiverParameter: FirReceiverParameter) {
-            print("<explicit receiver parameter>: ")
-            annotationRenderer?.render(receiverParameter)
+            renderReceiverParameter(receiverParameter, isExplicit = true)
+        }
+
+        fun renderReceiverParameter(receiverParameter: FirReceiverParameter, isExplicit: Boolean) {
+            renderPhaseAndAttributes(receiverParameter)
+
+            if (isExplicit) {
+                annotationRenderer?.render(receiverParameter)
+                print("<explicit receiver parameter>: ")
+            } else {
+                annotationRenderer?.render(receiverParameter, AnnotationUseSiteTarget.RECEIVER)
+            }
+
             receiverParameter.typeRef.accept(this)
         }
 
         override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {
-            visitCallableDeclaration(simpleFunction)
-            bodyRenderer?.render(simpleFunction)
-            if (simpleFunction.body == null) {
-                printer.newLine()
-            }
+            visitFunction(simpleFunction)
         }
 
         override fun visitConstructor(constructor: FirConstructor) {
+            renderContexts(constructor.contextParameters)
             annotationRenderer?.render(constructor)
             modifierRenderer?.renderModifiers(constructor)
             declarationRenderer?.render(constructor)
 
             constructor.typeParameters.renderTypeParameters()
-            valueParameterRenderer?.renderParameters(constructor.valueParameters)
+            callableSignatureRenderer?.renderParameters(constructor.valueParameters)
             print(": ")
             constructor.returnTypeRef.accept(this)
             val body = constructor.body
@@ -434,7 +434,7 @@ class FirRenderer(
             annotationRenderer?.render(propertyAccessor)
             modifierRenderer?.renderModifiers(propertyAccessor)
             declarationRenderer?.render(propertyAccessor)
-            valueParameterRenderer?.renderParameters(propertyAccessor.valueParameters)
+            callableSignatureRenderer?.renderParameters(propertyAccessor.valueParameters)
             print(": ")
             propertyAccessor.returnTypeRef.accept(this)
             contractRenderer?.render(propertyAccessor)
@@ -447,13 +447,14 @@ class FirRenderer(
         }
 
         override fun visitAnonymousFunction(anonymousFunction: FirAnonymousFunction) {
+            renderContexts(anonymousFunction.contextParameters, lineBreakAfter = false)
             annotationRenderer?.render(anonymousFunction)
             modifierRenderer?.renderModifiers(anonymousFunction)
             declarationRenderer?.render(anonymousFunction)
             print(" ")
             val receiverParameter = anonymousFunction.receiverParameter
             if (receiverParameter != null) {
-                receiverParameter.typeRef.accept(this)
+                renderReceiverParameter(receiverParameter, isExplicit = false)
                 print(".")
             }
             print("<anonymous>")
@@ -463,7 +464,7 @@ class FirRenderer(
             ) {
                 print("(<no-parameters>)")
             }
-            valueParameterRenderer?.renderParameters(anonymousFunction.valueParameters)
+            callableSignatureRenderer?.renderParameters(anonymousFunction.valueParameters)
             print(": ")
             anonymousFunction.returnTypeRef.accept(this)
             print(" <inline=${anonymousFunction.inlineStatus}")
@@ -475,20 +476,22 @@ class FirRenderer(
         }
 
         override fun visitFunction(function: FirFunction) {
-            valueParameterRenderer?.renderParameters(function.valueParameters)
-            declarationRenderer?.render(function)
+            visitCallableDeclaration(function)
             bodyRenderer?.render(function)
+            if (function.body == null) {
+                printer.newLine()
+            }
         }
 
         override fun visitAnonymousInitializer(anonymousInitializer: FirAnonymousInitializer) {
-            resolvePhaseRenderer?.render(anonymousInitializer)
+            renderPhaseAndAttributes(anonymousInitializer)
             annotationRenderer?.render(anonymousInitializer)
             print("init")
             bodyRenderer?.renderBody(anonymousInitializer.body)
         }
 
         override fun visitDanglingModifierList(danglingModifierList: FirDanglingModifierList) {
-            resolvePhaseRenderer?.render(danglingModifierList)
+            renderPhaseAndAttributes(danglingModifierList)
             annotationRenderer?.render(danglingModifierList)
             print("<DANGLING MODIFIER: ${danglingModifierList.diagnostic.reason}>")
         }
@@ -500,8 +503,7 @@ class FirRenderer(
         override fun visitTypeAlias(typeAlias: FirTypeAlias) {
             annotationRenderer?.render(typeAlias)
             visitMemberDeclaration(typeAlias)
-            print(" = ")
-            typeAlias.expandedTypeRef.accept(this)
+            supertypeRenderer?.renderTypeAliasExpansion(typeAlias)
             printer.newLine()
         }
 
@@ -512,7 +514,7 @@ class FirRenderer(
         private fun renderTypeParameter(typeParameter: FirTypeParameter, forOuterTypeRef: Boolean = false) {
             annotationRenderer?.render(typeParameter)
             modifierRenderer?.renderModifiers(typeParameter)
-            resolvePhaseRenderer?.render(typeParameter)
+            renderPhaseAndAttributes(typeParameter)
             typeParameter.variance.renderVariance()
 
             if (!forOuterTypeRef) {
@@ -546,7 +548,7 @@ class FirRenderer(
         }
 
         override fun visitValueParameter(valueParameter: FirValueParameter) {
-            valueParameterRenderer?.renderParameter(valueParameter)
+            callableSignatureRenderer?.renderParameter(valueParameter)
         }
 
         override fun visitImport(import: FirImport) {
@@ -853,9 +855,9 @@ class FirRenderer(
         }
 
         override fun visitFunctionTypeRef(functionTypeRef: FirFunctionTypeRef) {
-            if (functionTypeRef.contextReceiverTypeRefs.isNotEmpty()) {
+            if (functionTypeRef.contextParameterTypeRefs.isNotEmpty()) {
                 print("context(")
-                renderSeparated(functionTypeRef.contextReceiverTypeRefs, visitor)
+                renderSeparated(functionTypeRef.contextParameterTypeRefs, visitor)
                 print(")")
             }
 
@@ -891,6 +893,7 @@ class FirRenderer(
             typeRenderer.renderAsPossibleFunctionType(
                 resolvedTypeRef.coneType,
                 l@{
+                    if (it is ConeFlexibleType) return@l null
                     val classId = it.classId ?: return@l null
                     FunctionTypeKindExtractor.Default.getFunctionalClassKind(classId.packageFqName, classId.shortClassName.asString())
                 }
@@ -975,7 +978,7 @@ class FirRenderer(
             when {
                 symbol != null -> {
                     print("@R|")
-                    referencedSymbolRenderer.printReference(symbol)
+                    referencedSymbolRenderer.printReference(symbol as FirBasedSymbol<*>)
                     print("|")
                 }
                 labelName != null -> print("@$labelName#")

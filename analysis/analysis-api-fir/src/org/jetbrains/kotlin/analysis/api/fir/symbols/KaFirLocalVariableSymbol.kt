@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaLocalVariableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
-import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.impl.FirErrorPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
@@ -40,7 +39,7 @@ internal sealed class KaFirLocalOrErrorVariableSymbol private constructor(
     )
 
     constructor(symbol: FirVariableSymbol<*>, session: KaFirSession) : this(
-        backingPsi = symbol.fir.realPsi as? KtDeclaration,
+        backingPsi = symbol.backingPsiIfApplicable as? KtDeclaration,
         lazyFirSymbol = lazyOf(symbol),
         analysisSession = session,
     )
@@ -58,7 +57,7 @@ internal sealed class KaFirLocalOrErrorVariableSymbol private constructor(
         psiBasedSymbolPointerOfTypeIfSource<KaLocalVariableSymbol>()?.let { return it }
 
         if (firSymbol.fir.source?.kind == KtFakeSourceElementKind.ScriptParameter) {
-            return KaFirScriptParameterSymbolPointer(name, analysisSession.createOwnerPointer(this))
+            return KaFirScriptParameterSymbolPointer(name, analysisSession.createOwnerPointer(this), this)
         }
 
         throw KaCannotCreateSymbolPointerForLocalLibraryDeclarationException(name.asString())

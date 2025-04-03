@@ -22,7 +22,6 @@ import java.util.regex.Pattern;
 @TestDataPath("$PROJECT_ROOT")
 @Tag("gc")
 @UseStandardTestCaseGroupProvider()
-@Tag("frontend-fir")
 @FirPipeline()
 public class FirNativeGCTestGenerated extends AbstractNativeBlackBoxTest {
   @Test
@@ -142,6 +141,12 @@ public class FirNativeGCTestGenerated extends AbstractNativeBlackBoxTest {
   @TestMetadata("worker10.kt")
   public void testWorker10() {
     runTest("native/native.tests/testData/gc/worker10.kt");
+  }
+
+  @Test
+  @TestMetadata("workerCancelJobsWithGC.kt")
+  public void testWorkerCancelJobsWithGC() {
+    runTest("native/native.tests/testData/gc/workerCancelJobsWithGC.kt");
   }
 
   @Test

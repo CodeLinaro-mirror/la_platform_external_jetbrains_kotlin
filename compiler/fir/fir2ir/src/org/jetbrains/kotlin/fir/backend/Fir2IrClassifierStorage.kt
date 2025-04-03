@@ -13,11 +13,14 @@ import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
+import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyClass
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirReplSnippetSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
@@ -46,6 +49,8 @@ class Fir2IrClassifierStorage(
     private val enumEntryCache: MutableMap<FirEnumEntry, IrEnumEntrySymbol> = commonMemberStorage.enumEntryCache
 
     private val codeFragmentCache: MutableMap<FirCodeFragment, IrClass> = mutableMapOf()
+
+    private val earlierSnippetsCache: MutableMap<FirReplSnippetSymbol, IrClass> = mutableMapOf()
 
     private val fieldsForContextReceivers: MutableMap<IrClass, List<IrField>> = mutableMapOf()
 
@@ -243,11 +248,12 @@ class Fir2IrClassifierStorage(
         return getIrClass(lookupTag)?.symbol
     }
 
+    // TODO(KT-72994) remove when context receivers are removed
     fun getFieldsWithContextReceiversForClass(irClass: IrClass, klass: FirClass): List<IrField> {
-        if (klass !is FirRegularClass || klass.contextReceivers.isEmpty()) return emptyList()
+        if (klass !is FirRegularClass || klass.contextParameters.isEmpty()) return emptyList()
 
         return fieldsForContextReceivers.getOrPut(irClass) {
-            klass.contextReceivers.withIndex().map { (index, contextReceiver) ->
+            klass.contextParameters.withIndex().map { (index, contextReceiver) ->
                 IrFactoryImpl.createField(
                     startOffset = UNDEFINED_OFFSET,
                     endOffset = UNDEFINED_OFFSET,
@@ -255,7 +261,7 @@ class Fir2IrClassifierStorage(
                     name = Name.identifier("contextReceiverField$index"),
                     visibility = DescriptorVisibilities.PRIVATE,
                     symbol = IrFieldSymbolImpl(),
-                    type = contextReceiver.typeRef.toIrType(c),
+                    type = contextReceiver.returnTypeRef.toIrType(c),
                     isFinal = true,
                     isStatic = false,
                     isExternal = false,
@@ -335,6 +341,7 @@ class Fir2IrClassifierStorage(
 
         val irParent = declarationStorage.findIrParent(enumEntry, fakeOverrideOwnerLookupTag = null) as IrClass
         if (irParent.isExternalParent()) {
+            enumEntry.lazyResolveToPhase(FirResolvePhase.ANNOTATION_ARGUMENTS)
             classifiersGenerator.createIrEnumEntry(
                 enumEntry,
                 irParent = irParent,
@@ -416,6 +423,31 @@ class Fir2IrClassifierStorage(
         val symbol = createClassSymbol()
         return classifiersGenerator.createCodeFragmentClass(codeFragment, containingFile, symbol).also {
             codeFragmentCache[codeFragment] = it
+        }
+    }
+
+    // ------------------------------------ REPL snippets ------------------------------------
+
+    /**
+     * Get IrClass corresponding to the REPL Snippet compiled earlier.
+     * (see [createAndCacheEarlierSnippetClass] for details
+     */
+    fun getCachedEarlierSnippetClass(snippetSymbol: FirReplSnippetSymbol): IrClass? {
+        return earlierSnippetsCache[snippetSymbol]
+    }
+
+    /**
+     * Create a (lazy) IrClass that corresponds to the REPL Snippet compiled previously.
+     * The class is created from its FIR representation and required only for binding
+     * declarations from earlier snippets that are used in the currently compiled one.
+     */
+    fun createAndCacheEarlierSnippetClass(snippetSymbol: FirReplSnippetSymbol, containingPackageFragment: IrPackageFragment): IrClass {
+        val symbol = createClassSymbol()
+        return classifiersGenerator.createEarlierSnippetClass(snippetSymbol.fir, containingPackageFragment, symbol).also {
+            earlierSnippetsCache[snippetSymbol] = it
+            (it as? Fir2IrLazyClass)?.let { lazyClass ->
+                classCache[lazyClass.fir] = symbol
+            }
         }
     }
 }

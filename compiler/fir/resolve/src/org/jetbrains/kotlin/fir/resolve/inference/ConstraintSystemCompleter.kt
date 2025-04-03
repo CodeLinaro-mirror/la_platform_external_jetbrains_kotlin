@@ -9,13 +9,14 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.diagnostics.ConeCannotInferTypeParameterType
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
-import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.Candidate
-import org.jetbrains.kotlin.fir.resolve.inference.model.ConeFixVariableConstraintPosition
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.processCandidatesAndPostponedAtoms
+import org.jetbrains.kotlin.fir.resolve.inference.model.ConeFixVariableConstraintPosition
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -29,7 +30,6 @@ import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.types.model.TypeVariableMarker
 import org.jetbrains.kotlin.utils.addIfNotNull
-import org.jetbrains.kotlin.utils.addToStdlib.filterIsInstanceWithChecker
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 class ConstraintSystemCompleter(components: BodyResolveComponents) {
@@ -93,13 +93,22 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
             if (postponedArguments.isEmpty() && !isThereAnyReadyForFixationVariable)
                 break
 
-            val postponedArgumentsWithRevisableType = postponedArguments
-                .filterIsInstanceWithChecker<PostponedAtomWithRevisableExpectedType> {
-                    // NB: FE 1.0 does not perform this check
-                    it.revisedExpectedType == null
-                }
+            /**
+             * Two inheritors of sealed [ConePostponedResolvedAtom] are "postponed atoms with revisable expected type"
+             * They are initially created in a situation when we have a type variable expected type for
+             * a lambda [ConeLambdaWithTypeVariableAsExpectedTypeAtom] or a callable reference [ConeResolvedCallableReferenceAtom]
+             * The idea of introducing them: later we could revise this expected type to a more specific (stage 2)
+             * and replace an atom with revisable expected type with an atom without it (stage 4).
+             * In fact, [ConeLambdaWithTypeVariableAsExpectedTypeAtom] is replaced with [ConeResolvedLambdaAtom],
+             * but [ConeResolvedCallableReferenceAtom] isn't replaced and the logic of its type revision looks currently unclear.
+             * Later (see KT-74021) we could make callable references behave as lambdas from this point of view
+             */
+            val postponedArgumentsWithRevisableType = postponedArguments.filterIsInstance<PostponedAtomWithRevisableExpectedType>()
             val dependencyProvider =
-                TypeVariableDependencyInformationProvider(notFixedTypeVariables, postponedArguments, topLevelType, this)
+                TypeVariableDependencyInformationProvider(
+                    notFixedTypeVariables, postponedArguments, topLevelType, this,
+                    languageVersionSettings,
+                )
 
             // Stage 2: collect parameter types for postponed arguments
             val wasBuiltNewExpectedTypeForSomeArgument = postponedArgumentsInputTypesResolver.collectParameterTypesAndBuildNewExpectedTypes(
@@ -236,8 +245,13 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
             ?: return false
 
         when (argument) {
-            is ConeResolvedCallableReferenceAtom ->
+            is ConeResolvedCallableReferenceAtom -> {
+                // When resolution isn't needed, reviseExpectedType changes nothing in fact
+                if (!argument.needsResolution) return false
+                // It looks like this line actually does not influence any tests.
+                // There is a suggestion it replaces the revised type just by itself. See KT-74021
                 argument.reviseExpectedType(revisedExpectedType)
+            }
             is ConeLambdaWithTypeVariableAsExpectedTypeAtom ->
                 argument.transformToResolvedLambda(c.getBuilder(), resolutionContext, revisedExpectedType)
             else -> throw IllegalStateException("Unsupported postponed argument type of $argument")
@@ -348,7 +362,7 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
                         postponedAtom.collectNotFixedVariables()
                     }
                     is ConeResolvedCallableReferenceAtom -> {
-                        if (postponedAtom.mightNeedAdditionalResolution) {
+                        if (postponedAtom.needsResolution) {
                             postponedAtom.collectNotFixedVariables()
                         }
                     }

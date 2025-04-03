@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.fir.components
 
 import com.intellij.lang.java.JavaLanguage
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.*
 import com.intellij.psi.impl.compiled.ClsElementImpl
 import com.intellij.psi.impl.compiled.ClsTypeElementImpl
@@ -23,7 +24,7 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSyntheticJavaPropertyS
 import org.jetbrains.kotlin.analysis.api.fir.types.KaFirType
 import org.jetbrains.kotlin.analysis.api.fir.types.PublicTypeApproximator
 import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.types.KaType
@@ -47,7 +48,6 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmTypeMapper
 import org.jetbrains.kotlin.fir.backend.jvm.jvmTypeMapper
 import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
 import org.jetbrains.kotlin.fir.java.MutableJavaTypeParameterStack
 import org.jetbrains.kotlin.fir.java.javaSymbolProvider
@@ -60,7 +60,6 @@ import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
-import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.jvm.buildJavaTypeRef
 import org.jetbrains.kotlin.light.classes.symbol.annotations.annotateByKtType
@@ -87,7 +86,7 @@ import org.jetbrains.org.objectweb.asm.Type
 
 internal class KaFirJavaInteroperabilityComponent(
     override val analysisSessionProvider: () -> KaFirSession,
-) : KaSessionComponent<KaFirSession>(), KaJavaInteroperabilityComponent, KaFirSessionComponent {
+) : KaBaseSessionComponent<KaFirSession>(), KaJavaInteroperabilityComponent, KaFirSessionComponent {
     private val jvmTypeMapper: FirJvmTypeMapper by lazy {
         when {
             analysisSession.targetPlatform.has<JvmPlatform>() -> rootModuleSession.jvmTypeMapper
@@ -106,7 +105,6 @@ internal class KaFirJavaInteroperabilityComponent(
         isAnnotationMethod: Boolean,
         suppressWildcards: Boolean?,
         preserveAnnotations: Boolean,
-        forceValueClassResolution: Boolean,
         allowNonJvmPlatforms: Boolean,
     ): PsiType? = withValidityAssertion {
         val coneType = this.coneType
@@ -123,7 +121,6 @@ internal class KaFirJavaInteroperabilityComponent(
             mode = mode.toTypeMappingMode(this, isAnnotationMethod, suppressWildcards),
             useSitePosition = useSitePosition,
             allowErrorTypes = allowErrorTypes,
-            forceValueClassResolution = forceValueClassResolution,
         ) ?: return null
 
         val psiType = typeElement.type
@@ -142,16 +139,10 @@ internal class KaFirJavaInteroperabilityComponent(
         mode: TypeMappingMode,
         useSitePosition: PsiElement,
         allowErrorTypes: Boolean,
-        forceValueClassResolution: Boolean,
     ): PsiTypeElement? {
         if (this !is RigidTypeMarker) return null
 
         if (!allowErrorTypes && (this is ConeErrorType)) return null
-
-        if (forceValueClassResolution && !mode.needInlineClassWrapping) {
-            this.classLikeLookupTagIfAny?.toSymbol(rootModuleSession)?.lazyResolveToPhase(FirResolvePhase.STATUS)
-        }
-
         val signatureWriter = BothSignatureWriter(BothSignatureWriter.Mode.SKIP_CHECKS)
 
         //TODO Check thread safety
@@ -243,7 +234,7 @@ internal class KaFirJavaInteroperabilityComponent(
                         .firstIsInstanceOrNull<PsiTypeParameterListOwner>()
 
                     if (member != null) {
-                        val memberSymbol = containingClassSymbol.declarationSymbols.find { it.findPsi() == member } as? FirCallableSymbol<*>
+                        val memberSymbol = containingClassSymbol.declarationSymbols.find { it.findPsi(analysisSession.analysisScope) == member } as? FirCallableSymbol<*>
                         if (memberSymbol != null) {
                             //typeParamSymbol.fir.source == null thus zip is required, see KT-62354
                             memberSymbol.typeParameterSymbols.zip(member.typeParameters).forEach { (typeParamSymbol, typeParam) ->
@@ -311,11 +302,16 @@ internal class KaFirJavaInteroperabilityComponent(
     override val PsiMember.callableSymbol: KaCallableSymbol?
         get() = withValidityAssertion {
             if (this !is PsiMethod && this !is PsiField) return null
-            val name = name?.let(Name::identifier) ?: return null
             val containingClass = containingClass ?: return null
             val classSymbol = containingClass.namedClassSymbol ?: return null
             return with(analysisSession) {
-                classSymbol.combinedDeclaredMemberScope.callables(name).firstOrNull { it.psi == this@callableSymbol }
+                val combinedMemberScope = classSymbol.combinedDeclaredMemberScope
+                if ((this@callableSymbol as? PsiMethod)?.isConstructor == true) {
+                    combinedMemberScope.constructors.firstOrNull { it.psi == this@callableSymbol }
+                } else {
+                    val name = name?.let(Name::identifier) ?: return null
+                    combinedMemberScope.callables(name).firstOrNull { it.psi == this@callableSymbol }
+                }
             }
         }
 
@@ -323,19 +319,16 @@ internal class KaFirJavaInteroperabilityComponent(
         get() = withValidityAssertion {
             val symbol = this@containingJvmClassName
 
+            if (symbol.origin == KaSymbolOrigin.TYPEALIASED_CONSTRUCTOR) return null
+
             with(analysisSession) {
                 val platform = symbol.containingModule.targetPlatform
                 if (!platform.has<JvmPlatform>()) return null
 
                 val containingSymbolOrSelf = when (symbol) {
-                    is KaValueParameterSymbol -> {
-                        symbol.containingDeclaration as? KaFunctionSymbol ?: symbol
-                    }
-                    is KaPropertyAccessorSymbol -> {
-                        symbol.containingDeclaration as? KaPropertySymbol ?: symbol
-                    }
+                    is KaParameterSymbol -> symbol.containingDeclaration as? KaCallableSymbol ?: symbol
+                    is KaPropertyAccessorSymbol -> symbol.containingDeclaration as? KaPropertySymbol ?: symbol
                     is KaBackingFieldSymbol -> symbol.owningProperty
-                    is KaReceiverParameterSymbol -> symbol.owningCallableSymbol
                     else -> symbol
                 }
 
@@ -425,15 +418,19 @@ private fun ConeKotlinType.simplifyType(
     val isInlineFunction = false
     var currentType = this
     do {
+        ProgressManager.checkCanceled()
+
         val oldType = currentType
         currentType = currentType.fullyExpandedType(session)
         if (currentType is ConeDynamicType) {
             return currentType
         }
+
         currentType = currentType.upperBoundIfFlexible()
         if (visibilityForApproximation != Visibilities.Local) {
             currentType = substitutor.substituteOrSelf(currentType)
         }
+
         val needLocalTypeApproximation = needLocalTypeApproximation(visibilityForApproximation, isInlineFunction, session, useSitePosition)
         // TODO: can we approximate local types in type arguments *selectively* ?
         currentType = PublicTypeApproximator.approximateTypeToPublicDenotable(currentType, session, needLocalTypeApproximation)
@@ -558,6 +555,9 @@ private class AnonymousTypesSubstitutor(
     ): Boolean {
         if (typeArguments.isEmpty()) return false
         if (!visited.add(this)) return true
+
+        ProgressManager.checkCanceled()
+
         for (projection in typeArguments) {
             // E.g., Test : Comparable<Test>
             val type = (projection as? ConeKotlinTypeProjection)?.type ?: continue
@@ -566,6 +566,7 @@ private class AnonymousTypesSubstitutor(
             // Visit new type: e.g., Test, as a type argument, is substituted with Comparable<Test>, again.
             if (newType.hasRecursiveTypeArgument(visited)) return true
         }
+
         return false
     }
 

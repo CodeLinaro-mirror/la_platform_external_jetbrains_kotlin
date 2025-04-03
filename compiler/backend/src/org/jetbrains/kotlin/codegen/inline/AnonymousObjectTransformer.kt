@@ -11,8 +11,6 @@ import org.jetbrains.kotlin.codegen.coroutines.DEBUG_METADATA_ANNOTATION_ASM_TYP
 import org.jetbrains.kotlin.codegen.coroutines.isCoroutineSuperClass
 import org.jetbrains.kotlin.codegen.inline.coroutines.CoroutineTransformer
 import org.jetbrains.kotlin.codegen.inline.coroutines.FOR_INLINE_SUFFIX
-import org.jetbrains.kotlin.codegen.serialization.JvmCodegenStringTable
-import org.jetbrains.kotlin.codegen.state.KotlinTypeMapperBase
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
@@ -23,8 +21,9 @@ import org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.metadata.jvm.serialization.JvmStringTable
 import org.jetbrains.kotlin.protobuf.MessageLite
+import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin.Companion.NO_ORIGIN
-import org.jetbrains.kotlin.utils.toMetadataVersion
+import org.jetbrains.kotlin.util.toMetadataVersion
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.commons.Method
 import org.jetbrains.org.objectweb.asm.tree.*
@@ -44,9 +43,6 @@ class AnonymousObjectTransformer(
     private var constructor: MethodNode? = null
     private lateinit var sourceMap: SMAP
     private lateinit var sourceMapper: SourceMapper
-
-    // TODO: use IrTypeMapper in the IR backend
-    private val typeMapper: KotlinTypeMapperBase = state.typeMapper
 
     override fun doTransform(parentRemapper: FieldRemapper): InlineResult {
         val innerClassNodes = ArrayList<InnerClassNode>()
@@ -126,8 +122,8 @@ class AnonymousObjectTransformer(
 
             override fun visitEnd() {}
         }, ClassReader.SKIP_FRAMES)
-        val header = metadataReader.createHeader(inliningContext.state.languageVersionSettings.languageVersion.toMetadataVersion())
-        assert(isSameModule || (header != null && isPublicAbi(header))) {
+        val header = metadataReader.createHeader(inliningContext.state.config.languageVersionSettings.languageVersion.toMetadataVersion())
+        assert(isSameModule || (header != null && isPublicAbi(header)) || inliningContext.callSiteInfo.suppressNonPublicApiObjectInliningError) {
             "Trying to inline an anonymous object which is not part of the public ABI: ${oldObjectType.className}"
         }
 
@@ -199,7 +195,9 @@ class AnonymousObjectTransformer(
         }
 
         if (GENERATE_SMAP && !inliningContext.isInliningLambda) {
-            classBuilder.visitSMAP(sourceMapper, !state.languageVersionSettings.supportsFeature(LanguageFeature.CorrectSourceMappingSyntax))
+            classBuilder.visitSMAP(
+                sourceMapper, !state.config.languageVersionSettings.supportsFeature(LanguageFeature.CorrectSourceMappingSyntax), true
+            )
         } else if (debugFileName != null) {
             classBuilder.visitSource(debugFileName!!, debugInfo)
         }
@@ -271,7 +269,7 @@ class AnonymousObjectTransformer(
         when (header.kind) {
             KotlinClassHeader.Kind.CLASS -> {
                 val (nameResolver, classProto) = JvmProtoBufUtil.readClassDataFrom(data, strings)
-                val newStringTable = JvmCodegenStringTable(typeMapper, nameResolver)
+                val newStringTable = JvmStringTable(nameResolver)
                 val newProto = classProto.toBuilder().apply {
                     setExtension(JvmProtoBuf.anonymousObjectOriginName, newStringTable.getStringIndex(oldObjectType.internalName))
                 }.build()
@@ -279,7 +277,7 @@ class AnonymousObjectTransformer(
             }
             KotlinClassHeader.Kind.SYNTHETIC_CLASS -> {
                 val (nameResolver, functionProto) = JvmProtoBufUtil.readFunctionDataFrom(data, strings)
-                val newStringTable = JvmCodegenStringTable(typeMapper, nameResolver)
+                val newStringTable = JvmStringTable(nameResolver)
                 val newProto = functionProto.toBuilder().apply {
                     setExtension(JvmProtoBuf.lambdaClassOriginName, newStringTable.getStringIndex(oldObjectType.internalName))
                 }.build()
@@ -351,6 +349,7 @@ class AnonymousObjectTransformer(
             InlineCallSiteInfo(
                 transformationInfo.oldClassName,
                 Method(sourceNode.name, if (isConstructor) transformationInfo.newConstructorDescriptor else sourceNode.desc),
+                inliningContext.callSiteInfo.suppressNonPublicApiObjectInliningError,
                 inliningContext.callSiteInfo.inlineScopeVisibility,
                 inliningContext.callSiteInfo.file,
                 inliningContext.callSiteInfo.lineNumber
@@ -386,7 +385,7 @@ class AnonymousObjectTransformer(
             val info = param.fieldEquivalent?.also {
                 // Permit to access this capture through a field within the constructor itself, but remap to local loads.
                 constructorInlineBuilder.addCapturedParam(it, it.newFieldName).remapValue =
-                    if (offset == -1) null else StackValue.local(offset, param.type)
+                    if (offset == -1) null else StackValue.Local(offset, param.type, null)
             } ?: param
             if (!param.isSkipped && info is CapturedParamInfo && !info.isSkipInConstructor) {
                 val desc = info.type.descriptor
@@ -546,7 +545,10 @@ class AnonymousObjectTransformer(
                         recapturedParamInfo.functionalArgument = NonInlineArgumentForInlineSuspendParameter.INLINE_LAMBDA_AS_VARIABLE
                     }
                     capturedParamBuilder.addCapturedParam(recapturedParamInfo, recapturedParamInfo.newFieldName).remapValue =
-                        StackValue.field(desc.type, oldObjectType, recapturedParamInfo.newFieldName, false, StackValue.LOCAL_0)
+                        StackValue.Field(
+                            desc.type, oldObjectType, recapturedParamInfo.newFieldName,
+                            StackValue.Local(0, AsmTypes.OBJECT_TYPE, null),
+                        )
                     allRecapturedParameters.add(desc)
                 }
             }
@@ -560,7 +562,8 @@ class AnonymousObjectTransformer(
             val desc = CapturedParamDesc(ownerType, AsmUtil.THIS, ownerType)
             val recapturedParamInfo =
                 constructorParamBuilder.addCapturedParam(desc, AsmUtil.CAPTURED_THIS_FIELD/*outer lambda/object*/, false)
-            capturedParamBuilder.addCapturedParam(recapturedParamInfo, recapturedParamInfo.newFieldName).remapValue = StackValue.LOCAL_0
+            capturedParamBuilder.addCapturedParam(recapturedParamInfo, recapturedParamInfo.newFieldName).remapValue =
+                StackValue.Local(0, AsmTypes.OBJECT_TYPE, null)
             allRecapturedParameters.add(desc)
         }
 

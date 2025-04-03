@@ -1,3 +1,8 @@
+// LL_FIR_DIVERGENCE
+// Not a real LL divergence, it's just tiered runners reporting errors from `BACKEND`
+// LL_FIR_DIVERGENCE
+// LATEST_LV_DIFFERENCE
+// RUN_PIPELINE_TILL: BACKEND
 // WITH_STDLIB
 // MODULE: m1-common
 // FILE: common.kt
@@ -21,7 +26,7 @@ expect fun kclassArg()
 // FILE: jvm.kt
 actual annotation class <!ACTUAL_ANNOTATIONS_NOT_MATCH_EXPECT("annotation class Ann : Annotation; annotation class Ann : Annotation; Annotation `@Target(allowedTargets = vararg(AnnotationTarget.FUNCTION, AnnotationTarget.CLASS))` is missing on actual declaration")!>Ann<!>
 
-actual fun <!ACTUAL_ANNOTATIONS_NOT_MATCH_EXPECT("fun stringConcat(): Unit; fun stringConcat(): Unit; Annotation `@Ann2(s = String(1).plus(String(2)))` is missing on actual declaration")!>stringConcat<!>() {}
+actual fun <!ACTUAL_ANNOTATIONS_NOT_MATCH_EXPECT("fun stringConcat(): Unit; fun stringConcat(): Unit; Annotation `@Ann2(s = <strcat>(String(1), String(2)))` is missing on actual declaration")!>stringConcat<!>() {}
 
 // Not reported in K1, because supported starting from K2
 actual fun <!ACTUAL_ANNOTATIONS_NOT_MATCH_EXPECT("fun onType(): @Ann2(...) Any?; fun onType(): Any?; Annotation `@Ann2(s = String())` is missing on actual declaration")!>onType<!>(): Any? = null

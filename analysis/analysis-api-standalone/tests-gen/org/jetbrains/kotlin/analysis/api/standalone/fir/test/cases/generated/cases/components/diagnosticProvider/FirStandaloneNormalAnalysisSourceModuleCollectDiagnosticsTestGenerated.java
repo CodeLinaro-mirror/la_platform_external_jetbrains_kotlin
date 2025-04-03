@@ -53,6 +53,24 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   }
 
   @Test
+  @TestMetadata("contextParameters.kt")
+  public void testContextParameters() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/contextParameters.kt");
+  }
+
+  @Test
+  @TestMetadata("contextParametersAsLibrary.kt")
+  public void testContextParametersAsLibrary() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/contextParametersAsLibrary.kt");
+  }
+
+  @Test
+  @TestMetadata("contracts.kt")
+  public void testContracts() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/contracts.kt");
+  }
+
+  @Test
   @TestMetadata("danglingAnnotationInMiddle.kt")
   public void testDanglingAnnotationInMiddle() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/danglingAnnotationInMiddle.kt");
@@ -92,6 +110,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   @TestMetadata("errorsInFunctionalInterfacesInstances.kt")
   public void testErrorsInFunctionalInterfacesInstances() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/errorsInFunctionalInterfacesInstances.kt");
+  }
+
+  @Test
+  @TestMetadata("externalAnnotations.kt")
+  public void testExternalAnnotations() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/externalAnnotations.kt");
   }
 
   @Test
@@ -209,6 +233,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   }
 
   @Test
+  @TestMetadata("unresolvedContracts.kt")
+  public void testUnresolvedContracts() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/unresolvedContracts.kt");
+  }
+
+  @Test
   @TestMetadata("unresolvedReferenceInsideSuperConstructorCall.kt")
   public void testUnresolvedReferenceInsideSuperConstructorCall() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/unresolvedReferenceInsideSuperConstructorCall.kt");
@@ -248,6 +278,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   @TestMetadata("unusedDestructuring.kt")
   public void testUnusedDestructuring() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/unusedDestructuring.kt");
+  }
+
+  @Test
+  @TestMetadata("varargParameterFromLibraryWithFunctionalType.kt")
+  public void testVarargParameterFromLibraryWithFunctionalType() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/varargParameterFromLibraryWithFunctionalType.kt");
   }
 
   @Nested

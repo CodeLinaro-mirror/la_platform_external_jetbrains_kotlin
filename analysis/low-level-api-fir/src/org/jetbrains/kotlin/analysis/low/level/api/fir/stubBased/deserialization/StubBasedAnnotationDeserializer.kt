@@ -34,6 +34,15 @@ import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 class StubBasedAnnotationDeserializer(
     private val session: FirSession,
 ) {
+    companion object {
+        fun getAnnotationClassId(ktAnnotation: KtAnnotationEntry): ClassId {
+            val userType = ktAnnotation.getStubOrPsiChild(KtStubElementTypes.CONSTRUCTOR_CALLEE)
+                ?.getStubOrPsiChild(KtStubElementTypes.TYPE_REFERENCE)
+                ?.getStubOrPsiChild(KtStubElementTypes.USER_TYPE)!!
+            return userType.classId()
+        }
+    }
+
     fun loadAnnotations(
         ktAnnotated: KtAnnotated,
     ): List<FirAnnotation> {
@@ -44,12 +53,21 @@ class StubBasedAnnotationDeserializer(
 
     private val constantCache = mutableMapOf<CallableId, FirExpression>()
 
-    fun loadConstant(property: KtProperty, callableId: CallableId): FirExpression? {
+    fun loadConstant(property: KtProperty, callableId: CallableId, isUnsigned: Boolean): FirExpression? {
         if (!property.hasModifier(KtTokens.CONST_KEYWORD)) return null
         constantCache[callableId]?.let { return it }
         val propertyStub = (property.stub ?: loadStubByElement(property)) as? KotlinPropertyStubImpl ?: return null
         val constantValue = propertyStub.constantInitializer ?: return null
-        return resolveValue(property, constantValue)
+        val resultValue = when {
+            !isUnsigned -> constantValue
+            constantValue is ByteValue -> UByteValue(constantValue.value)
+            constantValue is ShortValue -> UShortValue(constantValue.value)
+            constantValue is IntValue -> UIntValue(constantValue.value)
+            constantValue is LongValue -> ULongValue(constantValue.value)
+            else -> constantValue
+        }
+
+        return resolveValue(property, resultValue)
     }
 
     private fun deserializeAnnotation(
@@ -61,13 +79,6 @@ class StubBasedAnnotationDeserializer(
             ((ktAnnotation.stub ?: loadStubByElement(ktAnnotation)) as? KotlinAnnotationEntryStubImpl)?.valueArguments,
             ktAnnotation.useSiteTarget?.getAnnotationUseSiteTarget()
         )
-    }
-
-    fun getAnnotationClassId(ktAnnotation: KtAnnotationEntry): ClassId {
-        val userType = ktAnnotation.getStubOrPsiChild(KtStubElementTypes.CONSTRUCTOR_CALLEE)
-            ?.getStubOrPsiChild(KtStubElementTypes.TYPE_REFERENCE)
-            ?.getStubOrPsiChild(KtStubElementTypes.USER_TYPE)!!
-        return userType.classId()
     }
 
     private fun deserializeAnnotation(
@@ -136,10 +147,10 @@ class StubBasedAnnotationDeserializer(
             is LongValue -> const(ConstantValueKind.Long, value.value, session.builtinTypes.longType, sourceElement)
             is FloatValue -> const(ConstantValueKind.Float, value.value, session.builtinTypes.floatType, sourceElement)
             is DoubleValue -> const(ConstantValueKind.Double, value.value, session.builtinTypes.doubleType, sourceElement)
-            is UByteValue -> const(ConstantValueKind.UnsignedByte, value.value, session.builtinTypes.byteType, sourceElement)
-            is UShortValue -> const(ConstantValueKind.UnsignedShort, value.value, session.builtinTypes.shortType, sourceElement)
-            is UIntValue -> const(ConstantValueKind.UnsignedInt, value.value, session.builtinTypes.intType, sourceElement)
-            is ULongValue -> const(ConstantValueKind.UnsignedLong, value.value, session.builtinTypes.longType, sourceElement)
+            is UByteValue -> const(ConstantValueKind.UnsignedByte, value.value, session.builtinTypes.uByteType, sourceElement)
+            is UShortValue -> const(ConstantValueKind.UnsignedShort, value.value, session.builtinTypes.uShortType, sourceElement)
+            is UIntValue -> const(ConstantValueKind.UnsignedInt, value.value, session.builtinTypes.uIntType, sourceElement)
+            is ULongValue -> const(ConstantValueKind.UnsignedLong, value.value, session.builtinTypes.uLongType, sourceElement)
             is IntValue -> const(ConstantValueKind.Int, value.value, session.builtinTypes.intType, sourceElement)
             NullValue -> const(ConstantValueKind.Null, null, session.builtinTypes.nullableAnyType, sourceElement)
             is StringValue -> const(ConstantValueKind.String, value.value, session.builtinTypes.stringType, sourceElement)

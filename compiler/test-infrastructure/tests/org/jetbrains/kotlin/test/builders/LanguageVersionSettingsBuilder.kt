@@ -108,16 +108,15 @@ class LanguageVersionSettingsBuilder {
             analysisFlag(AnalysisFlags.allowKotlinPackage, trueOrNull(LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE in directives)),
             analysisFlag(AnalysisFlags.muteExpectActualClassesWarning, trueOrNull(LanguageSettingsDirectives.ENABLE_EXPECT_ACTUAL_CLASSES_WARNING in directives) != true),
             analysisFlag(AnalysisFlags.dontWarnOnErrorSuppression, trueOrNull(LanguageSettingsDirectives.DONT_WARN_ON_ERROR_SUPPRESSION in directives)),
+            analysisFlag(AnalysisFlags.stdlibCompilation, trueOrNull(LanguageSettingsDirectives.STDLIB_COMPILATION in directives)),
 
             analysisFlag(JvmAnalysisFlags.jvmDefaultMode, directives.singleOrZeroValue(LanguageSettingsDirectives.JVM_DEFAULT_MODE)),
             analysisFlag(JvmAnalysisFlags.inheritMultifileParts, trueOrNull(LanguageSettingsDirectives.INHERIT_MULTIFILE_PARTS in directives)),
             analysisFlag(JvmAnalysisFlags.sanitizeParentheses, trueOrNull(LanguageSettingsDirectives.SANITIZE_PARENTHESES in directives)),
             analysisFlag(JvmAnalysisFlags.enableJvmPreview, trueOrNull(LanguageSettingsDirectives.ENABLE_JVM_PREVIEW in directives)),
-            analysisFlag(JvmAnalysisFlags.useIR, targetBackend?.isIR != false),
+            analysisFlag(JvmAnalysisFlags.expectBuiltinsAsPartOfStdlib, trueOrNull(LanguageSettingsDirectives.EXPECT_BUILTINS_AS_PART_OF_STDLIB in directives)),
 
             analysisFlag(AnalysisFlags.explicitApiVersion, trueOrNull(apiVersion != null)),
-
-            analysisFlag(JvmAnalysisFlags.generatePropertyAnnotationsMethods, trueOrNull(LanguageSettingsDirectives.GENERATE_PROPERTY_ANNOTATIONS_METHODS in directives)),
         )
 
         analysisFlags.forEach { withFlag(it.first, it.second) }
@@ -128,7 +127,7 @@ class LanguageVersionSettingsBuilder {
             }
         }
 
-        if (targetBackend?.isIR == true) {
+        if (targetBackend == TargetBackend.JS_IR || targetBackend == TargetBackend.JS_IR_ES6) {
             specificFeatures[LanguageFeature.JsAllowValueClassesInExternals] = LanguageFeature.State.ENABLED
         }
 
@@ -137,6 +136,14 @@ class LanguageVersionSettingsBuilder {
         }
 
         directives[LanguageSettingsDirectives.LANGUAGE].forEach { parseLanguageFeature(it) }
+        if (LanguageSettingsDirectives.PROGRESSIVE_MODE in directives) {
+            for (feature in LanguageFeature.entries.filter { it.enabledInProgressiveMode }) {
+                if (feature.sinceVersion!! <= languageVersion) continue
+                if (feature !in specificFeatures) {
+                    specificFeatures[feature] = LanguageFeature.State.ENABLED
+                }
+            }
+        }
     }
 
     private fun parseLanguageFeature(featureString: String) {

@@ -86,12 +86,6 @@ abstract class IrElementTransformerVoid : IrTransformer<Nothing?>(), IrElementTr
     final override fun visitEnumEntry(declaration: IrEnumEntry, data: Nothing?): IrStatement =
         visitEnumEntry(declaration)
 
-    open fun visitErrorDeclaration(declaration: IrErrorDeclaration): IrStatement =
-        visitDeclaration(declaration)
-
-    final override fun visitErrorDeclaration(declaration: IrErrorDeclaration, data: Nothing?): IrStatement =
-        visitErrorDeclaration(declaration)
-
     open fun visitField(declaration: IrField): IrStatement =
         visitDeclaration(declaration)
 
@@ -123,6 +117,12 @@ abstract class IrElementTransformerVoid : IrTransformer<Nothing?>(), IrElementTr
 
     final override fun visitScript(declaration: IrScript, data: Nothing?): IrStatement =
         visitScript(declaration)
+
+    open fun visitReplSnippet(declaration: IrReplSnippet): IrStatement =
+        visitDeclaration(declaration)
+
+    final override fun visitReplSnippet(declaration: IrReplSnippet, data: Nothing?): IrStatement =
+        visitReplSnippet(declaration)
 
     open fun visitSimpleFunction(declaration: IrSimpleFunction): IrStatement =
         visitFunction(declaration)
@@ -321,6 +321,18 @@ abstract class IrElementTransformerVoid : IrTransformer<Nothing?>(), IrElementTr
 
     final override fun visitLocalDelegatedPropertyReference(expression: IrLocalDelegatedPropertyReference, data: Nothing?): IrElement =
         visitLocalDelegatedPropertyReference(expression)
+
+    open fun visitRichFunctionReference(expression: IrRichFunctionReference): IrExpression =
+        visitExpression(expression)
+
+    final override fun visitRichFunctionReference(expression: IrRichFunctionReference, data: Nothing?): IrExpression =
+        visitRichFunctionReference(expression)
+
+    open fun visitRichPropertyReference(expression: IrRichPropertyReference): IrExpression =
+        visitExpression(expression)
+
+    final override fun visitRichPropertyReference(expression: IrRichPropertyReference, data: Nothing?): IrExpression =
+        visitRichPropertyReference(expression)
 
     open fun visitClassReference(expression: IrClassReference): IrExpression =
         visitDeclarationReference(expression)

@@ -140,18 +140,6 @@ public class ClassicJvmIntegrationDiagnosticTestGenerated extends AbstractClassi
     }
 
     @Test
-    @TestMetadata("clashWithNoCompatibility.kt")
-    public void testClashWithNoCompatibility() {
-      runTest("compiler/testData/diagnostics/jvmIntegration/jvmDefault/clashWithNoCompatibility.kt");
-    }
-
-    @Test
-    @TestMetadata("clashWithOld.kt")
-    public void testClashWithOld() {
-      runTest("compiler/testData/diagnostics/jvmIntegration/jvmDefault/clashWithOld.kt");
-    }
-
-    @Test
     @TestMetadata("compatibilityAgainstJava.kt")
     public void testCompatibilityAgainstJava() {
       runTest("compiler/testData/diagnostics/jvmIntegration/jvmDefault/compatibilityAgainstJava.kt");
@@ -228,6 +216,12 @@ public class ClassicJvmIntegrationDiagnosticTestGenerated extends AbstractClassi
     }
 
     @Test
+    @TestMetadata("unnamedDependsOnNamed_allModulePath.kt")
+    public void testUnnamedDependsOnNamed_allModulePath() {
+      runTest("compiler/testData/diagnostics/jvmIntegration/modules/unnamedDependsOnNamed_allModulePath.kt");
+    }
+
+    @Test
     @TestMetadata("unnamedDoesNotReadNotAdded.kt")
     public void testUnnamedDoesNotReadNotAdded() {
       runTest("compiler/testData/diagnostics/jvmIntegration/modules/unnamedDoesNotReadNotAdded.kt");
@@ -264,12 +258,6 @@ public class ClassicJvmIntegrationDiagnosticTestGenerated extends AbstractClassi
       @TestMetadata("jdk17.kt")
       public void testJdk17() {
         runTest("compiler/testData/diagnostics/jvmIntegration/modules/jdkReleaseFlag/jdk17.kt");
-      }
-
-      @Test
-      @TestMetadata("unknownReleaseVersion.kt")
-      public void testUnknownReleaseVersion() {
-        runTest("compiler/testData/diagnostics/jvmIntegration/modules/jdkReleaseFlag/unknownReleaseVersion.kt");
       }
     }
   }

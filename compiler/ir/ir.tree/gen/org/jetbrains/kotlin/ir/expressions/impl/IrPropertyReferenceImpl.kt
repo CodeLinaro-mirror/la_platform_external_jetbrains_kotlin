@@ -10,8 +10,7 @@
 
 package org.jetbrains.kotlin.ir.expressions.impl
 
-import org.jetbrains.kotlin.ir.declarations.IrAttributeContainer
-import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.expressions.IrPropertyReference
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
@@ -26,18 +25,20 @@ class IrPropertyReferenceImpl internal constructor(
     override val endOffset: Int,
     override var type: IrType,
     override var origin: IrStatementOrigin?,
-    protected override val valueArguments: Array<IrExpression?>,
-    protected override val typeArguments: Array<IrType?>,
-    override var symbol: IrPropertySymbol,
+    symbol: IrPropertySymbol,
     override var field: IrFieldSymbol?,
     override var getter: IrSimpleFunctionSymbol?,
     override var setter: IrSimpleFunctionSymbol?,
 ) : IrPropertyReference() {
-    override var attributeOwnerId: IrAttributeContainer = this
+    override var attributeOwnerId: IrElement = this
 
-    override var originalBeforeInline: IrAttributeContainer? = null
+    override val typeArguments: MutableList<IrType?> = ArrayList(0)
 
-    override var dispatchReceiver: IrExpression? = null
-
-    override var extensionReceiver: IrExpression? = null
+    override var symbol: IrPropertySymbol = symbol
+        set(value) {
+            if (field !== value) {
+                field = value
+                updateTargetSymbol()
+            }
+        }
 }

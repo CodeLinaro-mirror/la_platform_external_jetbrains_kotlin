@@ -9,7 +9,7 @@ KaJavaFieldSymbol:
   isStatic: false
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: FINAL
   name: field
   origin: JAVA_SOURCE
   receiverParameter: null
@@ -38,7 +38,7 @@ KaJavaFieldSymbol:
   isStatic: false
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: FINAL
   name: field2
   origin: JAVA_SOURCE
   receiverParameter: null
@@ -59,6 +59,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -122,6 +123,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -129,6 +131,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -162,6 +165,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -169,6 +173,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -202,6 +207,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 

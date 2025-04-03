@@ -11,11 +11,7 @@ import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.compile.CodeFragmentCapturedValue
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnostic
-import org.jetbrains.kotlin.codegen.ClassBuilder
-import org.jetbrains.kotlin.codegen.ClassBuilderFactories
-import org.jetbrains.kotlin.codegen.ClassBuilderFactory
-import org.jetbrains.kotlin.codegen.DelegatingClassBuilder
-import org.jetbrains.kotlin.codegen.DelegatingClassBuilderFactory
+import org.jetbrains.kotlin.codegen.*
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
@@ -25,15 +21,16 @@ import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
 import java.io.File
 
 /**
- * In-memory compilation result returned from [KaCompilerFacility].
+ * An in-memory compilation result returned from [KaCompilerFacility].
  *
  * Compilation fails if there are critical errors reported either on the frontend or on the backend side.
- * Keep in mind that [KaCompilationResult] is a part of Analysis API, so it should only be used inside an analysis block.
+ * Keep in mind that [KaCompilationResult] is a part of the Analysis API, so it should only be used inside an
+ * [analysis block][org.jetbrains.kotlin.analysis.api.analyze].
  */
 @KaExperimentalApi
 public sealed class KaCompilationResult {
     /**
-     * Successful compilation result.
+     * A successful compilation result.
      *
      * @property output Output files produced by the compiler. For the JVM target, these are class files and '.kotlin_module'.
      * @property capturedValues Context values captured by a [KtCodeFragment]. Empty for an ordinary [KtFile].
@@ -45,49 +42,41 @@ public sealed class KaCompilationResult {
     ) : KaCompilationResult()
 
     /**
-     * Failed compilation result.
+     * A failed compilation result.
      *
-     * @property errors Non-recoverable errors either during code analysis, or during code generation.
+     * @property errors Non-recoverable errors which occurred either during code analysis or during code generation.
      */
     @KaExperimentalApi
     public class Failure(public val errors: List<KaDiagnostic>) : KaCompilationResult()
 }
 
 @KaExperimentalApi
-@Deprecated("Use 'KaCompilationResult' instead.", replaceWith = ReplaceWith("KaCompilationResult"))
-public typealias KtCompilationResult = KaCompilationResult
-
-@KaExperimentalApi
 public interface KaCompiledFile {
     /**
-     * Path of the compiled file relative to the root of the output directory.
+     * The path of the compiled file relative to the root of the output directory.
      */
     public val path: String
 
     /**
-     * Source files that were compiled to produce this file.
+     * The source files that were compiled to produce this file.
      */
     public val sourceFiles: List<File>
 
     /**
-     * Content of the compiled file.
+     * The content of the compiled file.
      */
     public val content: ByteArray
 }
 
-@KaExperimentalApi
-@Deprecated("Use 'KaCompiledFile' instead.", replaceWith = ReplaceWith("KaCompiledFile"))
-public typealias KtCompiledFile = KaCompiledFile
-
 /**
- * `true` if the compiled file is a Java class file.
+ * Whether the compiled file is a Java class file.
  */
 @KaExperimentalApi
 public val KaCompiledFile.isClassFile: Boolean
     get() = path.endsWith(".class", ignoreCase = true)
 
 /**
- * Compilation target platform.
+ * The target platform of the compilation performed by [KaCompilerFacility].
  */
 @KaExperimentalApi
 public sealed class KaCompilerTarget {
@@ -95,7 +84,7 @@ public sealed class KaCompilerTarget {
      * JVM target (produces '.class' files).
      *
      * @property isTestMode `true` if the underlying code should support dumping the bytecode of the resulting class files to text.
-     * @property compiledClassHandler Handler which is called whenever a new class file is produced.
+     * @property compiledClassHandler A handler which is called whenever a new class file is produced.
      */
     @KaExperimentalApi
     public class Jvm(
@@ -105,54 +94,24 @@ public sealed class KaCompilerTarget {
 }
 
 /**
- * Handler which is called whenever a new class file is produced, when compiling sources to the JVM target.
+ * A handler which is called whenever a new class file is produced, when compiling sources to the JVM target.
  *
  * @see KaCompilerTarget.Jvm
  */
 @KaExperimentalApi
 public fun interface KaCompiledClassHandler {
     /**
-     * This method is called whenever a new class file is produced.
+     * [handleClassDefinition] is called whenever a new class file is produced.
      *
-     * @param file The PSI file containing the class definition. Can be null in case the generated class file has no PSI file in sources,
-     *  for example if it's an anonymous object from another module, regenerated during inline.
-     * @param className The name of the class in the JVM internal name format, for example `"java/lang/Object"`.
+     * @param file The [PsiFile] containing the class definition. It can be `null` when the generated class file has no PSI file in sources,
+     *  for example if it's an anonymous object from another module, regenerated during inlining.
+     * @param className The name of the class in the JVM's internal name format, for example `"java/lang/Object"`.
      */
     public fun handleClassDefinition(file: PsiFile?, className: String)
 }
 
 @KaExperimentalApi
-@KaImplementationDetail
-public val KaCompilerTarget.classBuilderFactory: ClassBuilderFactory
-    get() = when (this) {
-        is KaCompilerTarget.Jvm -> {
-            val base = if (isTestMode) ClassBuilderFactories.TEST else ClassBuilderFactories.BINARIES
-            if (compiledClassHandler == null) base
-            else object : DelegatingClassBuilderFactory(base) {
-                override fun newClassBuilder(origin: JvmDeclarationOrigin): DelegatingClassBuilder {
-                    val delegate = base.newClassBuilder(origin)
-                    return object : DelegatingClassBuilder() {
-                        override fun getDelegate(): ClassBuilder = delegate
-
-                        override fun defineClass(
-                            psi: PsiElement?, version: Int, access: Int, name: String, signature: String?, superName: String,
-                            interfaces: Array<out String?>,
-                        ) {
-                            compiledClassHandler.handleClassDefinition(origin.element?.containingFile, name)
-                            super.defineClass(psi, version, access, name, signature, superName, interfaces)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-@KaExperimentalApi
-@Deprecated("Use 'KaCompilerTarget' instead.", replaceWith = ReplaceWith("KaCompilerTarget"))
-public typealias KtCompilerTarget = KaCompilerTarget
-
-@KaExperimentalApi
-public interface KaCompilerFacility {
+public interface KaCompilerFacility : KaSessionComponent {
     @KaExperimentalApi
     public companion object {
         /** Simple class name for the code fragment facade class. */
@@ -165,25 +124,22 @@ public interface KaCompilerFacility {
     }
 
     /**
-     * Compile the given [file] in-memory (without dumping the compiled binaries to a disk).
+     * Compiles the given [file] in-memory (without dumping the compiled binaries to the disk).
+     *
+     * The function rethrows exceptions from the compiler, wrapped in [KaCodeCompilationException]. The implementation should wrap the
+     * `compile()` call into a `try`/`catch` block when necessary.
      *
      * @param file A file to compile.
      *  The file must be either a source module file, or a [KtCodeFragment].
      *  For a [KtCodeFragment], a source module context, a compiled library source context, or an empty context(`null`) are supported.
      *
-     * @param configuration Compiler configuration.
+     * @param configuration The compiler configuration.
      *  It is recommended to submit at least the module name ([CommonConfigurationKeys.MODULE_NAME])
      *  and language version settings ([CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS]).
      *
-     * @param target Compilation target platform.
+     * @param target The target platform of the compilation.
      *
-     * @param allowedErrorFilter Filter for the allowed errors.
-     * Compilation will be aborted if there are errors that this filter rejects.
-     *
-     * @return Compilation result.
-     *
-     * The function rethrows exceptions from the compiler, wrapped in [KaCodeCompilationException].
-     * The implementation should wrap the `compile()` call into a `try`/`catch` block when necessary.
+     * @param allowedErrorFilter A filter for allowed errors. Compilation will be aborted if there are errors that this filter rejects.
      */
     @KaExperimentalApi
     @Throws(KaCodeCompilationException::class)
@@ -196,7 +152,9 @@ public interface KaCompilerFacility {
 }
 
 /**
- * Thrown when an exception occurred on analyzing the code to be compiled, or during target platform code generation.
+ * Thrown when an exception occurred while analyzing the code to be compiled, or during target platform code generation.
+ *
+ * @see KaCompilerFacility
  */
 @KaExperimentalApi
 public class KaCodeCompilationException(cause: Throwable) : RuntimeException(cause)

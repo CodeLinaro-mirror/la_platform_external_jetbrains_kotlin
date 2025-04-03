@@ -1,3 +1,5 @@
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: FIR2IR
 // MODULE: m1-common
 // FILE: common.kt
 
@@ -69,3 +71,5 @@ sealed class BaseEImpl() : BaseE {
     override fun foo()
 }
 class DerivedG1 : BaseGImpl()
+
+// MODULE: m1-jvm()()(m1-common)

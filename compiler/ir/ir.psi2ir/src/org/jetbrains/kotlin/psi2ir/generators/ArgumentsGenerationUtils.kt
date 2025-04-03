@@ -491,7 +491,7 @@ private fun StatementGenerator.createFunctionForSuspendConversion(
             .callToSubstitutedDescriptorMap[irAdapteeCall] = invokeDescriptor
 
         for (irAdapterParameter in irAdapterFun.valueParameters) {
-            irAdapteeCall.putValueArgument(irAdapterParameter.index, irGet(irAdapterParameter))
+            irAdapteeCall.putValueArgument(irAdapterParameter.indexInOldValueParameters, irGet(irAdapterParameter))
         }
         if (suspendFunType.arguments.last().type.isUnit()) {
             +irAdapteeCall
@@ -886,6 +886,6 @@ internal inline fun IrMemberAccessExpression<*>.putTypeArguments(
 ) {
     if (typeArguments == null) return
     for ((typeParameter, typeArgument) in typeArguments) {
-        putTypeArgument(typeParameter.index, toIrType(typeArgument))
+        this.typeArguments[typeParameter.index] = toIrType(typeArgument)
     }
 }

@@ -73,10 +73,11 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KaSymbolOrigin = when (ori
     FirDeclarationOrigin.IntersectionOverride -> KaSymbolOrigin.INTERSECTION_OVERRIDE
     FirDeclarationOrigin.Delegated -> KaSymbolOrigin.DELEGATED
     FirDeclarationOrigin.Synthetic.FakeHiddenInPreparationForNewJdk -> KaSymbolOrigin.LIBRARY
+    FirDeclarationOrigin.Synthetic.TypeAliasConstructor -> KaSymbolOrigin.TYPEALIASED_CONSTRUCTOR
     is FirDeclarationOrigin.Synthetic -> {
         when {
             source?.kind == KtFakeSourceElementKind.DataClassGeneratedMembers -> KaSymbolOrigin.SOURCE_MEMBER_GENERATED
-            this is FirValueParameter && this.containingFunctionSymbol.origin is FirDeclarationOrigin.Synthetic -> KaSymbolOrigin.SOURCE_MEMBER_GENERATED
+            this is FirValueParameter && this.containingDeclarationSymbol.origin is FirDeclarationOrigin.Synthetic -> KaSymbolOrigin.SOURCE_MEMBER_GENERATED
             this is FirSyntheticProperty || this is FirSyntheticPropertyAccessor -> KaSymbolOrigin.JAVA_SYNTHETIC_PROPERTY
             origin is FirDeclarationOrigin.Synthetic.ForwardDeclaration -> KaSymbolOrigin.NATIVE_FORWARD_DECLARATION
             origin is FirDeclarationOrigin.Synthetic.ScriptTopLevelDestructuringDeclarationContainer -> KaSymbolOrigin.SOURCE
@@ -110,6 +111,10 @@ internal tailrec fun FirDeclaration.ktSymbolOrigin(): KaSymbolOrigin = when (ori
     is FirDeclarationOrigin.SubstitutionOverride -> KaSymbolOrigin.SUBSTITUTION_OVERRIDE
     FirDeclarationOrigin.DynamicScope -> KaSymbolOrigin.JS_DYNAMIC
     is FirDeclarationOrigin.ScriptCustomization -> KaSymbolOrigin.PLUGIN
+    is FirDeclarationOrigin.FromOtherReplSnippet ->
+        errorWithAttachment("Unsupported origin: ${origin::class.simpleName}") {
+            withFirEntry("declaration", this@ktSymbolOrigin)
+        }
 }
 
 internal fun KaClassLikeSymbol.getSymbolKind(): KaSymbolLocation {

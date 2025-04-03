@@ -5,12 +5,14 @@
 
 package org.jetbrains.kotlin.js.test.converters
 
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
+import org.jetbrains.kotlin.backend.common.IrModuleInfo
 import org.jetbrains.kotlin.backend.common.serialization.cityHash64
+import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
+import org.jetbrains.kotlin.backend.js.TsCompilationStrategy
 import org.jetbrains.kotlin.cli.common.isWindows
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.phaseConfig
 import org.jetbrains.kotlin.ir.backend.js.*
 import org.jetbrains.kotlin.ir.backend.js.ic.JsExecutableProducer
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.*
@@ -19,12 +21,12 @@ import org.jetbrains.kotlin.js.backend.ast.ESM_EXTENSION
 import org.jetbrains.kotlin.js.backend.ast.REGULAR_EXTENSION
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.test.handlers.JsBoxRunner
+import org.jetbrains.kotlin.js.test.utils.createTestPhaseConfig
 import org.jetbrains.kotlin.js.test.utils.extractTestPackage
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.wrapWithModuleEmulationMarkers
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.serialization.js.ModuleKind
-import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
@@ -33,6 +35,7 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator.Companion.getJsModuleArtifactName
+import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.fileUtils.withReplacedExtensionOrNull
@@ -45,9 +48,10 @@ class JsIrLoweringFacade(
 
     private val jsIrPathReplacer by lazy { JsIrPathReplacer(testServices) }
 
-    override fun shouldRunAnalysis(module: TestModule): Boolean {
-        return module.backendKind == inputKind && module.binaryKind == outputKind &&
-                JsEnvironmentConfigurator.isMainModule(module, testServices)
+    override fun shouldTransform(module: TestModule): Boolean {
+        return with(testServices.defaultsProvider) {
+            backendKind == inputKind && artifactKind == outputKind
+        } && JsEnvironmentConfigurator.isMainModule(module, testServices)
     }
 
     override fun transform(module: TestModule, inputArtifact: IrBackendInput): BinaryArtifacts.Js? {
@@ -113,24 +117,9 @@ class JsIrLoweringFacade(
             ).dump(module, firstTimeCompilation)
         }
 
-        val debugMode = DebugMode.fromSystemProperty("kotlin.js.debugMode")
-        val jsPhases = getJsPhases(configuration)
-        val phaseConfig = if (debugMode >= DebugMode.SUPER_DEBUG) {
-            val dumpOutputDir = File(
-                JsEnvironmentConfigurator.getJsArtifactsOutputDir(testServices),
-                JsEnvironmentConfigurator.getKlibArtifactSimpleName(testServices, module.name) + "-irdump"
-            )
-            PhaseConfig(
-                jsPhases,
-                dumpToDirectory = dumpOutputDir.path,
-                toDumpStateAfter = jsPhases.toPhaseMap().values.toSet()
-            )
-        } else {
-            PhaseConfig(jsPhases)
-        }
+        configuration.phaseConfig = createTestPhaseConfig(testServices, module)
 
         val mainArguments = JsEnvironmentConfigurator.getMainCallParametersForModule(module)
-            .run { if (shouldBeGenerated()) arguments() else null }
 
         val loweredIr = compileIr(
             irModuleFragment.apply { resolveTestPaths() },
@@ -142,7 +131,6 @@ class JsIrLoweringFacade(
             irBuiltIns,
             symbolTable,
             deserializer,
-            phaseConfig,
             exportedDeclarations = setOf(FqName.fromSegments(listOfNotNull(testPackage, JsBoxRunner.TEST_FUNCTION))),
             keep = keep,
             dceRuntimeDiagnostic = null,

@@ -5,6 +5,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.and
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -68,6 +69,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -78,6 +80,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -141,6 +144,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -151,6 +155,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -214,6 +219,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -224,6 +230,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -287,6 +294,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -297,6 +305,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -360,6 +369,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -370,6 +380,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -433,6 +444,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -443,6 +455,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.compareTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -506,6 +519,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -513,6 +527,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Int.dec
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -546,6 +561,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -556,6 +572,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.div
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -619,6 +636,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -629,6 +647,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.div
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -692,6 +711,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -702,6 +722,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.div
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -765,6 +786,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -775,6 +797,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.div
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -838,6 +861,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -848,6 +872,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.div
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -911,6 +936,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -921,6 +947,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.div
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -984,6 +1011,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -994,6 +1022,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1057,6 +1086,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1064,6 +1094,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Int.inc
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1097,6 +1128,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1107,6 +1139,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.inv
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1140,6 +1173,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1150,6 +1184,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.minus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1213,6 +1248,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1223,6 +1259,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.minus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1286,6 +1323,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1296,6 +1334,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.minus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1359,6 +1398,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1369,6 +1409,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.minus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1432,6 +1473,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1442,6 +1484,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.minus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1505,6 +1548,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1515,6 +1559,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.minus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1578,6 +1623,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1588,6 +1634,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.or
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1651,6 +1698,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1661,6 +1709,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.plus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1724,6 +1773,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1734,6 +1784,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.plus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1797,6 +1848,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1807,6 +1859,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.plus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1870,6 +1923,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1880,6 +1934,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.plus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -1943,6 +1998,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -1953,6 +2009,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.plus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2016,6 +2073,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2026,6 +2084,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.plus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2089,6 +2148,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2096,6 +2156,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Int.rangeTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2159,6 +2220,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2166,6 +2228,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Int.rangeTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2229,6 +2292,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2236,6 +2300,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Int.rangeTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2299,6 +2364,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2306,6 +2372,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Int.rangeTo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2369,6 +2436,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2381,6 +2449,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rangeUntil
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2444,6 +2513,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2456,6 +2526,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rangeUntil
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2519,6 +2590,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2531,6 +2603,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rangeUntil
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2594,6 +2667,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2606,6 +2680,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rangeUntil
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2669,6 +2744,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2681,6 +2757,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rem
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2744,6 +2821,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2756,6 +2834,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rem
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2819,6 +2898,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2831,6 +2911,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rem
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2894,6 +2975,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2906,6 +2988,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rem
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -2969,6 +3052,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -2981,6 +3065,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rem
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3044,6 +3129,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3056,6 +3142,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.rem
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3119,6 +3206,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3129,6 +3217,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.shl
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3192,6 +3281,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3202,6 +3292,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.shr
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3265,6 +3356,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3275,6 +3367,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.times
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3338,6 +3431,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3348,6 +3442,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.times
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3411,6 +3506,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3421,6 +3517,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.times
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3484,6 +3581,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3494,6 +3592,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.times
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3557,6 +3656,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3567,6 +3667,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.times
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3630,6 +3731,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3640,6 +3742,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.times
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3703,6 +3806,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3713,6 +3817,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toByte
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3746,6 +3851,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3756,6 +3862,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toChar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3789,6 +3896,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3799,6 +3907,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toDouble
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3832,6 +3941,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3842,6 +3952,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toFloat
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3875,6 +3986,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3885,6 +3997,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toInt
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3918,6 +4031,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3928,6 +4042,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toLong
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -3961,6 +4076,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -3971,6 +4087,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toShort
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4004,6 +4121,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -4014,6 +4132,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.toString
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4047,6 +4166,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -4057,6 +4177,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.unaryMinus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4090,6 +4211,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -4100,6 +4222,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.unaryPlus
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4133,6 +4256,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -4143,6 +4267,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.ushr
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4206,6 +4331,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -4216,6 +4342,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: kotlin/Int.xor
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4279,6 +4406,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Int
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Int
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 
@@ -4286,6 +4414,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: kotlin/Any.hashCode
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -4319,6 +4448,7 @@ KaNamedFunctionSymbol:
     type: kotlin/Any
   getContainingFileSymbol: null
   getContainingJvmClassName: kotlin.Any
+  canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
 

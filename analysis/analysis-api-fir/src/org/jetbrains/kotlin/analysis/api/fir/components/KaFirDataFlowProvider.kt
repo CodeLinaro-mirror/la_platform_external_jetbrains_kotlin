@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.analysis.api.fir.components
 
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.SmartList
-import org.jetbrains.kotlin.KtFakeSourceElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtFakeSourceElementKind.DesugaredAugmentedAssign
 import org.jetbrains.kotlin.KtFakeSourceElementKind.DesugaredIncrementOrDecrement
@@ -18,7 +17,7 @@ import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.utils.unwrap
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseImplicitReceiverSmartCast
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSmartCastInfo
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.utils.errors.withKaModuleEntry
@@ -55,7 +54,7 @@ import kotlin.math.sign
 
 internal class KaFirDataFlowProvider(
     override val analysisSessionProvider: () -> KaFirSession
-) : KaSessionComponent<KaFirSession>(), KaDataFlowProvider, KaFirSessionComponent {
+) : KaBaseSessionComponent<KaFirSession>(), KaDataFlowProvider, KaFirSessionComponent {
     override val KtExpression.smartCastInfo: KaSmartCastInfo?
         get() = withValidityAssertion {
             val firSmartCastExpression = getMatchingFirExpressionWithSmartCast(this) ?: return null
@@ -270,9 +269,6 @@ internal class KaFirDataFlowProvider(
             }
         }
 
-        @Suppress("USELESS_IS_CHECK") // K2 warning suppression, TODO: KT-62472
-        require(firDefaultStatement is FirExpression)
-
         val defaultStatementFromFir = firDefaultStatement.psi as? KtExpression ?: return null
 
         if (!PsiTreeUtil.isAncestor(defaultStatementFromFir, defaultStatement.deparenthesize(), false)) {
@@ -485,11 +481,7 @@ internal class KaFirDataFlowProvider(
             }
 
             val source = element.source
-            if (source is KtFakeSourceElement && source.kind in FORBIDDEN_FAKE_SOURCE_KINDS) {
-                return false
-            }
-
-            return true
+            return source?.kind !in FORBIDDEN_FAKE_SOURCE_KINDS
         }
 
         private inline fun withElement(element: FirElement, block: () -> Unit) {

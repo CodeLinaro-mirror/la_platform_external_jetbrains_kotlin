@@ -78,7 +78,6 @@ fun IrDeclaration.toIrBasedDescriptor(): DeclarationDescriptor = when (this) {
     is IrProperty -> toIrBasedDescriptor()
     is IrField -> toIrBasedDescriptor()
     is IrTypeAlias -> toIrBasedDescriptor()
-    is IrErrorDeclaration -> toIrBasedDescriptor()
     is IrScript -> toIrBasedDescriptor()
     else -> error("Unknown declaration kind")
 }
@@ -140,7 +139,18 @@ abstract class IrBasedCallableDescriptor<T : IrDeclaration>(owner: T) : Callable
 open class IrBasedValueParameterDescriptor(owner: IrValueParameter) : ValueParameterDescriptor,
     IrBasedCallableDescriptor<IrValueParameter>(owner) {
 
-    override val index get() = owner.index
+    override val index: Int
+        get() {
+            if (owner.indexInParameters == -1)
+                return -1
+            val function = owner._parent as? IrFunction
+                ?: return -1
+
+            // Find index in imaginary list that contains only Regular and Context parameters.
+            return function.parameters
+                .subList(0, owner.indexInParameters)
+                .count { it.kind == IrParameterKind.Context || it.kind == IrParameterKind.Regular }
+        }
     override val isCrossinline get() = owner.isCrossinline
     override val isNoinline get() = owner.isNoinline
     override val varargElementType get() = owner.varargElementType?.toIrBasedKotlinType()
@@ -205,11 +215,10 @@ open class IrBasedReceiverParameterDescriptor(owner: IrValueParameter) : Receive
     }
 }
 
-fun IrValueParameter.toIrBasedDescriptor() =
-    if (index < 0)
-        IrBasedReceiverParameterDescriptor(this)
-    else
-        IrBasedValueParameterDescriptor(this)
+fun IrValueParameter.toIrBasedDescriptor() = when (kind) {
+    IrParameterKind.DispatchReceiver, IrParameterKind.ExtensionReceiver -> IrBasedReceiverParameterDescriptor(this)
+    IrParameterKind.Context, IrParameterKind.Regular -> IrBasedValueParameterDescriptor(this)
+}
 
 open class IrBasedTypeParameterDescriptor(owner: IrTypeParameter) : TypeParameterDescriptor,
     IrBasedDeclarationDescriptor<IrTypeParameter>(owner) {
@@ -350,19 +359,19 @@ fun IrLocalDelegatedProperty.toIrBasedDescriptor() = IrBasedVariableDescriptorWi
 
 abstract class IrBasedFunctionDescriptor<Function : IrFunction>(owner: Function) : IrBasedCallableDescriptor<Function>(owner) {
 
-    override fun getExtensionReceiverParameter() = owner.extensionReceiverParameter?.toIrBasedDescriptor() as? ReceiverParameterDescriptor
+    override fun getExtensionReceiverParameter() = owner.parameters
+        .firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }
+        ?.toIrBasedDescriptor() as? ReceiverParameterDescriptor
 
-    override fun getContextReceiverParameters() = owner.valueParameters
-        .asSequence()
-        .take(owner.contextReceiverParametersCount)
+    override fun getContextReceiverParameters() = owner.parameters
+        .filter { it.kind == IrParameterKind.Context }
         .map(::IrBasedReceiverParameterDescriptor)
-        .toMutableList()
+        .toList()
 
-    override fun getValueParameters() = owner.valueParameters
-        .asSequence()
-        .drop(owner.contextReceiverParametersCount)
+    override fun getValueParameters() = owner.parameters
+        .filter { it.kind == IrParameterKind.Regular }
         .map(::IrBasedValueParameterDescriptor)
-        .toMutableList()
+        .toList()
 }
 
 // We make all IR-based function descriptors instances of DescriptorWithContainerSource, and use .parentClassId to
@@ -848,8 +857,9 @@ open class IrBasedPropertyDescriptor(owner: IrProperty) :
 
     override fun isLateInit() = owner.isLateinit
 
-    override fun getExtensionReceiverParameter() =
-        owner.getter?.extensionReceiverParameter?.toIrBasedDescriptor() as? ReceiverParameterDescriptor
+    override fun getExtensionReceiverParameter() = owner.getter?.parameters
+        ?.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }
+        ?.toIrBasedDescriptor() as? ReceiverParameterDescriptor
 
     override fun getContextReceiverParameters(): List<ReceiverParameterDescriptor> {
         return getter?.contextReceiverParameters ?: emptyList()
@@ -1132,25 +1142,6 @@ fun IrField.toIrBasedDescriptor() = if (origin == IrDeclarationOrigin.DELEGATE) 
     IrBasedFieldDescriptor(this)
 }
 
-class IrBasedErrorDescriptor(owner: IrErrorDeclaration) : IrBasedDeclarationDescriptor<IrErrorDeclaration>(owner) {
-    override fun getName(): Name = error("IrBasedErrorDescriptor.getName: Should not be reached")
-
-    override fun getOriginal(): DeclarationDescriptorWithSource =
-        error("IrBasedErrorDescriptor.getOriginal: Should not be reached")
-
-    override fun getContainingDeclaration(): DeclarationDescriptor =
-        error("IrBasedErrorDescriptor.getContainingDeclaration: Should not be reached")
-
-    override fun <R : Any?, D : Any?> accept(visitor: DeclarationDescriptorVisitor<R, D>?, data: D): R {
-        error("IrBasedErrorDescriptor.accept: Should not be reached")
-    }
-
-    override fun acceptVoid(visitor: DeclarationDescriptorVisitor<Void, Void>?) {
-    }
-}
-
-fun IrErrorDeclaration.toIrBasedDescriptor() = IrBasedErrorDescriptor(this)
-
 @OptIn(ObsoleteDescriptorBasedAPI::class)
 private fun getContainingDeclaration(declaration: IrDeclaration): DeclarationDescriptor {
     val parent = declaration.parent
@@ -1307,7 +1298,7 @@ private fun IrConstructorCall.toAnnotationDescriptor(): AnnotationDescriptor {
     }
     return AnnotationDescriptorImpl(
         annotationClass.defaultType.toIrBasedKotlinType(),
-        symbol.owner.valueParameters.memoryOptimizedMap { it.name to getValueArgument(it.index) }
+        symbol.owner.parameters.memoryOptimizedMap { it.name to arguments[it.indexInParameters] }
             .filter { it.second != null }
             .associate { it.first to it.second!!.toConstantValue() },
         source

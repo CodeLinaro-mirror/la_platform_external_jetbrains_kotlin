@@ -24,7 +24,6 @@ import org.jetbrains.kotlin.codegen.BytecodeListingTextCollectingVisitor
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.IrAnnotationContainer
@@ -35,11 +34,12 @@ import org.jetbrains.kotlin.ir.expressions.IrFieldAccessExpression
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions
 import org.jetbrains.kotlin.ir.util.dump
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
+import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.plugin.sandbox.PluginRuntimeAnnotationsProvider
 import org.jetbrains.kotlin.psi.KtCodeFragment
 import org.jetbrains.kotlin.psi.KtElement
@@ -56,6 +56,7 @@ import org.jetbrains.kotlin.test.services.EnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.RuntimeClasspathProvider
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
+import org.jetbrains.kotlin.test.services.targetPlatform
 import org.jetbrains.org.objectweb.asm.ClassReader
 import org.jetbrains.org.objectweb.asm.Opcodes
 import org.jetbrains.org.objectweb.asm.Type
@@ -116,7 +117,6 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
         val compilerConfiguration = CompilerConfiguration().apply {
             put(CommonConfigurationKeys.MODULE_NAME, mainModule.testModule.name)
             put(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS, mainModule.testModule.languageVersionSettings)
-            put(JVMConfigurationKeys.IR, true)
 
             testFile.directives[Directives.CODE_FRAGMENT_CLASS_NAME].singleOrNull()
                 ?.let { put(KaCompilerFacility.CODE_FRAGMENT_CLASS_NAME, it) }
@@ -196,9 +196,11 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
     }
 
     private fun dumpClassFiles(outputFiles: List<KaCompiledFile>): String {
-        val classReaders =
-            outputFiles.filter { it.path.endsWith(".class", ignoreCase = true) }.also { check(it.isNotEmpty()) }.sortedBy { it.path }
-                .map { ClassReader(it.content) }
+        val classReaders = outputFiles.filter { it.path.endsWith(".class", ignoreCase = true) }
+            .also { check(it.isNotEmpty()) }
+            .sortedBy { it.path }
+            .map { ClassReader(it.content) }
+
         return dumpClassFromClassReaders(classReaders)
     }
 
@@ -270,6 +272,7 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
 private class CompilerFacilityEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigurator(testServices) {
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
         if (module.directives.contains(AbstractCompilerFacilityTest.Directives.ATTACH_DUPLICATE_STDLIB)) {
+            require(module.targetPlatform(testServices).isJvm())
             configuration.add(CLIConfigurationKeys.CONTENT_ROOTS, JvmClasspathRoot(ForTestCompileRuntime.minimalRuntimeJarForTests()))
         }
     }
@@ -283,7 +286,7 @@ internal fun createCodeFragment(ktFile: KtFile, module: TestModule, testServices
         return null
     }
 
-    val contextElement = testServices.expressionMarkerProvider.getElementOfTypeAtCaret<KtElement>(ktFile)
+    val contextElement = testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret<KtElement>(ktFile)
 
     val fragmentText = ioFragmentFile.readText()
     val isBlockFragment = fragmentText.any { it == '\n' }
@@ -326,7 +329,7 @@ private class CollectingIrGenerationExtension(private val annotationToCheckCalls
     private class CheckCallsWithAnnotationVisitor(
         private val annotationFqName: String,
         private val handleFunctionWithAnnotation: (declaration: IrDeclarationWithName) -> Unit,
-    ) : IrElementVisitorVoid {
+    ) : IrVisitorVoid() {
         val annotationClassId by lazy {
             val annotationFqNameUnsafe = FqNameUnsafe(annotationFqName)
             ClassId(FqName(annotationFqNameUnsafe.parent()), FqName(annotationFqNameUnsafe.shortName().asString()), false)

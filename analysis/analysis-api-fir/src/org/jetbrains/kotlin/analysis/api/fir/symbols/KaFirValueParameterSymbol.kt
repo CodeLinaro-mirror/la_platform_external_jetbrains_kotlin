@@ -25,7 +25,6 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.correspondingProperty
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.varargElementType
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -44,13 +43,13 @@ internal class KaFirValueParameterSymbol private constructor(
     )
 
     constructor(symbol: FirValueParameterSymbol, session: KaFirSession) : this(
-        backingPsi = symbol.fir.realPsi as? KtParameter,
+        backingPsi = symbol.backingPsiIfApplicable as? KtParameter,
         lazyFirSymbol = lazyOf(symbol),
         analysisSession = session,
     )
 
     override val psi: PsiElement?
-        get() = withValidityAssertion { backingPsi ?: firSymbol.findPsi() }
+        get() = withValidityAssertion { backingPsi ?: findPsi() }
 
     override val name: Name
         get() = withValidityAssertion { backingPsi?.parameterName ?: firSymbol.name }
@@ -117,9 +116,15 @@ internal class KaFirValueParameterSymbol private constructor(
             ownerPointer = analysisSession.createOwnerPointer(this),
             name = name,
             index = (ownerSymbol.firSymbol.fir as FirFunction).valueParameters.indexOf(firSymbol.fir),
+            originalSymbol = this
         )
     }
 
-    override fun equals(other: Any?): Boolean = psiOrSymbolEquals(other)
-    override fun hashCode(): Int = psiOrSymbolHashCode()
+    override fun equals(other: Any?): Boolean {
+        return psiOrSymbolEquals(other)
+    }
+
+    override fun hashCode(): Int {
+        return psiOrSymbolHashCode()
+    }
 }

@@ -5,9 +5,13 @@
 
 package org.jetbrains.kotlin.backend.common.phaser
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.backend.common.ModuleLoweringPass
+import org.jetbrains.kotlin.config.phaser.CompilerPhase
+import org.jetbrains.kotlin.config.phaser.PhaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaserState
+import org.jetbrains.kotlin.config.phaser.NamedCompilerPhase
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import java.lang.reflect.ParameterizedType
@@ -18,27 +22,38 @@ annotation class PhaseDescription(
     val prerequisite: Array<KClass<out FileLoweringPass>> = [],
 )
 
-fun <Context : CommonBackendContext> createFilePhases(
-    vararg phases: (Context) -> FileLoweringPass
-): List<SimpleNamedCompilerPhase<Context, IrFile, IrFile>> {
+fun <Context : LoweringContext> createFilePhases(
+    vararg phases: ((Context) -> FileLoweringPass)?
+): List<NamedCompilerPhase<Context, IrFile, IrFile>> {
     val createdPhases = hashSetOf<Class<out FileLoweringPass>>()
-    return phases.map { phase ->
+    return phases.filterNotNull().map { phase ->
         val loweringClass = phase.extractReturnTypeArgument()
         createdPhases.add(loweringClass)
         createFilePhase(loweringClass, createdPhases, phase)
     }
 }
 
-fun <Context : CommonBackendContext> createModulePhases(
-    vararg phases: (Context) -> ModuleLoweringPass
-): List<SimpleNamedCompilerPhase<Context, IrModuleFragment, IrModuleFragment>> {
+fun <Context : LoweringContext> createModulePhases(
+    vararg phases: ((Context) -> ModuleLoweringPass)?
+): List<NamedCompilerPhase<Context, IrModuleFragment, IrModuleFragment>> {
     val createdPhases = hashSetOf<Class<out ModuleLoweringPass>>()
-    return phases.map { phase ->
+    return phases.filterNotNull().map { phase ->
         val loweringClass = phase.extractReturnTypeArgument()
         createdPhases.add(loweringClass)
         createModulePhase(loweringClass, createdPhases, phase)
     }
 }
+
+fun <Context : LoweringContext> buildModuleLoweringsPhase(
+    vararg phases: ((Context) -> ModuleLoweringPass)?
+): CompilerPhase<Context, IrModuleFragment, IrModuleFragment> =
+    createModulePhases(*phases)
+        .fold(noopPhase(), CompilerPhase<Context, IrModuleFragment, IrModuleFragment>::then)
+
+private fun <Context : LoweringContext, T> noopPhase(): CompilerPhase<Context, T, T> =
+    object : CompilerPhase<Context, T, T> {
+        override fun invoke(phaseConfig: PhaseConfig, phaserState: PhaserState, context: Context, input: T): T = input
+    }
 
 private inline fun <ReturnType, reified FunctionType : Function<ReturnType>>
         FunctionType.extractReturnTypeArgument(): Class<out ReturnType> {
@@ -47,16 +62,20 @@ private inline fun <ReturnType, reified FunctionType : Function<ReturnType>>
     val functionType = javaClass.genericInterfaces.singleOrNull {
         it is ParameterizedType && it.rawType == FunctionType::class.java
     } ?: error("Supertype ${FunctionType::class.java} is not found: " + javaClass.genericInterfaces.toList())
-    val returnTypeClass = (functionType as ParameterizedType).actualTypeArguments.last()
+    val returnType = (functionType as ParameterizedType).actualTypeArguments.last()
     @Suppress("UNCHECKED_CAST")
-    return returnTypeClass as Class<out ReturnType>
+    return when (returnType) {
+        is Class<*> -> returnType
+        is ParameterizedType -> returnType.rawType
+        else -> error("Unexpected return type ${returnType.typeName}")
+    } as Class<out ReturnType>
 }
 
-private fun <Context : CommonBackendContext> createFilePhase(
+private fun <Context : LoweringContext> createFilePhase(
     loweringClass: Class<*>,
     previouslyCreatedPhases: Set<Class<out FileLoweringPass>>,
     createLoweringPass: (Context) -> FileLoweringPass,
-): SimpleNamedCompilerPhase<Context, IrFile, IrFile> {
+): NamedCompilerPhase<Context, IrFile, IrFile> {
     val annotation = loadAnnotationAndCheckPrerequisites(loweringClass, previouslyCreatedPhases)
 
     return createSimpleNamedCompilerPhase(
@@ -72,11 +91,11 @@ private fun <Context : CommonBackendContext> createFilePhase(
     )
 }
 
-private fun <Context : CommonBackendContext> createModulePhase(
+private fun <Context : LoweringContext> createModulePhase(
     loweringClass: Class<*>,
     previouslyCreatedPhases: Set<Class<out ModuleLoweringPass>>,
     createLoweringPass: (Context) -> ModuleLoweringPass,
-): SimpleNamedCompilerPhase<Context, IrModuleFragment, IrModuleFragment> {
+): NamedCompilerPhase<Context, IrModuleFragment, IrModuleFragment> {
     val annotation = loadAnnotationAndCheckPrerequisites(loweringClass, previouslyCreatedPhases)
 
     return makeIrModulePhase(createLoweringPass, annotation.name)

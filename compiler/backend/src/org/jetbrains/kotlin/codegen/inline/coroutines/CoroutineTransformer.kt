@@ -92,6 +92,7 @@ class CoroutineTransformer(
                 // TODO: this linenumbers might not be correct and since they are used only for step-over, check them.
                 lineNumber = inliningContext.callSiteInfo.lineNumber,
                 sourceFile = inliningContext.callSiteInfo.file?.name ?: "",
+                config = state.config,
             )
 
             if (generateForInline)
@@ -123,9 +124,9 @@ class CoroutineTransformer(
                 reportSuspensionPointInsideMonitor = { sourceCompilerForInline.reportSuspensionPointInsideMonitor(it) },
                 lineNumber = inliningContext.callSiteInfo.lineNumber,
                 sourceFile = inliningContext.callSiteInfo.file?.name ?: "",
+                config = state.config,
                 needDispatchReceiver = true,
                 internalNameForDispatchReceiver = classBuilder.thisName,
-                putContinuationParameterToLvt = !state.isIrBackend,
             )
 
             if (generateForInline)

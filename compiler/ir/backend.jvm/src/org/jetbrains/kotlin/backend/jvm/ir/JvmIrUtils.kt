@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptorWithSource
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.deserialization.PLATFORM_DEPENDENT_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
@@ -32,8 +31,6 @@ import org.jetbrains.kotlin.ir.builders.irCall
 import org.jetbrains.kotlin.ir.builders.irExprBody
 import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyClass
-import org.jetbrains.kotlin.ir.declarations.lazy.IrMaybeDeserializedClass
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
@@ -43,18 +40,17 @@ import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrVariableSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.getArrayElementType
+import org.jetbrains.kotlin.ir.util.isBoxedArray
+import org.jetbrains.kotlin.ir.util.isSubtypeOf
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.kotlin.FacadeClassSource
 import org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
-import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_DEFAULT_FQ_NAME
-import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_DEFAULT_NO_COMPATIBILITY_FQ_NAME
-import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_DEFAULT_WITH_COMPATIBILITY_FQ_NAME
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.DescriptorUtils
@@ -68,7 +64,7 @@ import java.io.File
 
 fun IrDeclaration.getJvmNameFromAnnotation(): String? {
     // TODO lower @JvmName?
-    val const = getAnnotation(DescriptorUtils.JVM_NAME)?.getValueArgument(0) as? IrConst ?: return null
+    val const = getAnnotation(DescriptorUtils.JVM_NAME)?.arguments[0] as? IrConst ?: return null
     val value = const.value as? String ?: return null
     return when (origin) {
         IrDeclarationOrigin.FUNCTION_FOR_DEFAULT_PARAMETER -> "$value\$default"
@@ -78,32 +74,12 @@ fun IrDeclaration.getJvmNameFromAnnotation(): String? {
     }
 }
 
-fun IrFunction.isSimpleFunctionCompiledToJvmDefault(jvmDefaultMode: JvmDefaultMode): Boolean {
-    return (this as? IrSimpleFunction)?.isCompiledToJvmDefault(jvmDefaultMode) == true
-}
-
-fun IrSimpleFunction.isCompiledToJvmDefault(jvmDefaultMode: JvmDefaultMode): Boolean {
-    assert(!isFakeOverride && parentAsClass.isInterface && modality != Modality.ABSTRACT) {
-        "`isCompiledToJvmDefault` should be called on non-fakeoverrides and non-abstract methods from interfaces ${ir2string(this)}"
-    }
-    if (origin == IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB) return false
-    if (hasJvmDefault()) return true
-    when (val klass = parentAsClass) {
-        is IrLazyClass -> klass.classProto?.let {
-            return JvmProtoBufUtil.isNewPlaceForBodyGeneration(it)
-        }
-        is IrMaybeDeserializedClass -> return klass.isNewPlaceForBodyGeneration
-    }
-    return jvmDefaultMode.isEnabled
-}
-
-fun IrFunction.hasJvmDefault(): Boolean = propertyIfAccessor.hasAnnotation(JVM_DEFAULT_FQ_NAME)
-fun IrClass.hasJvmDefaultNoCompatibilityAnnotation(): Boolean = hasAnnotation(JVM_DEFAULT_NO_COMPATIBILITY_FQ_NAME)
-fun IrClass.hasJvmDefaultWithCompatibilityAnnotation(): Boolean = hasAnnotation(JVM_DEFAULT_WITH_COMPATIBILITY_FQ_NAME)
-fun IrFunction.hasPlatformDependent(): Boolean = propertyIfAccessor.hasAnnotation(PLATFORM_DEPENDENT_ANNOTATION_FQ_NAME)
-
 fun IrFunction.getJvmVisibilityOfDefaultArgumentStub() =
-    if (DescriptorVisibilities.isPrivate(visibility) || isInlineOnly()) JavaDescriptorVisibilities.PACKAGE_VISIBILITY else DescriptorVisibilities.PUBLIC
+    when {
+        DescriptorVisibilities.isPrivate(visibility) || isInlineOnly() -> JavaDescriptorVisibilities.PACKAGE_VISIBILITY
+        visibility == DescriptorVisibilities.INTERNAL -> DescriptorVisibilities.INTERNAL
+        else -> DescriptorVisibilities.PUBLIC
+    }
 
 fun IrDeclaration.isInCurrentModule(): Boolean =
     getPackageFragment() is IrFile
@@ -187,10 +163,10 @@ fun IrMemberAccessExpression<IrFunctionSymbol>.copyFromWithPlaceholderTypeArgume
     copyValueArgumentsFrom(existingCall, this.symbol.owner, receiversAsArguments = true, argumentsAsReceivers = false)
     var offset = 0
     existingCall.symbol.owner.parentAsClass.typeParameters.forEach { _ ->
-        putTypeArgument(offset++, createPlaceholderAnyNType(irBuiltIns))
+        typeArguments[offset++] = createPlaceholderAnyNType(irBuiltIns)
     }
-    for (i in 0 until existingCall.typeArgumentsCount) {
-        putTypeArgument(i + offset, existingCall.getTypeArgument(i))
+    for (i in existingCall.typeArguments.indices) {
+        typeArguments[i + offset] = existingCall.typeArguments[i]
     }
 }
 
@@ -238,10 +214,11 @@ fun IrProperty.needsAccessor(accessor: IrSimpleFunction): Boolean = when {
     // Properties in annotation classes become abstract methods named after the property.
     (parent as? IrClass)?.kind == ClassKind.ANNOTATION_CLASS -> true
     // Multi-field value class accessors must always be added.
-    accessor.isGetter && accessor.contextReceiverParametersCount == 0 && accessor.extensionReceiverParameter == null &&
+    accessor.isGetter &&
+            accessor.nonDispatchParameters.isEmpty() &&
             accessor.returnType.needsMfvcFlattening() -> true
-    accessor.isSetter && accessor.contextReceiverParametersCount == 0 && accessor.extensionReceiverParameter == null &&
-            accessor.valueParameters.single().type.needsMfvcFlattening() -> true
+    accessor.isSetter &&
+            accessor.nonDispatchParameters.singleOrNull()?.type?.needsMfvcFlattening() == true -> true
     // @JvmField properties have no getters/setters
     resolveFakeOverride()?.backingField?.hasAnnotation(JvmAbi.JVM_FIELD_ANNOTATION_FQ_NAME) == true -> false
     // We do not produce default accessors for private fields
@@ -286,7 +263,7 @@ fun IrFile.getIoFile(): File? =
 
 inline fun IrElement.hasChild(crossinline block: (IrElement) -> Boolean): Boolean {
     var result = false
-    acceptChildren(object : IrElementVisitorVoid {
+    acceptChildren(object : IrVisitorVoid() {
         override fun visitElement(element: IrElement) = when {
             result -> Unit
             block(element) -> result = true
@@ -300,7 +277,7 @@ val IrClass.isSyntheticSingleton: Boolean
     get() = (origin == JvmLoweredDeclarationOrigin.LAMBDA_IMPL
             || origin == JvmLoweredDeclarationOrigin.FUNCTION_REFERENCE_IMPL
             || origin == JvmLoweredDeclarationOrigin.GENERATED_PROPERTY_REFERENCE)
-            && primaryConstructor!!.valueParameters.isEmpty()
+            && primaryConstructor!!.parameters.isEmpty()
 
 fun IrSimpleFunction.suspendFunctionOriginal(): IrSimpleFunction =
     if (isSuspend &&
@@ -383,25 +360,12 @@ fun IrDeclarationParent.getCallableReferenceOwnerKClassType(context: JvmBackendC
 fun IrDeclaration.getCallableReferenceTopLevelFlag(): Int =
     if (parent.let { it is IrClass && it.isFileClass }) 1 else 0
 
-// Based on KotlinTypeMapper.findSuperDeclaration.
-fun findSuperDeclaration(function: IrSimpleFunction, isSuperCall: Boolean, jvmDefaultMode: JvmDefaultMode): IrSimpleFunction {
+fun findSuperDeclaration(function: IrSimpleFunction): IrSimpleFunction {
     var current = function
     while (current.isFakeOverride) {
-        // TODO: probably isJvmInterface instead of isInterface, here and in KotlinTypeMapper
-        val classCallable = current.overriddenSymbols.firstOrNull { !it.owner.parentAsClass.isInterface }?.owner
-        if (classCallable != null) {
-            current = classCallable
-            continue
-        }
-        if (isSuperCall && !current.parentAsClass.isInterface) {
-            val overridden = current.resolveFakeOverride()
-            if (overridden != null && (overridden.isMethodOfAny() || !overridden.isCompiledToJvmDefault(jvmDefaultMode))) {
-                return current
-            }
-        }
-
-        current = current.overriddenSymbols.firstOrNull()?.owner
-            ?: error("Fake override should have at least one overridden descriptor: ${current.render()}")
+        current = current.overriddenSymbols.firstOrNull { !it.owner.parentAsClass.isInterface }?.owner
+            ?: current.overriddenSymbols.firstOrNull()?.owner
+                    ?: error("Fake override should have at least one overridden descriptor: ${current.render()}")
     }
     return current
 }
@@ -525,15 +489,11 @@ private fun IrClass.hasEnumEntriesFunction(): Boolean {
 
 private fun IrSimpleFunction.isGetEntries(): Boolean =
     name.toString() == "<get-entries>"
-            && dispatchReceiverParameter == null
-            && extensionReceiverParameter == null
-            && valueParameters.isEmpty()
+            && hasShape(regularParameters = 0)
 
 fun IrClass.findEnumValuesFunction(context: JvmBackendContext): IrSimpleFunction = functions.single {
     it.name.toString() == "values"
-            && it.dispatchReceiverParameter == null
-            && it.extensionReceiverParameter == null
-            && it.valueParameters.isEmpty()
+            && it.hasShape(regularParameters = 0)
             && it.returnType.isBoxedArray
             && it.returnType.getArrayElementType(context.irBuiltIns).classOrNull == this.symbol
 }

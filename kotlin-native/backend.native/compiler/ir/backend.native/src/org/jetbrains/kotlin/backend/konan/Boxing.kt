@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.backend.konan.llvm.ConstValue
 import org.jetbrains.kotlin.backend.konan.llvm.StaticData
 import org.jetbrains.kotlin.backend.konan.llvm.constValue
 import org.jetbrains.kotlin.backend.konan.llvm.toLLVMType
-import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
@@ -121,7 +120,7 @@ internal fun Context.getUnboxFunction(inlinedClass: IrClass): IrSimpleFunction =
  * If output target is native binary then the cache is created.
  */
 internal fun initializeCachedBoxes(generationState: NativeGenerationState) {
-    BoxCache.values().forEach { cache ->
+    BoxCache.entries.forEach { cache ->
         val cacheName = "${cache.name}_CACHE"
         val rangeStart = "${cache.name}_RANGE_FROM"
         val rangeEnd = "${cache.name}_RANGE_TO"
@@ -202,31 +201,3 @@ internal fun IrConstantPrimitive.toBoxCacheValue(generationState: NativeGenerati
 
 private fun createConstant(llvmType: LLVMTypeRef, value: Int): ConstValue =
         constValue(LLVMConstInt(llvmType, value.toLong(), 1)!!)
-
-// When start is greater than end then `inRange` check is always false
-// and can be eliminated by LLVM.
-private val emptyRange = 1 to 0
-
-// Memory usage is around 20kb.
-private val BoxCache.defaultRange get() = when (this) {
-    BoxCache.BOOLEAN -> (0 to 1)
-    BoxCache.BYTE -> (-128 to 127)
-    BoxCache.SHORT -> (-128 to 127)
-    BoxCache.CHAR -> (0 to 255)
-    BoxCache.INT -> (-128 to 127)
-    BoxCache.LONG -> (-128 to 127)
-}
-
-internal fun IrBuiltIns.getKotlinClass(cache: BoxCache): IrClass = when (cache) {
-    BoxCache.BOOLEAN -> booleanClass
-    BoxCache.BYTE -> byteClass
-    BoxCache.SHORT -> shortClass
-    BoxCache.CHAR -> charClass
-    BoxCache.INT -> intClass
-    BoxCache.LONG -> longClass
-}.owner
-
-// TODO: consider adding box caches for unsigned types.
-enum class BoxCache {
-    BOOLEAN, BYTE, SHORT, CHAR, INT, LONG
-}

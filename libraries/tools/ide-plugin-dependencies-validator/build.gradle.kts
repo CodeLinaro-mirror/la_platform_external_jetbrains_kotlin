@@ -16,7 +16,7 @@ dependencies {
     implementation(kotlinStdlib())
 
     // runtime dependencies for IJ
-    runtimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    runtimeOnly(libs.intellij.fastutil)
     runtimeOnly(commonDependency("org.codehaus.woodstox:stax2-api"))
     runtimeOnly(commonDependency("com.fasterxml:aalto-xml"))
     runtimeOnly(commonDependency("org.jetbrains.intellij.deps:trove4j"))
@@ -40,15 +40,20 @@ val projectsUsedInIntelliJKotlinPlugin: Array<String> by rootProject.extra
 val kotlinApiVersionForProjectsUsedInIntelliJKotlinPlugin: String by rootProject.extra
 
 tasks.withType<JavaExec> {
+    notCompatibleWithConfigurationCache("Uses project in task action")
     workingDir = rootProject.projectDir
 
     doFirst {
-        args = projectsUsedInIntelliJKotlinPlugin.flatMap {
+        val srcDirsOfProjectsUsedInIntelliJKotlinPlugin = projectsUsedInIntelliJKotlinPlugin.flatMap {
             project(it).extensions
                 .findByType(JavaPluginExtension::class.java)
                 ?.sourceSets?.flatMap { sourceSet ->
                     sourceSet.allSource.srcDirs.map { it.path }
                 }.orEmpty()
+        }
+        args = buildList {
+            add(project(":kotlin-stdlib").projectDir.path)
+            addAll(srcDirsOfProjectsUsedInIntelliJKotlinPlugin)
         }
     }
 }

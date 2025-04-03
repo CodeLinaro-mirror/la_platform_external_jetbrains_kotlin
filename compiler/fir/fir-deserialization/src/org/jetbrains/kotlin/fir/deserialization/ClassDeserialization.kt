@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusWithLazyEffectiveVisibility
 import org.jetbrains.kotlin.fir.declarations.utils.addDeclarations
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.declarations.utils.moduleName
@@ -62,17 +63,20 @@ fun deserializeClassToSymbol(
     val kind = Flags.CLASS_KIND.get(flags)
     val modality = ProtoEnumFlags.modality(Flags.MODALITY.get(flags))
     val visibility = ProtoEnumFlags.visibility(Flags.VISIBILITY.get(flags))
-    val status = FirResolvedDeclarationStatusImpl(
-        visibility,
-        modality,
-        visibility.toEffectiveVisibility(parentContext?.outerClassSymbol, forClass = true)
-    ).apply {
+    val effectiveVisibility = visibility.toLazyEffectiveVisibility(
+        owner = parentContext?.outerClassSymbol,
+        session,
+        forClass = true
+    )
+    val status = FirResolvedDeclarationStatusWithLazyEffectiveVisibility(visibility, modality, effectiveVisibility).apply {
         isExpect = Flags.IS_EXPECT_CLASS.get(flags)
         isActual = false
         isCompanion = kind == ProtoBuf.Class.Kind.COMPANION_OBJECT
         isInner = Flags.IS_INNER.get(flags)
         isData = Flags.IS_DATA.get(classProto.flags)
-        isInline = Flags.IS_VALUE_CLASS.get(classProto.flags)
+        // During serialization, we store only IS_VALUE_CLASS without distinguishing if it in fact was inline or value class
+        // During deserialization, we anyway interpret this flag as isValue, because inline classes are deprecated
+        isValue = Flags.IS_VALUE_CLASS.get(classProto.flags)
         isExternal = Flags.IS_EXTERNAL_CLASS.get(classProto.flags)
         isFun = Flags.IS_FUN_INTERFACE.get(classProto.flags)
     }
@@ -105,7 +109,8 @@ fun deserializeClassToSymbol(
             flexibleTypeFactory,
             constDeserializer,
             containerSource,
-            symbol
+            symbol,
+            status.effectiveVisibility
         )
     if (status.isCompanion) {
         parentContext?.let {
@@ -166,7 +171,7 @@ fun deserializeClassToSymbol(
         )
 
         addDeclarations(
-            classProto.typeAliasList.mapNotNull(classDeserializer::loadTypeAlias)
+            classProto.typeAliasList.mapNotNull { classDeserializer.loadTypeAlias(it, scopeProvider) }
         )
 
         addDeclarations(
@@ -190,6 +195,9 @@ fun deserializeClassToSymbol(
                     resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
                 }.apply {
                     containingClassForStaticMemberAttr = context.dispatchReceiver!!.lookupTag
+                    replaceAnnotations(
+                        context.annotationDeserializer.loadEnumEntryAnnotations(classId, enumEntryProto, context.nameResolver)
+                    )
                 }
 
                 property
@@ -213,7 +221,7 @@ fun deserializeClassToSymbol(
 
         companionObjectSymbol = (declarations.firstOrNull { it is FirRegularClass && it.isCompanion } as FirRegularClass?)?.symbol
 
-        contextReceivers.addAll(classDeserializer.createContextReceiversForClass(classProto))
+        contextParameters.addAll(classDeserializer.createContextParametersForClass(classProto, origin, symbol))
     }.apply {
         if (isSealed) {
             val inheritors = classProto.sealedSubclassFqNameList.map { nameIndex ->

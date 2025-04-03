@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.konan.test
 
-import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContextImpl
 import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
@@ -19,7 +18,10 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.linkage.IrDeserializer
 import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.IdSignature
+import org.jetbrains.kotlin.ir.util.IdSignatureComposer
+import org.jetbrains.kotlin.ir.util.StubGeneratorExtensions
+import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.konan.test.blackbox.support.CastCompatibleKotlinNativeClassLoader
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.name.Name
@@ -50,9 +52,9 @@ class ClassicFrontend2NativeIrConverter(
         get() = listOf(service(::LibraryProvider))
 
     override fun transform(module: TestModule, inputArtifact: ClassicFrontendOutputArtifact): IrBackendInput {
-        return when (module.targetBackend) {
+        return when (val targetBackend = testServices.defaultsProvider.targetBackend) {
             TargetBackend.NATIVE -> transformToNativeIr(module, inputArtifact)
-            else -> testServices.assertions.fail { "Target backend ${module.targetBackend} is not supported for transformation into IR" }
+            else -> testServices.assertions.fail { "Target backend $targetBackend is not supported for transformation into IR" }
         }
     }
 
@@ -110,14 +112,8 @@ class ClassicFrontend2NativeIrConverter(
 
             override fun postProcess(inOrAfterLinkageStep: Boolean) = Unit
         }
-        val pluginExtensions = IrGenerationExtension.getInstances(project)
 
-        val moduleFragment = translator.generateModuleFragment(
-            generatorContext,
-            sourceFiles,
-            irProviders = listOf(irDeserializer),
-            linkerExtensions = pluginExtensions,
-        )
+        val moduleFragment = translator.generateModuleFragment(generatorContext, sourceFiles, listOf(irDeserializer))
 
         val pluginContext = IrPluginContextImpl(
             generatorContext.moduleDescriptor,
@@ -127,7 +123,7 @@ class ClassicFrontend2NativeIrConverter(
             generatorContext.typeTranslator,
             generatorContext.irBuiltIns,
             linker = irDeserializer,
-            diagnosticReporter = configuration.messageCollector
+            messageCollector = configuration.messageCollector
         )
 
         // N.B. The list of libraries to be written to manifest `depends=` property is not computed here.
@@ -136,7 +132,7 @@ class ClassicFrontend2NativeIrConverter(
         val usedLibrariesForManifest = emptyList<KotlinLibrary>()
 
         @OptIn(ObsoleteDescriptorBasedAPI::class)
-        return IrBackendInput.NativeBackendInput(
+        return IrBackendInput.NativeAfterFrontendBackendInput(
             moduleFragment,
             pluginContext,
             diagnosticReporter = DiagnosticReporterFactory.createReporter(configuration.messageCollector),

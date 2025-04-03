@@ -96,6 +96,18 @@ public class DecompiledKnmStubConsistencyFe10TestGenerated extends AbstractDecom
   }
 
   @Test
+  @TestMetadata("ContextParametersOnCallableMembers")
+  public void testContextParametersOnCallableMembers() {
+    runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/ContextParametersOnCallableMembers/");
+  }
+
+  @Test
+  @TestMetadata("ContextParametersOnTopLevelCallables")
+  public void testContextParametersOnTopLevelCallables() {
+    runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/ContextParametersOnTopLevelCallables/");
+  }
+
+  @Test
   @TestMetadata("ContextReceiversCallableMembers")
   public void testContextReceiversCallableMembers() {
     runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/ContextReceiversCallableMembers/");
@@ -162,6 +174,12 @@ public class DecompiledKnmStubConsistencyFe10TestGenerated extends AbstractDecom
   }
 
   @Test
+  @TestMetadata("FlexibleDnnType")
+  public void testFlexibleDnnType() {
+    runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/FlexibleDnnType/");
+  }
+
+  @Test
   @TestMetadata("FlexibleTypes")
   public void testFlexibleTypes() {
     runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/FlexibleTypes/");
@@ -207,6 +225,12 @@ public class DecompiledKnmStubConsistencyFe10TestGenerated extends AbstractDecom
   @TestMetadata("MultifileClass")
   public void testMultifileClass() {
     runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/MultifileClass/");
+  }
+
+  @Test
+  @TestMetadata("MultifileClass__PartKt")
+  public void testMultifileClass__PartKt() {
+    runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/MultifileClass__PartKt/");
   }
 
   @Test
@@ -339,5 +363,11 @@ public class DecompiledKnmStubConsistencyFe10TestGenerated extends AbstractDecom
   @TestMetadata("UnderscoreParameterName")
   public void testUnderscoreParameterName() {
     runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/UnderscoreParameterName/");
+  }
+
+  @Test
+  @TestMetadata("VarargArgumentWithFunctionalType")
+  public void testVarargArgumentWithFunctionalType() {
+    runTest("analysis/decompiled/decompiler-to-file-stubs/testData/clsFileStubBuilder/VarargArgumentWithFunctionalType/");
   }
 }

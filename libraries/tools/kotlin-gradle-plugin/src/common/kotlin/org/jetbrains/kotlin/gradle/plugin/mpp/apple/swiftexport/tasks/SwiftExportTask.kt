@@ -57,7 +57,8 @@ internal abstract class SwiftExportTask @Inject constructor(
     fun run() {
         cleanup()
 
-        val swiftExportQueue = workerExecutor.classLoaderIsolation { workerSpec ->
+        // Run Swift Export with process isolation to avoid leakage for AA/IntelliJ classes. See KT-73438
+        val swiftExportQueue = workerExecutor.processIsolation { workerSpec ->
             workerSpec.classpath.from(swiftExportClasspath)
         }
 
@@ -79,6 +80,7 @@ internal abstract class SwiftExportTask @Inject constructor(
             workParameters.stableDeclarationsOrder.set(parameters.stableDeclarationsOrder)
             workParameters.swiftModulesFile.set(parameters.swiftModulesFile)
             workParameters.swiftModules.set(swiftModules)
+            workParameters.swiftExportSettings.set(parameters.swiftExportSettings)
             workParameters.konanDistribution.set(kotlinNativeProvider.flatMap { it.bundleDirectory }.map { Distribution(it) })
         }
     }

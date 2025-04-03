@@ -8,25 +8,30 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 import org.jetbrains.kotlin.backend.common.*
 import org.jetbrains.kotlin.backend.common.ir.syntheticBodyIsNotSupported
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
+import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
-import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
+import org.jetbrains.kotlin.ir.backend.js.JsIntrinsics
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.FunctionWithJsFuncAnnotationInliner
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.translateJsCodeIntoStatementList
 import org.jetbrains.kotlin.ir.backend.js.utils.emptyScope
-import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
+import org.jetbrains.kotlin.ir.builders.irBlock
+import org.jetbrains.kotlin.ir.builders.irCall
+import org.jetbrains.kotlin.ir.builders.irCallConstructor
+import org.jetbrains.kotlin.ir.builders.irGet
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.types.IrDynamicType
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.parentDeclarationsWithSelf
 import org.jetbrains.kotlin.ir.util.toIrConst
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.js.backend.JsToStringGenerationVisitor
@@ -36,6 +41,7 @@ import org.jetbrains.kotlin.js.sourceMap.SourceMap3Builder
 import org.jetbrains.kotlin.js.sourceMap.SourceMapBuilderConsumer
 import org.jetbrains.kotlin.js.util.TextOutputImpl
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import java.io.File
 
@@ -80,13 +86,18 @@ import java.io.File
  *
  * The outlined functions are inlined again later by [FunctionWithJsFuncAnnotationInliner] during the codegen phase.
  */
-class JsCodeOutliningLowering(val backendContext: JsIrBackendContext) : BodyLoweringPass {
+@PhaseDescription("JsCodeOutliningLowering")
+class JsCodeOutliningLowering(
+    val loweringContext: LoweringContext,
+    val intrinsics: JsIntrinsics,
+    val dynamicType: IrDynamicType,
+) : BodyLoweringPass {
     override fun lower(irBody: IrBody, container: IrDeclaration) {
         // Fast path to avoid tracking locals scopes for bodies without js() calls
-        if (!irBody.containsCallsTo(backendContext.intrinsics.jsCode))
+        if (!irBody.containsCallsTo(intrinsics.jsCode))
             return
 
-        val replacer = JsCodeOutlineTransformer(backendContext, container)
+        val replacer = JsCodeOutlineTransformer(loweringContext, intrinsics, dynamicType, container)
         irBody.transformChildrenVoid(replacer)
 
         val outlinedFunctions = replacer.outlinedFunctions
@@ -106,7 +117,7 @@ class JsCodeOutliningLowering(val backendContext: JsIrBackendContext) : BodyLowe
         when (irBody) {
             is IrBlockBody -> irBody.statements.addAll(0, outlinedFunctions)
             is IrExpressionBody -> {
-                val builder = backendContext.createIrBuilder(container.symbol)
+                val builder = loweringContext.createIrBuilder(container.symbol)
                 irBody.expression = builder.irBlock(irBody.startOffset, irBody.endOffset) {
                     +outlinedFunctions
                     +irBody.expression
@@ -123,7 +134,7 @@ class JsCodeOutliningLowering(val backendContext: JsIrBackendContext) : BodyLowe
 
 private fun IrElement.containsCallsTo(symbol: IrFunctionSymbol): Boolean {
     var result = false
-    acceptChildrenVoid(object : IrElementVisitorVoid {
+    acceptChildrenVoid(object : IrVisitorVoid() {
         override fun visitElement(element: IrElement) {
             if (result) return
             element.acceptChildrenVoid(this)
@@ -142,7 +153,9 @@ private fun IrElement.containsCallsTo(symbol: IrFunctionSymbol): Boolean {
 }
 
 private class JsCodeOutlineTransformer(
-    val backendContext: JsIrBackendContext,
+    val loweringContext: LoweringContext,
+    val intrinsics: JsIntrinsics,
+    val dynamicType: IrDynamicType,
     val container: IrDeclaration,
 ) : IrElementTransformerVoid() {
     val outlinedFunctions = mutableListOf<IrFunction>()
@@ -152,7 +165,7 @@ private class JsCodeOutlineTransformer(
 
     init {
         if (container is IrFunction) {
-            container.valueParameters.forEach {
+            container.parameters.forEach {
                 registerValueDeclaration(it)
             }
         }
@@ -207,11 +220,11 @@ private class JsCodeOutlineTransformer(
     }
 
     fun outlineJsCodeIfNeeded(expression: IrCall): IrExpression? {
-        if (expression.symbol != backendContext.intrinsics.jsCode)
+        if (expression.symbol != intrinsics.jsCode)
             return null
 
-        val jsCodeArg = expression.getValueArgument(0) ?: compilationException("Expected js code string", expression)
-        val jsStatements = translateJsCodeIntoStatementList(jsCodeArg, backendContext, container) ?: return null
+        val jsCodeArg = expression.arguments[0] ?: compilationException("Expected js code string", expression)
+        val jsStatements = translateJsCodeIntoStatementList(jsCodeArg, container) ?: return null
 
         // Collect used Kotlin local variables and parameters.
         val scope = JsScopesCollector().apply { acceptList(jsStatements) }
@@ -229,22 +242,20 @@ private class JsCodeOutlineTransformer(
         // Building JS Ast function
         val newFun = createJsFunction(jsStatements, kotlinLocalsUsedInJs)
         val (jsFunCode, sourceMap) = printJsCodeWithDebugInfo(newFun)
-        annotation.putValueArgument(0, jsFunCode.toIrConst(backendContext.irBuiltIns.stringType))
-        annotation.putValueArgument(1, sourceMap.toIrConst(backendContext.irBuiltIns.stringType))
+        annotation.arguments[0] = jsFunCode.toIrConst(loweringContext.irBuiltIns.stringType)
+        annotation.arguments[1] = sourceMap.toIrConst(loweringContext.irBuiltIns.stringType)
 
-        return with(backendContext.createIrBuilder(container.symbol)) {
+        return with(loweringContext.createIrBuilder(container.symbol)) {
             irCall(outlinedFunction).apply {
-                kotlinLocalsUsedInJs.values.forEachIndexed { index, local ->
-                    putValueArgument(index, irGet(local))
-                }
+                arguments.assignFrom(kotlinLocalsUsedInJs.values, ::irGet)
             }
         }
     }
 
     private fun addSpecialAnnotation(outlinedFunction: IrSimpleFunction): IrConstructorCall {
-        val builder = backendContext.createIrBuilder(outlinedFunction.symbol)
+        val builder = loweringContext.createIrBuilder(outlinedFunction.symbol)
         val annotation = builder.irCallConstructor(
-            backendContext.intrinsics.jsOutlinedFunctionAnnotationSymbol.constructors.first(),
+            intrinsics.jsOutlinedFunctionAnnotationSymbol.constructors.first(),
             typeArguments = emptyList(),
         )
         outlinedFunction.annotations += annotation
@@ -282,7 +293,6 @@ private class JsCodeOutlineTransformer(
             File("."),
             sourceMapBuilder,
             SourceFilePathResolver(emptyList()),
-            provideCurrentModuleContent = false,
             provideExternalModuleContent = false,
         )
         JsToStringGenerationVisitor(jsCode, sourceMapBuilderConsumer).accept(jsFunction)
@@ -290,16 +300,16 @@ private class JsCodeOutlineTransformer(
     }
 
     private fun createOutlinedFunction(kotlinLocalsUsedInJs: Map<JsName, IrValueDeclaration>): IrSimpleFunction {
-        val outlinedFunction = backendContext.irFactory.buildFun {
+        val outlinedFunction = loweringContext.irFactory.buildFun {
             val containerName = (container as? IrDeclarationWithName)?.name?.asString()
             name = Name.identifier(containerName?.let { "$it\$outlinedJsCode\$" } ?: "outlinedJsCode\$")
-            returnType = backendContext.dynamicType
+            returnType = dynamicType
             visibility = DescriptorVisibilities.LOCAL
             isExternal = true
             origin = JsCodeOutliningLowering.OUTLINED_JS_CODE_ORIGIN
         }
         // We don't need this function's body. Using empty block body stub, because some code might expect all functions to have bodies.
-        outlinedFunction.body = backendContext.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
+        outlinedFunction.body = loweringContext.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
 
         kotlinLocalsUsedInJs.values.forEach { local ->
             outlinedFunction.addValueParameter {

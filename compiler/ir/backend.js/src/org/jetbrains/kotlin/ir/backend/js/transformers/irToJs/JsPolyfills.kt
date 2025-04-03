@@ -34,9 +34,9 @@ class JsPolyfills {
         asSequence().asImplementationList()
 
     private fun Sequence<IrDeclaration>.asImplementationList(): List<JsStatement> {
-        return map { it to it.getAnnotation(JsAnnotations.JsPolyfillFqn)!!.getValueArgument(0)!! }
+        return map { it to it.getAnnotation(JsAnnotations.JsPolyfillFqn)!!.arguments[0]!! }
             .distinctBy { (it.second as IrConst).value as String }
-            .flatMap { (container, polyfill) -> translateJsCodeIntoStatementList(polyfill, null, container).orEmpty() }
+            .flatMap { (container, polyfill) -> translateJsCodeIntoStatementList(polyfill, container).orEmpty() }
             .toList()
     }
 }

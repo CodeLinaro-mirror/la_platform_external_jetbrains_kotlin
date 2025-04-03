@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -62,5 +63,6 @@ KaNamedFunctionSymbol:
     type: dynamic
   getContainingFileSymbol: KaFileSymbol(functionFromJsDynamicScopeWithArguments.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

@@ -17,13 +17,13 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrInstanceInitializerCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.util.primaryConstructor
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 
 abstract class AbstractTransformerForGenerator(
     protected val context: IrPluginContext,
     private val visitBodies: Boolean
-) : IrElementVisitorVoid {
+) : IrVisitorVoid() {
     protected val irFactory = context.irFactory
     protected val irBuiltIns = context.irBuiltIns
 
@@ -101,7 +101,7 @@ abstract class AbstractTransformerForGenerator(
             -1,
             -1,
             (declaration.parent as? IrClass)?.symbol ?: return null,
-            type
+            irBuiltIns.unitType,
         )
 
         return irFactory.createBlockBody(-1, -1, listOf(delegatingAnyCall, initializerCall))

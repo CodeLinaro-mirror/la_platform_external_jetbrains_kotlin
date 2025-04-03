@@ -12,6 +12,7 @@ dependencies {
     testImplementation(project(":compiler:ir.tree"))
     testImplementation(project(":compiler:backend.jvm.entrypoint"))
     testImplementation(project(":compiler:backend.jvm.lower"))
+    testImplementation(project(":kotlin-util-klib-abi"))
     testImplementation(intellijCore())
     testImplementation(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
 
@@ -34,13 +35,12 @@ dependencies {
      *   declared as Api dependencies to propagate them to all modules
      *   which depend on current one
      */
-    testApi(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+    testApi(libs.intellij.fastutil)
     testApi(commonDependency("one.util:streamex"))
     testApi(commonDependency("org.jetbrains.intellij.deps.jna:jna"))
     testApi(jpsModel()) { isTransitive = false }
     testApi(jpsModelImpl()) { isTransitive = false }
-    testApi(intellijJavaRt()) // for FileComparisonFailure
-    testApi(libs.junit4) // for ComparisonFailure
+    testApi(libs.junit4)
 
     testApi(toolsJarApi())
     testRuntimeOnly(toolsJar())

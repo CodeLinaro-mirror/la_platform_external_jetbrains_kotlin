@@ -11,20 +11,14 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaValueParameterSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaSubstitutor
 
 /**
- * A signature of a function-like symbol. This includes functions, getters, setters, lambdas, etc.
+ * A [callable signature][KaCallableSignature] of a [function symbol][KaFunctionSymbol].
  */
 public interface KaFunctionSignature<out S : KaFunctionSymbol> : KaCallableSignature<S> {
     /**
-     * The use-site-substituted value parameters.
+     * The use-site-substituted [value parameters][KaFunctionSymbol.valueParameters].
      */
     public val valueParameters: List<KaVariableSignature<KaValueParameterSymbol>>
 
     @KaExperimentalApi
     abstract override fun substitute(substitutor: KaSubstitutor): KaFunctionSignature<S>
 }
-
-@Deprecated("Use 'KaFunctionSignature' instead", ReplaceWith("KaFunctionSignature"))
-public typealias KaFunctionLikeSignature<S> = KaFunctionSignature<S>
-
-@Deprecated("Use 'KaFunctionSignature' instead", ReplaceWith("KaFunctionSignature"))
-public typealias KtFunctionLikeSignature<S> = KaFunctionSignature<S>

@@ -12,4 +12,8 @@ namespace kotlin::gc {
 class GC::Impl {};
 class GC::ThreadData::Impl {};
 
+namespace barriers {
+class ExternalRCRefReleaseGuard::Impl {};
+}
+
 } // namespace kotlin::gc

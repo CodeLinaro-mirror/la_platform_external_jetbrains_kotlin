@@ -5,14 +5,17 @@
 
 package org.jetbrains.kotlin.wasm.test.converters
 
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
-import org.jetbrains.kotlin.backend.wasm.*
+import org.jetbrains.kotlin.backend.wasm.WasmCompilerResult
+import org.jetbrains.kotlin.backend.wasm.compileToLoweredIr
+import org.jetbrains.kotlin.backend.wasm.compileWasm
 import org.jetbrains.kotlin.backend.wasm.dce.eliminateDeadDeclarations
 import org.jetbrains.kotlin.backend.wasm.ic.IrFactoryImplForWasmIC
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.WasmModuleFragmentGenerator
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.WasmModuleMetadataCache
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
+import org.jetbrains.kotlin.config.phaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaseSet
 import org.jetbrains.kotlin.ir.backend.js.MainModule
 import org.jetbrains.kotlin.ir.backend.js.dce.DceDumpNameCache
 import org.jetbrains.kotlin.ir.backend.js.dce.dumpDeclarationIrSizesIfNeed
@@ -35,8 +38,8 @@ class WasmLoweringFacade(
 ) : BackendFacade<IrBackendInput, BinaryArtifacts.Wasm>(testServices, BackendKinds.IrBackend, ArtifactKinds.Wasm) {
     private val supportedOptimizer: WasmOptimizer = WasmOptimizer.Binaryen
 
-    override fun shouldRunAnalysis(module: TestModule): Boolean {
-        require(module.backendKind == inputKind && module.binaryKind == outputKind)
+    override fun shouldTransform(module: TestModule): Boolean {
+        require(with(testServices.defaultsProvider) { backendKind == inputKind && artifactKind == outputKind })
         return WasmEnvironmentConfigurator.isMainModule(module, testServices)
     }
 
@@ -44,27 +47,27 @@ class WasmLoweringFacade(
         require(WasmEnvironmentConfigurator.isMainModule(module, testServices))
         require(inputArtifact is IrBackendInput.WasmDeserializedFromKlibBackendInput)
 
+        val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
         val moduleInfo = inputArtifact.moduleInfo
         val debugMode = DebugMode.fromSystemProperty("kotlin.wasm.debugMode")
-        val wasmPhases = getWasmPhases(isIncremental = false)
         val phaseConfig = if (debugMode >= DebugMode.SUPER_DEBUG) {
             val outputDirBase = testServices.getWasmTestOutputDirectory()
             val dumpOutputDir = File(outputDirBase, "irdump")
             println("\n ------ Dumping phases to file://${dumpOutputDir.absolutePath}")
             PhaseConfig(
-                wasmPhases,
+                toDumpStateAfter = PhaseSet.All,
                 dumpToDirectory = dumpOutputDir.path,
-                toDumpStateAfter = wasmPhases.toPhaseMap().values.toSet(),
             )
         } else {
-            PhaseConfig(wasmPhases)
+            PhaseConfig()
         }
 
         val mainModule = MainModule.Klib(inputArtifact.klib.absolutePath)
-        val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
+        configuration.phaseConfig = phaseConfig
 
         val testPackage = extractTestPackage(testServices)
         val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
+        val generateDwarf = WasmEnvironmentConfigurationDirectives.GENERATE_DWARF in testServices.moduleStructure.allDirectives
         val generateSourceMaps = WasmEnvironmentConfigurationDirectives.GENERATE_SOURCE_MAP in testServices.moduleStructure.allDirectives
         val generateDts = WasmEnvironmentConfigurationDirectives.CHECK_TYPESCRIPT_DECLARATIONS in testServices.moduleStructure.allDirectives
         val (allModules, backendContext, typeScriptFragment) = compileToLoweredIr(
@@ -72,7 +75,6 @@ class WasmLoweringFacade(
             mainModule,
             configuration,
             performanceManager,
-            phaseConfig = phaseConfig,
             exportedDeclarations = setOf(FqName.fromSegments(listOfNotNull(testPackage, "box"))),
             propertyLazyInitialization = true,
             generateTypeScriptFragment = generateDts
@@ -86,6 +88,7 @@ class WasmLoweringFacade(
             wasmModuleMetadataCache,
             moduleInfo.symbolTable.irFactory as IrFactoryImplForWasmIC,
             allowIncompleteImplementations = false,
+            skipCommentInstructions = !generateWat,
         )
         val wasmCompiledFileFragments = allModules.map { codeGenerator.generateModuleAsSingleFileFragment(it) }
 
@@ -98,6 +101,7 @@ class WasmLoweringFacade(
             emitNameSection = true,
             generateWat = generateWat,
             generateSourceMaps = generateSourceMaps,
+            generateDwarf = generateDwarf
         )
 
         val dceDumpNameCache = DceDumpNameCache()
@@ -111,6 +115,7 @@ class WasmLoweringFacade(
             wasmModuleMetadataCacheDce,
             moduleInfo.symbolTable.irFactory as IrFactoryImplForWasmIC,
             allowIncompleteImplementations = true,
+            skipCommentInstructions = !generateWat,
         )
         val wasmCompiledFileFragmentsDce = allModules.map { codeGeneratorDce.generateModuleAsSingleFileFragment(it) }
 
@@ -123,6 +128,7 @@ class WasmLoweringFacade(
             emitNameSection = true,
             generateWat = generateWat,
             generateSourceMaps = generateSourceMaps,
+            generateDwarf = generateDwarf
         )
 
         return BinaryArtifacts.Wasm(

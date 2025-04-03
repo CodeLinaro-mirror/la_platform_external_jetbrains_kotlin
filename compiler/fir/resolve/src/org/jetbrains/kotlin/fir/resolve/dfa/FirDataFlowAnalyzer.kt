@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
 import org.jetbrains.kotlin.fir.references.symbol
 import org.jetbrains.kotlin.fir.references.toResolvedPropertySymbol
 import org.jetbrains.kotlin.fir.resolve.*
-import org.jetbrains.kotlin.fir.resolve.calls.ImplicitReceiverValue
+import org.jetbrains.kotlin.fir.resolve.calls.ImplicitValue
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.candidate
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
@@ -73,14 +73,15 @@ abstract class FirDataFlowAnalyzer(
             dataFlowAnalyzerContext: DataFlowAnalyzerContext,
         ): FirDataFlowAnalyzer =
             object : FirDataFlowAnalyzer(components, dataFlowAnalyzerContext) {
-                override val receiverStack: PersistentImplicitReceiverStack
-                    get() = components.implicitReceiverStack as PersistentImplicitReceiverStack
+                override val receiverStack: ImplicitValueStorage
+                    get() = components.implicitValueStorage
 
                 private val visibilityChecker = components.session.visibilityChecker
                 private val typeContext = components.session.typeContext
 
-                override fun receiverUpdated(info: TypeStatement) {
-                    receiverStack.replaceReceiverType(info.variable.symbol, info.smartCastedType(typeContext))
+                @OptIn(ImplicitValue.ImplicitValueInternals::class)
+                override fun implicitUpdated(info: TypeStatement) {
+                    receiverStack.replaceImplicitValueType(info.variable.symbol, info.smartCastedType(typeContext))
                 }
 
                 override val logicSystem: LogicSystem =
@@ -114,8 +115,8 @@ abstract class FirDataFlowAnalyzer(
     }
 
     protected abstract val logicSystem: LogicSystem
-    protected abstract val receiverStack: Iterable<ImplicitReceiverValue<*>>
-    protected abstract fun receiverUpdated(info: TypeStatement)
+    protected abstract val receiverStack: ImplicitValueStorage
+    protected abstract fun implicitUpdated(info: TypeStatement)
 
     private val graphBuilder get() = context.graphBuilder
     private val variableStorage get() = context.variableStorage
@@ -305,6 +306,20 @@ abstract class FirDataFlowAnalyzer(
         graph.completePostponedNodes()
         return graph
     }
+
+    // ----------------------------------- REPL Snippet ------------------------------------------
+
+    fun enterReplSnippet(snippet: FirReplSnippet, buildGraph: Boolean) {
+        graphBuilder.enterReplSnippet(snippet, buildGraph)?.mergeIncomingFlow()
+    }
+
+    fun exitReplSnippet(): ControlFlowGraph? {
+        val (node, graph) = graphBuilder.exitReplSnippet()
+        node?.mergeIncomingFlow()
+        graph?.completePostponedNodes()
+        return graph
+    }
+
     // ----------------------------------- Value parameters (and it's defaults) -----------------------------------
 
     fun enterValueParameter(valueParameter: FirValueParameter) {
@@ -950,6 +965,9 @@ abstract class FirDataFlowAnalyzer(
         graphBuilder.exitStringConcatenationCall(call).mergeIncomingFlow()
     }
 
+    /**
+     * Receiver, value arguments, context arguments
+     */
     private fun FirStatement.orderedArguments(callee: FirFunction): Array<out FirExpression?>? {
         fun FirQualifiedAccessExpression.firstReceiver(): FirExpression? {
             val candidate = candidate()
@@ -960,25 +978,36 @@ abstract class FirDataFlowAnalyzer(
             return extensionReceiver ?: dispatchReceiver
         }
 
-        val receiver = when (this) {
-            is FirQualifiedAccessExpression -> firstReceiver()
-            is FirVariableAssignment -> (lValue as? FirQualifiedAccessExpression)?.firstReceiver()
-            else -> null
+        fun FirQualifiedAccessExpression.addContextArgumentsTo(target: MutableList<FirExpression?>) {
+            val candidate = candidate()
+            if (candidate != null) {
+                candidate.contextArguments?.forEach { target.add(it.expression) }
+            } else {
+                contextArguments.forEach { target.add(it) }
+            }
         }
 
-        return when (this) {
-            is FirFunctionCall -> {
-                // Processing case with a candidate might be necessary for PCLA, because even top-level calls might be not fully completed
+        return buildList {
+            val receiver = when (this@orderedArguments) {
+                is FirQualifiedAccessExpression -> firstReceiver()
+                is FirVariableAssignment -> (lValue as? FirQualifiedAccessExpression)?.firstReceiver()
+                else -> null
+            }
+            add(receiver)
+
+            if (this@orderedArguments is FirFunctionCall) {
                 val argumentToParameter = resolvedArgumentMapping ?: candidate()?.argumentMapping?.unwrapAtoms() ?: return null
                 val parameterToArgument = argumentToParameter.entries.associate { it.value to it.key.unwrapArgument() }
-                Array(callee.valueParameters.size + 1) { i ->
-                    if (i > 0) parameterToArgument[callee.valueParameters[i - 1]] else receiver
-                }
+                callee.valueParameters.forEach { add(parameterToArgument[it]) }
             }
-            is FirQualifiedAccessExpression -> arrayOf(receiver)
-            is FirVariableAssignment -> arrayOf(receiver, rValue)
-            else -> return null
-        }
+
+            if (this@orderedArguments is FirQualifiedAccessExpression) {
+                addContextArgumentsTo(this)
+            } else if (this@orderedArguments is FirVariableAssignment) {
+                val lValue = lValue as? FirQualifiedAccessExpression
+                lValue?.addContextArgumentsTo(this)
+            }
+        }.toTypedArray()
     }
 
     private fun processConditionalContract(
@@ -1524,11 +1553,11 @@ abstract class FirDataFlowAnalyzer(
     private fun resetSmartCastPositionTo(flow: Flow?) {
         val previous = currentSmartCastPosition
         if (previous == flow) return
-        receiverStack.forEach {
-            val variable = RealVariable.receiver(it.boundSymbol, it.originalType)
+        receiverStack.implicitValues.forEach {
+            val variable = RealVariable.implicit(it.boundSymbol, it.originalType)
             val newStatement = flow?.getTypeStatement(variable)
             if (newStatement != previous?.getTypeStatement(variable)) {
-                receiverUpdated(newStatement ?: MutableTypeStatement(variable))
+                implicitUpdated(newStatement ?: MutableTypeStatement(variable))
             }
         }
         currentSmartCastPosition = flow
@@ -1545,8 +1574,8 @@ abstract class FirDataFlowAnalyzer(
 
     private fun MutableFlow.addTypeStatement(info: TypeStatement) {
         val newStatement = logicSystem.addTypeStatement(this, info) ?: return
-        if (newStatement.variable.isReceiver && this === currentSmartCastPosition) {
-            receiverUpdated(newStatement)
+        if (newStatement.variable.isImplicit && this === currentSmartCastPosition) {
+            implicitUpdated(newStatement)
         }
     }
 

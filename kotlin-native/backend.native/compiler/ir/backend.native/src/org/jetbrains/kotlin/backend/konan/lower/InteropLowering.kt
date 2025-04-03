@@ -34,7 +34,9 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.util.isNullable
+import org.jetbrains.kotlin.ir.util.isSubtypeOf
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -281,7 +283,7 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
                 isInfix = false,
         ).also { result ->
             result.parent = irClass
-            result.createDispatchReceiverParameter()
+            result.parameters += result.createDispatchReceiverParameterWithClassParent()
             result.valueParameters += constructor.valueParameters.map { it.copyTo(result) }
 
             result.overriddenSymbols += initMethod.symbol
@@ -292,7 +294,7 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
                             extensionReceiver = irGet(result.dispatchReceiverParameter!!)
                             putValueArgument(0, irCall(constructor).also {
                                 result.valueParameters.forEach { parameter ->
-                                    it.putValueArgument(parameter.index, irGet(parameter))
+                                    it.putValueArgument(parameter.indexInOldValueParameters, irGet(parameter))
                                 }
                             })
                         }
@@ -517,7 +519,7 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
                         initMethodInfo,
                         superQualifier = delegatingCallConstructingClass.symbol,
                         receiver = builder.irGet(constructedClass.thisReceiver!!),
-                        arguments = initMethod.valueParameters.map { expression.getValueArgument(it.index) },
+                        arguments = initMethod.valueParameters.map { expression.getValueArgument(it.indexInOldValueParameters) },
                         call = expression,
                         method = initMethod
                 )
@@ -592,7 +594,7 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
         val callee = expression.symbol.owner
         val initMethod = callee.getObjCInitMethod()
         if (initMethod != null) {
-            val arguments = callee.valueParameters.map { expression.getValueArgument(it.index) }
+            val arguments = callee.valueParameters.map { expression.getValueArgument(it.indexInOldValueParameters) }
             require(expression.extensionReceiver == null) { renderCompilerError(expression) }
             require(expression.dispatchReceiver == null) { renderCompilerError(expression) }
 
@@ -648,7 +650,7 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
                             ?.hasAnnotation(RuntimeNames.exportForCppRuntime) == true
 
             if (!useKotlinDispatch) {
-                val arguments = callee.valueParameters.map { expression.getValueArgument(it.index) }
+                val arguments = callee.valueParameters.map { expression.getValueArgument(it.indexInOldValueParameters) }
                 require(expression.dispatchReceiver == null || expression.extensionReceiver == null) { renderCompilerError(expression) }
                 require(expression.superQualifierSymbol?.owner?.isObjCMetaClass() != true) { renderCompilerError(expression) }
                 require(expression.superQualifierSymbol?.owner?.isInterface != true) { renderCompilerError(expression) }
@@ -720,14 +722,14 @@ private class InteropLoweringPart1(val generationState: NativeGenerationState) :
     }
 
     override fun visitInlinedFunctionBlock(inlinedBlock: IrInlinedFunctionBlock): IrExpression {
-        if (inlinedBlock.inlineFunctionSymbol?.owner?.isAutoreleasepool() == true) {
+        if (inlinedBlock.inlinedFunctionSymbol?.owner?.isAutoreleasepool() == true) {
             // Prohibit calling suspend functions from `autoreleasepool {}` block.
             // See https://youtrack.jetbrains.com/issue/KT-50786 for more details.
             // Note: we can't easily check this in frontend, because we need to prohibit indirect cases like
             ///    inline fun <T> myAutoreleasepool(block: () -> T) = autoreleasepool(block)
             ///    myAutoreleasepool { suspendHere() }
 
-            inlinedBlock.acceptVoid(object : IrElementVisitorVoid {
+            inlinedBlock.acceptVoid(object : IrVisitorVoid() {
                 override fun visitElement(element: IrElement) {
                     element.acceptChildrenVoid(this)
                 }
@@ -854,7 +856,7 @@ private class InteropTransformer(
                         irCall(callee).apply {
                             extensionReceiver = irGet(tmp)
                             typeArguments.forEachIndexed { index, arg ->
-                                putTypeArgument(index, arg.typeOrNull!!)
+                                this.typeArguments[index] = arg.typeOrNull!!
                             }
                         }
                 )
@@ -862,14 +864,6 @@ private class InteropTransformer(
 
     override fun visitConstructorCall(expression: IrConstructorCall): IrExpression {
         expression.transformChildrenVoid(this)
-
-        if (expression.symbol.owner.hasCCallAnnotation("CppClassConstructor")) {
-            return transformCppConstructorCall(expression)
-        }
-
-        if (expression.symbol.owner.constructedClass.hasAnnotation(RuntimeNames.managedType)) {
-            return transformManagedCppConstructorCall(expression)
-        }
 
         val callee = expression.symbol.owner
         val inlinedClass = callee.returnType.getInlinedClassNative()
@@ -944,9 +938,8 @@ private class InteropTransformer(
                         putValueArgument(0,
                                 irCall(interopGetPtr).apply {
                                     extensionReceiver = irGet(tmp)
-                                    putTypeArgument(0,
-                                            (correspondingInit.valueParameters.first().type as IrSimpleType).arguments.single().typeOrNull!!
-                                    )
+                                    typeArguments[0] =
+                                        (correspondingInit.valueParameters.first().type as IrSimpleType).arguments.single().typeOrNull!!
                                 }
                         )
                         for (index in 0 until expression.valueArgumentsCount) {
@@ -958,58 +951,6 @@ private class InteropTransformer(
                     +irGet(tmp)
                 }
 
-        return irBlock
-    }
-
-    private fun IrBuilderWithScope.transformManagedArguments(oldCall: IrFunctionAccessExpression, oldFunction: IrFunction, newCall: IrFunctionAccessExpression, newFunction: IrFunction) {
-        for (index in 0 until oldCall.valueArgumentsCount) {
-            val newArgument = irBlock {
-                val oldArgument = irTemporary(oldCall.getValueArgument(index)!!)
-                if (oldFunction.valueParameters[index].type.isManagedType()) {
-                    +irSafeCall(
-                            irGet(oldArgument),
-                            listOf((newFunction.valueParameters[index].type as IrSimpleType).arguments.single()),
-                            symbols.interopManagedGetPtr
-                            // symbols.interopGetPtr
-                    )
-                } else {
-                    +irGet(oldArgument)
-                }
-            }
-            newCall.putValueArgument(index, newArgument)
-        }
-    }
-
-    private fun transformManagedCppConstructorCall(expression: IrConstructorCall): IrExpression {
-        val irConstructor = expression.symbol.owner
-        if (irConstructor.isPrimary) return expression
-
-        val irClass = irConstructor.constructedClass
-        val primaryConstructor = irClass.primaryConstructor!!.symbol
-
-        val correspondingCppClass = primaryConstructor.owner.valueParameters.first().type.classOrNull?.owner!!
-
-        val correspondingCppConstructor = correspondingCppClass
-                .declarations
-                .filterIsInstance<IrConstructor>()
-                .filter { it.valueParameters.size == irConstructor.valueParameters.size}
-                .singleOrNull {
-                    it.valueParameters.mapIndexed() { index, initParameter ->
-                         managedTypeMatch(irConstructor.valueParameters[index].type, initParameter.type)
-                    }.all{ it }
-                } ?: error("Could not find a match for ${irConstructor.render()}")
-
-        val irBlock = builder.at(expression)
-                .irBlock {
-                    val cppConstructorCall = irCall(correspondingCppConstructor.symbol).apply {
-                        transformManagedArguments(expression, irConstructor, this, correspondingCppConstructor)
-                    }
-                    val call = irCall(primaryConstructor).also {
-                        it.putValueArgument(0, transformCppConstructorCall(cppConstructorCall))
-                        it.putValueArgument(1, true.toIrConst(context.irBuiltIns.booleanType))
-                    }
-                    +call
-                }
         return irBlock
     }
 
@@ -1085,15 +1026,6 @@ private class InteropTransformer(
             return generateCCall(expression)
         }
 
-        // TODO: what's the proper condition?
-        val funcClass = function.dispatchReceiverParameter?.type?.classOrNull?.owner
-        if (funcClass?.hasAnnotation(RuntimeNames.managedType) ?: false) {
-            return transformManagedCall(expression)
-        }
-        if ((funcClass?.isCompanion == true) && ((funcClass.parent as? IrClass)?.hasAnnotation(RuntimeNames.managedType) ?: false)) {
-            return transformManagedCompanionCall(expression)
-        }
-
         val failCompilation = { msg: String -> error(irFile, expression, msg) }
         tryGenerateInteropMemberAccess(expression, symbols, builder, failCompilation)?.let { return it }
 
@@ -1122,15 +1054,14 @@ private class InteropTransformer(
                 IntrinsicType.INTEROP_STATIC_C_FUNCTION -> {
                     val irCallableReference = unwrapStaticFunctionArgument(expression.getValueArgument(0)!!)
 
-                    require(irCallableReference != null && irCallableReference.getArguments().isEmpty()
-                            && irCallableReference.symbol is IrSimpleFunctionSymbol) { renderCompilerError(expression) }
+                    require(irCallableReference != null && irCallableReference.symbol is IrSimpleFunctionSymbol) { renderCompilerError(expression) }
 
                     val targetSymbol = irCallableReference.symbol
                     val target = targetSymbol.owner
                     val signatureTypes = target.allParameters.map { it.type } + target.returnType
 
                     function.typeParameters.indices.forEach { index ->
-                        val typeArgument = expression.getTypeArgument(index)!!.toKotlinType()
+                        val typeArgument = expression.typeArguments[index]!!.toKotlinType()
                         val signatureType = signatureTypes[index].toKotlinType()
 
                         require(typeArgument.constructor == signatureType.constructor &&
@@ -1182,7 +1113,7 @@ private class InteropTransformer(
                 }
                 IntrinsicType.INTEROP_CONVERT -> {
                     val integerClasses = symbols.allIntegerClasses
-                    val typeOperand = expression.getTypeArgument(0)!!
+                    val typeOperand = expression.typeArguments[0]!!
                     val receiverType = expression.symbol.owner.extensionReceiverParameter!!.type
                     val source = receiverType.classifierOrFail as IrClassSymbol
                     require(source in integerClasses) { renderCompilerError(expression) }
@@ -1205,15 +1136,13 @@ private class InteropTransformer(
                 IntrinsicType.WORKER_EXECUTE -> {
                     val irCallableReference = unwrapStaticFunctionArgument(expression.getValueArgument(2)!!)
 
-                    require(irCallableReference != null
-                            && irCallableReference.getArguments().isEmpty()) { renderCompilerError(expression) }
+                    require(irCallableReference != null) { renderCompilerError(expression) }
 
                     val targetSymbol = irCallableReference.symbol
-                    val jobPointer = IrFunctionReferenceImpl.fromSymbolDescriptor(
+                    val jobPointer = IrRawFunctionReferenceImpl(
                             builder.startOffset, builder.endOffset,
                             symbols.executeImpl.owner.valueParameters[3].type,
-                            targetSymbol,
-                            reflectionTarget = null)
+                            targetSymbol)
 
                     builder.irCall(symbols.executeImpl).apply {
                         putValueArgument(0, expression.dispatchReceiver)
@@ -1235,156 +1164,6 @@ private class InteropTransformer(
         }
     }
 
-    private fun IrType.isManagedType() = this.isSubtypeOfClass(symbols.interopManagedType)
-    private fun IrType.isCPlusPlusClass() = this.isSubtypeOfClass(symbols.interopCPlusPlusClass)
-    private fun IrType.isSkiaRefCnt() = this.isSubtypeOfClass(symbols.interopSkiaRefCnt)
-
-    private fun transformManagedCall(expression: IrCall): IrExpression {
-        val function = expression.symbol.owner
-
-        val irClass = function.dispatchReceiverParameter!!.type.classOrNull!!.owner
-        val cppProperty = irClass.declarations
-                .filterIsInstance<IrProperty>()
-                .filter { it.name.toString() == "cpp" }
-                .single()
-
-        val managedProperty = irClass.declarations
-                .filterIsInstance<IrProperty>()
-                .filter { it.name.toString() == "managed" }
-                .single()
-
-        if (function == cppProperty.getter || function == managedProperty.getter) return expression
-
-        val cppParam = irClass.primaryConstructor!!.valueParameters.first().also {
-            assert(it.name.toString() == "cpp")
-        }
-
-        val cppType = cppParam.type
-        val cppClass = cppType.classOrNull!!.owner
-
-        val newFunction = cppClass.declarations
-                .filterIsInstance<IrSimpleFunction>()
-                .filter { it.name == function.name }
-                .filter { it.valueParameters.size == function.valueParameters.size }
-                .filter {
-                    it.valueParameters.mapIndexed() { index, parameter ->
-                        managedTypeMatch(function.valueParameters[index].type, parameter.type)
-                    }.all { it }
-                }.singleOrNull() ?: error("Could not find ${function.name} in ${cppClass}")
-
-        val newFunctionType = newFunction.returnType
-
-        val newCall = with (builder.at(expression)) {
-            irCall(newFunction).apply {
-                dispatchReceiver = irCall(cppProperty.getter!!).apply {
-                    dispatchReceiver = expression.dispatchReceiver
-                }
-                transformManagedArguments(expression, function, this, newFunction)
-            }
-        }
-        val ccall = generateCCall(newCall as IrCall)
-        return if (function.returnType.isManagedType()) {
-            assert(newFunctionType.isCPointer(symbols))
-            val pointed = (newFunctionType as IrSimpleType).arguments.single().typeOrNull!!
-            with (builder.at(ccall)) {
-                irCall(function.returnType.classOrNull!!.owner.primaryConstructor!!.symbol).apply {
-                    val managed = when {
-                        pointed.isSkiaRefCnt() -> true
-                        pointed.isCPlusPlusClass() -> false
-                        else -> error("Unexpected pointer argument for ManagedType")
-                    }.toIrConst(context.irBuiltIns.booleanType)
-                    putValueArgument(0,
-                        irCall(symbols.interopInterpretNullablePointed).apply {
-                            putValueArgument(0,
-                                    irCall(symbols.interopCPointerGetRawValue).apply {
-                                        extensionReceiver = ccall
-                                    }
-                            )
-                            putTypeArgument(0, pointed)
-                        }
-                    )
-                    putValueArgument(1, managed)
-                }
-            }
-        } else {
-            ccall
-        }
-    }
-
-    private fun managedTypeMatch(one: IrType, another: IrType): Boolean {
-        if (one == another) return true
-        if (one.classOrNull?.owner?.hasAnnotation(RuntimeNames.managedType) != true) return false
-        if (!another.isCPointer(symbols) && !another.isCValuesRef(symbols)) return false
-
-        val cppType = one.classOrNull!!.owner.primaryConstructor?.valueParameters?.first()?.type ?: return false
-        val pointedType = (another as? IrSimpleType)?.arguments?.single() as? IrSimpleType ?: return false
-        return cppType == pointedType
-    }
-
-    private fun transformManagedCompanionCall(expression: IrCall): IrExpression {
-        val function = expression.symbol.owner
-
-        val companion = function.parent as IrClass
-        assert(companion.isCompanion)
-
-        val cppInClass = (companion.parent as IrClass).declarations
-                .filterIsInstance<IrProperty>()
-                .filter { it.name.toString() == "cpp" }
-                .single()
-
-        val cppCompanion = cppInClass.getter!!.returnType.classOrNull!!.owner
-                .declarations
-                .filterIsInstance<IrClass>()
-                .single{ it.isCompanion }
-
-        val newFunction = cppCompanion.declarations
-                .filterIsInstance<IrSimpleFunction>()
-                .filter { it.name == function.name }
-                .filter { it.valueParameters.size == function.valueParameters.size }
-                .filter {
-                    it.valueParameters.mapIndexed() { index, parameter ->
-                        managedTypeMatch(function.valueParameters[index].type, parameter.type)
-                    }.all { it }
-                }.single()
-
-        val newFunctionType = newFunction.returnType
-
-        val newCall = with (builder.at(expression)) {
-            irCall(newFunction).apply {
-                dispatchReceiver = irGetObject(cppCompanion.symbol)
-                transformManagedArguments(expression, function, this, newFunction)
-            }
-        }
-        // TODO: this is exactly the same code as in transformManagedCall
-        val ccall = generateCCall(newCall as IrCall)
-        return if (function.returnType.isManagedType()) {
-            assert(newFunctionType.isCPointer(symbols))
-            val pointed = (newFunctionType as IrSimpleType).arguments.single().typeOrNull!!
-            with (builder.at(ccall)) {
-                irCall(function.returnType.classOrNull!!.constructors.single { it.owner.isPrimary }).apply {
-                    val managed = when {
-                        pointed.isCPlusPlusClass() -> false
-                        pointed.isSkiaRefCnt() -> true
-                        else -> error("Unexpected pointer argument for ManagedType")
-                    }.toIrConst(context.irBuiltIns.booleanType)
-                    putValueArgument(0,
-                            irCall(symbols.interopInterpretNullablePointed).apply {
-                                putValueArgument(0,
-                                        irCall(symbols.interopCPointerGetRawValue).apply {
-                                            extensionReceiver = ccall
-                                        }
-                                )
-                                putTypeArgument(0, pointed)
-                            }
-                    )
-                    putValueArgument(1, managed)
-                }
-            }
-        } else {
-            ccall
-        }
-    }
-
     private fun IrBuilderWithScope.irConvertInteger(
             source: IrClassSymbol,
             target: IrClassSymbol,
@@ -1400,8 +1179,8 @@ private class InteropTransformer(
         }
     }
 
-    private fun unwrapStaticFunctionArgument(argument: IrExpression): IrFunctionReference? {
-        if (argument is IrFunctionReference) {
+    private fun unwrapStaticFunctionArgument(argument: IrExpression): IrRawFunctionReference? {
+        if (argument is IrRawFunctionReference) {
             return argument
         }
 
@@ -1426,7 +1205,7 @@ private class InteropTransformer(
 
         // 3. Second statement is IrCallableReference:
 
-        return argument.statements.last() as? IrFunctionReference
+        return argument.statements.last() as? IrRawFunctionReference
     }
 
     val IrValueParameter.isDispatchReceiver: Boolean
@@ -1443,7 +1222,7 @@ private class InteropTransformer(
 
 private fun IrCall.getSingleTypeArgument(): IrType {
     val typeParameter = symbol.owner.typeParameters.single()
-    return getTypeArgument(typeParameter.index)!!
+    return typeArguments[typeParameter.index]!!
 }
 
 private fun IrBuilder.irFloat(value: Float) =

@@ -34,3 +34,4 @@ public class Derived<T: My>(val x: My): Base() {
 /simple.kt:22:12: error: 'public' function exposes its 'private-in-file' return type My
     fun My.bar(): My = this
            ^^^
+

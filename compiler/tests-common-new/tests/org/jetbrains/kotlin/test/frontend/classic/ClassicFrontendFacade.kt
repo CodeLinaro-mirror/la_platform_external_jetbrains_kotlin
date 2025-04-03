@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.JVMConfigurationKeys.JVM_TARGET
 import org.jetbrains.kotlin.config.JvmTarget
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.container.get
 import org.jetbrains.kotlin.context.ModuleContext
@@ -45,7 +46,6 @@ import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
-import org.jetbrains.kotlin.js.analyze.TopDownAnalyzerFacadeForJS
 import org.jetbrains.kotlin.library.metadata.CurrentKlibModuleOrigin
 import org.jetbrains.kotlin.library.metadata.KlibMetadataFactories
 import org.jetbrains.kotlin.library.metadata.KlibModuleOrigin
@@ -152,20 +152,27 @@ class ClassicFrontendFacade(
         friendsDescriptors: List<ModuleDescriptorImpl>,
         dependsOnDescriptors: List<ModuleDescriptorImpl>
     ): AnalysisResult {
-        val targetPlatform = module.targetPlatform
+        /*
+         * K1 frontend expects for common mpp modules to have common platform as a target platform. K2 in opposite performs resolution
+         * with the target platform of the leaf module, and the test system centered around it. So to fix K1 test it's needed to manually
+         * configure the target platform in this case
+         */
+        val targetPlatform = if (
+            module.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects) &&
+            !module.isLeafModuleInMppGraph(testServices)
+        ) {
+            CommonPlatforms.defaultCommonPlatform
+        } else {
+            module.targetPlatform(testServices)
+        }
         return when {
             targetPlatform.isJvm() -> performJvmModuleResolve(
                 module, project, configuration, packagePartProviderFactory,
                 files, compilerEnvironment, dependencyDescriptors, friendsDescriptors, dependencyDescriptors
             )
-            targetPlatform.isJs() -> when {
-                module.targetBackend?.isIR != true -> performJsModuleResolve(
-                    project, configuration, compilerEnvironment, files, dependencyDescriptors
-                )
-                else -> performJsIrModuleResolve(
-                    module, project, configuration, compilerEnvironment, files, dependencyDescriptors, friendsDescriptors
-                )
-            }
+            targetPlatform.isJs() -> performJsModuleResolve(
+                module, project, configuration, compilerEnvironment, files, dependencyDescriptors, friendsDescriptors
+            )
             targetPlatform.isWasm() -> performWasmModuleResolve(
                 module, project, configuration, compilerEnvironment, files, dependencyDescriptors, friendsDescriptors
             )
@@ -178,7 +185,8 @@ class ClassicFrontendFacade(
                 compilerEnvironment,
                 dependencyDescriptors,
                 friendsDescriptors,
-                files
+                files,
+                targetPlatform
             )
             else -> error("Should not be here")
         }
@@ -254,26 +262,6 @@ class ClassicFrontendFacade(
         return AnalysisResult.success(moduleTrace.bindingContext, moduleDescriptor)
     }
 
-    private fun performJsModuleResolve(
-        project: Project,
-        configuration: CompilerConfiguration,
-        compilerEnvironment: TargetEnvironment,
-        files: List<KtFile>,
-        dependencyDescriptors: List<ModuleDescriptorImpl>
-    ): AnalysisResult {
-        // `dependencyDescriptors` - modules with source dependency kind
-        // 'jsConfig.moduleDescriptors' - modules with binary dependency kind
-        val jsConfig = JsEnvironmentConfigurator.createJsConfig(project, configuration, compilerEnvironment)
-        return TopDownAnalyzerFacadeForJS.analyzeFiles(
-            files,
-            project = jsConfig.project,
-            configuration = jsConfig.configuration,
-            moduleDescriptors = dependencyDescriptors + jsConfig.moduleDescriptors,
-            friendModuleDescriptors = jsConfig.friendModuleDescriptors,
-            targetEnvironment = jsConfig.targetEnvironment,
-        )
-    }
-
     private fun loadKlib(
         factories: KlibMetadataFactories,
         names: List<String>,
@@ -310,7 +298,7 @@ class ClassicFrontendFacade(
         }
     }
 
-    private fun performJsIrModuleResolve(
+    private fun performJsModuleResolve(
         module: TestModule,
         project: Project,
         configuration: CompilerConfiguration,
@@ -427,6 +415,7 @@ class ClassicFrontendFacade(
         dependencyDescriptors: List<ModuleDescriptorImpl>,
         friendsDescriptors: List<ModuleDescriptorImpl>,
         files: List<KtFile>,
+        targetPlatform: TargetPlatform,
     ): AnalysisResult {
         val moduleDescriptor = createModuleContext(
             module, project,
@@ -440,7 +429,7 @@ class ClassicFrontendFacade(
             Name.special("<${module.name}>"),
             dependOnBuiltIns = true,
             module.languageVersionSettings,
-            module.targetPlatform,
+            targetPlatform,
             compilerEnvironment,
             dependenciesContainer = CommonDependenciesContainerImpl(moduleDescriptor)
         ) {
@@ -489,7 +478,7 @@ class ClassicFrontendFacade(
 
         val builtIns = builtInsFactory(storageManager)
         val moduleDescriptor = ModuleDescriptorImpl(
-            Name.special("<${module.name}>"), storageManager, builtIns, module.targetPlatform, capabilities
+            Name.special("<${module.name}>"), storageManager, builtIns, module.targetPlatform(testServices), capabilities
         )
         val dependencies = buildSet {
             add(moduleDescriptor)

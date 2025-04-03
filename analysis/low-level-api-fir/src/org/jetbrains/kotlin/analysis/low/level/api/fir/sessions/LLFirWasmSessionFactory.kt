@@ -11,13 +11,13 @@ import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
-import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLLibrarySymbolProviderFactory
-import org.jetbrains.kotlin.analysis.low.level.api.fir.providers.LLFirModuleWithDependenciesSymbolProvider
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.factories.LLLibrarySymbolProviderFactory
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.LLModuleWithDependenciesSymbolProvider
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.getWasmTarget
 import org.jetbrains.kotlin.fir.SessionConfiguration
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.session.FirWasmSessionFactory.registerWasmComponents
-import org.jetbrains.kotlin.platform.wasm.WasmPlatformWithTarget
-import org.jetbrains.kotlin.platform.wasm.WasmTarget
 
 @OptIn(SessionConfiguration::class)
 internal class LLFirWasmSessionFactory(project: Project) : LLFirAbstractSessionFactory(project) {
@@ -27,7 +27,7 @@ internal class LLFirWasmSessionFactory(project: Project) : LLFirAbstractSessionF
 
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOfNotNull(
                         context.firProvider.symbolProvider,
@@ -46,7 +46,7 @@ internal class LLFirWasmSessionFactory(project: Project) : LLFirAbstractSessionF
 
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOf(
                         context.firProvider.symbolProvider,
@@ -64,27 +64,26 @@ internal class LLFirWasmSessionFactory(project: Project) : LLFirAbstractSessionF
     }
 
     override fun createDanglingFileSession(module: KaDanglingFileModule, contextSession: LLFirSession): LLFirSession {
-        return doCreateDanglingFileSession(module, contextSession) {
+        return doCreateDanglingFileSession(module, contextSession) { context ->
             registerWasmComponents()
 
             register(
                 FirSymbolProvider::class,
-                LLFirModuleWithDependenciesSymbolProvider(
+                LLModuleWithDependenciesSymbolProvider(
                     this,
                     providers = listOfNotNull(
                         firProvider.symbolProvider,
-                        switchableExtensionDeclarationsSymbolProvider,
-                        syntheticFunctionInterfaceProvider,
+                        context.switchableExtensionDeclarationsSymbolProvider,
+                        context.syntheticFunctionInterfaceProvider,
                     ),
-                    dependencyProvider,
+                    context.dependencyProvider,
                 )
             )
         }
     }
 
     private fun LLFirSession.registerWasmComponents() {
-        val platform = ktModule.targetPlatform.singleOrNull()
-        val target = (platform as? WasmPlatformWithTarget)?.target ?: WasmTarget.JS
+        val target = ktModule.targetPlatform.getWasmTarget()
         registerWasmComponents(target)
     }
 

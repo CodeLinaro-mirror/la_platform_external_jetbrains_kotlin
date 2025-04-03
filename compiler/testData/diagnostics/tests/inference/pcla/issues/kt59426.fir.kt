@@ -1,10 +1,11 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-59426
 // CHECK_TYPE_WITH_EXACT
 
 fun test() {
     val buildee = build {
         setTypeVariable(DifferentType())
-        <!ARGUMENT_TYPE_MISMATCH("DifferentType; TargetType"), ARGUMENT_TYPE_MISMATCH("DifferentType; TargetType")!><!UNRESOLVED_REFERENCE_WRONG_RECEIVER("fun Buildee<TargetType>.consumeBuildeeReceiver(): Unit")!>consumeBuildeeReceiver<!>()<!>
+        <!ARGUMENT_TYPE_MISMATCH("TargetType; DifferentType"), ARGUMENT_TYPE_MISMATCH("TargetType; DifferentType")!><!UNRESOLVED_REFERENCE_WRONG_RECEIVER("fun Buildee<TargetType>.consumeBuildeeReceiver(): Unit")!>consumeBuildeeReceiver<!>()<!>
     }
     // exact type equality check — turns unexpected compile-time behavior into red code
     // considered to be non-user-reproducible code for the purposes of these tests

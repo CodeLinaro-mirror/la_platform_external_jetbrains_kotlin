@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: one/ValueClass.equals
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -65,5 +66,6 @@ KaNamedFunctionSymbol:
     type: one/ValueClass
   getContainingFileSymbol: null
   getContainingJvmClassName: one.ValueClass
+  canBeOperator: true
   getContainingModule: KaLibraryModule "Library lib"
   deprecationStatus: null

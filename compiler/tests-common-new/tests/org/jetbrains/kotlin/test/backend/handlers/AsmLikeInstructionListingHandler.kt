@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.test.backend.handlers
 
-import org.jetbrains.kotlin.codegen.DefaultParameterValueSubstitutor
 import org.jetbrains.kotlin.codegen.getClassFiles
 import org.jetbrains.kotlin.test.directives.AsmLikeInstructionListingDirectives
 import org.jetbrains.kotlin.test.directives.AsmLikeInstructionListingDirectives.CHECK_ASM_LIKE_INSTRUCTIONS
@@ -20,6 +19,7 @@ import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.test.utils.withExtension
@@ -272,12 +272,7 @@ class AsmLikeInstructionListingHandler(testServices: TestServices) : JvmBinaryAr
     }
 
     private fun getParameterName(index: Int, method: MethodNode): String {
-        val localVariableIndexOffset = when {
-            (method.access and Opcodes.ACC_STATIC) != 0 -> 0
-            method.isJvmOverloadsGenerated() -> 0
-            else -> 1
-        }
-
+        val localVariableIndexOffset = if ((method.access and Opcodes.ACC_STATIC) != 0) 0 else 1
         val actualIndex = index + localVariableIndexOffset
         val localVariables = method.localVariables
         return localVariables?.firstOrNull {
@@ -375,14 +370,6 @@ class AsmLikeInstructionListingHandler(testServices: TestServices) : JvmBinaryAr
         }
     }
 
-    private fun MethodNode.isJvmOverloadsGenerated(): Boolean {
-        fun AnnotationNode.isJvmOverloadsGenerated() =
-            this.desc == DefaultParameterValueSubstitutor.ANNOTATION_TYPE_DESCRIPTOR_FOR_JVM_OVERLOADS_GENERATED_METHODS
-
-        return (visibleAnnotations?.any { it.isJvmOverloadsGenerated() } ?: false)
-                || (invisibleAnnotations?.any { it.isJvmOverloadsGenerated() } ?: false)
-    }
-
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
         val firDifference = FIR_DIFFERENCE in testServices.moduleStructure.allDirectives
         val inlineScopesDifference = INLINE_SCOPES_DIFFERENCE in testServices.moduleStructure.allDirectives
@@ -393,7 +380,7 @@ class AsmLikeInstructionListingHandler(testServices: TestServices) : JvmBinaryAr
         val extension = when {
             inlineScopesNumbersEnabled && inlineScopesDifference ->
                 INLINE_SCOPES_DUMP_EXTENSION
-            firDifference && firstModule.frontendKind == FrontendKinds.FIR ->
+            firDifference && testServices.defaultsProvider.frontendKind == FrontendKinds.FIR ->
                 FIR_DUMP_EXTENSION
             else ->
                 DUMP_EXTENSION

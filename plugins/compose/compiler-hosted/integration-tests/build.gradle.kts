@@ -50,7 +50,7 @@ kotlin {
 
 
                 runtimeOnly(commonDependency("org.jetbrains.intellij.deps", "trove4j"))
-                runtimeOnly(commonDependency("org.jetbrains.intellij.deps.fastutil:intellij-deps-fastutil"))
+                runtimeOnly(libs.intellij.fastutil)
                 runtimeOnly(jpsModelImpl())
                 implementation(project(":compiler:backend-common"))
                 implementation(project(":compiler:ir.backend.common"))
@@ -89,6 +89,7 @@ kotlin {
                 // external
                 implementationArtifactOnly(commonDependency("org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm"))
                 implementationArtifactOnly("com.google.dagger:dagger:2.40.1")
+                implementation(libs.intellij.asm)
             }
         }
     }
@@ -101,6 +102,9 @@ tasks.withType(Test::class.java).configureEach {
     // ensure that debugger tests don't launch a separate window
     this.systemProperty("java.awt.headless", "true")
     this.environment("CI", kotlinBuildProperties.isTeamcityBuild)
+    if (project.providers.gradleProperty("generate.golden").orElse("false").get().toBooleanStrict()) {
+        this.environment("GENERATE_GOLDEN", "true")
+    }
     // runtime tests are executed in this module with compiler built from source (see androidx.compose.compiler.plugins.kotlin.RuntimeTests)
     this.inputs.dir(File(rootDir, "plugins/compose/compiler-hosted/runtime-tests/src")).withPathSensitivity(PathSensitivity.RELATIVE)
 }

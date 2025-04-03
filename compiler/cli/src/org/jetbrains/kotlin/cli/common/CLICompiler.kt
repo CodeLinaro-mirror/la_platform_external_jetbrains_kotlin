@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.progress.CompilationCanceledException
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
 import org.jetbrains.kotlin.progress.IncrementalNextRoundException
 import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus
+import org.jetbrains.kotlin.util.PerformanceManager
 import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
@@ -51,12 +52,12 @@ import kotlin.system.exitProcess
 
 abstract class CLICompiler<A : CommonCompilerArguments> {
 
-    abstract val defaultPerformanceManager: CommonCompilerPerformanceManager
+    abstract val defaultPerformanceManager: PerformanceManager
 
     var isReadingSettingsFromEnvironmentAllowed: Boolean =
         this::class.java.classLoader.getResource(LanguageVersionSettings.RESOURCE_NAME_TO_ALLOW_READING_FROM_ENVIRONMENT) != null
 
-    protected open fun createPerformanceManager(arguments: A, services: Services): CommonCompilerPerformanceManager =
+    protected open fun createPerformanceManager(arguments: A, services: Services): PerformanceManager =
         defaultPerformanceManager
 
     // Used in CompilerRunnerUtil#invokeExecMethod, in Eclipse plugin (KotlinCLICompiler) and in kotlin-gradle-plugin (GradleCompilerRunner)
@@ -69,10 +70,22 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
         return exec(errStream, Services.EMPTY, MessageRenderer.PLAIN_FULL_PATHS, args)
     }
 
+    protected open fun shouldRunK2(messageCollector: MessageCollector, arguments: A): Boolean {
+        val languageVersion = arguments.languageVersion?.let { LanguageVersion.fromVersionString(arguments.languageVersion) }
+            ?: LanguageVersion.LATEST_STABLE
+        return languageVersion.usesK2
+    }
+
     private fun execImpl(messageCollector: MessageCollector, services: Services, arguments: A): ExitCode {
+        val shouldRunK2 = shouldRunK2(messageCollector, arguments)
+        if (shouldRunK2) {
+            val code = doExecutePhased(arguments, services, messageCollector)
+            if (code != null) return code
+        }
+
         val performanceManager = createPerformanceManager(arguments, services)
         if (arguments.reportPerf || arguments.dumpPerf != null) {
-            performanceManager.enableCollectingPerformanceStatistics()
+            performanceManager.enableCollectingPerformanceStatistics(isK2 = shouldRunK2)
         }
 
         val configuration = CompilerConfiguration()
@@ -126,7 +139,7 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
                     throw e
                 }
             } finally {
-                Disposer.dispose(rootDisposable)
+                disposeRootInWriteAction(rootDisposable)
             }
         } catch (e: CompilationErrorException) {
             return COMPILATION_ERROR
@@ -135,17 +148,6 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
             return if (t is OutOfMemoryError || t.hasOOMCause()) OOM_ERROR else INTERNAL_ERROR
         } finally {
             collector.flush()
-        }
-    }
-
-    private fun Throwable.hasOOMCause(): Boolean = when (cause) {
-        is OutOfMemoryError -> true
-        else -> cause?.hasOOMCause() ?: false
-    }
-
-    private fun MessageCollector.reportCompilationCancelled(e: CompilationCanceledException) {
-        if (e !is IncrementalNextRoundException) {
-            report(INFO, "Compilation was canceled", null)
         }
     }
 
@@ -159,6 +161,27 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
         configuration: CompilerConfiguration, arguments: A, services: Services
     )
 
+    /**
+     * Main method for execution the new phased CLI compiler pipeline
+     * Since the new pipeline is supposed to be implemented only for K2 compiler, it runs only if [shouldRunK2] returns true.
+     *
+     * If this method returns `null` it's an indicator that the phased pipeline for specific [CLICompiler] is not implemented yet,
+     *   so the old pipeline ([doExecute]) will be executed
+     */
+    protected open fun doExecutePhased(
+        arguments: A,
+        services: Services,
+        basicMessageCollector: MessageCollector,
+    ): ExitCode? {
+        return null
+    }
+
+    /**
+     * Main method for execution the old CLI compiler pipeline
+     * It runs for K1 compilation and for cases when the new pipeline is not implemented yet
+     *
+     * This method and its implementations should be dropped together with K1 compiler support
+     */
     protected abstract fun doExecute(
         arguments: A,
         configuration: CompilerConfiguration,
@@ -168,13 +191,22 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
 
     protected abstract fun MutableList<String>.addPlatformOptions(arguments: A)
 
-    protected fun loadPlugins(paths: KotlinPaths?, arguments: A, configuration: CompilerConfiguration): ExitCode {
+    protected fun loadPlugins(
+        paths: KotlinPaths?,
+        arguments: A,
+        configuration: CompilerConfiguration,
+        parentDisposable: Disposable,
+    ): ExitCode {
         val pluginClasspaths = arguments.pluginClasspaths.orEmpty().toMutableList()
         val pluginOptions = arguments.pluginOptions.orEmpty().toMutableList()
         val pluginConfigurations = arguments.pluginConfigurations.orEmpty().toMutableList()
         val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
         val useK2 = configuration.get(CommonConfigurationKeys.USE_FIR) == true
+
+        if (!checkPluginsArguments(messageCollector, useK2, pluginClasspaths, pluginOptions, pluginConfigurations)) {
+            return INTERNAL_ERROR
+        }
 
         val scriptingPluginClasspath = mutableListOf<String>()
         val scriptingPluginOptions = mutableListOf<String>()
@@ -208,11 +240,7 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
         pluginClasspaths.addAll(scriptingPluginClasspath)
         pluginOptions.addAll(scriptingPluginOptions)
 
-        if (!checkPluginsArguments(messageCollector, useK2, pluginClasspaths, pluginOptions, pluginConfigurations)) {
-            return INTERNAL_ERROR
-        }
-
-        return PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, pluginConfigurations, configuration)
+        return PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, pluginConfigurations, configuration, parentDisposable)
     }
 
     private fun tryLoadScriptingPluginFromCurrentClassLoader(
@@ -446,3 +474,13 @@ fun checkPluginsArguments(
     return !hasErrors
 }
 
+fun Throwable.hasOOMCause(): Boolean = when (cause) {
+    is OutOfMemoryError -> true
+    else -> cause?.hasOOMCause() ?: false
+}
+
+fun MessageCollector.reportCompilationCancelled(e: CompilationCanceledException) {
+    if (e !is IncrementalNextRoundException) {
+        report(INFO, "Compilation was canceled", null)
+    }
+}

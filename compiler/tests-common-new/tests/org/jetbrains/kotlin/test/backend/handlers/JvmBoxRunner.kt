@@ -6,14 +6,11 @@
 package org.jetbrains.kotlin.test.backend.handlers
 
 import junit.framework.TestCase
-import org.jetbrains.kotlin.backend.common.CodegenUtil.getMemberDeclarationsToGenerate
 import org.jetbrains.kotlin.codegen.ClassFileFactory
 import org.jetbrains.kotlin.codegen.CodegenTestUtil
 import org.jetbrains.kotlin.codegen.GeneratedClassLoader
 import org.jetbrains.kotlin.codegen.extractUrls
 import org.jetbrains.kotlin.fileClasses.JvmFileClassInfo
-import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil.getFileClassInfoNoResolve
-import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.backend.codegenSuppressionChecker
 import org.jetbrains.kotlin.test.clientserver.TestProxy
@@ -96,11 +93,10 @@ open class JvmBoxRunner(testServices: TestServices) : JvmBinaryArtifactHandler(t
             if (reportProblems) {
                 try {
                     println(classFileFactory.createText())
-                } catch (_: Throwable) {
-                    // In FIR we have factory which can't print bytecode
-                    //   and it throws exception otherwise. So we need
-                    //   ignore that exception to report original one
-                    // TODO: fix original problem
+                } catch (e1: Throwable) {
+                    System.err.println("Exception thrown while trying to generate text:")
+                    e1.printStackTrace()
+                    System.err.println("---")
                 }
             }
             throw e
@@ -297,12 +293,6 @@ open class JvmBoxRunner(testServices: TestServices) : JvmBinaryArtifactHandler(t
         return classLoader
     }
 
-    private fun KtFile.getFacadeFqName(): String? {
-        return runIf(getMemberDeclarationsToGenerate(this).isNotEmpty()) {
-            getFileClassInfoNoResolve(this).facadeClassFqName.asString()
-        }
-    }
-
     private fun ClassLoader.getGeneratedClass(className: String): Class<*> {
         try {
             return loadClass(className)
@@ -320,7 +310,7 @@ open class JvmBoxRunner(testServices: TestServices) : JvmBinaryArtifactHandler(t
     }
 }
 
-internal fun generatedTestClassLoader(
+fun generatedTestClassLoader(
     testServices: TestServices,
     module: TestModule,
     classFileFactory: ClassFileFactory,
@@ -346,7 +336,7 @@ internal fun generatedTestClassLoader(
     }
 }
 
-private fun computeTestRuntimeClasspath(testServices: TestServices, rootModule: TestModule): MutableList<File> {
+fun computeTestRuntimeClasspath(testServices: TestServices, rootModule: TestModule): MutableList<File> {
     val visited = mutableSetOf<TestModule>()
     val result = mutableListOf<File>()
 
@@ -362,7 +352,7 @@ private fun computeTestRuntimeClasspath(testServices: TestServices, rootModule: 
 
         for (dependency in module.allDependencies) {
             if (dependency.kind == DependencyKind.Binary) {
-                computeClasspath(testServices.dependencyProvider.getTestModule(dependency.moduleName), false)
+                computeClasspath(dependency.dependencyModule, isRoot = false)
             }
         }
     }

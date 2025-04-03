@@ -1,5 +1,11 @@
 # ObjC Export mangling
 After stubs are generated we mangle classifiers and members at [mangleObjCStubs](mangleObjCStubs.kt)
+
+- [Protocols and interfaces](#protocols-and-interfaces)
+- [Properties](#properties)
+- [Methods](#methods)
+- [Generics](#generics)
+- [Extensions](#extensions)
 ## Protocols and interfaces
 Since we merge all interfaces and protocols into single header we needs to rename interfaces and classes with similar names from different packages. See implementation at [mangleObjCInterface](mangleObjCInterface.kt) and [mangleObjCProtocol](mangleObjCProtocol.kt) 
 ```kotlin
@@ -59,5 +65,70 @@ class Foo {
     (void) barValue:(Int) value1 (String) value2 (Boolean) value3 __attribute__((swift_name("bar(value1:value2:value3:)")));
     (void) barValue:(Boolean) value1 (Int) value2 (String) value3_ __attribute__((swift_name("bar(value1:value2:value3_:)")));
     (void) barValue:(String) value1 (Boolean) value2 (Int) value3__ __attribute__((swift_name("bar(value1:value2:value3__:)")));
+@end
+```
+
+## Generics
+
+Two groups of type parameters needs to be mangled:
+
+- Predefined Kotlin types: `MutableSet`, `MutableMap`, `Base`
+- Predefined Objective-C types: `id`, `NSObject`, `int16_t` and others. See [isReservedTypeParameterName.kt](isReservedTypeParameterName.kt)
+
+```kotlin
+class Foo<Base>
+```
+
+```chatinput
+@interface Foo<Base_>
+@end
+```
+
+## Extensions
+
+Unique extension function/property signature is guaranteed by kotlin compiler, so extensions don't need to be mangled, but K1 does mangling.
+And since CLI uses K1 we need to be aligned with K1 extensions mangling.
+
+- K1 implements global extensions mangling, so method or property must has unique signature across all extensions, even though they split
+  into different facades.
+- K1 also implements mangling differently compared to mangling of regular properties and functions:
+    - properties are not mangled with additional attribute, but by adding `_` to property name and swift_name attribute
+    - functions with no parameters mangled unlike regular functions
+
+### No parameters functions
+
+```kotlin
+class Foo
+class Bar
+
+fun Foo.funcName() = Unit
+fun Bar.funcName() = Unit
+```
+
+```c
+@interface Foo
+- funcName __attribute__((swift_name("funcName()")));
+@end
+@interface Bar
+- funcName_ __attribute__((swift_name("funcName_()")));
+@end
+```
+
+### Properties
+
+```kotlin
+class Foo
+class Bar
+
+val Foo.prop: Int = 42
+val Bar.prop: Int = 42
+```
+
+```c
+@interface Foo
+@property prop int __attribute__((swift_name("prop")));
+@end
+@interface Bar
+@property prop_ int __attribute__((swift_name("prop_")));
 @end
 ```

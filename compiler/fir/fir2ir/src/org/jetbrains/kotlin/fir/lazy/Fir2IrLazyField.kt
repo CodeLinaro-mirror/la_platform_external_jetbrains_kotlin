@@ -13,12 +13,16 @@ import org.jetbrains.kotlin.fir.backend.utils.toIrConst
 import org.jetbrains.kotlin.fir.declarations.FirField
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.evaluatedInitializer
+import org.jetbrains.kotlin.fir.declarations.utils.isExternal
+import org.jetbrains.kotlin.fir.declarations.utils.isStatic
+import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.propertyIfBackingField
 import org.jetbrains.kotlin.fir.unwrapFakeOverrides
 import org.jetbrains.kotlin.fir.unwrapOr
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrField
@@ -57,7 +61,7 @@ class Fir2IrLazyField(
         set(_) = mutationNotSupported()
 
     override var isFinal: Boolean
-        get() = fir.isFinal
+        get() = fir.isVal
         set(_) = mutationNotSupported()
 
     override var isStatic: Boolean
@@ -86,6 +90,8 @@ class Fir2IrLazyField(
 
     override var correspondingPropertySymbol: IrPropertySymbol? = correspondingPropertySymbol
         set(_) = mutationNotSupported()
+
+    override var attributeOwnerId: IrElement = this
 
     override var metadata: MetadataSource?
         get() = null

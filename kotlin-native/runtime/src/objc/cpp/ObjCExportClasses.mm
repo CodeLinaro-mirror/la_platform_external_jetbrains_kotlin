@@ -176,8 +176,9 @@ extern "C" OBJ_GETTER(Kotlin_toString, KRef obj);
     RuntimeAssert(kotlin::compiler::swiftExport(), "Must be used in Swift Export only");
     kotlin::AssertThreadState(kotlin::ThreadState::kNative);
 
+    auto externalRCRef = reinterpret_cast<kotlin::mm::RawExternalRCRef*>(ref);
     Class bestFittingClass =
-            kotlin::swiftExportRuntime::bestFittingObjCClassFor(kotlin::mm::externalRCRefType(reinterpret_cast<void*>(ref)));
+            kotlin::swiftExportRuntime::bestFittingObjCClassFor(kotlin::mm::typeOfExternalRCRef(externalRCRef));
     if ([self class] != bestFittingClass) {
         if ([[self class] isSubclassOfClass:bestFittingClass]) {
             konan::consoleErrorf(
@@ -189,11 +190,20 @@ extern "C" OBJ_GETTER(Kotlin_toString, KRef obj);
         RuntimeAssert(
                 [bestFittingClass isSubclassOfClass:[self class]], "Best-fitting class is %s which is not a subclass of self (%s)",
                 class_getName(bestFittingClass), class_getName([self class]));
+
+        KotlinBase* retiredSelf = self; // old `self`
+
         // Rerun the entire initializer, but with the best-fitting class now.
-        return [[bestFittingClass alloc] initWithExternalRCRef:ref];
+        self = [[bestFittingClass alloc] initWithExternalRCRef:ref]; // new `self`, retained.
+
+        // Fully release old `self` by just decrementing NSObject refcount.
+        [retiredSelf releaseAsAssociatedObject];
+
+        // Return new `self`.
+        return self;
     }
 
-    permanent = refHolder.initWithExternalRCRef(reinterpret_cast<void*>(ref));
+    permanent = refHolder.initWithExternalRCRef(externalRCRef);
     if (permanent) {
         // Cannot attach associated objects to permanent objects.
         return self;
@@ -222,7 +232,7 @@ extern "C" OBJ_GETTER(Kotlin_toString, KRef obj);
     self = [newSelf retain]; // new `self`, retained.
 
     // Fully release old `self`:
-    [retiredSelf release]; // decrement SpecialRef refcount,
+    [retiredSelf release]; // decrement ExternalRCRef refcount,
     [retiredSelf releaseAsAssociatedObject]; // and decrement NSObject refcount.
 
     // Return new `self`.
@@ -325,10 +335,20 @@ OBJ_GETTER(Kotlin_boxDouble, KDouble value);
       case 'c': RETURN_RESULT_OF(Kotlin_boxByte, self.charValue);
       case 's': RETURN_RESULT_OF(Kotlin_boxShort, self.shortValue);
       case 'i': RETURN_RESULT_OF(Kotlin_boxInt, self.intValue);
+      case 'l': if constexpr (sizeof(long) == 8) {
+                  RETURN_RESULT_OF(Kotlin_boxLong, self.longLongValue);
+                } else {
+                  RETURN_RESULT_OF(Kotlin_boxInt, self.intValue);
+                }
       case 'q': RETURN_RESULT_OF(Kotlin_boxLong, self.longLongValue);
       case 'C': RETURN_RESULT_OF(Kotlin_boxUByte, self.unsignedCharValue);
       case 'S': RETURN_RESULT_OF(Kotlin_boxUShort, self.unsignedShortValue);
       case 'I': RETURN_RESULT_OF(Kotlin_boxUInt, self.unsignedIntValue);
+      case 'L': if constexpr (sizeof(long) == 8) {
+                  RETURN_RESULT_OF(Kotlin_boxULong, self.unsignedLongLongValue);
+                } else {
+                  RETURN_RESULT_OF(Kotlin_boxUInt, self.unsignedIntValue);
+                }
       case 'Q': RETURN_RESULT_OF(Kotlin_boxULong, self.unsignedLongLongValue);
       case 'f': RETURN_RESULT_OF(Kotlin_boxFloat, self.floatValue);
       case 'd': RETURN_RESULT_OF(Kotlin_boxDouble, self.doubleValue);

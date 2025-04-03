@@ -11,10 +11,6 @@ import org.jetbrains.kotlin.assignment.plugin.AbstractFirLightTreeBlackBoxCodege
 import org.jetbrains.kotlin.assignment.plugin.AbstractFirPsiAssignmentPluginDiagnosticTest
 import org.jetbrains.kotlin.assignment.plugin.AbstractIrBlackBoxCodegenTestAssignmentPlugin
 import org.jetbrains.kotlin.compiler.plugins.AbstractPluginInteractionFirBlackBoxCodegenTest
-import org.jetbrains.kotlin.plugin.sandbox.AbstractFirLightTreePluginBlackBoxCodegenTest
-import org.jetbrains.kotlin.plugin.sandbox.AbstractFirLoadK2CompiledWithPluginJsKotlinTest
-import org.jetbrains.kotlin.plugin.sandbox.AbstractFirLoadK2CompiledWithPluginJvmKotlinTest
-import org.jetbrains.kotlin.plugin.sandbox.AbstractFirPsiPluginDiagnosticTest
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.impl.generateTestGroupSuite
 import org.jetbrains.kotlin.generators.tests.IncrementalTestsGeneratorUtil.Companion.IcTestTypes.PURE_KOTLIN
@@ -26,26 +22,25 @@ import org.jetbrains.kotlin.jvm.abi.AbstractCompareJvmAbiTest
 import org.jetbrains.kotlin.jvm.abi.AbstractCompileAgainstJvmAbiTest
 import org.jetbrains.kotlin.jvm.abi.AbstractJvmAbiContentTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractArgumentParsingTest
-import org.jetbrains.kotlin.kapt.cli.test.AbstractKapt4ToolIntegrationTest
+import org.jetbrains.kotlin.kapt.cli.test.AbstractFirKaptToolIntegrationTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractKaptToolIntegrationTest
-import org.jetbrains.kotlin.kapt3.test.runners.AbstractIrKotlinKaptContextTest
-import org.jetbrains.kotlin.kapt3.test.runners.AbstractKaptStubConverterTest
-import org.jetbrains.kotlin.kapt4.AbstractFirKaptStubConverterTest
-import org.jetbrains.kotlin.lombok.*
+import org.jetbrains.kotlin.kapt.test.AbstractFirKaptStubConverterTest
+import org.jetbrains.kotlin.kapt.test.runners.AbstractIrKotlinKaptContextTest
+import org.jetbrains.kotlin.kapt.test.runners.AbstractKaptStubConverterTest
+import org.jetbrains.kotlin.lombok.AbstractDiagnosticTestForLombok
+import org.jetbrains.kotlin.lombok.AbstractFirLightTreeBlackBoxCodegenTestForLombok
+import org.jetbrains.kotlin.lombok.AbstractFirPsiDiagnosticTestForLombok
+import org.jetbrains.kotlin.lombok.AbstractIrBlackBoxCodegenTestForLombok
 import org.jetbrains.kotlin.noarg.*
 import org.jetbrains.kotlin.parcelize.test.runners.*
+import org.jetbrains.kotlin.plugin.sandbox.*
 import org.jetbrains.kotlin.powerassert.AbstractFirLightTreeBlackBoxCodegenTestForPowerAssert
 import org.jetbrains.kotlin.powerassert.AbstractIrBlackBoxCodegenTestForPowerAssert
 import org.jetbrains.kotlin.samWithReceiver.*
-import org.jetbrains.kotlin.scripting.test.AbstractScriptWithCustomDefBlackBoxCodegenTest
-import org.jetbrains.kotlin.scripting.test.AbstractScriptWithCustomDefDiagnosticsTestBase
+import org.jetbrains.kotlin.scripting.test.*
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlinx.atomicfu.incremental.AbstractIncrementalK2JVMWithAtomicfuRunnerTest
-import org.jetbrains.kotlinx.atomicfu.runners.AbstractAtomicfuFirCheckerTest
-import org.jetbrains.kotlinx.atomicfu.runners.AbstractAtomicfuJsFirTest
-import org.jetbrains.kotlinx.atomicfu.runners.AbstractAtomicfuJsIrTest
-import org.jetbrains.kotlinx.atomicfu.runners.AbstractAtomicfuJvmFirLightTreeTest
-import org.jetbrains.kotlinx.atomicfu.runners.AbstractAtomicfuJvmIrTest
+import org.jetbrains.kotlinx.atomicfu.runners.*
 
 private class ExcludePattern {
     companion object {
@@ -236,6 +231,10 @@ fun main(args: Array<String>) {
             testClass<AbstractFirLoadK2CompiledWithPluginJsKotlinTest> {
                 model("firLoadK2Compiled")
             }
+
+            testClass<AbstractFirMetadataPluginSandboxTest> {
+                model("metadata")
+            }
         }
 
         testGroup(
@@ -348,28 +347,25 @@ fun main(args: Array<String>) {
             }
         }
 
-        testGroup("plugins/kapt3/kapt3-cli/tests-gen", "plugins/kapt3/kapt3-cli/testData") {
+        testGroup("plugins/kapt/kapt-cli/tests-gen", "plugins/kapt/kapt-cli/testData") {
             testClass<AbstractArgumentParsingTest> {
                 model("argumentParsing", extension = "txt")
             }
             testClass<AbstractKaptToolIntegrationTest> {
                 model("integration", recursive = false, extension = null)
             }
-            testClass<AbstractKapt4ToolIntegrationTest> {
+            testClass<AbstractFirKaptToolIntegrationTest> {
                 model("integration-kapt4", recursive = false, extension = null)
             }
         }
 
-        testGroup("plugins/kapt3/kapt3-compiler/tests-gen", "plugins/kapt3/kapt3-compiler/testData") {
+        testGroup("plugins/kapt/kapt-compiler/tests-gen", "plugins/kapt/kapt-compiler/testData") {
             testClass<AbstractIrKotlinKaptContextTest> {
                 model("kotlinRunner")
             }
             testClass<AbstractKaptStubConverterTest> {
                 model("converter")
             }
-        }
-
-        testGroup("plugins/kapt4/tests-gen", "plugins/kapt3/kapt3-compiler/testData") {
             testClass<AbstractFirKaptStubConverterTest> {
                 model("converter")
             }
@@ -384,6 +380,30 @@ fun main(args: Array<String>) {
         testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
             testClass<AbstractScriptWithCustomDefBlackBoxCodegenTest> {
                 model("testData/codegen/testScripts", extension = "kts")
+            }
+        }
+
+        testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
+            testClass<AbstractReplWithTestExtensionsDiagnosticsTest> {
+                model("testData/diagnostics/repl", extension = "kts")
+            }
+        }
+
+        testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
+            testClass<AbstractReplViaApiDiagnosticsTest> {
+                model("testData/diagnostics/repl", extension = "kts")
+            }
+        }
+
+        testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
+            testClass<AbstractReplWithTestExtensionsCodegenTest> {
+                model("testData/codegen/repl", extension = "kts")
+            }
+        }
+
+        testGroup("plugins/scripting/scripting-tests/tests-gen", "plugins/scripting/scripting-tests") {
+            testClass<AbstractReplViaApiEvaluationTest> {
+                model("testData/codegen/repl", extension = "kts")
             }
         }
 

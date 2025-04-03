@@ -75,6 +75,15 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         FirDeclarationsResolveTransformer::transformCodeFragment,
     )
 
+    override fun transformReplSnippet(
+        replSnippet: FirReplSnippet,
+        data: ResolutionMode,
+    ): FirReplSnippet = declarationTransformation(
+        replSnippet,
+        data,
+        FirDeclarationsResolveTransformer::transformReplSnippet,
+    )
+
     override fun <E : FirElement> transformElement(element: E, data: ResolutionMode): E {
         @Suppress("UNCHECKED_CAST")
         return (element.transformChildren(this, data) as E)
@@ -97,7 +106,7 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         }
 
         resolvedTypeRef.coneType.forEachType {
-            it.customAnnotations.forEach { typeArgumentAnnotation ->
+            it.typeAnnotations.forEach { typeArgumentAnnotation ->
                 typeArgumentAnnotation.accept(this, data)
             }
         }
@@ -113,6 +122,7 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
          * We should transform a provided type to process such references in [transformAnnotationCall] by [transformForeignAnnotationCall]
          * because usually we do not run such transformations on replaced types explicitly
          */
+        @OptIn(ResolutionMode.WithExpectedType.ExpectedTypeRefAccess::class)
         return data.expectedTypeRef.transformSingle(this, data)
     }
 
@@ -467,6 +477,10 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         FirDeclarationsResolveTransformer::transformProperty,
     )
 
+    override fun transformErrorProperty(errorProperty: FirErrorProperty, data: ResolutionMode): FirStatement {
+        return transformProperty(errorProperty, data)
+    }
+
     override fun transformPropertyAccessor(
         propertyAccessor: FirPropertyAccessor,
         data: ResolutionMode,
@@ -483,6 +497,15 @@ abstract class FirAbstractBodyResolveTransformerDispatcher(
         backingField,
         data,
         FirDeclarationsResolveTransformer::transformBackingField,
+    )
+
+    override fun transformReceiverParameter(
+        receiverParameter: FirReceiverParameter,
+        data: ResolutionMode,
+    ): FirReceiverParameter = declarationTransformation(
+        receiverParameter,
+        data,
+        FirDeclarationsResolveTransformer::transformReceiverParameter,
     )
 
     override fun transformField(

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.declarations.lazy
 
 import org.jetbrains.kotlin.descriptors.ClassConstructorDescriptor
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBody
@@ -36,6 +37,10 @@ class IrLazyConstructor(
     override val stubGenerator: DeclarationStubGenerator,
     override val typeTranslator: TypeTranslator,
 ) : IrConstructor(), IrLazyFunctionBase {
+    init {
+        this.contextReceiverParametersCount = descriptor.contextReceiverParameters.size
+    }
+
     override var annotations: List<IrConstructorCall> by createLazyAnnotations()
 
     override var body: IrBody? = null
@@ -43,12 +48,6 @@ class IrLazyConstructor(
     override var returnType: IrType by lazyVar(stubGenerator.lock) { createReturnType() }
 
     override val initialSignatureFunction: IrFunction? by createInitialSignatureFunction()
-
-    override var dispatchReceiverParameter: IrValueParameter? = null
-
-    override var extensionReceiverParameter: IrValueParameter? = null
-
-    override var contextReceiverParametersCount: Int = descriptor.contextReceiverParameters.size
 
     override var metadata: MetadataSource?
         get() = null
@@ -65,6 +64,8 @@ class IrLazyConstructor(
             }
         }
     }
+
+    override var attributeOwnerId: IrElement = this
 
     override val containerSource: DeserializedContainerSource?
         get() = (descriptor as? DescriptorWithContainerSource)?.containerSource

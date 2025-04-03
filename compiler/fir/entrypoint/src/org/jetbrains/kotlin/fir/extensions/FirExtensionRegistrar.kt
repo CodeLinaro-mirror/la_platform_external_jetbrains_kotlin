@@ -9,7 +9,9 @@ import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.SessionConfiguration
 import org.jetbrains.kotlin.fir.analysis.extensions.FirAdditionalCheckersExtension
+import org.jetbrains.kotlin.fir.backend.Fir2IrReplSnippetConfiguratorExtension
 import org.jetbrains.kotlin.fir.backend.Fir2IrScriptConfiguratorExtension
+import org.jetbrains.kotlin.fir.builder.FirReplSnippetConfiguratorExtension
 import org.jetbrains.kotlin.fir.builder.FirScriptConfiguratorExtension
 import org.jetbrains.kotlin.fir.resolve.FirSamConversionTransformerExtension
 import org.jetbrains.kotlin.fir.serialization.FirMetadataSerializerPlugin
@@ -35,6 +37,9 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
             FirScriptConfiguratorExtension::class,
             FirScriptResolutionConfigurationExtension::class,
             Fir2IrScriptConfiguratorExtension::class,
+            Fir2IrReplSnippetConfiguratorExtension::class,
+            FirReplSnippetConfiguratorExtension::class,
+            FirReplSnippetResolveExtension::class,
             FirFunctionTypeKindExtension::class,
             @OptIn(FirExtensionApiInternals::class)
             FirMetadataSerializerPlugin::class,
@@ -111,6 +116,21 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
         @JvmName("plusFir2IrScriptConfiguratorExtension")
         operator fun (Fir2IrScriptConfiguratorExtension.Factory).unaryPlus() {
             registerExtension(Fir2IrScriptConfiguratorExtension::class, this)
+        }
+
+        @JvmName("plusFir2IrReplStateDeclarationsProviderExtension")
+        operator fun (Fir2IrReplSnippetConfiguratorExtension.Factory).unaryPlus() {
+            registerExtension(Fir2IrReplSnippetConfiguratorExtension::class, this)
+        }
+
+        @JvmName("plusReplSnippetConfiguratorExtension")
+        operator fun (FirReplSnippetConfiguratorExtension.Factory).unaryPlus() {
+            registerExtension(FirReplSnippetConfiguratorExtension::class, this)
+        }
+
+        @JvmName("plusReplSnippetResolveExtension")
+        operator fun (FirReplSnippetResolveExtension.Factory).unaryPlus() {
+            registerExtension(FirReplSnippetResolveExtension::class, this)
         }
 
         @JvmName("plusFunctionTypeKindExtension")
@@ -190,6 +210,21 @@ abstract class FirExtensionRegistrar : FirExtensionRegistrarAdapter() {
         @JvmName("plusFir2IrScriptConfiguratorExtension")
         operator fun ((FirSession) -> Fir2IrScriptConfiguratorExtension).unaryPlus() {
             Fir2IrScriptConfiguratorExtension.Factory { this.invoke(it) }.unaryPlus()
+        }
+
+        @JvmName("plusFir2IrReplStateDeclarationsProviderExtension")
+        operator fun ((FirSession) -> Fir2IrReplSnippetConfiguratorExtension).unaryPlus() {
+            Fir2IrReplSnippetConfiguratorExtension.Factory { this.invoke(it) }.unaryPlus()
+        }
+
+        @JvmName("plusReplSnippetConfiguratorExtension")
+        operator fun ((FirSession) -> FirReplSnippetConfiguratorExtension).unaryPlus() {
+            FirReplSnippetConfiguratorExtension.Factory { this.invoke(it) }.unaryPlus()
+        }
+
+        @JvmName("plusReplSnippetResolveExtension")
+        operator fun ((FirSession) -> FirReplSnippetResolveExtension).unaryPlus() {
+            FirReplSnippetResolveExtension.Factory { this.invoke(it) }.unaryPlus()
         }
 
         @JvmName("plusFunctionTypeKindExtension")

@@ -184,6 +184,7 @@ inline fun IrProperty.addBackingField(builder: IrFieldBuilder.() -> Unit = {}): 
     IrFieldBuilder().run {
         name = this@addBackingField.name
         origin = IrDeclarationOrigin.PROPERTY_BACKING_FIELD
+        visibility = DescriptorVisibilities.PRIVATE
         builder()
         factory.buildField(this).also { field ->
             this@addBackingField.backingField = field
@@ -294,28 +295,15 @@ inline fun IrClass.addConstructor(builder: IrFunctionBuilder.() -> Unit = {}): I
         constructor.parent = this@addConstructor
     }
 
-fun <D> buildReceiverParameter(
-    parent: D,
-    origin: IrDeclarationOrigin,
-    type: IrType,
-    startOffset: Int = parent.startOffset,
-    endOffset: Int = parent.endOffset
-): IrValueParameter
+inline fun <D> D.buildReceiverParameter(builder: IrValueParameterBuilder.() -> Unit): IrValueParameter
         where D : IrDeclaration, D : IrDeclarationParent =
-    parent.factory.createValueParameter(
-        startOffset = startOffset,
-        endOffset = endOffset,
-        origin = origin,
-        name = SpecialNames.THIS,
-        type = type,
-        isAssignable = false,
-        symbol = IrValueParameterSymbolImpl(),
-        varargElementType = null,
-        isCrossinline = false,
-        isNoinline = false,
-        isHidden = false,
-    ).also {
-        it.parent = parent
+    IrValueParameterBuilder().run {
+        name = SpecialNames.THIS
+        kind = IrParameterKind.DispatchReceiver
+        startOffset = this@buildReceiverParameter.startOffset
+        endOffset = this@buildReceiverParameter.endOffset
+        builder()
+        factory.buildValueParameter(this, this@buildReceiverParameter)
     }
 
 fun IrFactory.buildValueParameter(builder: IrValueParameterBuilder, parent: IrDeclarationParent): IrValueParameter =
@@ -324,6 +312,7 @@ fun IrFactory.buildValueParameter(builder: IrValueParameterBuilder, parent: IrDe
             startOffset = startOffset,
             endOffset = endOffset,
             origin = origin,
+            kind = kind,
             name = name,
             type = type,
             isAssignable = isAssignable,
@@ -348,8 +337,9 @@ inline fun <D> buildValueParameter(declaration: D, builder: IrValueParameterBuil
 inline fun IrFunction.addValueParameter(builder: IrValueParameterBuilder.() -> Unit): IrValueParameter =
     IrValueParameterBuilder().run {
         builder()
+        kind = IrParameterKind.Regular
         factory.buildValueParameter(this, this@addValueParameter).also { valueParameter ->
-            valueParameters = valueParameters + valueParameter
+            parameters += valueParameter
         }
     }
 

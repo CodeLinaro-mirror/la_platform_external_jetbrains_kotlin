@@ -8,11 +8,14 @@ package org.jetbrains.kotlin.ir.backend.js.dce
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
-import org.jetbrains.kotlin.ir.backend.js.utils.*
+import org.jetbrains.kotlin.ir.backend.js.mainFunctionWrapper
+import org.jetbrains.kotlin.ir.backend.js.utils.JsMainFunctionDetector
+import org.jetbrains.kotlin.ir.backend.js.utils.hasJsPolyfill
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrBody
-import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.isEffectivelyExternal
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
@@ -51,7 +54,7 @@ private fun IrField.isConstant(): Boolean =
     correspondingPropertySymbol?.owner?.isConst ?: false
 
 private fun IrDeclaration.addRootsTo(
-    nestedVisitor: IrElementVisitorVoid,
+    nestedVisitor: IrVisitorVoid,
     context: JsIrBackendContext
 ) {
     when {
@@ -98,7 +101,7 @@ private fun buildRoots(
     context: JsIrBackendContext,
     moduleKind: ModuleKind
 ): List<IrDeclaration> = buildList {
-    val declarationsCollector = object : IrElementVisitorVoid {
+    val declarationsCollector = object : IrVisitorVoid() {
         override fun visitElement(element: IrElement): Unit = element.acceptChildrenVoid(this)
         override fun visitBody(body: IrBody): Unit = Unit // Skip
 
@@ -121,7 +124,7 @@ private fun buildRoots(
     }
 
     JsMainFunctionDetector(context).getMainFunctionOrNull(modules.last())
-        ?.let { context.mapping.mainFunctionToItsWrapper[it] }
+        ?.mainFunctionWrapper
         ?.let { add(it) }
 
     addIfNotNull(context.intrinsics.void.owner.backingField)

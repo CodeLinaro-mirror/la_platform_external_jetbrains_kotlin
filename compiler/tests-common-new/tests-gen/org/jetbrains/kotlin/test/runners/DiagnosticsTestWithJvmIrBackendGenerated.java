@@ -92,6 +92,52 @@ public class DiagnosticsTestWithJvmIrBackendGenerated extends AbstractDiagnostic
   }
 
   @Nested
+  @TestMetadata("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters")
+  @TestDataPath("$PROJECT_ROOT")
+  public class ContextParameters {
+    @Test
+    public void testAllFilesPresentInContextParameters() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters"), Pattern.compile("^(.+)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), TargetBackend.JVM_IR, true);
+    }
+
+    @Test
+    @TestMetadata("extensionAndContextParameters.kt")
+    public void testExtensionAndContextParameters() {
+      runTest("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters/extensionAndContextParameters.kt");
+    }
+
+    @Test
+    @TestMetadata("intersectionContextValueJava.kt")
+    public void testIntersectionContextValueJava() {
+      runTest("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters/intersectionContextValueJava.kt");
+    }
+
+    @Test
+    @TestMetadata("intersectionExtensionValueContext.kt")
+    public void testIntersectionExtensionValueContext() {
+      runTest("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters/intersectionExtensionValueContext.kt");
+    }
+
+    @Test
+    @TestMetadata("intersectionExtensionValueContextJava.kt")
+    public void testIntersectionExtensionValueContextJava() {
+      runTest("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters/intersectionExtensionValueContextJava.kt");
+    }
+
+    @Test
+    @TestMetadata("valueAndContextParameter.kt")
+    public void testValueAndContextParameter() {
+      runTest("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters/valueAndContextParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("valueAndContextParametersWithJava.kt")
+    public void testValueAndContextParametersWithJava() {
+      runTest("compiler/testData/diagnostics/testsWithJvmBackend/contextParameters/valueAndContextParametersWithJava.kt");
+    }
+  }
+
+  @Nested
   @TestMetadata("compiler/testData/diagnostics/testsWithJvmBackend/contextReceivers")
   @TestDataPath("$PROJECT_ROOT")
   public class ContextReceivers {
@@ -259,6 +305,28 @@ public class DiagnosticsTestWithJvmIrBackendGenerated extends AbstractDiagnostic
       @TestMetadata("trait.kt")
       public void testTrait() {
         runTest("compiler/testData/diagnostics/testsWithJvmBackend/duplicateJvmSignature/bridges/trait.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/testsWithJvmBackend/duplicateJvmSignature/commonAtomicTypes")
+    @TestDataPath("$PROJECT_ROOT")
+    public class CommonAtomicTypes {
+      @Test
+      public void testAllFilesPresentInCommonAtomicTypes() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJvmBackend/duplicateJvmSignature/commonAtomicTypes"), Pattern.compile("^(.+)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), TargetBackend.JVM_IR, true);
+      }
+
+      @Test
+      @TestMetadata("intersectionWithExplicitOverride.kt")
+      public void testIntersectionWithExplicitOverride() {
+        runTest("compiler/testData/diagnostics/testsWithJvmBackend/duplicateJvmSignature/commonAtomicTypes/intersectionWithExplicitOverride.kt");
+      }
+
+      @Test
+      @TestMetadata("KJKHierarchy.kt")
+      public void testKJKHierarchy() {
+        runTest("compiler/testData/diagnostics/testsWithJvmBackend/duplicateJvmSignature/commonAtomicTypes/KJKHierarchy.kt");
       }
     }
 
@@ -940,76 +1008,6 @@ public class DiagnosticsTestWithJvmIrBackendGenerated extends AbstractDiagnostic
     @TestMetadata("jvmSynthetic.kt")
     public void testJvmSynthetic() {
       runTest("compiler/testData/diagnostics/testsWithJvmBackend/multifileClasses/jvmSynthetic.kt");
-    }
-  }
-
-  @Nested
-  @TestMetadata("compiler/testData/diagnostics/testsWithJvmBackend/scripts")
-  @TestDataPath("$PROJECT_ROOT")
-  public class Scripts {
-    @Test
-    public void testAllFilesPresentInScripts() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/testsWithJvmBackend/scripts"), Pattern.compile("^(.+)\\.kts?$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), TargetBackend.JVM_IR, true);
-    }
-
-    @Test
-    @TestMetadata("enumCapturesProperty.kts")
-    public void testEnumCapturesProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/enumCapturesProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("enumEntryCapturesProperty.kts")
-    public void testEnumEntryCapturesProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/enumEntryCapturesProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("interfaceCapturesProperty.kts")
-    public void testInterfaceCapturesProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/interfaceCapturesProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("nestedAndOuterClassesCaptureProperty.kts")
-    public void testNestedAndOuterClassesCaptureProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/nestedAndOuterClassesCaptureProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("nestedClassCapturesProperty.kts")
-    public void testNestedClassCapturesProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/nestedClassCapturesProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("nestedToObjectClassCapturesProperty.kts")
-    public void testNestedToObjectClassCapturesProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/nestedToObjectClassCapturesProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("objectCapturesProperty.kts")
-    public void testObjectCapturesProperty() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/objectCapturesProperty.kts");
-    }
-
-    @Test
-    @TestMetadata("objectCapturesPropertyIndirect.kts")
-    public void testObjectCapturesPropertyIndirect() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/objectCapturesPropertyIndirect.kts");
-    }
-
-    @Test
-    @TestMetadata("objectCapturesPropertyViaExtension1.kts")
-    public void testObjectCapturesPropertyViaExtension1() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/objectCapturesPropertyViaExtension1.kts");
-    }
-
-    @Test
-    @TestMetadata("objectCapturesPropertyViaExtension2.kts")
-    public void testObjectCapturesPropertyViaExtension2() {
-      runTest("compiler/testData/diagnostics/testsWithJvmBackend/scripts/objectCapturesPropertyViaExtension2.kts");
     }
   }
 

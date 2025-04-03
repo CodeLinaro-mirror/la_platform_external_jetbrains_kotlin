@@ -8,8 +8,11 @@ package org.jetbrains.kotlin.analysis.api.components
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
 
+/**
+ * TODO: KT-73059
+ */
 @Deprecated("Obsolete API")
-public interface KaOriginalPsiProvider {
+public interface KaOriginalPsiProvider : KaSessionComponent {
     /**
      * If [KtDeclaration] is a non-local declaration in a fake file analyzed in dependent session, returns the original declaration.
      * Otherwise, returns `null`.

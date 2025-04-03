@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /JavaClass.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -35,5 +36,6 @@ KaNamedFunctionSymbol:
     type: JavaClass
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

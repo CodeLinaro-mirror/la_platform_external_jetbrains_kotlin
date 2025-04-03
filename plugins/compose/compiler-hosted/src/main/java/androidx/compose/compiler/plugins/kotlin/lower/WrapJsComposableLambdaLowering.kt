@@ -43,6 +43,7 @@ import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
@@ -101,9 +102,25 @@ class WrapJsComposableLambdaLowering(
             }.symbol
     }
 
-    override fun lower(module: IrModuleFragment) {
-        module.transformChildrenVoid(this)
-        module.patchDeclarationParents()
+    /**
+     * Compatibility check:
+     * ComposableLambda in compose-runtime for k/wasm used to not inherit from kotlin.Function2, Function3, etc. types.
+     * This lowering must run when the module is linked with such an older compose-runtime.
+     * If the linked compose-runtime version is a newer one (where ComposableLambda inherits from kotlin.Function types),
+     * this lowering might be skipped to avoid redundant code generation.
+     */
+    private fun shouldSkipLowering(): Boolean {
+        val function2 = context.function(2)
+        val skipLowering = getTopLevelClass(ComposeClassIds.ComposableLambda).owner.superTypes.any {
+            it.classOrNull == function2
+        }
+        return skipLowering
+    }
+
+    override fun lower(irModule: IrModuleFragment) {
+        if (shouldSkipLowering()) return
+        irModule.transformChildrenVoid(this)
+        irModule.patchDeclarationParents()
     }
 
     override fun visitCall(expression: IrCall): IrExpression {
@@ -182,7 +199,7 @@ class WrapJsComposableLambdaLowering(
             symbol = rememberFunSymbol,
             typeArgumentsCount = 1
         ).apply {
-            putTypeArgument(0, lambda.type)
+            typeArguments[0] = lambda.type
             putValueArgument(0, irGet(composableLambdaVar)) // key1
             putValueArgument(1, rememberBlock) // calculation
             putValueArgument(2, currentComposer) // composer
@@ -221,7 +238,7 @@ class WrapJsComposableLambdaLowering(
             symbol = runSymbol,
             typeArgumentsCount = 1
         ).apply {
-            putTypeArgument(0, returnType)
+            typeArguments[0] = returnType
             putValueArgument(0, runBlock)
         }
     }

@@ -5,16 +5,17 @@
 
 package org.jetbrains.kotlin.ir.backend.js
 
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.phaser.PhaserState
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.phaser.PhaserState
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.ic.*
 import org.jetbrains.kotlin.ir.backend.js.lower.collectNativeImplementations
 import org.jetbrains.kotlin.ir.backend.js.lower.generateJsTests
 import org.jetbrains.kotlin.ir.backend.js.lower.moveBodilessDeclarationsToSeparatePlace
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.*
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.IrModuleToJsTransformer
+import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
+import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsIrProgramFragments
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
@@ -27,7 +28,6 @@ import java.io.File
 class JsICContext(
     private val mainArguments: List<String>?,
     private val granularity: JsGenerationGranularity,
-    private val phaseConfig: PhaseConfig,
     private val exportedDeclarations: Set<FqName> = emptySet(),
 ) : PlatformDependentICContext {
 
@@ -39,7 +39,7 @@ class JsICContext(
         irBuiltIns: IrBuiltIns,
         configuration: CompilerConfiguration
     ): IrCompilerICInterface =
-        JsIrCompilerWithIC(mainModule, irBuiltIns, mainArguments, configuration, granularity, phaseConfig, exportedDeclarations)
+        JsIrCompilerWithIC(mainModule, irBuiltIns, mainArguments, configuration, granularity, exportedDeclarations)
 
     override fun createSrcFileArtifact(srcFilePath: String, fragments: IrICProgramFragments?, astArtifact: File?): SrcFileArtifact =
         JsSrcFileArtifact(srcFilePath, fragments as? JsIrProgramFragments, astArtifact)
@@ -61,7 +61,6 @@ class JsIrCompilerWithIC(
     private val mainArguments: List<String>?,
     configuration: CompilerConfiguration,
     granularity: JsGenerationGranularity,
-    private val phaseConfig: PhaseConfig,
     exportedDeclarations: Set<FqName> = emptySet(),
 ) : IrCompilerICInterface {
     private val context: JsIrBackendContext
@@ -92,9 +91,9 @@ class JsIrCompilerWithIC(
             moveBodilessDeclarationsToSeparatePlace(context, it)
         }
 
-        generateJsTests(context, mainModule, groupByPackage = false)
+        generateJsTests(context, mainModule)
 
-        lowerPreservingTags(allModules, context, phaseConfig, context.irFactory.stageController as WholeWorldStageController)
+        lowerPreservingTags(allModules, context, context.irFactory.stageController as WholeWorldStageController)
 
         val transformer = IrModuleToJsTransformer(context, shouldReferMainFunction = mainArguments != null)
         return transformer.makeIrFragmentsGenerators(dirtyFiles, allModules)
@@ -104,19 +103,18 @@ class JsIrCompilerWithIC(
 fun lowerPreservingTags(
     modules: Iterable<IrModuleFragment>,
     context: JsIrBackendContext,
-    phaseConfig: PhaseConfig,
     controller: WholeWorldStageController
 ) {
     // Lower all the things
     controller.currentStage = 0
 
-    val phaserState = PhaserState<IrModuleFragment>()
+    val phaserState = PhaserState()
     val jsLowerings = getJsLowerings(context.configuration)
 
     jsLowerings.forEachIndexed { i, lowering ->
         controller.currentStage = i + 1
         modules.forEach { module ->
-            lowering.invoke(phaseConfig, phaserState, context, module)
+            lowering.invoke(context.phaseConfig, phaserState, context, module)
         }
     }
 

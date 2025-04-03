@@ -1,11 +1,13 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.light.classes.symbol.methods
 
-import com.intellij.psi.*
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiIdentifier
+import com.intellij.psi.PsiParameterList
 import com.intellij.psi.impl.light.LightReferenceListBuilder
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
@@ -24,10 +26,10 @@ import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassForInte
 import org.jetbrains.kotlin.light.classes.symbol.compareSymbolPointers
 import org.jetbrains.kotlin.light.classes.symbol.isOriginEquivalentTo
 import org.jetbrains.kotlin.light.classes.symbol.isValid
-import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightParameter
 import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightParameterForDefaultImplsReceiver
 import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightParameterList
 import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightSuspendContinuationParameter
+import org.jetbrains.kotlin.light.classes.symbol.parameters.SymbolLightValueParameter
 import org.jetbrains.kotlin.light.classes.symbol.withSymbol
 import org.jetbrains.kotlin.psi.KtCallableDeclaration
 import org.jetbrains.kotlin.psi.KtDeclaration
@@ -80,7 +82,7 @@ internal abstract class SymbolLightMethod<FType : KaFunctionSymbol> private cons
     private val _parametersList by lazyPub {
         SymbolLightParameterList(
             parent = this@SymbolLightMethod,
-            callableWithReceiverSymbolPointer = functionSymbolPointer,
+            correspondingCallablePointer = functionSymbolPointer,
         ) { builder ->
             if (this@SymbolLightMethod.containingClass is SymbolLightClassForInterfaceDefaultImpls) {
                 builder.addParameter(SymbolLightParameterForDefaultImplsReceiver(this@SymbolLightMethod))
@@ -91,7 +93,7 @@ internal abstract class SymbolLightMethod<FType : KaFunctionSymbol> private cons
                     val needToSkip = argumentsSkipMask?.get(index) == true
                     if (!needToSkip) {
                         builder.addParameter(
-                            SymbolLightParameter(
+                            SymbolLightValueParameter(
                                 ktAnalysisSession = this,
                                 parameterSymbol = parameter,
                                 containingMethod = this@SymbolLightMethod,
@@ -127,7 +129,8 @@ internal abstract class SymbolLightMethod<FType : KaFunctionSymbol> private cons
 
     override fun computeThrowsList(builder: LightReferenceListBuilder) {
         withFunctionSymbol { functionSymbol ->
-            functionSymbol.computeThrowsList(
+            computeThrowsList(
+                functionSymbol,
                 builder,
                 this@SymbolLightMethod,
                 containingClass,
@@ -161,6 +164,6 @@ internal abstract class SymbolLightMethod<FType : KaFunctionSymbol> private cons
 
     override fun suppressWildcards(): Boolean? =
         withFunctionSymbol { functionSymbol ->
-            functionSymbol.suppressWildcardMode()
+            suppressWildcardMode(functionSymbol)
         }
 }

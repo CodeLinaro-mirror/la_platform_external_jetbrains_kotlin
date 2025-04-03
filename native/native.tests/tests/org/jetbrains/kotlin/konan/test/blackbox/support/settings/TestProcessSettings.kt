@@ -65,7 +65,7 @@ class KotlinNativeClassLoader(private val lazyClassLoader: Lazy<ClassLoader>) {
 /**
  * New test modes may be added as necessary.
  */
-internal enum class TestMode(private val description: String) {
+enum class TestMode(private val description: String) {
     ONE_STAGE_MULTI_MODULE(
         description = "Compile each test file as one or many modules (depending on MODULE directives declared in the file)." +
                 " Produce a KLIB per each module except the last one." +
@@ -250,7 +250,12 @@ sealed class CacheMode {
                 .map { KonanTarget.predefinedTargets.getValue(it) }
                 .toSet()
 
-            return if (kotlinNativeTargets.testTarget in cacheableTargets) Alias.STATIC_ONLY_DIST else Alias.NO
+            return when (kotlinNativeTargets.testTarget) {
+                in cacheableTargets -> Alias.STATIC_ONLY_DIST
+                // Support stdlib caches only for tests speedup
+                KonanTarget.MINGW_X64 -> Alias.STATIC_ONLY_DIST
+                else -> Alias.NO
+            }
         }
 
         fun computeCacheDirName(

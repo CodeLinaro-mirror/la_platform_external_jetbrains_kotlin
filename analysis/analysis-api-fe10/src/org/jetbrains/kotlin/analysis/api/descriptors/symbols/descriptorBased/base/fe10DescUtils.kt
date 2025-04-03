@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.analysis.api.types.KaTypeProjection
+import org.jetbrains.kotlin.analysis.api.types.symbol
 import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.StandardNames
@@ -642,7 +643,12 @@ internal val ClassifierDescriptor.classId: ClassId?
 internal val ClassifierDescriptor.maybeLocalClassId: ClassId
     get() = classId ?: ClassId(containingPackage() ?: FqName.ROOT, FqName.topLevel(this.name), isLocal = true)
 
-internal fun ClassDescriptor.getSupertypesWithAny(): Collection<KotlinType> {
+internal fun ClassDescriptor.computeSymbolSupertypes(): Collection<KotlinType> {
+    val classId = this.classId
+    if (classId == StandardClassIds.Any || classId == StandardClassIds.Nothing) {
+        return emptyList()
+    }
+
     val supertypes = typeConstructor.supertypes
     if (isInterfaceLike) {
         return supertypes
@@ -709,6 +715,12 @@ internal fun CallableDescriptor.createContextReceivers(
     return contextReceiverParameters.map { createContextReceiver(it, analysisContext) }
 }
 
+internal fun CallableDescriptor.createContextParameters(analysisContext: Fe10AnalysisContext): List<KaContextParameterSymbol> {
+    return contextReceiverParameters.map {
+        KaFe10DescContextReceiverBasedContextParameterSymbol(it, analysisContext)
+    }
+}
+
 internal fun ClassDescriptor.createContextReceivers(
     analysisContext: Fe10AnalysisContext
 ): List<KaContextReceiver> {
@@ -719,9 +731,10 @@ private fun createContextReceiver(
     contextReceiver: ReceiverParameterDescriptor,
     analysisContext: Fe10AnalysisContext
 ): KaBaseContextReceiver {
+    val type = contextReceiver.value.type.toKtType(analysisContext)
     return KaBaseContextReceiver(
-        contextReceiver.value.type.toKtType(analysisContext),
-        (contextReceiver.value as ImplicitContextReceiver).customLabelName,
+        type,
+        (contextReceiver.value as ImplicitContextReceiver).customLabelName ?: type.symbol?.name,
         analysisContext.token
     )
 }

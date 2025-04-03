@@ -71,8 +71,8 @@ class ClassStabilityTransformer(
     private val unstableClassesWarning: MutableSet<ClassDescriptor>? = if (!context.platform.isJvm()) mutableSetOf() else null
 
 
-    override fun lower(module: IrModuleFragment) {
-        module.transformChildrenVoid(this)
+    override fun lower(irModule: IrModuleFragment) {
+        irModule.transformChildrenVoid(this)
 
         if (!context.platform.isJvm() && !unstableClassesWarning.isNullOrEmpty()) {
             val classIds = unstableClassesWarning.mapTo(mutableSetOf()) { it.fqNameSafe.toString() }
@@ -191,7 +191,7 @@ class ClassStabilityTransformer(
             it.putValueArgument(0, irConst(parameterMask))
         }
 
-        if (useK2) {
+        if (useK2 && cls.hasFirDeclaration()) {
             context.metadataDeclarationRegistrar.addMetadataVisibleAnnotationsToElement(
                 cls,
                 annotation,

@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.linkage.IrProvider
 import org.jetbrains.kotlin.ir.linkage.partial.PartiallyLinkedDeclarationOrigin
 import org.jetbrains.kotlin.ir.symbols.*
-import org.jetbrains.kotlin.ir.util.createImplicitParameterDeclarationWithWrappedDescriptor
+import org.jetbrains.kotlin.ir.util.createThisReceiverParameter
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
@@ -36,16 +36,14 @@ internal class MissingDeclarationStubGenerator(private val builtIns: IrBuiltIns)
         createEmptyExternalPackageFragment(ErrorUtils.errorModule, FqName.ROOT)
     }
 
-    private var declarationsToPatch = arrayListOf<IrDeclaration>()
+    private val declarationsToPatch = arrayListOf<IrDeclaration>()
 
     private val stubbedSymbols = hashSetOf<IrSymbol>()
 
     val allStubbedSymbols: Set<IrSymbol> get() = stubbedSymbols
 
     fun grabDeclarationsToPatch(): Collection<IrDeclaration> {
-        val result = declarationsToPatch
-        declarationsToPatch = arrayListOf()
-        return result
+        return declarationsToPatch.getCopyAndClear()
     }
 
     fun getDeclaration(symbol: IrSymbol): IrDeclaration {
@@ -77,7 +75,7 @@ internal class MissingDeclarationStubGenerator(private val builtIns: IrBuiltIns)
             modality = Modality.OPEN,
         ).apply {
             setCommonParent()
-            createImplicitParameterDeclarationWithWrappedDescriptor()
+            createThisReceiverParameter()
         }
     }
 

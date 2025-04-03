@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
 import org.jetbrains.kotlin.build.report.metrics.endMeasureGc
 import org.jetbrains.kotlin.build.report.metrics.startMeasureGc
+import org.jetbrains.kotlin.buildtools.api.SourcesChanges
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -49,6 +50,9 @@ import org.jetbrains.kotlin.incremental.parsing.classesFqNames
 import org.jetbrains.kotlin.incremental.storage.FileLocations
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompilationComponents
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
+import org.jetbrains.kotlin.util.CodeAnalysisMeasurement
+import org.jetbrains.kotlin.util.CodeGenerationMeasurement
+import org.jetbrains.kotlin.util.CompilerInitializationMeasurement
 import java.io.File
 import java.rmi.NoSuchObjectException
 import java.rmi.registry.Registry
@@ -534,7 +538,6 @@ abstract class CompileServiceImplBase(
         }
     }
 
-
     protected inline fun <R> ifAliveChecksImpl(
         minAliveness: Aliveness = Aliveness.LastSession,
         body: () -> CompileService.CallResult<R>,
@@ -542,7 +545,17 @@ abstract class CompileServiceImplBase(
         val curState = state.alive.get()
         return when {
             curState < minAliveness.ordinal -> {
-                log.info("Cannot perform operation, requested state: ${minAliveness.name} > actual: ${curState.toAlivenessName()}")
+                val stackTrace = Thread.currentThread().stackTrace
+                // the depth to extract stacktrace element like `org.jetbrains.kotlin.daemon.CompileServiceImpl.registerClient`
+                val rmiBusinessCallDepth = 1
+                val callSource = stackTrace.getOrNull(rmiBusinessCallDepth)?.let { " Operation: $it" }
+                    ?: Thread.currentThread().stackTrace.joinToString(prefix = " at ", separator = "\n at ")
+                log.info(
+                    """
+                    |Cannot perform operation, requested state: ${minAliveness.name} > actual: ${curState.toAlivenessName()}
+                    |$callSource
+                    """.trimMargin()
+                )
                 CompileService.CallResult.Dying()
             }
             else -> {
@@ -581,12 +594,6 @@ abstract class CompileServiceImplBase(
         @Suppress("DEPRECATION") // TODO: get rid of that parsing KT-62759
         val allKotlinFiles = extractKotlinSourcesFromFreeCompilerArguments(args, setOf("kt"))
 
-        val changedFiles = if (incrementalCompilationOptions.areFileChangesKnown) {
-            ChangedFiles.Known(incrementalCompilationOptions.modifiedFiles!!, incrementalCompilationOptions.deletedFiles!!)
-        } else {
-            ChangedFiles.Unknown()
-        }
-
         val workingDir = incrementalCompilationOptions.workingDir
         val modulesApiHistory = incrementalCompilationOptions.multiModuleICSettings?.run {
             val modulesInfo = incrementalCompilationOptions.modulesInfo
@@ -605,11 +612,17 @@ abstract class CompileServiceImplBase(
             icFeatures = incrementalCompilationOptions.icFeatures,
         )
         return try {
-            compiler.compile(allKotlinFiles, args, compilerMessageCollector, changedFiles)
+            compiler.compile(allKotlinFiles, args, compilerMessageCollector, incrementalCompilationOptions.sourceChanges.toChangedFiles())
         } finally {
             reporter.endMeasureGc()
             reporter.flush()
         }
+    }
+
+    private fun SourcesChanges.toChangedFiles(): ChangedFiles = when (this) {
+        is SourcesChanges.Unknown -> ChangedFiles.Unknown
+        is SourcesChanges.ToBeCalculated -> ChangedFiles.DeterminableFiles.ToBeComputed
+        is SourcesChanges.Known -> ChangedFiles.DeterminableFiles.Known(modifiedFiles, removedFiles)
     }
 
     protected fun execIncrementalCompiler(
@@ -624,12 +637,6 @@ abstract class CompileServiceImplBase(
 
         @Suppress("DEPRECATION") // TODO: get rid of that parsing KT-62759
         val allKotlinFiles = extractKotlinSourcesFromFreeCompilerArguments(k2jvmArgs, allKotlinExtensions)
-
-        val changedFiles = if (incrementalCompilationOptions.areFileChangesKnown) {
-            ChangedFiles.Known(incrementalCompilationOptions.modifiedFiles!!, incrementalCompilationOptions.deletedFiles!!)
-        } else {
-            ChangedFiles.Unknown()
-        }
 
         val workingDir = incrementalCompilationOptions.workingDir
 
@@ -656,23 +663,39 @@ abstract class CompileServiceImplBase(
         }
 
         val verifiedPreciseJavaTracking = k2jvmArgs.disablePreciseJavaTrackingIfK2(
-            usePreciseJavaTrackingByDefault = incrementalCompilationOptions.usePreciseJavaTracking
+            usePreciseJavaTrackingByDefault = incrementalCompilationOptions.icFeatures.usePreciseJavaTracking
         )
 
-        val compiler = IncrementalJvmCompilerRunner(
-            workingDir,
-            reporter,
-            buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings?.buildHistoryFile,
-            outputDirs = incrementalCompilationOptions.outputFiles,
-            usePreciseJavaTracking = verifiedPreciseJavaTracking,
-            modulesApiHistory = modulesApiHistory,
-            kotlinSourceFilesExtensions = allKotlinExtensions,
-            classpathChanges = incrementalCompilationOptions.classpathChanges,
-            icFeatures = incrementalCompilationOptions.icFeatures,
-        )
+        val compiler = if (incrementalCompilationOptions.useJvmFirRunner) {
+            IncrementalFirJvmCompilerRunner(
+                workingDir,
+                reporter,
+                buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings?.buildHistoryFile,
+                modulesApiHistory = modulesApiHistory,
+                kotlinSourceFilesExtensions = allKotlinExtensions,
+                outputDirs = incrementalCompilationOptions.outputFiles,
+                classpathChanges = incrementalCompilationOptions.classpathChanges,
+                icFeatures = incrementalCompilationOptions.icFeatures.copy(
+                    usePreciseJavaTracking = verifiedPreciseJavaTracking
+                ),
+            )
+        } else {
+            IncrementalJvmCompilerRunner(
+                workingDir,
+                reporter,
+                buildHistoryFile = incrementalCompilationOptions.multiModuleICSettings?.buildHistoryFile,
+                outputDirs = incrementalCompilationOptions.outputFiles,
+                modulesApiHistory = modulesApiHistory,
+                kotlinSourceFilesExtensions = allKotlinExtensions,
+                classpathChanges = incrementalCompilationOptions.classpathChanges,
+                icFeatures = incrementalCompilationOptions.icFeatures.copy(
+                    usePreciseJavaTracking = verifiedPreciseJavaTracking
+                ),
+            )
+        }
         return try {
             compiler.compile(
-                allKotlinFiles, k2jvmArgs, compilerMessageCollector, changedFiles,
+                allKotlinFiles, k2jvmArgs, compilerMessageCollector, incrementalCompilationOptions.sourceChanges.toChangedFiles(),
                 fileLocations = if (rootProjectDir != null && buildDir != null) {
                     FileLocations(rootProjectDir, buildDir)
                 } else null
@@ -691,7 +714,6 @@ abstract class CompileServiceImplBase(
             @Suppress("UNCHECKED_CAST")
             (session?.data as? KotlinJvmReplServiceT?)?.body() ?: CompileService.CallResult.Error("Not a REPL session $sessionId")
         }
-
 }
 
 class CompileServiceImpl(
@@ -852,7 +874,7 @@ class CompileServiceImpl(
             builder.register(EnumWhenTracker::class.java, RemoteEnumWhenTracker(facade, rpcProfiler))
         }
         if (facade.hasIncrementalResultsConsumer()) {
-            builder.register(IncrementalResultsConsumer::class.java, RemoteIncrementalResultsConsumer(facade, eventManager, rpcProfiler))
+            builder.register(IncrementalResultsConsumer::class.java, RemoteIncrementalResultsConsumer(facade, rpcProfiler))
         }
         if (facade.hasIncrementalDataProvider()) {
             builder.register(IncrementalDataProvider::class.java, RemoteIncrementalDataProvider(facade, rpcProfiler))
@@ -1076,14 +1098,16 @@ class CompileServiceImpl(
 
     private fun gracefulShutdown(onAnotherThread: Boolean): Boolean {
 
-        fun shutdownIfIdle() = when {
-            state.sessions.isEmpty() -> shutdownWithDelay()
-            else -> {
-                daemonOptions.autoshutdownIdleSeconds =
-                    TimeUnit.MILLISECONDS.toSeconds(daemonOptions.forceShutdownTimeoutMilliseconds).toInt()
-                daemonOptions.autoshutdownUnusedSeconds = daemonOptions.autoshutdownIdleSeconds
-                log.info("Some sessions are active, waiting for them to finish")
-                log.info("Unused/idle timeouts are set to ${daemonOptions.autoshutdownUnusedSeconds}/${daemonOptions.autoshutdownIdleSeconds}s")
+        fun shutdownIfIdle() = ifAliveExclusiveUnit(minAliveness = Aliveness.LastSession) {
+            when {
+                state.sessions.isEmpty() -> shutdownWithDelay()
+                else -> {
+                    daemonOptions.autoshutdownIdleSeconds =
+                        TimeUnit.MILLISECONDS.toSeconds(daemonOptions.forceShutdownTimeoutMilliseconds).toInt()
+                    daemonOptions.autoshutdownUnusedSeconds = daemonOptions.autoshutdownIdleSeconds
+                    log.info("Some sessions are active, waiting for them to finish")
+                    log.info("Unused/idle timeouts are set to ${daemonOptions.autoshutdownUnusedSeconds}/${daemonOptions.autoshutdownIdleSeconds}s")
+                }
             }
         }
 
@@ -1097,9 +1121,7 @@ class CompileServiceImpl(
             shutdownIfIdle()
         } else {
             timer.schedule(1) {
-                ifAliveExclusiveUnit(minAliveness = Aliveness.LastSession) {
-                    shutdownIfIdle()
-                }
+                shutdownIfIdle()
             }
         }
         return true

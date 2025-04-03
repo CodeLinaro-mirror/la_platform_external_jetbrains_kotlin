@@ -19,6 +19,8 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.references.FirControlFlowGraphReference
+import org.jetbrains.kotlin.fir.symbols.impl.FirDelegateFieldSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirErrorPropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeSimpleKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -39,20 +41,20 @@ internal class FirErrorPropertyImpl(
     override var deprecationsProvider: DeprecationsProvider,
     override val containerSource: DeserializedContainerSource?,
     override val dispatchReceiverType: ConeSimpleKotlinType?,
-    override var contextReceivers: MutableOrEmptyList<FirContextReceiver>,
+    override var contextParameters: MutableOrEmptyList<FirValueParameter>,
     override val name: Name,
+    override var initializer: FirExpression?,
     override var backingField: FirBackingField?,
     override var annotations: MutableOrEmptyList<FirAnnotation>,
+    override val delegateFieldSymbol: FirDelegateFieldSymbol?,
+    override val isLocal: Boolean,
+    override var bodyResolveState: FirPropertyBodyResolveState,
     override val diagnostic: ConeDiagnostic,
     override val symbol: FirErrorPropertySymbol,
 ) : FirErrorProperty() {
-    override val typeParameters: List<FirTypeParameterRef>
-        get() = emptyList()
     override var status: FirDeclarationStatus = FirResolvedDeclarationStatusImpl.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS
     override var returnTypeRef: FirTypeRef = FirErrorTypeRefImpl(null, MutableOrEmptyList.empty(), null, null, diagnostic)
     override val receiverParameter: FirReceiverParameter?
-        get() = null
-    override val initializer: FirExpression?
         get() = null
     override val delegate: FirExpression?
         get() = null
@@ -64,8 +66,12 @@ internal class FirErrorPropertyImpl(
         get() = null
     override val setter: FirPropertyAccessor?
         get() = null
+    override var controlFlowGraphReference: FirControlFlowGraphReference? = null
+    override val typeParameters: List<FirTypeParameter>
+        get() = emptyList()
 
     init {
+        delegateFieldSymbol?.bind(this)
         symbol.bind(this)
         resolveState = resolvePhase.asResolveState()
     }
@@ -73,20 +79,20 @@ internal class FirErrorPropertyImpl(
     override fun <R, D> acceptChildren(visitor: FirVisitor<R, D>, data: D) {
         status.accept(visitor, data)
         returnTypeRef.accept(visitor, data)
-        contextReceivers.forEach { it.accept(visitor, data) }
+        contextParameters.forEach { it.accept(visitor, data) }
+        initializer?.accept(visitor, data)
         backingField?.accept(visitor, data)
         annotations.forEach { it.accept(visitor, data) }
+        controlFlowGraphReference?.accept(visitor, data)
     }
 
     override fun <D> transformChildren(transformer: FirTransformer<D>, data: D): FirErrorPropertyImpl {
         transformStatus(transformer, data)
         transformReturnTypeRef(transformer, data)
+        transformContextParameters(transformer, data)
+        transformInitializer(transformer, data)
         transformBackingField(transformer, data)
         transformOtherChildren(transformer, data)
-        return this
-    }
-
-    override fun <D> transformTypeParameters(transformer: FirTransformer<D>, data: D): FirErrorPropertyImpl {
         return this
     }
 
@@ -104,7 +110,13 @@ internal class FirErrorPropertyImpl(
         return this
     }
 
+    override fun <D> transformContextParameters(transformer: FirTransformer<D>, data: D): FirErrorPropertyImpl {
+        contextParameters.transformInplace(transformer, data)
+        return this
+    }
+
     override fun <D> transformInitializer(transformer: FirTransformer<D>, data: D): FirErrorPropertyImpl {
+        initializer = initializer?.transform(transformer, data)
         return this
     }
 
@@ -130,9 +142,13 @@ internal class FirErrorPropertyImpl(
         return this
     }
 
+    override fun <D> transformTypeParameters(transformer: FirTransformer<D>, data: D): FirErrorPropertyImpl {
+        return this
+    }
+
     override fun <D> transformOtherChildren(transformer: FirTransformer<D>, data: D): FirErrorPropertyImpl {
-        contextReceivers.transformInplace(transformer, data)
         transformAnnotations(transformer, data)
+        controlFlowGraphReference = controlFlowGraphReference?.transform(transformer, data)
         return this
     }
 
@@ -150,11 +166,13 @@ internal class FirErrorPropertyImpl(
         deprecationsProvider = newDeprecationsProvider
     }
 
-    override fun replaceContextReceivers(newContextReceivers: List<FirContextReceiver>) {
-        contextReceivers = newContextReceivers.toMutableOrEmpty()
+    override fun replaceContextParameters(newContextParameters: List<FirValueParameter>) {
+        contextParameters = newContextParameters.toMutableOrEmpty()
     }
 
-    override fun replaceInitializer(newInitializer: FirExpression?) {}
+    override fun replaceInitializer(newInitializer: FirExpression?) {
+        initializer = newInitializer
+    }
 
     override fun replaceDelegate(newDelegate: FirExpression?) {}
 
@@ -164,5 +182,13 @@ internal class FirErrorPropertyImpl(
 
     override fun replaceAnnotations(newAnnotations: List<FirAnnotation>) {
         annotations = newAnnotations.toMutableOrEmpty()
+    }
+
+    override fun replaceControlFlowGraphReference(newControlFlowGraphReference: FirControlFlowGraphReference?) {
+        controlFlowGraphReference = newControlFlowGraphReference
+    }
+
+    override fun replaceBodyResolveState(newBodyResolveState: FirPropertyBodyResolveState) {
+        bodyResolveState = newBodyResolveState
     }
 }

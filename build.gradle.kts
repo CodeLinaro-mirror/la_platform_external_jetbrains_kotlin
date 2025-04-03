@@ -2,6 +2,7 @@ import org.gradle.crypto.checksum.Checksum
 import org.gradle.plugins.ide.idea.model.IdeaModel
 import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnLockMismatchReport
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
+import plugins.KotlinBuildPublishingPlugin
 
 buildscript {
     // a workaround for kotlin compiler classpath in kotlin project: sometimes gradle substitutes
@@ -19,12 +20,38 @@ buildscript {
         classpath("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")
     }
 
-    val gsonVersion = libs.versions.gson.get()
+    /**
+     * Global Security Fixes for Common Dependencies
+     *
+     * Enforces minimum secure versions for commonly used libraries across all subprojects.
+     * These overrides address known vulnerabilities in transitive dependencies that might
+     * be pulled in by various subprojects.
+     *
+     * Affected Libraries:
+     * └── org.apache.commons
+     *     ├── commons-compress:* → 1.27.1
+     *     └── commons-io:* → 2.18.0
+     *
+     * Mitigated Vulnerabilities:
+     * 1. Commons Compress
+     *    - CVE-2024-26308: Potential security vulnerability
+     *    - CVE-2024-25710: Input validation weakness
+     *    - CVE-2023-42503: Potential code execution risk
+     *
+     * 2. Commons IO
+     *    - CVE-2024-26308: Security vulnerability
+     *    - CVE-2023-42503: Input processing risk
+     */
     configurations.all {
         resolutionStrategy.eachDependency {
-            if (requested.group == "com.google.code.gson" && requested.name == "gson") {
-                useVersion(gsonVersion)
-                because("Force using same gson version because of https://github.com/google/gson/pull/1991")
+            // Apache Commons libraries
+            if (requested.group == "org.apache.commons" && requested.name == "commons-compress") {
+                useVersion(libs.versions.commons.compress.get())
+                because("CVE-2024-26308, CVE-2024-25710, CVE-2023-42503")
+            }
+            if (requested.group == "commons-io" && requested.name == "commons-io") {
+                useVersion(libs.versions.commons.io.get())
+                because("CVE-2024-26308, CVE-2023-42503")
             }
         }
     }
@@ -38,7 +65,6 @@ plugins {
     id("java-instrumentation")
     id("jps")
     id("modularized-test-configurations")
-    id("idea-rt-hack")
     id("resolve-dependencies")
     id("org.gradle.crypto.checksum") version "1.4.0"
     alias(libs.plugins.kotlinx.bcv) apply false
@@ -50,6 +76,7 @@ plugins {
     }
     `jvm-toolchains`
     alias(libs.plugins.gradle.node) apply false
+    id("nodejs-cache-redirector-configuration")
 }
 
 val isTeamcityBuild = project.kotlinBuildProperties.isTeamcityBuild
@@ -101,7 +128,7 @@ if (!project.hasProperty("versions.kotlin-native")) {
     extra["versions.kotlin-native"] = if (kotlinBuildProperties.isKotlinNativeEnabled) {
         kotlinBuildProperties.defaultSnapshotVersion
     } else {
-        "2.1.20-dev-106"
+        "2.2.0-dev-2907"
     }
 }
 
@@ -113,6 +140,7 @@ val irCompilerModules = arrayOf(
     ":compiler:ir.serialization.native",
     ":compiler:ir.objcinterop",
     ":compiler:ir.backend.common",
+    ":compiler:ir.backend.native",
     ":compiler:ir.actualization",
     ":compiler:ir.interpreter",
     ":compiler:ir.inline",
@@ -126,6 +154,7 @@ val irCompilerModulesForIDE = arrayOf(
     ":compiler:ir.serialization.js", // used in IJ android plugin in `ComposeIrGenerationExtension`
     ":compiler:ir.objcinterop",
     ":compiler:ir.backend.common",
+    ":compiler:ir.backend.native",
     ":compiler:ir.actualization",
     ":compiler:ir.interpreter",
     ":compiler:ir.inline",
@@ -168,6 +197,7 @@ val commonCompilerModules = arrayOf(
     ":kotlin-util-io",
     ":kotlin-util-klib",
     ":kotlin-util-klib-abi",
+    ":native:base",
     ":native:kotlin-native-utils",
     ":compiler:build-tools:kotlin-build-statistics",
     ":compiler:build-tools:kotlin-build-tools-api",
@@ -241,11 +271,9 @@ val fe10CompilerModules = arrayOf(
     ":js:js.parser",
     ":js:js.frontend",
     ":js:js.translator",
-    ":js:js.dce",
     ":native:frontend.native",
     ":wasm:wasm.frontend",
     ":compiler:backend.common.jvm",
-    ":analysis:decompiled:light-classes-for-decompiled-fe10",
 ).also { extra["fe10CompilerModules"] = it }
 
 extra["compilerModules"] =
@@ -269,7 +297,6 @@ val projectsUsedInIntelliJKotlinPlugin =
                 ":analysis:analysis-api",
                 ":analysis:analysis-api-fe10",
                 ":analysis:analysis-api-fir",
-                ":analysis:analysis-api-impl-barebone",
                 ":analysis:analysis-api-impl-base",
                 ":analysis:analysis-api-platform-interface",
                 ":analysis:analysis-api-standalone:analysis-api-standalone-base",
@@ -400,11 +427,11 @@ extra["kotlinJpsPluginEmbeddedDependencies"] = listOf(
     ":core:util.runtime",
     ":compiler:compiler.version",
     ":compiler:build-tools:kotlin-build-statistics",
+    ":kotlin-build-common",
 )
 
 extra["kotlinJpsPluginMavenDependencies"] = listOf(
     ":kotlin-daemon-client",
-    ":kotlin-build-common",
     ":kotlin-util-io",
     ":kotlin-util-klib",
     ":kotlin-util-klib-metadata",
@@ -442,13 +469,6 @@ extra["compilerArtifactsForIde"] = listOfNotNull(
     ":prepare:ide-plugin-dependencies:kotlin-compiler-tests-for-ide",
     ":prepare:ide-plugin-dependencies:kotlin-compiler-testdata-for-ide",
     ":prepare:ide-plugin-dependencies:low-level-api-fir-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-impl-base-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-impl-base-tests-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-fir-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-fir-tests-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-fe10-for-ide",
-    ":prepare:ide-plugin-dependencies:high-level-api-fe10-tests-for-ide",
     ":prepare:ide-plugin-dependencies:analysis-api-for-ide",
     ":prepare:ide-plugin-dependencies:analysis-api-impl-base-for-ide",
     ":prepare:ide-plugin-dependencies:analysis-api-impl-base-tests-for-ide",
@@ -466,6 +486,7 @@ extra["compilerArtifactsForIde"] = listOfNotNull(
     ":prepare:kotlin-jps-plugin",
     ":kotlin-script-runtime",
     ":kotlin-scripting-common",
+    ":kotlin-scripting-dependencies",
     ":kotlin-scripting-jvm",
     ":kotlin-scripting-compiler",
     ":kotlin-scripting-compiler-impl",
@@ -555,7 +576,7 @@ allprojects {
         afterEvaluate {
             configurations.all {
                 // Remove kotlin-compiler from dependencies during Idea import. KTI-1598
-                if (dependencies.removeIf { (it as? ProjectDependency)?.dependencyProject?.path == ":kotlin-compiler" }) {
+                if (dependencies.removeIf { (it as? ProjectDependency)?.path == ":kotlin-compiler" }) {
                     logger.warn("Removed :kotlin-compiler project dependency from $this")
                 }
             }
@@ -572,7 +593,7 @@ allprojects {
                 return@eachDependency
             }
 
-            val isReflect = requested.name == "kotlin-reflect" || requested.name == "kotlin-reflect-api"
+            val isReflect = requested.name == "kotlin-reflect"
             // More strict check for "compilerModules". We can't apply this check for all modules because it would force to
             // exclude kotlin-reflect from transitive dependencies of kotlin-poet, ktor, com.android.tools.build:gradle, etc
             if (project.path in @Suppress("UNCHECKED_CAST") (rootProject.extra["compilerModules"] as Array<String>)) {
@@ -742,15 +763,17 @@ tasks {
     val coreLibsPublishable = coreLibProjects + listOf(":kotlin-stdlib-common")
     val coreLibsBuildable = coreLibProjects + listOf(":kotlin-stdlib-jvm-minimal-for-test", ":kotlin-stdlib-js-ir-minimal-for-test")
 
-    aggregateLibsTask("coreLibsClean", "clean",
+    aggregateLibsTask(
+        "coreLibsClean", "clean",
         (coreLibProjects + coreLibsBuildable + coreLibsPublishable).distinct() +
-            ":kotlin-stdlib:samples"
+                ":kotlin-stdlib:samples"
     )
 
     aggregateLibsTask("coreLibsAssemble", "assemble", coreLibsBuildable)
     aggregateLibsTask("coreLibsInstall", "install", coreLibsPublishable)
     aggregateLibsTask("coreLibsPublish", "publish", coreLibsPublishable)
-    aggregateLibsTask("coreLibsTest", "check",
+    aggregateLibsTask(
+        "coreLibsTest", "check",
         coreLibsBuildable + listOfNotNull(
             ":kotlin-stdlib:samples",
             ":kotlin-test:kotlin-test-js-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
@@ -828,6 +851,10 @@ tasks {
         dependsOn(":tools:binary-compatibility-validator:check")
         dependsOn(":native:objcexport-header-generator:check")
         dependsOn(":native:swift:swift-export-standalone:test")
+        dependsOn(":native:swift:swift-export-embeddable:testSwiftExportStandaloneWithEmbeddable")
+        dependsOn(":native:swift:swift-export-ide:test")
+        dependsOn(":native:native.tests:litmus-tests:check")
+        dependsOn(":native:swift:sir-light-classes:check")
     }
 
     // These are unit tests of Native compiler
@@ -838,6 +865,10 @@ tasks {
             dependsOn(":kotlin-native:Interop:StubGenerator:check")
             dependsOn(":kotlin-native:backend.native:check")
             dependsOn(":kotlin-native:tools:kdumputil:check")
+            dependsOn(":kotlin-native:common:env:check")
+            dependsOn(":kotlin-native:common:files:check")
+            dependsOn(":kotlin-native:libclangInterop:check")
+            dependsOn(":kotlin-native:llvmInterop:check")
         }
     }
 
@@ -912,6 +943,7 @@ tasks {
         dependsOn(":kotlin-util-klib-abi:test")
         dependsOn(":kotlinx-metadata-klib:test")
         dependsOn(":generators:test")
+        dependsOn(":kotlin-gradle-plugin-dsl-codegen:test")
     }
 
     register("incrementalCompilationTest") {
@@ -983,8 +1015,6 @@ tasks {
     register("kaptTests") {
         dependsOn(":kotlin-annotation-processing:test")
         dependsOn(":kotlin-annotation-processing:testJdk11")
-        dependsOn(":kotlin-annotation-processing-compiler:test")
-        dependsOn(":kotlin-annotation-processing-compiler:testJdk11")
         dependsOn(":kotlin-annotation-processing-base:test")
         dependsOn(":kotlin-annotation-processing-cli:test")
     }
@@ -1059,6 +1089,22 @@ tasks {
         )
         doFirst {
             environment("JDK_1_8", getToolchainJdkHomeFor(JdkMajorVersion.JDK_1_8).get())
+        }
+    }
+
+    register<Exec>("installJps") {
+        val installTask = this
+        allprojects {
+            plugins.withType<MavenPublishPlugin> {
+                installTask.dependsOn(tasks.named("publishToMavenLocal"))
+            }
+        }
+        group = "publishing"
+        workingDir = rootProject.projectDir.resolve("libraries")
+        commandLine = getMvnwCmd() + listOf("clean", "install", "-DskipTests", "-DexcludeTestModules=true")
+        val jdk8Home = getToolchainJdkHomeFor(JdkMajorVersion.JDK_1_8)
+        doFirst {
+            environment("JDK_1_8", jdk8Home.get())
         }
     }
 }
@@ -1150,33 +1196,14 @@ gradle.taskGraph.whenReady(checkYarnAndNPMSuppressed)
 
 plugins.withType(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin::class) {
     extensions.configure(org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension::class.java) {
-        if (kotlinBuildProperties.isCacheRedirectorEnabled) {
-            downloadBaseUrl = "https://cache-redirector.jetbrains.com/nodejs.org/dist"
-        }
-
         npmInstallTaskProvider.configure {
             args += listOf("--network-concurrency", "1", "--mutex", "network")
         }
     }
 }
 
-plugins.withType(com.github.gradle.node.NodePlugin::class) {
-    extensions.configure(com.github.gradle.node.NodeExtension::class) {
-        if (kotlinBuildProperties.isCacheRedirectorEnabled) {
-            distBaseUrl = "https://cache-redirector.jetbrains.com/nodejs.org/dist"
-        }
-    }
-}
-
-afterEvaluate {
-    if (kotlinBuildProperties.isCacheRedirectorEnabled) {
-        rootProject.plugins.withType(org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin::class.java) {
-            rootProject.the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().downloadBaseUrl =
-                "https://cache-redirector.jetbrains.com/github.com/yarnpkg/yarn/releases/download"
-            rootProject.the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().yarnLockMismatchReport =
-                YarnLockMismatchReport.WARNING
-        }
-    }
+if (kotlinBuildProperties.isCacheRedirectorEnabled) {
+    configureJsCacheRedirector()
 }
 
 afterEvaluate {

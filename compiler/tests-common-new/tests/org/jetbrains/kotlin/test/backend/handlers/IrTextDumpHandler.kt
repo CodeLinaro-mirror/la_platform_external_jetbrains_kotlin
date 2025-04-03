@@ -7,12 +7,10 @@ package org.jetbrains.kotlin.test.backend.handlers
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.IrBuiltIns
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions
+import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions.FlagsFilter
 import org.jetbrains.kotlin.ir.util.allOverridden
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.dumpTreesFromLineNumber
@@ -25,12 +23,13 @@ import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.CHECK_BYTECODE
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_EXTERNAL_CLASS
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_IR
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.EXTERNAL_FILE
-import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.SKIP_DESERIALIZED_IR_TEXT_DUMP
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_IDENTICAL
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.defaultsProvider
+import org.jetbrains.kotlin.test.services.independentSourceDirectoryPath
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.test.utils.withExtension
@@ -41,16 +40,19 @@ import java.io.File
 class IrTextDumpHandler(
     testServices: TestServices,
     artifactKind: BackendKind<IrBackendInput>,
-    private val isDeserializedInput: Boolean = false,
 ) : AbstractIrHandler(testServices, artifactKind) {
     companion object {
         const val DUMP_EXTENSION = "ir.txt"
         const val DUMP_EXTENSION2 = "ir2.txt"
 
-        fun computeDumpExtension(module: TestModule, defaultExtension: String, ignoreFirIdentical: Boolean = false): String {
+        fun computeDumpExtension(
+            testServices: TestServices,
+            defaultExtension: String,
+            ignoreFirIdentical: Boolean = false,
+        ): String {
             return if (
-                module.frontendKind == FrontendKinds.ClassicFrontend ||
-                (!ignoreFirIdentical && FIR_IDENTICAL in module.directives)
+                testServices.defaultsProvider.frontendKind == FrontendKinds.ClassicFrontend ||
+                (!ignoreFirIdentical && FIR_IDENTICAL in testServices.moduleStructure.allDirectives)
             ) {
                 defaultExtension
             } else {
@@ -58,10 +60,21 @@ class IrTextDumpHandler(
             }
         }
 
-        fun List<IrFile>.groupWithTestFiles(module: TestModule): List<Pair<TestFile?, IrFile>> = mapNotNull { irFile ->
-            val name = File(irFile.fileEntry.name).name
-            val testFile = module.files.firstOrNull { it.name == name }
-            testFile to irFile
+        fun List<IrFile>.groupWithTestFiles(testServices: TestServices, ordered: Boolean = false): List<Pair<Pair<TestModule, TestFile>?, IrFile>> {
+            return mapNotNull { irFile ->
+                val name = File(irFile.fileEntry.name).name
+                val moduleAndFile = testServices.moduleStructure.modules.firstNotNullOfOrNull { module ->
+                    val file = module.files.firstOrNull { it.name == name } ?: return@firstNotNullOfOrNull null
+                    module to file
+                }
+                moduleAndFile to irFile
+            }.applyIf(ordered) {
+                sortedBy { (moduleAndFile, irFile) ->
+                    val pathFromIrFile = irFile.fileEntry.name
+                    val (module, _) = moduleAndFile ?: return@sortedBy pathFromIrFile
+                    pathFromIrFile.removePrefix(module.independentSourceDirectoryPath(testServices))
+                }
+            }
         }
 
         private val HIDDEN_ENUM_METHOD_NAMES = setOf(
@@ -78,6 +91,16 @@ class IrTextDumpHandler(
 
         fun isHiddenDeclaration(declaration: IrDeclaration, irBuiltIns: IrBuiltIns): Boolean =
             (declaration as? IrSimpleFunction)?.isHiddenEnumMethod(irBuiltIns) == true
+
+        fun renderFilePathForIrFile(
+            testFileToIrFile: List<Pair<Pair<TestModule, TestFile>?, IrFile>>,
+            testServices: TestServices,
+            irFile: IrFile,
+            fullPath: String,
+        ): String {
+            val (correspondingModule, _) = testFileToIrFile.firstOrNull { it.second == irFile }?.first ?: return fullPath
+            return fullPath.removePrefix(correspondingModule.independentSourceDirectoryPath(testServices))
+        }
     }
 
     override val directiveContainers: List<DirectivesContainer>
@@ -95,36 +118,30 @@ class IrTextDumpHandler(
         byteCodeListingEnabled = byteCodeListingEnabled || CHECK_BYTECODE_LISTING in module.directives
 
         if (DUMP_IR !in module.directives) return
-        // IR dump after deserialization should not be verified in tests with SKIP_DESERIALIZED_IR_TEXT_DUMP directive
-        if (isDeserializedInput && SKIP_DESERIALIZED_IR_TEXT_DUMP in module.directives) return
 
-        val irBuiltins = info.irPluginContext.irBuiltIns
-
+        val testFileToIrFile = info.irModuleFragment.files.groupWithTestFiles(testServices, ordered = true)
         val dumpOptions = DumpIrTreeOptions(
             normalizeNames = true,
             printFacadeClassInFqNames = false,
-            printFlagsInDeclarationReferences = false,
-            // External declarations origin differs between frontend-generated and deserialized IR,
-            // which prevents us from running irText tests against deserialized IR,
-            // since it uses the same golden data as when we run them against frontend-generated IR.
-            renderOriginForExternalDeclarations = false,
+            declarationFlagsFilter = FlagsFilter { declaration, isReference, flags ->
+                // By coincidence, there is a huge number of cases in IR text test data files
+                // when flags are still rendered for references to fields and classes.
+                flags.takeIf { !isReference || declaration is IrField || declaration is IrClass }.orEmpty()
+            },
             // KT-60248 Abbreviations should not be rendered to make K2 IR dumps closer to K1 IR dumps during irText tests.
             // PSI2IR assigns field `abbreviation` with type abbreviation. It serves only debugging purposes, and no compiler functionality relies on it.
             // FIR2IR does not initialize field `abbreviation` at all.
             printTypeAbbreviations = false,
-            isHiddenDeclaration = { isHiddenDeclaration(it, irBuiltins) },
+            isHiddenDeclaration = { isHiddenDeclaration(it, info.irPluginContext.irBuiltIns) },
             stableOrder = true,
-            // Expect declarations exist in K1 IR just before serialization, but won't be serialized. Though, dumps should be same before and after
-            printExpectDeclarations = module.languageVersionSettings.languageVersion.usesK2,
+            filePathRenderer = { irFile, fullPath ->
+                renderFilePathForIrFile(testFileToIrFile, testServices, irFile, fullPath)
+            }
         )
-
         val builder = baseDumper.builderForModule(module.name)
-        val testFileToIrFile = info.irModuleFragment.files.groupWithTestFiles(module)
-        val orderedTestFileToIrFile = testFileToIrFile.applyIf(dumpOptions.stableOrder) {
-            sortedBy { it.second.fileEntry.name }
-        }
-        for ((testFile, irFile) in orderedTestFileToIrFile) {
-            if (testFile?.directives?.contains(EXTERNAL_FILE) == true) continue
+
+        for ((moduleAndFile, irFile) in testFileToIrFile) {
+            if (moduleAndFile?.second?.directives?.contains(EXTERNAL_FILE) == true) continue
             val actualDump = irFile.dumpTreesFromLineNumber(lineNumber = 0, dumpOptions)
             builder.append(actualDump)
         }
@@ -135,14 +152,14 @@ class IrTextDumpHandler(
     private fun compareDumpsOfExternalClasses(module: TestModule, info: IrBackendInput) {
         val externalClassIds = module.directives[DUMP_EXTERNAL_CLASS]
         if (externalClassIds.isEmpty()) return
-        val dumpOptions = DumpIrTreeOptions(stableOrder = true)
+        val dumpOptions = DumpIrTreeOptions(stableOrder = true, printFilePath = false)
         val baseFile = testServices.moduleStructure.originalTestDataFiles.first()
         assertions.assertAll(
             externalClassIds.map { externalClassId ->
                 {
                     val classDump = info.irPluginContext.findExternalClass(externalClassId).dump(dumpOptions)
                     val suffix = ".__${externalClassId.replace("/", ".")}"
-                    val expectedFile = baseFile.withSuffixAndExtension(suffix, module.getDumpExtension(ignoreFirIdentical = true))
+                    val expectedFile = baseFile.withSuffixAndExtension(suffix, getDumpExtension(ignoreFirIdentical = true))
                     assertions.assertEqualsToFile(expectedFile, classDump)
                 }
             }
@@ -156,49 +173,22 @@ class IrTextDumpHandler(
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
         val moduleStructure = testServices.moduleStructure
-        if (isDeserializedInput && moduleStructure.modules.any { SKIP_DESERIALIZED_IR_TEXT_DUMP in it.directives })
-            return // don't check, don't remove testData
         val defaultExpectedFile = moduleStructure.originalTestDataFiles.first()
-            .withExtension(moduleStructure.modules.first().getDumpExtension())
+            .withExtension(getDumpExtension())
         checkOneExpectedFile(defaultExpectedFile, baseDumper.generateResultingDump())
         buildersForSeparateFileDumps.entries.forEach { (expectedFile, dump) -> checkOneExpectedFile(expectedFile, dump.toString()) }
     }
 
     private fun checkOneExpectedFile(expectedFile: File, actualDump: String) {
         if (actualDump.isNotEmpty()) {
-            if (isDeserializedInput) {
-                // KT-54028: commit 3713d95bb1fc0cc434eeed42a0f0adac52af091b has "temporarily" disabled sealed subclasses deserialization
-                assertions.assertEqualsToFile(expectedFile, actualDump) { text -> filterOutSealedSubclasses(text) }
-            } else {
-                assertions.assertEqualsToFile(expectedFile, actualDump)
-            }
+            assertions.assertEqualsToFile(expectedFile, actualDump)
         } else {
             assertions.assertFileDoesntExist(expectedFile, DUMP_IR)
         }
     }
 
-    private fun TestModule.getDumpExtension(ignoreFirIdentical: Boolean = false): String {
-        return computeDumpExtension(this, if (byteCodeListingEnabled) DUMP_EXTENSION2 else DUMP_EXTENSION, ignoreFirIdentical)
+    private fun getDumpExtension(ignoreFirIdentical: Boolean = false): String {
+        return computeDumpExtension(testServices, if (byteCodeListingEnabled) DUMP_EXTENSION2 else DUMP_EXTENSION, ignoreFirIdentical)
     }
-
-    private fun filterOutSealedSubclasses(testData: String): String =
-        buildString {
-            val SEALED_SUBCLASSES_CLAUSE = "sealedSubclasses:"
-            var ongoingSealedSubclassesClauseIndent: String? = null
-            for (line in testData.lines()) {
-                if (ongoingSealedSubclassesClauseIndent == null) {
-                    if (line.trim() == SEALED_SUBCLASSES_CLAUSE) {
-                        ongoingSealedSubclassesClauseIndent = line.substringBefore(SEALED_SUBCLASSES_CLAUSE)
-                    } else {
-                        appendLine(line)
-                    }
-                } else {
-                    if (!line.startsWith("$ongoingSealedSubclassesClauseIndent  CLASS") ) {
-                        ongoingSealedSubclassesClauseIndent = null
-                        appendLine(line)
-                    }
-                }
-            }
-        }
 }
 

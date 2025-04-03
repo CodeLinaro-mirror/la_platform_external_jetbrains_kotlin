@@ -18,12 +18,10 @@ package androidx.compose.compiler.plugins.kotlin.facade
 
 import androidx.compose.compiler.plugins.kotlin.TestsCompilerError
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.jvm.compiler.CliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
-import org.jetbrains.kotlin.codegen.CodegenFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
@@ -46,7 +44,7 @@ class K1AnalysisResult(
 
 private class K1FrontendResult(
     val state: GenerationState,
-    val backendInput: JvmIrCodegenFactory.JvmIrBackendInput,
+    val backendInput: JvmIrCodegenFactory.BackendInput,
     val codegenFactory: JvmIrCodegenFactory,
 )
 
@@ -93,40 +91,18 @@ class K1CompilerFacade(environment: KotlinCoreEnvironment) : KotlinCompilerFacad
             throw TestsCompilerError(e)
         }
 
-        val codegenFactory = JvmIrCodegenFactory(
-            environment.configuration,
-            environment.configuration.get(CLIConfigurationKeys.PHASE_CONFIG)
-        )
+        val codegenFactory = JvmIrCodegenFactory(environment.configuration)
 
-        val state = GenerationState.Builder(
+        val state = GenerationState(
             environment.project,
-            ClassBuilderFactories.TEST,
             analysisResult.moduleDescriptor,
-            analysisResult.bindingContext,
-            analysisResult.files,
-            environment.configuration
-        ).isIrBackend(true).codegenFactory(codegenFactory).build()
-
-        state.beforeCompile()
-
-        val psi2irInput = CodegenFactory.IrConversionInput.fromGenerationStateAndFiles(
-            state,
-            analysisResult.files
+            environment.configuration,
+            ClassBuilderFactories.TEST,
         )
-        val backendInput = codegenFactory.convertToIr(psi2irInput)
 
-        // For JVM-specific errors
-        try {
-            AnalyzingUtils.throwExceptionOnErrors(state.collectedExtraJvmDiagnostics)
-        } catch (e: Throwable) {
-            throw TestsCompilerError(e)
-        }
+        val backendInput = codegenFactory.convertToIr(state, analysisResult.files, analysisResult.bindingContext)
 
-        return K1FrontendResult(
-            state,
-            backendInput,
-            codegenFactory
-        )
+        return K1FrontendResult(state, backendInput, codegenFactory)
     }
 
     override fun compileToIr(files: List<SourceFile>): IrModuleFragment =
@@ -138,7 +114,6 @@ class K1CompilerFacade(environment: KotlinCoreEnvironment) : KotlinCompilerFacad
     ): GenerationState = try {
         frontend(platformFiles, commonFiles).apply {
             codegenFactory.generateModule(state, backendInput)
-            state.factory.done()
         }.state
     } catch (e: Exception) {
         throw TestsCompilerError(e)

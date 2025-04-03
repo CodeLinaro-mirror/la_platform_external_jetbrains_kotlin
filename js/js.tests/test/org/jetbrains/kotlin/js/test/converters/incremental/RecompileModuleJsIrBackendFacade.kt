@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.js.test.converters.incremental
 
-import org.jetbrains.kotlin.js.test.converters.JsIrBackendFacade
+import org.jetbrains.kotlin.js.test.converters.JsUnifiedIrDeserializerAndLoweringFacade
 import org.jetbrains.kotlin.js.test.converters.JsKlibSerializerFacade
 import org.jetbrains.kotlin.js.test.utils.JsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
@@ -24,7 +24,7 @@ class RecompileModuleJsIrBackendFacade(
 ) : CommonRecompileModuleJsBackendFacade<ClassicFrontendOutputArtifact, IrBackendInput>(testServices, TargetBackend.JS_IR) {
     override fun TestConfigurationBuilder.configure(module: TestModule) {
         startingArtifactFactory = {
-            testServices.dependencyProvider.getArtifact(module, BackendKinds.IrBackend).also {
+            testServices.artifactsProvider.getArtifact(module, BackendKinds.IrBackend).also {
                 require(it is IrBackendInput.JsIrAfterFrontendBackendInput) {
                     "Recompilation can start only from IC cache entry, which has type JsIrAfterFrontendBackendInput.\n" +
                     "Actual type: ${it::javaClass.name}.\nProbable cause: accidental override of artifact with the output of Klib deserialization facade"
@@ -33,7 +33,7 @@ class RecompileModuleJsIrBackendFacade(
         }
 
         facadeStep { JsKlibSerializerFacade(it, firstTimeCompilation = false) }
-        facadeStep { JsIrBackendFacade(it, firstTimeCompilation = false) }
+        facadeStep { JsUnifiedIrDeserializerAndLoweringFacade(it, firstTimeCompilation = false) }
     }
 
     override fun TestServices.register(module: TestModule) {

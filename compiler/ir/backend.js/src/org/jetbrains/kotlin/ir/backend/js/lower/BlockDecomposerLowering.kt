@@ -16,7 +16,6 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
-import org.jetbrains.kotlin.ir.backend.js.utils.typeArguments
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -542,7 +541,7 @@ class BlockDecomposerTransformer(
                     compositesLeft == 0 -> value
                     index == 0 && dontDetachFirstArgument -> value
                     value == null -> value
-                    value.isPure(anyVariable = false, context = context) -> value
+                    value.isPure(anyVariable = false, symbols = context.ir.symbols) -> value
                     else -> {
                         // TODO: do not wrap if value is pure (const, variable, etc)
                         val (newArg, tempVar) = mapArgument(value)

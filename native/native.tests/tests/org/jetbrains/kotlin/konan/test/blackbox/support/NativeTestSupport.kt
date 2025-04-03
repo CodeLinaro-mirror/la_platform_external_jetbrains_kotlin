@@ -10,11 +10,10 @@ import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageLogLevel
 import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageMode
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeBlackBoxTest
-import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeKlibSyntheticAccessorTest
 import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeSimpleTest
 import org.jetbrains.kotlin.konan.test.blackbox.support.NativeTestSupport.computeBlackBoxTestInstances
-import org.jetbrains.kotlin.konan.test.blackbox.support.NativeTestSupport.computeKlibSyntheticAccessorTestInstances
 import org.jetbrains.kotlin.konan.test.blackbox.support.NativeTestSupport.createSimpleTestRunSettings
 import org.jetbrains.kotlin.konan.test.blackbox.support.NativeTestSupport.createTestRunSettings
 import org.jetbrains.kotlin.konan.test.blackbox.support.NativeTestSupport.getOrCreateSimpleTestRunProvider
@@ -26,13 +25,10 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.settings.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.settings.CacheMode
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.*
 import org.jetbrains.kotlin.test.TestMetadata
-import org.jetbrains.kotlin.test.builders.RegisteredDirectivesBuilder
-import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertEquals
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.extension.BeforeAllCallback
 import org.junit.jupiter.api.extension.BeforeEachCallback
 import org.junit.jupiter.api.extension.ExtensionContext
@@ -54,6 +50,7 @@ class NativeBlackBoxTestSupport : BeforeEachCallback {
      * not allow accessing its parent test instance in case there are inner test classes in the generated test suite.
      */
     override fun beforeEach(extensionContext: ExtensionContext): Unit = with(extensionContext) {
+        extensionContext.tags.enforceFrontendMarks()
         val settings = createTestRunSettings(computeBlackBoxTestInstances())
 
         // Inject the required properties to test instance.
@@ -66,6 +63,7 @@ class NativeBlackBoxTestSupport : BeforeEachCallback {
 
 class NativeSimpleTestSupport : BeforeEachCallback {
     override fun beforeEach(extensionContext: ExtensionContext): Unit = with(extensionContext) {
+        extensionContext.tags.enforceFrontendMarks()
         val settings = createSimpleTestRunSettings()
 
         // Inject the required properties to test instance.
@@ -76,47 +74,9 @@ class NativeSimpleTestSupport : BeforeEachCallback {
     }
 }
 
-
-
-/**
- * Used to run tests for IR inlining and synthetic accessors. This test helper effectively does the following:
- * - Enables IR visibility validation.
- * - Disables LLVM-related phases, so the compilation effectively ends at the last IR lowering.
- * - Ensures double inlining mode is always turned on.
- *
- * TODO(KT-64570): Migrate these tests to the Core test infrastructure as soon as we move IR inlining to the 1st compilation stage.
- */
-class KlibSyntheticAccessorTestSupport : BeforeEachCallback {
-    override fun beforeEach(extensionContext: ExtensionContext): Unit = with(extensionContext) {
-        val nativeTestInstances = computeKlibSyntheticAccessorTestInstances()
-        val settings = createTestRunSettings(nativeTestInstances) {
-            with(RegisteredDirectivesBuilder()) {
-                +CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING
-                +CodegenTestDirectives.DUMP_KLIB_SYNTHETIC_ACCESSORS
-
-                TestDirectives.FREE_COMPILER_ARGS with listOfNotNull(
-                    // Don't run LLVM, stop after the last IR lowering.
-                    "-Xdisable-phases=LinkBitcodeDependencies,WriteBitcodeFile,ObjectFiles,Linker",
-
-                    // Enable double-inlining.
-                    "-Xklib-no-double-inlining=false",
-
-                    // Enable narrowing of visibility for synthetic accessors.
-                    "-Xsynthetic-accessors-with-narrowed-visibility".takeIf { nativeTestInstances.enclosingTestInstance.narrowedAccessorVisibility }
-                )
-
-                build()
-            }
-        }
-
-        assumeTrue(settings.get<CacheMode>() == CacheMode.WithoutCache)
-        assumeTrue(settings.get<ThreadStateChecker>() == ThreadStateChecker.DISABLED)
-
-        // Inject the required properties to test instance.
-        with(nativeTestInstances.enclosingTestInstance) {
-            testRunSettings = settings
-            testRunProvider = getOrCreateTestRunProvider()
-        }
+private fun Set<String>.enforceFrontendMarks() {
+    if (!(("frontend-fir" in this) xor ("frontend-classic" in this))) {
+        error("Test should be marked either with \"frontend-fir\" or \"frontend-classic\" tag")
     }
 }
 
@@ -232,8 +192,10 @@ object NativeTestSupport {
 
     private fun ExtensionContext.addCommonTestClassSettingsTo(
         enclosingTestClass: Class<*>,
-        output: MutableCollection<Any>
+        output: MutableCollection<Any>,
     ): KotlinNativeTargets {
+        tags.enforceFrontendMarks()
+
         val enforcedProperties = EnforcedProperties(enclosingTestClass)
 
         val optimizationMode = computeOptimizationMode(enforcedProperties)
@@ -351,15 +313,20 @@ object NativeTestSupport {
         enforcedProperties: EnforcedProperties,
         distribution: Distribution,
         kotlinNativeTargets: KotlinNativeTargets,
-        optimizationMode: OptimizationMode
+        optimizationMode: OptimizationMode,
     ): CacheMode {
         val defaultCache = CacheMode.defaultForTestTarget(distribution, kotlinNativeTargets)
         val cacheMode = ClassLevelProperty.CACHE_MODE.readValue(
             enforcedProperties,
             CacheMode.Alias.values(),
             default = if (optimizationMode != OptimizationMode.OPT) defaultCache
-                      else CacheMode.Alias.NO,
+            else CacheMode.Alias.NO,
         )
+        if (kotlinNativeTargets.testTarget == KonanTarget.MINGW_X64) {
+            if (!(cacheMode == CacheMode.Alias.NO || cacheMode == CacheMode.Alias.STATIC_ONLY_DIST)) {
+                fail { "Cache mode $cacheMode is not supported for MinGW x64 target." }
+            }
+        }
         val useStaticCacheForUserLibraries = when (cacheMode) {
             CacheMode.Alias.NO -> return CacheMode.WithoutCache
             CacheMode.Alias.STATIC_ONLY_DIST -> false
@@ -568,7 +535,7 @@ object NativeTestSupport {
     private fun computeGeneratedSourceDirs(
         baseDirs: BaseDirs,
         targets: KotlinNativeTargets,
-        enclosingTestClass: Class<*>
+        enclosingTestClass: Class<*>,
     ): GeneratedSources {
         val testSourcesDir = baseDirs.testBuildDir
             .resolve("bb.src") // "bb" for black box
@@ -586,7 +553,7 @@ object NativeTestSupport {
     private fun computeBinariesForBlackBoxTests(
         baseDirs: BaseDirs,
         targets: KotlinNativeTargets,
-        enclosingTestClass: Class<*>
+        enclosingTestClass: Class<*>,
     ): Binaries {
         val testBinariesDir = baseDirs.testBuildDir
             .resolve("bb.out") // "bb" for black box
@@ -601,14 +568,15 @@ object NativeTestSupport {
     }
 
     private fun computePipelineType(enforcedProperties: EnforcedProperties, testClass: Class<*>): PipelineType {
-        val pipelineTypeFromFirPipelineAnnotation = if (testClass.annotations.any { it is FirPipeline })
-            PipelineType.K2
-        else PipelineType.K1
+        val pipelineTypeFromPipelineAnnotation = if (testClass.annotations.any { it is ClassicPipeline })
+            PipelineType.K1
+        else if (testClass.annotations.any { it is FirPipeline }) PipelineType.K2
+        else error("Pipeline has to be explicitly specified!")
 
         return ClassLevelProperty.PIPELINE_TYPE.readValue(
             enforcedProperties,
             PipelineType.entries.toTypedArray(),
-            default = pipelineTypeFromFirPipelineAnnotation
+            default = pipelineTypeFromPipelineAnnotation
         )
     }
 
@@ -668,9 +636,6 @@ object NativeTestSupport {
     internal fun ExtensionContext.computeBlackBoxTestInstances(): NativeTestInstances<AbstractNativeBlackBoxTest> =
         NativeTestInstances(requiredTestInstances.allInstances)
 
-    internal fun ExtensionContext.computeKlibSyntheticAccessorTestInstances(): NativeTestInstances<AbstractNativeKlibSyntheticAccessorTest> =
-        NativeTestInstances(requiredTestInstances.allInstances)
-
     /*************** Test run settings (simplified) ***************/
 
     // Note: SimpleTestRunSettings is not cached!
@@ -689,7 +654,8 @@ object NativeTestSupport {
         )
     }
 
-    private fun ExtensionContext.computeSimpleTestInstances() = NativeTestInstances<AbstractNativeSimpleTest>(requiredTestInstances.allInstances)
+    private fun ExtensionContext.computeSimpleTestInstances() =
+        NativeTestInstances<AbstractNativeSimpleTest>(requiredTestInstances.allInstances)
 
     /** See also [computeBinariesForBlackBoxTests] */
     private fun ExtensionContext.computeBinariesForSimpleTests(baseDirs: BaseDirs, targets: KotlinNativeTargets): Binaries {

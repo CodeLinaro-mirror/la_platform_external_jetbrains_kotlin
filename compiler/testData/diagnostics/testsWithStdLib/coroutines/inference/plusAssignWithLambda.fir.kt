@@ -1,3 +1,4 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -UNUSED_ANONYMOUS_PARAMETER -UNUSED_PARAMETER
 
 fun foo(total: Int, next: Int) = 10
@@ -37,6 +38,6 @@ class B {
 }
 
 fun foo3(x: B) = {
-    x += { <!ARGUMENT_TYPE_MISMATCH!>""<!> }
-    x += id { <!ARGUMENT_TYPE_MISMATCH!>""<!> }
+    x += { <!RETURN_TYPE_MISMATCH!>""<!> }
+    x += id { <!RETURN_TYPE_MISMATCH!>""<!> }
 }

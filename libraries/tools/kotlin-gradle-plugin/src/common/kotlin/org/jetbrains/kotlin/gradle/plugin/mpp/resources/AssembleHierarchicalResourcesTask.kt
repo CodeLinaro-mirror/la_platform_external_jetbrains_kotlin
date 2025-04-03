@@ -108,7 +108,7 @@ internal abstract class AssembleHierarchicalResourcesTask : DefaultTask() {
 
             fun unwrapOrThrow(): T {
                 when (this) {
-                    is Collision -> error("There is a duplicate resource in a source set level:\n${left.canonicalPath}\n${right.canonicalPath}")
+                    is Collision -> error("There is a duplicate resource in a source set level:\n${left.absolutePath}\n${right.absolutePath}")
                     is NotDirectory -> error("Path $path is not a directory")
                     is ToCopy -> return value
                 }
@@ -133,6 +133,7 @@ internal abstract class AssembleHierarchicalResourcesTask : DefaultTask() {
                         is Result.Collision -> return Result.Collision(result.left, result.right)
                         is Result.NotDirectory -> return Result.NotDirectory(result.path)
                         is Result.ToCopy -> directoriesToCopy.add(result.value)
+                        null -> Unit
                     }
                 }
             }

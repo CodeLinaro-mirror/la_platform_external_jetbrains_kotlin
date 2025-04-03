@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.backend.konan
 
 import llvm.LLVMTypeRef
-import org.jetbrains.kotlin.backend.common.LoggingContext
+import org.jetbrains.kotlin.config.LoggingContext
 import org.jetbrains.kotlin.backend.common.linkage.partial.createPartialLinkageSupportForLowerings
 import org.jetbrains.kotlin.backend.konan.cexport.CAdapterExportedElements
 import org.jetbrains.kotlin.backend.konan.ir.*
@@ -14,7 +14,11 @@ import org.jetbrains.kotlin.backend.konan.llvm.KonanMetadata
 import org.jetbrains.kotlin.backend.konan.lower.*
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportCodeSpec
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCExportedInterface
+import org.jetbrains.kotlin.backend.konan.serialization.ExternalDeclarationFileNameProvider
+import org.jetbrains.kotlin.backend.konan.serialization.ModuleDeserializerProvider
+import org.jetbrains.kotlin.backend.konan.serialization.InlineFunctionDeserializer
 import org.jetbrains.kotlin.backend.konan.serialization.KonanIrLinker
+import org.jetbrains.kotlin.backend.konan.serialization.KonanPartialModuleDeserializer
 import org.jetbrains.kotlin.builtins.konan.KonanBuiltIns
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
@@ -22,8 +26,8 @@ import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContextImpl
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.ir.util.ReferenceSymbolTable
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.resolve.descriptorUtil.module
 import java.util.concurrent.ConcurrentHashMap
 
@@ -36,13 +40,12 @@ internal class Context(
         val irModules: Map<String, IrModuleFragment>,
         val irLinker: KonanIrLinker,
         symbols: KonanSymbols,
+        val symbolTable: ReferenceSymbolTable,
 ) : KonanBackendContext(config) {
 
-    override val ir: KonanIr = KonanIr(this, symbols)
+    override val ir: KonanIr = KonanIr(symbols)
 
     override val configuration get() = config.configuration
-
-    override val internalPackageFqn: FqName = RuntimeNames.kotlinNativeInternalPackageName
 
     override val optimizeLoopsOverUnsignedArrays = true
 
@@ -50,6 +53,24 @@ internal class Context(
     val bridgesSupport by lazy { BridgesSupport(irBuiltIns, irFactory) }
     val enumsSupport by lazy { EnumsSupport(irBuiltIns, irFactory) }
     val cachesAbiSupport by lazy { CachesAbiSupport(mapping, irFactory) }
+
+    val moduleDeserializerProvider by lazy {
+        ModuleDeserializerProvider(config.libraryToCache, config.cachedLibraries, irLinker)
+    }
+
+    val externalDeclarationFileNameProvider by lazy {
+        ExternalDeclarationFileNameProvider(moduleDeserializerProvider)
+    }
+
+    private val inlineFunctionDeserializers = ConcurrentHashMap<KonanPartialModuleDeserializer, InlineFunctionDeserializer>()
+
+    fun getInlineFunctionDeserializer(function: IrFunction): InlineFunctionDeserializer {
+        val deserializer = moduleDeserializerProvider.getDeserializerOrNull(function)
+                ?: error("No module deserializer for ${function.render()}")
+        return inlineFunctionDeserializers.getOrPut(deserializer) {
+            InlineFunctionDeserializer(deserializer, config.cachedLibraries, irLinker)
+        }
+    }
 
     // TODO: Remove after adding special <userData> property to IrDeclaration.
     private val layoutBuilders = ConcurrentHashMap<IrClass, ClassLayoutBuilder>()

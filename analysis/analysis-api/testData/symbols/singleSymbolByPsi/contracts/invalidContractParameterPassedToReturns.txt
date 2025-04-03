@@ -5,6 +5,7 @@ KaNamedFunctionSymbol:
   ]
   callableId: /invalidContract
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -93,5 +94,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(invalidContractParameterPassedToReturns.kt)
   getContainingJvmClassName: InvalidContractParameterPassedToReturnsKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

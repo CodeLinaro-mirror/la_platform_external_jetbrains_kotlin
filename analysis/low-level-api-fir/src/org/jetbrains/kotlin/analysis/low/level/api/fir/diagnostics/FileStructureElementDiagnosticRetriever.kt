@@ -5,12 +5,14 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics
 
+import com.intellij.openapi.progress.ProgressManager
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.DiagnosticCheckerFilter
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics.fir.PersistenceContextCollector
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostics.fir.PersistentCheckerContextFactory
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.visitScriptDependentElements
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.forEachDeclaration
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContextForProvider
 import org.jetbrains.kotlin.fir.analysis.collectors.DiagnosticCollectorComponents
@@ -57,19 +59,17 @@ internal sealed class FileStructureElementDiagnosticRetriever(
      * For instance, functions and classes are not a part of the container body resolution.
      */
     private fun forceBodyResolve() {
+        ProgressManager.checkCanceled()
+
         declaration.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
 
-        val additionalDeclarationsToResolve = when (declaration) {
-            is FirFile -> declaration.declarations.let { declarations ->
-                (declarations.firstOrNull() as? FirScript)?.declarations ?: declarations
-            }
-
-            is FirRegularClass -> declaration.declarations
-            is FirScript -> declaration.declarations
-            else -> emptyList()
+        val declarationContainer = when (declaration) {
+            is FirFile -> declaration.declarations.singleOrNull() as? FirScript ?: declaration
+            is FirScript, is FirRegularClass -> declaration
+            else -> return
         }
 
-        additionalDeclarationsToResolve.forEach {
+        declarationContainer.forEachDeclaration {
             it.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
         }
     }
@@ -97,6 +97,7 @@ internal class ClassDiagnosticRetriever(
             declaration === structureElementDeclaration -> true
             insideFakeDeclaration -> true
             declaration.isImplicitConstructor -> true
+            declaration is FirValueParameter && declaration.valueParameterKind != FirValueParameterKind.Regular -> true
             else -> false
         }
 

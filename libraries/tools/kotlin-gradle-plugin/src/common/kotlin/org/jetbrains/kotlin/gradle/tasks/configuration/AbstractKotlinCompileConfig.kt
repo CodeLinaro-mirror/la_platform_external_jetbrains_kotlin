@@ -37,7 +37,6 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
 
     init {
         val compilerSystemPropertiesService = CompilerSystemPropertiesService.registerIfAbsent(project)
-        val buildFinishedListenerService = BuildFinishedListenerService.registerIfAbsent(project)
         val buildIdService = BuildIdService.registerIfAbsent(project)
         configureTask { task ->
             val propertiesProvider = project.kotlinPropertiesProvider
@@ -72,7 +71,11 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
                 if (it) listOf(task.destinationDirectory.get().asFile, task.taskBuildLocalStateDirectory.get().asFile) else emptyList()
             })
             task.keepIncrementalCompilationCachesInMemory
-                .convention(task.preciseCompilationResultsBackup.map { it && propertiesProvider.keepIncrementalCompilationCachesInMemory })
+                .convention(
+                    task.preciseCompilationResultsBackup.zip(propertiesProvider.keepIncrementalCompilationCachesInMemory) { thisTaskPreciseCompilationResultsBackup, defaultKeepIncrementalCompilationCachesInMemory ->
+                        thisTaskPreciseCompilationResultsBackup && defaultKeepIncrementalCompilationCachesInMemory
+                    }
+                )
                 .finalizeValueOnRead()
             task.taskOutputsBackupExcludes.addAll(task.keepIncrementalCompilationCachesInMemory.map {
                 if (it) listOf(task.taskBuildCacheableOutputDirectory.get().asFile) else emptyList()
@@ -80,7 +83,9 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
             task.enableUnsafeIncrementalCompilationForMultiplatform
                 .convention(propertiesProvider.enableUnsafeOptimizationsForMultiplatform)
                 .finalizeValueOnRead()
-            task.buildFinishedListenerService.value(buildFinishedListenerService).disallowChanges()
+            task.enableMonotonousIncrementalCompileSetExpansion
+                .convention(propertiesProvider.enableMonotonousIncrementalCompileSetExpansion)
+                .finalizeValueOnRead()
             task.buildIdService.value(buildIdService).disallowChanges()
 
             task.incremental = false
@@ -118,8 +123,7 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
             task.multiPlatformEnabled.value(
                 providers.provider {
                     compilationInfo.project.plugins.any {
-                        it is KotlinPlatformPluginBase ||
-                                it is AbstractKotlinMultiplatformPluginWrapper
+                        it is AbstractKotlinMultiplatformPluginWrapper
                     }
                 }
             )

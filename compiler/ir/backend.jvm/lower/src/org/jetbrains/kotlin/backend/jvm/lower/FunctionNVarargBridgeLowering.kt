@@ -13,7 +13,7 @@ import org.jetbrains.kotlin.backend.common.lower.irIfThen
 import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.ir.createJvmIrBuilder
-import org.jetbrains.kotlin.backend.jvm.ir.erasedUpperBound
+import org.jetbrains.kotlin.ir.util.erasedUpperBound
 import org.jetbrains.kotlin.backend.jvm.ir.irArray
 import org.jetbrains.kotlin.backend.jvm.needsMfvcFlattening
 import org.jetbrains.kotlin.builtins.StandardNames
@@ -136,7 +136,7 @@ internal class FunctionNVarargBridgeLowering(val context: JvmBackendContext) :
                     dispatchReceiver = irGet(dispatchReceiverParameter!!)
 
                     for (parameter in invoke.valueParameters) {
-                        val index = parameter.index
+                        val index = parameter.indexInOldValueParameters
                         val argArray = irGet(valueParameters.single())
                         val argument = irCallOp(arrayGetFun, context.irBuiltIns.anyNType, argArray, irInt(index))
                         putValueArgument(index, irImplicitCast(argument, invoke.valueParameters[index].type))

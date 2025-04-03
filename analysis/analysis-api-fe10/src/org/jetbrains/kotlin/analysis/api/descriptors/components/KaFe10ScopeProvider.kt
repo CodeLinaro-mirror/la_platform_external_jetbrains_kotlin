@@ -25,9 +25,9 @@ import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.bas
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.KaFe10PsiSymbol
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.psiBased.base.getResolutionScope
 import org.jetbrains.kotlin.analysis.api.descriptors.types.base.KaFe10Type
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseImplicitReceiver
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeImplicitReceiverValue
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeContext
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseCompositeScope
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseEmptyScope
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
@@ -54,7 +54,7 @@ import org.jetbrains.kotlin.utils.Printer
 
 internal class KaFe10ScopeProvider(
     override val analysisSessionProvider: () -> KaFe10Session
-) : KaSessionComponent<KaFe10Session>(), KaScopeProvider, KaFe10SessionComponent {
+) : KaBaseSessionComponent<KaFe10Session>(), KaScopeProvider, KaFe10SessionComponent {
     private companion object {
         val LOG = Logger.getInstance(KaFe10ScopeProvider::class.java)
     }
@@ -258,7 +258,7 @@ internal class KaFe10ScopeProvider(
             val importingScopes = scopeContext(position = this)
                 .scopes
                 .filter { it.kind is KaScopeKind.ImportingScope }
-            return KaBaseScopeContext(importingScopes, implicitReceivers = emptyList(), token)
+            return KaBaseScopeContext(importingScopes, implicitValues = emptyList(), token)
         }
 
     private inline fun <reified T : DeclarationDescriptor> getDescriptor(symbol: KaSymbol): T? {
@@ -285,7 +285,7 @@ internal class KaFe10ScopeProvider(
                 continue
             }
 
-            result += KaBaseImplicitReceiver(type, owner, index)
+            result += KaBaseScopeImplicitReceiverValue(type, owner, index)
         }
 
         return result

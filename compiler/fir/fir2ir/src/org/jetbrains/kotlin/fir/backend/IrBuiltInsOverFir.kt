@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.builtins.UnsignedType
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.utils.defaultTypeWithoutArguments
@@ -21,7 +22,9 @@ import org.jetbrains.kotlin.fir.resolve.providers.getRegularClassSymbolByClassId
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.ir.BuiltInOperatorNames
+import org.jetbrains.kotlin.ir.InternalSymbolFinderAPI
 import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.SymbolFinder
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.declarations.*
@@ -34,7 +37,10 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrTypeParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.constructors
+import org.jetbrains.kotlin.ir.util.findDeclaration
 import org.jetbrains.kotlin.ir.util.functions
+import org.jetbrains.kotlin.ir.util.isSuspend
+import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -44,11 +50,12 @@ import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
-@OptIn(Fir2IrBuiltInsInternals::class)
+@OptIn(Fir2IrBuiltInsInternals::class, InternalSymbolFinderAPI::class)
 class IrBuiltInsOverFir(
     private val c: Fir2IrComponents,
     private val syntheticSymbolsContainer: Fir2IrSyntheticIrBuiltinsSymbolsContainer
 ) : IrBuiltIns() {
+    override val symbolFinder: SymbolFinder = SymbolFinderOverFir(c.builtins)
 
     // ------------------------------------- basic stuff -------------------------------------
 
@@ -117,6 +124,18 @@ class IrBuiltInsOverFir(
 
     override val longClass: IrClassSymbol get() = fir2irBuiltins.longClass
     override val longType: IrType get() = fir2irBuiltins.longType
+
+    override val ubyteClass: IrClassSymbol get() = fir2irBuiltins.ubyteClass
+    override val ubyteType: IrType get() = fir2irBuiltins.ubyteType
+
+    override val ushortClass: IrClassSymbol get() = fir2irBuiltins.ushortClass
+    override val ushortType: IrType get() = fir2irBuiltins.ushortType
+
+    override val uintClass: IrClassSymbol get() = fir2irBuiltins.uintClass
+    override val uintType: IrType get() = fir2irBuiltins.uintType
+
+    override val ulongClass: IrClassSymbol get() = fir2irBuiltins.ulongClass
+    override val ulongType: IrType get() = fir2irBuiltins.ulongType
 
     override val floatClass: IrClassSymbol get() = fir2irBuiltins.floatClass
     override val floatType: IrType get() = fir2irBuiltins.floatType
@@ -201,6 +220,11 @@ class IrBuiltInsOverFir(
     override val floatArray: IrClassSymbol get() = fir2irBuiltins.floatArray
     override val doubleArray: IrClassSymbol get() = fir2irBuiltins.doubleArray
 
+    override val ubyteArray: IrClassSymbol get() = fir2irBuiltins.ubyteArray
+    override val ushortArray: IrClassSymbol get() = fir2irBuiltins.ushortArray
+    override val uintArray: IrClassSymbol get() = fir2irBuiltins.uintArray
+    override val ulongArray: IrClassSymbol get() = fir2irBuiltins.ulongArray
+
     override val primitiveArraysToPrimitiveTypes: Map<IrClassSymbol, PrimitiveType> get() = fir2irBuiltins.primitiveArraysToPrimitiveTypes
     override val primitiveTypesToPrimitiveArrays: Map<PrimitiveType, IrClassSymbol>
         get() = primitiveArraysToPrimitiveTypes.map { (k, v) -> v to k }.toMap()
@@ -237,19 +261,19 @@ class IrBuiltInsOverFir(
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override val intPlusSymbol: IrSimpleFunctionSymbol
         get() = intClass.functions.single {
-            it.owner.name == OperatorNameConventions.PLUS && it.owner.valueParameters[0].type == intType
+            it.owner.name == OperatorNameConventions.PLUS && it.owner.parameters[1].type == intType
         }
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override val intTimesSymbol: IrSimpleFunctionSymbol
         get() = intClass.functions.single {
-            it.owner.name == OperatorNameConventions.TIMES && it.owner.valueParameters[0].type == intType
+            it.owner.name == OperatorNameConventions.TIMES && it.owner.parameters[1].type == intType
         }
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override val intXorSymbol: IrSimpleFunctionSymbol
         get() = intClass.functions.single {
-            it.owner.name == OperatorNameConventions.XOR && it.owner.valueParameters[0].type == intType
+            it.owner.name == OperatorNameConventions.XOR && it.owner.parameters[1].type == intType
         }
 
     override val extensionToString: IrSimpleFunctionSymbol by lazy {
@@ -524,41 +548,12 @@ class IrBuiltInsOverFir(
 
     // ------------------------------------- functions -------------------------------------
 
-    override fun findFunctions(name: Name, vararg packageNameSegments: String): Iterable<IrSimpleFunctionSymbol> {
-        return fir2irBuiltins.findFunctions(FqName.fromSegments(packageNameSegments.asList()), name)
-    }
-
-    override fun findFunctions(name: Name, packageFqName: FqName): Iterable<IrSimpleFunctionSymbol> {
-        return fir2irBuiltins.findFunctions(packageFqName, name)
-    }
-
-    override fun findProperties(name: Name, packageFqName: FqName): Iterable<IrPropertySymbol> {
-        return fir2irBuiltins.findProperties(packageFqName, name)
-    }
-
-    override fun findClass(name: Name, vararg packageNameSegments: String): IrClassSymbol? {
-        return loadClassSafe(FqName.fromSegments(packageNameSegments.asList()), name)
-    }
-
-    override fun findClass(name: Name, packageFqName: FqName): IrClassSymbol? {
-        return loadClassSafe(packageFqName, name)
-    }
-
-    private fun loadClassSafe(packageName: FqName, identifier: Name): IrClassSymbol? {
-        return fir2irBuiltins.loadClassSafe(ClassId(packageName, identifier))
-    }
-
-    @OptIn(UnsafeDuringIrConstructionAPI::class)
-    override fun findBuiltInClassMemberFunctions(builtInClass: IrClassSymbol, name: Name): Iterable<IrSimpleFunctionSymbol> {
-        return builtInClass.functions.filter { it.owner.name == name }.asIterable()
-    }
-
     // This function should not be called from fir2ir code
     @UnsafeDuringIrConstructionAPI
     override fun getBinaryOperator(name: Name, lhsType: IrType, rhsType: IrType): IrSimpleFunctionSymbol {
         val definingClass = lhsType.getMaybeBuiltinClass() ?: error("Defining class not found: $lhsType")
         return definingClass.functions.single { function ->
-            function.name == name && function.valueParameters.size == 1 && function.valueParameters[0].type == rhsType
+            function.name == name && function.parameters.size == 2 && function.parameters[1].type == rhsType
         }.symbol
     }
 
@@ -567,7 +562,7 @@ class IrBuiltInsOverFir(
     override fun getUnaryOperator(name: Name, receiverType: IrType): IrSimpleFunctionSymbol {
         val definingClass = receiverType.getMaybeBuiltinClass() ?: error("Defining class not found: $receiverType")
         return definingClass.functions.single { function ->
-            function.name == name && function.valueParameters.isEmpty()
+            function.name == name && function.parameters.size == 1
         }.symbol
     }
 
@@ -660,4 +655,116 @@ class IrBuiltInsOverFir(
             )
         }
     }
+}
+
+@OptIn(Fir2IrBuiltInsInternals::class, UnsafeDuringIrConstructionAPI::class)
+@InternalSymbolFinderAPI
+class SymbolFinderOverFir(private val fir2irBuiltins: Fir2IrBuiltinSymbolsContainer) : SymbolFinder() {
+    override fun findFunctions(name: Name, vararg packageNameSegments: String): Iterable<IrSimpleFunctionSymbol> {
+        return fir2irBuiltins.findFunctions(FqName.fromSegments(packageNameSegments.asList()), name)
+    }
+
+    override fun findFunctions(name: Name, packageFqName: FqName): Iterable<IrSimpleFunctionSymbol> {
+        return fir2irBuiltins.findFunctions(packageFqName, name)
+    }
+
+    override fun findProperties(name: Name, packageFqName: FqName): Iterable<IrPropertySymbol> {
+        return fir2irBuiltins.findProperties(packageFqName, name)
+    }
+
+    private fun loadClassSafe(packageName: FqName, identifier: Name): IrClassSymbol? {
+        return fir2irBuiltins.loadClassSafe(ClassId(packageName, identifier))
+    }
+
+    override fun findClass(name: Name, vararg packageNameSegments: String): IrClassSymbol? {
+        return loadClassSafe(FqName.fromSegments(packageNameSegments.asList()), name)
+    }
+
+    override fun findClass(name: Name, packageFqName: FqName): IrClassSymbol? {
+        return loadClassSafe(packageFqName, name)
+    }
+
+    override fun findGetter(property: IrPropertySymbol): IrSimpleFunctionSymbol? =
+        property.owner.getter?.symbol
+
+    override fun findBuiltInClassMemberFunctions(builtInClass: IrClassSymbol, name: Name): Iterable<IrSimpleFunctionSymbol> {
+        return builtInClass.functions.filter { it.owner.name == name }.asIterable()
+    }
+
+    override fun findMemberFunction(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol? =
+        clazz.owner.findDeclaration<IrSimpleFunction> { it.name == name }?.symbol
+
+    override fun findMemberProperty(clazz: IrClassSymbol, name: Name): IrPropertySymbol? =
+        clazz.owner.findDeclaration<IrProperty> { it.name == name }?.symbol
+
+    override fun findMemberPropertyGetter(clazz: IrClassSymbol, name: Name): IrSimpleFunctionSymbol? =
+        clazz.owner.findDeclaration<IrProperty> { it.name == name }?.getter?.symbol
+
+    override fun findPrimaryConstructor(clazz: IrClassSymbol): IrConstructorSymbol? = clazz.owner.primaryConstructor?.symbol
+
+    override fun findNoParametersConstructor(clazz: IrClassSymbol): IrConstructorSymbol? =
+        clazz.owner.constructors.singleOrNull { c ->
+            // either no parameters or only dispatch receiver
+            c.parameters.all { it.kind == IrParameterKind.DispatchReceiver }
+        }?.symbol
+
+    override fun findNestedClass(clazz: IrClassSymbol, name: Name): IrClassSymbol? {
+        return clazz.owner.declarations.filterIsInstance<IrClass>().singleOrNull { it.name == name }?.symbol
+    }
+
+    override fun getName(clazz: IrClassSymbol): Name = clazz.owner.name
+
+    override fun isExtensionReceiverClass(property: IrPropertySymbol, expected: IrClassSymbol?): Boolean {
+        return property.owner.getter?.parameters?.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }?.type?.classOrNull == expected
+    }
+
+    override fun isExtensionReceiverClass(function: IrFunctionSymbol, expected: IrClassSymbol?): Boolean {
+        return function.owner.parameters.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }?.type?.classOrNull == expected
+    }
+
+    override fun isExtensionReceiverNullable(function: IrFunctionSymbol): Boolean? {
+        return function.owner.parameters.firstOrNull { it.kind == IrParameterKind.ExtensionReceiver }?.type?.isMarkedNullable()
+    }
+
+    override fun getValueParametersCount(function: IrFunctionSymbol): Int = function.owner.parameters.count { it.kind == IrParameterKind.Regular }
+
+    override fun getTypeParametersCount(function: IrFunctionSymbol): Int = function.owner.typeParameters.size
+
+    override fun isTypeParameterUpperBoundClass(property: IrPropertySymbol, index: Int, expected: IrClassSymbol): Boolean {
+        return property.owner.getter?.typeParameters?.getOrNull(index)?.superTypes?.any { it.classOrNull == expected } ?: false
+    }
+
+    override fun isValueParameterClass(function: IrFunctionSymbol, index: Int, expected: IrClassSymbol?): Boolean {
+        return function.owner.parameters
+            .filter { it.kind == IrParameterKind.Regular }
+            .getOrNull(index)
+            ?.type
+            ?.classOrNull == expected
+    }
+
+    override fun isReturnClass(function: IrFunctionSymbol, expected: IrClassSymbol): Boolean {
+        return function.owner.returnType.classOrNull == expected
+    }
+
+    override fun isValueParameterTypeArgumentClass(function: IrFunctionSymbol, index: Int, argumentIndex: Int, expected: IrClassSymbol?): Boolean {
+        val type = function.owner.parameters
+            .filter { it.kind == IrParameterKind.Regular }
+            .getOrNull(index)
+            ?.type as? IrSimpleType ?: return false
+        val argumentType = type.arguments.getOrNull(argumentIndex) as? IrSimpleType ?: return false
+        return argumentType.classOrNull == expected
+    }
+
+    override fun isValueParameterNullable(function: IrFunctionSymbol, index: Int): Boolean? {
+        return function.owner.parameters
+            .filter { it.kind == IrParameterKind.Regular }
+            .getOrNull(index)
+            ?.type
+            ?.isMarkedNullable()
+    }
+
+    override fun isExpect(function: IrFunctionSymbol): Boolean = function.owner.isExpect
+
+    override fun isSuspend(functionSymbol: IrFunctionSymbol): Boolean = functionSymbol.owner.isSuspend
+    override fun getVisibility(function: IrFunctionSymbol): DescriptorVisibility = function.owner.visibility
 }

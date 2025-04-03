@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,7 +10,6 @@ import com.intellij.openapi.util.ModificationTracker
 import com.intellij.psi.*
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.getModule
-import org.jetbrains.kotlin.analysis.api.platform.modification.createProjectWideOutOfBlockModificationTracker
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
 import org.jetbrains.kotlin.analysis.api.symbols.*
@@ -20,30 +19,33 @@ import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
-import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
-import org.jetbrains.kotlin.asJava.builder.LightMemberOriginForDeclaration
-import org.jetbrains.kotlin.asJava.classes.*
-import org.jetbrains.kotlin.asJava.elements.KtLightMethod
+import org.jetbrains.kotlin.asJava.KotlinAsJavaSupportBase
+import org.jetbrains.kotlin.asJava.classes.KotlinSuperTypeListBuilder
+import org.jetbrains.kotlin.asJava.classes.KtLightClass
+import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_BASE
+import org.jetbrains.kotlin.asJava.classes.findEntry
 import org.jetbrains.kotlin.asJava.hasInterfaceDefaultImpls
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.config.JvmDefaultMode
-import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.lexer.KtTokens.*
-import org.jetbrains.kotlin.light.classes.symbol.annotations.*
+import org.jetbrains.kotlin.lexer.KtTokens.INLINE_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.VALUE_KEYWORD
+import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmNameAnnotation
+import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmOverloadsAnnotation
+import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmSyntheticAnnotation
 import org.jetbrains.kotlin.light.classes.symbol.copy
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightField
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightFieldForEnumEntry
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightFieldForProperty
 import org.jetbrains.kotlin.light.classes.symbol.isJvmField
 import org.jetbrains.kotlin.light.classes.symbol.mapType
-import org.jetbrains.kotlin.light.classes.symbol.methods.*
+import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightAccessorMethod.Companion.createPropertyAccessors
+import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightSimpleMethod.Companion.createSimpleMethods
 import org.jetbrains.kotlin.name.JvmStandardClassIds
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.containingClass
 import org.jetbrains.kotlin.psi.psiUtil.isObjectLiteral
-import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOriginKind
 import org.jetbrains.kotlin.utils.SmartList
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import java.util.*
@@ -64,7 +66,7 @@ internal fun createLightClassNoCache(ktClassOrObject: KtClassOrObject, ktModule:
 }
 
 internal fun KtClassOrObject.contentModificationTrackers(): List<ModificationTracker> {
-    val outOfBlockTracker = project.createProjectWideOutOfBlockModificationTracker()
+    val outOfBlockTracker = KotlinAsJavaSupportBase.getInstance(project).outOfBlockModificationTracker(this)
     return if (isLocal) {
         val file = containingKtFile
         listOf(outOfBlockTracker, ModificationTracker { file.modificationStamp })
@@ -73,22 +75,20 @@ internal fun KtClassOrObject.contentModificationTrackers(): List<ModificationTra
     }
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun createLightClassNoCache(
+internal fun KaSession.createLightClassNoCache(
     classSymbol: KaNamedClassSymbol,
     ktModule: KaModule,
     manager: PsiManager,
 ): SymbolLightClassBase = when (classSymbol.classKind) {
     KaClassKind.INTERFACE -> SymbolLightClassForInterface(
-        ktAnalysisSession = this@KaSession,
+        ktAnalysisSession = this,
         ktModule = ktModule,
         classSymbol = classSymbol,
         manager = manager,
     )
 
     KaClassKind.ANNOTATION_CLASS -> SymbolLightClassForAnnotationClass(
-        ktAnalysisSession = this@KaSession,
+        ktAnalysisSession = this,
         ktModule = ktModule,
         classSymbol = classSymbol,
         manager = manager,
@@ -96,14 +96,14 @@ internal fun createLightClassNoCache(
 
     else -> if (classSymbol.isInline) {
         SymbolLightClassForValueClass(
-            ktAnalysisSession = this@KaSession,
+            ktAnalysisSession = this,
             ktModule = ktModule,
             classSymbol = classSymbol,
             manager = manager,
         )
     } else {
         SymbolLightClassForClassOrObject(
-            ktAnalysisSession = this@KaSession,
+            ktAnalysisSession = this,
             ktModule = ktModule,
             classSymbol = classSymbol,
             manager = manager,
@@ -122,101 +122,8 @@ private fun lightClassForEnumEntry(ktEnumEntry: KtEnumEntry): KtLightClass? {
     return (targetField as? SymbolLightFieldForEnumEntry)?.initializingClass as? KtLightClass
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassBase.createConstructors(
-    declarations: Sequence<KaConstructorSymbol>,
-    result: MutableList<PsiMethod>,
-) {
-    val constructors = declarations.toList()
-    if (constructors.isEmpty()) {
-        result.add(defaultConstructor())
-        return
-    }
-
-    for (constructor in constructors) {
-        ProgressManager.checkCanceled()
-
-        if (constructor.isHiddenOrSynthetic()) continue
-
-        result.add(
-            SymbolLightConstructor(
-                ktAnalysisSession = this@KaSession,
-                constructorSymbol = constructor,
-                containingClass = this@createConstructors,
-                methodIndex = METHOD_INDEX_BASE
-            )
-        )
-
-        createJvmOverloadsIfNeeded(constructor, result) { methodIndex, argumentSkipMask ->
-            SymbolLightConstructor(
-                ktAnalysisSession = this@KaSession,
-                constructorSymbol = constructor,
-                containingClass = this@createConstructors,
-                methodIndex = methodIndex,
-                argumentsSkipMask = argumentSkipMask
-            )
-        }
-    }
-    val primaryConstructor = constructors.singleOrNull { it.isPrimary }
-    if (primaryConstructor != null && shouldGenerateNoArgOverload(primaryConstructor, constructors)) {
-        result.add(
-            noArgConstructor(
-                primaryConstructor.compilerVisibility.externalDisplayName,
-                primaryConstructor.sourcePsiSafe(),
-                METHOD_INDEX_FOR_NO_ARG_OVERLOAD_CTOR
-            )
-        )
-    }
-}
-
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-private fun SymbolLightClassBase.shouldGenerateNoArgOverload(
-    primaryConstructor: KaConstructorSymbol,
-    constructors: Iterable<KaConstructorSymbol>,
-): Boolean {
-    val classOrObject = kotlinOrigin ?: return false
-    return primaryConstructor.visibility != KaSymbolVisibility.PRIVATE &&
-            !classOrObject.hasModifier(INNER_KEYWORD) && !isEnum &&
-            !classOrObject.hasModifier(SEALED_KEYWORD) &&
-            primaryConstructor.valueParameters.isNotEmpty() &&
-            primaryConstructor.valueParameters.all { it.hasDefaultValue } &&
-            constructors.none { it.valueParameters.isEmpty() } &&
-            !primaryConstructor.hasJvmOverloadsAnnotation()
-}
-
-private fun SymbolLightClassBase.defaultConstructor(): KtLightMethod {
-    val classOrObject = kotlinOrigin
-    val visibility = when {
-        this is SymbolLightClassForClassLike<*> && (classKind().let { it.isObject || it == KaClassKind.ENUM_CLASS }) -> PsiModifier.PRIVATE
-        classOrObject?.hasModifier(SEALED_KEYWORD) == true -> PsiModifier.PROTECTED
-        this is SymbolLightClassForEnumEntry -> PsiModifier.PACKAGE_LOCAL
-        else -> PsiModifier.PUBLIC
-    }
-
-    return noArgConstructor(visibility, classOrObject, METHOD_INDEX_FOR_DEFAULT_CTOR)
-}
-
-private fun SymbolLightClassBase.noArgConstructor(
-    visibility: String,
-    declaration: KtDeclaration?,
-    methodIndex: Int,
-): KtLightMethod = SymbolLightNoArgConstructor(
-    declaration?.let {
-        LightMemberOriginForDeclaration(
-            originalElement = it,
-            originKind = JvmDeclarationOriginKind.OTHER,
-        )
-    },
-    this,
-    visibility,
-    methodIndex,
-)
-
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassBase.createMethods(
+internal fun KaSession.createMethods(
+    lightClass: SymbolLightClassBase,
     declarations: Sequence<KaCallableSymbol>,
     result: MutableList<PsiMethod>,
     isTopLevel: Boolean = false,
@@ -226,39 +133,18 @@ internal fun SymbolLightClassBase.createMethods(
 
     fun KaSession.handleDeclaration(declaration: KaCallableSymbol) {
         when (declaration) {
-            is KaNamedFunctionSymbol -> {
-                ProgressManager.checkCanceled()
-
-                if (declaration.hasReifiedParameters || declaration.isHiddenOrSynthetic()) return
-                if (declaration.name.isSpecial) return
-
-                result.add(
-                    SymbolLightSimpleMethod(
-                        ktAnalysisSession = this,
-                        functionSymbol = declaration,
-                        lightMemberOrigin = null,
-                        containingClass = this@createMethods,
-                        methodIndex = METHOD_INDEX_BASE,
-                        isTopLevel = isTopLevel,
-                        suppressStatic = suppressStatic
-                    )
-                )
-
-                createJvmOverloadsIfNeeded(declaration, result) { methodIndex, argumentSkipMask ->
-                    SymbolLightSimpleMethod(
-                        ktAnalysisSession = this,
-                        functionSymbol = declaration,
-                        lightMemberOrigin = null,
-                        containingClass = this@createMethods,
-                        methodIndex = methodIndex,
-                        isTopLevel = isTopLevel,
-                        argumentsSkipMask = argumentSkipMask,
-                        suppressStatic = suppressStatic
-                    )
-                }
-            }
+            is KaNamedFunctionSymbol -> createSimpleMethods(
+                containingClass = lightClass,
+                functionSymbol = declaration,
+                result = result,
+                lightMemberOrigin = null,
+                methodIndex = METHOD_INDEX_BASE,
+                isTopLevel = isTopLevel,
+                suppressStatic = suppressStatic,
+            )
 
             is KaPropertySymbol -> createPropertyAccessors(
+                lightClass,
                 result,
                 declaration,
                 isTopLevel = isTopLevel,
@@ -272,17 +158,15 @@ internal fun SymbolLightClassBase.createMethods(
 
     // Regular members
     regularMembers.forEach {
-        this@KaSession.handleDeclaration(it)
+        this@createMethods.handleDeclaration(it)
     }
     // Then, properties from the primary constructor parameters
     ctorProperties.forEach {
-        this@KaSession.handleDeclaration(it)
+        this@createMethods.handleDeclaration(it)
     }
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-private inline fun <T : KaFunctionSymbol> createJvmOverloadsIfNeeded(
+internal inline fun <T : KaFunctionSymbol> KaSession.createJvmOverloadsIfNeeded(
     declaration: T,
     result: MutableList<PsiMethod>,
     lightMethodCreator: (Int, BitSet) -> PsiMethod,
@@ -299,158 +183,19 @@ private inline fun <T : KaFunctionSymbol> createJvmOverloadsIfNeeded(
     }
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassBase.createPropertyAccessors(
-    result: MutableList<PsiMethod>,
-    declaration: KaPropertySymbol,
-    isTopLevel: Boolean,
-    isMutable: Boolean = !declaration.isVal,
-    onlyJvmStatic: Boolean = false,
-    suppressStatic: Boolean = false,
-) {
-    ProgressManager.checkCanceled()
-
-    if (declaration.name.isSpecial) return
-
-    val originalElement = declaration.sourcePsiSafe<KtDeclaration>()
-
-    val generatePropertyAnnotationsMethods =
-        (declaration.containingModule as? KaSourceModule)
-            ?.languageVersionSettings
-            ?.getFlag(JvmAnalysisFlags.generatePropertyAnnotationsMethods) == true
-
-    if (generatePropertyAnnotationsMethods && !this@createPropertyAccessors.isAnnotationType && declaration.psi?.parentOfType<KtClassOrObject>() == this.kotlinOrigin) {
-        val lightMemberOrigin = originalElement?.let {
-            LightMemberOriginForDeclaration(
-                originalElement = it,
-                originKind = JvmDeclarationOriginKind.OTHER,
-            )
-        }
-        val method = SymbolLightAnnotationsMethod(
-            ktAnalysisSession = this@KaSession,
-            containingPropertySymbol = declaration,
-            lightMemberOrigin = lightMemberOrigin,
-            containingClass = this@createPropertyAccessors
-        )
-        if (method.annotations.size > 1) { // There's always a @java.lang.Deprecated
-            result.add(method)
-        }
-    }
-
-    if (declaration is KaKotlinPropertySymbol && declaration.isConst) return
-    if (declaration.getter?.hasBody != true && declaration.setter?.hasBody != true && declaration.visibility == KaSymbolVisibility.PRIVATE) return
-
-    if (declaration.isJvmField) return
-    val propertyTypeIsValueClass = declaration.hasTypeForValueClassInSignature(suppressJvmNameCheck = true)
-
-    fun KaPropertyAccessorSymbol.needToCreateAccessor(siteTarget: AnnotationUseSiteTarget): Boolean {
-        when {
-            !propertyTypeIsValueClass -> {}
-            /*
-             * For top-level properties with value class in return type compiler mangles only setter
-             *
-             *   @JvmInline
-             *   value class Some(val value: String)
-             *
-             *   var topLevelProp: Some = Some("1")
-             *
-             * Compiles to
-             *   public final class FooKt {
-             *     public final static getTopLevelProp()Ljava/lang/String;
-             *
-             *     public final static setTopLevelProp-5lyY9Q4(Ljava/lang/String;)V
-             *
-             *     private static Ljava/lang/String; topLevelProp
-             *  }
-             */
-            this is KaPropertyGetterSymbol && this@createPropertyAccessors is SymbolLightClassForFacade -> {}
-            // Accessors with JvmName can be accessible from Java
-            hasJvmNameAnnotation() -> {}
-            else -> return false
-        }
-
-        if (onlyJvmStatic && !hasJvmStaticAnnotation() && !declaration.hasJvmStaticAnnotation()) return false
-
-        if (declaration.hasReifiedParameters) return false
-        if (isHiddenByDeprecation(declaration)) return false
-        if (isHiddenOrSynthetic(siteTarget)) return false
-        if (!hasBody && visibility == KaSymbolVisibility.PRIVATE) return false
-
-        return true
-    }
-
-    val getter = declaration.getter?.takeIf {
-        it.needToCreateAccessor(AnnotationUseSiteTarget.PROPERTY_GETTER)
-    }
-
-    fun createSymbolLightAccessorMethod(accessor: KaPropertyAccessorSymbol): SymbolLightAccessorMethod {
-        // [KtFakeSourceElementKind.DelegatedPropertyAccessor] is not allowed as source PSI, e.g.,
-        //
-        //   val p by delegate(...)
-        //
-        // However, we also lose the source PSI of a custom property accessor, e.g.,
-        //
-        //   val p by delegate(...)
-        //     get() = ...
-        //
-        // We go upward to the property's source PSI and attempt to find/bind accessor's source PSI.
-        fun sourcePsiFromProperty(): KtPropertyAccessor? {
-            if (accessor.origin != KaSymbolOrigin.SOURCE) return null
-            val propertyPsi = declaration.psi as? KtProperty ?: return null
-            return if (accessor is KaPropertyGetterSymbol)
-                propertyPsi.getter
-            else
-                propertyPsi.setter
-        }
-
-        val lightMemberOrigin = originalElement?.let {
-            LightMemberOriginForDeclaration(
-                originalElement = it,
-                originKind = JvmDeclarationOriginKind.OTHER,
-                auxiliaryOriginalElement = accessor.sourcePsiSafe<KtDeclaration>() ?: sourcePsiFromProperty()
-            )
-        }
-
-        return SymbolLightAccessorMethod(
-            ktAnalysisSession = this@KaSession,
-            propertyAccessorSymbol = accessor,
-            containingPropertySymbol = declaration,
-            lightMemberOrigin = lightMemberOrigin,
-            containingClass = this@createPropertyAccessors,
-            isTopLevel = isTopLevel,
-            suppressStatic = suppressStatic,
-        )
-    }
-
-    if (getter != null) {
-        result.add(createSymbolLightAccessorMethod(getter))
-    }
-
-    val setter = declaration.setter?.takeIf {
-        !isAnnotationType && it.needToCreateAccessor(AnnotationUseSiteTarget.PROPERTY_SETTER)
-    }
-
-    if (isMutable && setter != null) {
-        result.add(createSymbolLightAccessorMethod(setter))
-    }
-}
-
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassBase.createAndAddField(
+internal fun KaSession.createAndAddField(
+    lightClass: SymbolLightClassBase,
     declaration: KaPropertySymbol,
     nameGenerator: SymbolLightField.FieldNameGenerator,
     isStatic: Boolean,
     result: MutableList<PsiField>,
 ) {
-    val field = createField(declaration, nameGenerator, isStatic) ?: return
+    val field = createField(lightClass, declaration, nameGenerator, isStatic) ?: return
     result += field
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassBase.createField(
+internal fun KaSession.createField(
+    lightClass: SymbolLightClassBase,
     declaration: KaPropertySymbol,
     nameGenerator: SymbolLightField.FieldNameGenerator,
     isStatic: Boolean,
@@ -463,18 +208,16 @@ internal fun SymbolLightClassBase.createField(
     val fieldName = nameGenerator.generateUniqueFieldName(declaration.name.asString())
 
     return SymbolLightFieldForProperty(
-        ktAnalysisSession = this@KaSession,
+        ktAnalysisSession = this@createField,
         propertySymbol = declaration,
         fieldName = fieldName,
-        containingClass = this,
+        containingClass = lightClass,
         lightMemberOrigin = null,
         isStatic = isStatic,
     )
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-private fun hasBackingField(property: KaPropertySymbol): Boolean {
+private fun KaSession.hasBackingField(property: KaPropertySymbol): Boolean {
     if (property is KaSyntheticJavaPropertySymbol) return true
     requireIsInstance<KaKotlinPropertySymbol>(property)
 
@@ -506,19 +249,18 @@ private fun PsiElement.hasBackingField(): Boolean {
     return hasInitializer() || getter?.takeIf { it.hasBody() } == null || setter?.takeIf { it.hasBody() } == null && isVar
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassForClassLike<*>.createInheritanceList(
+internal fun KaSession.createInheritanceList(
+    lightClass: SymbolLightClassForClassLike<*>,
     forExtendsList: Boolean,
     superTypes: List<KaType>,
 ): PsiReferenceList {
     val role = if (forExtendsList) PsiReferenceList.Role.EXTENDS_LIST else PsiReferenceList.Role.IMPLEMENTS_LIST
 
     val listBuilder = KotlinSuperTypeListBuilder(
-        this,
-        kotlinOrigin = kotlinOrigin?.getSuperTypeList(),
-        manager = manager,
-        language = language,
+        lightClass,
+        kotlinOrigin = lightClass.kotlinOrigin?.getSuperTypeList(),
+        manager = lightClass.manager,
+        language = lightClass.language,
         role = role,
     )
 
@@ -526,12 +268,12 @@ internal fun SymbolLightClassForClassLike<*>.createInheritanceList(
         // Do not add redundant "extends java.lang.Object" anywhere
         if (this.isAnyType) return false
         // Interfaces have only extends lists
-        if (isInterface) return forExtendsList
+        if (lightClass.isInterface) return forExtendsList
 
         return when (this) {
             is KaClassType -> {
                 // We don't have Enum among enums supertype in sources neither we do for decompiled class-files and light-classes
-                if (isEnum && this.classId == StandardClassIds.Enum) return false
+                if (lightClass.isEnum && this.classId == StandardClassIds.Enum) return false
 
                 // NB: need to expand type alias, e.g., kotlin.Comparator<T> -> java.util.Comparator<T>
                 val classKind = expandedSymbol?.classKind
@@ -541,7 +283,7 @@ internal fun SymbolLightClassForClassLike<*>.createInheritanceList(
             }
 
             is KaClassErrorType -> {
-                val superList = this@createInheritanceList.kotlinOrigin?.getSuperTypeList() ?: return false
+                val superList = lightClass.kotlinOrigin?.getSuperTypeList() ?: return false
                 val qualifierName = this.qualifiers.joinToString(".") { it.name.asString() }.takeIf { it.isNotEmpty() } ?: return false
                 val isConstructorCall = superList.findEntry(qualifierName) is KtSuperTypeCallEntry
 
@@ -557,12 +299,12 @@ internal fun SymbolLightClassForClassLike<*>.createInheritanceList(
         .forEach { superType ->
             val mappedType = mapType(
                 superType,
-                this@createInheritanceList,
+                lightClass,
                 KaTypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS
             ) ?: return@forEach
             listBuilder.addReference(mappedType)
             if (mappedType.canonicalText.startsWith("kotlin.collections.")) {
-                val mappedToNoCollectionAsIs = mapType(superType, this@createInheritanceList, KaTypeMappingMode.SUPER_TYPE)
+                val mappedToNoCollectionAsIs = mapType(superType, lightClass, KaTypeMappingMode.SUPER_TYPE)
                 if (mappedToNoCollectionAsIs != null &&
                     mappedType.canonicalText != mappedToNoCollectionAsIs.canonicalText
                 ) {
@@ -579,16 +321,15 @@ internal fun SymbolLightClassForClassLike<*>.createInheritanceList(
     return listBuilder
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun KaDeclarationContainerSymbol.createInnerClasses(
+internal fun KaSession.createInnerClasses(
+    declarationContainer: KaDeclarationContainerSymbol,
     manager: PsiManager,
     containingClass: SymbolLightClassBase,
     classOrObject: KtClassOrObject?,
 ): List<SymbolLightClassBase> {
     val result = SmartList<SymbolLightClassBase>()
 
-    staticDeclaredMemberScope.classifiers.filterIsInstance<KaNamedClassSymbol>().mapNotNullTo(result) {
+    declarationContainer.staticDeclaredMemberScope.classifiers.filterIsInstance<KaNamedClassSymbol>().mapNotNullTo(result) {
         val classOrObjectDeclaration = it.sourcePsiSafe<KtClassOrObject>()
         if (classOrObjectDeclaration != null) {
             classOrObjectDeclaration.toLightClass() as? SymbolLightClassBase
@@ -605,15 +346,15 @@ internal fun KaDeclarationContainerSymbol.createInnerClasses(
 
     if (containingClass is SymbolLightClassForInterface &&
         classOrObject?.hasInterfaceDefaultImpls == true &&
-        jvmDefaultMode != JvmDefaultMode.ALL
+        jvmDefaultMode != JvmDefaultMode.NO_COMPATIBILITY
     ) {
         result.add(SymbolLightClassForInterfaceDefaultImpls(containingClass))
     }
 
     if (containingClass is SymbolLightClassForAnnotationClass &&
-        this is KaNamedClassSymbol &&
-        StandardClassIds.Annotations.Repeatable in annotations &&
-        JvmStandardClassIds.Annotations.Java.Repeatable !in annotations
+        declarationContainer is KaNamedClassSymbol &&
+        StandardClassIds.Annotations.Repeatable in declarationContainer.annotations &&
+        JvmStandardClassIds.Annotations.Java.Repeatable !in declarationContainer.annotations
     ) {
         result.add(SymbolLightClassForRepeatableAnnotationContainer(containingClass))
     }
@@ -621,10 +362,8 @@ internal fun KaDeclarationContainerSymbol.createInnerClasses(
     return result
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun KtClassOrObject.checkIsInheritor(superClassOrigin: KtClassOrObject, checkDeep: Boolean): Boolean {
-    if (this == superClassOrigin) return false
+internal fun KaSession.checkIsInheritor(classOrObject: KtClassOrObject, superClassOrigin: KtClassOrObject, checkDeep: Boolean): Boolean {
+    if (classOrObject == superClassOrigin) return false
     if (superClassOrigin is KtEnumEntry) {
         return false // enum entry cannot have inheritors
     }
@@ -634,9 +373,9 @@ internal fun KtClassOrObject.checkIsInheritor(superClassOrigin: KtClassOrObject,
 
     val superClassSymbol = superClassOrigin.classSymbol ?: return false
 
-    when (this) {
+    when (classOrObject) {
         is KtEnumEntry -> {
-            val enumEntrySymbol = this.symbol
+            val enumEntrySymbol = classOrObject.symbol
             val classId = enumEntrySymbol.callableId?.classId ?: return false
             val enumClassSymbol = findClass(classId) ?: return false
             if (enumClassSymbol == superClassSymbol) return true
@@ -648,7 +387,7 @@ internal fun KtClassOrObject.checkIsInheritor(superClassOrigin: KtClassOrObject,
         }
 
         else -> {
-            val subClassSymbol = this.classSymbol
+            val subClassSymbol = classOrObject.classSymbol
 
             if (subClassSymbol == null || subClassSymbol == superClassSymbol) return false
 
@@ -661,12 +400,11 @@ internal fun KtClassOrObject.checkIsInheritor(superClassOrigin: KtClassOrObject,
     }
 }
 
-private val KaDeclarationSymbol.hasReifiedParameters: Boolean
+internal val KaDeclarationSymbol.hasReifiedParameters: Boolean
     get() = typeParameters.any { it.isReified }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun SymbolLightClassBase.addPropertyBackingFields(
+internal fun KaSession.addPropertyBackingFields(
+    lightClass: SymbolLightClassBase,
     result: MutableList<PsiField>,
     containerSymbol: KaDeclarationContainerSymbol,
     nameGenerator: SymbolLightField.FieldNameGenerator,
@@ -678,13 +416,14 @@ internal fun SymbolLightClassBase.addPropertyBackingFields(
             // All fields for companion object of classes are generated to the containing class
             // For interfaces, only @JvmField-annotated properties are generated to the containing class
             // Probably, the same should work for const vals but it doesn't at the moment (see KT-28294)
-            filter { containingClass?.isInterface == true && !it.isJvmField }
+            filter { lightClass.containingClass?.isInterface == true && !it.isJvmField }
         }
 
     val (ctorProperties, memberProperties) = propertySymbols.partition { it.isFromPrimaryConstructor }
     val isStatic = forceIsStaticTo ?: (containerSymbol is KaClassSymbol && containerSymbol.classKind.isObject)
     fun addPropertyBackingField(propertySymbol: KaPropertySymbol) {
         createAndAddField(
+            lightClass = lightClass,
             declaration = propertySymbol,
             nameGenerator = nameGenerator,
             isStatic = isStatic,
@@ -702,37 +441,35 @@ internal fun SymbolLightClassBase.addPropertyBackingFields(
  * @param suppressJvmNameCheck **true** if [hasJvmNameAnnotation] should be omitted.
  * E.g., if [JvmName] is checked manually later
  */
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal fun KaCallableSymbol.hasTypeForValueClassInSignature(
+internal fun KaSession.hasTypeForValueClassInSignature(
+    callableSymbol: KaCallableSymbol,
     ignoreReturnType: Boolean = false,
     suppressJvmNameCheck: Boolean = false,
 ): Boolean {
     // Declarations with JvmName can be accessible from Java
     when {
         suppressJvmNameCheck -> {}
-        hasJvmNameAnnotation() -> return false
-        this !is KaKotlinPropertySymbol -> {}
-        getter?.hasJvmNameAnnotation() == true || setter?.hasJvmNameAnnotation() == true -> return false
+        callableSymbol.hasJvmNameAnnotation() -> return false
+        callableSymbol !is KaKotlinPropertySymbol -> {}
+        callableSymbol.getter?.hasJvmNameAnnotation() == true || callableSymbol.setter?.hasJvmNameAnnotation() == true -> return false
     }
 
     if (!ignoreReturnType) {
-        val psiDeclaration = sourcePsiSafe<KtCallableDeclaration>()
-        if (psiDeclaration?.typeReference != null && returnType.typeForValueClass) return true
+        val psiDeclaration = callableSymbol.psi as? KtCallableDeclaration
+        // Only explicitly declared types can be checked to avoid contract violations
+        if (psiDeclaration?.typeReference != null && typeForValueClass(callableSymbol.returnType)) return true
     }
 
-    if (receiverType?.typeForValueClass == true) return true
-    if (this is KaFunctionSymbol) {
-        return valueParameters.any { it.returnType.typeForValueClass }
+    if (callableSymbol.receiverType?.let { typeForValueClass(it) } == true) return true
+    if (callableSymbol.contextParameters.any { typeForValueClass(it.returnType) }) return true
+    if (callableSymbol is KaFunctionSymbol) {
+        return callableSymbol.valueParameters.any { typeForValueClass(it.returnType) }
     }
 
     return false
 }
 
-context(KaSession)
-@Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-internal val KaType.typeForValueClass: Boolean
-    get() {
-        val symbol = expandedSymbol as? KaNamedClassSymbol ?: return false
-        return symbol.isInline
-    }
+internal fun KaSession.typeForValueClass(type: KaType): Boolean {
+    val symbol = type.expandedSymbol as? KaNamedClassSymbol ?: return false
+    return symbol.isInline
+}

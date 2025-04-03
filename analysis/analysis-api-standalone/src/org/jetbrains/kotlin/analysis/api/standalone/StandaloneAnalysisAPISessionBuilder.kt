@@ -13,6 +13,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiFile
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.concurrency.AppExecutorUtil
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.platform.KotlinPlatformSettings
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinAnnotationsResolverFactory
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinDeclarationProviderFactory
@@ -24,6 +26,7 @@ import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificatio
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinPackagePartProviderFactory
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinPackageProviderFactory
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinPackageProviderMerger
+import org.jetbrains.kotlin.analysis.api.platform.permissions.KotlinAnalysisPermissionOptions
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinByModulesResolutionScopeProvider
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinCompilerPluginsProvider
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinResolutionScopeProvider
@@ -37,16 +40,19 @@ import org.jetbrains.kotlin.analysis.api.standalone.base.modification.KotlinStan
 import org.jetbrains.kotlin.analysis.api.standalone.base.modification.KotlinStandaloneModificationTrackerFactory
 import org.jetbrains.kotlin.analysis.api.standalone.base.packages.KotlinStandalonePackageProviderFactory
 import org.jetbrains.kotlin.analysis.api.standalone.base.packages.KotlinStandalonePackageProviderMerger
+import org.jetbrains.kotlin.analysis.api.standalone.base.permissions.KotlinStandaloneAnalysisPermissionOptions
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.AnalysisApiSimpleServiceRegistrar
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.ApplicationServiceRegistration
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.FirStandaloneServiceRegistrar
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.KotlinStaticProjectStructureProvider
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.StandaloneProjectFactory
+import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.registerProjectExtensionPoints
+import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.registerProjectModelServices
+import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.registerProjectServices
 import org.jetbrains.kotlin.analysis.api.standalone.base.services.LLStandaloneFirElementByPsiElementChooser
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.services.LLFirElementByPsiElementChooser
 import org.jetbrains.kotlin.analysis.project.structure.builder.KtModuleProviderBuilder
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildProjectStructureProvider
-import org.jetbrains.kotlin.analysis.project.structure.impl.KaSourceModuleImpl
 import org.jetbrains.kotlin.analysis.project.structure.impl.buildKtModuleProviderByCompilerConfiguration
 import org.jetbrains.kotlin.analysis.project.structure.impl.getPsiFilesFromPaths
 import org.jetbrains.kotlin.analysis.project.structure.impl.getSourceFilePaths
@@ -64,7 +70,6 @@ import kotlin.contracts.contract
 public class StandaloneAnalysisAPISessionBuilder(
     projectDisposable: Disposable,
     unitTestMode: Boolean,
-    classLoader: ClassLoader = MockProject::class.java.classLoader
 ) {
     init {
         // We depend on swing (indirectly through PSI or something), so we want to declare headless mode,
@@ -79,7 +84,6 @@ public class StandaloneAnalysisAPISessionBuilder(
         StandaloneProjectFactory.createProjectEnvironment(
             projectDisposable,
             KotlinCoreApplicationEnvironmentMode.fromUnitTestModeFlag(unitTestMode),
-            classLoader = classLoader
         )
 
     private val serviceRegistrars = listOf(FirStandaloneServiceRegistrar, StandaloneSessionServiceRegistrar)
@@ -87,12 +91,7 @@ public class StandaloneAnalysisAPISessionBuilder(
     init {
         val application = kotlinCoreProjectEnvironment.environment.application
         ApplicationServiceRegistration.registerWithCustomRegistration(application, serviceRegistrars) {
-            // TODO (KT-68186): Passing the class loader explicitly is a workaround for KT-68186.
-            if (this is FirStandaloneServiceRegistrar) {
-                registerApplicationServicesWithCustomClassLoader(application, classLoader)
-            } else {
-                registerApplicationServices(application, data = Unit)
-            }
+            registerApplicationServices(application, data = Unit)
         }
     }
 
@@ -142,9 +141,9 @@ public class StandaloneAnalysisAPISessionBuilder(
     ) {
         val project = kotlinCoreProjectEnvironment.project
         project.apply {
-            serviceRegistrars.forEach { it.registerProjectServices(project) }
-            serviceRegistrars.forEach { it.registerProjectExtensionPoints(project) }
-            serviceRegistrars.forEach { it.registerProjectModelServices(project, kotlinCoreProjectEnvironment.parentDisposable) }
+            serviceRegistrars.registerProjectExtensionPoints(project, data = Unit)
+            serviceRegistrars.registerProjectServices(project, data = Unit)
+            serviceRegistrars.registerProjectModelServices(project, kotlinCoreProjectEnvironment.parentDisposable, data = Unit)
 
             registerService(KotlinModificationTrackerFactory::class.java, KotlinStandaloneModificationTrackerFactory::class.java)
             registerService(KotlinGlobalModificationService::class.java, KotlinStandaloneGlobalModificationService::class.java)
@@ -197,6 +196,7 @@ public class StandaloneAnalysisAPISessionBuilder(
         )
     }
 
+    @OptIn(KaExperimentalApi::class)
     public fun build(): StandaloneAnalysisAPISession {
         StandaloneProjectFactory.registerServicesForProjectEnvironment(
             kotlinCoreProjectEnvironment,
@@ -215,8 +215,7 @@ public class StandaloneAnalysisAPISessionBuilder(
         return StandaloneAnalysisAPISession(kotlinCoreProjectEnvironment) {
             projectStructureProvider.allModules.mapNotNull { ktModule ->
                 if (ktModule !is KaSourceModule) return@mapNotNull null
-                check(ktModule is KaSourceModuleImpl)
-                ktModule to ktModule.sourceRoots.filterIsInstance<PsiFile>()
+                ktModule to ktModule.psiRoots.filterIsInstance<PsiFile>()
             }.toMap()
         }
     }
@@ -232,8 +231,7 @@ public class StandaloneAnalysisAPISessionBuilder(
 internal object StandaloneSessionServiceRegistrar : AnalysisApiSimpleServiceRegistrar() {
     override fun registerApplicationServices(application: MockApplication) {
         application.apply {
-            // TODO (KT-68386): Re-enable once KT-68386 is fixed.
-            //registerService(KotlinAnalysisPermissionOptions::class.java, KotlinStandaloneAnalysisPermissionOptions::class.java)
+            registerService(KotlinAnalysisPermissionOptions::class.java, KotlinStandaloneAnalysisPermissionOptions::class.java)
         }
     }
 
@@ -251,7 +249,6 @@ internal object StandaloneSessionServiceRegistrar : AnalysisApiSimpleServiceRegi
 public inline fun buildStandaloneAnalysisAPISession(
     projectDisposable: Disposable = Disposer.newDisposable("StandaloneAnalysisAPISession.project"),
     unitTestMode: Boolean = false,
-    classLoader: ClassLoader = MockProject::class.java.classLoader,
     init: StandaloneAnalysisAPISessionBuilder.() -> Unit,
 ): StandaloneAnalysisAPISession {
     contract {
@@ -260,6 +257,24 @@ public inline fun buildStandaloneAnalysisAPISession(
     return StandaloneAnalysisAPISessionBuilder(
         projectDisposable,
         unitTestMode,
-        classLoader
     ).apply(init).build()
+}
+
+/**
+ * Disposes global resources which would persist after unloading Analysis API and IJ platform classes.
+ *
+ * **Important:** Once this function has been called, Analysis API *and* IntelliJ platform classes should not be used anymore. The classes
+ * should either be unloaded or the whole program should be shut down.
+ *
+ * You don't need to use this endpoint right before your program shuts down. The purpose of this function is rather to dispose global
+ * resources which would persist after unloading Analysis API and IJ platform classes. For example, an IJ platform class may be registered
+ * with a JDK class. If Analysis API & IJ platform classes are unloaded, this global registration may keep alive the old class loader.
+ *
+ * Note: Everything in Standalone is experimental, but this endpoint is likely to change in the *near future*. Please consult with the
+ * Analysis API team if you want to use this. (We'll want to know about your use case.)
+ */
+@Suppress("UnstableApiUsage")
+@KaExperimentalApi
+public fun disposeGlobalStandaloneApplicationServices() {
+    AppExecutorUtil.shutdownApplicationScheduledExecutorService()
 }

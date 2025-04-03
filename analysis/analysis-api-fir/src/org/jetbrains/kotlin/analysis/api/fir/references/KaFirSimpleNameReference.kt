@@ -44,8 +44,7 @@ internal class KaFirSimpleNameReference(
         return super<KaFirReference>.isReferenceToImportAlias(alias)
     }
 
-    override fun KaSession.resolveToSymbols(): Collection<KaSymbol> {
-        check(this is KaFirSession)
+    override fun KaFirSession.computeSymbols(): Collection<KaSymbol> {
         val results = FirReferenceResolveHelper.resolveSimpleNameReference(this@KaFirSimpleNameReference, this)
         //This fix-up needed to resolve annotation call into annotation constructor (but not into the annotation type)
         return fixUpAnnotationCallResolveToCtor(results)

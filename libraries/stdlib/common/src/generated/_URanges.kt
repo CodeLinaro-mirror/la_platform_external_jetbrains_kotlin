@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -279,10 +279,12 @@ public operator fun ULongRange.contains(value: UShort): Boolean {
 }
 
 /**
- * Returns a progression from this value down to the specified [to] value with the step -1.
+ * Returns a progression from this value down to and including the specified [to] value with the step -1.
  * 
  * The [to] value should be less than or equal to `this` value.
  * If the [to] value is greater than `this` value the returned progression is empty.
+ * 
+ * @sample samples.ranges.Ranges.downTo
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalUnsignedTypes::class)
@@ -291,10 +293,12 @@ public infix fun UByte.downTo(to: UByte): UIntProgression {
 }
 
 /**
- * Returns a progression from this value down to the specified [to] value with the step -1.
+ * Returns a progression from this value down to and including the specified [to] value with the step -1.
  * 
  * The [to] value should be less than or equal to `this` value.
  * If the [to] value is greater than `this` value the returned progression is empty.
+ * 
+ * @sample samples.ranges.Ranges.downTo
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalUnsignedTypes::class)
@@ -303,10 +307,12 @@ public infix fun UInt.downTo(to: UInt): UIntProgression {
 }
 
 /**
- * Returns a progression from this value down to the specified [to] value with the step -1.
+ * Returns a progression from this value down to and including the specified [to] value with the step -1.
  * 
  * The [to] value should be less than or equal to `this` value.
  * If the [to] value is greater than `this` value the returned progression is empty.
+ * 
+ * @sample samples.ranges.Ranges.downTo
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalUnsignedTypes::class)
@@ -315,10 +321,12 @@ public infix fun ULong.downTo(to: ULong): ULongProgression {
 }
 
 /**
- * Returns a progression from this value down to the specified [to] value with the step -1.
+ * Returns a progression from this value down to and including the specified [to] value with the step -1.
  * 
  * The [to] value should be less than or equal to `this` value.
  * If the [to] value is greater than `this` value the returned progression is empty.
+ * 
+ * @sample samples.ranges.Ranges.downTo
  */
 @SinceKotlin("1.5")
 @WasExperimental(ExperimentalUnsignedTypes::class)

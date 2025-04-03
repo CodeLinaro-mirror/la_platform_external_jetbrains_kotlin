@@ -35,6 +35,7 @@ val (nativeInteropRuntimeSourceSet, nativeInteropRuntimeApi) = extraSourceSet("n
 
 dependencies {
     api(kotlinStdlib("jdk8"))
+    api(project(":core:util.runtime"))
     api(intellijPlatformUtil()) {
         exclude(module = "annotations")
     }
@@ -54,11 +55,10 @@ dependencies {
     testApi(protobufSourceSet.output)
     testApi(protobufCompareSourceSet.output)
 
-    testApi(projectTests(":compiler:cli"))
+    testApi(project(":compiler:cli"))
     testApi(projectTests(":compiler:incremental-compilation-impl"))
     testApi(projectTests(":plugins:jvm-abi-gen"))
     testApi(projectTests(":plugins:parcelize:parcelize-compiler"))
-    testApi(projectTests(":kotlin-annotation-processing-compiler"))
     testApi(projectTests(":kotlin-annotation-processing-cli"))
     testApi(projectTests(":kotlin-annotation-processing"))
     testApi(projectTests(":kotlin-allopen-compiler-plugin"))

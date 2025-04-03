@@ -15,6 +15,7 @@ import com.intellij.pom.tree.TreeAspect
 import com.intellij.psi.impl.source.tree.TreeCopyHandler
 import org.jetbrains.kotlin.ObsoleteTestInfrastructure
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.cli.common.disposeRootInWriteAction
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
@@ -45,6 +46,7 @@ import org.jetbrains.kotlin.test.*
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.isCompatibleTarget
 import org.jetbrains.kotlin.test.InTextDirectivesUtils.isDirectiveDefined
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
+import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertFalse
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
@@ -188,12 +190,7 @@ private class ExtTestDataFile(
         ) {
             args.add("-Xverify-ir-visibility")
         }
-        if (CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING in structure.directives ||
-            CodegenTestDirectives.ENABLE_IR_VISIBILITY_CHECKS_AFTER_INLINING in defaultDirectives
-        ) {
-            args.add("-Xverify-ir-visibility-after-inlining")
-        }
-        args += "-opt-in=kotlin.native.internal.InternalForKotlinNative" // for `Any.isPermanent()` and `Any.isLocal()`
+        args += "-opt-in=kotlin.native.internal.InternalForKotlinNative" // for `Any.isPermanent()` and `Any.isStack()`
         args += "-opt-in=kotlin.native.internal.InternalForKotlinNativeTests" // for ReflectionPackageName
         val freeCInteropArgs = structure.directives.listValues(FREE_CINTEROP_ARGS.name)
             .orEmpty().flatMap { it.split(" ") }
@@ -919,7 +916,7 @@ internal fun Settings.isIgnoredTarget(testDataFile: File): Boolean {
         val extTestDataFileStructure = ExtTestDataFileStructureFactory(disposable).ExtTestDataFileStructure(testDataFile, emptyList())
         return isIgnoredTarget(extTestDataFileStructure.directives)
     } finally {
-        Disposer.dispose(disposable)
+        disposeRootInWriteAction(disposable)
     }
 }
 

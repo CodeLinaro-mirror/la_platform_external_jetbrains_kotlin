@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.isNullable
 
 sealed class Stability {
     // class Foo(val bar: Int)
@@ -296,6 +297,10 @@ class StabilityInferencer(
             }
         }
 
+        declaration.superClass?.let {
+            stability += stabilityOf(it, substitutions, analyzing)
+        }
+
         return stability
     }
 
@@ -365,12 +370,14 @@ class StabilityInferencer(
                     type.isString() -> Stability.Stable
 
             type.isTypeParameter() -> {
-                val arg = substitutions[type.classifierOrNull as IrTypeParameterSymbol]
-                if (arg != null) {
-                    stabilityOf(arg, substitutions, currentlyAnalyzing)
+                val classifier = type.classifierOrFail
+                val arg = substitutions[classifier]
+                val symbol = SymbolForAnalysis(classifier, emptyList())
+                if (arg != null && symbol !in currentlyAnalyzing) {
+                    stabilityOf(arg, substitutions, currentlyAnalyzing + symbol)
                 } else {
                     Stability.Parameter(
-                        type.classifierOrFail.owner as IrTypeParameter
+                        classifier.owner as IrTypeParameter
                     )
                 }
             }
@@ -431,9 +438,9 @@ class StabilityInferencer(
             null -> baseStability
             0 -> Stability.Stable
             else -> Stability.Combined(
-                (0 until expr.typeArgumentsCount).mapNotNull { index ->
+                expr.typeArguments.indices.mapNotNull { index ->
                     if (mask and (0b1 shl index) != 0) {
-                        val sub = expr.getTypeArgument(index)
+                        val sub = expr.typeArguments[index]
                         if (sub != null)
                             stabilityOf(sub)
                         else

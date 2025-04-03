@@ -5,8 +5,6 @@
 
 package org.jetbrains.kotlin.backend.wasm
 
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfigBuilder
-import org.jetbrains.kotlin.backend.common.phaser.toPhaseMap
 import org.jetbrains.kotlin.backend.wasm.ic.WasmIrProgramFragments
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.WasmModuleMetadataCache
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.compileIrFile
@@ -15,8 +13,8 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.WholeWorldStageController
-import org.jetbrains.kotlin.ir.backend.js.ic.IrICProgramFragments
 import org.jetbrains.kotlin.ir.backend.js.ic.IrCompilerICInterface
+import org.jetbrains.kotlin.ir.backend.js.ic.IrICProgramFragments
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.name.FqName
@@ -29,6 +27,7 @@ open class WasmCompilerWithIC(
     configuration: CompilerConfiguration,
     private val allowIncompleteImplementations: Boolean,
     private val safeFragmentTags: Boolean,
+    private val skipCommentInstructions: Boolean,
 ) : IrCompilerICInterface {
     val context: WasmBackendContext
     private val idSignatureRetriever: IdSignatureRetriever
@@ -66,25 +65,20 @@ open class WasmCompilerWithIC(
                 idSignatureRetriever,
                 wasmModuleMetadataCache,
                 allowIncompleteImplementations,
-                if (safeFragmentTags) "${irFile.module.name.asString()}${irFile.path}" else null
+                if (safeFragmentTags) "${irFile.module.name.asString()}${irFile.path}" else null,
+                skipCommentInstructions = skipCommentInstructions,
             )
         )
     }
 
     override fun compile(allModules: Collection<IrModuleFragment>, dirtyFiles: Collection<IrFile>): List<() -> IrICProgramFragments> {
-        val wasmPhases = getWasmPhases(true)
-        val phaseConfig = PhaseConfigBuilder(wasmPhases).also { lowerings ->
-            lowerings.enabled.addAll(wasmPhases.toPhaseMap().values)
-        }.build()
-
         //TODO: Lower only needed files but not all loaded by IrLoader KT-71041
 
         lowerPreservingTags(
             allModules,
             context,
-            phaseConfig,
             context.irFactory.stageController as WholeWorldStageController,
-            isIncremental = true
+            isIncremental = true,
         )
 
         return dirtyFiles.map { { compileIrFile(it) } }
@@ -97,7 +91,14 @@ class WasmCompilerWithICForTesting(
     configuration: CompilerConfiguration,
     allowIncompleteImplementations: Boolean,
     safeFragmentTags: Boolean = false,
-) : WasmCompilerWithIC(mainModule, irBuiltIns, configuration, allowIncompleteImplementations, safeFragmentTags) {
+) : WasmCompilerWithIC(
+    mainModule,
+    irBuiltIns,
+    configuration,
+    allowIncompleteImplementations,
+    safeFragmentTags,
+    skipCommentInstructions = false
+) {
     override fun compile(allModules: Collection<IrModuleFragment>, dirtyFiles: Collection<IrFile>): List<() -> IrICProgramFragments> {
         val testFile = dirtyFiles.firstOrNull { file ->
             file.declarations.any { declaration -> declaration is IrFunction && declaration.name.asString() == "box" }

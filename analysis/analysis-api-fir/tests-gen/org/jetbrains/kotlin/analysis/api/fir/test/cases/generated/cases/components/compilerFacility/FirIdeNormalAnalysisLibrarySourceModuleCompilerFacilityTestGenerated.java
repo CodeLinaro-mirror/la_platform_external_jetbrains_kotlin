@@ -59,6 +59,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
   }
 
   @Test
+  @TestMetadata("commonSimple.kt")
+  public void testCommonSimple() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonSimple.kt");
+  }
+
+  @Test
   @TestMetadata("commonUsage.kt")
   public void testCommonUsage() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonUsage.kt");
@@ -122,6 +128,24 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
   @TestMetadata("internalUsage.kt")
   public void testInternalUsage() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/internalUsage.kt");
+  }
+
+  @Test
+  @TestMetadata("intertwinedInline.kt")
+  public void testIntertwinedInline() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/intertwinedInline.kt");
+  }
+
+  @Test
+  @TestMetadata("intertwinedInline2.kt")
+  public void testIntertwinedInline2() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/intertwinedInline2.kt");
+  }
+
+  @Test
+  @TestMetadata("intertwinedInlineCommon.kt")
+  public void testIntertwinedInlineCommon() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/intertwinedInlineCommon.kt");
   }
 
   @Test
@@ -194,6 +218,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
     }
 
     @Test
+    @TestMetadata("annotatedEnumEntry.kt")
+    public void testAnnotatedEnumEntry() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/annotatedEnumEntry.kt");
+    }
+
+    @Test
     @TestMetadata("annotationUsage.kt")
     public void testAnnotationUsage() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/annotationUsage.kt");
@@ -203,6 +233,18 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
     @TestMetadata("commonContext.kt")
     public void testCommonContext() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonContext.kt");
+    }
+
+    @Test
+    @TestMetadata("commonContextInline.kt")
+    public void testCommonContextInline() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonContextInline.kt");
+    }
+
+    @Test
+    @TestMetadata("commonContextJvmCall.kt")
+    public void testCommonContextJvmCall() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonContextJvmCall.kt");
     }
 
     @Test
@@ -266,6 +308,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
     }
 
     @Test
+    @TestMetadata("inlineChain.kt")
+    public void testInlineChain() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineChain.kt");
+    }
+
+    @Test
     @TestMetadata("inlineFunctionUsage.kt")
     public void testInlineFunctionUsage() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineFunctionUsage.kt");
@@ -275,6 +323,12 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
     @TestMetadata("inlineFunctionUsageSource.kt")
     public void testInlineFunctionUsageSource() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineFunctionUsageSource.kt");
+    }
+
+    @Test
+    @TestMetadata("inlinedLambda.kt")
+    public void testInlinedLambda() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlinedLambda.kt");
     }
 
     @Test
@@ -383,9 +437,33 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
       }
 
       @Test
+      @TestMetadata("fromExtensionGetterAnother.kt")
+      public void testFromExtensionGetterAnother() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/fromExtensionGetterAnother.kt");
+      }
+
+      @Test
+      @TestMetadata("fromExtensionGetterRecursive.kt")
+      public void testFromExtensionGetterRecursive() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/fromExtensionGetterRecursive.kt");
+      }
+
+      @Test
       @TestMetadata("initializer.kt")
       public void testInitializer() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/initializer.kt");
+      }
+
+      @Test
+      @TestMetadata("jvmNameConstEvaluation.kt")
+      public void testJvmNameConstEvaluation() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/jvmNameConstEvaluation.kt");
+      }
+
+      @Test
+      @TestMetadata("JvmNameConstEvaluationBadName.kt")
+      public void testJvmNameConstEvaluationBadName() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/JvmNameConstEvaluationBadName.kt");
       }
 
       @Test

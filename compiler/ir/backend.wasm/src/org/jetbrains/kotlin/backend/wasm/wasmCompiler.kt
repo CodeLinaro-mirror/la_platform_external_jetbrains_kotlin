@@ -5,18 +5,17 @@
 
 package org.jetbrains.kotlin.backend.wasm
 
+import org.jetbrains.kotlin.backend.common.IrModuleInfo
 import org.jetbrains.kotlin.backend.common.linkage.issues.checkNoUnboundSymbols
-import org.jetbrains.kotlin.backend.common.phaser.PhaseConfig
-import org.jetbrains.kotlin.backend.common.phaser.PhaserState
+import org.jetbrains.kotlin.config.phaser.PhaserState
 import org.jetbrains.kotlin.backend.wasm.export.ExportModelGenerator
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.*
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.WasmCompiledModuleFragment.JsCodeSnippet
 import org.jetbrains.kotlin.backend.wasm.lower.JsInteropFunctionsLowering
 import org.jetbrains.kotlin.backend.wasm.lower.markExportedDeclarations
+import org.jetbrains.kotlin.backend.wasm.utils.DwarfGenerator
 import org.jetbrains.kotlin.backend.wasm.utils.SourceMapGenerator
-import org.jetbrains.kotlin.cli.common.CommonCompilerPerformanceManager
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.ir.backend.js.IrModuleInfo
 import org.jetbrains.kotlin.ir.backend.js.MainModule
 import org.jetbrains.kotlin.ir.backend.js.WholeWorldStageController
 import org.jetbrains.kotlin.ir.backend.js.export.ExportModelToTsDeclarations
@@ -24,15 +23,18 @@ import org.jetbrains.kotlin.ir.backend.js.export.TypeScriptFragment
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
+import org.jetbrains.kotlin.js.common.isValidES5Identifier
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.serialization.js.ModuleKind
+import org.jetbrains.kotlin.util.PerformanceManager
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.ir.*
 import org.jetbrains.kotlin.wasm.ir.convertors.WasmIrToBinary
 import org.jetbrains.kotlin.wasm.ir.convertors.WasmIrToText
+import org.jetbrains.kotlin.wasm.ir.debug.DebugInformationGeneratorImpl
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
@@ -63,8 +65,7 @@ fun compileToLoweredIr(
     irModuleInfo: IrModuleInfo,
     mainModule: MainModule,
     configuration: CompilerConfiguration,
-    performanceManager: CommonCompilerPerformanceManager?,
-    phaseConfig: PhaseConfig,
+    performanceManager: PerformanceManager?,
     exportedDeclarations: Set<FqName> = emptySet(),
     generateTypeScriptFragment: Boolean,
     propertyLazyInitialization: Boolean,
@@ -105,9 +106,8 @@ fun compileToLoweredIr(
     lowerPreservingTags(
         allModules,
         context,
-        phaseConfig,
         context.irFactory.stageController as WholeWorldStageController,
-        isIncremental = false
+        isIncremental = false,
     )
 
     performanceManager?.notifyIRLoweringFinished()
@@ -118,20 +118,19 @@ fun compileToLoweredIr(
 fun lowerPreservingTags(
     modules: Iterable<IrModuleFragment>,
     context: WasmBackendContext,
-    phaseConfig: PhaseConfig,
     controller: WholeWorldStageController,
-    isIncremental: Boolean
+    isIncremental: Boolean,
 ) {
     // Lower all the things
     controller.currentStage = 0
 
-    val phaserState = PhaserState<IrModuleFragment>()
-    val wasmLowerings = getWasmLowerings(isIncremental)
+    val phaserState = PhaserState()
+    val wasmLowerings = getWasmLowerings(context.configuration, isIncremental)
 
     wasmLowerings.forEachIndexed { i, lowering ->
         controller.currentStage = i + 1
         modules.forEach { module ->
-            lowering.invoke(phaseConfig, phaserState, context, module)
+            lowering.invoke(context.phaseConfig, phaserState, context, module)
         }
     }
 
@@ -147,7 +146,8 @@ fun compileWasm(
     emitNameSection: Boolean = false,
     generateWat: Boolean = false,
     generateSourceMaps: Boolean = false,
-    useDebuggerCustomFormatters: Boolean = false
+    useDebuggerCustomFormatters: Boolean = false,
+    generateDwarf: Boolean = false
 ): WasmCompilerResult {
     val useJsTag = configuration.getBoolean(WasmConfigurationKeys.WASM_USE_JS_TAG)
     val isWasmJsTarget = configuration.get(WasmConfigurationKeys.WASM_TARGET) != WasmTarget.WASI
@@ -162,6 +162,9 @@ fun compileWasm(
 
     val linkedModule = wasmCompiledModuleFragment.linkWasmCompiledFragments()
 
+    val dwarfGeneratorForBinary = runIf(generateDwarf) {
+        DwarfGenerator()
+    }
     val sourceMapGeneratorForBinary = runIf(generateSourceMaps) {
         SourceMapGenerator("$baseFileName.wasm", configuration)
     }
@@ -185,7 +188,10 @@ fun compileWasm(
             linkedModule,
             moduleName,
             emitNameSection,
-            sourceMapGeneratorForBinary
+            DebugInformationGeneratorImpl(
+                sourceMapGenerator = sourceMapGeneratorForBinary,
+                dwarfGenerator = dwarfGeneratorForBinary,
+            )
         )
 
     wasmIrToBinary.appendWasmModule()
@@ -499,20 +505,46 @@ fun generateExports(exports: List<WasmExport<*>>): String {
     // TODO: necessary to move export check onto common place
     val exportNames = exports
         .filterNot { it.name.startsWith(JsInteropFunctionsLowering.CALL_FUNCTION) }
+
+    val (validIdentifiers, notValidIdentifiers) = exportNames.partition { it.name.isValidES5Identifier() }
+    val regularlyExportedVariables = validIdentifiers
         .ifNotEmpty {
-            joinToString(",\n") {
-                "    ${it.name}"
-            }
-        }?.let {
+            """
+            |export const {
+                |${joinToString(",\n") { it.name }}
+            |} = exports
+            """.trimMargin()
+        }
+        .orEmpty()
+
+    val escapedExportedVariables = notValidIdentifiers
+        .mapIndexed { index, it ->
+            generateShortNameByIndex(index) to it.name.replace("'", "\\'")
+        }
+        .ifNotEmpty {
+            /*language=js */
             """
             |const {
-                |$it
+                |${joinToString(",\n") { "'${it.second}': ${it.first}" }}
+            |} = exports
+            |
+            |export {
+                |${joinToString(",\n") { "${it.first} as '${it.second}'" }}
             |}
-        """.trimMargin()
+            """.trimMargin()
         }
+        .orEmpty()
 
     /*language=js */
     return """
-${exportNames?.let { "export $it = exports;" }}
+$regularlyExportedVariables
+$escapedExportedVariables
 """
+}
+
+private fun generateShortNameByIndex(index: Int): String {
+    val lettersNumber = 26
+    val letterName = ('a'.code + index % lettersNumber).toChar()
+    val number = index / lettersNumber
+    return if (number == 0) letterName.toString() else "$letterName$number"
 }

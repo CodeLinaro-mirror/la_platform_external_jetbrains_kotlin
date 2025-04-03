@@ -1,8 +1,8 @@
+// RUN_PIPELINE_TILL: FRONTEND
 // LANGUAGE: +ValueClasses
 // WITH_STDLIB
 // SKIP_TXT
 // WORKS_WHEN_VALUE_CLASS
-// FIR_IDENTICAL
 
 import kotlin.reflect.KProperty
 

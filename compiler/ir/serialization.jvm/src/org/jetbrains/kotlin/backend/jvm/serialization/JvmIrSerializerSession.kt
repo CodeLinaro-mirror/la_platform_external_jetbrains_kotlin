@@ -13,12 +13,12 @@ import org.jetbrains.kotlin.config.JvmSerializeIrMode
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitor
+import org.jetbrains.kotlin.ir.visitors.IrVisitor
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.synthetic.isVisibleOutside
 
 class JvmIrSerializerSession(
-    declarationTable: DeclarationTable,
+    declarationTable: DeclarationTable.Default,
     private val mode: JvmSerializeIrMode,
     private val fileClassFqName: FqName,
     languageVersionSettings: LanguageVersionSettings,
@@ -51,6 +51,7 @@ class JvmIrSerializerSession(
 
         serializeAuxTables(proto)
         proto.fileFacadeFqName = fileClassFqName.asString()
+        protoIrFileEntryArray.forEach(proto::addFileEntry)
 
         return proto.build()
     }
@@ -64,12 +65,13 @@ class JvmIrSerializerSession(
         }
         serializeAuxTables(proto)
         proto.fileFacadeFqName = fileClassFqName.asString()
+        protoIrFileEntryArray.forEach(proto::addFileEntry)
 
         return proto.build()
     }
 
     private fun serializeAuxTables(proto: JvmIr.ClassOrFile.Builder) {
-        protoTypeArray.forEach(proto::addType)
+        protoTypeArray.protoTypes.forEach(proto::addType)
         protoIdSignatureArray.forEach(proto::addSignature)
         protoStringArray.forEach(proto::addString)
         protoBodyArray.forEach { proto.addBody(it.toProto()) }
@@ -91,7 +93,7 @@ private fun forEveryDeclarationToSerialize(topDeclaration: IrDeclaration, mode: 
     }
 }
 
-private object ForVisibleInlineFunctionsVisitor : IrElementVisitor<Unit, (IrDeclaration) -> Unit> {
+private object ForVisibleInlineFunctionsVisitor : IrVisitor<Unit, (IrDeclaration) -> Unit>() {
     override fun visitElement(element: IrElement, data: (IrDeclaration) -> Unit) {
         error("Visitor only for nonlocal declarations")
     }

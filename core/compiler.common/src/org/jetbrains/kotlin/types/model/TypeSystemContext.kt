@@ -101,7 +101,8 @@ interface TypeSystemTypeFactoryContext: TypeSystemBuiltInsContext {
 interface TypeCheckerProviderContext {
     fun newTypeCheckerState(
         errorTypesEqualToAnything: Boolean,
-        stubTypesEqualToAnything: Boolean
+        stubTypesEqualToAnything: Boolean,
+        dnnTypesEqualToFlexible: Boolean = false,
     ): TypeCheckerState
 }
 
@@ -249,7 +250,7 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
     /**
      * Only for K2
      */
-    fun KotlinTypeMarker.getUpperBoundForApproximationOfIntersectionType() : KotlinTypeMarker? = null
+    fun RigidTypeMarker.getUpperBoundForApproximationOfIntersectionType() : KotlinTypeMarker? = null
 
     fun KotlinTypeMarker.isSpecial(): Boolean
 
@@ -338,8 +339,7 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
         val superType = intersectTypes(
             typesForRecursiveTypeParameters.map { type ->
                 type.replaceArgumentsDeeply {
-                    val constructor = it.getType()?.typeConstructor()
-                    if (constructor is TypeVariableTypeConstructorMarker && constructor == typeVariable) starProjection else it
+                    if (it.getType()?.typeConstructor() == typeVariable) starProjection else it
                 }
             }
         )

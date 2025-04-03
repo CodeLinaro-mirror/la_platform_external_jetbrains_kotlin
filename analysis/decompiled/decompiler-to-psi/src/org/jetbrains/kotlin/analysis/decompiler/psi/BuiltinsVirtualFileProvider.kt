@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.analysis.decompiler.psi
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFile
@@ -31,12 +32,9 @@ abstract class BuiltinsVirtualFileProvider {
 abstract class BuiltinsVirtualFileProviderBaseImpl : BuiltinsVirtualFileProvider() {
     private val builtInUrls: Set<URL> by lazy {
         val classLoader = this::class.java.classLoader
-        StandardClassIds.builtInsPackages.mapTo(mutableSetOf()) { builtInPackageFqName ->
+        StandardClassIds.builtInsPackages.mapNotNullTo(mutableSetOf()) { builtInPackageFqName ->
             val resourcePath = BuiltInSerializerProtocol.getBuiltInsFilePath(builtInPackageFqName)
             classLoader.getResource(resourcePath)
-                ?: errorWithAttachment("Resource for builtin $builtInPackageFqName not found") {
-                    withEntry("resourcePath", resourcePath)
-                }
         }
     }
 
@@ -47,11 +45,12 @@ abstract class BuiltinsVirtualFileProviderBaseImpl : BuiltinsVirtualFileProvider
 
     protected abstract fun findVirtualFile(url: URL): VirtualFile?
 
-    override fun getBuiltinVirtualFiles(): Set<VirtualFile> = builtInUrls.mapTo(mutableSetOf()) { url ->
-        findVirtualFile(url)
-            ?: errorWithAttachment("Virtual file for builtin is not found") {
-                withEntry("resourceUrl", url) { it.toString() }
-            }
+    override fun getBuiltinVirtualFiles(): Set<VirtualFile> = builtInUrls.mapNotNullTo(mutableSetOf()) { url ->
+        val file = findVirtualFile(url)
+        if (file == null) {
+            logger<BuiltinsVirtualFileProvider>().warn("VirtualFile not found for builtin $url")
+        }
+        file
     }
 }
 

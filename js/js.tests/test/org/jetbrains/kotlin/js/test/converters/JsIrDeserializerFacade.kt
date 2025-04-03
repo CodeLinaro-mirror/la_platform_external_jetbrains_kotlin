@@ -5,24 +5,20 @@
 
 package org.jetbrains.kotlin.js.test.converters
 
+import org.jetbrains.kotlin.backend.common.IrModuleInfo
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContextImpl
 import org.jetbrains.kotlin.backend.common.serialization.signature.IdSignatureDescriptor
+import org.jetbrains.kotlin.backend.common.serialization.sortDependencies
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
-import org.jetbrains.kotlin.ir.backend.js.IrModuleInfo
 import org.jetbrains.kotlin.ir.backend.js.WholeWorldStageController
 import org.jetbrains.kotlin.ir.backend.js.getIrModuleInfoForKlib
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerDesc
-import org.jetbrains.kotlin.ir.backend.js.sortDependencies
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImplForJsIC
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageConfig
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageLogLevel
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageMode
-import org.jetbrains.kotlin.ir.linkage.partial.setupPartialLinkageConfig
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.library.uniqueName
 import org.jetbrains.kotlin.psi2ir.generators.TypeTranslatorImpl
@@ -34,6 +30,7 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.getDependencies
+import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.libraryProvider
 
 class JsIrDeserializerFacade(
@@ -41,15 +38,12 @@ class JsIrDeserializerFacade(
     private val firstTimeCompilation: Boolean = true,
 ) : DeserializerFacade<BinaryArtifacts.KLib, IrBackendInput>(testServices, ArtifactKinds.KLib, BackendKinds.IrBackend) {
 
-    override fun shouldRunAnalysis(module: TestModule): Boolean {
-        return module.backendKind == outputKind
+    override fun shouldTransform(module: TestModule): Boolean {
+        return testServices.defaultsProvider.backendKind == outputKind
     }
 
     override fun transform(module: TestModule, inputArtifact: BinaryArtifacts.KLib): IrBackendInput? {
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
-
-        // Enforce PL with the ERROR log level to fail any tests where PL detected any incompatibilities.
-        configuration.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.ERROR))
 
         val (moduleInfo, pluginContext) = loadIrFromKlib(module, configuration)
         val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
@@ -93,7 +87,7 @@ class JsIrDeserializerFacade(
             typeTranslator = TypeTranslatorImpl(symbolTable, configuration.languageVersionSettings, moduleDescriptor),
             irBuiltIns = moduleInfo.bultins,
             linker = moduleInfo.deserializer,
-            diagnosticReporter = messageCollector,
+            messageCollector = messageCollector,
         )
 
         return moduleInfo to pluginContext

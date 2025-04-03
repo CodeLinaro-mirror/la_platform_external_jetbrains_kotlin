@@ -25,6 +25,24 @@ public class LibraryGetOrBuildFirTestGenerated extends AbstractLibraryGetOrBuild
   }
 
   @Test
+  @TestMetadata("composeAnnotation.kt")
+  public void testComposeAnnotation() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/composeAnnotation.kt");
+  }
+
+  @Test
+  @TestMetadata("contextParameters.kt")
+  public void testContextParameters() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/contextParameters.kt");
+  }
+
+  @Test
+  @TestMetadata("contextReceivers.kt")
+  public void testContextReceivers() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/contextReceivers.kt");
+  }
+
+  @Test
   @TestMetadata("dataClass.kt")
   public void testDataClass() {
     runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/dataClass.kt");
@@ -34,6 +52,12 @@ public class LibraryGetOrBuildFirTestGenerated extends AbstractLibraryGetOrBuild
   @TestMetadata("delegate.kt")
   public void testDelegate() {
     runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/delegate.kt");
+  }
+
+  @Test
+  @TestMetadata("dnnType.kt")
+  public void testDnnType() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/dnnType.kt");
   }
 
   @Test
@@ -55,9 +79,189 @@ public class LibraryGetOrBuildFirTestGenerated extends AbstractLibraryGetOrBuild
   }
 
   @Test
+  @TestMetadata("implicitFlexibleDnnType.kt")
+  public void testImplicitFlexibleDnnType() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/implicitFlexibleDnnType.kt");
+  }
+
+  @Test
+  @TestMetadata("multiFieldValueClass.kt")
+  public void testMultiFieldValueClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multiFieldValueClass.kt");
+  }
+
+  @Test
+  @TestMetadata("multiFieldValueClassWithTypeAlias.kt")
+  public void testMultiFieldValueClassWithTypeAlias() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multiFieldValueClassWithTypeAlias.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeFunction.kt")
+  public void testMultifileFacadeFunction() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeFunctionInherit.kt")
+  public void testMultifileFacadeFunctionInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeFunctionInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeFunctionPart.kt")
+  public void testMultifileFacadeFunctionPart() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeFunctionPart.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeFunctionPartInherit.kt")
+  public void testMultifileFacadeFunctionPartInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeFunctionPartInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalFunction.kt")
+  public void testMultifileFacadeInternalFunction() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalFunctionInherit.kt")
+  public void testMultifileFacadeInternalFunctionInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalFunctionInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalFunctionPart.kt")
+  public void testMultifileFacadeInternalFunctionPart() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalFunctionPart.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalFunctionPartInherit.kt")
+  public void testMultifileFacadeInternalFunctionPartInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalFunctionPartInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalVariable.kt")
+  public void testMultifileFacadeInternalVariable() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalVariable.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalVariableInherit.kt")
+  public void testMultifileFacadeInternalVariableInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalVariableInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalVariablePart.kt")
+  public void testMultifileFacadeInternalVariablePart() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalVariablePart.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeInternalVariablePartInherit.kt")
+  public void testMultifileFacadeInternalVariablePartInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeInternalVariablePartInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateFunction.kt")
+  public void testMultifileFacadePrivateFunction() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateFunctionInherit.kt")
+  public void testMultifileFacadePrivateFunctionInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateFunctionInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateFunctionPart.kt")
+  public void testMultifileFacadePrivateFunctionPart() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateFunctionPart.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateFunctionPartInherit.kt")
+  public void testMultifileFacadePrivateFunctionPartInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateFunctionPartInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateVariable.kt")
+  public void testMultifileFacadePrivateVariable() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateVariable.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateVariableInherit.kt")
+  public void testMultifileFacadePrivateVariableInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateVariableInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateVariablePart.kt")
+  public void testMultifileFacadePrivateVariablePart() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateVariablePart.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadePrivateVariablePartInherit.kt")
+  public void testMultifileFacadePrivateVariablePartInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadePrivateVariablePartInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeVariable.kt")
+  public void testMultifileFacadeVariable() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeVariable.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeVariableInherit.kt")
+  public void testMultifileFacadeVariableInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeVariableInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeVariablePart.kt")
+  public void testMultifileFacadeVariablePart() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeVariablePart.kt");
+  }
+
+  @Test
+  @TestMetadata("multifileFacadeVariablePartInherit.kt")
+  public void testMultifileFacadeVariablePartInherit() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/multifileFacadeVariablePartInherit.kt");
+  }
+
+  @Test
+  @TestMetadata("nestedValueClass.kt")
+  public void testNestedValueClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/nestedValueClass.kt");
+  }
+
+  @Test
   @TestMetadata("parameter.kt")
   public void testParameter() {
     runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/parameter.kt");
+  }
+
+  @Test
+  @TestMetadata("parameterNullableSuspendLambda.kt")
+  public void testParameterNullableSuspendLambda() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/parameterNullableSuspendLambda.kt");
+  }
+
+  @Test
+  @TestMetadata("parameterSuspendLambda.kt")
+  public void testParameterSuspendLambda() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/parameterSuspendLambda.kt");
   }
 
   @Test
@@ -100,6 +304,60 @@ public class LibraryGetOrBuildFirTestGenerated extends AbstractLibraryGetOrBuild
   @TestMetadata("typeParameter.kt")
   public void testTypeParameter() {
     runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/typeParameter.kt");
+  }
+
+  @Test
+  @TestMetadata("typealiasUnsignedConst.kt")
+  public void testTypealiasUnsignedConst() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/typealiasUnsignedConst.kt");
+  }
+
+  @Test
+  @TestMetadata("unsignedConst.kt")
+  public void testUnsignedConst() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/unsignedConst.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithAnotherValueClass.kt")
+  public void testValueClassWithAnotherValueClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/valueClassWithAnotherValueClass.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithMultiFieldValueClass.kt")
+  public void testValueClassWithMultiFieldValueClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/valueClassWithMultiFieldValueClass.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithNestedClass.kt")
+  public void testValueClassWithNestedClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/valueClassWithNestedClass.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithNullableMultiFieldValueClass.kt")
+  public void testValueClassWithNullableMultiFieldValueClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/valueClassWithNullableMultiFieldValueClass.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithParameterizedAlias.kt")
+  public void testValueClassWithParameterizedAlias() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/valueClassWithParameterizedAlias.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithTypeAliasOnAnotherValueClass.kt")
+  public void testValueClassWithTypeAliasOnAnotherValueClass() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/valueClassWithTypeAliasOnAnotherValueClass.kt");
+  }
+
+  @Test
+  @TestMetadata("varargAndFunctionalType.kt")
+  public void testVarargAndFunctionalType() {
+    runTest("analysis/low-level-api-fir/testData/getOrBuildFirBinary/varargAndFunctionalType.kt");
   }
 
   @Nested

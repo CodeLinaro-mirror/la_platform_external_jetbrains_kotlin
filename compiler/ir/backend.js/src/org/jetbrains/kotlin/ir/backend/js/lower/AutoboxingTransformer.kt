@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
@@ -24,9 +25,9 @@ import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
 import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.util.isPrimitiveArray
 import org.jetbrains.kotlin.ir.util.patchDeclarationParents
-import org.jetbrains.kotlin.ir.util.render
 
 
 // Copied and adapted from Kotlin/Native
@@ -68,24 +69,16 @@ abstract class AbstractValueUsageLowering(
     private val IrCall.callTarget: IrFunction
         get() = symbol.owner.realOverrideTarget
 
-
-    override fun IrExpression.useAsDispatchReceiver(expression: IrFunctionAccessExpression): IrExpression {
-        return if (expression.symbol.owner.dispatchReceiverParameter?.let { icUtils.shouldValueParameterBeBoxed(it) } == true)
-            this.useAs(irBuiltIns.anyType)
-        else
-            this.useAsArgument(expression.target.dispatchReceiverParameter!!)
-    }
-
-    override fun IrExpression.useAsExtensionReceiver(expression: IrFunctionAccessExpression): IrExpression {
-        return this.useAsArgument(expression.target.extensionReceiverParameter!!)
-    }
-
     override fun IrExpression.useAsValueArgument(
         expression: IrFunctionAccessExpression,
         parameter: IrValueParameter
     ): IrExpression {
-
-        return this.useAsArgument(expression.target.valueParameters[parameter.index])
+        return if (parameter.kind == IrParameterKind.DispatchReceiver &&
+            expression.symbol.owner.dispatchReceiverParameter?.let { icUtils.shouldValueParameterBeBoxed(it) } == true
+        )
+            this.useAs(irBuiltIns.anyType)
+        else
+            this.useAsValue(expression.target.parameters[parameter.indexInParameters])
     }
 
     override fun useAsVarargElement(element: IrExpression, expression: IrVararg): IrExpression =

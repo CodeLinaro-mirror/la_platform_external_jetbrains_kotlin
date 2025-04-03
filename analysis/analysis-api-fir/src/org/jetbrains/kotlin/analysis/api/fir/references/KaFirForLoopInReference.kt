@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.references
 
-import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.buildSymbol
 import org.jetbrains.kotlin.analysis.api.fir.getResolvedSymbolOfNameReference
@@ -20,8 +19,7 @@ import org.jetbrains.kotlin.psi.KtForExpression
 import org.jetbrains.kotlin.psi.KtImportAlias
 
 internal class KaFirForLoopInReference(expression: KtForExpression) : KtForLoopInReference(expression), KaFirReference {
-    override fun KaSession.resolveToSymbols(): Collection<KaSymbol> {
-        check(this is KaFirSession)
+    override fun KaFirSession.computeSymbols(): Collection<KaSymbol> {
         val firLoop = expression.getOrBuildFirSafe<FirWhileLoop>(firResolveSession) ?: return emptyList()
         val condition = firLoop.condition as? FirFunctionCall
         val iterator = this@KaFirForLoopInReference.run {

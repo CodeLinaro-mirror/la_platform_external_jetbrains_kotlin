@@ -24,6 +24,31 @@ import kotlin.test.assertContains
 @SwiftExportGradlePluginTests
 class SwiftExportIT : KGPBaseTest() {
 
+    @DisplayName("embedSwiftExportForXcode fail")
+    @GradleTest
+    fun shouldFailWithExecutingEmbedSwiftExportForXcode(
+        gradleVersion: GradleVersion
+    ) {
+        nativeProject(
+            "simpleSwiftExport",
+            gradleVersion,
+            buildOptions = defaultBuildOptions.copy(
+                configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED,
+                nativeOptions = NativeOptions().copy(
+                    swiftExportEnabled = true,
+                )
+            )
+        ) {
+            buildAndFail(
+                ":shared:embedSwiftExportForXcode",
+                "-P${SimpleSwiftExportProperties.DSL_EXPORT}"
+            ) {
+                assertOutputContains("Please run the embedSwiftExportForXcode task from Xcode")
+                assertOutputDoesNotContain("ConfigurationCacheProblemsException: Configuration cache problems found in this build")
+            }
+        }
+    }
+
     @DisplayName("embedSwiftExport executes normally when Swift Export is enabled")
     @GradleTest
     fun testSwiftExportExecutionWithSwiftExportEnabled(
@@ -56,7 +81,7 @@ class SwiftExportIT : KGPBaseTest() {
                 assertTasksExecuted(":shared:iosArm64DebugBuildSPMPackage")
                 assertTasksExecuted(":shared:mergeIosDebugSwiftExportLibraries")
                 assertTasksExecuted(":shared:copyDebugSPMIntermediates")
-                assertTasksSkipped(":shared:embedSwiftExportForXcode")
+                assertTasksExecuted(":shared:embedSwiftExportForXcode")
 
                 assertDirectoryInProjectExists("shared/build/MergedLibraries/ios/Debug")
                 assertDirectoryInProjectExists("shared/build/SPMBuild/iosArm64/Debug")
@@ -307,8 +332,8 @@ fun GradleProject.swiftExportEmbedAndSignEnvVariables(
 private fun swiftCompile(workingDir: File, libDir: File, target: String) = runProcess(
     listOf(
         "xcrun", "--sdk", "iphonesimulator", "swiftc", "./Consumer.swift",
-        "-I", libDir.canonicalPath, "-target", target,
-        "-Xlinker", "-L", "-Xlinker", libDir.canonicalPath, "-Xlinker", "-lShared",
+        "-I", libDir.absolutePath, "-target", target,
+        "-Xlinker", "-L", "-Xlinker", libDir.absolutePath, "-Xlinker", "-lShared",
         "-framework", "Foundation", "-framework", "UIKit"
     ),
     workingDir

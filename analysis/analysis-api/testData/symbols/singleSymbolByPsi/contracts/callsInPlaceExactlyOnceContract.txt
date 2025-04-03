@@ -5,12 +5,13 @@ KaNamedFunctionSymbol:
   ]
   callableId: /exactlyOnceContract
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: [
     KaContractCallsInPlaceContractEffectDeclaration:
       valueParameterReference:
-        KaContractParameterValue:
-          parameterSymbol:
+        KaContractExplicitParameterValue:
+          symbol:
             KaValueParameterSymbol:
               annotations: []
               callableId: null
@@ -109,5 +110,6 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(callsInPlaceExactlyOnceContract.kt)
   getContainingJvmClassName: CallsInPlaceExactlyOnceContractKt
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

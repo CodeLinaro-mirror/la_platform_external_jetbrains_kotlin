@@ -40,6 +40,13 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
         applicability = Global
     )
 
+    val SKIP_FIR_DUMP by directive(
+        description = """
+            Forces ignoring FIR_DUMP if it's enabled by default
+        """.trimIndent(),
+        applicability = Global
+    )
+
     val FIR_IDENTICAL by directive(
         description = "Contents of fir test data file and FE 1.0 are identical",
         applicability = Global
@@ -89,6 +96,10 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
 
     val WITH_EXPERIMENTAL_CHECKERS by directive(
         description = "Enable experimental checkers"
+    )
+
+    val DISABLE_JAVA_FACADE by directive(
+        description = "Disables javac for diagnostic tests containing incorrect Java code. Such tests must be fixed, but until they are, use this directive"
     )
 
     val SCOPE_DUMP by stringDirective(

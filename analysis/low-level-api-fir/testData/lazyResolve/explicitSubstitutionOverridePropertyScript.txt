@@ -5,7 +5,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) public final override [
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[CompilerRequiredAnnotations](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -49,7 +49,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) public final override [
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[CompilerRequiredAnnotations](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -93,7 +93,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) public final override [
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[CompilerRequiredAnnotations](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -123,7 +123,7 @@ FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
 
             public final [ResolvedTo(STATUS)] fun explicitType(): R|T?| { LAZY_BLOCK }
 
-            @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) field:@FIELD:R|second/Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONTRACTS)] var resolveMe: R|T?| = explicitType#()
+            @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) field:@FIELD:R|second/Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONTRACTS)] var resolveMe: R|T?| = LAZY_EXPRESSION
                 @PROPERTY_GETTER:R|second/Anno|[Types](LAZY_EXPRESSION) public [ResolvedTo(CONTRACTS)] [ContainingClassKey=AbstractClass] get(): R|T?|
                 @PROPERTY_SETTER:R|second/Anno|[Types](LAZY_EXPRESSION) public [ResolvedTo(CONTRACTS)] [ContainingClassKey=AbstractClass] set([ResolvedTo(CONTRACTS)] @SETTER_PARAMETER:R|second/Anno|[Types](LAZY_EXPRESSION) value: R|T?|): R|kotlin/Unit|
 
@@ -137,7 +137,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) public final override [
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[CompilerRequiredAnnotations](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -167,7 +167,7 @@ FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
 
             public final [ResolvedTo(STATUS)] fun explicitType(): R|T?| { LAZY_BLOCK }
 
-            @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) field:@FIELD:R|second/Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] var resolveMe: R|T?| = explicitType#()
+            @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) field:@FIELD:R|second/Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] var resolveMe: R|T?| = LAZY_EXPRESSION
                 @PROPERTY_GETTER:R|second/Anno|[Types](LAZY_EXPRESSION) public [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] [ContainingClassKey=AbstractClass] get(): R|T?|
                 @PROPERTY_SETTER:R|second/Anno|[Types](LAZY_EXPRESSION) public [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] [ContainingClassKey=AbstractClass] set([ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] @SETTER_PARAMETER:R|second/Anno|[Types](LAZY_EXPRESSION) value: R|T?|): R|kotlin/Unit|
 
@@ -181,7 +181,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) public final override [
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[CompilerRequiredAnnotations](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final? [ResolvedTo(COMPILER_REQUIRED_ANNOTATIONS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -211,7 +211,7 @@ FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
 
             public final [ResolvedTo(STATUS)] fun explicitType(): R|T?| { LAZY_BLOCK }
 
-            @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) field:@FIELD:R|second/Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONSTANT_EVALUATION)] var resolveMe: R|T?| = explicitType#()
+            @PROPERTY:R|second/Anno|[Types](LAZY_EXPRESSION) field:@FIELD:R|second/Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONSTANT_EVALUATION)] var resolveMe: R|T?| = LAZY_EXPRESSION
                 @PROPERTY_GETTER:R|second/Anno|[Types](LAZY_EXPRESSION) public [ResolvedTo(CONSTANT_EVALUATION)] [ContainingClassKey=AbstractClass] get(): R|T?|
                 @PROPERTY_SETTER:R|second/Anno|[Types](LAZY_EXPRESSION) public [ResolvedTo(CONSTANT_EVALUATION)] [ContainingClassKey=AbstractClass] set([ResolvedTo(CONSTANT_EVALUATION)] @SETTER_PARAMETER:R|second/Anno|[Types](LAZY_EXPRESSION) value: R|T?|): R|kotlin/Unit|
 
@@ -225,7 +225,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](position = <strcat>(String(property ), R
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[Types](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -255,7 +255,7 @@ FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
 
             public final [ResolvedTo(STATUS)] fun explicitType(): R|T?| { LAZY_BLOCK }
 
-            @PROPERTY:R|second/Anno|[Types](position = <strcat>(String(property ), R|second/constant|)) field:@FIELD:R|second/Anno|[Types](position = <strcat>(String(field ), R|second/constant|)) public final [ResolvedTo(ANNOTATION_ARGUMENTS)] var resolveMe: R|T?| = explicitType#()
+            @PROPERTY:R|second/Anno|[Types](position = <strcat>(String(property ), R|second/constant|)) field:@FIELD:R|second/Anno|[Types](position = <strcat>(String(field ), R|second/constant|)) public final [ResolvedTo(ANNOTATION_ARGUMENTS)] var resolveMe: R|T?| = LAZY_EXPRESSION
                 @PROPERTY_GETTER:R|second/Anno|[Types](position = <strcat>(String(get ), R|second/constant|)) public [ResolvedTo(ANNOTATION_ARGUMENTS)] [ContainingClassKey=AbstractClass] get(): R|T?|
                 @PROPERTY_SETTER:R|second/Anno|[Types](position = <strcat>(String(set ), R|second/constant|)) public [ResolvedTo(ANNOTATION_ARGUMENTS)] [ContainingClassKey=AbstractClass] set([ResolvedTo(ANNOTATION_ARGUMENTS)] @SETTER_PARAMETER:R|second/Anno|[Types](position = <strcat>(String(set ), R|second/constant|)) value: R|T?|): R|kotlin/Unit|
 
@@ -269,7 +269,7 @@ TARGET: @PROPERTY:R|second/Anno|[Types](position = <strcat>(String(property ), R
 
 FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[Types](Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|) public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -299,7 +299,7 @@ FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
 
             public final [ResolvedTo(STATUS)] fun explicitType(): R|T?| { LAZY_BLOCK }
 
-            @PROPERTY:R|second/Anno|[Types](position = <strcat>(String(property ), R|second/constant|)) field:@FIELD:R|second/Anno|[Types](position = <strcat>(String(field ), R|second/constant|)) public final [ResolvedTo(ANNOTATION_ARGUMENTS)] var resolveMe: R|T?| = explicitType#()
+            @PROPERTY:R|second/Anno|[Types](position = <strcat>(String(property ), R|second/constant|)) field:@FIELD:R|second/Anno|[Types](position = <strcat>(String(field ), R|second/constant|)) public final [ResolvedTo(ANNOTATION_ARGUMENTS)] var resolveMe: R|T?| = LAZY_EXPRESSION
                 @PROPERTY_GETTER:R|second/Anno|[Types](position = <strcat>(String(get ), R|second/constant|)) public [ResolvedTo(ANNOTATION_ARGUMENTS)] [ContainingClassKey=AbstractClass] get(): R|T?|
                 @PROPERTY_SETTER:R|second/Anno|[Types](position = <strcat>(String(set ), R|second/constant|)) public [ResolvedTo(ANNOTATION_ARGUMENTS)] [ContainingClassKey=AbstractClass] set([ResolvedTo(ANNOTATION_ARGUMENTS)] @SETTER_PARAMETER:R|second/Anno|[Types](position = <strcat>(String(set ), R|second/constant|)) value: R|T?|): R|kotlin/Unit|
 
@@ -309,7 +309,7 @@ FILE: [ResolvedTo(IMPORTS)] explicitSubstitutionOverridePropertyScript.kts
 FILE RAW TO BODY:
 FILE: [ResolvedTo(BODY_RESOLVE)] explicitSubstitutionOverridePropertyScript.kts
     SCRIPT: [ResolvedTo(BODY_RESOLVE)] <script-explicitSubstitutionOverridePropertyScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(BODY_RESOLVE)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(BODY_RESOLVE)] lval args: R|kotlin/Array<kotlin/String>|
 
         @R|kotlin/annotation/Target|[Types](allowedTargets = vararg(Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.VALUE_PARAMETER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.FIELD|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_SETTER|, Q|kotlin/annotation/AnnotationTarget|.R|kotlin/annotation/AnnotationTarget.PROPERTY_GETTER|)) public final [ResolvedTo(BODY_RESOLVE)] [ContainingScriptKey=FirScriptSymbol second.<script-explicitSubstitutionOverridePropertyScript.kts>] annotation class Anno : R|kotlin/Annotation| {

@@ -1,4 +1,5 @@
 // FIR_IDENTICAL
+// RUN_PIPELINE_TILL: FIR2IR
 // MODULE: m1-common
 // ISSUE: KT-66723
 // FILE: common.kt

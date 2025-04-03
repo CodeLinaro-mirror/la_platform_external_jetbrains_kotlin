@@ -112,9 +112,6 @@ internal fun getGroovyRepositoryBlock(
     |                artifact()
     |            }
     |        }
-    |        maven {
-    |            url "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/"
-    |        }
     |        ivy {
     |            url = "https://github.com/yarnpkg/yarn/releases/download"
     |            patternLayout {
@@ -164,7 +161,7 @@ internal fun getGroovyRepositoryBlock(
     |            }
     |        }
     |        maven {
-    |            url "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/"
+    |            url = "https://packages.jetbrains.team/maven/p/ij/intellij-dependencies/"
     |        }
     |        ${additionalDependencyRepositories.map { repo -> "maven{ url = \"$repo\" }" }.joinToString("\n")}
     |        ${localRepo?.absolutePathString()?.let { repo -> "maven{ url = \"${repo.replace("\\", "\\\\")}\" }" } ?: ""}

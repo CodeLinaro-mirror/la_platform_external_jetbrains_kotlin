@@ -1,9 +1,10 @@
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: FIR2IR
 // WITH_STDLIB
 // OPT_IN: kotlin.ExperimentalMultiplatform
 // MUTE_LL_FIR: LL tests don't run IR actualizer to report NO_ACTUAL_FOR_EXPECT
 
 // MODULE: common
-// TARGET_PLATFORM: Common
 // FILE: common.kt
 
 @OptionalExpectation

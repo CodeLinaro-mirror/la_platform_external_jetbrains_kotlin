@@ -73,7 +73,6 @@ object StandaloneProjectFactory {
         projectDisposable: Disposable,
         applicationEnvironmentMode: KotlinCoreApplicationEnvironmentMode,
         compilerConfiguration: CompilerConfiguration = CompilerConfiguration(),
-        classLoader: ClassLoader = MockProject::class.java.classLoader,
     ): KotlinCoreProjectEnvironment {
         val applicationEnvironment = KotlinCoreEnvironment.getOrCreateApplicationEnvironment(
             projectDisposable = projectDisposable,
@@ -93,12 +92,6 @@ object StandaloneProjectFactory {
 
             override fun createProject(parent: PicoContainer, parentDisposable: Disposable): MockProject {
                 return object : MockProject(parent, parentDisposable) {
-                    @Throws(ClassNotFoundException::class)
-                    override fun <T> loadClass(className: String, pluginDescriptor: PluginDescriptor): Class<T> {
-                        @Suppress("UNCHECKED_CAST")
-                        return Class.forName(className, true, classLoader) as Class<T>
-                    }
-
                     @Suppress("UnstableApiUsage")
                     override fun createListener(descriptor: ListenerDescriptor): Any {
                         val listenerClass = loadClass<Any>(descriptor.listenerClassName, descriptor.pluginDescriptor)
@@ -278,10 +271,12 @@ object StandaloneProjectFactory {
                     .invoke(ProjectScope.getLibrariesScope(project))
             ),
             SingleJavaFileRootsIndex(singleJavaFileRoots),
-            true
+            usePsiClassFilesReading = true,
+            perfManager = null, // Don't care about pure compiler performance in Analysis API
         )
 
-        val fileFinderFactory = CliVirtualFileFinderFactory(rootsIndex, false)
+        // Don't care about pure compiler performance in Analysis API
+        val fileFinderFactory = CliVirtualFileFinderFactory(rootsIndex, false, perfManager = null)
         project.registerService(VirtualFileFinderFactory::class.java, fileFinderFactory)
         project.registerService(MetadataFinderFactory::class.java, CliMetadataFinderFactory(fileFinderFactory))
     }

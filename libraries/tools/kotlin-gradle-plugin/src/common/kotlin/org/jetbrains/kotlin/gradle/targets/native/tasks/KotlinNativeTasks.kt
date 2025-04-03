@@ -49,8 +49,6 @@ import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.report.*
 import org.jetbrains.kotlin.gradle.targets.native.KonanPropertiesBuildService
 import org.jetbrains.kotlin.gradle.targets.native.UsesKonanPropertiesBuildService
-import org.jetbrains.kotlin.gradle.targets.native.internal.getNativeDistributionDependencies
-import org.jetbrains.kotlin.gradle.targets.native.internal.inferCommonizerTarget
 import org.jetbrains.kotlin.gradle.targets.native.tasks.*
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
@@ -114,7 +112,7 @@ internal fun MutableList<String>.addArgIfNotNull(parameter: String, value: Strin
 
 internal fun MutableList<String>.addFileArgs(parameter: String, values: FileCollection) {
     values.files.forEach {
-        addArg(parameter, it.canonicalPath)
+        addArg(parameter, it.absolutePath)
     }
 }
 
@@ -164,6 +162,11 @@ abstract class AbstractKotlinNativeCompile<
     abstract val baseName: String
 
     override val produceUnpackagedKlib: Property<Boolean> = objectFactory.propertyWithConvention(false)
+
+    @Suppress("unused")
+    @Deprecated("KT-72387: used in KSP", level = DeprecationLevel.HIDDEN)
+    internal val produceUnpackedKlib: Property<Boolean>
+        get() = produceUnpackagedKlib
 
     @get:Input
     @get:Optional
@@ -334,17 +337,6 @@ internal constructor(
         else "${project.name}_${compilation.compilationName}"
     }
 
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    val nativeDistributionDependencies = project.provider {
-        when (val compilation = compilation) {
-            is KotlinCompilationInfo.TCS ->
-                @OptIn(UnsafeApi::class)
-                inferCommonizerTarget(compilation.compilation)
-                    ?.let { compilation.project.getNativeDistributionDependencies(it).exclude(originalPlatformLibraries()) }
-        }
-    }
-
     @Deprecated(
         message = "Please use 'compilerOptions.moduleName' to configure",
         replaceWith = ReplaceWith("compilerOptions.moduleName.get()")
@@ -367,7 +359,8 @@ internal constructor(
             // For KT-66452 we need to get rid of invocation of 'Task.project'.
             // That is why we moved setting this property to task registration
             // and added convention for backwards compatibility.
-            NoopKotlinNativeProvider(project))
+            NoopKotlinNativeProvider(project)
+        )
 
     @Deprecated(
         message = "This property will be removed in future releases. Don't use it in your code.",
@@ -521,7 +514,6 @@ internal constructor(
             args.libraries = runSafe {
                 //filterKlibsPassedToCompiler call exists on files
                 val filteredLibraries = libraries.exclude(originalPlatformLibraries()).files.filterKlibsPassedToCompiler().toMutableList()
-                nativeDistributionDependencies.orNull?.files?.also { filteredLibraries.addAll(it) }
                 filteredLibraries.toPathsArray()
             }
             args.friendModules = runSafe {
@@ -559,7 +551,8 @@ internal constructor(
             null
         } else {
             objectFactory.fileCollection()
-                .from(KonanDistribution(konanDistribution.get()).platformLibsDir.resolve(konanTarget.name).listLibraryFiles())
+                .from(kotlinNativeProvider.flatMap { it.bundleDirectory }
+                          .map { KonanDistribution(it).platformLibsDir.resolve(konanTarget.name).listLibraryFiles() })
         }
 
     private fun File.listLibraryFiles(): List<File> = listFiles().orEmpty()
@@ -1109,8 +1102,9 @@ abstract class CInteropProcess @Inject internal constructor(params: Params) :
     abstract val destinationDirectory: DirectoryProperty
 
     @Deprecated(
-        message = "This property will be remove in future releases, please use `destinationDirectory` instead",
-        replaceWith = ReplaceWith("destinationDirectory")
+        message = "This property is scheduled for removal in Kotlin 2.3. Please, use `destinationDirectory` instead",
+        replaceWith = ReplaceWith("destinationDirectory"),
+        DeprecationLevel.ERROR,
     )
     @Internal // Taken into account in the outputFileProvider property
     var destinationDir: Provider<File> = destinationDirectory.map { it.asFile }
@@ -1122,8 +1116,9 @@ abstract class CInteropProcess @Inject internal constructor(params: Params) :
     val konanTarget: KonanTarget = params.konanTarget
 
     @Deprecated(
-        message = "This property will be remove in future releases. " +
-                "Please don't use it in your builds."
+        message = "This property is scheduled for removal in Kotlin 2.3. " +
+                "Please, don't use it in your builds.",
+        level = DeprecationLevel.ERROR,
     )
     @get:Internal
     val konanVersion: String = project.nativeProperties.kotlinNativeVersion.get()
@@ -1285,7 +1280,6 @@ abstract class CInteropProcess @Inject internal constructor(params: Params) :
     }
 
     // Task action.
-    @OptIn(ExperimentalStdlibApi::class)
     @TaskAction
     fun processInterop() {
         val buildMetrics = metrics.get()
@@ -1295,7 +1289,7 @@ abstract class CInteropProcess @Inject internal constructor(params: Params) :
 
             addArgIfNotNull("-target", konanTarget.visibleName)
             if (definitionFile.isPresent) {
-                addArgIfNotNull("-def", definitionFile.getFile().canonicalPath)
+                addArgIfNotNull("-def", definitionFile.getFile().absolutePath)
             }
             addArgIfNotNull("-pkg", packageName)
 

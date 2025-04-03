@@ -86,7 +86,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
         }
     }
 
-    override val contextReceivers: List<FirContextReceiver>
+    override val contextParameters: List<FirValueParameter>
         get() = emptyList()
 
     //not used actually, because get 'enhanced' into regular FirSimpleFunction
@@ -122,6 +122,10 @@ class FirJavaMethod @FirImplementationDetail constructor(
     }
 
     override fun <D> transformReceiverParameter(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
+        return this
+    }
+
+    override fun <D> transformContextParameters(transformer: FirTransformer<D>, data: D): FirSimpleFunction {
         return this
     }
 
@@ -181,7 +185,7 @@ class FirJavaMethod @FirImplementationDetail constructor(
         error("Contract description cannot be replaced for FirJavaMethod")
     }
 
-    override fun replaceContextReceivers(newContextReceivers: List<FirContextReceiver>) {
+    override fun replaceContextParameters(newContextParameters: List<FirValueParameter>) {
         error("Body cannot be replaced for FirJavaMethod")
     }
 
@@ -231,8 +235,8 @@ class FirJavaMethodBuilder : FirFunctionBuilder, FirTypeParametersOwnerBuilder, 
             throw IllegalStateException()
         }
 
-    @Deprecated("Modification of 'contextReceivers' has no impact for FirJavaFunctionBuilder", level = DeprecationLevel.HIDDEN)
-    override val contextReceivers: MutableList<FirContextReceiver>
+    @Deprecated("Modification of 'contextParameters' has no impact for FirJavaFunctionBuilder", level = DeprecationLevel.HIDDEN)
+    override val contextParameters: MutableList<FirValueParameter>
         get() = throw IllegalStateException()
 
     @OptIn(FirImplementationDetail::class)

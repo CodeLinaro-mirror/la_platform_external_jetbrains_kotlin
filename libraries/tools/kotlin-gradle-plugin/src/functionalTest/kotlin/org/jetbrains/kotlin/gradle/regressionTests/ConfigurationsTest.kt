@@ -100,7 +100,7 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
 
         commonMainApi.assertHasDependency("project notation of :lib:outputConfiguration") {
             this is ProjectDependency &&
-            dependencyProject == lib &&
+            path == lib.path &&
             targetConfiguration == "outputConfiguration"
         }
 
@@ -317,6 +317,7 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
                     }
 
                     jvm("jvmWithJava") {
+                        @Suppress("DEPRECATION")
                         withJava()
                         attributes { attribute(disambiguationAttribute, "jvmWithJava") }
                     }
@@ -338,7 +339,7 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
         )
 
         @Test
-        fun `test that jvm target attributes are propagated to java configurations`() {
+        fun `test that jvm target attributes are propagated to java configurations in plain Jvm project`() {
             val kotlinJvmConfigurations = listOf(
                 "jvmWithJavaCompileClasspath",
                 "jvmWithJavaRuntimeClasspath",
@@ -348,11 +349,67 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
                 "jvmWithJavaCompilationRuntimeOnly",
             )
 
+            val javaWithJavaJvmConfigurations = listOf(
+                "jvmWithJavaMainApi",
+                "jvmWithJavaMainCompileClasspath",
+                "jvmWithJavaMainCompileOnly",
+                "jvmWithJavaMainImplementation",
+                "jvmWithJavaMainRuntimeClasspath",
+                "jvmWithJavaMainRuntimeOnly",
+                "jvmWithJavaTestApi",
+                "jvmWithJavaTestCompileOnly",
+                "jvmWithJavaTestImplementation",
+                "jvmWithJavaTestRuntimeOnly",
+            )
+
+            val javaPlainJvmConfigurations = listOf(
+                "plainJvmMainApi",
+                "plainJvmMainCompileClasspath",
+                "plainJvmMainCompileOnly",
+                "plainJvmMainImplementation",
+                "plainJvmMainRuntimeClasspath",
+                "plainJvmMainRuntimeOnly",
+                "plainJvmTestApi",
+                "plainJvmTestCompileClasspath",
+                "plainJvmTestCompileOnly",
+                "plainJvmTestImplementation",
+                "plainJvmTestRuntimeClasspath",
+                "plainJvmTestRuntimeOnly",
+            )
+
+            // These configurations are only created in a projects with more than one KotlinJvmTarget
+            // which are prohibited for users
+            val jvmWithJavaPlainJvmConfigurations = listOf(
+                "jvmWithJavaPlainJvmMainApi",
+                "jvmWithJavaPlainJvmMainCompilationApi",
+                "jvmWithJavaPlainJvmMainCompilationCompileOnly",
+                "jvmWithJavaPlainJvmMainCompilationImplementation",
+                "jvmWithJavaPlainJvmMainCompilationRuntimeOnly",
+                "jvmWithJavaPlainJvmMainCompileClasspath",
+                "jvmWithJavaPlainJvmMainCompileOnly",
+                "jvmWithJavaPlainJvmMainImplementation",
+                "jvmWithJavaPlainJvmMainRuntimeClasspath",
+                "jvmWithJavaPlainJvmMainRuntimeOnly",
+                "jvmWithJavaPlainJvmTestApi",
+                "jvmWithJavaPlainJvmTestCompilationApi",
+                "jvmWithJavaPlainJvmTestCompilationCompileOnly",
+                "jvmWithJavaPlainJvmTestCompilationImplementation",
+                "jvmWithJavaPlainJvmTestCompilationRuntimeOnly",
+                "jvmWithJavaPlainJvmTestCompileClasspath",
+                "jvmWithJavaPlainJvmTestCompileOnly",
+                "jvmWithJavaPlainJvmTestImplementation",
+                "jvmWithJavaPlainJvmTestRuntimeClasspath",
+                "jvmWithJavaPlainJvmTestRuntimeOnly",
+            )
+
             val outgoingConfigurations = listOf(
                 "jvmWithJavaApiElements",
                 "jvmWithJavaRuntimeElements",
                 "jvmWithJavaSourcesElements",
             )
+
+            // They are created together with target.kotlinComponents
+            val outgoingPublishedConfigurations = outgoingConfigurations.map { "$it-published" }
 
             val testJavaConfigurations = listOf(
                 "testCompileClasspath",
@@ -373,7 +430,11 @@ class ConfigurationsTest : MultiplatformExtensionTest() {
 
             val expectedConfigurationsWithDisambiguationAttribute = javaConfigurations +
                     kotlinJvmConfigurations +
+                    javaWithJavaJvmConfigurations +
+                    javaPlainJvmConfigurations +
+                    jvmWithJavaPlainJvmConfigurations +
                     outgoingConfigurations +
+                    outgoingPublishedConfigurations +
                     testJavaConfigurations +
                     jvmWithJavaTestConfigurations
 

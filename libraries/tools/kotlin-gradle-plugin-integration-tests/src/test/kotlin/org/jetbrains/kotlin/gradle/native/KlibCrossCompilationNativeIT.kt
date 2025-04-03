@@ -7,8 +7,8 @@ package org.jetbrains.kotlin.gradle.native
 
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.TestMetadata
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
@@ -18,6 +18,10 @@ import java.nio.file.Path
 @DisplayName("Tests for checking klib cross-compilation in KGP")
 @NativeGradlePluginTests
 class KlibCrossCompilationNativeIT : KGPBaseTest() {
+    override val defaultBuildOptions: BuildOptions
+        get() = super.defaultBuildOptions.copy(
+            ignoreWarningModeSeverityOverride = true
+        )
 
     @GradleTest
     @TestMetadata("klibCrossCompilationDefaultSettings")
@@ -25,7 +29,10 @@ class KlibCrossCompilationNativeIT : KGPBaseTest() {
     fun compileIosTargetOnNonDarwinHostWithDefaultSettings(gradleVersion: GradleVersion) {
         nativeProject("klibCrossCompilationDefaultSettings", gradleVersion) {
             build(":compileKotlinIosArm64") {
-                KotlinTestUtils.assertEqualsToFile(projectPath.resolve("diagnostics.txt"), extractProjectsAndTheirDiagnostics())
+                assertEqualsToFile(
+                    projectPath.resolve("diagnostics.txt").toFile(),
+                    extractProjectsAndTheirDiagnostics()
+                )
                 assertTasksSkipped(":compileKotlinIosArm64")
             }
         }
@@ -48,7 +55,7 @@ class KlibCrossCompilationNativeIT : KGPBaseTest() {
                 konanDataDir = konanDataDir,
                 // TODO: remove explicit version selection after resolution of KTI-1928
                 nativeOptions = defaultBuildOptions.nativeOptions.copy(
-                    version = TestVersions.Kotlin.STABLE_RELEASE,
+                    version = "2.0.20",
                 )
             )
         nativeProject(
@@ -56,17 +63,29 @@ class KlibCrossCompilationNativeIT : KGPBaseTest() {
             gradleVersion,
             buildOptions = buildOptions
         ) {
-            build(":compileKotlinIosArm64") {
-                KotlinTestUtils.assertEqualsToFile(
-                    projectPath.resolve("diagnostics-compileKotlinIosArm64.txt"), extractProjectsAndTheirDiagnostics()
+
+            val expectedDiagnostics = projectPath.resolve("expected-diagnostics.txt")
+            if (!HostManager.hostIsMingw) {
+                expectedDiagnostics.replaceText(
+                    "> Configure project :",
+                    """
+                    |> Configure project :
+                    |w: [OldNativeVersionDiagnostic | WARNING] Kotlin/Native and Kotlin Versions Incompatible
+                    |'2.0.20' Kotlin/Native is being used with an newer '${buildOptions.kotlinVersion}' Kotlin.
+                    |Please adjust versions to avoid incompatibilities.
+                    |#diagnostic-end
+                    |    
+                    """.trimMargin()
                 )
+            }
+
+            build(":compileKotlinIosArm64") {
+                assertEqualsToFile(expectedDiagnostics.toFile(), extractProjectsAndTheirDiagnostics())
                 assertTasksExecuted(":compileKotlinIosArm64")
             }
 
             build(":linkIosArm64") {
-                KotlinTestUtils.assertEqualsToFile(
-                    projectPath.resolve("diagnostics-linkIosArm64.txt"), extractProjectsAndTheirDiagnostics()
-                )
+                assertEqualsToFile(expectedDiagnostics.toFile(), extractProjectsAndTheirDiagnostics())
                 // Do not assert :linkIosArm64, because it's a plain umbrella-like `org.gradle.DefaultTask` instance,
                 // and it doesn't get disabled even on linuxes (see [KotlinNativeConfigureBinariesSideEffect])
                 assertTasksSkipped(":linkDebugTestIosArm64")

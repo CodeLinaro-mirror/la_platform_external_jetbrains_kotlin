@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.contracts.description.ConeCallsEffectDeclaration
 import org.jetbrains.kotlin.fir.contracts.effects
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.utils.contextParametersForFunctionOrContainingProperty
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
@@ -24,7 +25,9 @@ import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.isFunctionOrSuspendFunctionInvoke
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.isSomeFunctionType
 import org.jetbrains.kotlin.fir.util.SetMultimap
@@ -44,9 +47,18 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) {
             contract.effects?.forEach { firEffect ->
                 val effect = firEffect.effect as? ConeCallsEffectDeclaration ?: return@forEach
                 val index = effect.valueParameterReference.parameterIndex
-                val typeRef = if (index < 0) function.receiverParameter?.typeRef else function.valueParameters[index].returnTypeRef
+                val typeRef = when (index) {
+                    -1 -> function.receiverParameter?.typeRef
+                    in function.valueParameters.indices -> function.valueParameters[index].returnTypeRef
+                    else -> function.contextParametersForFunctionOrContainingProperty()[index - function.valueParameters.size].returnTypeRef
+                }
                 if (typeRef?.coneType?.isSomeFunctionType(context.session) != true) return@forEach
-                put(if (index < 0) function.symbol else function.valueParameters[index].symbol, firEffect)
+                val key = when (index) {
+                    -1 -> function.symbol
+                    in function.valueParameters.indices -> function.valueParameters[index].symbol
+                    else -> function.contextParametersForFunctionOrContainingProperty()[index - function.valueParameters.size].symbol
+                }
+                put(key, firEffect)
             }
         }
         if (argumentsCalledInPlace.isEmpty()) return
@@ -80,8 +92,8 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) {
         else -> this
     }
 
-    private fun ControlFlowGraph.findNonInPlaceUsesOf(lambdaSymbols: Set<FirBasedSymbol<*>>): SetMultimap<FirBasedSymbol<*>, FirExpression> {
-        val result = setMultimapOf<FirBasedSymbol<*>, FirExpression>()
+    private fun ControlFlowGraph.findNonInPlaceUsesOf(lambdaSymbols: Set<FirCallableSymbol<*>>): SetMultimap<FirCallableSymbol<*>, FirExpression> {
+        val result = setMultimapOf<FirCallableSymbol<*>, FirExpression>()
 
         fun FirExpression.mark() {
             val symbol = qualifiedAccessSymbol() ?: return
@@ -123,7 +135,7 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) {
     }
 
     private class InvocationDataCollector(
-        val lambdaSymbols: Set<FirBasedSymbol<*>>
+        val lambdaSymbols: Set<FirCallableSymbol<*>>
     ) : EventCollectingControlFlowGraphVisitor<LambdaInvocationEvent>() {
         override fun visitFunctionCallExitNode(
             node: FunctionCallExitNode,
@@ -154,14 +166,19 @@ object FirCallsEffectAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) {
         }
         (argumentList as? FirResolvedArgumentList)?.mapping?.forEach { (value, parameter) ->
             val index = functionSymbol?.valueParameterSymbols?.indexOf(parameter.symbol) ?: -1
-            block(value, if (index >= 0) effects?.find { it.valueParameterReference.parameterIndex == index }?.kind else null)
+            val range = if (index >= 0) effects?.find { it.valueParameterReference.parameterIndex == index }?.kind else null
+            block(value, range)
+        }
+        contextArguments.forEachIndexed { i, expression ->
+            val range = effects?.find { it.valueParameterReference.parameterIndex == i + functionSymbol.valueParameterSymbols.size }?.kind
+            block(expression, range)
         }
     }
 
-    private fun FirExpression.qualifiedAccessSymbol(): FirBasedSymbol<*>? =
+    private fun FirExpression.qualifiedAccessSymbol(): FirCallableSymbol<*>? =
         when (val callee = (unwrapArgument() as? FirQualifiedAccessExpression)?.calleeReference) {
-            is FirResolvedNamedReference -> callee.resolvedSymbol
-            is FirThisReference -> callee.boundSymbol
+            is FirResolvedNamedReference -> callee.resolvedSymbol as? FirCallableSymbol
+            is FirThisReference -> (callee.boundSymbol as? FirReceiverParameterSymbol)?.containingDeclarationSymbol as? FirCallableSymbol
             else -> null
         }
 }

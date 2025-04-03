@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.backend.common.lower.inline
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrGetValue
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -24,8 +25,8 @@ import org.jetbrains.kotlin.name.Name
 typealias InlineFunctionInfo = Nothing?
 
 class KlibSyntheticAccessorGenerator(
-    context: CommonBackendContext
-) : SyntheticAccessorGenerator<CommonBackendContext, InlineFunctionInfo>(context) {
+    context: LoweringContext
+) : SyntheticAccessorGenerator<LoweringContext, InlineFunctionInfo>(context) {
 
     private data class OuterThisAccessorKey(val innerClass: IrClass)
 
@@ -55,9 +56,14 @@ class KlibSyntheticAccessorGenerator(
             accessor.copyValueParametersToStatic(source, IrDeclarationOrigin.SYNTHETIC_ACCESSOR)
             accessor.returnType = source.returnType.remapTypeParameters(klass, accessor)
 
-            accessor.body = context.irFactory.createExpressionBody(
+            accessor.body = context.irFactory.createBlockBody(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                createConstructorCall(accessor, source.symbol)
+                listOf(
+                    IrReturnImpl(
+                        UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                        context.irBuiltIns.nothingType, accessor.symbol, createConstructorCall(accessor, source.symbol)
+                    )
+                )
             )
         }
     }
@@ -153,13 +159,16 @@ class KlibSyntheticAccessorGenerator(
             visibility = DescriptorVisibilities.PRIVATE
         }.apply {
             parent = innerClass
-            dispatchReceiverParameter = innerClassThisReceiver.copyTo(
+            parameters += innerClassThisReceiver.copyTo(
                 this,
                 IrDeclarationOrigin.SYNTHETIC_ACCESSOR,
                 type = innerClassThisReceiver.type // This is the type of the inner class.
             )
             returnType = expression.type // This is the type of the outer class.
-            body = context.irFactory.createExpressionBody(startOffset, startOffset, expression)
+            body = context.irFactory.createBlockBody(
+                startOffset, startOffset,
+                listOf(IrReturnImpl(startOffset, endOffset, context.irBuiltIns.nothingType, symbol, expression))
+            )
         }
     }
 }

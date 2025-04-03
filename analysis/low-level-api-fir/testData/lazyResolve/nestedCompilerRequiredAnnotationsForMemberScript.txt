@@ -1,7 +1,7 @@
 RAW_FIR:
 FILE: [ResolvedTo(RAW_FIR)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -69,7 +69,7 @@ FILE: [ResolvedTo(RAW_FIR)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 IMPORTS:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -137,7 +137,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 COMPILER_REQUIRED_ANNOTATIONS:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -205,7 +205,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 COMPANION_GENERATION:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -273,7 +273,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 SUPER_TYPES:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -341,7 +341,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 TYPES:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -409,7 +409,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 STATUS:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -477,7 +477,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 EXPECT_ACTUAL_MATCHING:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -545,7 +545,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 CONTRACTS:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -579,23 +579,22 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
                 @R|kotlin/Deprecated|[Types](String(constructorProperty)) public final [ResolvedTo(STATUS)] [IsFromPrimaryConstructor=true] val a: R|kotlin/Int| = R|<local>/a|
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): R|kotlin/Int|
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONTRACTS)] fun memberFunction(): R|kotlin/Unit| {
-                }
+                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONTRACTS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
                 @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): <implicit>
 
             }
 
-            @R|kotlin/Deprecated|[Types](String(companion)) @R|Anno|[Types](LAZY_EXPRESSION) public final companion [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
-                private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
+            @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public final? companion [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
+                private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
                     LAZY_super<R|kotlin/Any|>
                 }
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
-                @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
-                    public [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] val memberProperty: <implicit> = LAZY_EXPRESSION
+                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] get(): <implicit>
 
             }
 
@@ -614,7 +613,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 IMPLICIT_TYPES_BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -648,23 +647,22 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
                 @R|kotlin/Deprecated|[Types](String(constructorProperty)) public final [ResolvedTo(STATUS)] [IsFromPrimaryConstructor=true] val a: R|kotlin/Int| = R|<local>/a|
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): R|kotlin/Int|
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun memberFunction(): R|kotlin/Unit| {
-                }
+                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
                 @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): <implicit>
 
             }
 
-            @R|kotlin/Deprecated|[Types](String(companion)) @R|Anno|[Types](LAZY_EXPRESSION) public final companion [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
-                private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
+            @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public final? companion [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
+                private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
                     LAZY_super<R|kotlin/Any|>
                 }
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
-                @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
-                    public [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] val memberProperty: <implicit> = LAZY_EXPRESSION
+                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] get(): <implicit>
 
             }
 
@@ -683,7 +681,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 CONSTANT_EVALUATION:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final? [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -717,23 +715,22 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
                 @R|kotlin/Deprecated|[Types](String(constructorProperty)) public final [ResolvedTo(STATUS)] [IsFromPrimaryConstructor=true] val a: R|kotlin/Int| = R|<local>/a|
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): R|kotlin/Int|
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONSTANT_EVALUATION)] fun memberFunction(): R|kotlin/Unit| {
-                }
+                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(CONSTANT_EVALUATION)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
                 @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): <implicit>
 
             }
 
-            @R|kotlin/Deprecated|[Types](String(companion)) @R|Anno|[Types](LAZY_EXPRESSION) public final companion [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
-                private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
+            @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public final? companion [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
+                private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
                     LAZY_super<R|kotlin/Any|>
                 }
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
-                @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
-                    public [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] val memberProperty: <implicit> = LAZY_EXPRESSION
+                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] get(): <implicit>
 
             }
 
@@ -752,7 +749,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -786,23 +783,22 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
                 @R|kotlin/Deprecated|[Types](String(constructorProperty)) public final [ResolvedTo(STATUS)] [IsFromPrimaryConstructor=true] val a: R|kotlin/Int| = R|<local>/a|
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): R|kotlin/Int|
 
-                @R|kotlin/Deprecated|[Types](message = String(memberFunction)) @R|Anno|[Types](s = String(memberFunction)) public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun memberFunction(): R|kotlin/Unit| {
-                }
+                @R|kotlin/Deprecated|[Types](message = String(memberFunction)) @R|Anno|[Types](s = String(memberFunction)) public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
                 @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
                     public [ResolvedTo(STATUS)] [ContainingClassKey=NestedClass] get(): <implicit>
 
             }
 
-            @R|kotlin/Deprecated|[Types](String(companion)) @R|Anno|[Types](LAZY_EXPRESSION) public final companion [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
-                private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
+            @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public final? companion [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
+                private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
                     LAZY_super<R|kotlin/Any|>
                 }
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
-                @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
-                    public [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] val memberProperty: <implicit> = LAZY_EXPRESSION
+                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] get(): <implicit>
 
             }
 
@@ -821,7 +817,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {
@@ -863,15 +859,15 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 
             }
 
-            @R|kotlin/Deprecated|[Types](String(companion)) @R|Anno|[Types](LAZY_EXPRESSION) public final companion [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
-                private [ResolvedTo(STATUS)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
+            @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public final? companion [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] object Companion : R|kotlin/Any| {
+                private [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] constructor(): R|FirstClass.Companion| {
                     LAZY_super<R|kotlin/Any|>
                 }
 
-                @R|kotlin/Deprecated|[Types](String(memberFunction)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] fun memberFunction(): R|kotlin/Unit| { LAZY_BLOCK }
 
-                @R|kotlin/Deprecated|[Types](String(memberProperty)) @R|Anno|[Types](LAZY_EXPRESSION) public final [ResolvedTo(STATUS)] val memberProperty: <implicit> = LAZY_EXPRESSION
-                    public [ResolvedTo(STATUS)] [ContainingClassKey=Companion] get(): <implicit>
+                @Deprecated[Unresolved](LAZY_EXPRESSION) @Anno[Unresolved](LAZY_EXPRESSION) public? final? [ResolvedTo(RAW_FIR)] val memberProperty: <implicit> = LAZY_EXPRESSION
+                    public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=Companion] get(): <implicit>
 
             }
 
@@ -890,7 +886,7 @@ FILE: [ResolvedTo(IMPORTS)] nestedCompilerRequiredAnnotationsForMemberScript.kts
 FILE RAW TO BODY:
 FILE: [ResolvedTo(BODY_RESOLVE)] nestedCompilerRequiredAnnotationsForMemberScript.kts
     SCRIPT: [ResolvedTo(BODY_RESOLVE)] <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(BODY_RESOLVE)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(BODY_RESOLVE)] lval args: R|kotlin/Array<kotlin/String>|
 
         public final [ResolvedTo(BODY_RESOLVE)] [ContainingScriptKey=FirScriptSymbol <script-nestedCompilerRequiredAnnotationsForMemberScript.kts>] annotation class Anno : R|kotlin/Annotation| {

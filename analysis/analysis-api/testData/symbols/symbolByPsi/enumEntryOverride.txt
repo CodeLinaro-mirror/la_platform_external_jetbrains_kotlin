@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -35,6 +36,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -42,6 +44,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -75,6 +78,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -107,6 +111,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -140,6 +145,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -171,6 +177,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -208,6 +215,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: true
@@ -267,6 +275,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -300,6 +309,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -307,6 +317,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: null
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -370,6 +381,7 @@ KaNamedFunctionSymbol:
     type: <anonymous>
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: null
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -402,6 +414,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /MyEnumClass.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -435,6 +448,7 @@ KaNamedFunctionSymbol:
     type: MyEnumClass
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: MyEnumClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -442,6 +456,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /MyEnumClass.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -505,6 +520,7 @@ KaNamedFunctionSymbol:
     type: MyEnumClass
   getContainingFileSymbol: KaFileSymbol(enumEntryOverride.kt)
   getContainingJvmClassName: MyEnumClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -536,6 +552,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /MyEnumClass.i
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -571,12 +588,13 @@ KaKotlinPropertySymbol:
   hasBackingField: true
   hasGetter: true
   hasSetter: false
-  initializer: KtConstantInitializerValue(1)
+  initializer: KaConstantInitializerValue(1)
   isActual: false
   isConst: false
   isDelegatedProperty: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false

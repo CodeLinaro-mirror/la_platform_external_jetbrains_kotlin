@@ -15,11 +15,7 @@ import org.jetbrains.kotlin.analysis.api.fir.visibilityByModifiers
 import org.jetbrains.kotlin.analysis.api.impl.base.symbols.pointers.KaCannotCreateSymbolPointerForLocalLibraryDeclarationException
 import org.jetbrains.kotlin.analysis.api.impl.base.symbols.pointers.KaUnsupportedSymbolLocation
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolLocation
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
-import org.jetbrains.kotlin.analysis.api.symbols.KaTypeAliasSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaTypeParameterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.asKaSymbolVisibility
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -27,7 +23,6 @@ import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.declarations.utils.isActual
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
-import org.jetbrains.kotlin.fir.realPsi
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.ClassId
@@ -47,13 +42,13 @@ internal class KaFirTypeAliasSymbol private constructor(
     )
 
     constructor(symbol: FirTypeAliasSymbol, session: KaFirSession) : this(
-        backingPsi = symbol.fir.realPsi as? KtTypeAlias,
+        backingPsi = symbol.backingPsiIfApplicable as? KtTypeAlias,
         lazyFirSymbol = lazyOf(symbol),
         analysisSession = session,
     )
 
     override val psi: PsiElement?
-        get() = withValidityAssertion { backingPsi ?: firSymbol.findPsi() }
+        get() = withValidityAssertion { backingPsi ?: findPsi() }
 
     override val name: Name
         get() = withValidityAssertion { backingPsi?.nameAsSafeName ?: firSymbol.name }
@@ -76,7 +71,7 @@ internal class KaFirTypeAliasSymbol private constructor(
 
     override val typeParameters: List<KaTypeParameterSymbol>
         get() = withValidityAssertion {
-            createKaTypeParameters() ?: firSymbol.createKtTypeParameters(builder)
+            createKaTypeParameters() ?: firSymbol.createRegularKtTypeParameters(builder)
         }
 
     override val expandedType: KaType
@@ -101,7 +96,11 @@ internal class KaFirTypeAliasSymbol private constructor(
             KaSymbolLocation.LOCAL ->
                 throw KaCannotCreateSymbolPointerForLocalLibraryDeclarationException(classId?.asString() ?: name.asString())
 
-            KaSymbolLocation.CLASS, KaSymbolLocation.TOP_LEVEL -> KaFirClassLikeSymbolPointer(classId!!, KaTypeAliasSymbol::class)
+            KaSymbolLocation.CLASS, KaSymbolLocation.TOP_LEVEL -> KaFirClassLikeSymbolPointer(
+                classId!!,
+                KaTypeAliasSymbol::class,
+                this
+            )
             else -> throw KaUnsupportedSymbolLocation(this::class, symbolKind)
         }
     }

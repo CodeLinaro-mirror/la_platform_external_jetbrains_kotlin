@@ -90,10 +90,8 @@ class FirExpectActualMatchingContextImpl private constructor(
         get() = asSymbol().resolvedStatus.isCompanion
     override val RegularClassSymbolMarker.isInner: Boolean
         get() = asSymbol().resolvedStatus.isInner
-    override val RegularClassSymbolMarker.isInline: Boolean
-        get() = asSymbol().resolvedStatus.isInline
-    override val RegularClassSymbolMarker.isValue: Boolean
-        get() = asSymbol().resolvedStatus.isInline
+    override val RegularClassSymbolMarker.isInlineOrValue: Boolean
+        get() = asSymbol().resolvedStatus.let { it.isInline || it.isValue }
 
     override val RegularClassSymbolMarker.isFun: Boolean
         get() = asSymbol().resolvedStatus.isFun
@@ -139,6 +137,9 @@ class FirExpectActualMatchingContextImpl private constructor(
     override val PropertySymbolMarker.setter: FunctionSymbolMarker?
         get() = asSymbol().setterSymbol
 
+    override val PropertySymbolMarker.contextParameters: List<ValueParameterSymbolMarker>
+        get() = asSymbol().resolvedContextParameters.map { it.symbol }
+
     override fun createExpectActualTypeParameterSubstitutor(
         expectActualTypeParameters: List<Pair<TypeParameterSymbolMarker, TypeParameterSymbolMarker>>,
         parentSubstitutor: TypeSubstitutorMarker?,
@@ -181,8 +182,8 @@ class FirExpectActualMatchingContextImpl private constructor(
 
             for (name in scope.getClassifierNames()) {
                 scope.processClassifiersByName(name) {
-                    // We should skip nested classes from supertypes here
-                    if (it is FirRegularClassSymbol && it.classId.parentClassId == symbol.classId) {
+                    // We should skip nested class like declarations from supertypes here
+                    if (it is FirClassLikeSymbol<*> && it.classId.parentClassId == symbol.classId) {
                         add(it)
                     }
                 }
@@ -290,6 +291,9 @@ class FirExpectActualMatchingContextImpl private constructor(
 
     override val FunctionSymbolMarker.valueParameters: List<ValueParameterSymbolMarker>
         get() = asSymbol().valueParameterSymbols
+
+    override val FunctionSymbolMarker.contextParameters: List<ValueParameterSymbolMarker>
+        get() = asSymbol().resolvedContextParameters.map { it.symbol }
 
     override val ValueParameterSymbolMarker.isVararg: Boolean
         get() = asSymbol().isVararg
@@ -452,7 +456,7 @@ class FirExpectActualMatchingContextImpl private constructor(
         get() = this is FirFieldSymbol && this.fir.unwrapFakeOverrides().isJava
 
     override val CallableSymbolMarker.canBeActualizedByJavaField: Boolean
-        get() = this is FirPropertySymbol && callableId == abstractMutableListModCountCallableId
+        get() = this.isJavaField || this is FirPropertySymbol && callableId == abstractMutableListModCountCallableId
 
     override val DeclarationSymbolMarker.annotations: List<AnnotationCallInfo>
         get() = asSymbol().resolvedAnnotationsWithArguments.map(::AnnotationCallInfoImpl)

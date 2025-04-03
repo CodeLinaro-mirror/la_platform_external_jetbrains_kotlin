@@ -1,8 +1,10 @@
+// RUN_PIPELINE_TILL: FRONTEND
+// LATEST_LV_DIFFERENCE
 val flag = true
 
-val a: () -> Int = <!INITIALIZER_TYPE_MISMATCH!>l@ {
-    if (flag) return@l 4
-}<!>
+val a: () -> Int = l@ {
+    <!RETURN_TYPE_MISMATCH!>if (flag) return@l 4<!>
+}
 
 val b: () -> Unit = l@ {
     if (flag) return@l <!RETURN_TYPE_MISMATCH!>4<!>

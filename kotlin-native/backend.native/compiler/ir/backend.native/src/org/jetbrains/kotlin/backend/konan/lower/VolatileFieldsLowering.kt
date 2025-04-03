@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.backend.konan.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.ir.addDispatchReceiver
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.Context
@@ -17,10 +16,12 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
+import org.jetbrains.kotlin.ir.builders.declarations.buildReceiverParameter
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrFieldSymbol
+import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.*
@@ -28,6 +29,7 @@ import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.*
 import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
+import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
 val IR_DECLARATION_ORIGIN_VOLATILE = IrDeclarationOriginImpl("VOLATILE")
 
@@ -43,8 +45,8 @@ internal class VolatileFieldsLowering(val context: Context) : FileLoweringPass {
     private val symbols = context.ir.symbols
     private val irBuiltins = context.irBuiltIns
     private fun IrBuilderWithScope.irByteToBool(expression: IrExpression) = irCall(symbols.areEqualByValue[PrimitiveBinaryType.BYTE]!!).apply {
-        putValueArgument(0, expression)
-        putValueArgument(1, irByte(1))
+        arguments[0] = expression
+        arguments[1] = irByte(1)
     }
     private fun IrBuilderWithScope.irBoolToByte(expression: IrExpression) = irWhen(irBuiltins.byteType, listOf(
         irBranch(expression, irByte(1)),
@@ -66,10 +68,10 @@ internal class VolatileFieldsLowering(val context: Context) : FileLoweringPass {
         require(scope is IrClass || scope is IrFile)
         parent = scope
         if (scope is IrClass) {
-            addDispatchReceiver {
+            parameters += buildReceiverParameter {
+                type = scope.defaultType
                 startOffset = irField.startOffset
                 endOffset = irField.endOffset
-                type = scope.defaultType
             }
         }
         builder()
@@ -179,7 +181,7 @@ internal class VolatileFieldsLowering(val context: Context) : FileLoweringPass {
 
 
             private fun unsupported(message: String) = builder.irCall(context.ir.symbols.throwIllegalArgumentExceptionWithMessage).apply {
-                putValueArgument(0, builder.irString(message))
+                arguments[0] = builder.irString(message)
             }
 
             override fun visitGetField(expression: IrGetField): IrExpression {
@@ -209,10 +211,11 @@ internal class VolatileFieldsLowering(val context: Context) : FileLoweringPass {
 
             private val IrBlock.singleExpressionOrNull get() = statements.singleOrNull() as? IrExpression
 
-            private tailrec fun getConstPropertyReference(expression: IrExpression?, expectedReturn: IrReturnableBlockSymbol?) : IrPropertyReference? {
+            private tailrec fun getConstPropertyReference(expression: IrExpression?, expectedReturn: IrReturnableBlockSymbol?) : IrRichPropertyReference? {
                 return when {
                     expression == null -> null
-                    expectedReturn == null && expression is IrPropertyReference -> expression
+                    expectedReturn == null && expression is IrPropertyReference -> shouldNotBeCalled()
+                    expectedReturn == null && expression is IrRichPropertyReference -> expression
                     expectedReturn == null && expression is IrReturnableBlock -> getConstPropertyReference(expression.singleExpressionOrNull, expression.symbol)
                     expression is IrReturn && expression.returnTargetSymbol == expectedReturn -> getConstPropertyReference(expression.value, null)
                     expression is IrBlock -> getConstPropertyReference(expression.singleExpressionOrNull, expectedReturn)
@@ -227,10 +230,11 @@ internal class VolatileFieldsLowering(val context: Context) : FileLoweringPass {
                     it in intrinsicMap || it == IntrinsicType.ATOMIC_GET_FIELD || it == IntrinsicType.ATOMIC_SET_FIELD
                 } ?: return expression
                 builder.at(expression)
-                val reference = getConstPropertyReference(expression.extensionReceiver, null)
+                val extensionReceiver = expression.arguments[expression.symbol.owner.parameters.indexOfFirst { it.kind == IrParameterKind.ExtensionReceiver }]
+                val reference = getConstPropertyReference(extensionReceiver, null)
                         ?: return unsupported("Only compile-time known IrProperties supported for $intrinsicType")
-                val property = reference.symbol.owner
-                val backingField = property.backingField
+                val property = (reference.reflectionTargetSymbol as? IrPropertySymbol)?.owner
+                val backingField = property?.backingField
                 if (backingField?.hasAnnotation(KonanFqNames.volatile) != true) {
                     return unsupported("Only volatile properties are supported for $intrinsicType")
                 }
@@ -240,17 +244,19 @@ internal class VolatileFieldsLowering(val context: Context) : FileLoweringPass {
                     else -> intrinsicMap[intrinsicType]!!(backingField)
                 }
                 return builder.irCall(function).apply {
-                    dispatchReceiver = reference.dispatchReceiver
-                    for (index in 0 until expression.valueArgumentsCount) {
-                        putValueArgument(index, expression.getValueArgument(index))
+                    dispatchReceiver = reference.boundValues.singleOrNull()
+                    val replacementParams = function.parameters.filter { it.kind == IrParameterKind.Regular }
+                    val originalParams = expression.symbol.owner.parameters.filter { it.kind == IrParameterKind.Regular }
+                    for ((from, to) in originalParams.zip(replacementParams)) {
+                        arguments[to] = expression.arguments[from]
                     }
                 }.let {
                     if (intrinsicType == IntrinsicType.ATOMIC_GET_FIELD || intrinsicType == IntrinsicType.ATOMIC_SET_FIELD) {
                         return it
                     }
                     if (backingField.requiresBooleanConversion()) {
-                        for (arg in 0 until it.valueArgumentsCount) {
-                            it.putValueArgument(arg, builder.irBoolToByte(it.getValueArgument(arg)!!))
+                        for (param in function.parameters.filter { it.kind == IrParameterKind.Regular }) {
+                            it.arguments[param] = builder.irBoolToByte(it.arguments[param]!!)
                         }
                         if (intrinsicType == IntrinsicType.COMPARE_AND_EXCHANGE_FIELD || intrinsicType == IntrinsicType.GET_AND_SET_FIELD) {
                             builder.irByteToBool(it)

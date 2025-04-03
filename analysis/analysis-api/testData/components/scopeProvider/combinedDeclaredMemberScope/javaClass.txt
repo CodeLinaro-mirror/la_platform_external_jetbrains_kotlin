@@ -1,7 +1,37 @@
+KaJavaFieldSymbol:
+  annotations: []
+  callableId: /JavaClass.field
+  compilerVisibility: Public
+  contextReceivers: []
+  isActual: false
+  isExpect: false
+  isExtension: false
+  isStatic: false
+  isVal: false
+  location: CLASS
+  modality: FINAL
+  name: field
+  origin: JAVA_SOURCE
+  receiverParameter: null
+  returnType: KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: kotlin/Int
+  visibility: PUBLIC
+  getDispatchReceiver(): KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: JavaClass
+  getContainingFileSymbol: null
+  getContainingJvmClassName: JavaClass
+  getContainingModule: KaSourceModule "Sources of main"
+  deprecationStatus: null
+
 KaNamedFunctionSymbol:
   annotations: []
   callableId: /JavaClass.bar
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -30,6 +60,32 @@ KaNamedFunctionSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaClass
+  canBeOperator: false
+  getContainingModule: KaSourceModule "Sources of main"
+  deprecationStatus: null
+
+KaJavaFieldSymbol:
+  annotations: []
+  callableId: /JavaClass.foo
+  compilerVisibility: Public
+  contextReceivers: []
+  isActual: false
+  isExpect: false
+  isExtension: false
+  isStatic: true
+  isVal: false
+  location: CLASS
+  modality: FINAL
+  name: foo
+  origin: JAVA_SOURCE
+  receiverParameter: null
+  returnType: KaUsualClassType:
+    annotations: []
+    typeArguments: []
+    type: kotlin/Int
+  visibility: PUBLIC
+  getContainingFileSymbol: null
+  getContainingJvmClassName: JavaClass
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 
@@ -37,6 +93,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: /JavaClass.hello
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: false
@@ -70,31 +127,7 @@ KaNamedFunctionSymbol:
     type: JavaClass
   getContainingFileSymbol: null
   getContainingJvmClassName: JavaClass
-  getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
-
-KaJavaFieldSymbol:
-  annotations: []
-  callableId: /JavaClass.foo
-  compilerVisibility: Public
-  contextReceivers: []
-  isActual: false
-  isExpect: false
-  isExtension: false
-  isStatic: true
-  isVal: false
-  location: CLASS
-  modality: OPEN
-  name: foo
-  origin: JAVA_SOURCE
-  receiverParameter: null
-  returnType: KaUsualClassType:
-    annotations: []
-    typeArguments: []
-    type: kotlin/Int
-  visibility: PUBLIC
-  getContainingFileSymbol: null
-  getContainingJvmClassName: JavaClass
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
 

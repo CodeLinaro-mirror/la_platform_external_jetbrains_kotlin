@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.scripting.compiler.plugin
 
 import com.intellij.mock.MockProject
+import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.common.extensions.ReplFactoryExtension
 import org.jetbrains.kotlin.cli.common.extensions.ScriptEvaluationExtension
 import org.jetbrains.kotlin.cli.common.extensions.ShellExtension
@@ -28,8 +29,12 @@ import org.jetbrains.kotlin.scripting.compiler.plugin.definitions.CliScriptDefin
 import org.jetbrains.kotlin.scripting.compiler.plugin.definitions.CliScriptConfigurationsProvider
 import org.jetbrains.kotlin.scripting.compiler.plugin.definitions.CliScriptReportSink
 import org.jetbrains.kotlin.scripting.compiler.plugin.extensions.JvmStandardReplFactoryExtension
+import org.jetbrains.kotlin.scripting.compiler.plugin.extensions.ReplLoweringExtension
+import org.jetbrains.kotlin.scripting.compiler.plugin.extensions.ScriptLoweringExtension
 import org.jetbrains.kotlin.scripting.compiler.plugin.extensions.ScriptingCollectAdditionalSourcesExtension
 import org.jetbrains.kotlin.scripting.compiler.plugin.extensions.ScriptingProcessSourcesBeforeCompilingExtension
+import org.jetbrains.kotlin.scripting.compiler.plugin.extensions.ScriptingIrExplainGenerationExtension
+import org.jetbrains.kotlin.scripting.configuration.ScriptingConfigurationKeys.ENABLE_SCRIPT_EXPLANATION_OPTION
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinitionProvider
 import org.jetbrains.kotlin.scripting.definitions.ScriptConfigurationsProvider
 import org.jetbrains.kotlin.scripting.extensions.ScriptExtraImportsProviderExtension
@@ -59,6 +64,9 @@ class ScriptingCompilerConfigurationComponentRegistrar : ComponentRegistrar {
             // TODO: add jdk path and other params if needed
         }
         withClassloadingProblemsReporting(messageCollector) {
+            if (configuration.get(ENABLE_SCRIPT_EXPLANATION_OPTION, false)) {
+                IrGenerationExtension.registerExtension(project, ScriptingIrExplainGenerationExtension(project))
+            }
             CompilerConfigurationExtension.registerExtension(project, ScriptingCompilerConfigurationExtension(project, hostConfiguration))
             CollectAdditionalSourcesExtension.registerExtension(project, ScriptingCollectAdditionalSourcesExtension(project))
             ProcessSourcesBeforeCompilingExtension.registerExtension(project, ScriptingProcessSourcesBeforeCompilingExtension(project))
@@ -70,6 +78,9 @@ class ScriptingCompilerConfigurationComponentRegistrar : ComponentRegistrar {
             project.registerService(ScriptConfigurationsProvider::class.java, CliScriptConfigurationsProvider(project))
             SyntheticResolveExtension.registerExtension(project, ScriptingResolveExtension())
             ExtraImportsProviderExtension.registerExtension(project, ScriptExtraImportsProviderExtension())
+
+            IrGenerationExtension.registerExtension(project, ScriptLoweringExtension())
+            IrGenerationExtension.registerExtension(project, ReplLoweringExtension())
 
             if (messageCollector != null) {
                 project.registerService(ScriptReportSink::class.java, CliScriptReportSink(messageCollector))

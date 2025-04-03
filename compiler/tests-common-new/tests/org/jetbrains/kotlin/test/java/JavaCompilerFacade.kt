@@ -6,14 +6,14 @@
 package org.jetbrains.kotlin.test.java
 
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
+import org.jetbrains.kotlin.cli.jvm.config.jvmModularRoots
 import org.jetbrains.kotlin.codegen.ClassFileFactory
 import org.jetbrains.kotlin.codegen.CodegenTestUtil
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.test.Assertions
 import org.jetbrains.kotlin.test.TestJdkKind
-import org.jetbrains.kotlin.test.compileJavaFilesExternally
+import org.jetbrains.kotlin.test.compileJavaFiles
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
@@ -29,8 +29,9 @@ class JavaCompilerFacade(private val testServices: TestServices) {
         if (module.javaFiles.isEmpty()) return
 
         val outputDir = testServices.compiledClassesManager.compileKotlinToDiskAndGetOutputDir(module, classFileFactory)
-        val javaClasspath =
-            listOf(outputDir.path) + configuration.jvmClasspathRoots.map { it.absolutePath }
+        val javaClasspath = listOf(outputDir.path) +
+                configuration.jvmClasspathRoots.map { it.absolutePath } +
+                configuration.jvmModularRoots.map { it.absolutePath }
 
         val javacOptions = extractJavacOptions(
             module,
@@ -43,8 +44,7 @@ class JavaCompilerFacade(private val testServices: TestServices) {
         )
 
         val javaFiles = testServices.sourceFileProvider.getRealJavaFiles(module)
-        val ignoreErrors = CodegenTestDirectives.IGNORE_JAVA_ERRORS in module.directives
-        compileJavaFiles(testServices.assertions, module, javaFiles, finalJavacOptions, ignoreErrors)
+        compileJavaFiles(javaFiles, finalJavacOptions, getExplicitJdkHome(module)).assertSuccessful()
     }
 
     companion object {
@@ -62,20 +62,6 @@ class JavaCompilerFacade(private val testServices: TestServices) {
                         add("-target")
                         add(kotlinTarget.description)
                     }
-                }
-            }
-        }
-
-        fun compileJavaFiles(
-            assertions: Assertions, module: TestModule, files: List<File>, javacOptions: List<String>, ignoreErrors: Boolean,
-        ) {
-            val jdkHome = getExplicitJdkHome(module)
-            if (jdkHome == null) {
-                org.jetbrains.kotlin.test.compileJavaFiles(files, javacOptions, javaErrorFile = null, assertions, ignoreErrors)
-            } else {
-                val success = compileJavaFilesExternally(files, javacOptions, jdkHome)
-                if (!success && !ignoreErrors) {
-                    throw AssertionError("Java files are not compiled successfully")
                 }
             }
         }

@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.fir.contracts.effects
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirProperty
+import org.jetbrains.kotlin.fir.declarations.utils.contextParametersForFunctionOrContainingProperty
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
@@ -49,15 +50,21 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) 
         val logicSystem = object : LogicSystem(context.session.typeContext) {
             override val variableStorage = VariableStorage(context.session)
         }
-        val argumentVariables = Array(function.valueParameters.size + 1) { i ->
-            if (i > 0) {
-                RealVariable.local(function.valueParameters[i - 1].symbol)
-            } else {
-                val receiverOwnerSymbol =
-                    if (function.symbol is FirPropertyAccessorSymbol) context.containingProperty?.symbol ?: function.symbol
-                    else function.symbol
-                val type = receiverOwnerSymbol.resolvedReceiverTypeRef?.coneType ?: return@Array null
-                RealVariable.receiver(receiverOwnerSymbol, type)
+        val size = function.valueParameters.size + function.contextParametersForFunctionOrContainingProperty().size + 1
+        val argumentVariables = Array(size) { i ->
+            when (val realIndex = i - 1) {
+                -1 -> {
+                    val receiverParameter =
+                        if (function.symbol is FirPropertyAccessorSymbol) {
+                            context.containingProperty?.receiverParameter ?: function.receiverParameter
+                        } else {
+                            function.receiverParameter
+                        }
+                    val type = receiverParameter?.typeRef?.coneType ?: return@Array null
+                    RealVariable.implicit(receiverParameter.symbol, type)
+                }
+                in function.valueParameters.indices -> RealVariable.local(function.valueParameters[realIndex].symbol)
+                else -> RealVariable.local(function.contextParametersForFunctionOrContainingProperty()[realIndex - function.valueParameters.size].symbol)
             }
         }
 
@@ -86,7 +93,6 @@ object FirReturnsImpliesAnalyzer : FirControlFlowChecker(MppCheckerKind.Common) 
         val typeContext = context.session.typeContext
 
         val isReturn = node is JumpNode && node.fir is FirReturnExpression
-        @Suppress("USELESS_CAST") // K2 warning suppression, TODO: KT-62472
         val resultExpression = if (isReturn) (node.fir as FirReturnExpression).result else node.fir
 
         val expressionType = (resultExpression as? FirExpression)?.resolvedType?.fullyExpandedType(context.session)

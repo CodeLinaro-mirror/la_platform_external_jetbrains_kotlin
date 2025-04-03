@@ -2,6 +2,7 @@ KaNamedFunctionSymbol:
   annotations: []
   callableId: one/two/TopLevelObject.Nested.foo
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
@@ -35,5 +36,6 @@ KaNamedFunctionSymbol:
     type: one/two/TopLevelObject.Nested
   getContainingFileSymbol: KaFileSymbol(dependency.kt)
   getContainingJvmClassName: one.two.TopLevelObject.Nested
+  canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null

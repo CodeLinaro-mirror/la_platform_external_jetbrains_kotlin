@@ -5,8 +5,9 @@
 
 package org.jetbrains.kotlin.fir.analysis.wasm.checkers.declaration
 
-import org.jetbrains.kotlin.KtFakeSourceElement
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirFunctionTypeParameter
@@ -50,12 +51,20 @@ object FirWasmJsInteropTypesChecker : FirBasicDeclarationChecker(MppCheckerKind.
             return
         }
 
+        if (declaration is FirFunction && isJsExportedDeclaration(declaration, session)) {
+            if (context.languageVersionSettings.supportsFeature(LanguageFeature.ContextParameters)) {
+                if (declaration.contextParameters.isNotEmpty()) {
+                    reporter.reportOn(declaration.source, FirWasmErrors.EXPORT_DECLARATION_WITH_CONTEXT_PARAMETERS, context)
+                }
+            }
+        }
+
         // filter out compiler-generated declarations (data/enum methods, property accessors, primary constructors, etc.) to prevent
         // 1) reporting excessive diagnostics
         //    (e.g. on generated methods of external enum classes (which are handled by another checker))
         // 2) reporting duplicate diagnostics
         //    (e.g. on properties with generated accessors and type parameters of classes with generated primary constructors)
-        if (declaration.source is KtFakeSourceElement) return
+        if (declaration.source?.kind is KtFakeSourceElementKind) return
 
         fun ConeKotlinType.isSupportedInJsInterop(position: Position): Boolean {
             if (isUnit || isNothing) {

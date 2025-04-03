@@ -5,18 +5,21 @@
 
 package org.jetbrains.kotlin.backend.common.phaser
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.ErrorReportingContext
 import org.jetbrains.kotlin.backend.common.IrValidatorConfig
+import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.backend.common.validateIr
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.config.IrVerificationMode
+import org.jetbrains.kotlin.config.phaser.Action
+import org.jetbrains.kotlin.config.phaser.ActionState
+import org.jetbrains.kotlin.config.phaser.BeforeOrAfter
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.name.FqName
@@ -59,7 +62,7 @@ private fun dumpIrElement(actionState: ActionState, data: IrElement): String {
     val dumpOnlyFqName = actionState.config.dumpOnlyFqName
     if (dumpOnlyFqName != null) {
         elementName = dumpOnlyFqName
-        data.acceptVoid(object : IrElementVisitorVoid {
+        data.acceptVoid(object : IrVisitorVoid() {
             override fun visitElement(element: IrElement) {
                 element.acceptChildrenVoid(this)
             }
@@ -161,4 +164,4 @@ fun <Data, Context : ErrorReportingContext> getIrDumper(): Action<Data, Context>
  *
  * Types are not checked in the IR during validation. But we may (and probably should) reconsider.
  */
-val DEFAULT_IR_ACTIONS: Set<Action<IrElement, CommonBackendContext>> = setOf(getIrDumper(), getIrValidator(checkTypes = false))
+val DEFAULT_IR_ACTIONS: Set<Action<IrElement, LoweringContext>> = setOf(getIrDumper(), getIrValidator(checkTypes = false))

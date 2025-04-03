@@ -47,6 +47,8 @@ object BinaryOptions : BinaryOptionRegistry() {
 
     val gcMarkSingleThreaded by booleanOption()
 
+    val fixedBlockPageSize by uintOption()
+
     val concurrentWeakSweep by booleanOption()
 
     val concurrentMarkMaxIterations by uintOption()
@@ -77,6 +79,8 @@ object BinaryOptions : BinaryOptionRegistry() {
 
     val disableMmap by booleanOption()
 
+    val mmapTag by uintOption()
+
     val enableSafepointSignposts by booleanOption()
 
     val packFields by booleanOption()
@@ -90,6 +94,16 @@ object BinaryOptions : BinaryOptionRegistry() {
     val genericSafeCasts by booleanOption()
 
     val smallBinary by booleanOption()
+
+    val preCodegenInlineThreshold by uintOption()
+
+    val enableDebugTransparentStepping by booleanOption()
+
+    val debugCompilationDir by stringOption()
+
+    val pagedAllocator by booleanOption()
+
+    val latin1Strings by booleanOption()
 }
 
 open class BinaryOption<T : Any>(

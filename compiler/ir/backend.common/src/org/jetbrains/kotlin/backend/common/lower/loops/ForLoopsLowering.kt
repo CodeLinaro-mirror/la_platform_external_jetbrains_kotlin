@@ -20,11 +20,7 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrCompositeImpl
 import org.jetbrains.kotlin.ir.types.getClass
 import org.jetbrains.kotlin.ir.types.isNothing
-import org.jetbrains.kotlin.ir.types.isStrictSubtypeOfClass
-import org.jetbrains.kotlin.ir.util.dump
-import org.jetbrains.kotlin.ir.util.functions
-import org.jetbrains.kotlin.ir.util.hasEqualFqName
-import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.OperatorNameConventions
@@ -318,20 +314,18 @@ private class RangeLoopTransformer(
         val initializer = iterator.initializer as? IrCall ?: return
         if (!initializer.symbol.owner.hasEqualFqName(STDLIB_ITERATOR_FUNCTION_FQ_NAME)) return
 
-        val receiverType = initializer.extensionReceiver?.type ?: return
+        val receiverType = initializer.arguments[0]?.type ?: return
         if (!receiverType.isStrictSubtypeOfClass(context.irBuiltIns.iteratorClass)) return
 
         val receiverClass = receiverType.getClass() ?: return
         val next = receiverClass.functions.singleOrNull {
             it.name == OperatorNameConventions.NEXT &&
-                    it.dispatchReceiverParameter != null &&
-                    it.extensionReceiverParameter == null &&
-                    it.valueParameters.isEmpty()
+                    it.hasShape(dispatchReceiver = true)
         } ?: return
 
         iterator.apply {
             this.type = receiverType
-            this.initializer = initializer.extensionReceiver
+            this.initializer = initializer.arguments[0]
         }
 
         val loop = statements[1] as IrWhileLoop
@@ -353,7 +347,7 @@ private class RangeLoopTransformer(
         val loopVariableComponentIndices: List<Int>
     )
 
-    private class FindInitializerCallVisitor(private val mainLoopVariable: IrVariable?) : IrElementVisitorVoid {
+    private class FindInitializerCallVisitor(private val mainLoopVariable: IrVariable?) : IrVisitorVoid() {
         var initializerCall: IrCall? = null
 
         override fun visitElement(element: IrElement) {

@@ -1,7 +1,9 @@
+// IGNORE_FIR_DIAGNOSTICS
+// RUN_PIPELINE_TILL: FRONTEND
 // MODULE: common
 // FILE: common.kt
-expect interface <!NO_ACTUAL_FOR_EXPECT!>I<!>
-expect interface <!NO_ACTUAL_FOR_EXPECT!>J<!>
+expect interface I
+expect interface J
 <!MANY_IMPL_MEMBER_NOT_IMPLEMENTED{JVM}!>class X<!>(a: I, b : J): I by a, J by b
 
 // MODULE: platform()()(common)

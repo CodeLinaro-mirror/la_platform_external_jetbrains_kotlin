@@ -9,7 +9,6 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
-import kotlin.io.path.pathString
 
 @DisplayName("Build FUS statistics")
 class BuildFusStatisticsIT : KGPDaemonsBaseTest() {
@@ -65,8 +64,8 @@ class BuildFusStatisticsIT : KGPDaemonsBaseTest() {
                             1
                         )
                     }
-                    //for other versions KGP from buildSrc registered both services
-                    else -> {
+                    //for gradle 8.5+ kotlin 1.9.20+ versions KGP from buildSrc registered both services
+                    gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_11) -> {
                         assertOutputContainsExactlyTimes(
                             "Instantiated class org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsService: new instance", // the legacy service for compatibility
                             1
@@ -77,132 +76,32 @@ class BuildFusStatisticsIT : KGPDaemonsBaseTest() {
                         )
 
                     }
+                    // Since Gradle 8.11 Kotlin version 2.0.20 is used which contains only one service
+                    else -> {
+                        assertOutputContainsExactlyTimes(
+                            "class org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsBeanService_v2 is already instantiated in another classpath",
+                            1
+                        )
+                        assertOutputContainsExactlyTimes(
+                            "class org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatsBeanService is already instantiated in another classpath",
+                            1
+                        )
+
+                        // from buildSrc project
+                        assertOutputContainsExactlyTimes(
+                            "[KOTLIN] Initialize BuildFusService${'$'}Inject",
+                            1
+                        )
+
+                        //from main project
+                        assertOutputContainsExactlyTimes(
+                            "[KOTLIN] Initialize FlowActionBuildFusService${'$'}Inject",
+                            1
+                        )
+                    }
                 }
 
                 assertOutputDoesNotContain("[org.jetbrains.kotlin.gradle.plugin.statistics.KotlinBuildStatHandler] Could not execute")
-            }
-        }
-    }
-
-    @DisplayName("smoke test for fus-statistics-gradle-plugin")
-    @GradleTest
-    fun smokeTestForFusStatisticsPlugin(gradleVersion: GradleVersion) {
-        val metricName = "METRIC_NAME"
-        val metricValue = 1
-        project("simpleProject", gradleVersion) {
-            buildGradle.modify {
-                """
-                ${applyFusPluginAndCreateTestFusTask(it)}
-                
-                ${registerTaskAndReportMetric("test-fus", metricName, metricValue)}
-                """.trimIndent()
-            }
-
-            val reportRelativePath = "reports"
-            build("test-fus", "-Pkotlin.session.logger.root.path=${projectPath.resolve(reportRelativePath).pathString}") {
-                val fusReport = projectPath.getSingleFileInDir("$reportRelativePath/kotlin-fus")
-                assertFileContains(
-                    fusReport,
-                    "METRIC_NAME=1",
-                    "BUILD FINISHED"
-                )
-            }
-        }
-    }
-
-    private fun applyFusPluginAndCreateTestFusTask(buildScript: String) = """${addBuildScriptDependency()}    
-                        
-                    $buildScript
-                    
-                    ${applyFusStatisticPlugin()}
-                    
-                    ${createTestFusTaskClass()}"""
-
-    private fun addBuildScriptDependency() = """
-        buildscript {
-            dependencies {
-                classpath "org.jetbrains.kotlin:fus-statistics-gradle-plugin:${'$'}kotlin_version"
-            }
-        }
-    """.trimIndent()
-
-    private fun applyFusStatisticPlugin() = """
-        plugins.apply("org.jetbrains.kotlin.fus-statistics-gradle-plugin")
-    """.trimIndent()
-
-    private fun createTestFusTaskClass() = """
-        import org.jetbrains.kotlin.gradle.fus.GradleBuildFusStatisticsService
-        import org.jetbrains.kotlin.gradle.fus.UsesGradleBuildFusStatisticsService
-
-        class TestFusTask extends DefaultTask implements UsesGradleBuildFusStatisticsService {
-
-            private Property<GradleBuildFusStatisticsService> fusStatisticsBuildService = project.objects.property(GradleBuildFusStatisticsService.class)
-
-            Property getFusStatisticsBuildService(){
-                return fusStatisticsBuildService
-            }
-
-        }
-    """.trimIndent()
-
-    @DisplayName("test override metrics for fus-statistics-gradle-plugin")
-    @GradleTest
-    fun testMetricsOverrideForFusStatisticsPlugin(gradleVersion: GradleVersion) {
-        val metricName = "METRIC_NAME"
-        val metricValue = 1
-        project("simpleProject", gradleVersion) {
-            buildGradle.modify {
-                """
-                ${applyFusPluginAndCreateTestFusTask(it)}
-                
-                ${registerTaskAndReportMetric("test-fus", metricName, metricValue)}
-                
-                ${registerTaskAndReportMetric("test-fus-second", metricName, "2")}
-            
-                """.trimIndent()
-            }
-
-            val reportRelativePath = "reports"
-            build("test-fus", "test-fus-second", "-Pkotlin.session.logger.root.path=${projectPath.resolve(reportRelativePath).pathString}") {
-                //for Gradle 8.9 the task execution order can be changed
-                assertOutputContainsAny(
-                    "Try to override $metricName metric: current value is \"1\", new value is \"2\"",
-                    "Try to override $metricName metric: current value is \"2\", new value is \"1\""
-                )
-                val fusReport = projectPath.getSingleFileInDir("$reportRelativePath/kotlin-fus")
-                assertFileContains(
-                    fusReport,
-                    "METRIC_NAME=1",
-                    "BUILD FINISHED"
-                )
-            }
-        }
-    }
-
-    private fun registerTaskAndReportMetric(taskName: String, metricName: String, metricValue: Any) =
-        """
-            tasks.register("$taskName", TestFusTask.class) {
-                doLast {
-                      fusStatisticsBuildService.get().reportMetric("$metricName", "$metricValue", null)
-                }
-           }
-           """
-
-    @DisplayName("test invalid fus report directory")
-    @GradleTest
-    fun testInvalidFusReportDir(gradleVersion: GradleVersion) {
-        project("simpleProject", gradleVersion) {
-            buildGradle.modify {
-                """
-                ${applyFusPluginAndCreateTestFusTask(it)}
-                
-                ${registerTaskAndReportMetric("test-fus", "metricName", "metricValue")}
-                
-                """.trimIndent()
-            }
-
-            build("test-fus", "-Pkotlin.session.logger.root.path=") {
-                assertOutputContains("Fus metrics wont be collected")
             }
         }
     }

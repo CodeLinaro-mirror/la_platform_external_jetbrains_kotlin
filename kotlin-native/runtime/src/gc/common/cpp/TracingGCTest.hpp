@@ -22,10 +22,9 @@
 #include "ObjectTestSupport.hpp"
 #include "SafePoint.hpp"
 #include "SingleThreadExecutor.hpp"
-#include "StableRef.hpp"
 #include "TestSupport.hpp"
 #include "ThreadData.hpp"
-#include "WeakRef.hpp"
+#include "ThreadState.hpp"
 
 using namespace kotlin;
 
@@ -70,7 +69,7 @@ class GlobalPermanentObjectHolder : private Pinned {
 public:
     explicit GlobalPermanentObjectHolder(mm::ThreadData& threadData) {
         mm::GlobalsRegistry::Instance().RegisterStorageForGlobal(&threadData, &global_);
-        global_->typeInfoOrMeta_ = setPointerBits(global_->typeInfoOrMeta_, OBJECT_TAG_PERMANENT_CONTAINER);
+        global_->typeInfoOrMeta_ = setPointerBits(global_->typeInfoOrMeta_, OBJECT_TAG_PERMANENT);
         RuntimeAssert(global_->permanent(), "Must be permanent");
     }
 
@@ -571,7 +570,7 @@ TYPED_TEST_P(TracingGCTest, PermanentObjects) {
         GlobalObjectHolder global2{threadData};
         test_support::Object<Payload> permanentObject{typeHolder.typeInfo()};
         permanentObject.header()->typeInfoOrMeta_ =
-                setPointerBits(permanentObject.header()->typeInfoOrMeta_, OBJECT_TAG_PERMANENT_CONTAINER);
+                setPointerBits(permanentObject.header()->typeInfoOrMeta_, OBJECT_TAG_PERMANENT);
         RuntimeAssert(permanentObject.header()->permanent(), "Must be permanent");
 
         global1->field1 = permanentObject.header();
@@ -615,13 +614,13 @@ public:
     template <typename F>
     [[nodiscard]] std::future<void> Execute(F&& f) {
         return executor_.execute(
-                [this, f = std::forward<F>(f)] { f(*executor_.context().memory_->memoryState()->GetThreadData(), *this); });
+                [this, f = std::forward<F>(f)] { f(*executor_.context().threadData_, *this); });
     }
 
     StackObjectHolder& AddStackRoot() {
         RuntimeAssert(std::this_thread::get_id() == executor_.threadId(), "AddStackRoot can only be called in the mutator thread");
         auto& context = executor_.context();
-        auto holder = std::make_unique<StackObjectHolder>(*context.memory_->memoryState()->GetThreadData());
+        auto holder = std::make_unique<StackObjectHolder>(*context.threadData_);
         auto& holderRef = *holder;
         context.stackRoots_.push_back(std::move(holder));
         return holderRef;
@@ -639,7 +638,7 @@ public:
     GlobalObjectHolder& AddGlobalRoot() {
         RuntimeAssert(std::this_thread::get_id() == executor_.threadId(), "AddGlobalRoot can only be called in the mutator thread");
         auto& context = executor_.context();
-        auto holder = std::make_unique<GlobalObjectHolder>(*context.memory_->memoryState()->GetThreadData());
+        auto holder = std::make_unique<GlobalObjectHolder>(*context.threadData_);
         auto& holderRef = *holder;
         context.globalRoots_.push_back(std::move(holder));
         return holderRef;
@@ -648,23 +647,25 @@ public:
     GlobalObjectHolder& AddGlobalRoot(ObjHeader* object) {
         RuntimeAssert(std::this_thread::get_id() == executor_.threadId(), "AddGlobalRoot can only be called in the mutator thread");
         auto& context = executor_.context();
-        auto holder = std::make_unique<GlobalObjectHolder>(*context.memory_->memoryState()->GetThreadData(), object);
+        auto holder = std::make_unique<GlobalObjectHolder>(*context.threadData_, object);
         auto& holderRef = *holder;
         context.globalRoots_.push_back(std::move(holder));
         return holderRef;
     }
 
-    std::vector<ObjHeader*> Alive() { return ::Alive(*executor_.context().memory_->memoryState()->GetThreadData()); }
+    std::vector<ObjHeader*> Alive() { return ::Alive(*executor_.context().threadData_); }
 
 private:
     struct Context {
-        std::unique_ptr<ScopedMemoryInit> memory_;
+        CalledFromNativeGuard runtimeInitializer_;
+        mm::ThreadData* threadData_;
         std::vector<std::unique_ptr<StackObjectHolder>> stackRoots_;
         std::vector<std::unique_ptr<GlobalObjectHolder>> globalRoots_;
 
-        Context() : memory_(std::make_unique<ScopedMemoryInit>()) {
+        Context() {
+            threadData_ = mm::ThreadRegistry::Instance().CurrentThreadData();
             // SingleThreadExecutor must work in the runnable state, so that GC does not collect between tasks.
-            AssertThreadState(memory_->memoryState(), ThreadState::kRunnable);
+            AssertThreadState(threadData_, ThreadState::kRunnable);
         }
     };
 

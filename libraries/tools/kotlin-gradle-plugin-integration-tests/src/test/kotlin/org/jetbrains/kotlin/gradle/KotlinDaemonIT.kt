@@ -104,6 +104,7 @@ class KotlinDaemonIT : KGPDaemonsBaseTest() {
 
     @DisplayName("On Kotlin daemon OOM helpful message is displayed")
     @GradleTest
+    @Disabled("KTI-2127 Flaky test displaySpecialMessageOnOOM")
     fun displaySpecialMessageOnOOM(gradleVersion: GradleVersion) {
         project(
             "kotlinProject",
@@ -112,7 +113,7 @@ class KotlinDaemonIT : KGPDaemonsBaseTest() {
             buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.INFO)
         ) {
             gradleProperties.append(
-                "\nkotlin.daemon.jvmargs=-Xmx16m"
+                "\nkotlin.daemon.jvmargs=-Xmx20m"
             )
 
             buildAndFail("assemble") {

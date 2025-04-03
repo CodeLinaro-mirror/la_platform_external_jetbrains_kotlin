@@ -139,6 +139,16 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveCallTestGenerated exte
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/contextParameters")
+  @TestDataPath("$PROJECT_ROOT")
+  public class ContextParameters {
+    @Test
+    public void testAllFilesPresentInContextParameters() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/contextParameters"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/danglingAnnotations")
   @TestDataPath("$PROJECT_ROOT")
   public class DanglingAnnotations {
@@ -265,16 +275,6 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveCallTestGenerated exte
     @Test
     public void testAllFilesPresentInGloballyDuplicateLibraries() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/globallyDuplicateLibraries"), Pattern.compile("^(.+)\\.kts$"), null, true);
-    }
-  }
-
-  @Nested
-  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/inImport")
-  @TestDataPath("$PROJECT_ROOT")
-  public class InImport {
-    @Test
-    public void testAllFilesPresentInInImport() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/inImport"), Pattern.compile("^(.+)\\.kts$"), null, true);
     }
   }
 

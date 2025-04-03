@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -53,7 +52,7 @@ class NamedArgumentNotAllowed(
     val argument: FirExpression,
     val function: FirFunction,
     val forbiddenNamedArgumentsTarget: ForbiddenNamedArgumentsTarget
-) : ResolutionDiagnostic(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR)
+) : ResolutionDiagnostic(INAPPLICABLE)
 
 class ArgumentPassedTwice(
     override val argument: FirNamedArgumentExpression,
@@ -136,6 +135,9 @@ class ArgumentTypeMismatch(
     val actualType: ConeKotlinType,
     val argument: FirExpression,
     val isMismatchDueToNullability: Boolean,
+    // We use argument checking mechanism for return statements of lambdas, too.
+    // Thus, to report proper RETURN_TYPE_MISMATCH we preserve a reference to the lambda
+    val anonymousFunctionIfReturnExpression: FirAnonymousFunction? = null,
 ) : ResolutionDiagnostic(if (isMismatchDueToNullability) UNSAFE_CALL else INAPPLICABLE)
 
 class UnitReturnTypeLambdaContradictsExpectedType(
@@ -167,13 +169,13 @@ class MultipleContextReceiversApplicableForExtensionReceivers : ResolutionDiagno
 
 object NoReceiverAllowed : ResolutionDiagnostic(INAPPLICABLE)
 
-class NoApplicableValueForContextReceiver(
+class NoContextArgument(
     val expectedContextReceiverType: ConeKotlinType
 ) : ResolutionDiagnostic(INAPPLICABLE)
 
 object UnsupportedContextualDeclarationCall : ResolutionDiagnostic(INAPPLICABLE)
 
-class AmbiguousValuesForContextReceiverParameter(
+class AmbiguousContextArgument(
     val expectedContextReceiverType: ConeKotlinType,
 ) : ResolutionDiagnostic(INAPPLICABLE)
 

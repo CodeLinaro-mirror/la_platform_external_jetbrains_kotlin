@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.fir.analysis.checkers
 
 import com.intellij.lang.LighterASTNode
 import org.jetbrains.kotlin.*
-import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.StandardNames.HASHCODE_NAME
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -33,6 +32,7 @@ import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
 import org.jetbrains.kotlin.fir.scopes.impl.multipleDelegatesWithTheSameSignature
@@ -43,6 +43,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtParameter.VAL_VAR_TOKEN_SET
 import org.jetbrains.kotlin.resolve.AnnotationTargetList
@@ -55,7 +56,6 @@ import org.jetbrains.kotlin.types.model.TypeCheckerProviderContext
 import org.jetbrains.kotlin.util.ImplementationStatus
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.util.getChildren
-import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -120,8 +120,8 @@ fun FirClassSymbol<*>.isSupertypeOf(other: FirClassSymbol<*>, session: FirSessio
 }
 
 fun ConeKotlinType.isValueClass(session: FirSession): Boolean {
-    // Value classes have inline modifier in FIR
-    return toRegularClassSymbol(session)?.isInline == true
+    // Value classes have `inline` or `value` modifier in FIR
+    return toRegularClassSymbol(session)?.isInlineOrValue == true
 }
 
 fun ConeKotlinType.isSingleFieldValueClass(session: FirSession): Boolean = with(session.typeContext) {
@@ -173,11 +173,8 @@ fun FirTypeRef.toRegularClassSymbol(session: FirSession): FirRegularClassSymbol?
  * Calling [getContainingClassSymbol] for the symbol of `(1)` will return
  * `expect class MyClass`, but calling it for `(2)` will give `actual class MyClass`.
  */
-fun FirBasedSymbol<*>.getContainingClassSymbol(): FirClassLikeSymbol<*>? = when (this) {
-    is FirCallableSymbol<*> -> containingClassLookupTag()?.toSymbol(moduleData.session)
-    is FirClassLikeSymbol<*> -> getContainingClassLookupTag()?.toSymbol(moduleData.session)
-    is FirAnonymousInitializerSymbol -> containingDeclarationSymbol as? FirClassLikeSymbol<*>
-    else -> null
+fun FirBasedSymbol<*>.getContainingClassSymbol(): FirClassLikeSymbol<*>? {
+    return moduleData.session.firProvider.getContainingClass(this)
 }
 
 /**
@@ -210,8 +207,7 @@ fun CheckerContext.findClosestClassOrObject(): FirClass? {
             it is FirRegularClass ||
             it is FirAnonymousObject
         ) {
-            @Suppress("USELESS_CAST") // K2 warning suppression, TODO: KT-62472
-            return it as FirClass
+            return it
         }
     }
 
@@ -512,16 +508,35 @@ fun checkTypeMismatch(
     if (isSubtypeForTypeMismatch(typeContext, subtype = rValueType, supertype = lValueType)) return
 
     val resolvedSymbol = assignment?.calleeReference?.toResolvedCallableSymbol() as? FirPropertySymbol
+    val receiverType = (assignment?.extensionReceiver ?: assignment?.dispatchReceiver)?.resolvedType
+
     when {
-        resolvedSymbol != null && lValueType is ConeCapturedType && lValueType.constructor.projection.kind.let {
-            it == ProjectionKind.STAR || it == ProjectionKind.OUT
-        } -> {
-            reporter.reportOn(assignment.source, FirErrors.SETTER_PROJECTED_OUT, resolvedSymbol, context)
+        resolvedSymbol != null &&
+                receiverType != null &&
+                lValueType is ConeCapturedType &&
+                lValueType.constructor.projection.kind.let { it == ProjectionKind.STAR || it == ProjectionKind.OUT } -> {
+            reporter.reportOn(
+                assignment.source,
+                FirErrors.SETTER_PROJECTED_OUT,
+                receiverType,
+                lValueType.projectionKindAsString(),
+                resolvedSymbol,
+                context
+            )
         }
         rValue.isNullLiteral && !lValueType.isMarkedOrFlexiblyNullable -> {
             reporter.reportOn(rValue.source, FirErrors.NULL_FOR_NONNULL_TYPE, lValueType, context)
         }
         isInitializer -> {
+            if (reportReturnTypeMismatchInLambda(
+                    lValueType = lValueType.fullyExpandedType(context.session),
+                    rValue = rValue,
+                    rValueType = rValueType.fullyExpandedType(context.session),
+                    context = context,
+                    reporter = reporter
+                )
+            ) return
+
             reporter.reportOn(
                 source,
                 FirErrors.INITIALIZER_TYPE_MISMATCH,
@@ -553,6 +568,56 @@ fun checkTypeMismatch(
                 context
             )
         }
+    }
+}
+
+/**
+ * Instead of reporting type mismatch on the whole lambda, tries to report more granular type mismatch on the return expressions.
+ */
+private fun reportReturnTypeMismatchInLambda(
+    lValueType: ConeKotlinType,
+    rValue: FirExpression,
+    rValueType: ConeKotlinType,
+    context: CheckerContext,
+    reporter: DiagnosticReporter,
+): Boolean {
+    if (rValue !is FirAnonymousFunctionExpression) return false
+    if (!lValueType.isSomeFunctionType(context.session) && lValueType.classId != StandardClassIds.Function) return false
+
+    val expectedReturnType = lValueType.typeArguments.lastOrNull()?.type ?: return false
+
+    val rValueTypeWithExpectedReturnType = rValueType.withArguments(
+        rValueType.typeArguments.dropLast(1).plus(expectedReturnType).toTypedArray()
+    )
+
+    if (!isSubtypeForTypeMismatch(context.session.typeContext, rValueTypeWithExpectedReturnType, lValueType)) return false
+
+    var reported = false
+
+    for (expression in rValue.anonymousFunction.getReturnedExpressions()) {
+        if (!isSubtypeForTypeMismatch(context.session.typeContext, expression.resolvedType, expectedReturnType)) {
+            reported = true
+            reporter.reportOn(
+                expression.source,
+                FirErrors.RETURN_TYPE_MISMATCH,
+                expectedReturnType,
+                expression.resolvedType,
+                rValue.anonymousFunction,
+                context.session.typeContext.isTypeMismatchDueToNullability(expression.resolvedType, expectedReturnType),
+                context
+            )
+        }
+    }
+
+    return reported
+}
+
+fun ConeCapturedType.projectionKindAsString(): String {
+    return when (constructor.projection.kind) {
+        ProjectionKind.OUT -> "out"
+        ProjectionKind.IN -> "in"
+        ProjectionKind.STAR -> "star"
+        ProjectionKind.INVARIANT -> error("no projection")
     }
 }
 
@@ -891,8 +956,7 @@ fun FirAnonymousFunction.getReturnedExpressions(): List<FirExpression> {
             is JumpNode -> (it.fir as? FirReturnExpression)?.result
             is BlockExitNode -> (it.fir.statements.lastOrNull() as? FirReturnExpression)?.result
             is FinallyBlockExitNode -> {
-                val finallyBlockEnterNode =
-                    generateSequence(it, CFGNode<*>::lastPreviousNode).firstIsInstanceOrNull<FinallyBlockEnterNode>() ?: return null
+                val finallyBlockEnterNode = it.enterNode
                 finallyBlockEnterNode.previousNodes.firstOrNull { x -> finallyBlockEnterNode.edgeFrom(x) == exitNode.edgeFrom(it) }
                     ?.let(::extractReturnedExpression)
             }
@@ -900,15 +964,40 @@ fun FirAnonymousFunction.getReturnedExpressions(): List<FirExpression> {
         }
     }
 
-    return exitNode.previousNodes.mapNotNull(::extractReturnedExpression)
+    return exitNode.previousNodes.mapNotNull(::extractReturnedExpression).distinct()
 }
 
-fun FirValueParameterSymbol.getParameterNameFromAnnotation(): String? {
-    return resolvedReturnType.getParameterNameFromAnnotation(moduleData.session)
+fun ConeKotlinType.isMalformedExpandedType(context: CheckerContext, allowNullableNothing: Boolean): Boolean {
+    val expandedType = fullyExpandedType(context.session)
+    if (expandedType.classId == StandardClassIds.Array) {
+        val singleArgumentType = expandedType.typeArguments.singleOrNull()?.type?.fullyExpandedType(context.session)
+        if (singleArgumentType != null &&
+            (singleArgumentType.isNothing || (singleArgumentType.isNullableNothing && !allowNullableNothing))
+        ) {
+            return true
+        }
+    }
+    return expandedType.containsMalformedArgument(context, allowNullableNothing)
 }
 
-fun ConeKotlinType.getParameterNameFromAnnotation(session: FirSession): String? {
-    val annotation = customAnnotations.getAnnotationByClassId(StandardNames.FqNames.parameterNameClassId, session) ?: return null
-    val argument = annotation.argumentMapping.mapping[StandardNames.NAME]
-    return (argument as? FirLiteralExpression)?.value as? String
+private fun ConeKotlinType.containsMalformedArgument(context: CheckerContext, allowNullableNothing: Boolean) =
+    typeArguments.any {
+        it.type?.fullyExpandedType(context.session)?.isMalformedExpandedType(context, allowNullableNothing) == true
+    }
+
+fun reportAtomicToPrimitiveProblematicAccess(
+    type: ConeKotlinType,
+    source: KtSourceElement?,
+    atomicReferenceClassId: ClassId,
+    appropriateCandidatesForArgument: Map<ClassId, ClassId>,
+    context: CheckerContext,
+    reporter: DiagnosticReporter,
+) {
+    val expanded = type.fullyExpandedType(context.session)
+    val argument = expanded.typeArguments.firstOrNull()?.type ?: return
+
+    if (argument.isPrimitive || argument.isValueClass(context.session)) {
+        val candidate = appropriateCandidatesForArgument[argument.classId]
+        reporter.reportOn(source, FirErrors.ATOMIC_REF_WITHOUT_CONSISTENT_IDENTITY, atomicReferenceClassId, argument, candidate, context)
+    }
 }

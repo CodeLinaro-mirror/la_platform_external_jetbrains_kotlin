@@ -105,8 +105,8 @@ open class LiveLiteralTransformer(
 ) : AbstractComposeLowering(context, metrics, stabilityInferencer, featureFlags),
     ModuleLoweringPass {
 
-    override fun lower(module: IrModuleFragment) {
-        module.transformChildrenVoid(this)
+    override fun lower(irModule: IrModuleFragment) {
+        irModule.transformChildrenVoid(this)
     }
 
     private val liveLiteral =
@@ -302,7 +302,7 @@ open class LiveLiteralTransformer(
                                     defaultProp.getter!!.symbol
                                 )
                             )
-                            putTypeArgument(0, literalType)
+                            typeArguments[0] = literalType
                         }
                         val c = irTemporary(liveLiteralCall)
                         +irSet(
@@ -432,7 +432,7 @@ open class LiveLiteralTransformer(
                     // the kotlin file class lowering produces, prefixed with `LiveLiterals$`.
                     name = Name.identifier("LiveLiterals${"$"}$shortName")
                 }.also {
-                    it.createParameterDeclarations()
+                    it.createThisReceiverParameter()
 
                     // store the full file path to the file that this class is associated with in an
                     // annotation on the class. This will be used by tooling to associate the keys

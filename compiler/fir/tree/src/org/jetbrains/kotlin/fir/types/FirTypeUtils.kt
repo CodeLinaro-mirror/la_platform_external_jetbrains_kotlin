@@ -112,7 +112,7 @@ fun FirExpression.isStableSmartcast(): Boolean {
 private val FirTypeRef.lookupTagBasedOrNull: ConeLookupTagBasedType?
     get() = when (this) {
         is FirImplicitBuiltinTypeRef -> coneType
-        is FirResolvedTypeRef -> coneType as? ConeLookupTagBasedType
+        is FirResolvedTypeRef -> coneType.lowerBoundIfFlexible() as? ConeLookupTagBasedType
         else -> null
     }
 
@@ -123,9 +123,9 @@ private fun FirTypeRef.isBuiltinType(classId: ClassId, isNullable: Boolean): Boo
 
 val FirFunctionTypeRef.parametersCount: Int
     get() = if (receiverTypeRef != null)
-        parameters.size + contextReceiverTypeRefs.size + 1
+        parameters.size + contextParameterTypeRefs.size + 1
     else
-        parameters.size + contextReceiverTypeRefs.size
+        parameters.size + contextParameterTypeRefs.size
 
 private fun FirAnnotation.isOfType(classId: ClassId): Boolean {
     return (annotationTypeRef as? FirResolvedTypeRef)?.let { typeRef ->

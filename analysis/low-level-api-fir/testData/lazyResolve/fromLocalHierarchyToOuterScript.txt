@@ -1,7 +1,7 @@
 RAW_FIR:
 FILE: [ResolvedTo(RAW_FIR)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -30,7 +30,7 @@ FILE: [ResolvedTo(RAW_FIR)] fromLocalHierarchyToOuterScript.kts
 IMPORTS:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -59,7 +59,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 COMPILER_REQUIRED_ANNOTATIONS:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -88,7 +88,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 COMPANION_GENERATION:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -117,7 +117,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 SUPER_TYPES:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -146,7 +146,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 TYPES:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -175,7 +175,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 STATUS:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -204,7 +204,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 EXPECT_ACTUAL_MATCHING:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(RAW_FIR)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: kotlin.script.templates.standard.ScriptTemplateWithArgs
+        [ResolvedTo(RAW_FIR)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(RAW_FIR)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -233,7 +233,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 CONTRACTS:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -256,34 +256,13 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 
         }
 
-        public final [ResolvedTo(CONTRACTS)] fun resolveMe(): R|kotlin/Unit| {
-            local open [ResolvedTo(RAW_FIR)] class LocalClass : AnotherTopLevelClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=LocalClass] constructor(): R|<local>/LocalClass| {
-                    super<AnotherTopLevelClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun foo([ResolvedTo(RAW_FIR)] i: Int): R|kotlin/Unit| {
-                }
-
-            }
-
-            local final? [ResolvedTo(RAW_FIR)] class SecondLocalClass : LocalClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=SecondLocalClass] constructor(): R|<local>/SecondLocalClass| {
-                    super<LocalClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun boo([ResolvedTo(RAW_FIR)] b: String): R|kotlin/Unit| {
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(CONTRACTS)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 IMPLICIT_TYPES_BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -306,34 +285,13 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 
         }
 
-        public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun resolveMe(): R|kotlin/Unit| {
-            local open [ResolvedTo(RAW_FIR)] class LocalClass : AnotherTopLevelClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=LocalClass] constructor(): R|<local>/LocalClass| {
-                    super<AnotherTopLevelClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun foo([ResolvedTo(RAW_FIR)] i: Int): R|kotlin/Unit| {
-                }
-
-            }
-
-            local final? [ResolvedTo(RAW_FIR)] class SecondLocalClass : LocalClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=SecondLocalClass] constructor(): R|<local>/SecondLocalClass| {
-                    super<LocalClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun boo([ResolvedTo(RAW_FIR)] b: String): R|kotlin/Unit| {
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 CONSTANT_EVALUATION:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -356,34 +314,13 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 
         }
 
-        public final [ResolvedTo(CONSTANT_EVALUATION)] fun resolveMe(): R|kotlin/Unit| {
-            local open [ResolvedTo(RAW_FIR)] class LocalClass : AnotherTopLevelClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=LocalClass] constructor(): R|<local>/LocalClass| {
-                    super<AnotherTopLevelClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun foo([ResolvedTo(RAW_FIR)] i: Int): R|kotlin/Unit| {
-                }
-
-            }
-
-            local final? [ResolvedTo(RAW_FIR)] class SecondLocalClass : LocalClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=SecondLocalClass] constructor(): R|<local>/SecondLocalClass| {
-                    super<LocalClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun boo([ResolvedTo(RAW_FIR)] b: String): R|kotlin/Unit| {
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(CONSTANT_EVALUATION)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 ANNOTATION_ARGUMENTS:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(RAW_FIR)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -406,34 +343,13 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 
         }
 
-        public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun resolveMe(): R|kotlin/Unit| {
-            local open [ResolvedTo(RAW_FIR)] class LocalClass : AnotherTopLevelClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=LocalClass] constructor(): R|<local>/LocalClass| {
-                    super<AnotherTopLevelClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun foo([ResolvedTo(RAW_FIR)] i: Int): R|kotlin/Unit| {
-                }
-
-            }
-
-            local final? [ResolvedTo(RAW_FIR)] class SecondLocalClass : LocalClass {
-                public? [ResolvedTo(RAW_FIR)] [ContainingClassKey=SecondLocalClass] constructor(): R|<local>/SecondLocalClass| {
-                    super<LocalClass>()
-                }
-
-                public? open? override [ResolvedTo(RAW_FIR)] fun boo([ResolvedTo(RAW_FIR)] b: String): R|kotlin/Unit| {
-                }
-
-            }
-
-        }
+        public final [ResolvedTo(ANNOTATION_ARGUMENTS)] fun resolveMe(): R|kotlin/Unit| { LAZY_BLOCK }
 
 
 BODY_RESOLVE:
 FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(TYPES)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(TYPES)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(TYPES)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(STATUS)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {
@@ -483,7 +399,7 @@ FILE: [ResolvedTo(IMPORTS)] fromLocalHierarchyToOuterScript.kts
 FILE RAW TO BODY:
 FILE: [ResolvedTo(BODY_RESOLVE)] fromLocalHierarchyToOuterScript.kts
     SCRIPT: [ResolvedTo(BODY_RESOLVE)] <script-fromLocalHierarchyToOuterScript.kts>
-        <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
+        [ResolvedTo(BODY_RESOLVE)] <script receiver parameter>: R|kotlin/script/templates/standard/ScriptTemplateWithArgs|
         [ResolvedTo(BODY_RESOLVE)] lval args: R|kotlin/Array<kotlin/String>|
 
         public open [ResolvedTo(BODY_RESOLVE)] [ContainingScriptKey=FirScriptSymbol <script-fromLocalHierarchyToOuterScript.kts>] class TopLevelClass : R|kotlin/Any| {

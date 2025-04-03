@@ -15,7 +15,7 @@ import org.jetbrains.kotlin.ir.symbols.IrReturnableBlockSymbol
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.isUnit
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.js.common.isES5IdentifierPart
 import org.jetbrains.kotlin.js.common.isES5IdentifierStart
@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.js.common.isValidES5Identifier
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import java.util.*
-import kotlin.collections.set
 import kotlin.math.abs
 
 abstract class NameScope {
@@ -138,15 +137,24 @@ fun calculateJsFunctionSignature(declaration: IrFunction, context: JsIrBackendCo
             nameBuilder.append("_").append(typeParam.name.asString()).append(typeParam.superTypes.joinTypes(context))
         }
     }
-    declaration.extensionReceiverParameter?.let {
-        val superTypes = it.type.superTypes().joinTypes(context)
-        nameBuilder.append("_r$${it.type.asString(context)}$superTypes")
-    }
-    declaration.valueParameters.ifNotEmpty {
-        joinTo(nameBuilder, "") {
-            val defaultValueSign = if (it.origin == JsLoweredDeclarationOrigin.JS_SHADOWED_DEFAULT_PARAMETER) "?" else ""
-            val superTypes = it.type.superTypes().joinTypes(context)
-            "_${it.type.asString(context)}$superTypes$defaultValueSign"
+
+    for (parameter in declaration.parameters) {
+        when (parameter.kind) {
+            IrParameterKind.DispatchReceiver -> continue
+            IrParameterKind.ExtensionReceiver -> {
+                nameBuilder.append("_r$")
+            }
+            IrParameterKind.Context -> {
+                nameBuilder.append("_c$")
+            }
+            IrParameterKind.Regular -> {
+                nameBuilder.append("_")
+            }
+        }
+        nameBuilder.append(parameter.type.asString(context))
+        nameBuilder.append(parameter.type.superTypes().joinTypes(context))
+        if (parameter.origin == JsLoweredDeclarationOrigin.JS_SHADOWED_DEFAULT_PARAMETER) {
+            nameBuilder.append("?")
         }
     }
     declaration.returnType.let {
@@ -181,7 +189,7 @@ fun jsFunctionSignature(declaration: IrFunction, context: JsIrBackendContext): S
     return calculateJsFunctionSignature(declarationSignature, context)
 }
 
-class LocalNameGenerator(val variableNames: NameTable<IrDeclaration>) : IrElementVisitorVoid {
+class LocalNameGenerator(val variableNames: NameTable<IrDeclaration>) : IrVisitorVoid() {
     val localLoopNames = NameTable<IrLoop>()
     val localReturnableBlockNames = NameTable<IrReturnableBlock>()
 

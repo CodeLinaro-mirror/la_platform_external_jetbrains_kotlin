@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import org.junit.jupiter.api.condition.OS
+import java.io.File
 import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.absolutePathString
@@ -29,6 +30,7 @@ data class BuildOptions(
     val stacktraceMode: String? = StacktraceOption.FULL_STACKTRACE_LONG_OPTION,
     val kotlinVersion: String = TestVersions.Kotlin.CURRENT,
     val warningMode: WarningMode = WarningMode.Fail,
+    val ignoreWarningModeSeverityOverride: Boolean? = null, // Do not change ToolingDiagnostic severity when warningMode is defined as Fail
     val configurationCache: ConfigurationCacheValue = ConfigurationCacheValue.AUTO,
     val isolatedProjects: IsolatedProjectsMode = IsolatedProjectsMode.DISABLED,
     val configurationCacheProblems: ConfigurationCacheProblems = ConfigurationCacheProblems.FAIL,
@@ -44,6 +46,7 @@ data class BuildOptions(
     val jsOptions: JsOptions? = JsOptions(),
     val buildReport: List<BuildReportType> = emptyList(),
     val usePreciseJavaTracking: Boolean? = null,
+    val useFirJvmRunner: Boolean? = null,
     val languageVersion: String? = null,
     val languageApiVersion: String? = null,
     val freeArgs: List<String> = emptyList(),
@@ -51,6 +54,7 @@ data class BuildOptions(
     val usePreciseOutputsBackup: Boolean? = null,
     val keepIncrementalCompilationCachesInMemory: Boolean? = null,
     val enableUnsafeIncrementalCompilationForMultiplatform: Boolean? = null,
+    val enableMonotonousIncrementalCompileSetExpansion: Boolean? = null,
     val useDaemonFallbackStrategy: Boolean = false,
     val useParsableDiagnosticsFormatting: Boolean = true,
     val showDiagnosticsStacktrace: Boolean? = false, // false by default to not clutter the testdata + stacktraces change often
@@ -61,6 +65,14 @@ data class BuildOptions(
     val kotlinUserHome: Path? = testKitDir.resolve(".kotlin"),
     val compilerArgumentsLogLevel: String? = "info",
     val kmpIsolatedProjectsSupport: KmpIsolatedProjectsSupport? = null,
+    val fileLeaksReportFile: File? = null,
+    val continueAfterFailure: Boolean = false,
+    /**
+     * Override the directory to store flag files indicating "daemon process is alive" controlled by Kotlin Daemon.
+     *
+     * @see [KGPDaemonsBaseTest]
+     */
+    val customKotlinDaemonRunFilesDirectory: File? = null,
 ) {
     enum class ConfigurationCacheValue {
 
@@ -168,6 +180,7 @@ data class BuildOptions(
         if (configurationCacheFlag != null) {
             arguments.add("-Dorg.gradle.unsafe.configuration-cache=$configurationCacheFlag")
             arguments.add("-Dorg.gradle.unsafe.configuration-cache-problems=${configurationCacheProblems.name.lowercase(Locale.getDefault())}")
+            arguments.add("-Dorg.gradle.configuration-cache.parallel=true")
         }
 
         if (gradleVersion >= GradleVersion.version("7.1")) {
@@ -179,6 +192,10 @@ data class BuildOptions(
             arguments.add("--max-workers=$maxWorkers")
         } else {
             arguments.add("--no-parallel")
+        }
+
+        if (continueAfterFailure) {
+            arguments.add("--continue")
         }
 
         if (incremental != null) {
@@ -226,6 +243,10 @@ data class BuildOptions(
             arguments.add("-Pkotlin.incremental.usePreciseJavaTracking=$usePreciseJavaTracking")
         }
 
+        if (useFirJvmRunner != null) {
+            arguments.add("-Pkotlin.incremental.jvm.fir=$useFirJvmRunner")
+        }
+
         if (statisticsForceValidation) {
             arguments.add("-Pkotlin_performance_profile_force_validation=true")
         }
@@ -248,6 +269,10 @@ data class BuildOptions(
             arguments.add("-Pkotlin.internal.incremental.enableUnsafeOptimizationsForMultiplatform=$enableUnsafeIncrementalCompilationForMultiplatform")
         }
 
+        if (enableMonotonousIncrementalCompileSetExpansion != null) {
+            arguments.add("-Pkotlin.internal.incremental.enableMonotonousCompileSetExpansion=$enableMonotonousIncrementalCompileSetExpansion")
+        }
+
         arguments.add("-Pkotlin.daemon.useFallbackStrategy=$useDaemonFallbackStrategy")
 
         if (useParsableDiagnosticsFormatting) {
@@ -264,6 +289,10 @@ data class BuildOptions(
 
         if (showDiagnosticsStacktrace != null) {
             arguments.add("-Pkotlin.internal.diagnostics.showStacktrace=$showDiagnosticsStacktrace")
+        }
+
+        if (ignoreWarningModeSeverityOverride != null) {
+            arguments.add("-Pkotlin.internal.diagnostics.ignoreWarningMode=$ignoreWarningModeSeverityOverride")
         }
 
         if (stacktraceMode != null) {
@@ -380,18 +409,6 @@ fun BuildOptions.withBundledKotlinNative() = copy(
 fun BuildOptions.disableConfigurationCache_KT70416() = copy(configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED)
 
 fun BuildOptions.disableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = KmpIsolatedProjectsSupport.DISABLE)
-fun BuildOptions.enableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = KmpIsolatedProjectsSupport.ENABLE)
 
-// TODO: KT-71130 flip projectIsolation by default to AUTO, as soon as KT-71130 is completely fixed
-fun BuildOptions.autoIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.AUTO)
-fun BuildOptions.disableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.DISABLED)
 fun BuildOptions.enableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.ENABLED)
-
-/** Should be used when test data doesn't support isolated projects completely,
- *  but tests can be run to verify KMP Isolated Projects support feature flag */
-fun BuildOptions.disableIsolatedProjectsButEnableKmpSupportForMaxGradle(gradleVersion: GradleVersion) =
-    if (gradleVersion >= GradleVersion.version(TestVersions.Gradle.MAX_SUPPORTED)) {
-        disableIsolatedProjects().enableKmpIsolatedProjectSupport()
-    } else {
-        disableIsolatedProjects().disableKmpIsolatedProjectSupport()
-    }
+fun BuildOptions.disableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.DISABLED)

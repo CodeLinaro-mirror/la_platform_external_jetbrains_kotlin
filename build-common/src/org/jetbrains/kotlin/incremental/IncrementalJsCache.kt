@@ -61,7 +61,6 @@ open class IncrementalJsCache(
     override val dirtyOutputClassesMap = registerMap(DirtyClassesFqNameMap(DIRTY_OUTPUT_CLASSES.storageFile, icContext))
     private val translationResults = registerMap(TranslationResultMap(TRANSLATION_RESULT_MAP.storageFile, protoData, icContext))
     private val irTranslationResults = registerMap(IrTranslationResultMap(IR_TRANSLATION_RESULT_MAP.storageFile, icContext))
-    private val inlineFunctions = registerMap(InlineFunctionsMap(INLINE_FUNCTIONS.storageFile, icContext))
     private val packageMetadata = registerMap(PackageMetadataMap(PACKAGE_META_FILE.storageFile, icContext))
     private val sourceToJsOutputsMap = registerMap(SourceToJsOutputMap(SOURCE_TO_JS_OUTPUT.storageFile, icContext))
 
@@ -128,17 +127,13 @@ open class IncrementalJsCache(
             translationResults.put(srcFile, binaryMetadata, binaryAst, inlineData)
         }
 
-        for ((srcFile, inlineDeclarations) in incrementalResults.inlineFunctions) {
-            inlineFunctions.process(srcFile, inlineDeclarations, changesCollector)
-        }
-
         for ((packageName, metadata) in incrementalResults.packageMetadata) {
             packageMetadata[packageName] = metadata
         }
 
         for ((srcFile, irData) in incrementalResults.irFileData) {
-            val (fileData, types, signatures, strings, declarations, bodies, fqn, fileMetadata, debugInfos) = irData
-            irTranslationResults.put(srcFile, fileData, types, signatures, strings, declarations, bodies, fqn, fileMetadata, debugInfos)
+            val (fileData, types, signatures, strings, declarations, bodies, fqn, fileMetadata, debugInfos, fileEntries) = irData
+            irTranslationResults.put(srcFile, fileData, types, signatures, strings, declarations, bodies, fqn, fileMetadata, debugInfos, fileEntries)
         }
     }
 
@@ -151,7 +146,6 @@ open class IncrementalJsCache(
         dirtySources.forEach {
             translationResults.remove(it, changesCollector)
             irTranslationResults.remove(it)
-            inlineFunctions.remove(it)
         }
         removeAllFromClassStorage(dirtyOutputClassesMap.getDirtyOutputClasses(), changesCollector)
         dirtySources.clear()
@@ -269,6 +263,7 @@ private object IrTranslationResultValueExternalizer : DataExternalizer<IrTransla
         output.writeArray(value.fqn)
         output.writeArray(value.fileMetadata)
         value.debugInfo?.let { output.writeArray(it) }
+        output.writeArray(value.fileEntries)
     }
 
     private fun DataOutput.writeArray(array: ByteArray) {
@@ -304,8 +299,9 @@ private object IrTranslationResultValueExternalizer : DataExternalizer<IrTransla
         val fqn = input.readArray()
         val fileMetadata = input.readArray()
         val debugInfos = input.readArrayOrNull()
+        val fileEntries = input.readArray()
 
-        return IrTranslationResultValue(fileData, types, signatures, strings, declarations, bodies, fqn, fileMetadata, debugInfos)
+        return IrTranslationResultValue(fileData, types, signatures, strings, declarations, bodies, fqn, fileMetadata, debugInfos, fileEntries)
     }
 }
 
@@ -340,9 +336,10 @@ private class IrTranslationResultMap(
         fqn: ByteArray,
         newFileMetadata: ByteArray,
         debugInfos: ByteArray?,
+        fileEntries: ByteArray,
     ) {
         this[sourceFile] =
-            IrTranslationResultValue(newFiledata, newTypes, newSignatures, newStrings, newDeclarations, newBodies, fqn, newFileMetadata, debugInfos)
+            IrTranslationResultValue(newFiledata, newTypes, newSignatures, newStrings, newDeclarations, newBodies, fqn, newFileMetadata, debugInfos, fileEntries)
     }
 }
 
@@ -386,38 +383,6 @@ fun getProtoData(sourceFile: File, metadata: ByteArray): Map<ClassId, ProtoData>
     }
 
     return classes
-}
-
-private class InlineFunctionsMap(
-    storageFile: File,
-    icContext: IncrementalCompilationContext,
-) : AbstractBasicMap<File, Map<String, Long>>(
-    storageFile,
-    icContext.fileDescriptorForSourceFiles,
-    StringToLongMapExternalizer,
-    icContext
-) {
-
-    @Synchronized
-    fun process(srcFile: File, newMap: Map<String, Long>, changesCollector: ChangesCollector) {
-        val oldMap = this[srcFile] ?: emptyMap()
-
-        if (newMap.isNotEmpty()) {
-            this[srcFile] = newMap
-        } else {
-            remove(srcFile)
-        }
-
-        for (fn in oldMap.keys + newMap.keys) {
-            val fqNameSegments = fn.removePrefix("<get>").removePrefix("<set>").split(".")
-            val fqName = FqName.fromSegments(fqNameSegments)
-            changesCollector.collectMemberIfValueWasChanged(fqName.parent(), fqName.shortName().asString(), oldMap[fn], newMap[fn])
-        }
-    }
-
-    @TestOnly
-    override fun dumpValue(value: Map<String, Long>): String =
-        value.dumpMap { java.lang.Long.toHexString(it) }
 }
 
 private object ByteArrayExternalizer : DataExternalizer<ByteArray> {

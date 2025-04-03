@@ -5,18 +5,10 @@
 
 package org.jetbrains.kotlin.light.classes.symbol.classes
 
-import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiField
-import com.intellij.psi.PsiManager
-import com.intellij.psi.PsiMethod
-import com.intellij.psi.PsiModifier
+import com.intellij.psi.*
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
-import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaPropertySymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
-import org.jetbrains.kotlin.analysis.api.symbols.isLocal
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.asJava.classes.getParentForLocalDeclaration
 import org.jetbrains.kotlin.asJava.classes.lazyPub
@@ -25,6 +17,7 @@ import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmStaticAnnotat
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightField
 import org.jetbrains.kotlin.light.classes.symbol.fields.SymbolLightFieldForObject
 import org.jetbrains.kotlin.light.classes.symbol.isConstOrJvmField
+import org.jetbrains.kotlin.light.classes.symbol.methods.SymbolLightAccessorMethod.Companion.createPropertyAccessors
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.GranularModifiersBox
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
@@ -66,9 +59,7 @@ internal abstract class SymbolLightClassForNamedClassLike : SymbolLightClassForC
         return containingClass ?: containingFile
     }
 
-    context(KaSession)
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    protected fun addMethodsFromCompanionIfNeeded(
+    protected fun KaSession.addMethodsFromCompanionIfNeeded(
         result: MutableList<PsiMethod>,
         classSymbol: KaNamedClassSymbol,
     ) {
@@ -78,13 +69,14 @@ internal abstract class SymbolLightClassForNamedClassLike : SymbolLightClassForC
             .filterIsInstance<KaNamedFunctionSymbol>()
             .filter { it.hasJvmStaticAnnotation() }
 
-        createMethods(methods, result)
+        createMethods(this@SymbolLightClassForNamedClassLike, methods, result)
 
         companionObjectSymbol.declaredMemberScope
             .callables
             .filterIsInstance<KaPropertySymbol>()
             .forEach { property ->
                 createPropertyAccessors(
+                    this@SymbolLightClassForNamedClassLike,
                     result,
                     property,
                     isTopLevel = false,
@@ -99,9 +91,7 @@ internal abstract class SymbolLightClassForNamedClassLike : SymbolLightClassForC
     internal val isSealed: Boolean
         get() = classOrObjectDeclaration?.hasModifier(KtTokens.SEALED_KEYWORD) ?: withClassSymbol { it.modality == KaSymbolModality.SEALED }
 
-    context(KaSession)
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    internal fun addFieldsFromCompanionIfNeeded(
+    internal fun KaSession.addFieldsFromCompanionIfNeeded(
         result: MutableList<PsiField>,
         classSymbol: KaNamedClassSymbol,
         nameGenerator: SymbolLightField.FieldNameGenerator,
@@ -115,6 +105,7 @@ internal abstract class SymbolLightClassForNamedClassLike : SymbolLightClassForC
             }
             ?.forEach {
                 createAndAddField(
+                    lightClass = this@SymbolLightClassForNamedClassLike,
                     declaration = it,
                     nameGenerator = nameGenerator,
                     isStatic = true,
@@ -123,9 +114,7 @@ internal abstract class SymbolLightClassForNamedClassLike : SymbolLightClassForC
             }
     }
 
-    context(KaSession)
-    @Suppress("CONTEXT_RECEIVERS_DEPRECATED")
-    protected fun addCompanionObjectFieldIfNeeded(result: MutableList<PsiField>, classSymbol: KaNamedClassSymbol) {
+    protected fun KaSession.addCompanionObjectFieldIfNeeded(result: MutableList<PsiField>, classSymbol: KaNamedClassSymbol) {
         val companionObjectSymbols: List<KaNamedClassSymbol>? = classOrObjectDeclaration?.companionObjects?.mapNotNull {
             it.namedClassSymbol
         } ?: classSymbol.companionObject?.let(::listOf)
@@ -133,9 +122,9 @@ internal abstract class SymbolLightClassForNamedClassLike : SymbolLightClassForC
         companionObjectSymbols?.forEach {
             result.add(
                 SymbolLightFieldForObject(
-                    ktAnalysisSession = this@KaSession,
+                    ktAnalysisSession = this,
                     objectSymbol = it,
-                    containingClass = this,
+                    containingClass = this@SymbolLightClassForNamedClassLike,
                     name = it.name.asString(),
                     lightMemberOrigin = null,
                     isCompanion = true,

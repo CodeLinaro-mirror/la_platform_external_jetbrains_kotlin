@@ -26,6 +26,7 @@ KaKotlinPropertySymbol:
     deprecationStatus: null
   callableId: /prop
   compilerVisibility: Public
+  contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
@@ -70,7 +71,7 @@ KaKotlinPropertySymbol:
         type: @R|ReceiverTypeAnnotation|()  kotlin/Long
       visibility: LOCAL
       getContainingFileSymbol: KaFileSymbol(propertyReceiverParameter.kt)
-      getContainingJvmClassName: null
+      getContainingJvmClassName: PropertyReceiverParameterKt
       getContainingModule: KaSourceModule "Sources of main"
       deprecationStatus: null
     returnType: KaUsualClassType:
@@ -92,6 +93,7 @@ KaKotlinPropertySymbol:
   isDelegatedProperty: false
   isExpect: false
   isExtension: true
+  isExternal: false
   isFromPrimaryConstructor: false
   isLateInit: false
   isOverride: false
@@ -128,7 +130,7 @@ KaKotlinPropertySymbol:
       type: @R|ReceiverTypeAnnotation|()  kotlin/Long
     visibility: LOCAL
     getContainingFileSymbol: KaFileSymbol(propertyReceiverParameter.kt)
-    getContainingJvmClassName: null
+    getContainingJvmClassName: PropertyReceiverParameterKt
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
   returnType: KaUsualClassType:

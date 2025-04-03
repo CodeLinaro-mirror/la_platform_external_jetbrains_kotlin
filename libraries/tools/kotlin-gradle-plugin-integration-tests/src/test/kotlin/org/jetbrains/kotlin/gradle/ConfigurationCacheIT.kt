@@ -95,13 +95,11 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @NativeGradlePluginTests
     @DisplayName("works with commonizer")
     @GradleTest
+    @TestMetadata("native-configuration-cache")
     fun testCommonizer(gradleVersion: GradleVersion) {
         project("native-configuration-cache", gradleVersion) {
-            val (commonizeNativeDistributionTask, cleanNativeDistributionCommonizationTask) = if (kmpIsolatedProjectsSupportEnabled) {
-                ":lib:commonizeNativeDistribution" to ":lib:cleanNativeDistributionCommonization"
-            } else {
-                ":commonizeNativeDistribution" to ":cleanNativeDistributionCommonization"
-            }
+            val commonizeNativeDistributionTask = ":lib:commonizeNativeDistribution"
+            val cleanNativeDistributionCommonizationTask = ":lib:cleanNativeDistributionCommonization"
 
             build(":lib:compileCommonMainKotlinMetadata") {
                 assertTasksExecuted(commonizeNativeDistributionTask)
@@ -132,6 +130,7 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
         enabledOnCI = [OS.LINUX, OS.MAC],
     )
     @GradleTest
+    @TestMetadata("native-configuration-cache")
     fun testWithDownloadingKotlinNativeAndDependencies(gradleVersion: GradleVersion, @TempDir konanTempDir: Path) {
         // with Configuration Cache we currently have such a problem KT-66423
         val buildOptions = buildOptionsToAvoidKT66423(gradleVersion, konanTempDir)
@@ -149,6 +148,7 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
 
     @NativeGradlePluginTests
     @GradleTest
+    @TestMetadata("native-configuration-cache")
     fun testCInteropCommonizer(gradleVersion: GradleVersion) {
         project("native-configuration-cache", gradleVersion) {
             testConfigurationCacheOf(":lib:commonizeCInterop")
@@ -219,7 +219,11 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     )
     @GradleTest
     fun `test composite build with precompiled script plugins and multiplatform`(gradleVersion: GradleVersion) {
-        project("composite-build-with-precompiled-script-plugins", gradleVersion) {
+        val buildOptions = if (gradleVersion < GradleVersion.version(TestVersions.Gradle.MAX_SUPPORTED)) {
+            defaultBuildOptions.disableIsolatedProjects()
+        } else defaultBuildOptions
+
+        project("composite-build-with-precompiled-script-plugins", gradleVersion, buildOptions = buildOptions) {
             settingsGradleKts.replaceText(
                 "pluginManagement {",
                 """
@@ -300,10 +304,11 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     }
 
     @MppGradlePluginTests
-    @DisplayName("works in MPP withJava project")
+    @DisplayName("works in MPP with Java project")
     @GradleTest
     fun testJvmWithJavaConfigurationCache(gradleVersion: GradleVersion) {
         project("mppJvmWithJava", gradleVersion) {
+            if (!isWithJavaSupported) buildGradle.replaceText("withJava()", "")
             build("jvmWithJavaJar")
             build("jvmWithJavaJar") {
                 assertOutputContains("Reusing configuration cache.")
@@ -353,18 +358,45 @@ class ConfigurationCacheIT : AbstractConfigurationCacheIT() {
     @NativeGradlePluginTests
     @GradleTest
     @GradleTestVersions(minVersion = TestVersions.Gradle.MAX_SUPPORTED)
-    @Disabled("[KT-66423](http://youtrack.jetbrains.com/issue/KT-66423): ignore test until source-value changes are made")
     fun testNativeBundleDownloadForConfigurationCache(gradleVersion: GradleVersion, @TempDir konanDirTemp: Path) {
         nativeProject(
             "native-simple-project", gradleVersion, buildOptions = defaultBuildOptions.copy(
                 nativeOptions = super.defaultBuildOptions.nativeOptions.copy(
-                    version = TestVersions.Kotlin.STABLE_RELEASE,
-                    distributionDownloadFromMaven = true,
+                    version = TestVersions.Kotlin.CURRENT,
                 ),
-                konanDataDir = konanDirTemp
+                konanDataDir = konanDirTemp,
             )
         ) {
-            testConfigurationCacheOf(":assemble")
+            val taskName = ":assemble"
+            // separate fix for provision.ok file is required
+            build(
+                taskName,
+                buildOptions = buildOptions,
+            ) {
+                assertTasksExecuted(taskName)
+                if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_5)) {
+                    assertOutputContains(
+                        "Calculating task graph as no configuration cache is available for tasks: ${taskName}"
+                    )
+                } else {
+                    assertOutputContains(
+                        "Calculating task graph as no cached configuration is available for tasks: ${taskName}"
+                    )
+                }
+
+                assertConfigurationCacheStored()
+            }
+
+            build("clean", buildOptions = buildOptions)
+
+            // Then run a build where tasks states are deserialized to check that they work correctly in this mode
+            build(
+                taskName,
+                buildOptions = buildOptions,
+            ) {
+                assertTasksExecuted(taskName)
+                assertOutputContains("provisioned.ok' has been created.")
+            }
         }
     }
 }
@@ -387,7 +419,7 @@ abstract class AbstractConfigurationCacheIT : KGPBaseTest() {
     override val defaultBuildOptions =
         super.defaultBuildOptions
             .copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
-            .autoIsolatedProjects()
+            .enableIsolatedProjects()
 
     protected fun TestProject.testConfigurationCacheOf(
         vararg taskNames: String,

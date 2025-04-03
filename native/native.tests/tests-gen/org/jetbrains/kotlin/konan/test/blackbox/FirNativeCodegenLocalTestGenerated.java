@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.konan.test.blackbox;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
-import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.FirPipeline;
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseExtTestCaseGroupProvider;
 import org.jetbrains.kotlin.test.TargetBackend;
@@ -22,7 +21,6 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("native/native.tests/testData/codegen")
 @TestDataPath("$PROJECT_ROOT")
-@Tag("frontend-fir")
 @FirPipeline()
 @UseExtTestCaseGroupProvider()
 public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBoxTest {
@@ -40,7 +38,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/associatedObjects")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class AssociatedObjects {
@@ -77,13 +74,18 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/bridges")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Bridges {
     @Test
     public void testAllFilesPresentInBridges() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/bridges"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+    }
+
+    @Test
+    @TestMetadata("kt73823.kt")
+    public void testKt73823() {
+      runTest("native/native.tests/testData/codegen/bridges/kt73823.kt");
     }
 
     @Test
@@ -96,7 +98,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/cinterop")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Cinterop {
@@ -256,6 +257,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Test
+    @TestMetadata("kt72552.kt")
+    public void testKt72552() {
+      runTest("native/native.tests/testData/codegen/cinterop/kt72552.kt");
+    }
+
+    @Test
     @TestMetadata("libiconv.kt")
     public void testLibiconv() {
       runTest("native/native.tests/testData/codegen/cinterop/libiconv.kt");
@@ -270,7 +277,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/cinterop/basics")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Basics {
@@ -421,7 +427,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/cinterop/exceptions")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Exceptions {
@@ -440,7 +445,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/cinterop/objc")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Objc {
@@ -516,6 +520,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
       }
 
       @Test
+      @TestMetadata("release_on_unattached_thread.kt")
+      public void testRelease_on_unattached_thread() {
+        runTest("native/native.tests/testData/codegen/cinterop/objc/release_on_unattached_thread.kt");
+      }
+
+      @Test
       @TestMetadata("sharing.kt")
       public void testSharing() {
         runTest("native/native.tests/testData/codegen/cinterop/objc/sharing.kt");
@@ -531,7 +541,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/cinterop/packages")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Packages {
@@ -580,7 +589,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/cinterop/threadStates")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class ThreadStates {
@@ -654,7 +662,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/classes")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Classes {
@@ -685,7 +692,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/contracts")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Contracts {
@@ -704,7 +710,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/controlflow")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Controlflow {
@@ -723,7 +728,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/coroutines")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Coroutines {
@@ -742,7 +746,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/enum")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Enum {
@@ -767,7 +770,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/escapeAnalysis")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class EscapeAnalysis {
@@ -786,6 +788,12 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("stackAllocated.kt")
     public void testStackAllocated() {
       runTest("native/native.tests/testData/codegen/escapeAnalysis/stackAllocated.kt");
+    }
+
+    @Test
+    @TestMetadata("stackAllocatedArray.kt")
+    public void testStackAllocatedArray() {
+      runTest("native/native.tests/testData/codegen/escapeAnalysis/stackAllocatedArray.kt");
     }
 
     @Test
@@ -810,7 +818,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/exceptions")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Exceptions {
@@ -883,7 +890,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/fileCheck")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class FileCheck {
@@ -902,6 +908,24 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("assertDisabled.kt")
     public void testAssertDisabled() {
       runTest("native/native.tests/testData/codegen/fileCheck/assertDisabled.kt");
+    }
+
+    @Test
+    @TestMetadata("assertDisabledInConditionAndMessage.kt")
+    public void testAssertDisabledInConditionAndMessage() {
+      runTest("native/native.tests/testData/codegen/fileCheck/assertDisabledInConditionAndMessage.kt");
+    }
+
+    @Test
+    @TestMetadata("assertDisabledInlined.kt")
+    public void testAssertDisabledInlined() {
+      runTest("native/native.tests/testData/codegen/fileCheck/assertDisabledInlined.kt");
+    }
+
+    @Test
+    @TestMetadata("assertDisabledInlinedCrossModule.kt")
+    public void testAssertDisabledInlinedCrossModule() {
+      runTest("native/native.tests/testData/codegen/fileCheck/assertDisabledInlinedCrossModule.kt");
     }
 
     @Test
@@ -932,6 +956,18 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("default_parameters_dont_box.kt")
     public void testDefault_parameters_dont_box() {
       runTest("native/native.tests/testData/codegen/fileCheck/default_parameters_dont_box.kt");
+    }
+
+    @Test
+    @TestMetadata("delegated_references_are_const.kt")
+    public void testDelegated_references_are_const() {
+      runTest("native/native.tests/testData/codegen/fileCheck/delegated_references_are_const.kt");
+    }
+
+    @Test
+    @TestMetadata("enumWithDifferentFileOrder.kt")
+    public void testEnumWithDifferentFileOrder() {
+      runTest("native/native.tests/testData/codegen/fileCheck/enumWithDifferentFileOrder.kt");
     }
 
     @Test
@@ -974,6 +1010,18 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @TestMetadata("generic_safe_casts.kt")
     public void testGeneric_safe_casts() {
       runTest("native/native.tests/testData/codegen/fileCheck/generic_safe_casts.kt");
+    }
+
+    @Test
+    @TestMetadata("inline.kt")
+    public void testInline() {
+      runTest("native/native.tests/testData/codegen/fileCheck/inline.kt");
+    }
+
+    @Test
+    @TestMetadata("inline_property.kt")
+    public void testInline_property() {
+      runTest("native/native.tests/testData/codegen/fileCheck/inline_property.kt");
     }
 
     @Test
@@ -1117,7 +1165,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/fileCheck/cinterop")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Cinterop {
@@ -1142,7 +1189,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/fileCheck/kt53261")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Kt53261 {
@@ -1215,7 +1261,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/fileCheck/stringConcatenationTypeNarrowing")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class StringConcatenationTypeNarrowing {
@@ -1265,7 +1310,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/funInterface")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class FunInterface {
@@ -1284,7 +1328,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/initializers")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Initializers {
@@ -1374,7 +1417,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/initializers/files")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Files {
@@ -1404,7 +1446,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
       @Nested
       @TestMetadata("native/native.tests/testData/codegen/initializers/files/eagerInitialization")
       @TestDataPath("$PROJECT_ROOT")
-      @Tag("frontend-fir")
       @FirPipeline()
       @UseExtTestCaseGroupProvider()
       public class EagerInitialization {
@@ -1440,7 +1481,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
         @Nested
         @TestMetadata("native/native.tests/testData/codegen/initializers/files/eagerInitialization/multiModule")
         @TestDataPath("$PROJECT_ROOT")
-        @Tag("frontend-fir")
         @FirPipeline()
         @UseExtTestCaseGroupProvider()
         public class MultiModule {
@@ -1480,7 +1520,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/inline")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Inline {
@@ -1499,7 +1538,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/inlineClass")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class InlineClass {
@@ -1524,7 +1562,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/interfaceCallsNCasts")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class InterfaceCallsNCasts {
@@ -1543,7 +1580,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/interop")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Interop {
@@ -1568,7 +1604,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/intrinsics")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Intrinsics {
@@ -1617,7 +1652,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/kclass")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Kclass {
@@ -1648,7 +1682,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/ktype")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Ktype {
@@ -1667,7 +1700,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/link")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Link {
@@ -1722,7 +1754,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/literals")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Literals {
@@ -1747,7 +1778,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/lower")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Lower {
@@ -1784,7 +1814,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/mangling")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Mangling {
@@ -1809,7 +1838,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/object")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Object {
@@ -1828,7 +1856,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/objectDeclaration")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class ObjectDeclaration {
@@ -1883,7 +1910,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/reflection")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Reflection {
@@ -1895,7 +1921,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/reflection/collectReferenceFieldValues")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class CollectReferenceFieldValues {
@@ -1950,7 +1975,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     @Nested
     @TestMetadata("native/native.tests/testData/codegen/reflection/objc")
     @TestDataPath("$PROJECT_ROOT")
-    @Tag("frontend-fir")
     @FirPipeline()
     @UseExtTestCaseGroupProvider()
     public class Objc {
@@ -1982,7 +2006,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/serialization")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Serialization {
@@ -2019,7 +2042,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/variables")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Variables {
@@ -2056,7 +2078,6 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   @Nested
   @TestMetadata("native/native.tests/testData/codegen/vector")
   @TestDataPath("$PROJECT_ROOT")
-  @Tag("frontend-fir")
   @FirPipeline()
   @UseExtTestCaseGroupProvider()
   public class Vector {

@@ -13,9 +13,10 @@ import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageFeature.ErrorAboutDataClassCopyVisibilityChange
 import org.jetbrains.kotlin.config.LanguageFeature.ForbidCompanionInLocalInnerClass
+import org.jetbrains.kotlin.config.LanguageFeature.ForbidEnumEntryNamedEntries
 import org.jetbrains.kotlin.config.LanguageFeature.ForbidExposingTypesInPrimaryConstructorProperties
+import org.jetbrains.kotlin.config.LanguageFeature.ForbidInferOfInvisibleTypeAsReifiedOrVararg
 import org.jetbrains.kotlin.config.LanguageFeature.ForbidInferringTypeVariablesIntoEmptyIntersection
-import org.jetbrains.kotlin.config.LanguageFeature.ForbidJvmAnnotationsOnAnnotationParameters
 import org.jetbrains.kotlin.config.LanguageFeature.ForbidParenthesizedLhsInAssignments
 import org.jetbrains.kotlin.config.LanguageFeature.ForbidProjectionsInAnnotationProperties
 import org.jetbrains.kotlin.config.LanguageFeature.ForbidReifiedTypeParametersOnTypeAliases
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.config.LanguageFeature.ProhibitAssigningSingleElemen
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitConfusingSyntaxInWhenBranches
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitConstructorAndSupertypeOnTypealiasWithTypeProjection
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitCyclesInAnnotations
+import org.jetbrains.kotlin.config.LanguageFeature.ProhibitGenericQualifiersOnConstructorCalls
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitImplementingVarByInheritedVal
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitInlineModifierOnPrimaryConstructorParameters
 import org.jetbrains.kotlin.config.LanguageFeature.ProhibitIntersectionReifiedTypeParameter
@@ -97,6 +99,7 @@ import org.jetbrains.kotlin.psi.KtClassLiteralExpression
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtConstructor
 import org.jetbrains.kotlin.psi.KtConstructorDelegationCall
+import org.jetbrains.kotlin.psi.KtContextReceiver
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtDeclarationWithBody
 import org.jetbrains.kotlin.psi.KtDelegatedSuperTypeEntry
@@ -211,6 +214,7 @@ object FirErrors {
     val MISSING_DEPENDENCY_CLASS: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("MISSING_DEPENDENCY_CLASS", ERROR, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
     val MISSING_DEPENDENCY_CLASS_IN_EXPRESSION_TYPE: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("MISSING_DEPENDENCY_CLASS_IN_EXPRESSION_TYPE", WARNING, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
     val MISSING_DEPENDENCY_SUPERCLASS: KtDiagnosticFactory2<ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory2("MISSING_DEPENDENCY_SUPERCLASS", ERROR, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
+    val MISSING_DEPENDENCY_SUPERCLASS_WARNING: KtDiagnosticFactory2<ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory2("MISSING_DEPENDENCY_SUPERCLASS_WARNING", WARNING, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
     val MISSING_DEPENDENCY_SUPERCLASS_IN_TYPE_ARGUMENT: KtDiagnosticFactory2<ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory2("MISSING_DEPENDENCY_SUPERCLASS_IN_TYPE_ARGUMENT", WARNING, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
     val MISSING_DEPENDENCY_CLASS_IN_LAMBDA_PARAMETER: KtDiagnosticFactory2<ConeKotlinType, Name> = KtDiagnosticFactory2("MISSING_DEPENDENCY_CLASS_IN_LAMBDA_PARAMETER", WARNING, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
     val MISSING_DEPENDENCY_CLASS_IN_LAMBDA_RECEIVER: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("MISSING_DEPENDENCY_CLASS_IN_LAMBDA_RECEIVER", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
@@ -262,6 +266,7 @@ object FirErrors {
     val SUPERTYPE_NOT_A_CLASS_OR_INTERFACE: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("SUPERTYPE_NOT_A_CLASS_OR_INTERFACE", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
     val UNSUPPORTED_INHERITANCE_FROM_JAVA_MEMBER_REFERENCING_KOTLIN_FUNCTION: KtDiagnosticFactory1<FirBasedSymbol<*>> = KtDiagnosticFactory1("UNSUPPORTED_INHERITANCE_FROM_JAVA_MEMBER_REFERENCING_KOTLIN_FUNCTION", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, PsiElement::class)
     val CYCLIC_INHERITANCE_HIERARCHY: KtDiagnosticFactory0 = KtDiagnosticFactory0("CYCLIC_INHERITANCE_HIERARCHY", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
+    val EXPANDED_TYPE_CANNOT_BE_INHERITED: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("EXPANDED_TYPE_CANNOT_BE_INHERITED", ERROR, SourceElementPositioningStrategies.DEFAULT, KtTypeReference::class)
     val PROJECTION_IN_IMMEDIATE_ARGUMENT_TO_SUPERTYPE: KtDiagnosticFactory0 = KtDiagnosticFactory0("PROJECTION_IN_IMMEDIATE_ARGUMENT_TO_SUPERTYPE", ERROR, SourceElementPositioningStrategies.VARIANCE_MODIFIER, KtModifierListOwner::class)
     val INCONSISTENT_TYPE_PARAMETER_VALUES: KtDiagnosticFactory3<FirTypeParameterSymbol, FirRegularClassSymbol, Collection<ConeKotlinType>> = KtDiagnosticFactory3("INCONSISTENT_TYPE_PARAMETER_VALUES", ERROR, SourceElementPositioningStrategies.SUPERTYPES_LIST, KtClass::class)
     val INCONSISTENT_TYPE_PARAMETER_BOUNDS: KtDiagnosticFactory3<FirTypeParameterSymbol, FirRegularClassSymbol, Collection<ConeKotlinType>> = KtDiagnosticFactory3("INCONSISTENT_TYPE_PARAMETER_BOUNDS", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
@@ -331,6 +336,8 @@ object FirErrors {
     val INAPPLICABLE_PARAM_TARGET: KtDiagnosticFactory0 = KtDiagnosticFactory0("INAPPLICABLE_PARAM_TARGET", ERROR, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
     val REDUNDANT_ANNOTATION_TARGET: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("REDUNDANT_ANNOTATION_TARGET", WARNING, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
     val INAPPLICABLE_FILE_TARGET: KtDiagnosticFactory0 = KtDiagnosticFactory0("INAPPLICABLE_FILE_TARGET", ERROR, SourceElementPositioningStrategies.ANNOTATION_USE_SITE, KtAnnotationEntry::class)
+    val INAPPLICABLE_ALL_TARGET: KtDiagnosticFactory0 = KtDiagnosticFactory0("INAPPLICABLE_ALL_TARGET", ERROR, SourceElementPositioningStrategies.ANNOTATION_USE_SITE, KtAnnotationEntry::class)
+    val INAPPLICABLE_ALL_TARGET_IN_MULTI_ANNOTATION: KtDiagnosticFactory0 = KtDiagnosticFactory0("INAPPLICABLE_ALL_TARGET_IN_MULTI_ANNOTATION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
     val REPEATED_ANNOTATION: KtDiagnosticFactory0 = KtDiagnosticFactory0("REPEATED_ANNOTATION", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val REPEATED_ANNOTATION_WARNING: KtDiagnosticFactory0 = KtDiagnosticFactory0("REPEATED_ANNOTATION_WARNING", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val NOT_A_CLASS: KtDiagnosticFactory0 = KtDiagnosticFactory0("NOT_A_CLASS", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
@@ -344,7 +351,8 @@ object FirErrors {
     val VOLATILE_ON_DELEGATE: KtDiagnosticFactory0 = KtDiagnosticFactory0("VOLATILE_ON_DELEGATE", ERROR, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
     val NON_SOURCE_ANNOTATION_ON_INLINED_LAMBDA_EXPRESSION: KtDiagnosticFactory0 = KtDiagnosticFactory0("NON_SOURCE_ANNOTATION_ON_INLINED_LAMBDA_EXPRESSION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
     val POTENTIALLY_NON_REPORTED_ANNOTATION: KtDiagnosticFactory0 = KtDiagnosticFactory0("POTENTIALLY_NON_REPORTED_ANNOTATION", WARNING, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
-    val THROWS_IN_ANNOTATION: KtDiagnosticFactoryForDeprecation0 = KtDiagnosticFactoryForDeprecation0("THROWS_IN_ANNOTATION", ForbidJvmAnnotationsOnAnnotationParameters, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
+    val ANNOTATION_WILL_BE_APPLIED_ALSO_TO_PROPERTY_OR_FIELD: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("ANNOTATION_WILL_BE_APPLIED_ALSO_TO_PROPERTY_OR_FIELD", WARNING, SourceElementPositioningStrategies.DEFAULT, KtAnnotationEntry::class)
+    val ANNOTATIONS_ON_BLOCK_LEVEL_EXPRESSION_ON_THE_SAME_LINE: KtDiagnosticFactory0 = KtDiagnosticFactory0("ANNOTATIONS_ON_BLOCK_LEVEL_EXPRESSION_ON_THE_SAME_LINE", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
 
     // OptIn
     val OPT_IN_USAGE: KtDiagnosticFactory2<ClassId, String> = KtDiagnosticFactory2("OPT_IN_USAGE", WARNING, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, PsiElement::class)
@@ -432,6 +440,7 @@ object FirErrors {
     val THROWABLE_TYPE_MISMATCH: KtDiagnosticFactory2<ConeKotlinType, Boolean> = KtDiagnosticFactory2("THROWABLE_TYPE_MISMATCH", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val CONDITION_TYPE_MISMATCH: KtDiagnosticFactory2<ConeKotlinType, Boolean> = KtDiagnosticFactory2("CONDITION_TYPE_MISMATCH", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val ARGUMENT_TYPE_MISMATCH: KtDiagnosticFactory3<ConeKotlinType, ConeKotlinType, Boolean> = KtDiagnosticFactory3("ARGUMENT_TYPE_MISMATCH", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
+    val MEMBER_PROJECTED_OUT: KtDiagnosticFactory3<ConeKotlinType, String, FirCallableSymbol<*>> = KtDiagnosticFactory3("MEMBER_PROJECTED_OUT", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val NULL_FOR_NONNULL_TYPE: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("NULL_FOR_NONNULL_TYPE", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val INAPPLICABLE_LATEINIT_MODIFIER: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("INAPPLICABLE_LATEINIT_MODIFIER", ERROR, SourceElementPositioningStrategies.LATEINIT_MODIFIER, KtModifierListOwner::class)
     val VARARG_OUTSIDE_PARENTHESES: KtDiagnosticFactory0 = KtDiagnosticFactory0("VARARG_OUTSIDE_PARENTHESES", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
@@ -442,6 +451,7 @@ object FirErrors {
     val NO_VALUE_FOR_PARAMETER: KtDiagnosticFactory1<FirValueParameterSymbol> = KtDiagnosticFactory1("NO_VALUE_FOR_PARAMETER", ERROR, SourceElementPositioningStrategies.VALUE_ARGUMENTS, KtElement::class)
     val NAMED_PARAMETER_NOT_FOUND: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("NAMED_PARAMETER_NOT_FOUND", ERROR, SourceElementPositioningStrategies.NAME_OF_NAMED_ARGUMENT, KtValueArgument::class)
     val NAME_FOR_AMBIGUOUS_PARAMETER: KtDiagnosticFactory0 = KtDiagnosticFactory0("NAME_FOR_AMBIGUOUS_PARAMETER", ERROR, SourceElementPositioningStrategies.NAME_OF_NAMED_ARGUMENT, KtValueArgument::class)
+    val MIXING_NAMED_AND_POSITIONAL_ARGUMENTS: KtDiagnosticFactory0 = KtDiagnosticFactory0("MIXING_NAMED_AND_POSITIONAL_ARGUMENTS", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val ASSIGNMENT_TYPE_MISMATCH: KtDiagnosticFactory3<ConeKotlinType, ConeKotlinType, Boolean> = KtDiagnosticFactory3("ASSIGNMENT_TYPE_MISMATCH", ERROR, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
     val RESULT_TYPE_MISMATCH: KtDiagnosticFactory2<ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory2("RESULT_TYPE_MISMATCH", ERROR, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
     val MANY_LAMBDA_EXPRESSION_ARGUMENTS: KtDiagnosticFactory0 = KtDiagnosticFactory0("MANY_LAMBDA_EXPRESSION_ARGUMENTS", ERROR, SourceElementPositioningStrategies.DEFAULT, KtLambdaExpression::class)
@@ -451,7 +461,6 @@ object FirErrors {
     val ASSIGNING_SINGLE_ELEMENT_TO_VARARG_IN_NAMED_FORM_ANNOTATION: KtDiagnosticFactoryForDeprecation0 = KtDiagnosticFactoryForDeprecation0("ASSIGNING_SINGLE_ELEMENT_TO_VARARG_IN_NAMED_FORM_ANNOTATION", ProhibitAssigningSingleElementsToVarargsInNamedForm, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
     val REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_ANNOTATION: KtDiagnosticFactory0 = KtDiagnosticFactory0("REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_ANNOTATION", WARNING, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
     val REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_FUNCTION: KtDiagnosticFactory0 = KtDiagnosticFactory0("REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_FUNCTION", WARNING, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
-    val INFERENCE_UNSUCCESSFUL_FORK: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("INFERENCE_UNSUCCESSFUL_FORK", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val NESTED_CLASS_ACCESSED_VIA_INSTANCE_REFERENCE: KtDiagnosticFactory1<FirClassLikeSymbol<*>> = KtDiagnosticFactory1("NESTED_CLASS_ACCESSED_VIA_INSTANCE_REFERENCE", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
 
     // Ambiguity
@@ -462,14 +471,20 @@ object FirErrors {
     val NEXT_AMBIGUITY: KtDiagnosticFactory1<Collection<FirBasedSymbol<*>>> = KtDiagnosticFactory1("NEXT_AMBIGUITY", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, PsiElement::class)
     val AMBIGUOUS_FUNCTION_TYPE_KIND: KtDiagnosticFactory1<Collection<FunctionTypeKind>> = KtDiagnosticFactory1("AMBIGUOUS_FUNCTION_TYPE_KIND", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
 
-    // Context receivers resolution
-    val NO_CONTEXT_RECEIVER: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("NO_CONTEXT_RECEIVER", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, KtElement::class)
-    val MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("MULTIPLE_ARGUMENTS_APPLICABLE_FOR_CONTEXT_RECEIVER", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, KtElement::class)
+    // Context parameters resolution
+    val NO_CONTEXT_ARGUMENT: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("NO_CONTEXT_ARGUMENT", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, KtElement::class)
+    val AMBIGUOUS_CONTEXT_ARGUMENT: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("AMBIGUOUS_CONTEXT_ARGUMENT", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, KtElement::class)
     val AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER: KtDiagnosticFactory0 = KtDiagnosticFactory0("AMBIGUOUS_CALL_WITH_IMPLICIT_CONTEXT_RECEIVER", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, KtElement::class)
     val UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL: KtDiagnosticFactory0 = KtDiagnosticFactory0("UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL", ERROR, SourceElementPositioningStrategies.NAME_IDENTIFIER, KtElement::class)
     val SUBTYPING_BETWEEN_CONTEXT_RECEIVERS: KtDiagnosticFactory0 = KtDiagnosticFactory0("SUBTYPING_BETWEEN_CONTEXT_RECEIVERS", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
-    val CONTEXT_RECEIVERS_WITH_BACKING_FIELD: KtDiagnosticFactory0 = KtDiagnosticFactory0("CONTEXT_RECEIVERS_WITH_BACKING_FIELD", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
-    val CONTEXT_RECEIVERS_DEPRECATED: KtDiagnosticFactory0 = KtDiagnosticFactory0("CONTEXT_RECEIVERS_DEPRECATED", WARNING, SourceElementPositioningStrategies.CONTEXT_KEYWORD, KtElement::class)
+    val CONTEXT_PARAMETERS_WITH_BACKING_FIELD: KtDiagnosticFactory0 = KtDiagnosticFactory0("CONTEXT_PARAMETERS_WITH_BACKING_FIELD", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val CONTEXT_RECEIVERS_DEPRECATED: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("CONTEXT_RECEIVERS_DEPRECATED", WARNING, SourceElementPositioningStrategies.CONTEXT_KEYWORD, KtElement::class)
+    val CONTEXT_CLASS_OR_CONSTRUCTOR: KtDiagnosticFactory0 = KtDiagnosticFactory0("CONTEXT_CLASS_OR_CONSTRUCTOR", WARNING, SourceElementPositioningStrategies.CONTEXT_KEYWORD, KtElement::class)
+    val CONTEXT_PARAMETER_WITHOUT_NAME: KtDiagnosticFactory0 = KtDiagnosticFactory0("CONTEXT_PARAMETER_WITHOUT_NAME", ERROR, SourceElementPositioningStrategies.DEFAULT, KtContextReceiver::class)
+    val CONTEXT_PARAMETER_WITH_DEFAULT: KtDiagnosticFactory0 = KtDiagnosticFactory0("CONTEXT_PARAMETER_WITH_DEFAULT", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val CALLABLE_REFERENCE_TO_CONTEXTUAL_DECLARATION: KtDiagnosticFactory1<FirCallableSymbol<*>> = KtDiagnosticFactory1("CALLABLE_REFERENCE_TO_CONTEXTUAL_DECLARATION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val MULTIPLE_CONTEXT_LISTS: KtDiagnosticFactory0 = KtDiagnosticFactory0("MULTIPLE_CONTEXT_LISTS", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val NAMED_CONTEXT_PARAMETER_IN_FUNCTION_TYPE: KtDiagnosticFactory0 = KtDiagnosticFactory0("NAMED_CONTEXT_PARAMETER_IN_FUNCTION_TYPE", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
 
     // Types & type parameters
     val RECURSION_IN_IMPLICIT_TYPES: KtDiagnosticFactory0 = KtDiagnosticFactory0("RECURSION_IN_IMPLICIT_TYPES", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
@@ -543,6 +558,10 @@ object FirErrors {
     val INCORRECT_LEFT_COMPONENT_OF_INTERSECTION: KtDiagnosticFactory0 = KtDiagnosticFactory0("INCORRECT_LEFT_COMPONENT_OF_INTERSECTION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
     val INCORRECT_RIGHT_COMPONENT_OF_INTERSECTION: KtDiagnosticFactory0 = KtDiagnosticFactory0("INCORRECT_RIGHT_COMPONENT_OF_INTERSECTION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
     val NULLABLE_ON_DEFINITELY_NOT_NULLABLE: KtDiagnosticFactory0 = KtDiagnosticFactory0("NULLABLE_ON_DEFINITELY_NOT_NULLABLE", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val INFERRED_INVISIBLE_REIFIED_TYPE_ARGUMENT: KtDiagnosticFactoryForDeprecation2<FirTypeParameterSymbol, ConeKotlinType> = KtDiagnosticFactoryForDeprecation2("INFERRED_INVISIBLE_REIFIED_TYPE_ARGUMENT", ForbidInferOfInvisibleTypeAsReifiedOrVararg, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val INFERRED_INVISIBLE_VARARG_TYPE_ARGUMENT: KtDiagnosticFactoryForDeprecation3<FirTypeParameterSymbol, ConeKotlinType, FirValueParameterSymbol> = KtDiagnosticFactoryForDeprecation3("INFERRED_INVISIBLE_VARARG_TYPE_ARGUMENT", ForbidInferOfInvisibleTypeAsReifiedOrVararg, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val GENERIC_QUALIFIER_ON_CONSTRUCTOR_CALL: KtDiagnosticFactoryForDeprecation0 = KtDiagnosticFactoryForDeprecation0("GENERIC_QUALIFIER_ON_CONSTRUCTOR_CALL", ProhibitGenericQualifiersOnConstructorCalls, SourceElementPositioningStrategies.TYPE_ARGUMENT_LIST_OR_SELF, PsiElement::class)
+    val ATOMIC_REF_WITHOUT_CONSISTENT_IDENTITY: KtDiagnosticFactory3<ClassId, ConeKotlinType, ClassId?> = KtDiagnosticFactory3("ATOMIC_REF_WITHOUT_CONSISTENT_IDENTITY", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
 
     // Reflection
     val EXTENSION_IN_CLASS_REFERENCE_NOT_ALLOWED: KtDiagnosticFactory1<FirCallableSymbol<*>> = KtDiagnosticFactory1("EXTENSION_IN_CLASS_REFERENCE_NOT_ALLOWED", ERROR, SourceElementPositioningStrategies.REFERENCE_BY_QUALIFIED, KtExpression::class)
@@ -579,10 +598,10 @@ object FirErrors {
     val PROPERTY_TYPE_MISMATCH_BY_DELEGATION: KtDiagnosticFactory2<FirCallableSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactory2("PROPERTY_TYPE_MISMATCH_BY_DELEGATION", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
     val VAR_OVERRIDDEN_BY_VAL_BY_DELEGATION: KtDiagnosticFactory2<FirCallableSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactory2("VAR_OVERRIDDEN_BY_VAL_BY_DELEGATION", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
     val CONFLICTING_INHERITED_MEMBERS: KtDiagnosticFactory2<FirClassSymbol<*>, List<FirCallableSymbol<*>>> = KtDiagnosticFactory2("CONFLICTING_INHERITED_MEMBERS", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
-    val ABSTRACT_MEMBER_NOT_IMPLEMENTED: KtDiagnosticFactory2<FirClassSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactory2("ABSTRACT_MEMBER_NOT_IMPLEMENTED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
+    val ABSTRACT_MEMBER_NOT_IMPLEMENTED: KtDiagnosticFactory2<FirClassSymbol<*>, List<FirCallableSymbol<*>>> = KtDiagnosticFactory2("ABSTRACT_MEMBER_NOT_IMPLEMENTED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
     val ABSTRACT_MEMBER_NOT_IMPLEMENTED_BY_ENUM_ENTRY: KtDiagnosticFactory2<FirEnumEntrySymbol, List<FirCallableSymbol<*>>> = KtDiagnosticFactory2("ABSTRACT_MEMBER_NOT_IMPLEMENTED_BY_ENUM_ENTRY", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtEnumEntry::class)
-    val ABSTRACT_CLASS_MEMBER_NOT_IMPLEMENTED: KtDiagnosticFactory2<FirClassSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactory2("ABSTRACT_CLASS_MEMBER_NOT_IMPLEMENTED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
-    val INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER: KtDiagnosticFactoryForDeprecation2<FirClassSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactoryForDeprecation2("INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER", ProhibitInvisibleAbstractMethodsInSuperclasses, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
+    val ABSTRACT_CLASS_MEMBER_NOT_IMPLEMENTED: KtDiagnosticFactory2<FirClassSymbol<*>, List<FirCallableSymbol<*>>> = KtDiagnosticFactory2("ABSTRACT_CLASS_MEMBER_NOT_IMPLEMENTED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
+    val INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER: KtDiagnosticFactoryForDeprecation2<FirClassSymbol<*>, List<FirCallableSymbol<*>>> = KtDiagnosticFactoryForDeprecation2("INVISIBLE_ABSTRACT_MEMBER_FROM_SUPER", ProhibitInvisibleAbstractMethodsInSuperclasses, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
     val AMBIGUOUS_ANONYMOUS_TYPE_INFERRED: KtDiagnosticFactory1<Collection<ConeKotlinType>> = KtDiagnosticFactory1("AMBIGUOUS_ANONYMOUS_TYPE_INFERRED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtDeclaration::class)
     val MANY_IMPL_MEMBER_NOT_IMPLEMENTED: KtDiagnosticFactory2<FirClassSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactory2("MANY_IMPL_MEMBER_NOT_IMPLEMENTED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
     val MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED: KtDiagnosticFactory2<FirClassSymbol<*>, FirCallableSymbol<*>> = KtDiagnosticFactory2("MANY_INTERFACES_MEMBER_NOT_IMPLEMENTED", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
@@ -596,6 +615,8 @@ object FirErrors {
     val NON_FINAL_MEMBER_IN_FINAL_CLASS: KtDiagnosticFactory0 = KtDiagnosticFactory0("NON_FINAL_MEMBER_IN_FINAL_CLASS", WARNING, SourceElementPositioningStrategies.OPEN_MODIFIER, KtNamedDeclaration::class)
     val NON_FINAL_MEMBER_IN_OBJECT: KtDiagnosticFactory0 = KtDiagnosticFactory0("NON_FINAL_MEMBER_IN_OBJECT", WARNING, SourceElementPositioningStrategies.OPEN_MODIFIER, KtNamedDeclaration::class)
     val VIRTUAL_MEMBER_HIDDEN: KtDiagnosticFactory2<FirCallableSymbol<*>, FirRegularClassSymbol> = KtDiagnosticFactory2("VIRTUAL_MEMBER_HIDDEN", ERROR, SourceElementPositioningStrategies.DECLARATION_NAME, KtNamedDeclaration::class)
+    val PARAMETER_NAME_CHANGED_ON_OVERRIDE: KtDiagnosticFactory2<FirRegularClassSymbol, FirValueParameterSymbol> = KtDiagnosticFactory2("PARAMETER_NAME_CHANGED_ON_OVERRIDE", WARNING, SourceElementPositioningStrategies.NAME_IDENTIFIER, KtParameter::class)
+    val DIFFERENT_NAMES_FOR_THE_SAME_PARAMETER_IN_SUPERTYPES: KtDiagnosticFactory4<FirValueParameterSymbol, FirValueParameterSymbol, Int, List<FirNamedFunctionSymbol>> = KtDiagnosticFactory4("DIFFERENT_NAMES_FOR_THE_SAME_PARAMETER_IN_SUPERTYPES", WARNING, SourceElementPositioningStrategies.DECLARATION_NAME, KtClassOrObject::class)
 
     // Redeclarations
     val MANY_COMPANION_OBJECTS: KtDiagnosticFactory0 = KtDiagnosticFactory0("MANY_COMPANION_OBJECTS", ERROR, SourceElementPositioningStrategies.COMPANION_OBJECT, KtObjectDeclaration::class)
@@ -763,7 +784,7 @@ object FirErrors {
     val CAPTURED_VAL_INITIALIZATION: KtDiagnosticFactory1<FirPropertySymbol> = KtDiagnosticFactory1("CAPTURED_VAL_INITIALIZATION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
     val CAPTURED_MEMBER_VAL_INITIALIZATION: KtDiagnosticFactory1<FirPropertySymbol> = KtDiagnosticFactory1("CAPTURED_MEMBER_VAL_INITIALIZATION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
     val NON_INLINE_MEMBER_VAL_INITIALIZATION: KtDiagnosticFactory1<FirPropertySymbol> = KtDiagnosticFactory1("NON_INLINE_MEMBER_VAL_INITIALIZATION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtExpression::class)
-    val SETTER_PROJECTED_OUT: KtDiagnosticFactory1<FirPropertySymbol> = KtDiagnosticFactory1("SETTER_PROJECTED_OUT", ERROR, SourceElementPositioningStrategies.SELECTOR_BY_QUALIFIED, KtBinaryExpression::class)
+    val SETTER_PROJECTED_OUT: KtDiagnosticFactory3<ConeKotlinType, String, FirPropertySymbol> = KtDiagnosticFactory3("SETTER_PROJECTED_OUT", ERROR, SourceElementPositioningStrategies.SELECTOR_BY_QUALIFIED, KtBinaryExpression::class)
     val WRONG_INVOCATION_KIND: KtDiagnosticFactory3<FirBasedSymbol<*>, EventOccurrencesRange, EventOccurrencesRange> = KtDiagnosticFactory3("WRONG_INVOCATION_KIND", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val LEAKED_IN_PLACE_LAMBDA: KtDiagnosticFactory1<FirBasedSymbol<*>> = KtDiagnosticFactory1("LEAKED_IN_PLACE_LAMBDA", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val WRONG_IMPLIES_CONDITION: KtDiagnosticFactory0 = KtDiagnosticFactory0("WRONG_IMPLIES_CONDITION", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
@@ -840,7 +861,6 @@ object FirErrors {
     val UNDERSCORE_USAGE_WITHOUT_BACKTICKS: KtDiagnosticFactory0 = KtDiagnosticFactory0("UNDERSCORE_USAGE_WITHOUT_BACKTICKS", ERROR, SourceElementPositioningStrategies.NAME_IDENTIFIER, PsiElement::class)
     val RESOLVED_TO_UNDERSCORE_NAMED_CATCH_PARAMETER: KtDiagnosticFactory0 = KtDiagnosticFactory0("RESOLVED_TO_UNDERSCORE_NAMED_CATCH_PARAMETER", WARNING, SourceElementPositioningStrategies.DEFAULT, KtNameReferenceExpression::class)
     val INVALID_CHARACTERS: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("INVALID_CHARACTERS", ERROR, SourceElementPositioningStrategies.NAME_IDENTIFIER, PsiElement::class)
-    val DANGEROUS_CHARACTERS: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("DANGEROUS_CHARACTERS", WARNING, SourceElementPositioningStrategies.NAME_IDENTIFIER, KtNamedDeclaration::class)
     val EQUALITY_NOT_APPLICABLE: KtDiagnosticFactory3<String, ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory3("EQUALITY_NOT_APPLICABLE", ERROR, SourceElementPositioningStrategies.DEFAULT, KtBinaryExpression::class)
     val EQUALITY_NOT_APPLICABLE_WARNING: KtDiagnosticFactory3<String, ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory3("EQUALITY_NOT_APPLICABLE_WARNING", WARNING, SourceElementPositioningStrategies.DEFAULT, KtBinaryExpression::class)
     val INCOMPATIBLE_ENUM_COMPARISON_ERROR: KtDiagnosticFactory2<ConeKotlinType, ConeKotlinType> = KtDiagnosticFactory2("INCOMPATIBLE_ENUM_COMPARISON_ERROR", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
@@ -859,6 +879,7 @@ object FirErrors {
     val RECURSIVE_TYPEALIAS_EXPANSION: KtDiagnosticFactory0 = KtDiagnosticFactory0("RECURSIVE_TYPEALIAS_EXPANSION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
     val TYPEALIAS_SHOULD_EXPAND_TO_CLASS: KtDiagnosticFactory1<ConeKotlinType> = KtDiagnosticFactory1("TYPEALIAS_SHOULD_EXPAND_TO_CLASS", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
     val CONSTRUCTOR_OR_SUPERTYPE_ON_TYPEALIAS_WITH_TYPE_PROJECTION: KtDiagnosticFactoryForDeprecation0 = KtDiagnosticFactoryForDeprecation0("CONSTRUCTOR_OR_SUPERTYPE_ON_TYPEALIAS_WITH_TYPE_PROJECTION", ProhibitConstructorAndSupertypeOnTypealiasWithTypeProjection, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
+    val TYPEALIAS_EXPANSION_CAPTURES_OUTER_TYPE_PARAMETERS: KtDiagnosticFactory1<Set<FirTypeParameterSymbol>> = KtDiagnosticFactory1("TYPEALIAS_EXPANSION_CAPTURES_OUTER_TYPE_PARAMETERS", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class)
 
     // Extra checkers
     val REDUNDANT_VISIBILITY_MODIFIER: KtDiagnosticFactory0 = KtDiagnosticFactory0("REDUNDANT_VISIBILITY_MODIFIER", WARNING, SourceElementPositioningStrategies.VISIBILITY_MODIFIER, KtModifierListOwner::class)
@@ -867,6 +888,8 @@ object FirErrors {
     val REDUNDANT_EXPLICIT_TYPE: KtDiagnosticFactory0 = KtDiagnosticFactory0("REDUNDANT_EXPLICIT_TYPE", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val REDUNDANT_SINGLE_EXPRESSION_STRING_TEMPLATE: KtDiagnosticFactory0 = KtDiagnosticFactory0("REDUNDANT_SINGLE_EXPRESSION_STRING_TEMPLATE", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val CAN_BE_VAL: KtDiagnosticFactory0 = KtDiagnosticFactory0("CAN_BE_VAL", WARNING, SourceElementPositioningStrategies.VAL_OR_VAR_NODE, KtDeclaration::class)
+    val CAN_BE_VAL_LATEINIT: KtDiagnosticFactory0 = KtDiagnosticFactory0("CAN_BE_VAL_LATEINIT", WARNING, SourceElementPositioningStrategies.VAL_OR_VAR_NODE, KtDeclaration::class)
+    val CAN_BE_VAL_DELAYED_INITIALIZATION: KtDiagnosticFactory0 = KtDiagnosticFactory0("CAN_BE_VAL_DELAYED_INITIALIZATION", WARNING, SourceElementPositioningStrategies.VAL_OR_VAR_NODE, KtDeclaration::class)
     val CAN_BE_REPLACED_WITH_OPERATOR_ASSIGNMENT: KtDiagnosticFactory0 = KtDiagnosticFactory0("CAN_BE_REPLACED_WITH_OPERATOR_ASSIGNMENT", WARNING, SourceElementPositioningStrategies.OPERATOR, KtExpression::class)
     val REDUNDANT_CALL_OF_CONVERSION_METHOD: KtDiagnosticFactory0 = KtDiagnosticFactory0("REDUNDANT_CALL_OF_CONVERSION_METHOD", WARNING, SourceElementPositioningStrategies.SELECTOR_BY_QUALIFIED, PsiElement::class)
     val ARRAY_EQUALITY_OPERATOR_CAN_BE_REPLACED_WITH_EQUALS: KtDiagnosticFactory0 = KtDiagnosticFactory0("ARRAY_EQUALITY_OPERATOR_CAN_BE_REPLACED_WITH_EQUALS", WARNING, SourceElementPositioningStrategies.OPERATOR, KtExpression::class)
@@ -878,6 +901,8 @@ object FirErrors {
     val VARIABLE_NEVER_READ: KtDiagnosticFactory0 = KtDiagnosticFactory0("VARIABLE_NEVER_READ", WARNING, SourceElementPositioningStrategies.DECLARATION_NAME, KtNamedDeclaration::class)
     val USELESS_CALL_ON_NOT_NULL: KtDiagnosticFactory0 = KtDiagnosticFactory0("USELESS_CALL_ON_NOT_NULL", WARNING, SourceElementPositioningStrategies.SELECTOR_BY_QUALIFIED, PsiElement::class)
     val UNUSED_ANONYMOUS_PARAMETER: KtDiagnosticFactory1<FirValueParameterSymbol> = KtDiagnosticFactory1("UNUSED_ANONYMOUS_PARAMETER", WARNING, SourceElementPositioningStrategies.DECLARATION_NAME, KtElement::class)
+    val UNUSED_EXPRESSION: KtDiagnosticFactory0 = KtDiagnosticFactory0("UNUSED_EXPRESSION", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
+    val UNUSED_LAMBDA_EXPRESSION: KtDiagnosticFactory0 = KtDiagnosticFactory0("UNUSED_LAMBDA_EXPRESSION", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
 
     // Returns
     val RETURN_NOT_ALLOWED: KtDiagnosticFactory0 = KtDiagnosticFactory0("RETURN_NOT_ALLOWED", ERROR, SourceElementPositioningStrategies.RETURN_WITH_LABEL, KtReturnExpression::class)
@@ -946,7 +971,7 @@ object FirErrors {
     val DEPRECATED_ACCESS_TO_ENTRIES_PROPERTY: KtDiagnosticFactory0 = KtDiagnosticFactory0("DEPRECATED_ACCESS_TO_ENTRIES_PROPERTY", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
     val DEPRECATED_ACCESS_TO_ENUM_ENTRY_PROPERTY_AS_REFERENCE: KtDiagnosticFactory0 = KtDiagnosticFactory0("DEPRECATED_ACCESS_TO_ENUM_ENTRY_PROPERTY_AS_REFERENCE", WARNING, SourceElementPositioningStrategies.REFERENCED_NAME_BY_QUALIFIED, PsiElement::class)
     val DEPRECATED_ACCESS_TO_ENTRIES_AS_QUALIFIER: KtDiagnosticFactory0 = KtDiagnosticFactory0("DEPRECATED_ACCESS_TO_ENTRIES_AS_QUALIFIER", WARNING, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)
-    val DEPRECATED_DECLARATION_OF_ENUM_ENTRY: KtDiagnosticFactory0 = KtDiagnosticFactory0("DEPRECATED_DECLARATION_OF_ENUM_ENTRY", WARNING, SourceElementPositioningStrategies.DECLARATION_NAME, KtEnumEntry::class)
+    val DECLARATION_OF_ENUM_ENTRY_ENTRIES: KtDiagnosticFactoryForDeprecation0 = KtDiagnosticFactoryForDeprecation0("DECLARATION_OF_ENUM_ENTRY_ENTRIES", ForbidEnumEntryNamedEntries, SourceElementPositioningStrategies.DECLARATION_NAME, KtEnumEntry::class)
 
     // Compatibility issues
     val INCOMPATIBLE_CLASS: KtDiagnosticFactory2<String, IncompatibleVersionErrorData<*>> = KtDiagnosticFactory2("INCOMPATIBLE_CLASS", ERROR, SourceElementPositioningStrategies.DEFAULT, PsiElement::class)

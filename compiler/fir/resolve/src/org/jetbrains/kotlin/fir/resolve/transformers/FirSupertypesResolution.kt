@@ -8,15 +8,12 @@ package org.jetbrains.kotlin.fir.resolve.transformers
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
-import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
-import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
-import org.jetbrains.kotlin.fir.declarations.utils.isInner
-import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.FirStatement
@@ -25,7 +22,6 @@ import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.isLocalClassOrAnonymousObject
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeTypeParameterSupertype
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
-import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.LocalClassesNavigationInfo
 import org.jetbrains.kotlin.fir.scopes.FirScope
 import org.jetbrains.kotlin.fir.scopes.createImportingScopes
@@ -34,7 +30,6 @@ import org.jetbrains.kotlin.fir.scopes.impl.FirMemberTypeParameterScope
 import org.jetbrains.kotlin.fir.scopes.impl.nestedClassifierScope
 import org.jetbrains.kotlin.fir.scopes.impl.wrapNestedClassifierScopeWithSubstitutionForSuperType
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.*
@@ -42,8 +37,6 @@ import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitBuiltinTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirDefaultTransformer
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.types.model.TypeArgumentMarker
 import org.jetbrains.kotlin.util.PrivateForInline
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
@@ -71,7 +64,7 @@ class FirSupertypeResolverTransformer(
         checkSessionConsistency(file)
         return withFileAnalysisExceptionWrapping(file) {
             file.accept(supertypeResolverVisitor, null)
-            supertypeComputationSession.breakLoops(session)
+            supertypeComputationSession.breakLoops(session, supertypeResolverVisitor.localClassesNavigationInfo)
             file.transform(applySupertypesTransformer, null)
         }
     }
@@ -95,7 +88,7 @@ fun <F : FirClassLikeDeclaration> F.runSupertypeResolvePhaseForLocalClass(
     )
 
     this.accept(supertypeResolverVisitor, null)
-    supertypeComputationSession.breakLoops(session)
+    supertypeComputationSession.breakLoops(session, localClassesNavigationInfo)
 
     val applySupertypesTransformer = FirApplySupertypesTransformer(supertypeComputationSession, session, scopeSession)
     return this.transform<F, Nothing?>(applySupertypesTransformer, null)
@@ -230,7 +223,7 @@ open class FirSupertypeResolverVisitor(
     private val supertypeComputationSession: SupertypeComputationSession,
     private val scopeSession: ScopeSession,
     private val scopeForLocalClass: PersistentList<FirScope>? = null,
-    private val localClassesNavigationInfo: LocalClassesNavigationInfo? = null,
+    val localClassesNavigationInfo: LocalClassesNavigationInfo? = null,
     @property:PrivateForInline var useSiteFile: FirFile? = null,
     containingDeclarations: List<FirDeclaration> = emptyList(),
 ) : FirDefaultVisitor<Unit, Any?>() {
@@ -261,10 +254,6 @@ open class FirSupertypeResolverVisitor(
 
     private fun getFirClassifierContainerFileIfAny(symbol: FirClassLikeSymbol<*>): FirFile? {
         return symbol.moduleData.session.firProvider.getFirClassifierContainerFileIfAny(symbol)
-    }
-
-    private fun getFirClassifierByFqName(moduleSession: FirSession, classId: ClassId): FirClassLikeDeclaration? {
-        return moduleSession.firProvider.getFirClassifierByFqName(classId)
     }
 
     override fun visitElement(element: FirElement, data: Any?) {}
@@ -340,7 +329,7 @@ open class FirSupertypeResolverVisitor(
 
         val result = when {
             classId.isLocal -> {
-                // Local classes should be treated specially and supplied with localClassesNavigationInfo, normally
+                // Typically, local class-like declarations (class, typealias) should be treated specially and supplied with localClassesNavigationInfo.
                 // But it seems to be too strict to add an assertion here
                 if (localClassesNavigationInfo == null) return persistentListOf()
 
@@ -352,13 +341,12 @@ open class FirSupertypeResolverVisitor(
                 }
             }
             (classLikeDeclaration as? FirRegularClass)?.isCompanion == true -> {
-                val outerClassFir = classId.outerClassId?.let { getFirClassifierByFqName(classModuleSession, it) } as? FirRegularClass
+                val outerClassFir = classModuleSession.firProvider.getContainingClass(classLikeDeclaration.symbol)?.fir as? FirRegularClass
                 prepareScopeForCompanion(outerClassFir ?: return persistentListOf())
             }
             classId.isNestedClass -> {
-                val outerClassFir = classId.outerClassId?.let { getFirClassifierByFqName(classModuleSession, it) } as? FirRegularClass
-                // TypeAliases are treated as inner classes even though they are technically not allowed
-                val isStatic = !classLikeDeclaration.isInner && classLikeDeclaration !is FirTypeAlias
+                val outerClassFir = classModuleSession.firProvider.getContainingClass(classLikeDeclaration.symbol)?.fir as? FirRegularClass
+                val isStatic = !classLikeDeclaration.isInner
                 prepareScopeForNestedClasses(outerClassFir ?: return persistentListOf(), isStatic || forStaticNestedClass)
             }
             else -> getFirClassifierContainerFileIfAny(classLikeDeclaration.symbol)?.let(::prepareFileScopes) ?: persistentListOf()
@@ -573,7 +561,7 @@ open class FirSupertypeResolverVisitor(
 
             if (resolveRecursively) {
                 fun visitNestedTypeAliases(type: ConeTypeProjection) {
-                    val typeToCheck = type.type as? ConeClassLikeType ?: return
+                    val typeToCheck = type.type?.lowerBoundIfFlexible() as? ConeClassLikeType ?: return
                     val symbol = typeToCheck.lookupTag.toSymbol(session)
                     if (symbol is FirTypeAliasSymbol) {
                         visitTypeAlias(symbol.fir, null)
@@ -691,6 +679,7 @@ open class SupertypeComputationSession {
         looped: MutableSet<FirClassLikeDeclaration>, // always empty for LL FIR
         pathSet: MutableSet<FirClassLikeDeclaration>,
         path: MutableList<FirClassLikeDeclaration>,
+        localClassesNavigationInfo: LocalClassesNavigationInfo?,
     ) {
         require(path.isEmpty()) { "Path should be empty" }
         require(pathSet.isEmpty()) { "Path set should be empty" }
@@ -729,11 +718,15 @@ open class SupertypeComputationSession {
             pathSet.add(classLikeDeclaration)
             visited.add(classLikeDeclaration)
 
-            val parentId = classLikeDeclaration.symbol.classId.relativeClassName.parent()
-            if (!parentId.isRoot) {
-                val parentSymbol = session.symbolProvider.getClassLikeSymbolByClassId(ClassId.fromString(parentId.asString()))
-                if (parentSymbol is FirRegularClassSymbol) {
-                    checkIsInLoop(parentSymbol.fir, wasSubtypingInvolved, wereTypeArgumentsInvolved)
+            val classId = classLikeDeclaration.classId
+            if (classId.isNestedClass) {
+                val parentFir = when {
+                    !classId.isLocal -> session.firProvider.getContainingClass(classLikeDeclaration.symbol)?.fir
+                    localClassesNavigationInfo != null -> localClassesNavigationInfo.parentForClass[classLikeDeclaration]
+                    else -> error("Couldn't retrieve the parent of a local class because there's no `LocalClassesNavigationInfo`")
+                }
+                if (parentFir is FirClassLikeDeclaration) {
+                    checkIsInLoop(parentFir, wasSubtypingInvolved, wereTypeArgumentsInvolved)
                 }
             }
 
@@ -773,7 +766,7 @@ open class SupertypeComputationSession {
                         if (type in visitedTypes) return
                         visitedTypes += type
                         for (typeArgument in type.typeArguments) {
-                            val typeToCheck = typeArgument.type as? ConeClassLikeType ?: continue
+                            val typeToCheck = typeArgument.type?.lowerBoundIfFlexible() as? ConeClassLikeType ?: continue
                             checkIsInLoop(
                                 typeToCheck.lookupTag.toSymbol(session)?.fir,
                                 wasSubtypingInvolved, areTypeArgumentsCurrentlyInvolved,
@@ -790,7 +783,8 @@ open class SupertypeComputationSession {
                         isErrorInSupertypesFound = true
                         createErrorTypeRef(
                             supertypeRef,
-                            "Loop in supertype: ${classLikeDeclaration.symbol.classId} -> ${supertypeFir?.symbol?.classId}",
+                            // A loop may have been caused by the outer declaration, not necessarily `supertypeRef`
+                            "Loop in supertypes involving ${classLikeDeclaration.symbol.classId}",
                             if (isTypeAlias) DiagnosticKind.RecursiveTypealiasExpansion else DiagnosticKind.LoopInSupertype
                         )
                     } else {
@@ -811,7 +805,7 @@ open class SupertypeComputationSession {
         require(path.isEmpty()) { "Path should be empty" }
     }
 
-    fun breakLoops(session: FirSession) {
+    fun breakLoops(session: FirSession, localClassesNavigationInfo: LocalClassesNavigationInfo?) {
         val visitedClassLikeDecls = mutableSetOf<FirClassLikeDeclaration>()
         val loopedClassLikeDecls = mutableSetOf<FirClassLikeDeclaration>()
         val path = mutableListOf<FirClassLikeDeclaration>()
@@ -825,6 +819,7 @@ open class SupertypeComputationSession {
                 looped = loopedClassLikeDecls,
                 pathSet = pathSet,
                 path = path,
+                localClassesNavigationInfo = localClassesNavigationInfo,
             )
         }
 

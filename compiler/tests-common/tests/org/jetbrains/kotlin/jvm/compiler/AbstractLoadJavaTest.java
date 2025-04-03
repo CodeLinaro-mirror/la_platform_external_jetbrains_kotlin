@@ -211,8 +211,12 @@ public abstract class AbstractLoadJavaTest extends TestCaseWithTmpdir implements
 
         CommonConfigurationKeysKt.setLanguageVersionSettings(configuration, languageVersionSettings);
 
-        if (InTextDirectivesUtils.isDirectiveDefined(content, "JVM_ANNOTATIONS")) {
+        if (InTextDirectivesUtils.isDirectiveDefined(content, "WITH_KOTLIN_JVM_ANNOTATIONS")) {
             JvmContentRootsKt.addJvmClasspathRoot(configuration, ForTestCompileRuntime.jvmAnnotationsForTests());
+        }
+
+        if (InTextDirectivesUtils.isDirectiveDefined(content, "USE_TYPE_TABLE")) {
+            configuration.put(JVMConfigurationKeys.USE_TYPE_TABLE, true);
         }
     }
 
@@ -280,12 +284,11 @@ public abstract class AbstractLoadJavaTest extends TestCaseWithTmpdir implements
                 FileUtil.findFilesByMask(Pattern.compile(".+\\.kt$"), librarySrc),
                 libraryOut,
                 getTestRootDisposable(),
-                null,
                 configuration -> {
                     configureIrFir(configuration);
                     return Unit.INSTANCE;
                 }
-        );
+        ).assertSuccessful();
 
         CompilerConfiguration configuration =
                 newConfiguration(ConfigurationKind.JDK_ONLY, getJdkKind(), getClasspath(libraryOut), Collections.emptyList());

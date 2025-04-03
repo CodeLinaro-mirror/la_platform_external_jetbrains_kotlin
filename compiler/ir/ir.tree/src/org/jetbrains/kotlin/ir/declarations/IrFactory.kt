@@ -6,11 +6,12 @@
 
 package org.jetbrains.kotlin.ir.declarations
 
+import org.jetbrains.kotlin.CompilerVersionOfApiDeprecation
+import org.jetbrains.kotlin.DeprecatedCompilerApi
+import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.IrImplementationDetail
-import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.impl.*
-import org.jetbrains.kotlin.ir.descriptors.toIrBasedDescriptor
 import org.jetbrains.kotlin.ir.expressions.IrBlockBody
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
@@ -26,7 +27,7 @@ import org.jetbrains.kotlin.types.Variance
 open class IrFactory(
     val stageController: StageController,
 ) {
-    protected open fun <T : IrDeclaration> T.declarationCreated(): T {
+    open fun <T : IrDeclaration> T.declarationCreated(): T {
         return this
     }
 
@@ -135,21 +136,6 @@ open class IrFactory(
             name = name,
             factory = this
         ).declarationCreated()
-
-    @OptIn(ObsoleteDescriptorBasedAPI::class)
-    fun createErrorDeclaration(
-        startOffset: Int,
-        endOffset: Int,
-        descriptor: DeclarationDescriptor? = null,
-    ): IrErrorDeclaration =
-        IrErrorDeclarationImpl(
-            startOffset = startOffset,
-            endOffset = endOffset,
-            factory = this,
-            origin = IrDeclarationOrigin.DEFINED,
-        ).declarationCreated().apply {
-            this.descriptor = descriptor ?: this.toIrBasedDescriptor()
-        }
 
     fun createField(
         startOffset: Int,
@@ -391,6 +377,10 @@ open class IrFactory(
             factory = this
         ).declarationCreated()
 
+    /**
+     * Please use [createValueParameter] overload that takes [IrParameterKind] parameter.
+     */
+    @DeprecatedCompilerApi(CompilerVersionOfApiDeprecation._2_1_20)
     fun createValueParameter(
         startOffset: Int,
         endOffset: Int,
@@ -419,6 +409,41 @@ open class IrFactory(
             factory = this
         ).declarationCreated()
 
+    fun createValueParameter(
+        startOffset: Int,
+        endOffset: Int,
+        origin: IrDeclarationOrigin,
+        kind: IrParameterKind?,
+        name: Name,
+        type: IrType,
+        isAssignable: Boolean,
+        symbol: IrValueParameterSymbol,
+        varargElementType: IrType?,
+        isCrossinline: Boolean,
+        isNoinline: Boolean,
+        isHidden: Boolean,
+    ): IrValueParameter =
+        IrValueParameterImpl(
+            startOffset = startOffset,
+            endOffset = endOffset,
+            origin = origin,
+            symbol = symbol,
+            name = name,
+            type = type,
+            varargElementType = varargElementType,
+            isCrossinline = isCrossinline,
+            isNoinline = isNoinline,
+            isHidden = isHidden,
+            isAssignable = isAssignable,
+            factory = this
+        ).apply {
+            _kind = kind
+        }.declarationCreated()
+
+    /**
+     * Please use the overload accepting `kind` argument.
+     */
+    @DeprecatedForRemovalCompilerApi(CompilerVersionOfApiDeprecation._2_1_20)
     @Suppress("unused") // Deprecated, parameter [index] is ignored. Kept for backward compatibility only.
     fun createValueParameter(
         startOffset: Int,

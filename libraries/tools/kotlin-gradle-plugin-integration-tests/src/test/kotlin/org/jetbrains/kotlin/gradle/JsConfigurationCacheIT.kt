@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.gradle
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.testbase.BuildOptions.ConfigurationCacheProblems
+import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
 
 @JsGradlePluginTests
@@ -146,15 +147,15 @@ class JsIrConfigurationCacheIT : KGPBaseTest() {
     @GradleTest
     fun testNodeJsRun(gradleVersion: GradleVersion) {
         project("kotlin-js-nodejs-project", gradleVersion) {
-            build("nodeRun", buildOptions = buildOptions) {
-                assertTasksExecuted(":nodeRun")
+            build("nodeDevelopmentRun", buildOptions = buildOptions) {
+                assertTasksExecuted(":nodeDevelopmentRun")
                 if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_5)) {
                     assertOutputContains(
-                        "Calculating task graph as no configuration cache is available for tasks: nodeRun"
+                        "Calculating task graph as no configuration cache is available for tasks: nodeDevelopmentRun"
                     )
                 } else {
                     assertOutputContains(
-                        "Calculating task graph as no cached configuration is available for tasks: nodeRun"
+                        "Calculating task graph as no cached configuration is available for tasks: nodeDevelopmentRun"
                     )
                 }
 
@@ -164,10 +165,33 @@ class JsIrConfigurationCacheIT : KGPBaseTest() {
             build("clean", buildOptions = buildOptions)
 
             // Then run a build where tasks states are deserialized to check that they work correctly in this mode
-            build("nodeRun", buildOptions = buildOptions) {
-                assertTasksExecuted(":nodeRun")
+            build("nodeDevelopmentRun", buildOptions = buildOptions) {
+                assertTasksExecuted(":nodeDevelopmentRun")
                 assertConfigurationCacheReused()
             }
+        }
+    }
+
+    @DisplayName("Test with custom build logic plugin")
+    @GradleTest
+    fun testWithCustomBuildLogic(gradleVersion: GradleVersion) {
+        project("kotlin-js-build-logic", gradleVersion) {
+
+            settingsGradleKts
+                .replaceText(
+                    "pluginManagement {",
+                    """
+
+                    pluginManagement {
+                        includeBuild("build-logic")
+
+                    """.trimIndent()
+                )
+
+            assertSimpleConfigurationCacheScenarioWorks(
+                ":rootPackageJson",
+                buildOptions = defaultBuildOptions,
+            )
         }
     }
 }

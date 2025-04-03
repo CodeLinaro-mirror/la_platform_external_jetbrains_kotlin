@@ -9,7 +9,6 @@ import org.jetbrains.kotlin.backend.common.DeclarationTransformer
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
-import org.jetbrains.kotlin.ir.backend.js.lazy2
 import org.jetbrains.kotlin.ir.backend.js.utils.JsAnnotations
 import org.jetbrains.kotlin.ir.backend.js.utils.couldBeConvertedToExplicitExport
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -29,8 +28,8 @@ import org.jetbrains.kotlin.utils.memoryOptimizedPlus
  */
 class ImplicitlyExportedDeclarationsMarkingLowering(private val context: JsIrBackendContext) : DeclarationTransformer {
     private val strictImplicitExport = context.configuration.getBoolean(JSConfigurationKeys.GENERATE_STRICT_IMPLICIT_EXPORT)
-    private val jsExportCtor by context.lazy2 { context.intrinsics.jsExportAnnotationSymbol.constructors.single() }
-    private val jsImplicitExportCtor by context.lazy2 { context.intrinsics.jsImplicitExportAnnotationSymbol.constructors.single() }
+    private val jsExportCtor by lazy(LazyThreadSafetyMode.NONE) { context.intrinsics.jsExportAnnotationSymbol.constructors.single() }
+    private val jsImplicitExportCtor by lazy(LazyThreadSafetyMode.NONE) { context.intrinsics.jsImplicitExportAnnotationSymbol.constructors.single() }
 
     override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? {
         if (!declaration.isExported(context)) return null
@@ -59,7 +58,7 @@ class ImplicitlyExportedDeclarationsMarkingLowering(private val context: JsIrBac
     private fun IrFunction.collectImplicitlyExportedDeclarations(): Set<IrDeclaration> {
         val types = buildSet {
             add(returnType)
-            addAll(valueParameters.map { it.type })
+            addAll(nonDispatchParameters.map { it.type })
             addAll(typeParameters.flatMap { it.superTypes })
         }
 
@@ -104,7 +103,7 @@ class ImplicitlyExportedDeclarationsMarkingLowering(private val context: JsIrBac
             }
         } else if (strictImplicitExport) {
             annotations = annotations memoryOptimizedPlus JsIrBuilder.buildConstructorCall(jsImplicitExportCtor).apply {
-                putValueArgument(0, false.toIrConst(context.irBuiltIns.booleanType))
+                arguments[0] = false.toIrConst(context.irBuiltIns.booleanType)
             }
 
             parentClassOrNull?.takeIf { it.shouldBeMarkedWithImplicitExportOrUpgraded() }?.markWithJsImplicitExportOrUpgrade()

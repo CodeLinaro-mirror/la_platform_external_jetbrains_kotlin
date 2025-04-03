@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.backend.common.serialization
 
+import org.jetbrains.kotlin.backend.common.serialization.KlibAbiCompatibilityLevel.ABI_LEVEL_2_2
 import org.jetbrains.kotlin.backend.common.serialization.encodings.*
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSimpleTypeNullability
 import org.jetbrains.kotlin.descriptors.*
@@ -15,8 +16,11 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
+import org.jetbrains.kotlin.ir.util.IdSignature
+import org.jetbrains.kotlin.ir.util.isFakeOverride
+import org.jetbrains.kotlin.ir.util.isInterface
+import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.library.SerializedDeclaration
@@ -26,9 +30,9 @@ import org.jetbrains.kotlin.library.impl.IrMemoryDeclarationWriter
 import org.jetbrains.kotlin.library.impl.IrMemoryStringWriter
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.Variance
-import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 import java.io.File
 import org.jetbrains.kotlin.backend.common.serialization.proto.FieldAccessCommon as ProtoFieldAccessCommon
 import org.jetbrains.kotlin.backend.common.serialization.proto.FileEntry as ProtoFileEntry
@@ -57,7 +61,6 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.IrDynamicType as 
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrEnumConstructorCall as ProtoEnumConstructorCall
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrEnumEntry as ProtoEnumEntry
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrErrorCallExpression as ProtoErrorCallExpression
-import org.jetbrains.kotlin.backend.common.serialization.proto.IrErrorDeclaration as ProtoErrorDeclaration
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrErrorExpression as ProtoErrorExpression
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrErrorType as ProtoErrorType
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrExpression as ProtoExpression
@@ -67,12 +70,15 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.IrFunction as Pro
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFunctionBase as ProtoFunctionBase
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFunctionExpression as ProtoFunctionExpression
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFunctionReference as ProtoFunctionReference
+import org.jetbrains.kotlin.backend.common.serialization.proto.IrRichFunctionReference as ProtoRichFunctionReference
+import org.jetbrains.kotlin.backend.common.serialization.proto.IrRichPropertyReference as ProtoRichPropertyReference
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrGetClass as ProtoGetClass
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrGetEnumValue as ProtoGetEnumValue
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrGetField as ProtoGetField
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrGetObject as ProtoGetObject
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrGetValue as ProtoGetValue
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrInlineClassRepresentation as ProtoIrInlineClassRepresentation
+import org.jetbrains.kotlin.backend.common.serialization.proto.IrInlinedFunctionBlock as ProtoInlinedFunctionBlock
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrInstanceInitializerCall as ProtoInstanceInitializerCall
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrLocalDelegatedProperty as ProtoLocalDelegatedProperty
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrLocalDelegatedPropertyReference as ProtoLocalDelegatedPropertyReference
@@ -81,6 +87,7 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.IrOperation as Pr
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrProperty as ProtoProperty
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrPropertyReference as ProtoPropertyReference
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrReturn as ProtoReturn
+import org.jetbrains.kotlin.backend.common.serialization.proto.IrReturnableBlock as ProtoReturnableBlock
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSetField as ProtoSetField
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSetValue as ProtoSetValue
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrSimpleType as ProtoSimpleType
@@ -109,18 +116,50 @@ import org.jetbrains.kotlin.backend.common.serialization.proto.NullableIrExpress
 
 open class IrFileSerializer(
     private val settings: IrSerializationSettings,
-    private val declarationTable: DeclarationTable,
+    private val declarationTable: DeclarationTable<*>,
 ) {
     private val loopIndex = hashMapOf<IrLoop, Int>()
     private var currentLoopIndex = 0
 
-    // The same type can be used multiple times in a file
-    // so use this index to store type data only once.
-    private val protoTypeMap = hashMapOf<IrTypeKey, Int>()
-    protected val protoTypeArray = arrayListOf<ProtoType>()
+    /**
+     * The abstraction that represents all [ProtoType]s to be serialized in the current [IrFile].
+     *
+     * It writes every protobuf 'type' entity to a byte array and ensures that there is no other 'type'
+     * entity that has been already added with exactly the same bytes. In other words, ensures that
+     * all types added to [ProtoTypeArray] are indeed unique. This is useful when serializing a mix
+     * of bound and unbound IR, when there are two equivalent [IrType]s referencing different symbols
+     * (bound and unbound) - the situation that the serializer otherwise is not able to recognize
+     * and therefore serializes them as two distinct types.
+     */
+    protected class ProtoTypeArray {
+        private class UniqueType(val protoType: ProtoType) {
+            val byteArray: ByteArray = protoType.toByteArray()
+
+            private val memoizedHashCode = byteArray.contentHashCode()
+            override fun hashCode() = memoizedHashCode
+
+            override fun equals(other: Any?) =
+                other is UniqueType && other.memoizedHashCode == memoizedHashCode && other.byteArray contentEquals byteArray
+        }
+
+        // Use `LinkedHashMap` to keep only unique types but preserve the insertion order.
+        private val uniqueTypes: MutableMap<UniqueType, /* ordered index */ Int> = linkedMapOf()
+
+        val protoTypes: List<ProtoType> get() = uniqueTypes.keys.map { it.protoType }
+        val byteArrays: List<ByteArray> get() = uniqueTypes.keys.map { it.byteArray }
+
+        fun addAndGetIndex(protoType: ProtoType) = uniqueTypes.getOrPut(UniqueType(protoType)) { uniqueTypes.size }
+    }
+
+    /** The same type can be used multiple times in a file, so use this map to store the unique index by a deduplication key. */
+    private val protoTypeMap = hashMapOf<IrTypeDeduplicationKey, /* unique type index */ Int>()
+    protected val protoTypeArray = ProtoTypeArray()
 
     private val protoStringMap = hashMapOf<String, Int>()
     protected val protoStringArray = arrayListOf<String>()
+
+    private val protoIrFileEntryMap = hashMapOf<ProtoFileEntryDeduplicationKey, Int>()
+    protected val protoIrFileEntryArray = arrayListOf<ProtoFileEntry>()
 
     // The same signature could be used multiple times in a file
     // so use this index to store signature only once.
@@ -182,7 +221,8 @@ open class IrFileSerializer(
     private fun serializeIrStatementOrigin(origin: IrStatementOrigin): Int =
         serializeString(origin.debugName)
 
-    private fun serializeCoordinates(start: Int, end: Int): Long = BinaryCoordinates.encode(start, end)
+    private fun serializeCoordinates(start: Int, end: Int): Long =
+        if (settings.publicAbiOnly && !isInsideInline) 0 else BinaryCoordinates.encode(start, end)
 
     /* ------- Strings ---------------------------------------------------------- */
 
@@ -248,15 +288,21 @@ open class IrFileSerializer(
             ?: when (symbol) {
                 is IrFileSymbol -> IdSignature.FileSignature(symbol) // TODO: special signature for files?
                 else -> {
-                    val declaration = symbol.owner as? IrDeclaration
-                        ?: error("Expected IrDeclaration: ${symbol.owner.render()}")
+                    val symbolOwner = symbol.owner
 
                     // Compute the signature:
-                    declarationTable.signatureByDeclaration(
-                        declaration,
-                        settings.compatibilityMode.legacySignaturesForPrivateAndLocalDeclarations,
-                        recordInSignatureClashDetector = isDeclared
-                    )
+                    when {
+                        symbolOwner is IrDeclaration -> declarationTable.signatureByDeclaration(
+                            symbolOwner,
+                            settings.compatibilityMode.legacySignaturesForPrivateAndLocalDeclarations,
+                            recordInSignatureClashDetector = isDeclared
+                        )
+
+                        symbolOwner is IrReturnableBlock && settings.abiCompatibilityLevel.isAtLeast(ABI_LEVEL_2_2) ->
+                            declarationTable.signatureByReturnableBlock(symbolOwner)
+
+                        else -> error("Expected symbol owner: ${symbolOwner.render()}")
+                    }
                 }
             }
 
@@ -271,8 +317,8 @@ open class IrFileSerializer(
     // Serializes all annotations, even having SOURCE retention, since they might be needed in backends, like @Volatile
     private fun serializeAnnotations(annotations: List<IrConstructorCall>) =
         annotations.map {
-            for (index in 0 until it.valueArgumentsCount) {
-                it.getValueArgument(index)?.let { param ->
+            for (param in it.arguments) {
+                if (param != null) {
                     require(param.isValidConstantAnnotationArgument()) {
                         "This is a compiler bug, please report it to https://kotl.in/issue : parameter value of an annotation constructor must be a const:\nCALL: ${it.render()}\nPARAM: ${param.render()}"
                     }
@@ -351,37 +397,53 @@ open class IrFileSerializer(
         return proto.build()
     }
 
-    enum class IrTypeKind {
+    private enum class IrTypeKind {
         SIMPLE,
         DYNAMIC,
         ERROR,
     }
 
-    enum class IrTypeArgumentKind {
+    private enum class IrTypeArgumentKind {
         STAR,
         PROJECTION
     }
 
-    // This is just IrType repacked as a data class, good to address a hash map.
-    data class IrTypeKey(
+    /**
+     * This is just an [IrType] repacked as a data class, good to address a hash map.
+     *
+     * Note: This key does not guarantee the uniqueness of IR types for several reasons:
+     * - [IrTypeDeduplicationKey.classifier] is a symbol of a classifier in a type. In the case of a mix of
+     *   bound IR produced by Fir2Ir and unbound IR obtained through deserialization of inline function
+     *   body, there can be two symbols (one bound without a signature and another unbound but with a signature)
+     *   both pointing effectively to the same declaration.
+     * - [IrTypeDeduplicationKey.annotations] is just a list of [IrConstructorCall]s that cannot be
+     *   fully compared: The [IrConstructorCallImpl.equals] function resolves to [Any.equals], which
+     *   compares only object references.
+     * - [IrTypeDeduplicationKey.abbreviation] is just another IR node: [IrTypeAbbreviation]. And it also
+     *   cannot be fully compared.
+     *
+     * However, [IrTypeDeduplicationKey] can be used as a good approximation to store lesser number of records
+     * in [protoTypeMap] and overall speed-up the process of types serialization.
+     */
+    private data class IrTypeDeduplicationKey(
         val kind: IrTypeKind,
         val classifier: IrClassifierSymbol?,
         val nullability: SimpleTypeNullability?,
-        val arguments: List<IrTypeArgumentKey>?,
+        val arguments: List<IrTypeArgumentDeduplicationKey>?,
         val annotations: List<IrConstructorCall>,
-        val abbreviation: IrTypeAbbreviation?
+        val abbreviation: IrTypeAbbreviation?,
     )
 
-    data class IrTypeArgumentKey(
+    private data class IrTypeArgumentDeduplicationKey(
         val kind: IrTypeArgumentKind,
         val variance: Variance?,
-        val type: IrTypeKey?
+        val type: IrTypeDeduplicationKey?,
     )
 
-    private val IrType.toIrTypeKey: IrTypeKey
+    private val IrType.toIrTypeDeduplicationKey: IrTypeDeduplicationKey
         get() {
             val type = this
-            return IrTypeKey(
+            return IrTypeDeduplicationKey(
                 kind = when (this) {
                     is IrSimpleType -> IrTypeKind.SIMPLE
                     is IrDynamicType -> IrTypeKind.DYNAMIC
@@ -389,25 +451,24 @@ open class IrFileSerializer(
                 },
                 classifier = type.classifierOrNull,
                 nullability = (type as? IrSimpleType)?.nullability,
-                arguments = (type as? IrSimpleType)?.arguments?.map { it.toIrTypeArgumentKey },
+                arguments = (type as? IrSimpleType)?.arguments?.map { it.toIrTypeArgumentDeduplicationKey },
                 annotations = type.annotations,
                 abbreviation = (type as? IrSimpleType)?.abbreviation
             )
         }
 
-    private val IrTypeArgument.toIrTypeArgumentKey: IrTypeArgumentKey
-        get() = IrTypeArgumentKey(
+    private val IrTypeArgument.toIrTypeArgumentDeduplicationKey: IrTypeArgumentDeduplicationKey
+        get() = IrTypeArgumentDeduplicationKey(
             kind = when (this) {
                 is IrStarProjection -> IrTypeArgumentKind.STAR
                 is IrTypeProjection -> IrTypeArgumentKind.PROJECTION
             },
             variance = (this as? IrTypeProjection)?.variance,
-            type = (this as? IrTypeProjection)?.type?.toIrTypeKey
+            type = (this as? IrTypeProjection)?.type?.toIrTypeDeduplicationKey
         )
 
-    private fun serializeIrType(type: IrType) = protoTypeMap.getOrPut(type.toIrTypeKey) {
-        protoTypeArray.add(serializeIrTypeData(type))
-        protoTypeArray.size - 1
+    private fun serializeIrType(type: IrType) = protoTypeMap.getOrPut(type.toIrTypeDeduplicationKey) {
+        protoTypeArray.addAndGetIndex(serializeIrTypeData(type))
     }
 
     /* -------------------------------------------------------------------------- */
@@ -440,6 +501,27 @@ open class IrFileSerializer(
         return proto.build()
     }
 
+    private fun serializeReturnableBlock(returnableBlock: IrReturnableBlock): ProtoReturnableBlock {
+        requireAbiAtLeast(ABI_LEVEL_2_2) { returnableBlock }
+
+        val proto = ProtoReturnableBlock.newBuilder()
+        proto.symbol = serializeIrSymbol(returnableBlock.symbol)
+        proto.base = serializeBlock(returnableBlock)
+        return proto.build()
+    }
+
+    private fun serializeInlinedFunctionBlock(inlinedFunctionBlock: IrInlinedFunctionBlock): ProtoInlinedFunctionBlock {
+        requireAbiAtLeast(ABI_LEVEL_2_2) { inlinedFunctionBlock }
+
+        val proto = ProtoInlinedFunctionBlock.newBuilder()
+        inlinedFunctionBlock.inlinedFunctionSymbol?.let { proto.setInlinedFunctionSymbol(serializeIrSymbol(it)) }
+        proto.inlinedFunctionFileEntryId = serializeFileEntryId(inlinedFunctionBlock.inlinedFunctionFileEntry)
+        proto.base = serializeBlock(inlinedFunctionBlock)
+        proto.inlinedFunctionStartOffset = inlinedFunctionBlock.inlinedFunctionStartOffset
+        proto.inlinedFunctionEndOffset = inlinedFunctionBlock.inlinedFunctionEndOffset
+        return proto.build()
+    }
+
     private fun serializeComposite(composite: IrComposite): ProtoComposite {
         val proto = ProtoComposite.newBuilder()
 
@@ -467,24 +549,11 @@ open class IrFileSerializer(
 
     private fun serializeMemberAccessCommon(call: IrMemberAccessExpression<*>): ProtoMemberAccessCommon {
         val proto = ProtoMemberAccessCommon.newBuilder()
-        if (call.extensionReceiver != null) {
-            proto.extensionReceiver = serializeExpression(call.extensionReceiver!!)
-        }
 
-        if (call.dispatchReceiver != null) {
-            proto.dispatchReceiver = serializeExpression(call.dispatchReceiver!!)
-        }
-
-        for (index in 0 until call.typeArgumentsCount) {
-            // See `ForbidUsingExtensionPropertyTypeParameterInDelegate` language feature
-            val typeArgumentIndex = call.getTypeArgument(index)?.let { serializeIrType(it) } ?: -1
-            proto.addTypeArgument(typeArgumentIndex)
-        }
-
-        for (index in 0 until call.valueArgumentsCount) {
-            val actual = call.getValueArgument(index)
-            val argOrNull = ProtoNullableIrExpression.newBuilder()
-            if (actual == null) {
+        requireAbiAtLeast(ABI_LEVEL_2_2, { "Single-list argument" }) { call }
+        for (arg in call.arguments) {
+            val argOrNullProto = ProtoNullableIrExpression.newBuilder()
+            if (arg == null) {
                 // Am I observing an IR generation regression?
                 // I see a lack of arg for an empty vararg,
                 // rather than an empty vararg node.
@@ -492,10 +561,17 @@ open class IrFileSerializer(
                 // TODO: how do we assert that without descriptor?
                 //assert(it.varargElementType != null || it.hasDefaultValue())
             } else {
-                argOrNull.expression = serializeExpression(actual)
+                argOrNullProto.expression = serializeExpression(arg)
             }
-            proto.addValueArgument(argOrNull)
+            proto.addArgument(argOrNullProto)
         }
+
+        for (typeArg in call.typeArguments) {
+            // See `ForbidUsingExtensionPropertyTypeParameterInDelegate` language feature
+            val typeArgumentIndex = typeArg?.let { serializeIrType(it) } ?: -1
+            proto.addTypeArgument(typeArgumentIndex)
+        }
+
         return proto.build()
     }
 
@@ -538,8 +614,37 @@ open class IrFileSerializer(
         return proto.build()
     }
 
+    private fun serializeRichFunctionReference(callable: IrRichFunctionReference): ProtoRichFunctionReference {
+        requireAbiAtLeast(ABI_LEVEL_2_2) { callable }
+
+        return ProtoRichFunctionReference.newBuilder().apply {
+            callable.reflectionTargetSymbol?.let { reflectionTargetSymbol = serializeIrSymbol(it) }
+            overriddenFunctionSymbol = serializeIrSymbol(callable.overriddenFunctionSymbol)
+            for (boundValue in callable.boundValues) {
+                addBoundValues(serializeExpression(boundValue))
+            }
+            invokeFunction = serializeIrFunction(callable.invokeFunction)
+            callable.origin?.let { originName = serializeIrStatementOrigin(it) }
+            flags = RichFunctionReferenceFlags.encode(callable)
+        }.build()
+    }
+
+    private fun serializeRichPropertyReference(callable: IrRichPropertyReference): ProtoRichPropertyReference {
+        requireAbiAtLeast(ABI_LEVEL_2_2) { callable }
+
+        return ProtoRichPropertyReference.newBuilder().apply {
+            callable.reflectionTargetSymbol?.let { reflectionTargetSymbol = serializeIrSymbol(it) }
+            for (boundValue in callable.boundValues) {
+                addBoundValues(serializeExpression(boundValue))
+            }
+            getterFunction = serializeIrFunction(callable.getterFunction)
+            callable.setterFunction?.let { setterFunction = serializeIrFunction(it) }
+            callable.origin?.let { originName = serializeIrStatementOrigin(it) }
+        }.build()
+    }
+
     private fun serializeIrLocalDelegatedPropertyReference(
-        callable: IrLocalDelegatedPropertyReference
+        callable: IrLocalDelegatedPropertyReference,
     ): ProtoLocalDelegatedPropertyReference {
         val proto = ProtoLocalDelegatedPropertyReference.newBuilder()
             .setDelegate(serializeIrSymbol(callable.delegate))
@@ -925,6 +1030,8 @@ open class IrFileSerializer(
 
         // TODO: make me a visitor.
         when (expression) {
+            is IrReturnableBlock -> operationProto.returnableBlock = serializeReturnableBlock(expression)
+            is IrInlinedFunctionBlock -> operationProto.inlinedFunctionBlock = serializeInlinedFunctionBlock(expression)
             is IrBlock -> operationProto.block = serializeBlock(expression)
             is IrBreak -> operationProto.`break` = serializeBreak(expression)
             is IrClassReference -> operationProto.classReference = serializeClassReference(expression)
@@ -938,6 +1045,8 @@ open class IrFileSerializer(
             is IrEnumConstructorCall -> operationProto.enumConstructorCall = serializeEnumConstructorCall(expression)
             is IrFunctionExpression -> operationProto.functionExpression = serializeFunctionExpression(expression)
             is IrFunctionReference -> operationProto.functionReference = serializeFunctionReference(expression)
+            is IrRichFunctionReference -> operationProto.richFunctionReference = serializeRichFunctionReference(expression)
+            is IrRichPropertyReference -> operationProto.richPropertyReference = serializeRichPropertyReference(expression)
             is IrGetClass -> operationProto.getClass = serializeGetClass(expression)
             is IrGetField -> operationProto.getField = serializeGetField(expression)
             is IrGetValue -> operationProto.getValue = serializeGetValue(expression)
@@ -961,9 +1070,7 @@ open class IrFileSerializer(
             is IrDynamicOperatorExpression -> operationProto.dynamicOperator = serializeDynamicOperatorExpression(expression)
             is IrErrorCallExpression -> operationProto.errorCallExpression = serializeErrorCallExpression(expression)
             is IrErrorExpression -> operationProto.errorExpression = serializeErrorExpression(expression)
-            else -> {
-                TODO("Expression serialization not implemented yet: ${expression.render()}.")
-            }
+            else -> error("Expression serialization is not supported yet: ${expression.render()}")
         }
         proto.setOperation(operationProto)
 
@@ -1008,10 +1115,7 @@ open class IrFileSerializer(
     private fun serializeIrDeclarationBase(declaration: IrDeclaration, flags: Long?): ProtoDeclarationBase {
         return with(ProtoDeclarationBase.newBuilder()) {
             symbol = serializeIrSymbol((declaration as IrSymbolOwner).symbol, isDeclared = true)
-            coordinates = if (settings.publicAbiOnly && !isInsideInline)
-                0L
-            else
-                serializeCoordinates(declaration.startOffset, declaration.endOffset)
+            coordinates = serializeCoordinates(declaration.startOffset, declaration.endOffset)
             addAllAnnotation(serializeAnnotations(declaration.annotations))
             flags?.let { setFlags(it) }
             originName = serializeIrDeclarationOrigin(declaration.origin)
@@ -1026,6 +1130,10 @@ open class IrFileSerializer(
     }
 
     private fun serializeIrValueParameter(parameter: IrValueParameter): ProtoValueParameter {
+        if (parameter.kind == IrParameterKind.Context) {
+            requireAbiAtLeast(ABI_LEVEL_2_2, { "Context parameter" }) { parameter.parent }
+        }
+
         val proto = ProtoValueParameter.newBuilder()
             .setBase(serializeIrDeclarationBase(parameter, ValueParameterFlags.encode(parameter)))
             .setNameType(serializeNameAndType(parameter.name, parameter.type))
@@ -1058,20 +1166,23 @@ open class IrFileSerializer(
         function.typeParameters.forEach {
             proto.addTypeParameter(serializeIrTypeParameter(it))
         }
-        function.dispatchReceiverParameter?.let { proto.setDispatchReceiver(serializeIrValueParameter(it)) }
-        function.extensionReceiverParameter?.let { proto.setExtensionReceiver(serializeIrValueParameter(it)) }
-        val contextReceiverParametersCount = function.contextReceiverParametersCount
-        if (contextReceiverParametersCount > 0) {
-            proto.contextReceiverParametersCount = contextReceiverParametersCount
-        }
 
-        function.valueParameters.forEach {
-            if (((function as? IrConstructor)?.returnType?.classifierOrNull as? IrClass)?.kind == ClassKind.ANNOTATION_CLASS) {
-                require(it.isValidConstantAnnotationArgument()) {
-                    "This is a compiler bug, please report it to https://kotl.in/issue : default value of annotation construction parameter must have const initializer:\n${it.render()}"
+        val isAnnotationClass = ((function as? IrConstructor)?.returnType?.classifierOrNull as? IrClass)?.kind == ClassKind.ANNOTATION_CLASS
+
+        for (parameter in function.parameters) {
+            if (isAnnotationClass) {
+                require(parameter.isValidConstantAnnotationArgument()) {
+                    "This is a compiler bug, please report it to https://kotl.in/issue : default value of annotation construction parameter must have const initializer:\n${parameter.render()}"
                 }
             }
-            proto.addValueParameter(serializeIrValueParameter(it))
+
+            val parameterProto = serializeIrValueParameter(parameter)
+            when (parameter.kind) {
+                IrParameterKind.DispatchReceiver -> proto.setDispatchReceiver(parameterProto)
+                IrParameterKind.Context -> proto.addContextParameter(parameterProto)
+                IrParameterKind.ExtensionReceiver -> proto.setExtensionReceiver(parameterProto)
+                IrParameterKind.Regular -> proto.addRegularParameter(parameterProto)
+            }
         }
 
         if (!settings.bodiesOnlyForInlines || function.isInline || (settings.publicAbiOnly && isInsideInline)) {
@@ -1220,17 +1331,6 @@ open class IrFileSerializer(
         return proto.build()
     }
 
-    private fun serializeIrErrorDeclaration(errorDeclaration: IrErrorDeclaration): ProtoErrorDeclaration {
-        val proto = ProtoErrorDeclaration.newBuilder()
-            .setCoordinates(
-                if (settings.publicAbiOnly)
-                    0L
-                else
-                    serializeCoordinates(errorDeclaration.startOffset, errorDeclaration.endOffset)
-            )
-        return proto.build()
-    }
-
     private fun serializeIrEnumEntry(enumEntry: IrEnumEntry): ProtoEnumEntry {
         val proto = ProtoEnumEntry.newBuilder()
             .setBase(serializeIrDeclarationBase(enumEntry, null))
@@ -1273,8 +1373,6 @@ open class IrFileSerializer(
                 proto.irLocalDelegatedProperty = serializeIrLocalDelegatedProperty(declaration)
             is IrTypeAlias ->
                 proto.irTypeAlias = serializeIrTypeAlias(declaration)
-            is IrErrorDeclaration ->
-                proto.irErrorDeclaration = serializeIrErrorDeclaration(declaration)
             else ->
                 TODO("Declaration serialization not supported yet: $declaration")
         }
@@ -1283,6 +1381,22 @@ open class IrFileSerializer(
     }
 
 // ---------- Top level ------------------------------------------------------
+
+    // This class is needed solely to have generated `equals()` and `hashCode()` for `FileEntry`, to compare objects by value.
+    // For correct deduplication, it must have the same fields as `FileEntry` in `KotlinIr.proto`.
+    // TODO: KT-74258: bump Protobuf version to >3.x to have generated `ProtoFileEntry.equals()` and `ProtoFileEntry.hashCode()`
+    data class ProtoFileEntryDeduplicationKey(
+        val name: String,
+        val lineStartOffsetList: List<Int>,
+    )
+
+    private fun serializeFileEntryId(entry: IrFileEntry, includeLineStartOffsets: Boolean = true): Int {
+        val proto = serializeFileEntry(entry, includeLineStartOffsets)
+        return protoIrFileEntryMap.getOrPut(ProtoFileEntryDeduplicationKey(proto.name, proto.lineStartOffsetList)) {
+            protoIrFileEntryArray.add(proto)
+            protoIrFileEntryArray.size - 1
+        }
+    }
 
     private fun serializeFileEntry(entry: IrFileEntry, includeLineStartOffsets: Boolean = true): ProtoFileEntry =
         ProtoFileEntry.newBuilder()
@@ -1324,7 +1438,7 @@ open class IrFileSerializer(
             }
         } else {
             file.acceptVoid(
-                object : IrElementVisitorVoid {
+                object : IrVisitorVoid() {
                     override fun visitElement(element: IrElement) {
                         element.acceptChildrenVoid(this)
                     }
@@ -1384,18 +1498,18 @@ open class IrFileSerializer(
             require(!idSig.isPackageSignature()) { "IsSig: $idSig\nDeclaration: ${it.render()}" }
 
             // TODO: keep order similar
-            val sigIndex = protoIdSignatureMap[idSig]
-                ?: if (it is IrErrorDeclaration) idSignatureSerializer.protoIdSignature(idSig) else error("Not found ID for $idSig (${it.render()})")
+            val sigIndex = protoIdSignatureMap[idSig] ?: error("Not found ID for $idSig (${it.render()})")
             topLevelDeclarations.add(SerializedDeclaration(sigIndex, idSig.render(), byteArray))
             proto.addDeclarationId(sigIndex)
         }
 
-        proto.setFileEntry(
-            serializeFileEntry(
-                file.fileEntry,
-                includeLineStartOffsets = !(settings.publicAbiOnly && protoBodyArray.isEmpty())
-            )
-        )
+        val includeLineStartOffsets = !(settings.publicAbiOnly && protoBodyArray.isEmpty())
+        if (settings.abiCompatibilityLevel.isAtLeast(ABI_LEVEL_2_2)) {
+            // KLIBs with ABI version >= 2.2.0 have `fileEntries.knf` file with `file entries` table.
+            proto.setFileEntryId(serializeFileEntryId(file.fileEntry, includeLineStartOffsets = includeLineStartOffsets))
+        } else {
+            proto.setFileEntry(serializeFileEntry(file.fileEntry, includeLineStartOffsets = includeLineStartOffsets))
+        }
 
         // TODO: is it Konan specific?
 
@@ -1413,13 +1527,14 @@ open class IrFileSerializer(
             fileData = proto.build().toByteArray(),
             fqName = file.packageFqName.asString(),
             path = file.path,
-            types = IrMemoryArrayWriter(protoTypeArray.map { it.toByteArray() }).writeIntoMemory(),
+            types = IrMemoryArrayWriter(protoTypeArray.byteArrays).writeIntoMemory(),
             signatures = IrMemoryArrayWriter(protoIdSignatureArray.map { it.toByteArray() }).writeIntoMemory(),
             strings = IrMemoryStringWriter(protoStringArray).writeIntoMemory(),
             bodies = IrMemoryArrayWriter(protoBodyArray.map { it.toByteArray() }).writeIntoMemory(),
             declarations = IrMemoryDeclarationWriter(topLevelDeclarations).writeIntoMemory(),
             debugInfo = IrMemoryStringWriter(protoDebugInfoArray).writeIntoMemory(),
             backendSpecificMetadata = backendSpecificMetadata(file)?.toByteArray(),
+            fileEntries = IrMemoryArrayWriter(protoIrFileEntryArray.map { it.toByteArray() }).writeIntoMemory(),
         )
     }
 
@@ -1446,10 +1561,20 @@ open class IrFileSerializer(
         return name.replace(File.separatorChar, '/')
 
     }
+
+    private inline fun <T : IrElement> requireAbiAtLeast(
+        @Suppress("SameParameterValue") abiCompatibilityLevel: KlibAbiCompatibilityLevel,
+        prefix: (T) -> String = { it::class.simpleName ?: "IrElement" },
+        irNode: () -> T,
+    ) {
+        require(settings.abiCompatibilityLevel.isAtLeast(abiCompatibilityLevel)) {
+            val irNode = irNode()
+            "${prefix(irNode)} serialization is not supported at ABI compatibility level ${settings.abiCompatibilityLevel}: ${irNode.render()}"
+        }
+    }
 }
 
 internal fun IrElement.isValidConstantAnnotationArgument(): Boolean =
     this is IrConst || this is IrGetEnumValue || this is IrClassReference ||
             (this is IrVararg && elements.all { it.isValidConstantAnnotationArgument() }) ||
-            (this is IrConstructorCall &&
-                    (0 until valueArgumentsCount).all { getValueArgument(it)?.isValidConstantAnnotationArgument() ?: true })
+            (this is IrConstructorCall && arguments.all { it?.isValidConstantAnnotationArgument() ?: true })

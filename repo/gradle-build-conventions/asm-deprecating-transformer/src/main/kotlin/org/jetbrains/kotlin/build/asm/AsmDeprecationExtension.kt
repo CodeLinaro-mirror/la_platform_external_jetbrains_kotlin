@@ -11,7 +11,7 @@ import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ArchiveOperations
-import org.gradle.api.internal.file.archive.ZipCopyAction
+import org.gradle.api.internal.file.archive.ZipEntryConstants.CONSTANT_TIME_FOR_ZIP_ENTRIES
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.TaskContainer
 import org.gradle.api.tasks.util.PatternSet
@@ -58,38 +58,39 @@ abstract class AsmDeprecationExtension {
         outputs.file(deprecationList)
         doLast {
             val intermediateZipFilePath = temporaryDir.resolve("${UUID.randomUUID()}.${archiveExtension.get()}")
+            val originalShadowJar = archiveFile.get().asFile
             ZipOutputStream(intermediateZipFilePath.outputStream()).use { intermediateZipFile ->
                 val deprecatedPackages = sortedSetOf<String>()
-                archiveOperations.zipTree(archiveFile.get().asFile).visit {
+                archiveOperations.zipTree(originalShadowJar).visit {
                     if (name.endsWith(".class") && spec.isSatisfiedBy(this)) {
-                        val classReader = ClassReader(file.inputStream())
-                        val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES)
-                        val classVisitor = DeprecatingClassTransformer(classWriter, deprecationMessage) { className ->
-                            require(className.contains('.')) {
-                                "Deprecating classes in the default (unnamed) package is not supported. Tried to deprecate $className"
+                        open().use { inputStream ->
+                            val classReader = ClassReader(inputStream)
+                            val classWriter = ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES)
+                            val classVisitor = DeprecatingClassTransformer(classWriter, deprecationMessage) { className ->
+                                require(className.contains('.')) {
+                                    "Deprecating classes in the default (unnamed) package is not supported. Tried to deprecate $className"
+                                }
+                                logger.info("Deprecating class $className")
+                                deprecatedPackages.add(className.substringBeforeLast("."))
                             }
-                            logger.info("Deprecating class $className")
-                            deprecatedPackages.add(className.substringBeforeLast("."))
+                            classReader.accept(classVisitor, ClassReader.EXPAND_FRAMES)
+                            val newBytes = classWriter.toByteArray()
+                            val newEntry = ZipEntry(path)
+                            if (!isPreserveFileTimestamps) {
+                                newEntry.time = CONSTANT_TIME_FOR_ZIP_ENTRIES
+                            }
+                            intermediateZipFile.putNextEntry(newEntry)
+                            intermediateZipFile.write(newBytes)
+                            intermediateZipFile.closeEntry()
                         }
-                        classReader.accept(classVisitor, ClassReader.EXPAND_FRAMES)
-                        val newBytes = classWriter.toByteArray()
-                        val newEntry = ZipEntry(path)
-                        if (!isPreserveFileTimestamps) {
-                            newEntry.time = ZipCopyAction.CONSTANT_TIME_FOR_ZIP_ENTRIES
-                        }
-                        intermediateZipFile.putNextEntry(newEntry)
-                        intermediateZipFile.write(newBytes)
-                        intermediateZipFile.closeEntry()
                     } else {
                         val newEntry = ZipEntry(if (isDirectory) "$path/" else path)
                         if (!isPreserveFileTimestamps) {
-                            newEntry.time = ZipCopyAction.CONSTANT_TIME_FOR_ZIP_ENTRIES
+                            newEntry.time = CONSTANT_TIME_FOR_ZIP_ENTRIES
                         }
                         intermediateZipFile.putNextEntry(newEntry)
                         if (!isDirectory) {
-                            file.inputStream().use {
-                                it.copyTo(intermediateZipFile)
-                            }
+                            copyTo(intermediateZipFile)
                         }
                         intermediateZipFile.closeEntry()
                     }
@@ -101,7 +102,7 @@ abstract class AsmDeprecationExtension {
                     }
                 }
             }
-            Files.move(intermediateZipFilePath.toPath(), archiveFile.get().asFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            Files.move(intermediateZipFilePath.toPath(), originalShadowJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 

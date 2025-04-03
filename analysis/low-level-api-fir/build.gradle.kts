@@ -22,9 +22,8 @@ dependencies {
     api(project(":compiler:fir:checkers:checkers.wasm"))
     api(project(":compiler:fir:java"))
     api(project(":compiler:backend.common.jvm"))
-    api(project(":analysis:analysis-api-impl-barebone"))
-    api(project(":js:js.config"))
     api(project(":compiler:cli-common"))
+    implementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
     implementation(project(":analysis:decompiled:decompiler-to-psi"))
     testImplementation(project(":analysis:analysis-api-fir"))
     implementation(project(":compiler:frontend.common"))
@@ -39,6 +38,8 @@ dependencies {
     implementation(project(":kotlin-assignment-compiler-plugin.cli"))
     implementation(libs.caffeine)
 
+    implementation(libs.opentelemetry.api)
+
     api(intellijCore())
 
     testApi(projectTests(":compiler:test-infrastructure-utils"))
@@ -51,7 +52,6 @@ dependencies {
     testRuntimeOnly(toolsJar())
     testImplementation(projectTests(":compiler:tests-common"))
     testImplementation(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
-    testImplementation(projectTests(":analysis:analysis-api-impl-barebone"))
     testImplementation(projectTests(":analysis:analysis-test-framework"))
     testImplementation(projectTests(":analysis:analysis-api-impl-base"))
     testImplementation(kotlinTest("junit"))
@@ -79,7 +79,7 @@ sourceSets {
 
 kotlin {
     compilerOptions {
-        freeCompilerArgs.add("-Xcontext-receivers")
+        freeCompilerArgs.add("-Xcontext-parameters")
 
         optIn.addAll(
             "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
@@ -88,7 +88,14 @@ kotlin {
     }
 }
 
-projectTest(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_21_0)) {
+projectTest(
+    jUnitMode = JUnitMode.JUnit5,
+    defineJDKEnvVariables = listOf(
+        JdkMajorVersion.JDK_17_0, // TestsWithJava11 and others
+        JdkMajorVersion.JDK_17_0, // TestsWithJava17 and others
+        JdkMajorVersion.JDK_21_0  // TestsWithJava21 and others
+    )
+) {
     dependsOn(":dist", ":plugins:scripting:test-script-definition:testJar")
     workingDir = rootDir
     useJUnitPlatform()

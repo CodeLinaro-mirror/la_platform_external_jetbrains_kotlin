@@ -26,12 +26,11 @@ import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrClassSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrConstructorSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
-import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
+import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 
 private class ExportedCollectionsInfo(context: JsIrBackendContext) {
@@ -118,22 +117,8 @@ class PrepareCollectionsToExportLowering(private val context: JsIrBackendContext
             declarations.add(companionObject)
 
             companionObject.parent = this
-            companionObject.thisReceiver = context.irFactory.createValueParameter(
-                startOffset = startOffset,
-                endOffset = endOffset,
-                origin = FACTORY_FOR_KOTLIN_COLLECTIONS,
-                name = SpecialNames.THIS,
-                type = companionObject.typeWith(),
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false,
-            ).also { field ->
-                field.parent = companionObject
-            }
-
+            companionObject.createThisReceiverParameter()
+            companionObject.thisReceiver!!.origin = FACTORY_FOR_KOTLIN_COLLECTIONS
         }
 
         val factoryMethod = context.irFactory.createSimpleFunction(
@@ -154,15 +139,13 @@ class PrepareCollectionsToExportLowering(private val context: JsIrBackendContext
             isExternal = false
         ).also {
             it.parent = companionObject
-            it.copyParameterDeclarationsFrom(factoryMethodForTheCollectionSymbol.owner)
+            it.copyValueAndTypeParametersFrom(factoryMethodForTheCollectionSymbol.owner)
             it.dispatchReceiverParameter = companionObject.thisReceiver?.copyTo(it)
             it.body = context.createIrBuilder(it.symbol).run {
                 irBlockBody(it) {
                     +irReturn(
                         irCall(factoryMethodForTheCollectionSymbol).apply {
-                            it.valueParameters.forEachIndexed { index, parameter ->
-                                putValueArgument(index, irGet(parameter))
-                            }
+                            arguments.assignFrom(it.nonDispatchParameters) { parameter -> irGet(parameter) }
                         }
                     )
                 }
@@ -205,13 +188,13 @@ class PrepareCollectionsToExportLowering(private val context: JsIrBackendContext
 
     private fun IrDeclarationWithName.addJsName() {
         annotations = annotations memoryOptimizedPlus JsIrBuilder.buildConstructorCall(jsNameCtor).apply {
-            putValueArgument(0, "Kt${name.asString()}".toIrConst(context.irBuiltIns.stringType))
+            arguments[0] = "Kt${name.asString()}".toIrConst(context.irBuiltIns.stringType)
         }
     }
 
     private fun IrDeclaration.markWithJsImplicitExport() {
         annotations = annotations memoryOptimizedPlus JsIrBuilder.buildConstructorCall(jsImplicitExportCtor).apply {
-            putValueArgument(0, true.toIrConst(context.irBuiltIns.booleanType))
+            arguments[0] = true.toIrConst(context.irBuiltIns.booleanType)
         }
     }
 

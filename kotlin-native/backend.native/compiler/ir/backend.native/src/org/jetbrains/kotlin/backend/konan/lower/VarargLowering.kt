@@ -74,13 +74,13 @@ internal class VarargInjectionLowering constructor(val context: KonanBackendCont
                 log { "call of: ${callee.fqNameForIrSerialization}" }
                 context.createIrBuilder(owner, expression.startOffset, expression.endOffset).apply {
                     callee.valueParameters.forEach {
-                        log { "varargElementType: ${it.varargElementType} expr: ${ir2string(expression.getValueArgument(it.index))}" }
+                        log { "varargElementType: ${it.varargElementType} expr: ${ir2string(expression.getValueArgument(it.indexInOldValueParameters))}" }
                     }
                     callee.valueParameters
-                        .filter { it.varargElementType != null && expression.getValueArgument(it.index) == null }
+                        .filter { it.varargElementType != null && expression.getValueArgument(it.indexInOldValueParameters) == null }
                         .forEach {
                             expression.putValueArgument(
-                                it.index,
+                                it.indexInOldValueParameters,
                                 IrVarargImpl(
                                     startOffset = startOffset,
                                     endOffset = endOffset,
@@ -241,7 +241,7 @@ internal class VarargInjectionLowering constructor(val context: KonanBackendCont
     inner class ReferenceArrayHandle : ArrayHandle(symbols.array) {
         override fun createArray(builder: IrBuilderWithScope, elementType: IrType, size: IrExpression): IrExpression {
             return builder.irCall(singleParameterConstructor).apply {
-                putTypeArgument(0, elementType)
+                typeArguments[0] = elementType
                 putValueArgument(0, size)
             }
         }

@@ -13,7 +13,9 @@ import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.library.IrLibrary
 import org.jetbrains.kotlin.library.KotlinAbiVersion
+import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.KotlinLibraryProperResolverWithAttributes
+import org.jetbrains.kotlin.utils.DFS
 
 fun IrSymbol.kind(): BinarySymbolData.SymbolKind {
     return when (this) {
@@ -84,10 +86,16 @@ abstract class IrModuleDeserializer(private val _moduleDescriptor: ModuleDescrip
 
     open fun init(delegate: IrModuleDeserializer) {}
 
-    open fun addModuleReachableTopLevel(idSig: IdSignature) {
-        error("Unsupported Operation (sig: $idSig")
+    /**
+     * Schedule deserialization of the top-level declaration with the given signature in the given file.
+     */
+    open fun addModuleReachableTopLevel(topLevelDeclarationSignature: IdSignature) {
+        error("Unsupported Operation (sig: $topLevelDeclarationSignature")
     }
 
+    /**
+     * Run deserialization of top-level declarations previously scheduled for deserialization in the current module.
+     */
     open fun deserializeReachableDeclarations() { error("Unsupported Operation") }
 
     abstract val moduleFragment: IrModuleFragment
@@ -223,8 +231,8 @@ class IrModuleDeserializerWithBuiltIns(
     override val strategyResolver: (String) -> DeserializationStrategy
         get() = delegate.strategyResolver
 
-    override fun addModuleReachableTopLevel(idSig: IdSignature) {
-        delegate.addModuleReachableTopLevel(idSig)
+    override fun addModuleReachableTopLevel(topLevelDeclarationSignature: IdSignature) {
+        delegate.addModuleReachableTopLevel(topLevelDeclarationSignature)
     }
 
     override val moduleFragment: IrModuleFragment get() = delegate.moduleFragment
@@ -259,4 +267,10 @@ open class CurrentModuleDeserializer(
     override fun declareIrSymbol(symbol: IrSymbol) = Unit
 
     override val kind get() = IrModuleDeserializerKind.CURRENT
+}
+
+fun sortDependencies(moduleDependencies: Map<KotlinLibrary, List<KotlinLibrary>>): Collection<KotlinLibrary> {
+    return DFS.topologicalOrder(moduleDependencies.keys) { m ->
+        moduleDependencies.getValue(m)
+    }.reversed()
 }

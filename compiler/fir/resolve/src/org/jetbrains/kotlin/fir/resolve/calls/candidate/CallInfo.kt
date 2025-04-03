@@ -15,19 +15,32 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.resolve.DoubleColonLHS
 import org.jetbrains.kotlin.fir.resolve.ResolutionMode
 import org.jetbrains.kotlin.fir.resolve.calls.AbstractCallInfo
+import org.jetbrains.kotlin.fir.resolve.calls.ConeResolutionAtom
+import org.jetbrains.kotlin.fir.resolve.calls.ConeResolutionAtom.Companion.createRawAtom
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirTypeProjection
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.resolve.calls.inference.ConstraintSystemBuilder
 
-data class CallInfo(
-    override val callSite: FirElement,
+enum class ImplicitInvokeMode {
+    // Supposed to be the most regular situation: we're just resolving to simple functions or properties
+    None,
+
+    // For `f(..)`, we've found some property named `f` and looking to resolve `f.invoke(..)` without any additional magic
+    Regular,
+
+    // For `f()`, we've found some property named `f` which types with a function type with extension receiver.
+    // Also, we've found a receiver candidate (implicit or explicit), and now we're going to resolve the `invoke` call with
+    // the receiver bound as a first argument `f.invoke(receiver,...)`
+    ReceiverAsArgument,
+}
+
+open class CallInfo(
+    final override val callSite: FirElement,
     val callKind: CallKind,
     override val name: Name,
 
     override val explicitReceiver: FirExpression?,
     override val argumentList: FirArgumentList,
-    override val isImplicitInvoke: Boolean,
     val isUsedAsGetClassReceiver: Boolean,
 
     val typeArguments: List<FirTypeProjection>,
@@ -38,14 +51,12 @@ data class CallInfo(
     val candidateForCommonInvokeReceiver: Candidate? = null,
 
     val resolutionMode: ResolutionMode,
-
-    // Five properties for callable references only
-    val expectedType: ConeKotlinType? = null,
-    val outerCSBuilder: ConstraintSystemBuilder? = null,
-    val lhs: DoubleColonLHS? = null,
-    val hasSyntheticOuterCall: Boolean = false,
     val origin: FirFunctionCallOrigin = FirFunctionCallOrigin.Regular,
+    val implicitInvokeMode: ImplicitInvokeMode,
 ) : AbstractCallInfo() {
+    override val isImplicitInvoke: Boolean
+        get() = implicitInvokeMode != ImplicitInvokeMode.None
+
     /**
      * If [argumentList] is a [FirResolvedArgumentList],
      * returns the [FirArgumentList.arguments] of the [FirResolvedArgumentList.originalArgumentList].
@@ -57,8 +68,9 @@ data class CallInfo(
      *
      * @see FirCallResolver.collectAllCandidates
      */
-    val arguments: List<FirExpression> get() = (argumentList as? FirResolvedArgumentList)?.originalArgumentList?.arguments ?: argumentList.arguments
-    val argumentCount: Int get() = arguments.size
+    val arguments: List<FirExpression>
+        get() = (argumentList as? FirResolvedArgumentList)?.originalArgumentList?.arguments ?: argumentList.arguments
+    val argumentAtoms: List<ConeResolutionAtom> = arguments.map { createRawAtom(it) }
 
     fun replaceWithVariableAccess(): CallInfo =
         copy(callKind = CallKind.VariableAccess, typeArguments = emptyList(), argumentList = FirEmptyArgumentList)
@@ -71,6 +83,57 @@ data class CallInfo(
             argumentList = buildArgumentList {
                 arguments += receiverExpression
                 arguments += argumentList.arguments
-            }
+            },
+            implicitInvokeMode = ImplicitInvokeMode.ReceiverAsArgument
         )
+
+    open fun copy(
+        callKind: CallKind = this.callKind,
+        typeArguments: List<FirTypeProjection> = this.typeArguments,
+        argumentList: FirArgumentList = this.argumentList,
+        explicitReceiver: FirExpression? = this.explicitReceiver,
+        name: Name = this.name,
+        implicitInvokeMode: ImplicitInvokeMode = this.implicitInvokeMode,
+        candidateForCommonInvokeReceiver: Candidate? = this.candidateForCommonInvokeReceiver,
+    ): CallInfo = CallInfo(
+        callSite, callKind, name, explicitReceiver, argumentList,
+        isUsedAsGetClassReceiver, typeArguments,
+        session, containingFile, containingDeclarations,
+        candidateForCommonInvokeReceiver, resolutionMode, origin, implicitInvokeMode
+    )
+}
+
+class CallableReferenceInfo(
+    callSite: FirElement,
+    name: Name,
+    explicitReceiver: FirExpression?,
+    session: FirSession,
+    containingFile: FirFile,
+    containingDeclarations: List<FirDeclaration>,
+
+    val expectedType: ConeKotlinType?,
+    val lhs: DoubleColonLHS?,
+    val hasSyntheticOuterCall: Boolean,
+
+    origin: FirFunctionCallOrigin = FirFunctionCallOrigin.Regular,
+) : CallInfo(
+    callSite, CallKind.CallableReference, name, explicitReceiver, FirEmptyArgumentList,
+    isUsedAsGetClassReceiver = false, typeArguments = emptyList(),
+    session, containingFile, containingDeclarations,
+    candidateForCommonInvokeReceiver = null, resolutionMode = ResolutionMode.ContextIndependent, origin,
+    implicitInvokeMode = ImplicitInvokeMode.None,
+) {
+    override fun copy(
+        callKind: CallKind,
+        typeArguments: List<FirTypeProjection>,
+        argumentList: FirArgumentList,
+        explicitReceiver: FirExpression?,
+        name: Name,
+        implicitInvokeMode: ImplicitInvokeMode,
+        candidateForCommonInvokeReceiver: Candidate?,
+    ): CallableReferenceInfo = CallableReferenceInfo(
+        callSite, name, explicitReceiver,
+        session, containingFile, containingDeclarations,
+        expectedType, lhs, hasSyntheticOuterCall, origin
+    )
 }

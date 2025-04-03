@@ -1,5 +1,7 @@
+// RUN_PIPELINE_TILL: BACKEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
 // LANGUAGE: +ContextReceivers
+// ISSUE: KT-61447
 // MODULE: m1-common
 // FILE: common.kt
 
@@ -13,8 +15,6 @@ expect open class Foo {
 actual open class Foo {
     actual fun foo() {}
 
-    // Expected: AMBIGUOUS_ACTUALS.
-    // But it doesn't work because context receivers are not yet supported in expect actual matcher KT-61447
     context(Int)
     fun <!ACTUAL_MISSING!>foo<!>() {}
 }

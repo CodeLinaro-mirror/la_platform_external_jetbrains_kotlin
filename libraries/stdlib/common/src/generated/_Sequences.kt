@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -597,11 +597,12 @@ public fun <T : Comparable<T>> Sequence<T>.sorted(): Sequence<T> {
 /**
  * Returns a sequence that yields elements of this sequence sorted according to natural sort order of the value returned by specified [selector] function.
  * 
- * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
+ * The sort is _stable_. It means that elements for which [selector] returned equal values preserve their order
+ * relative to each other after sorting.
  *
  * The operation is _intermediate_ and _stateful_.
  * 
- * @sample samples.collections.Collections.Sorting.sortedBy
+ * @sample samples.collections.Sequences.Sorting.sortedBy
  */
 public inline fun <T, R : Comparable<R>> Sequence<T>.sortedBy(crossinline selector: (T) -> R?): Sequence<T> {
     return sortedWith(compareBy(selector))
@@ -610,9 +611,12 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.sortedBy(crossinline select
 /**
  * Returns a sequence that yields elements of this sequence sorted descending according to natural sort order of the value returned by specified [selector] function.
  * 
- * The sort is _stable_. It means that equal elements preserve their order relative to each other after sorting.
+ * The sort is _stable_. It means that elements for which [selector] returned equal values preserve their order
+ * relative to each other after sorting.
  *
  * The operation is _intermediate_ and _stateful_.
+ * 
+ * @sample samples.collections.Sequences.Sorting.sortedByDescending
  */
 public inline fun <T, R : Comparable<R>> Sequence<T>.sortedByDescending(crossinline selector: (T) -> R?): Sequence<T> {
     return sortedWith(compareByDescending(selector))
@@ -1332,11 +1336,13 @@ public inline fun <T> Sequence<T>.forEachIndexed(action: (index: Int, T) -> Unit
 /**
  * Returns the largest element.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("maxOrThrow")
@@ -1355,11 +1361,13 @@ public fun Sequence<Double>.max(): Double {
 /**
  * Returns the largest element.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("maxOrThrow")
@@ -1377,10 +1385,14 @@ public fun Sequence<Float>.max(): Float {
 
 /**
  * Returns the largest element.
+ * 
+ * If there are multiple equal maximal elements, this function returns the first of those elements.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinGeneric
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("maxOrThrow")
@@ -1397,13 +1409,20 @@ public fun <T : Comparable<T>> Sequence<T>.max(): T {
 }
 
 /**
- * Returns the first element yielding the largest value of the given function.
+ * Returns the first element yielding the largest value of the given [selector] function.
+ * 
+ * If there are multiple equal maximal values returned by the [selector] function,
+ * this function returns the first of elements corresponding to these values.
+ * 
+ * Note that the function [selector] is not invoked when the sequence contains zero or one elements
+ * because in these cases it is clear which element to return without invoking the [selector].
+ * Therefore it's recommended to avoid relying on side effects being performed by the [selector] function on each element.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
  * 
- * @sample samples.collections.Collections.Aggregates.maxBy
+ * @sample samples.collections.Collections.Aggregates.minMaxByOrNull
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("maxByOrThrow")
@@ -1426,11 +1445,18 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.maxBy(selector: (T) -> R): 
 }
 
 /**
- * Returns the first element yielding the largest value of the given function or `null` if there are no elements.
+ * Returns the first element yielding the largest value of the given [selector] function or `null` if there are no elements.
+ * 
+ * If there are multiple equal maximal values returned by the [selector] function,
+ * this function returns the first of elements corresponding to these values.
+ * 
+ * Note that the function [selector] is not invoked when the sequence contains zero or one elements
+ * because in these cases it is clear which element to return without invoking the [selector].
+ * Therefore it's recommended to avoid relying on side effects being performed by the [selector] function on each element.
  *
  * The operation is _terminal_.
  * 
- * @sample samples.collections.Collections.Aggregates.maxByOrNull
+ * @sample samples.collections.Collections.Aggregates.minMaxByOrNull
  */
 @SinceKotlin("1.4")
 public inline fun <T, R : Comparable<R>> Sequence<T>.maxByOrNull(selector: (T) -> R): T? {
@@ -1459,6 +1485,8 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.maxByOrNull(selector: (T) -
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1484,6 +1512,8 @@ public inline fun <T> Sequence<T>.maxOf(selector: (T) -> Double): Double {
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1503,10 +1533,14 @@ public inline fun <T> Sequence<T>.maxOf(selector: (T) -> Float): Float {
 /**
  * Returns the largest value among all values produced by [selector] function
  * applied to each element in the sequence.
+ * 
+ * If multiple elements produce the maximal value, this function returns the first of those values.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1527,11 +1561,13 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.maxOf(selector: (T) -> R): 
 
 /**
  * Returns the largest value among all values produced by [selector] function
- * applied to each element in the sequence or `null` if there are no elements.
+ * applied to each element in the sequence or `null` if the sequence is empty.
  * 
  * If any of values produced by [selector] function is `NaN`, the returned result is `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1550,11 +1586,13 @@ public inline fun <T> Sequence<T>.maxOfOrNull(selector: (T) -> Double): Double? 
 
 /**
  * Returns the largest value among all values produced by [selector] function
- * applied to each element in the sequence or `null` if there are no elements.
+ * applied to each element in the sequence or `null` if the sequence is empty.
  * 
  * If any of values produced by [selector] function is `NaN`, the returned result is `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1573,9 +1611,13 @@ public inline fun <T> Sequence<T>.maxOfOrNull(selector: (T) -> Float): Float? {
 
 /**
  * Returns the largest value among all values produced by [selector] function
- * applied to each element in the sequence or `null` if there are no elements.
+ * applied to each element in the sequence or `null` if the sequence is empty.
+ * 
+ * If multiple elements produce the maximal value, this function returns the first of those values.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1598,9 +1640,13 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.maxOfOrNull(selector: (T) -
  * Returns the largest value according to the provided [comparator]
  * among all values produced by [selector] function applied to each element in the sequence.
  * 
+ * If multiple elements produce the maximal value, this function returns the first of those values.
+ * 
  * @throws NoSuchElementException if the sequence is empty.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfWithMinOfWithGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1621,9 +1667,13 @@ public inline fun <T, R> Sequence<T>.maxOfWith(comparator: Comparator<in R>, sel
 
 /**
  * Returns the largest value according to the provided [comparator]
- * among all values produced by [selector] function applied to each element in the sequence or `null` if there are no elements.
+ * among all values produced by [selector] function applied to each element in the sequence or `null` if the sequence is empty.
+ * 
+ * If multiple elements produce the maximal value, this function returns the first of those values.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfWithMinOfWithGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1643,11 +1693,13 @@ public inline fun <T, R> Sequence<T>.maxOfWithOrNull(comparator: Comparator<in R
 }
 
 /**
- * Returns the largest element or `null` if there are no elements.
+ * Returns the largest element or `null` if the sequence is empty.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.4")
 public fun Sequence<Double>.maxOrNull(): Double? {
@@ -1662,11 +1714,13 @@ public fun Sequence<Double>.maxOrNull(): Double? {
 }
 
 /**
- * Returns the largest element or `null` if there are no elements.
+ * Returns the largest element or `null` if the sequence is empty.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.4")
 public fun Sequence<Float>.maxOrNull(): Float? {
@@ -1681,9 +1735,13 @@ public fun Sequence<Float>.maxOrNull(): Float? {
 }
 
 /**
- * Returns the largest element or `null` if there are no elements.
+ * Returns the largest element or `null` if the sequence is empty.
+ * 
+ * If there are multiple equal maximal elements, this function returns the first of those elements.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinGeneric
  */
 @SinceKotlin("1.4")
 public fun <T : Comparable<T>> Sequence<T>.maxOrNull(): T? {
@@ -1738,11 +1796,13 @@ public fun <T> Sequence<T>.maxWithOrNull(comparator: Comparator<in T>): T? {
 /**
  * Returns the smallest element.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("minOrThrow")
@@ -1761,11 +1821,13 @@ public fun Sequence<Double>.min(): Double {
 /**
  * Returns the smallest element.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("minOrThrow")
@@ -1783,10 +1845,14 @@ public fun Sequence<Float>.min(): Float {
 
 /**
  * Returns the smallest element.
+ * 
+ * If there are multiple equal minimal elements, this function returns the first of those elements.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinGeneric
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("minOrThrow")
@@ -1803,13 +1869,20 @@ public fun <T : Comparable<T>> Sequence<T>.min(): T {
 }
 
 /**
- * Returns the first element yielding the smallest value of the given function.
+ * Returns the first element yielding the smallest value of the given [selector] function.
+ * 
+ * If there are multiple equal minimal values returned by the [selector] function,
+ * this function returns the first of elements corresponding to these values.
+ * 
+ * Note that the function [selector] is not invoked when the sequence contains zero or one elements
+ * because in these cases it is clear which element to return without invoking the [selector].
+ * Therefore it's recommended to avoid relying on side effects being performed by the [selector] function on each element.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
  * 
- * @sample samples.collections.Collections.Aggregates.minBy
+ * @sample samples.collections.Collections.Aggregates.minMaxByOrNull
  */
 @SinceKotlin("1.7")
 @kotlin.jvm.JvmName("minByOrThrow")
@@ -1832,11 +1905,18 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.minBy(selector: (T) -> R): 
 }
 
 /**
- * Returns the first element yielding the smallest value of the given function or `null` if there are no elements.
+ * Returns the first element yielding the smallest value of the given [selector] function or `null` if there are no elements.
+ * 
+ * If there are multiple equal minimal values returned by the [selector] function,
+ * this function returns the first of elements corresponding to these values.
+ * 
+ * Note that the function [selector] is not invoked when the sequence contains zero or one elements
+ * because in these cases it is clear which element to return without invoking the [selector].
+ * Therefore it's recommended to avoid relying on side effects being performed by the [selector] function on each element.
  *
  * The operation is _terminal_.
  * 
- * @sample samples.collections.Collections.Aggregates.minByOrNull
+ * @sample samples.collections.Collections.Aggregates.minMaxByOrNull
  */
 @SinceKotlin("1.4")
 public inline fun <T, R : Comparable<R>> Sequence<T>.minByOrNull(selector: (T) -> R): T? {
@@ -1865,6 +1945,8 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.minByOrNull(selector: (T) -
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1890,6 +1972,8 @@ public inline fun <T> Sequence<T>.minOf(selector: (T) -> Double): Double {
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1909,10 +1993,14 @@ public inline fun <T> Sequence<T>.minOf(selector: (T) -> Float): Float {
 /**
  * Returns the smallest value among all values produced by [selector] function
  * applied to each element in the sequence.
+ * 
+ * If multiple elements produce the minimal value, this function returns the first of those values.
  *
  * The operation is _terminal_.
  * 
  * @throws NoSuchElementException if the sequence is empty.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1933,11 +2021,13 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.minOf(selector: (T) -> R): 
 
 /**
  * Returns the smallest value among all values produced by [selector] function
- * applied to each element in the sequence or `null` if there are no elements.
+ * applied to each element in the sequence or `null` if the sequence is empty.
  * 
  * If any of values produced by [selector] function is `NaN`, the returned result is `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1956,11 +2046,13 @@ public inline fun <T> Sequence<T>.minOfOrNull(selector: (T) -> Double): Double? 
 
 /**
  * Returns the smallest value among all values produced by [selector] function
- * applied to each element in the sequence or `null` if there are no elements.
+ * applied to each element in the sequence or `null` if the sequence is empty.
  * 
  * If any of values produced by [selector] function is `NaN`, the returned result is `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfFloatingResult
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -1979,9 +2071,13 @@ public inline fun <T> Sequence<T>.minOfOrNull(selector: (T) -> Float): Float? {
 
 /**
  * Returns the smallest value among all values produced by [selector] function
- * applied to each element in the sequence or `null` if there are no elements.
+ * applied to each element in the sequence or `null` if the sequence is empty.
+ * 
+ * If multiple elements produce the minimal value, this function returns the first of those values.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfMinOfGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -2004,9 +2100,13 @@ public inline fun <T, R : Comparable<R>> Sequence<T>.minOfOrNull(selector: (T) -
  * Returns the smallest value according to the provided [comparator]
  * among all values produced by [selector] function applied to each element in the sequence.
  * 
+ * If multiple elements produce the minimal value, this function returns the first of those values.
+ * 
  * @throws NoSuchElementException if the sequence is empty.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfWithMinOfWithGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -2027,9 +2127,13 @@ public inline fun <T, R> Sequence<T>.minOfWith(comparator: Comparator<in R>, sel
 
 /**
  * Returns the smallest value according to the provided [comparator]
- * among all values produced by [selector] function applied to each element in the sequence or `null` if there are no elements.
+ * among all values produced by [selector] function applied to each element in the sequence or `null` if the sequence is empty.
+ * 
+ * If multiple elements produce the minimal value, this function returns the first of those values.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxOfWithMinOfWithGeneric
  */
 @SinceKotlin("1.4")
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
@@ -2049,11 +2153,13 @@ public inline fun <T, R> Sequence<T>.minOfWithOrNull(comparator: Comparator<in R
 }
 
 /**
- * Returns the smallest element or `null` if there are no elements.
+ * Returns the smallest element or `null` if the sequence is empty.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.4")
 public fun Sequence<Double>.minOrNull(): Double? {
@@ -2068,11 +2174,13 @@ public fun Sequence<Double>.minOrNull(): Double? {
 }
 
 /**
- * Returns the smallest element or `null` if there are no elements.
+ * Returns the smallest element or `null` if the sequence is empty.
  * 
- * If any of elements is `NaN` returns `NaN`.
+ * If any of elements is `NaN`, this function returns `NaN`.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinFloating
  */
 @SinceKotlin("1.4")
 public fun Sequence<Float>.minOrNull(): Float? {
@@ -2087,9 +2195,13 @@ public fun Sequence<Float>.minOrNull(): Float? {
 }
 
 /**
- * Returns the smallest element or `null` if there are no elements.
+ * Returns the smallest element or `null` if the sequence is empty.
+ * 
+ * If there are multiple equal minimal elements, this function returns the first of those elements.
  *
  * The operation is _terminal_.
+ * 
+ * @sample samples.collections.Collections.Aggregates.maxMinGeneric
  */
 @SinceKotlin("1.4")
 public fun <T : Comparable<T>> Sequence<T>.minOrNull(): T? {
@@ -2695,7 +2807,7 @@ public inline fun <T> Sequence<T>.minusElement(element: T): Sequence<T> {
 }
 
 /**
- * Splits the original sequence into pair of lists,
+ * Splits the original sequence into a pair of lists,
  * where *first* list contains elements for which [predicate] yielded `true`,
  * while *second* list contains elements for which [predicate] yielded `false`.
  *

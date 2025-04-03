@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.generators.tests.analysis.api
 
+import org.jetbrains.kotlin.analysis.api.fir.test.cases.imports.AbstractKaDefaultImportsProviderTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.annotations.*
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.compileTimeConstantProvider.AbstractCompileTimeConstantEvaluatorTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.compilerFacility.AbstractCompilerFacilityTest
@@ -33,6 +34,7 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.psiType
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.psiTypeProvider.AbstractAnalysisApiPsiTypeProviderTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.readWriteAccess.AbstractReadWriteAccessTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.referenceResolveProvider.AbstractIsImplicitCompanionReferenceTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.relationProvider.AbstractOriginalConstructorIfTypeAliasedTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.resolveExtensionInfoProvider.AbstractResolveExtensionInfoProviderTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.resolver.*
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.scopeProvider.*
@@ -48,6 +50,8 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolD
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolDeclarationRenderer.AbstractRendererTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolDeclarationRenderer.AbstractSymbolRenderingByReferenceTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractAnnotationApplicableTargetsTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractSamClassBySamConstructorTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractCanBeOperatorTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeCreator.AbstractBuildClassTypeTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeCreator.AbstractTypeParameterTypeTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeInfoProvider.AbstractDoubleColonReceiverTypeTest
@@ -131,11 +135,14 @@ internal fun AnalysisApiTestGroup.generateAnalysisApiTests() {
         }
     }
 
-    test<AbstractResolveDanglingFileReferenceTest>(
-        filter = frontendIs(FrontendKind.Fir)
-                and testModuleKindIs(TestModuleKind.Source, TestModuleKind.LibrarySource)
-    ) {
-        model("danglingFileReferenceResolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+    group(filter = frontendIs(FrontendKind.Fir) and testModuleKindIs(TestModuleKind.Source, TestModuleKind.LibrarySource)) {
+        test<AbstractPhysicalResolveDanglingFileReferenceTest> {
+            model("danglingFileReferenceResolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+        }
+
+        test<AbstractNonPhysicalResolveDanglingFileReferenceTest> {
+            model("danglingFileReferenceResolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+        }
     }
 
     component(
@@ -336,6 +343,16 @@ private fun AnalysisApiTestGroup.generateAnalysisApiNonComponentsTests() {
             model("sessionInvalidation")
         }
     }
+    group("imports") {
+        test<AbstractKaDefaultImportsProviderTest>(
+            filter = analysisSessionModeIs(AnalysisSessionMode.Normal)
+                    and testModuleKindIs(TestModuleKind.Source)
+                    and frontendIs(FrontendKind.Fir),
+        ) {
+            model("defaultImportProvider")
+        }
+    }
+
 }
 
 private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
@@ -508,6 +525,14 @@ private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
         test<AbstractAnnotationApplicableTargetsTest> {
             model(it, "annotationApplicableTargets")
         }
+
+        test<AbstractSamClassBySamConstructorTest> {
+            model(it, "samClassBySamConstructor")
+        }
+
+        test<AbstractCanBeOperatorTest> {
+            model(it, "canBeOperator")
+        }
     }
 
     component("typeCreator") {
@@ -622,6 +647,14 @@ private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
     component("referenceResolveProvider") {
         test<AbstractIsImplicitCompanionReferenceTest> {
             model(it, "isImplicitReferenceToCompanion")
+        }
+    }
+
+    component("relationProvider") {
+        test<AbstractOriginalConstructorIfTypeAliasedTest>(
+            filter = frontendIs(FrontendKind.Fir),
+        ) {
+            model(it, "originalConstructorIfTypeAliased")
         }
     }
 

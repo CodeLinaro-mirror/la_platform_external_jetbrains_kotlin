@@ -19,20 +19,22 @@ import org.jetbrains.kotlin.fir.builder.toMutableOrEmpty
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirTypeAliasImpl
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
+import org.jetbrains.kotlin.fir.scopes.FirScopeProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
 import org.jetbrains.kotlin.name.Name
 
 @FirBuilderDsl
-class FirTypeAliasBuilder : FirDeclarationBuilder, FirTypeParametersOwnerBuilder, FirAnnotationContainerBuilder {
+class FirTypeAliasBuilder : FirDeclarationBuilder, FirTypeParameterRefsOwnerBuilder, FirAnnotationContainerBuilder {
     override var source: KtSourceElement? = null
     override var resolvePhase: FirResolvePhase = FirResolvePhase.RAW_FIR
     override lateinit var moduleData: FirModuleData
     override lateinit var origin: FirDeclarationOrigin
     override var attributes: FirDeclarationAttributes = FirDeclarationAttributes()
+    override val typeParameters: MutableList<FirTypeParameterRef> = mutableListOf()
     lateinit var status: FirDeclarationStatus
     var deprecationsProvider: DeprecationsProvider = UnresolvedDeprecationProvider
-    override val typeParameters: MutableList<FirTypeParameter> = mutableListOf()
+    lateinit var scopeProvider: FirScopeProvider
     lateinit var name: Name
     lateinit var symbol: FirTypeAliasSymbol
     lateinit var expandedTypeRef: FirTypeRef
@@ -45,9 +47,10 @@ class FirTypeAliasBuilder : FirDeclarationBuilder, FirTypeParametersOwnerBuilder
             moduleData,
             origin,
             attributes,
+            typeParameters,
             status,
             deprecationsProvider,
-            typeParameters,
+            scopeProvider,
             name,
             symbol,
             expandedTypeRef,
@@ -76,9 +79,10 @@ inline fun buildTypeAliasCopy(original: FirTypeAlias, init: FirTypeAliasBuilder.
     copyBuilder.moduleData = original.moduleData
     copyBuilder.origin = original.origin
     copyBuilder.attributes = original.attributes.copy()
+    copyBuilder.typeParameters.addAll(original.typeParameters)
     copyBuilder.status = original.status
     copyBuilder.deprecationsProvider = original.deprecationsProvider
-    copyBuilder.typeParameters.addAll(original.typeParameters)
+    copyBuilder.scopeProvider = original.scopeProvider
     copyBuilder.name = original.name
     copyBuilder.expandedTypeRef = original.expandedTypeRef
     copyBuilder.annotations.addAll(original.annotations)
