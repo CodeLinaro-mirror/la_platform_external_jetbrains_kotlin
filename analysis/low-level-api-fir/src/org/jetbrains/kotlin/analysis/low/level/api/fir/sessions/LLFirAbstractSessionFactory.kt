@@ -84,21 +84,6 @@ internal abstract class LLFirAbstractSessionFactory(protected val project: Proje
     abstract fun createLibrarySession(module: KaModule): LLFirLibraryOrLibrarySourceResolvableModuleSession
     abstract fun createBinaryLibrarySession(module: KaLibraryModule): LLFirLibrarySession
 
-    /**
-     * A function to create rest libraries symbol provider. The rest libraries symbol provider includes all libraries
-     * for its search scope, but it excludes the module's self scope [moduleScope] to avoid the recursive dependency
-     * symbol search.
-     */
-    private fun createRestLibrariesProvider(moduleSession: LLFirSession, moduleScope: GlobalSearchScope): List<FirSymbolProvider> {
-        val librariesSearchScope = ProjectScope.getLibrariesScope(project)
-            .intersectWith(GlobalSearchScope.notScope(moduleScope))
-        return createProjectLibraryProvidersForScope(
-            moduleSession,
-            librariesSearchScope,
-            isFallbackDependenciesProvider = true,
-        )
-    }
-
     private fun createLibraryProvidersForScope(
         session: LLFirSession,
         scope: GlobalSearchScope,
@@ -110,7 +95,6 @@ internal abstract class LLFirAbstractSessionFactory(protected val project: Proje
             LLDependenciesSymbolProvider(session) {
                 buildList {
                     addAll(collectDependencySymbolProviders(session.ktModule))
-                    addAll(createRestLibrariesProvider(session, scope))
                     add(builtinSymbolProvider)
                 }
             },
@@ -422,7 +406,17 @@ internal abstract class LLFirAbstractSessionFactory(protected val project: Proje
 
                     // Script dependencies are self-contained and should not depend on other libraries
                     if (module !is KaScriptDependencyModule) {
-                        addAll(createRestLibrariesProvider(session, binaryModule.contentScope))
+                        // Add all libraries excluding the current one
+                        val librariesSearchScope = ProjectScope.getLibrariesScope(project)
+                            .intersectWith(GlobalSearchScope.notScope(binaryModule.contentScope))
+
+                        val restLibrariesProvider = createProjectLibraryProvidersForScope(
+                            session,
+                            librariesSearchScope,
+                            isFallbackDependenciesProvider = true,
+                        )
+
+                        addAll(restLibrariesProvider)
 
                         if (binaryModule is KaLibraryModule) {
                             KotlinAnchorModuleProvider.getInstance(project)?.getAnchorModule(binaryModule)?.let { anchorModule ->
