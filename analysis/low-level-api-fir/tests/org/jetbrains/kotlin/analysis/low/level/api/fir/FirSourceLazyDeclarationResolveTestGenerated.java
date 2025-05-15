@@ -469,6 +469,12 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
   }
 
   @Test
+  @TestMetadata("jvmBuiltinsInHierarchy.kt")
+  public void testJvmBuiltinsInHierarchy() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/jvmBuiltinsInHierarchy.kt");
+  }
+
+  @Test
   @TestMetadata("lambdaAsSAMInterface.kt")
   public void testLambdaAsSAMInterface() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/lambdaAsSAMInterface.kt");
@@ -1254,6 +1260,18 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
     }
 
     @Test
+    @TestMetadata("constructorDuplicatedContextParameter.kt")
+    public void testConstructorDuplicatedContextParameter() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/constructorDuplicatedContextParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorDuplicatedContextParameter2.kt")
+    public void testConstructorDuplicatedContextParameter2() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/constructorDuplicatedContextParameter2.kt");
+    }
+
+    @Test
     @TestMetadata("danglingAnnotationWithNestedDeclarations.kt")
     public void testDanglingAnnotationWithNestedDeclarations() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/danglingAnnotationWithNestedDeclarations.kt");
@@ -1266,9 +1284,33 @@ public class FirSourceLazyDeclarationResolveTestGenerated extends AbstractFirSou
     }
 
     @Test
+    @TestMetadata("functionDuplicatedContextParameter.kt")
+    public void testFunctionDuplicatedContextParameter() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/functionDuplicatedContextParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("functionDuplicatedContextParameter2.kt")
+    public void testFunctionDuplicatedContextParameter2() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/functionDuplicatedContextParameter2.kt");
+    }
+
+    @Test
     @TestMetadata("parameterNoType.kt")
     public void testParameterNoType() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/parameterNoType.kt");
+    }
+
+    @Test
+    @TestMetadata("propertyDuplicatedContextParameter.kt")
+    public void testPropertyDuplicatedContextParameter() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/propertyDuplicatedContextParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("propertyDuplicatedContextParameter2.kt")
+    public void testPropertyDuplicatedContextParameter2() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/propertyDuplicatedContextParameter2.kt");
     }
   }
 

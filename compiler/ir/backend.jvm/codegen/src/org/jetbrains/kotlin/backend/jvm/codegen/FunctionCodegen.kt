@@ -200,7 +200,7 @@ class FunctionCodegen(private val irFunction: IrFunction, private val classCodeg
                 (if (isStatic) Opcodes.ACC_STATIC else 0) or
                 (if (isVararg) Opcodes.ACC_VARARGS else 0) or
                 (if (isExternal) Opcodes.ACC_NATIVE else 0) or
-                (if (isBridge()) Opcodes.ACC_BRIDGE else 0) or
+                (if (isBridge() || origin == JvmLoweredDeclarationOrigin.SUPER_INTERFACE_METHOD_BRIDGE) Opcodes.ACC_BRIDGE else 0) or
                 (if (isSynthetic) Opcodes.ACC_SYNTHETIC else 0) or
                 (if (isStrict) Opcodes.ACC_STRICT else 0) or
                 (if (isSynchronized) Opcodes.ACC_SYNCHRONIZED else 0)
