@@ -51945,6 +51945,17 @@ public class PhasedJvmDiagnosticLightTreeTestGenerated extends AbstractPhasedJvm
       }
 
       @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Parsing {
+        @Test
+        @TestMetadata("propertyInContext.nkt")
+        public void testPropertyInContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing/propertyInContext.nkt");
+        }
+      }
+
+      @Nested
       @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast")
       @TestDataPath("$PROJECT_ROOT")
       public class Smartcast {
@@ -54811,6 +54822,12 @@ public class PhasedJvmDiagnosticLightTreeTestGenerated extends AbstractPhasedJvm
       @TestMetadata("javaFunctionAndKotlinPropertyFromDifferentSupertypes.kt")
       public void testJavaFunctionAndKotlinPropertyFromDifferentSupertypes() {
         runTest("compiler/fir/analysis-tests/testData/resolve/scopes/javaFunctionAndKotlinPropertyFromDifferentSupertypes.kt");
+      }
+
+      @Test
+      @TestMetadata("jkjSyntheticProperty.kt")
+      public void testJkjSyntheticProperty() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/scopes/jkjSyntheticProperty.kt");
       }
 
       @Test
