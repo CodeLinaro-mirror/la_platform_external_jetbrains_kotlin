@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.backend.common.phaser
 
 import org.jetbrains.kotlin.backend.common.CodegenUtil
+import com.intellij.openapi.progress.ProgressManager
 import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.config.phaser.*
 import org.jetbrains.kotlin.ir.declarations.IrFile
@@ -30,6 +31,7 @@ class PerformByIrFilePhase<Context : LoweringContext>(
     ): IrModuleFragment {
         for (irFile in input.files) {
             try {
+                ProgressManager.checkCanceled()
                 for (phase in lower) {
                     phase.invoke(phaseConfig, phaserState, context, irFile)
                 }
