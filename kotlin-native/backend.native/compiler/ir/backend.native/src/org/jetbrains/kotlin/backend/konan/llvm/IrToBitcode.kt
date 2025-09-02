@@ -509,13 +509,25 @@ internal class CodeGeneratorVisitor(
         }
     }
 
-    private fun mergeRuntimeInitializers(
-            runtimeInitializers: List<RuntimeInitializer>
-    ): RuntimeInitializer = generateRuntimeInitializer {
-        runtimeInitializers.forEach {
-            this.call(it.llvmCallable, listOf(param(0), param(1)), exceptionHandler = ExceptionHandler.Caller)
+    private fun mergeRuntimeInitializers(runtimeInitializers: List<RuntimeInitializer>): RuntimeInitializer? {
+        if (runtimeInitializers.size <= 1) return runtimeInitializers.singleOrNull()
+
+        // It would be natural to generate a single runtime initializer function
+        // and call all the initializers from it.
+        // However, right now we can have quite many initializers (see e.g. KT-74774).
+        // So, this natural solution can lead to generating huge LLVM functions triggering slow compilation.
+        // Apply a cheap trick -- merge them by chunks recursively.
+
+        val chunkInitializers = runtimeInitializers.chunked(100) { chunk ->
+            generateRuntimeInitializer {
+                chunk.forEach {
+                    this.call(it.llvmCallable, listOf(param(0), param(1)), exceptionHandler = ExceptionHandler.Caller)
+                }
+                ret(null)
+            }
         }
-        ret(null)
+
+        return mergeRuntimeInitializers(chunkInitializers)
     }
 
     private fun generateRuntimeInitializer(block: FunctionGenerationContext.() -> Unit): RuntimeInitializer {
@@ -824,7 +836,7 @@ internal class CodeGeneratorVisitor(
                     using(parameterScope) usingParameterScope@{
                         using(VariableScope()) usingVariableScope@{
                             if (declaration.isReifiedInline) {
-                                callDirect(context.ir.symbols.throwIllegalStateExceptionWithMessage.owner,
+                                callDirect(context.symbols.throwIllegalStateExceptionWithMessage.owner,
                                         listOf(codegen.staticData.kotlinStringLiteral(
                                                 "unsupported call of reified inlined function `${declaration.fqNameForIrSerialization}`").llvm),
                                         Lifetime.IRRELEVANT, null)
@@ -1072,7 +1084,7 @@ internal class CodeGeneratorVisitor(
          */
         private val handler by lazy {
             using(outerContext) {
-                continuationBlock(context.ir.symbols.throwable.owner.defaultType, endLocationInfoFromScope()) {
+                continuationBlock(context.symbols.throwable.owner.defaultType, endLocationInfoFromScope()) {
                     genHandler(it.value)
                 }
             }
@@ -1488,7 +1500,7 @@ internal class CodeGeneratorVisitor(
                         codegen.kNullObjHeaderPtr
                     } else {
                         callDirect(
-                                context.ir.symbols.throwNullPointerException.owner,
+                                context.symbols.throwNullPointerException.owner,
                                 listOf(),
                                 Lifetime.GLOBAL,
                                 null
@@ -1502,7 +1514,7 @@ internal class CodeGeneratorVisitor(
                                 if (dstClass.defaultType.isObjCObjectType()) {
                                     val dstFullClassName = dstClass.fqNameWhenAvailable?.toString() ?: dstClass.name.toString()
                                     callDirect(
-                                            context.ir.symbols.throwTypeCastException.owner,
+                                            context.symbols.throwTypeCastException.owner,
                                             listOf(argument, codegen.staticData.kotlinStringLiteral(dstFullClassName).llvm),
                                             Lifetime.GLOBAL,
                                             null
@@ -1510,7 +1522,7 @@ internal class CodeGeneratorVisitor(
                                 } else {
                                     val dstTypeInfo = functionGenerationContext.bitcast(llvm.int8PtrType, codegen.typeInfoValue(dstClass))
                                     callDirect(
-                                            context.ir.symbols.throwClassCastException.owner,
+                                            context.symbols.throwClassCastException.owner,
                                             listOf(argument, dstTypeInfo),
                                             Lifetime.GLOBAL,
                                             null
@@ -1531,7 +1543,7 @@ internal class CodeGeneratorVisitor(
         val type     = value.typeOperand
         return genInstanceOf(
                 value,
-                type.getClass() ?: context.ir.symbols.any.owner,
+                type.getClass() ?: context.symbols.any.owner,
                 resultSlot = null,
                 onSuperClassCast = { arg ->
                     if (type.isNullable())
@@ -1608,7 +1620,7 @@ internal class CodeGeneratorVisitor(
 
     private fun genInstanceOfObjC(obj: LLVMValueRef, dstClass: IrClass): LLVMValueRef {
         val objCObject = callDirect(
-                context.ir.symbols.interopObjCObjectRawValueGetter.owner,
+                context.symbols.interopObjCObjectRawValueGetter.owner,
                 listOf(obj),
                 Lifetime.IRRELEVANT,
                 null
@@ -1839,7 +1851,7 @@ internal class CodeGeneratorVisitor(
             }
 
     private fun evaluateConstantValueImpl(value: IrConstantValue): ConstValue {
-        val symbols = context.ir.symbols
+        val symbols = context.symbols
         return when (value) {
             is IrConstantPrimitive -> {
                 val constructedType = value.value.type
@@ -2541,7 +2553,7 @@ internal class CodeGeneratorVisitor(
                         }
                         functionSymbol == context.irBuiltIns.illegalArgumentExceptionSymbol -> {
                             callDirect(
-                                    context.ir.symbols.throwIllegalArgumentExceptionWithMessage.owner,
+                                    context.symbols.throwIllegalArgumentExceptionWithMessage.owner,
                                     args,
                                     Lifetime.GLOBAL,
                                     null
@@ -2658,14 +2670,14 @@ internal class CodeGeneratorVisitor(
                             functionType(llvm.int32Type, false, llvm.int8PtrType, llvm.int8PtrType, llvm.int32Type))
             overrideRuntimeGlobal("Kotlin_getSourceInfo_Function", constValue(getSourceInfoFunction!!))
         }
+        overrideRuntimeGlobal("Kotlin_CoreSymbolication_useOnlyKotlinImage",
+                llvm.constInt32(if (context.config.coreSymbolicationUseOnlyKotlinImage) 1 else 0))
         if (context.config.target.family == Family.ANDROID && context.config.produce == CompilerOutputKind.PROGRAM) {
             val configuration = context.config.configuration
             val programType = configuration.get(BinaryOptions.androidProgramType) ?: AndroidProgramType.Default
             overrideRuntimeGlobal("Kotlin_printToAndroidLogcat", llvm.constInt32(if (programType.consolePrintsToLogcat) 1 else 0))
         }
         overrideRuntimeGlobal("Kotlin_appStateTracking", llvm.constInt32(context.config.appStateTracking.value))
-        overrideRuntimeGlobal("Kotlin_mimallocUseDefaultOptions", llvm.constInt32(if (context.config.mimallocUseDefaultOptions) 1 else 0))
-        overrideRuntimeGlobal("Kotlin_mimallocUseCompaction", llvm.constInt32(if (context.config.mimallocUseCompaction) 1 else 0))
         overrideRuntimeGlobal("Kotlin_objcDisposeOnMain", llvm.constInt32(if (context.config.objcDisposeOnMain) 1 else 0))
         overrideRuntimeGlobal("Kotlin_objcDisposeWithRunLoop", llvm.constInt32(if (context.config.objcDisposeWithRunLoop) 1 else 0))
         overrideRuntimeGlobal("Kotlin_enableSafepointSignposts", llvm.constInt32(if (context.config.enableSafepointSignposts) 1 else 0))
@@ -2725,9 +2737,7 @@ internal class CodeGeneratorVisitor(
 
         val ctorFunctions = dependencies.flatMap { dependency ->
             val library = dependency?.library
-            val initializer = libraryToInitializers.getValue(library)
-                    .takeIf { it.isNotEmpty() }
-                    ?.let { mergeRuntimeInitializers(it) }
+            val initializer = mergeRuntimeInitializers(libraryToInitializers.getValue(library))
                     ?.let { createInitCtor(createInitNode(it)) }
 
             val ctorName = when {
@@ -2828,11 +2838,6 @@ internal class CodeGeneratorVisitor(
             val globalCtors = codegen.staticData.placeGlobalArray("llvm.global_ctors", kCtorType,
                     listOf(createGlobalCtor(globalCtorCallable)))
             LLVMSetLinkage(globalCtors.llvmGlobal, LLVMLinkage.LLVMAppendingLinkage)
-            if (context.config.produce == CompilerOutputKind.PROGRAM) {
-                // Provide an optional handle for calling .ctors, if standard constructors mechanism
-                // is not available on the platform (i.e. WASM, embedded).
-                appendLlvmUsed("llvm.used", listOf(globalCtorCallable.toConstPointer().llvm))
-            }
         }
     }
 

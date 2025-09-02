@@ -41,6 +41,8 @@ import com.intellij.psi.util.JavaClassSupers
 import com.intellij.util.io.URLUtil
 import com.intellij.util.lang.UrlClassLoader
 import org.jetbrains.annotations.TestOnly
+import org.jetbrains.kotlin.K1Deprecation
+import org.jetbrains.kotlin.K1_DEPRECATION_WARNING
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport
 import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
@@ -58,6 +60,7 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.perfManager
+import org.jetbrains.kotlin.cli.common.testEnvironment
 import org.jetbrains.kotlin.cli.common.toBooleanLenient
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.index.*
@@ -462,13 +465,14 @@ class KotlinCoreEnvironment private constructor(
             synchronized(APPLICATION_LOCK) { action() }
 
         @JvmStatic
+        @K1Deprecation
         fun createForProduction(
             projectDisposable: Disposable,
             configuration: CompilerConfiguration,
             configFiles: EnvironmentConfigFiles,
         ): KotlinCoreEnvironment {
             setupIdeaStandaloneExecution()
-            val appEnv = getOrCreateApplicationEnvironmentForProduction(projectDisposable, configuration)
+            val appEnv = getOrCreateApplicationEnvironment(projectDisposable, configuration)
             val projectEnv = ProjectEnvironment(projectDisposable, appEnv, configuration)
             val environment = KotlinCoreEnvironment(projectEnv, configuration, configFiles)
 
@@ -476,14 +480,18 @@ class KotlinCoreEnvironment private constructor(
         }
 
         @JvmStatic
+        @K1Deprecation
         fun createForProduction(
-            projectEnvironment: ProjectEnvironment, configuration: CompilerConfiguration, configFiles: EnvironmentConfigFiles
+            projectEnvironment: ProjectEnvironment,
+            configuration: CompilerConfiguration,
+            configFiles: EnvironmentConfigFiles,
         ): KotlinCoreEnvironment {
             return KotlinCoreEnvironment(projectEnvironment, configuration, configFiles)
         }
 
         @TestOnly
         @JvmStatic
+        @K1Deprecation
         fun createForTests(
             parentDisposable: Disposable, initialConfiguration: CompilerConfiguration, extensionConfigs: EnvironmentConfigFiles
         ): KotlinCoreEnvironment {
@@ -501,6 +509,7 @@ class KotlinCoreEnvironment private constructor(
 
         @TestOnly
         @JvmStatic
+        @K1Deprecation
         fun createForParallelTests(
             projectDisposable: Disposable,
             initialConfiguration: CompilerConfiguration,
@@ -514,6 +523,7 @@ class KotlinCoreEnvironment private constructor(
 
         @TestOnly
         @JvmStatic
+        @K1Deprecation
         fun createForTests(
             projectEnvironment: ProjectEnvironment, initialConfiguration: CompilerConfiguration, extensionConfigs: EnvironmentConfigFiles
         ): KotlinCoreEnvironment {
@@ -521,6 +531,7 @@ class KotlinCoreEnvironment private constructor(
         }
 
         @TestOnly
+        @K1Deprecation
         fun createProjectEnvironmentForTests(projectDisposable: Disposable, configuration: CompilerConfiguration): ProjectEnvironment {
             val appEnv = createApplicationEnvironment(
                 projectDisposable,
@@ -531,8 +542,10 @@ class KotlinCoreEnvironment private constructor(
         }
 
         // used in the daemon for jar cache cleanup
+        @K1Deprecation
         val applicationEnvironment: KotlinCoreApplicationEnvironment? get() = ourApplicationEnvironment
 
+        @K1Deprecation
         fun getOrCreateApplicationEnvironmentForProduction(
             projectDisposable: Disposable,
             configuration: CompilerConfiguration,
@@ -542,6 +555,7 @@ class KotlinCoreEnvironment private constructor(
             KotlinCoreApplicationEnvironmentMode.Production,
         )
 
+        @K1Deprecation
         fun getOrCreateApplicationEnvironmentForTests(
             projectDisposable: Disposable,
             configuration: CompilerConfiguration,
@@ -551,6 +565,22 @@ class KotlinCoreEnvironment private constructor(
             KotlinCoreApplicationEnvironmentMode.UnitTest,
         )
 
+        /**
+         * Test or Production mode is determined by [CLIConfigurationKeys.TEST_ENVIRONMENT] configuration key
+         */
+        @K1Deprecation
+        fun getOrCreateApplicationEnvironment(
+            projectDisposable: Disposable,
+            configuration: CompilerConfiguration,
+        ): KotlinCoreApplicationEnvironment {
+            val mode = when (configuration.testEnvironment) {
+                false -> KotlinCoreApplicationEnvironmentMode.Production
+                true -> KotlinCoreApplicationEnvironmentMode.UnitTest
+            }
+            return getOrCreateApplicationEnvironment(projectDisposable, configuration, mode)
+        }
+
+        @K1Deprecation
         fun getOrCreateApplicationEnvironment(
             projectDisposable: Disposable,
             configuration: CompilerConfiguration,
@@ -609,6 +639,7 @@ class KotlinCoreEnvironment private constructor(
          * This method is also used in Gradle after configuration phase finished.
          */
         @JvmStatic
+        @K1Deprecation
         fun disposeApplicationEnvironment() {
             synchronized(APPLICATION_LOCK) {
                 val environment = ourApplicationEnvironment ?: return
@@ -626,6 +657,7 @@ class KotlinCoreEnvironment private constructor(
          * [ApplicationManager.setApplication], which reset the managed application to the previous application.
          */
         @JvmStatic
+        @K1Deprecation
         fun resetApplicationManager(applicationToReset: Application? = null) {
             val currentApplication = ApplicationManager.getApplication() ?: return
             if (applicationToReset != null && applicationToReset != currentApplication) {
@@ -646,6 +678,7 @@ class KotlinCoreEnvironment private constructor(
         }
 
         @JvmStatic
+        @K1Deprecation
         fun ProjectEnvironment.configureProjectEnvironment(
             configuration: CompilerConfiguration,
             configFiles: EnvironmentConfigFiles
@@ -698,9 +731,7 @@ class KotlinCoreEnvironment private constructor(
 
             val pluginRoot: File =
                 configuration.get(CLIConfigurationKeys.INTELLIJ_PLUGIN_ROOT)?.let(::File)
-                    ?: PathUtil.getResourcePathForClass(this::class.java).takeIf { it.hasConfigFile(configFilePath) }
-                    // hack for load extensions when compiler run directly from project directory (e.g. in tests)
-                    ?: File("compiler/cli/cli-common/resources").takeIf { it.hasConfigFile(configFilePath) }
+                    ?: PathUtil.getResourcePathForClass(CompilerSystemProperties::class.java).takeIf { it.hasConfigFile(configFilePath) }
                     ?: configuration.get(CLIConfigurationKeys.PATH_TO_KOTLIN_COMPILER_JAR)?.takeIf { it.hasConfigFile(configFilePath) }
                     ?: throw IllegalStateException(
                         "Unable to find extension point configuration $configFilePath " +
@@ -717,6 +748,7 @@ class KotlinCoreEnvironment private constructor(
         @JvmStatic
         @OptIn(InternalNonStableExtensionPoints::class)
         @Suppress("MemberVisibilityCanPrivate") // made public for CLI Android Lint
+        @K1Deprecation
         fun registerPluginExtensionPoints(project: MockProject) {
             SyntheticResolveExtension.registerExtensionPoint(project)
             SyntheticJavaResolveExtension.registerExtensionPoint(project)
@@ -787,6 +819,7 @@ class KotlinCoreEnvironment private constructor(
         // made public for Upsource
         @Suppress("MemberVisibilityCanBePrivate")
         @JvmStatic
+        @K1Deprecation
         fun registerApplicationServices(applicationEnvironment: KotlinCoreApplicationEnvironment) {
             with(applicationEnvironment) {
                 registerFileType(KotlinFileType.INSTANCE, "kt")
@@ -801,6 +834,7 @@ class KotlinCoreEnvironment private constructor(
         }
 
         @JvmStatic
+        @K1Deprecation
         fun registerProjectExtensionPoints(area: ExtensionsArea) {
             CoreApplicationEnvironment.registerExtensionPoint(
                 area, PsiTreeChangePreprocessor.EP.name, PsiTreeChangePreprocessor::class.java
@@ -813,6 +847,7 @@ class KotlinCoreEnvironment private constructor(
         // made public for Upsource
         @JvmStatic
         @Deprecated("Use registerProjectServices(project) instead.", ReplaceWith("registerProjectServices(projectEnvironment.project)"))
+        @K1Deprecation
         fun registerProjectServices(
             projectEnvironment: JavaCoreProjectEnvironment,
             @Suppress("UNUSED_PARAMETER") messageCollector: MessageCollector?
@@ -822,6 +857,7 @@ class KotlinCoreEnvironment private constructor(
 
         // made public for Android Lint
         @JvmStatic
+        @K1Deprecation
         fun registerProjectServices(project: MockProject) {
             with(project) {
                 registerService(JavaElementSourceFactory::class.java, JavaFixedElementSourceFactory::class.java)
@@ -829,6 +865,7 @@ class KotlinCoreEnvironment private constructor(
             }
         }
 
+        @K1Deprecation
         fun registerProjectServicesForCLI(@Suppress("UNUSED_PARAMETER") projectEnvironment: JavaCoreProjectEnvironment) {
             /**
              * Note that Kapt may restart code analysis process, and CLI services should be aware of that.
@@ -838,6 +875,7 @@ class KotlinCoreEnvironment private constructor(
 
         // made public for Android Lint
         @JvmStatic
+        @K1Deprecation
         fun registerKotlinLightClassSupport(project: MockProject) {
             with(project) {
                 val traceHolder = CliTraceHolder(project)

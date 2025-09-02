@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.test.builders
 
 import org.jetbrains.kotlin.config.*
-import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
@@ -38,10 +37,6 @@ class LanguageVersionSettingsBuilder {
         specificFeatures[feature] = LanguageFeature.State.ENABLED
     }
 
-    fun enableWithWarning(feature: LanguageFeature) {
-        specificFeatures[feature] = LanguageFeature.State.ENABLED_WITH_WARNING
-    }
-
     fun disable(feature: LanguageFeature) {
         specificFeatures[feature] = LanguageFeature.State.DISABLED
     }
@@ -53,7 +48,6 @@ class LanguageVersionSettingsBuilder {
     fun configureUsingDirectives(
         directives: RegisteredDirectives,
         environmentConfigurators: List<AbstractEnvironmentConfigurator>,
-        targetBackend: TargetBackend?,
         useK2: Boolean
     ) {
         val apiVersion = directives.singleOrZeroValue(LanguageSettingsDirectives.API_VERSION)
@@ -101,14 +95,16 @@ class LanguageVersionSettingsBuilder {
 
         val analysisFlags = listOfNotNull(
             analysisFlag(AnalysisFlags.optIn, directives[LanguageSettingsDirectives.OPT_IN].takeIf { it.isNotEmpty() }),
-            analysisFlag(AnalysisFlags.globallySuppressedDiagnostics, directives[LanguageSettingsDirectives.SUPPRESS_WARNINGS].takeIf { it.isNotEmpty() }),
+            analysisFlag(AnalysisFlags.warningLevels, directives[LanguageSettingsDirectives.SUPPRESS_WARNINGS].associateWith { WarningLevel.Disabled }),
             analysisFlag(AnalysisFlags.ignoreDataFlowInAssert, trueOrNull(LanguageSettingsDirectives.IGNORE_DATA_FLOW_IN_ASSERT in directives)),
             analysisFlag(AnalysisFlags.explicitApiMode, directives.singleOrZeroValue(LanguageSettingsDirectives.EXPLICIT_API_MODE)),
             analysisFlag(AnalysisFlags.explicitReturnTypes, directives.singleOrZeroValue(LanguageSettingsDirectives.EXPLICIT_RETURN_TYPES_MODE)),
+            analysisFlag(AnalysisFlags.returnValueCheckerMode, directives.singleOrZeroValue(LanguageSettingsDirectives.RETURN_VALUE_CHECKER_MODE)),
             analysisFlag(AnalysisFlags.allowKotlinPackage, trueOrNull(LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE in directives)),
             analysisFlag(AnalysisFlags.muteExpectActualClassesWarning, trueOrNull(LanguageSettingsDirectives.ENABLE_EXPECT_ACTUAL_CLASSES_WARNING in directives) != true),
             analysisFlag(AnalysisFlags.dontWarnOnErrorSuppression, trueOrNull(LanguageSettingsDirectives.DONT_WARN_ON_ERROR_SUPPRESSION in directives)),
             analysisFlag(AnalysisFlags.stdlibCompilation, trueOrNull(LanguageSettingsDirectives.STDLIB_COMPILATION in directives)),
+            analysisFlag(AnalysisFlags.lenientMode, trueOrNull(LanguageSettingsDirectives.LENIENT_MODE in directives)),
 
             analysisFlag(JvmAnalysisFlags.jvmDefaultMode, directives.singleOrZeroValue(LanguageSettingsDirectives.JVM_DEFAULT_MODE)),
             analysisFlag(JvmAnalysisFlags.inheritMultifileParts, trueOrNull(LanguageSettingsDirectives.INHERIT_MULTIFILE_PARTS in directives)),
@@ -127,17 +123,9 @@ class LanguageVersionSettingsBuilder {
             }
         }
 
-        if (targetBackend == TargetBackend.JS_IR || targetBackend == TargetBackend.JS_IR_ES6) {
-            specificFeatures[LanguageFeature.JsAllowValueClassesInExternals] = LanguageFeature.State.ENABLED
-        }
-
-        if (targetBackend == TargetBackend.WASM) {
-            specificFeatures[LanguageFeature.JsAllowImplementingFunctionInterface] = LanguageFeature.State.ENABLED
-        }
-
         directives[LanguageSettingsDirectives.LANGUAGE].forEach { parseLanguageFeature(it) }
         if (LanguageSettingsDirectives.PROGRESSIVE_MODE in directives) {
-            for (feature in LanguageFeature.entries.filter { it.enabledInProgressiveMode }) {
+            for (feature in LanguageFeature.entries.filter { it.actuallyEnabledInProgressiveMode }) {
                 if (feature.sinceVersion!! <= languageVersion) continue
                 if (feature !in specificFeatures) {
                     specificFeatures[feature] = LanguageFeature.State.ENABLED
@@ -160,7 +148,6 @@ class LanguageVersionSettingsBuilder {
         val mode = when (val mode = matcher.group(1)) {
             "+" -> LanguageFeature.State.ENABLED
             "-" -> LanguageFeature.State.DISABLED
-            "warn:" -> LanguageFeature.State.ENABLED_WITH_WARNING
             else -> error("Unknown mode for language feature: $mode")
         }
         val name = matcher.group(2)
@@ -169,7 +156,7 @@ class LanguageVersionSettingsBuilder {
     }
 
     @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE", "HIDDEN")
-    private fun <T : Any> analysisFlag(flag: AnalysisFlag<T>, value: @kotlin.internal.NoInfer T?): Pair<AnalysisFlag<T>, T>? =
+    private fun <T : Any> analysisFlag(flag: AnalysisFlag<T?>, value: @kotlin.internal.NoInfer T?): Pair<AnalysisFlag<T?>, T>? =
         value?.let(flag::to)
 
     private fun trueOrNull(condition: Boolean): Boolean? = runIf(condition) { true }

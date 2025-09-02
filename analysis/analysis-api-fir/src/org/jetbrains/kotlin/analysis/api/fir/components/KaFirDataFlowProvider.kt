@@ -16,9 +16,9 @@ import org.jetbrains.kotlin.analysis.api.components.KaDataFlowExitPointSnapshot.
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.utils.unwrap
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseImplicitReceiverSmartCast
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSmartCastInfo
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSmartCastInfo
+import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.utils.errors.withKaModuleEntry
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
@@ -56,14 +56,14 @@ internal class KaFirDataFlowProvider(
     override val analysisSessionProvider: () -> KaFirSession
 ) : KaBaseSessionComponent<KaFirSession>(), KaDataFlowProvider, KaFirSessionComponent {
     override val KtExpression.smartCastInfo: KaSmartCastInfo?
-        get() = withValidityAssertion {
+        get() = withPsiValidityAssertion {
             val firSmartCastExpression = getMatchingFirExpressionWithSmartCast(this) ?: return null
             val type = firSmartCastExpression.smartcastType.coneType.asKtType()
             return KaBaseSmartCastInfo(type, firSmartCastExpression.isStable)
         }
 
     override val KtExpression.implicitReceiverSmartCasts: Collection<KaImplicitReceiverSmartCast>
-        get() = withValidityAssertion {
+        get() = withPsiValidityAssertion {
             val firQualifiedExpression = getMatchingFirQualifiedAccessExpression(this) ?: return emptyList()
 
             listOfNotNull(
@@ -77,7 +77,7 @@ internal class KaFirDataFlowProvider(
 
         val possibleFunctionCall = expression.getPossiblyQualifiedCallExpressionForCallee() ?: expression
 
-        return when (val firExpression = possibleFunctionCall.getOrBuildFir(analysisSession.firResolveSession)) {
+        return when (val firExpression = possibleFunctionCall.getOrBuildFir(analysisSession.resolutionFacade)) {
             is FirSmartCastExpression -> firExpression
             is FirSafeCallExpression -> firExpression.selector as? FirSmartCastExpression
             is FirImplicitInvokeCall -> firExpression.explicitReceiver as? FirSmartCastExpression
@@ -110,7 +110,7 @@ internal class KaFirDataFlowProvider(
             ?: expression.getQualifiedExpressionForSelector()
             ?: expression
 
-        return when (val firExpression = wholeExpression.getOrBuildFir(analysisSession.firResolveSession)) {
+        return when (val firExpression = wholeExpression.getOrBuildFir(analysisSession.resolutionFacade)) {
             is FirQualifiedAccessExpression -> firExpression
             is FirSafeCallExpression -> firExpression.selector as? FirQualifiedAccessExpression
             is FirSmartCastExpression -> firExpression.originalExpression as? FirQualifiedAccessExpression
@@ -150,7 +150,9 @@ internal class KaFirDataFlowProvider(
         return KaBaseImplicitReceiverSmartCast(type, kind)
     }
 
-    override fun computeExitPointSnapshot(statements: List<KtExpression>): KaDataFlowExitPointSnapshot = withValidityAssertion {
+    override fun computeExitPointSnapshot(
+        statements: List<KtExpression>,
+    ): KaDataFlowExitPointSnapshot = withPsiValidityAssertion(statements) {
         val firStatements = computeStatements(statements)
 
         val collector = FirElementCollector()
@@ -192,7 +194,7 @@ internal class KaFirDataFlowProvider(
     private fun computeStatements(statements: List<KtExpression>): List<FirElement> {
         val firParent = computeCommonParent(statements)
 
-        val firStatements = statements.map { it.unwrap().getOrBuildFirOfType<FirElement>(firResolveSession) }
+        val firStatements = statements.map { it.unwrap().getOrBuildFirOfType<FirElement>(resolutionFacade) }
         val pathSearcher = FirElementPathSearcher(firStatements)
         firParent.accept(pathSearcher)
 
@@ -220,7 +222,7 @@ internal class KaFirDataFlowProvider(
             require(statements[i].parent == parent)
         }
 
-        val firContainer = collectUseSiteContainers(parent, firResolveSession)?.lastOrNull()
+        val firContainer = collectUseSiteContainers(parent, resolutionFacade)?.lastOrNull()
         if (firContainer != null) {
             firContainer.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
             return firContainer
@@ -228,7 +230,7 @@ internal class KaFirDataFlowProvider(
 
         return parent.parentsWithSelf
             .filterIsInstance<KtElement>()
-            .firstNotNullOf { it.getOrBuildFir(firResolveSession) }
+            .firstNotNullOf { it.getOrBuildFir(resolutionFacade) }
     }
 
     private fun computeDefaultExpression(
@@ -282,7 +284,7 @@ internal class KaFirDataFlowProvider(
 
     private fun computeOperationDefaultType(defaultStatement: KtExpression): ConeKotlinType? {
         val binaryExpression = (defaultStatement as? KtOperationReferenceExpression)?.parent as? KtBinaryExpression ?: return null
-        val expressionCall = binaryExpression.getOrBuildFirSafe<FirQualifiedAccessExpression>(firResolveSession) ?: return null
+        val expressionCall = binaryExpression.getOrBuildFirSafe<FirQualifiedAccessExpression>(resolutionFacade) ?: return null
         val receiverCall = expressionCall.explicitReceiver as? FirQualifiedAccessExpression ?: return null
 
         return receiverCall.resolvedType
@@ -360,7 +362,7 @@ internal class KaFirDataFlowProvider(
 
         val parentDeclarations = anchor.parentsOfType<KtDeclaration>(withSelf = true)
         for (parentDeclaration in parentDeclarations) {
-            val parentFirDeclaration = parentDeclaration.resolveToFirSymbol(firResolveSession, FirResolvePhase.BODY_RESOLVE).fir
+            val parentFirDeclaration = parentDeclaration.resolveToFirSymbol(resolutionFacade, FirResolvePhase.BODY_RESOLVE).fir
             if (parentFirDeclaration is FirControlFlowGraphOwner) {
                 val graph = parentFirDeclaration.controlFlowGraphReference?.controlFlowGraph
                 if (graph != null && graph.contains(firCandidates)) {
@@ -481,7 +483,8 @@ internal class KaFirDataFlowProvider(
             }
 
             val source = element.source
-            return source?.kind !in FORBIDDEN_FAKE_SOURCE_KINDS
+            val isImplicitWhenSubjectVariable = element is FirProperty && element.isImplicitWhenSubjectVariable
+            return source?.kind !in FORBIDDEN_FAKE_SOURCE_KINDS && !isImplicitWhenSubjectVariable
         }
 
         private inline fun withElement(element: FirElement, block: () -> Unit) {

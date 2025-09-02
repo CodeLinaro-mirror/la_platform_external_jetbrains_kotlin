@@ -87,6 +87,7 @@ public class KotlinTestUtils {
     }
 
     @NotNull
+    @SuppressWarnings("deprecation")
     public static AnalysisResult analyzeFile(@NotNull KtFile file, @NotNull KotlinCoreEnvironment environment) {
         return JvmResolveUtil.analyze(file, environment);
     }
@@ -211,6 +212,7 @@ public class KotlinTestUtils {
         return configuration;
     }
 
+    @SuppressWarnings("deprecation")
     public static void resolveAllKotlinFiles(KotlinCoreEnvironment environment) throws IOException {
         List<KotlinSourceRoot> roots = ContentRootsKt.getKotlinSourceRoots(environment.getConfiguration());
         if (roots.isEmpty()) return;
@@ -246,6 +248,26 @@ public class KotlinTestUtils {
 
     public static void assertEqualsToFile(@NotNull File expectedFile, @NotNull String actual, @NotNull Function1<String, String> sanitizer) {
         assertEqualsToFile(ACTUAL_DATA_DIFFERS_FROM_FILE_CONTENT, expectedFile, actual, sanitizer);
+    }
+
+    public static void assertValueAgnosticEqualsToFile(File expectedFile, @NotNull String actual) {
+        ValueAgnosticSanitizer sanitizer = new ValueAgnosticSanitizer(actual);
+
+        String expectedText = tryLoadExpectedFile(expectedFile, sanitizer::generateExpectedText);
+        String expectedSanitizedText = applyDefaultAndCustomSanitizer(expectedText, s -> s);
+
+        String sanitizedActualBasedOnExpectPlaceholders =
+                applyDefaultAndCustomSanitizer(
+                        sanitizer.generateSanitizedActualTextBasedOnExpectPlaceholders(expectedSanitizedText), s -> s);
+
+        KotlinTestUtils.FileComparisonResult comparisonResult = new KotlinTestUtils.FileComparisonResult(
+                expectedFile,
+                expectedText,
+                expectedSanitizedText,
+                sanitizedActualBasedOnExpectPlaceholders
+        );
+
+        failIfNotEqual(ACTUAL_DATA_DIFFERS_FROM_FILE_CONTENT, comparisonResult);
     }
 
     public static FileComparisonResult compareExpectFileWithActualText(@NotNull File expectedFile, @NotNull String actual, @NotNull Function1<String, String> sanitizer) {
@@ -439,7 +461,7 @@ public class KotlinTestUtils {
     }
 
     public static void runTest(@NotNull DoTest test, @NotNull TestCase testCase, @TestDataFile String testDataFile) {
-        runTestImpl(testWithCustomIgnoreDirective(test, TargetBackend.ANY, IGNORE_BACKEND_DIRECTIVE_PREFIXES), testCase, testDataFile);
+        runTestImpl(testWithCustomIgnoreDirective(test, TargetBackend.ANY, IGNORE_BACKEND_DIRECTIVE_PREFIXES), testCase, ForTestCompileRuntime.transformTestDataPath(testDataFile).getPath());
     }
 
     public static void runTest(@NotNull TestCase testCase, @NotNull Function0<Unit> test) {
@@ -461,11 +483,11 @@ public class KotlinTestUtils {
     // In this test runner version the `testDataFile` parameter is annotated by `TestDataFile`.
     // So only file paths passed to this parameter will be used in navigation actions, like "Navigate to testdata" and "Related Symbol..."
     public static void runTest(DoTest test, TargetBackend targetBackend, @TestDataFile String testDataFile) {
-        runTest0(test, targetBackend, testDataFile);
+        runTest0(test, targetBackend, ForTestCompileRuntime.transformTestDataPath(testDataFile).getPath());
     }
 
     public static void runTestWithCustomIgnoreDirective(DoTest test, TargetBackend targetBackend, @TestDataFile String testDataFile, String ignoreDirective) {
-        runTestImpl(testWithCustomIgnoreDirective(test, targetBackend, ignoreDirective), null, testDataFile);
+        runTestImpl(testWithCustomIgnoreDirective(test, targetBackend, ignoreDirective), null, ForTestCompileRuntime.transformTestDataPath(testDataFile).getPath());
     }
 
     // In this test runner version, NONE of the parameters are annotated by `TestDataFile`.

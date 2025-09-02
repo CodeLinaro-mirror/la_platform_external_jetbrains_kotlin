@@ -19,35 +19,40 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.types.resolvedType
 
 object FirOptInUsageAccessChecker : FirBasicExpressionChecker(MppCheckerKind.Common) {
-    override fun check(expression: FirStatement, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(expression: FirStatement) {
         val sourceKind = expression.source?.kind
         if (sourceKind is KtFakeSourceElementKind.DataClassGeneratedMembers ||
             sourceKind is KtFakeSourceElementKind.PropertyFromParameter
         ) return
 
-        if (expression.isLhsOfAssignment(context)) return
+        if (expression.isLhsOfAssignment()) return
 
         val resolvedSymbol = expression.toReference(context.session)?.toResolvedBaseSymbol() ?: return
 
         with(FirOptInUsageBaseChecker) {
-            when {
-                expression is FirVariableAssignment -> {
-                    val experimentalities = resolvedSymbol.loadExperimentalities(context, fromSetter = true, null) +
-                            loadExperimentalitiesFromTypeArguments(context, emptyList())
-                    reportNotAcceptedExperimentalities(experimentalities, expression.lValue, context, reporter)
+            when (expression) {
+                is FirVariableAssignment -> {
+                    val experimentalities = resolvedSymbol.loadExperimentalities(fromSetter = true, null) +
+                            loadExperimentalitiesFromTypeArguments(emptyList())
+                    reportNotAcceptedExperimentalities(experimentalities, expression.lValue)
                 }
+                is FirQualifiedAccessExpression -> {
+                    val dispatchReceiverType = expression.dispatchReceiver?.resolvedType?.fullyExpandedType()
 
-                expression is FirQualifiedAccessExpression -> {
-                    val dispatchReceiverType = expression.dispatchReceiver?.resolvedType?.fullyExpandedType(context.session)
-
-                    val experimentalities = resolvedSymbol.loadExperimentalities(context, fromSetter = false, dispatchReceiverType) +
-                            loadExperimentalitiesFromTypeArguments(context, expression.typeArguments)
-                    val source = expression.source?.delegatedPropertySourceOrThis(context)
-                    reportNotAcceptedExperimentalities(experimentalities, expression, context, reporter, source)
+                    val experimentalities = resolvedSymbol.loadExperimentalities(fromSetter = false, dispatchReceiverType) +
+                            loadExperimentalitiesFromTypeArguments(expression.typeArguments)
+                    val source = expression.source?.delegatedPropertySourceOrThis()
+                    reportNotAcceptedExperimentalities(experimentalities, expression, source)
                 }
-                expression is FirDelegatedConstructorCall && resolvedSymbol is FirConstructorSymbol && resolvedSymbol.isFromEnumClass -> {
-                    val experimentalities = resolvedSymbol.loadExperimentalities(context, fromSetter = false, null)
-                    reportNotAcceptedExperimentalities(experimentalities, expression.calleeReference, context, reporter)
+                is FirDelegatedConstructorCall if resolvedSymbol is FirConstructorSymbol -> {
+                    val experimentalities = if (resolvedSymbol.isFromEnumClass) {
+                        resolvedSymbol.loadExperimentalities(fromSetter = false, null)
+                    } else {
+                        // This is done to prevent double-reporting, as class experimentalities are reported in FirOptInUsageTypeRefChecker
+                        resolvedSymbol.loadExperimentalitiesFromConstructor()
+                    }
+                    reportNotAcceptedExperimentalities(experimentalities, expression.calleeReference)
                 }
             }
         }

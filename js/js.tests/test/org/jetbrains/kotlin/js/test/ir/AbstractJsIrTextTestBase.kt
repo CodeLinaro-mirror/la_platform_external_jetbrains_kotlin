@@ -6,7 +6,8 @@
 package org.jetbrains.kotlin.js.test.ir
 
 import org.jetbrains.kotlin.js.test.converters.JsIrDeserializerFacade
-import org.jetbrains.kotlin.js.test.converters.JsKlibSerializerFacade
+import org.jetbrains.kotlin.js.test.converters.JsIrPreSerializationLoweringFacade
+import org.jetbrains.kotlin.js.test.converters.ClassicJsKlibSerializerFacade
 import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
@@ -24,6 +25,8 @@ import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurato
 
 abstract class AbstractJsIrTextTestBase<FrontendOutput : ResultingArtifact.FrontendOutput<FrontendOutput>> :
     AbstractNonJvmIrTextTest<FrontendOutput>(JsPlatforms.defaultJsPlatform, TargetBackend.JS_IR) {
+    override val preSerializerFacade: Constructor<IrPreSerializationLoweringFacade<IrBackendInput>>
+        get() = ::JsIrPreSerializationLoweringFacade
 
     final override fun TestConfigurationBuilder.applyConfigurators() {
         useConfigurators(
@@ -46,9 +49,9 @@ open class AbstractClassicJsIrTextTest : AbstractJsIrTextTestBase<ClassicFronten
     override val converter: Constructor<Frontend2BackendConverter<ClassicFrontendOutputArtifact, IrBackendInput>>
         get() = ::ClassicFrontend2IrConverter
 
-    override val klibFacades: KlibFacades?
+    override val klibFacades: KlibFacades
         get() = KlibFacades(
-            serializerFacade = ::JsKlibSerializerFacade,
+            serializerFacade = ::ClassicJsKlibSerializerFacade,
             deserializerFacade = ::JsIrDeserializerFacade,
         )
 }

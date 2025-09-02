@@ -23,6 +23,7 @@ import org.gradle.api.tasks.*
 import org.gradle.process.ExecOperations
 import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageMode
 import org.jetbrains.kotlin.build.report.metrics.*
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.commonizer.KonanDistribution
@@ -50,16 +51,14 @@ import org.jetbrains.kotlin.gradle.report.*
 import org.jetbrains.kotlin.gradle.targets.native.KonanPropertiesBuildService
 import org.jetbrains.kotlin.gradle.targets.native.UsesKonanPropertiesBuildService
 import org.jetbrains.kotlin.gradle.targets.native.tasks.*
-import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.UsesKotlinNativeBundleBuildService
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.gradle.utils.GradleLoggerAdapter
-import org.jetbrains.kotlin.gradle.utils.listFilesOrEmpty
 import org.jetbrains.kotlin.internal.compilerRunner.native.KotlinNativeCInteropRunner
 import org.jetbrains.kotlin.internal.compilerRunner.native.KotlinNativeCompilerRunner
 import org.jetbrains.kotlin.internal.compilerRunner.native.KotlinNativeToolRunner
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageMode
 import org.jetbrains.kotlin.konan.library.KLIB_INTEROP_IR_PROVIDER_IDENTIFIER
 import org.jetbrains.kotlin.konan.properties.saveToFile
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
@@ -69,20 +68,11 @@ import org.jetbrains.kotlin.konan.target.buildDistribution
 import org.jetbrains.kotlin.konan.util.DefFile
 import org.jetbrains.kotlin.library.*
 import org.jetbrains.kotlin.project.model.LanguageSettings
-import org.jetbrains.kotlin.tooling.core.UnsafeApi
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import java.io.File
 import java.nio.file.Files
 import java.security.MessageDigest
 import javax.inject.Inject
-import kotlin.collections.associateBy
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.isNotEmpty
-import kotlin.collections.orEmpty
-import kotlin.collections.plus
-import kotlin.collections.plusAssign
-import kotlin.collections.set
 import org.jetbrains.kotlin.konan.file.File as KFile
 import org.jetbrains.kotlin.utils.ResolvedDependencies as KResolvedDependencies
 import org.jetbrains.kotlin.utils.ResolvedDependenciesSupport as KResolvedDependenciesSupport
@@ -136,7 +126,7 @@ private val File.canKlibBePassedToCompiler get() = (extension == "klib" || isDir
 internal fun Collection<File>.filterKlibsPassedToCompiler(): List<File> = filter(File::canKlibBePassedToCompiler)
 
 // endregion
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION_ERROR")
 @DisableCachingByDefault(because = "Abstract super-class, not to be instantiated directly")
 abstract class AbstractKotlinNativeCompile<
         T : KotlinCommonToolOptions,
@@ -287,12 +277,14 @@ abstract class AbstractKotlinNativeCompile<
     @get:Internal
     internal val manifestFile: Provider<RegularFile> get() = projectLayout.buildDirectory.file("tmp/$name/inputManifest")
 
+    @get:Input
+    internal abstract val separateKmpCompilation: Property<Boolean>
 }
 
 /**
  * A task producing a klibrary from a compilation.
  */
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION_ERROR")
 @CacheableTask
 abstract class KotlinNativeCompile
 @Inject
@@ -415,8 +407,16 @@ internal constructor(
     // region Kotlin options
 
     @Suppress("DEPRECATION")
-    @Deprecated(KOTLIN_OPTIONS_DEPRECATION_MESSAGE)
+    @Deprecated(
+        message = KOTLIN_OPTIONS_DEPRECATION_MESSAGE,
+        level = DeprecationLevel.ERROR,
+    )
     override val kotlinOptions: KotlinCommonOptions = object : KotlinCommonOptions {
+        @OptIn(org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi::class)
+        @Deprecated(
+            message = org.jetbrains.kotlin.gradle.dsl.KOTLIN_OPTIONS_DEPRECATION_MESSAGE,
+            level = DeprecationLevel.ERROR,
+        )
         override val options: KotlinCommonCompilerOptions
             get() = compilerOptions
     }
@@ -438,6 +438,7 @@ internal constructor(
     private val runnerJvmArgs = project.nativeProperties.jvmArgs
     private val forceDisableRunningInProcess = project.nativeProperties.forceDisableRunningInProcess
     private val useXcodeMessageStyle = project.useXcodeMessageStyle
+    private val simpleKotlinNativeVersion = project.nativeProperties.kotlinNativeVersion
 
     @get:Internal
     internal val nativeCompilerRunner
@@ -450,7 +451,8 @@ internal constructor(
             actualNativeHomeDirectory,
             runnerJvmArgs,
             konanPropertiesService,
-            buildFusService
+            buildFusService,
+            simpleKotlinNativeVersion
         )
 
     // endregion.
@@ -504,6 +506,7 @@ internal constructor(
             kotlinNativeProvider.get().konanDataDir.orNull?.let {
                 args.konanDataDir = it
             }
+            args.separateKmpCompilationScheme = separateKmpCompilation.get()
         }
 
         pluginClasspath { args ->
@@ -528,6 +531,9 @@ internal constructor(
             /* Shared native compilations in K2 still use -Xcommon-sources and klib dependencies */
             if (compilerOptions.usesK2.get() && sharedCompilationData == null) {
                 args.fragmentSources = multiplatformStructure.fragmentSourcesCompilerArgs(sources.files, sourceFileFilter)
+                args.fragmentDependencies = if (separateKmpCompilation.get()) {
+                    multiplatformStructure.fragmentDependenciesCompilerArgs
+                } else emptyArray()
             } else {
                 args.commonSources = commonSourcesTree.files.takeIf { it.isNotEmpty() }?.toPathsArray()
             }
@@ -1178,6 +1184,7 @@ abstract class CInteropProcess @Inject internal constructor(params: Params) :
     private val actualNativeHomeDirectory = project.nativeProperties.actualNativeHomeDirectory
     private val runnerJvmArgs = project.nativeProperties.jvmArgs
     private val useXcodeMessageStyle = project.useXcodeMessageStyle
+
     private val cinteropRunner: KotlinNativeToolRunner
         get() = objectFactory.KotlinNativeCInteropRunner(
             metrics,

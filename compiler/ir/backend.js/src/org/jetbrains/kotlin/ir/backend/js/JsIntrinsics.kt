@@ -287,21 +287,24 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns) {
     val jsSliceArrayLikeFromIndexToIndex = getInternalFunction("jsSliceArrayLikeFromIndexToIndex")
 
     internal inner class JsReflectionSymbols : ReflectionSymbols {
-        override val createKType: IrSimpleFunctionSymbol? = getInternalInRootPackage("createKType")
-        override val createDynamicKType: IrSimpleFunctionSymbol? = getInternalInRootPackage("createDynamicKType")
-        override val createKTypeParameter: IrSimpleFunctionSymbol? = getInternalInRootPackage("createKTypeParameter")
-        override val getStarKTypeProjection: IrSimpleFunctionSymbol? = getInternalInRootPackage("getStarKTypeProjection")
-        override val createCovariantKTypeProjection: IrSimpleFunctionSymbol? = getInternalInRootPackage("createCovariantKTypeProjection")
-        override val createInvariantKTypeProjection: IrSimpleFunctionSymbol? = getInternalInRootPackage("createInvariantKTypeProjection")
-        override val createContravariantKTypeProjection: IrSimpleFunctionSymbol? =
-            getInternalInRootPackage("createContravariantKTypeProjection")
-        override val getKClass: IrSimpleFunctionSymbol = getInternalInRootPackage("getKClass")!!
-        override val getKClassFromExpression: IrSimpleFunctionSymbol = getInternalInRootPackage("getKClassFromExpression")!!
+        override val createKType: IrSimpleFunctionSymbol = getInternalReflectionFunction("createKType")
+        override val createDynamicKType: IrSimpleFunctionSymbol = getInternalReflectionFunction("createDynamicKType")
+        override val createKTypeParameter: IrSimpleFunctionSymbol = getInternalReflectionFunction("createKTypeParameter")
+        override val getStarKTypeProjection: IrSimpleFunctionSymbol = getInternalReflectionFunction("getStarKTypeProjection")
+        override val createCovariantKTypeProjection: IrSimpleFunctionSymbol =
+            getInternalReflectionFunction("createCovariantKTypeProjection")
+        override val createInvariantKTypeProjection: IrSimpleFunctionSymbol =
+            getInternalReflectionFunction("createInvariantKTypeProjection")
+        override val createContravariantKTypeProjection: IrSimpleFunctionSymbol =
+            getInternalReflectionFunction("createContravariantKTypeProjection")
+        override val getKClass: IrSimpleFunctionSymbol = getInternalReflectionFunction("getKClass")
+        override val getKClassFromExpression: IrSimpleFunctionSymbol = getInternalReflectionFunction("getKClassFromExpression")
         override val kTypeClass: IrClassSymbol =
             symbolFinder.findClass(StandardClassIds.KType.shortClassName, StandardClassIds.KType.packageFqName)!!
     }
 
-    val primitiveClassesObject: IrClassSymbol = symbolFinder.topLevelClass(JsStandardClassIds.BASE_REFLECT_JS_INTERNAL_PACKAGE, "PrimitiveClasses")
+    val primitiveClassesObject: IrClassSymbol =
+        symbolFinder.topLevelClass(JsStandardClassIds.BASE_REFLECT_JS_INTERNAL_PACKAGE, "PrimitiveClasses")
 
     internal val reflectionSymbols: JsReflectionSymbols = JsReflectionSymbols()
 
@@ -380,10 +383,6 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns) {
 
     val captureStack = getInternalFunction("captureStack")
 
-    val createSharedBox = getInternalFunction("sharedBoxCreate")
-    val readSharedBox = getInternalFunction("sharedBoxRead")
-    val writeSharedBox = getInternalFunction("sharedBoxWrite")
-
     val linkageErrorSymbol = getInternalFunction("throwLinkageError")
 
     val jsPrototypeOfSymbol = getInternalFunction("protoOf")
@@ -405,6 +404,9 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns) {
     private fun getInternalFunction(name: String): IrSimpleFunctionSymbol =
         symbolFinder.findFunctions(Name.identifier(name), JsStandardClassIds.BASE_JS_PACKAGE).single()
 
+    private fun getInternalReflectionFunction(name: String): IrSimpleFunctionSymbol =
+        symbolFinder.findFunctions(Name.identifier(name), JsStandardClassIds.BASE_REFLECT_JS_INTERNAL_PACKAGE).single()
+
     private fun getInternalCollectionFunction(name: String): IrSimpleFunctionSymbol =
         symbolFinder.findFunctions(Name.identifier(name), StandardClassIds.BASE_COLLECTIONS_PACKAGE).single()
 
@@ -417,8 +419,14 @@ class JsIntrinsics(private val irBuiltIns: IrBuiltIns) {
     private fun getCoroutineIntrinsic(name: String): Iterable<IrSimpleFunctionSymbol> =
         symbolFinder.findFunctions(Name.identifier(name), StandardClassIds.BASE_COROUTINES_INTRINSICS_PACKAGE)
 
+    // JS stdlib compilation needs `.single { !it.isBound || !it.owner.isExpect }`:
+    //   - Expect declarations like `fun <T : Enum<T>> enumEntriesIntrinsic(): EnumEntries<T>` are removed from IR by Actualizer
+    //   - However, they are not removed from FIR.
+    //   - Intrinsics are needed for JsOutlineLowering, so they are initialized during pre-serialization
+    //   - SymbolFinder finds in FIR both expect and actual for `enumEntriesIntrinsic`, and only actual one must remain
     private fun getFunctionInEnumPackage(name: String): IrSimpleFunctionSymbol =
-        symbolFinder.findFunctions(Name.identifier(name), StandardClassIds.BASE_ENUMS_PACKAGE).single()
+        symbolFinder.findFunctions(Name.identifier(name), StandardClassIds.BASE_ENUMS_PACKAGE)
+            .single { !it.isBound || !it.owner.isExpect }
 
     private fun getFunctionInKotlinPackage(name: String): IrSimpleFunctionSymbol =
         symbolFinder.findFunctions(Name.identifier(name), StandardClassIds.BASE_KOTLIN_PACKAGE).single()

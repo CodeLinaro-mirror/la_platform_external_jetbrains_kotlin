@@ -120,6 +120,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("annotationsSameLineSuggestion_Vanilla.kt")
+    public void testAnnotationsSameLineSuggestion_Vanilla() {
+      runTest("compiler/testData/diagnostics/tests/annotationsSameLineSuggestion_Vanilla.kt");
+    }
+
+    @Test
     @TestMetadata("AnonymousInitializerVarAndConstructor.kt")
     public void testAnonymousInitializerVarAndConstructor() {
       runTest("compiler/testData/diagnostics/tests/AnonymousInitializerVarAndConstructor.kt");
@@ -252,6 +258,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("castingMutableListVariance.kt")
+    public void testCastingMutableListVariance() {
+      runTest("compiler/testData/diagnostics/tests/castingMutableListVariance.kt");
+    }
+
+    @Test
     @TestMetadata("Casts.kt")
     public void testCasts() {
       runTest("compiler/testData/diagnostics/tests/Casts.kt");
@@ -273,6 +285,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("checkTypeWithExactTest.kt")
     public void testCheckTypeWithExactTest() {
       runTest("compiler/testData/diagnostics/tests/checkTypeWithExactTest.kt");
+    }
+
+    @Test
+    @TestMetadata("classVsClassIsCheck.kt")
+    public void testClassVsClassIsCheck() {
+      runTest("compiler/testData/diagnostics/tests/classVsClassIsCheck.kt");
     }
 
     @Test
@@ -516,6 +534,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("emptyParanthesesAsArgument.kt")
+    public void testEmptyParanthesesAsArgument() {
+      runTest("compiler/testData/diagnostics/tests/emptyParanthesesAsArgument.kt");
+    }
+
+    @Test
     @TestMetadata("EmptyThrow.kt")
     public void testEmptyThrow() {
       runTest("compiler/testData/diagnostics/tests/EmptyThrow.kt");
@@ -561,6 +585,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("errorProneAtomicArraySuggestions.kt")
     public void testErrorProneAtomicArraySuggestions() {
       runTest("compiler/testData/diagnostics/tests/errorProneAtomicArraySuggestions.kt");
+    }
+
+    @Test
+    @TestMetadata("errorProneAtomicReferenceNullable.kt")
+    public void testErrorProneAtomicReferenceNullable() {
+      runTest("compiler/testData/diagnostics/tests/errorProneAtomicReferenceNullable.kt");
     }
 
     @Test
@@ -756,9 +786,27 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("identityComparisonOnJavaValueBasedClassesWarning.kt")
+    public void testIdentityComparisonOnJavaValueBasedClassesWarning() {
+      runTest("compiler/testData/diagnostics/tests/identityComparisonOnJavaValueBasedClassesWarning.kt");
+    }
+
+    @Test
     @TestMetadata("IdentityComparisonWithPrimitives.kt")
     public void testIdentityComparisonWithPrimitives() {
       runTest("compiler/testData/diagnostics/tests/IdentityComparisonWithPrimitives.kt");
+    }
+
+    @Test
+    @TestMetadata("identitySensitiveOperationsOnValueClassesAndPrimitivesWarningsDisabled.kt")
+    public void testIdentitySensitiveOperationsOnValueClassesAndPrimitivesWarningsDisabled() {
+      runTest("compiler/testData/diagnostics/tests/identitySensitiveOperationsOnValueClassesAndPrimitivesWarningsDisabled.kt");
+    }
+
+    @Test
+    @TestMetadata("identitySensitiveOperationsOnValueObjectsWarning.kt")
+    public void testIdentitySensitiveOperationsOnValueObjectsWarning() {
+      runTest("compiler/testData/diagnostics/tests/identitySensitiveOperationsOnValueObjectsWarning.kt");
     }
 
     @Test
@@ -1002,6 +1050,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("javaValueBasedWarningsDisabled.kt")
+    public void testJavaValueBasedWarningsDisabled() {
+      runTest("compiler/testData/diagnostics/tests/javaValueBasedWarningsDisabled.kt");
+    }
+
+    @Test
     @TestMetadata("k2IrParentIssue.kt")
     public void testK2IrParentIssue() {
       runTest("compiler/testData/diagnostics/tests/k2IrParentIssue.kt");
@@ -1212,9 +1266,57 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("localNestedEnumCapturesOuterTypeParameters.kt")
+    public void testLocalNestedEnumCapturesOuterTypeParameters() {
+      runTest("compiler/testData/diagnostics/tests/localNestedEnumCapturesOuterTypeParameters.kt");
+    }
+
+    @Test
+    @TestMetadata("localNestedObjectCapturesOuterTypeParameters.kt")
+    public void testLocalNestedObjectCapturesOuterTypeParameters() {
+      runTest("compiler/testData/diagnostics/tests/localNestedObjectCapturesOuterTypeParameters.kt");
+    }
+
+    @Test
+    @TestMetadata("makeSureCastNeverSucceedsRequiresDfaWarningsFeature_Off.kt")
+    public void testMakeSureCastNeverSucceedsRequiresDfaWarningsFeature_Off() {
+      runTest("compiler/testData/diagnostics/tests/makeSureCastNeverSucceedsRequiresDfaWarningsFeature_Off.kt");
+    }
+
+    @Test
+    @TestMetadata("makeSureCastNeverSucceedsRequiresDfaWarningsFeature_On.kt")
+    public void testMakeSureCastNeverSucceedsRequiresDfaWarningsFeature_On() {
+      runTest("compiler/testData/diagnostics/tests/makeSureCastNeverSucceedsRequiresDfaWarningsFeature_On.kt");
+    }
+
+    @Test
     @TestMetadata("missedTypeArgumentsInAnnotationCall.kt")
     public void testMissedTypeArgumentsInAnnotationCall() {
       runTest("compiler/testData/diagnostics/tests/missedTypeArgumentsInAnnotationCall.kt");
+    }
+
+    @Test
+    @TestMetadata("missingAbstractSuperCall.kt")
+    public void testMissingAbstractSuperCall() {
+      runTest("compiler/testData/diagnostics/tests/missingAbstractSuperCall.kt");
+    }
+
+    @Test
+    @TestMetadata("missingAbstractSuperCallExtra.kt")
+    public void testMissingAbstractSuperCallExtra() {
+      runTest("compiler/testData/diagnostics/tests/missingAbstractSuperCallExtra.kt");
+    }
+
+    @Test
+    @TestMetadata("missingAbstractSuperCallWithClass.kt")
+    public void testMissingAbstractSuperCallWithClass() {
+      runTest("compiler/testData/diagnostics/tests/missingAbstractSuperCallWithClass.kt");
+    }
+
+    @Test
+    @TestMetadata("missingAbstractSuperCallWithObject.kt")
+    public void testMissingAbstractSuperCallWithObject() {
+      runTest("compiler/testData/diagnostics/tests/missingAbstractSuperCallWithObject.kt");
     }
 
     @Test
@@ -1500,6 +1602,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("placeholderProjectionInCallables.kt")
+    public void testPlaceholderProjectionInCallables() {
+      runTest("compiler/testData/diagnostics/tests/placeholderProjectionInCallables.kt");
+    }
+
+    @Test
     @TestMetadata("plusAssignVsPrivateSetter.kt")
     public void testPlusAssignVsPrivateSetter() {
       runTest("compiler/testData/diagnostics/tests/plusAssignVsPrivateSetter.kt");
@@ -1680,12 +1788,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
-    @TestMetadata("redundantExplicitTypeWithIntegerLiterals.kt")
-    public void testRedundantExplicitTypeWithIntegerLiterals() {
-      runTest("compiler/testData/diagnostics/tests/redundantExplicitTypeWithIntegerLiterals.kt");
-    }
-
-    @Test
     @TestMetadata("referenceToParameterizedFun.kt")
     public void testReferenceToParameterizedFun() {
       runTest("compiler/testData/diagnostics/tests/referenceToParameterizedFun.kt");
@@ -1752,6 +1854,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("resuiresOptInConstantExpression.kt")
+    public void testResuiresOptInConstantExpression() {
+      runTest("compiler/testData/diagnostics/tests/resuiresOptInConstantExpression.kt");
+    }
+
+    @Test
     @TestMetadata("Return.kt")
     public void testReturn() {
       runTest("compiler/testData/diagnostics/tests/Return.kt");
@@ -1773,12 +1881,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("SafeCallInvoke.kt")
     public void testSafeCallInvoke() {
       runTest("compiler/testData/diagnostics/tests/SafeCallInvoke.kt");
-    }
-
-    @Test
-    @TestMetadata("SafeCallNonNullReceiver.kt")
-    public void testSafeCallNonNullReceiver() {
-      runTest("compiler/testData/diagnostics/tests/SafeCallNonNullReceiver.kt");
     }
 
     @Test
@@ -1848,6 +1950,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("superCallsWithDefaultArguments.kt")
+    public void testSuperCallsWithDefaultArguments() {
+      runTest("compiler/testData/diagnostics/tests/superCallsWithDefaultArguments.kt");
+    }
+
+    @Test
     @TestMetadata("superQualifierTypeArgsInDelegatedConstructorCall.kt")
     public void testSuperQualifierTypeArgsInDelegatedConstructorCall() {
       runTest("compiler/testData/diagnostics/tests/superQualifierTypeArgsInDelegatedConstructorCall.kt");
@@ -1902,6 +2010,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("synchronizedOnJavaValueBasedWarning.kt")
+    public void testSynchronizedOnJavaValueBasedWarning() {
+      runTest("compiler/testData/diagnostics/tests/synchronizedOnJavaValueBasedWarning.kt");
+    }
+
+    @Test
     @TestMetadata("SyntaxErrorInTestHighlighting.kt")
     public void testSyntaxErrorInTestHighlighting() {
       runTest("compiler/testData/diagnostics/tests/SyntaxErrorInTestHighlighting.kt");
@@ -1953,6 +2067,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("tailRecOverridden.kt")
     public void testTailRecOverridden() {
       runTest("compiler/testData/diagnostics/tests/tailRecOverridden.kt");
+    }
+
+    @Test
+    @TestMetadata("tailRecShortCircuit.kt")
+    public void testTailRecShortCircuit() {
+      runTest("compiler/testData/diagnostics/tests/tailRecShortCircuit.kt");
     }
 
     @Test
@@ -2106,6 +2226,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("unnamedLocalsInScripts.kts")
+    public void testUnnamedLocalsInScripts() {
+      runTest("compiler/testData/diagnostics/tests/unnamedLocalsInScripts.kts");
+    }
+
+    @Test
+    @TestMetadata("unnamedParameterOnOverride.kt")
+    public void testUnnamedParameterOnOverride() {
+      runTest("compiler/testData/diagnostics/tests/unnamedParameterOnOverride.kt");
+    }
+
+    @Test
     @TestMetadata("Unresolved.kt")
     public void testUnresolved() {
       runTest("compiler/testData/diagnostics/tests/Unresolved.kt");
@@ -2194,6 +2326,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("AnnotatedArrayLiteral.kt")
+      public void testAnnotatedArrayLiteral() {
+        runTest("compiler/testData/diagnostics/tests/annotations/AnnotatedArrayLiteral.kt");
+      }
+
+      @Test
       @TestMetadata("AnnotatedBlock.kt")
       public void testAnnotatedBlock() {
         runTest("compiler/testData/diagnostics/tests/annotations/AnnotatedBlock.kt");
@@ -2269,6 +2407,36 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("AnnotatedTryCatch.kt")
       public void testAnnotatedTryCatch() {
         runTest("compiler/testData/diagnostics/tests/annotations/AnnotatedTryCatch.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationArgumentOnCompanionResolvesToInner.kt")
+      public void testAnnotationArgumentOnCompanionResolvesToInner() {
+        runTest("compiler/testData/diagnostics/tests/annotations/annotationArgumentOnCompanionResolvesToInner.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationArgumentOnDoWhile.kt")
+      public void testAnnotationArgumentOnDoWhile() {
+        runTest("compiler/testData/diagnostics/tests/annotations/annotationArgumentOnDoWhile.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationArgumentScopeForConstructorHeader.kt")
+      public void testAnnotationArgumentScopeForConstructorHeader() {
+        runTest("compiler/testData/diagnostics/tests/annotations/annotationArgumentScopeForConstructorHeader.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationArgumentScopeForNestedClass.kt")
+      public void testAnnotationArgumentScopeForNestedClass() {
+        runTest("compiler/testData/diagnostics/tests/annotations/annotationArgumentScopeForNestedClass.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationArgumentScopeForNestedTypeAlias.kt")
+      public void testAnnotationArgumentScopeForNestedTypeAlias() {
+        runTest("compiler/testData/diagnostics/tests/annotations/annotationArgumentScopeForNestedTypeAlias.kt");
       }
 
       @Test
@@ -2431,12 +2599,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("constantFromOuterScopeAsAnnotaionParameter.kt")
       public void testConstantFromOuterScopeAsAnnotaionParameter() {
         runTest("compiler/testData/diagnostics/tests/annotations/constantFromOuterScopeAsAnnotaionParameter.kt");
-      }
-
-      @Test
-      @TestMetadata("ConstructorCall.kt")
-      public void testConstructorCall() {
-        runTest("compiler/testData/diagnostics/tests/annotations/ConstructorCall.kt");
       }
 
       @Test
@@ -3040,15 +3202,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("RetentionsOfAnnotationWithExpressionTarget_after.kt")
-      public void testRetentionsOfAnnotationWithExpressionTarget_after() {
-        runTest("compiler/testData/diagnostics/tests/annotations/RetentionsOfAnnotationWithExpressionTarget_after.kt");
-      }
-
-      @Test
-      @TestMetadata("RetentionsOfAnnotationWithExpressionTarget_before.kt")
-      public void testRetentionsOfAnnotationWithExpressionTarget_before() {
-        runTest("compiler/testData/diagnostics/tests/annotations/RetentionsOfAnnotationWithExpressionTarget_before.kt");
+      @TestMetadata("RetentionsOfAnnotationWithExpressionTarget.kt")
+      public void testRetentionsOfAnnotationWithExpressionTarget() {
+        runTest("compiler/testData/diagnostics/tests/annotations/RetentionsOfAnnotationWithExpressionTarget.kt");
       }
 
       @Test
@@ -3817,33 +3973,15 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestDataPath("$PROJECT_ROOT")
       public class Repeatable {
         @Test
-        @TestMetadata("containerAndAnnotationAreBothApplied_1_5.kt")
-        public void testContainerAndAnnotationAreBothApplied_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/containerAndAnnotationAreBothApplied_1_5.kt");
-        }
-
-        @Test
         @TestMetadata("containerAndAnnotationAreBothApplied_1_6.kt")
         public void testContainerAndAnnotationAreBothApplied_1_6() {
           runTest("compiler/testData/diagnostics/tests/annotations/repeatable/containerAndAnnotationAreBothApplied_1_6.kt");
         }
 
         @Test
-        @TestMetadata("containerArguments_1_5.kt")
-        public void testContainerArguments_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/containerArguments_1_5.kt");
-        }
-
-        @Test
         @TestMetadata("containerArguments_1_6.kt")
         public void testContainerArguments_1_6() {
           runTest("compiler/testData/diagnostics/tests/annotations/repeatable/containerArguments_1_6.kt");
-        }
-
-        @Test
-        @TestMetadata("containerRetention_1_5.kt")
-        public void testContainerRetention_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/containerRetention_1_5.kt");
         }
 
         @Test
@@ -3865,21 +4003,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("javaRepeatable_1_5.kt")
-        public void testJavaRepeatable_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/javaRepeatable_1_5.kt");
-        }
-
-        @Test
         @TestMetadata("javaRepeatable_1_6.kt")
         public void testJavaRepeatable_1_6() {
           runTest("compiler/testData/diagnostics/tests/annotations/repeatable/javaRepeatable_1_6.kt");
-        }
-
-        @Test
-        @TestMetadata("javaUnrepeatable_1_5.kt")
-        public void testJavaUnrepeatable_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/javaUnrepeatable_1_5.kt");
         }
 
         @Test
@@ -3889,21 +4015,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("kotlinRepeatable_1_5.kt")
-        public void testKotlinRepeatable_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/kotlinRepeatable_1_5.kt");
-        }
-
-        @Test
         @TestMetadata("kotlinRepeatable_1_6.kt")
         public void testKotlinRepeatable_1_6() {
           runTest("compiler/testData/diagnostics/tests/annotations/repeatable/kotlinRepeatable_1_6.kt");
-        }
-
-        @Test
-        @TestMetadata("nestedClassContainer_1_5.kt")
-        public void testNestedClassContainer_1_5() {
-          runTest("compiler/testData/diagnostics/tests/annotations/repeatable/nestedClassContainer_1_5.kt");
         }
 
         @Test
@@ -4211,15 +4325,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("FieldReassignment_after.kt")
-      public void testFieldReassignment_after() {
-        runTest("compiler/testData/diagnostics/tests/backingField/FieldReassignment_after.kt");
-      }
-
-      @Test
-      @TestMetadata("FieldReassignment_before.kt")
-      public void testFieldReassignment_before() {
-        runTest("compiler/testData/diagnostics/tests/backingField/FieldReassignment_before.kt");
+      @TestMetadata("FieldReassignment.kt")
+      public void testFieldReassignment() {
+        runTest("compiler/testData/diagnostics/tests/backingField/FieldReassignment.kt");
       }
 
       @Test
@@ -6872,12 +6980,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("selfCallsInCompanionSuperConstructor_warning.kt")
-      public void testSelfCallsInCompanionSuperConstructor_warning() {
-        runTest("compiler/testData/diagnostics/tests/classObjects/selfCallsInCompanionSuperConstructor_warning.kt");
-      }
-
-      @Test
       @TestMetadata("typeParametersInAnnonymousObject_after.kt")
       public void testTypeParametersInAnnonymousObject_after() {
         runTest("compiler/testData/diagnostics/tests/classObjects/typeParametersInAnnonymousObject_after.kt");
@@ -7405,6 +7507,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestDataPath("$PROJECT_ROOT")
     public class ContextParameters {
       @Test
+      @TestMetadata("contextParameterOnPackageScript.kts")
+      public void testContextParameterOnPackageScript() {
+        runTest("compiler/testData/diagnostics/tests/contextParameters/contextParameterOnPackageScript.kts");
+      }
+
+      @Test
       @TestMetadata("contextParameterUsage.kt")
       public void testContextParameterUsage() {
         runTest("compiler/testData/diagnostics/tests/contextParameters/contextParameterUsage.kt");
@@ -7451,6 +7559,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("compiler/testData/diagnostics/tests/contracts")
     @TestDataPath("$PROJECT_ROOT")
     public class Contracts {
+      @Test
+      @TestMetadata("checkForErased.kt")
+      public void testCheckForErased() {
+        runTest("compiler/testData/diagnostics/tests/contracts/checkForErased.kt");
+      }
+
+      @Test
+      @TestMetadata("contractInDiagnosticRendering.kt")
+      public void testContractInDiagnosticRendering() {
+        runTest("compiler/testData/diagnostics/tests/contracts/contractInDiagnosticRendering.kt");
+      }
+
       @Test
       @TestMetadata("nonKotlinContractCall.kt")
       public void testNonKotlinContractCall() {
@@ -7569,15 +7689,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("backingFieldInsideGetter_after.kt")
-      public void testBackingFieldInsideGetter_after() {
-        runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/backingFieldInsideGetter_after.kt");
-      }
-
-      @Test
-      @TestMetadata("backingFieldInsideGetter_before.kt")
-      public void testBackingFieldInsideGetter_before() {
-        runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/backingFieldInsideGetter_before.kt");
+      @TestMetadata("backingFieldInsideGetter.kt")
+      public void testBackingFieldInsideGetter() {
+        runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/backingFieldInsideGetter.kt");
       }
 
       @Test
@@ -8019,6 +8133,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("lambdaCaptureUninitializedLambda.kt")
+      public void testLambdaCaptureUninitializedLambda() {
+        runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/lambdaCaptureUninitializedLambda.kt");
+      }
+
+      @Test
       @TestMetadata("lambdaCaptureUninitializedProperty.kt")
       public void testLambdaCaptureUninitializedProperty() {
         runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/lambdaCaptureUninitializedProperty.kt");
@@ -8103,6 +8223,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("propertiesInitWithParent.kt")
+      public void testPropertiesInitWithParent() {
+        runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/propertiesInitWithParent.kt");
+      }
+
+      @Test
       @TestMetadata("propertiesOrderInPackage.kt")
       public void testPropertiesOrderInPackage() {
         runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/propertiesOrderInPackage.kt");
@@ -8184,12 +8310,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("smartcastOnThisInInitializationSection.kt")
       public void testSmartcastOnThisInInitializationSection() {
         runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/smartcastOnThisInInitializationSection.kt");
-      }
-
-      @Test
-      @TestMetadata("throwInLambda.kt")
-      public void testThrowInLambda() {
-        runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/throwInLambda.kt");
       }
 
       @Test
@@ -8314,6 +8434,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("deadCodeDifferentExamples.kt")
         public void testDeadCodeDifferentExamples() {
           runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/deadCode/deadCodeDifferentExamples.kt");
+        }
+
+        @Test
+        @TestMetadata("deadCodeElvis.kt")
+        public void testDeadCodeElvis() {
+          runTest("compiler/testData/diagnostics/tests/controlFlowAnalysis/deadCode/deadCodeElvis.kt");
         }
 
         @Test
@@ -8908,6 +9034,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("returnFromLambdaInDefaultArgument.kt")
+      public void testReturnFromLambdaInDefaultArgument() {
+        runTest("compiler/testData/diagnostics/tests/controlStructures/returnFromLambdaInDefaultArgument.kt");
+      }
+
+      @Test
       @TestMetadata("specialConstructsAndPlatformTypes.kt")
       public void testSpecialConstructsAndPlatformTypes() {
         runTest("compiler/testData/diagnostics/tests/controlStructures/specialConstructsAndPlatformTypes.kt");
@@ -9145,6 +9277,194 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
             runTest("compiler/testData/diagnostics/tests/coroutines/suspendFunctionAsSupertype/suspendFunctionN/simple.kt");
           }
         }
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/crv")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Crv {
+      @Test
+      @TestMetadata("assignments.kt")
+      public void testAssignments() {
+        runTest("compiler/testData/diagnostics/tests/crv/assignments.kt");
+      }
+
+      @Test
+      @TestMetadata("basic.kt")
+      public void testBasic() {
+        runTest("compiler/testData/diagnostics/tests/crv/basic.kt");
+      }
+
+      @Test
+      @TestMetadata("basicJInterop.kt")
+      public void testBasicJInterop() {
+        runTest("compiler/testData/diagnostics/tests/crv/basicJInterop.kt");
+      }
+
+      @Test
+      @TestMetadata("casts.kt")
+      public void testCasts() {
+        runTest("compiler/testData/diagnostics/tests/crv/casts.kt");
+      }
+
+      @Test
+      @TestMetadata("classesAndThis.kt")
+      public void testClassesAndThis() {
+        runTest("compiler/testData/diagnostics/tests/crv/classesAndThis.kt");
+      }
+
+      @Test
+      @TestMetadata("controlFlow.kt")
+      public void testControlFlow() {
+        runTest("compiler/testData/diagnostics/tests/crv/controlFlow.kt");
+      }
+
+      @Test
+      @TestMetadata("enums.kt")
+      public void testEnums() {
+        runTest("compiler/testData/diagnostics/tests/crv/enums.kt");
+      }
+
+      @Test
+      @TestMetadata("exclusions.kt")
+      public void testExclusions() {
+        runTest("compiler/testData/diagnostics/tests/crv/exclusions.kt");
+      }
+
+      @Test
+      @TestMetadata("ignorabilityOnClassMembers.kt")
+      public void testIgnorabilityOnClassMembers() {
+        runTest("compiler/testData/diagnostics/tests/crv/ignorabilityOnClassMembers.kt");
+      }
+
+      @Test
+      @TestMetadata("ignorabilityOnOverride.kt")
+      public void testIgnorabilityOnOverride() {
+        runTest("compiler/testData/diagnostics/tests/crv/ignorabilityOnOverride.kt");
+      }
+
+      @Test
+      @TestMetadata("lambdas.kt")
+      public void testLambdas() {
+        runTest("compiler/testData/diagnostics/tests/crv/lambdas.kt");
+      }
+
+      @Test
+      @TestMetadata("loops.kt")
+      public void testLoops() {
+        runTest("compiler/testData/diagnostics/tests/crv/loops.kt");
+      }
+
+      @Test
+      @TestMetadata("mustUseReturnValueOnAnonimObject.kt")
+      public void testMustUseReturnValueOnAnonimObject() {
+        runTest("compiler/testData/diagnostics/tests/crv/mustUseReturnValueOnAnonimObject.kt");
+      }
+
+      @Test
+      @TestMetadata("nestedScopesInsideClass.kt")
+      public void testNestedScopesInsideClass() {
+        runTest("compiler/testData/diagnostics/tests/crv/nestedScopesInsideClass.kt");
+      }
+
+      @Test
+      @TestMetadata("nestedScopesInsideFile.kt")
+      public void testNestedScopesInsideFile() {
+        runTest("compiler/testData/diagnostics/tests/crv/nestedScopesInsideFile.kt");
+      }
+
+      @Test
+      @TestMetadata("nullability.kt")
+      public void testNullability() {
+        runTest("compiler/testData/diagnostics/tests/crv/nullability.kt");
+      }
+
+      @Test
+      @TestMetadata("receiverInFunctionalCall.kt")
+      public void testReceiverInFunctionalCall() {
+        runTest("compiler/testData/diagnostics/tests/crv/receiverInFunctionalCall.kt");
+      }
+
+      @Test
+      @TestMetadata("scopes.kt")
+      public void testScopes() {
+        runTest("compiler/testData/diagnostics/tests/crv/scopes.kt");
+      }
+
+      @Test
+      @TestMetadata("usageInFunctionCall.kt")
+      public void testUsageInFunctionCall() {
+        runTest("compiler/testData/diagnostics/tests/crv/usageInFunctionCall.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/crvDifferent")
+    @TestDataPath("$PROJECT_ROOT")
+    public class CrvDifferent {
+      @Test
+      @TestMetadata("genericUseSiteSession.kt")
+      public void testGenericUseSiteSession() {
+        runTest("compiler/testData/diagnostics/tests/crvDifferent/genericUseSiteSession.kt");
+      }
+
+      @Test
+      @TestMetadata("halfEnabled.kt")
+      public void testHalfEnabled() {
+        runTest("compiler/testData/diagnostics/tests/crvDifferent/halfEnabled.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/crvDisabled")
+    @TestDataPath("$PROJECT_ROOT")
+    public class CrvDisabled {
+      @Test
+      @TestMetadata("disabledChecker.kt")
+      public void testDisabledChecker() {
+        runTest("compiler/testData/diagnostics/tests/crvDisabled/disabledChecker.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/crvFull")
+    @TestDataPath("$PROJECT_ROOT")
+    public class CrvFull {
+      @Test
+      @TestMetadata("anonObjects.kt")
+      public void testAnonObjects() {
+        runTest("compiler/testData/diagnostics/tests/crvFull/anonObjects.kt");
+      }
+
+      @Test
+      @TestMetadata("basic.kt")
+      public void testBasic() {
+        runTest("compiler/testData/diagnostics/tests/crvFull/basic.kt");
+      }
+
+      @Test
+      @TestMetadata("nestedClasses.kt")
+      public void testNestedClasses() {
+        runTest("compiler/testData/diagnostics/tests/crvFull/nestedClasses.kt");
+      }
+
+      @Test
+      @TestMetadata("nonCompilerAnnotations.kt")
+      public void testNonCompilerAnnotations() {
+        runTest("compiler/testData/diagnostics/tests/crvFull/nonCompilerAnnotations.kt");
+      }
+
+      @Test
+      @TestMetadata("overrides.kt")
+      public void testOverrides() {
+        runTest("compiler/testData/diagnostics/tests/crvFull/overrides.kt");
+      }
+
+      @Test
+      @TestMetadata("voidOverrides.kt")
+      public void testVoidOverrides() {
+        runTest("compiler/testData/diagnostics/tests/crvFull/voidOverrides.kt");
       }
     }
 
@@ -9591,6 +9911,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("innerOuterDataClass.kt")
       public void testInnerOuterDataClass() {
         runTest("compiler/testData/diagnostics/tests/dataClasses/innerOuterDataClass.kt");
+      }
+
+      @Test
+      @TestMetadata("missingDependencyInSupertype.kt")
+      public void testMissingDependencyInSupertype() {
+        runTest("compiler/testData/diagnostics/tests/dataClasses/missingDependencyInSupertype.kt");
       }
 
       @Test
@@ -10476,6 +10802,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("missingComponentN.kt")
         public void testMissingComponentN() {
           runTest("compiler/testData/diagnostics/tests/declarationChecks/destructuringDeclarations/missingComponentN.kt");
+        }
+
+        @Test
+        @TestMetadata("missingComponentOnFlexible.kt")
+        public void testMissingComponentOnFlexible() {
+          runTest("compiler/testData/diagnostics/tests/declarationChecks/destructuringDeclarations/missingComponentOnFlexible.kt");
         }
 
         @Test
@@ -12669,6 +13001,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestDataPath("$PROJECT_ROOT")
       public class Inner {
         @Test
+        @TestMetadata("constructorCallFromOutside.kt")
+        public void testConstructorCallFromOutside() {
+          runTest("compiler/testData/diagnostics/tests/enum/inner/constructorCallFromOutside.kt");
+        }
+
+        @Test
         @TestMetadata("existingClassObject.kt")
         public void testExistingClassObject() {
           runTest("compiler/testData/diagnostics/tests/enum/inner/existingClassObject.kt");
@@ -12925,6 +13263,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("illegalSelectorWithLambdaInReceiverAndSelector.kt")
+      public void testIllegalSelectorWithLambdaInReceiverAndSelector() {
+        runTest("compiler/testData/diagnostics/tests/exceptions/illegalSelectorWithLambdaInReceiverAndSelector.kt");
+      }
+
+      @Test
       @TestMetadata("incorrectCallOnILT.kt")
       public void testIncorrectCallOnILT() {
         runTest("compiler/testData/diagnostics/tests/exceptions/incorrectCallOnILT.kt");
@@ -12964,6 +13308,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("unresolvedReferenceDuringProjectionRelationChecking.kt")
       public void testUnresolvedReferenceDuringProjectionRelationChecking() {
         runTest("compiler/testData/diagnostics/tests/exceptions/unresolvedReferenceDuringProjectionRelationChecking.kt");
+      }
+
+      @Test
+      @TestMetadata("unresolvedTypeWithIllegalSelector.kt")
+      public void testUnresolvedTypeWithIllegalSelector() {
+        runTest("compiler/testData/diagnostics/tests/exceptions/unresolvedTypeWithIllegalSelector.kt");
       }
     }
 
@@ -13235,12 +13585,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("propertyInPrivateConstructor.kt")
-      public void testPropertyInPrivateConstructor() {
-        runTest("compiler/testData/diagnostics/tests/exposed/propertyInPrivateConstructor.kt");
-      }
-
-      @Test
       @TestMetadata("propertyInPrivateConstructorError.kt")
       public void testPropertyInPrivateConstructorError() {
         runTest("compiler/testData/diagnostics/tests/exposed/propertyInPrivateConstructorError.kt");
@@ -13471,6 +13815,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("contextualExtensionImplicitInvoke.kt")
+        public void testContextualExtensionImplicitInvoke() {
+          runTest("compiler/testData/diagnostics/tests/extensions/contextReceivers/contextualExtensionImplicitInvoke.kt");
+        }
+
+        @Test
         @TestMetadata("contextualFunctionalTypeConversion.kt")
         public void testContextualFunctionalTypeConversion() {
           runTest("compiler/testData/diagnostics/tests/extensions/contextReceivers/contextualFunctionalTypeConversion.kt");
@@ -13480,6 +13830,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("deprecated.kt")
         public void testDeprecated() {
           runTest("compiler/testData/diagnostics/tests/extensions/contextReceivers/deprecated.kt");
+        }
+
+        @Test
+        @TestMetadata("exposingContextReceiverType.kt")
+        public void testExposingContextReceiverType() {
+          runTest("compiler/testData/diagnostics/tests/extensions/contextReceivers/exposingContextReceiverType.kt");
         }
 
         @Test
@@ -13876,12 +14232,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("funInterfaceConstructorReferences_before.kt")
-      public void testFunInterfaceConstructorReferences_before() {
-        runTest("compiler/testData/diagnostics/tests/funInterface/funInterfaceConstructorReferences_before.kt");
-      }
-
-      @Test
       @TestMetadata("funInterfaceConversionOnReceiver.kt")
       public void testFunInterfaceConversionOnReceiver() {
         runTest("compiler/testData/diagnostics/tests/funInterface/funInterfaceConversionOnReceiver.kt");
@@ -14273,6 +14623,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("returnNullWithReturn.kt")
       public void testReturnNullWithReturn() {
         runTest("compiler/testData/diagnostics/tests/functionLiterals/returnNullWithReturn.kt");
+      }
+
+      @Test
+      @TestMetadata("returnTypeMismatchNullability.kt")
+      public void testReturnTypeMismatchNullability() {
+        runTest("compiler/testData/diagnostics/tests/functionLiterals/returnTypeMismatchNullability.kt");
       }
 
       @Test
@@ -14911,6 +15267,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("compiler/testData/diagnostics/tests/generics/cyclicBounds")
       @TestDataPath("$PROJECT_ROOT")
       public class CyclicBounds {
+        @Test
+        @TestMetadata("diagnosticMessages.kt")
+        public void testDiagnosticMessages() {
+          runTest("compiler/testData/diagnostics/tests/generics/cyclicBounds/diagnosticMessages.kt");
+        }
+
+        @Test
+        @TestMetadata("dontCheckOuterTypeParameterRefs.kt")
+        public void testDontCheckOuterTypeParameterRefs() {
+          runTest("compiler/testData/diagnostics/tests/generics/cyclicBounds/dontCheckOuterTypeParameterRefs.kt");
+        }
+
         @Test
         @TestMetadata("functions.kt")
         public void testFunctions() {
@@ -16317,6 +16685,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("expressionBodyEmptyParens.kt")
+        public void testExpressionBodyEmptyParens() {
+          runTest("compiler/testData/diagnostics/tests/incompleteCode/diagnosticWithSyntaxError/expressionBodyEmptyParens.kt");
+        }
+
+        @Test
         @TestMetadata("funEquals.kt")
         public void testFunEquals() {
           runTest("compiler/testData/diagnostics/tests/incompleteCode/diagnosticWithSyntaxError/funEquals.kt");
@@ -16332,6 +16706,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("funcitonTypes.kt")
         public void testFuncitonTypes() {
           runTest("compiler/testData/diagnostics/tests/incompleteCode/diagnosticWithSyntaxError/funcitonTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("incompleteCommentInCall.kt")
+        public void testIncompleteCommentInCall() {
+          runTest("compiler/testData/diagnostics/tests/incompleteCode/diagnosticWithSyntaxError/incompleteCommentInCall.kt");
         }
 
         @Test
@@ -16404,6 +16784,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("annotatedUnderscoredTypeArgument.kt")
       public void testAnnotatedUnderscoredTypeArgument() {
         runTest("compiler/testData/diagnostics/tests/inference/annotatedUnderscoredTypeArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("anonymousFunctionAgainsSuspendFunctionType.kt")
+      public void testAnonymousFunctionAgainsSuspendFunctionType() {
+        runTest("compiler/testData/diagnostics/tests/inference/anonymousFunctionAgainsSuspendFunctionType.kt");
+      }
+
+      @Test
+      @TestMetadata("argumentTypeMismatchWrongNumberOfTypeArgs.kt")
+      public void testArgumentTypeMismatchWrongNumberOfTypeArgs() {
+        runTest("compiler/testData/diagnostics/tests/inference/argumentTypeMismatchWrongNumberOfTypeArgs.kt");
       }
 
       @Test
@@ -16488,6 +16880,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("completionOfMultipleLambdas.kt")
       public void testCompletionOfMultipleLambdas() {
         runTest("compiler/testData/diagnostics/tests/inference/completionOfMultipleLambdas.kt");
+      }
+
+      @Test
+      @TestMetadata("ComplexGenericTypeMismatchInGenericLambdaReturnPosition.kt")
+      public void testComplexGenericTypeMismatchInGenericLambdaReturnPosition() {
+        runTest("compiler/testData/diagnostics/tests/inference/ComplexGenericTypeMismatchInGenericLambdaReturnPosition.kt");
       }
 
       @Test
@@ -17151,12 +17549,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("receiverTypeMismatch_withoutProper.kt")
-      public void testReceiverTypeMismatch_withoutProper() {
-        runTest("compiler/testData/diagnostics/tests/inference/receiverTypeMismatch_withoutProper.kt");
-      }
-
-      @Test
       @TestMetadata("recursiveGenericExtensionReceiver.kt")
       public void testRecursiveGenericExtensionReceiver() {
         runTest("compiler/testData/diagnostics/tests/inference/recursiveGenericExtensionReceiver.kt");
@@ -17190,12 +17582,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("selectOfLambdaWithExtension.kt")
       public void testSelectOfLambdaWithExtension() {
         runTest("compiler/testData/diagnostics/tests/inference/selectOfLambdaWithExtension.kt");
-      }
-
-      @Test
-      @TestMetadata("selectOfLambdaWithExtensionDisabled.kt")
-      public void testSelectOfLambdaWithExtensionDisabled() {
-        runTest("compiler/testData/diagnostics/tests/inference/selectOfLambdaWithExtensionDisabled.kt");
       }
 
       @Test
@@ -17295,6 +17681,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("typeMismatchOnUninferred.kt")
+      public void testTypeMismatchOnUninferred() {
+        runTest("compiler/testData/diagnostics/tests/inference/typeMismatchOnUninferred.kt");
+      }
+
+      @Test
       @TestMetadata("typeParameterInConstructor.kt")
       public void testTypeParameterInConstructor() {
         runTest("compiler/testData/diagnostics/tests/inference/typeParameterInConstructor.kt");
@@ -17364,12 +17756,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("useFunctionLiteralsToInferType.kt")
       public void testUseFunctionLiteralsToInferType() {
         runTest("compiler/testData/diagnostics/tests/inference/useFunctionLiteralsToInferType.kt");
-      }
-
-      @Test
-      @TestMetadata("violatingUpperBoundForSelfType.kt")
-      public void testViolatingUpperBoundForSelfType() {
-        runTest("compiler/testData/diagnostics/tests/inference/violatingUpperBoundForSelfType.kt");
       }
 
       @Test
@@ -17619,6 +18005,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("expectedTypeMismatchWithInVariance.kt")
         public void testExpectedTypeMismatchWithInVariance() {
           runTest("compiler/testData/diagnostics/tests/inference/capturedTypes/expectedTypeMismatchWithInVariance.kt");
+        }
+
+        @Test
+        @TestMetadata("flexibleCapturedReceiver.kt")
+        public void testFlexibleCapturedReceiver() {
+          runTest("compiler/testData/diagnostics/tests/inference/capturedTypes/flexibleCapturedReceiver.kt");
         }
 
         @Test
@@ -18432,6 +18824,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("inferredToNothingDueToBoundsWithSelect.kt")
+        public void testInferredToNothingDueToBoundsWithSelect() {
+          runTest("compiler/testData/diagnostics/tests/inference/emptyIntersectionTypes/inferredToNothingDueToBoundsWithSelect.kt");
+        }
+
+        @Test
         @TestMetadata("kt45461.kt")
         public void testKt45461() {
           runTest("compiler/testData/diagnostics/tests/inference/emptyIntersectionTypes/kt45461.kt");
@@ -18767,9 +19165,21 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestDataPath("$PROJECT_ROOT")
       public class Forks {
         @Test
+        @TestMetadata("failForkPointWhenNoneOfThemSuccessful.kt")
+        public void testFailForkPointWhenNoneOfThemSuccessful() {
+          runTest("compiler/testData/diagnostics/tests/inference/forks/failForkPointWhenNoneOfThemSuccessful.kt");
+        }
+
+        @Test
         @TestMetadata("forkInWhen.kt")
         public void testForkInWhen() {
           runTest("compiler/testData/diagnostics/tests/inference/forks/forkInWhen.kt");
+        }
+
+        @Test
+        @TestMetadata("kt75444Original.kt")
+        public void testKt75444Original() {
+          runTest("compiler/testData/diagnostics/tests/inference/forks/kt75444Original.kt");
         }
 
         @Test
@@ -20738,6 +21148,60 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
           public void testKt72272() {
             runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt72272.kt");
           }
+
+          @Test
+          @TestMetadata("kt74819.kt")
+          public void testKt74819() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819a.kt")
+          public void testKt74819a() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819a.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819b.kt")
+          public void testKt74819b() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819b.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819c.kt")
+          public void testKt74819c() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819c.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819d.kt")
+          public void testKt74819d() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819d.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819f.kt")
+          public void testKt74819f() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819f.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819g.kt")
+          public void testKt74819g() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819g.kt");
+          }
+
+          @Test
+          @TestMetadata("kt74819h.kt")
+          public void testKt74819h() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt74819h.kt");
+          }
+
+          @Test
+          @TestMetadata("kt76171WithoutAnonymousObjects.kt")
+          public void testKt76171WithoutAnonymousObjects() {
+            runTest("compiler/testData/diagnostics/tests/inference/pcla/issues/kt76171WithoutAnonymousObjects.kt");
+          }
         }
 
         @Nested
@@ -21302,29 +21766,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestDataPath("$PROJECT_ROOT")
         public class SelfTypes {
           @Nested
-          @TestMetadata("compiler/testData/diagnostics/tests/inference/recursiveTypes/selfTypes/disabledInferenceOnSelfTypes")
-          @TestDataPath("$PROJECT_ROOT")
-          public class DisabledInferenceOnSelfTypes {
-            @Test
-            @TestMetadata("basicInferenceForImplicitSelfType.kt")
-            public void testBasicInferenceForImplicitSelfType() {
-              runTest("compiler/testData/diagnostics/tests/inference/recursiveTypes/selfTypes/disabledInferenceOnSelfTypes/basicInferenceForImplicitSelfType.kt");
-            }
-
-            @Test
-            @TestMetadata("recursiveTypeWithTwoTypeParams.kt")
-            public void testRecursiveTypeWithTwoTypeParams() {
-              runTest("compiler/testData/diagnostics/tests/inference/recursiveTypes/selfTypes/disabledInferenceOnSelfTypes/recursiveTypeWithTwoTypeParams.kt");
-            }
-
-            @Test
-            @TestMetadata("writerAppenderExampleRecursive.kt")
-            public void testWriterAppenderExampleRecursive() {
-              runTest("compiler/testData/diagnostics/tests/inference/recursiveTypes/selfTypes/disabledInferenceOnSelfTypes/writerAppenderExampleRecursive.kt");
-            }
-          }
-
-          @Nested
           @TestMetadata("compiler/testData/diagnostics/tests/inference/recursiveTypes/selfTypes/enabledInferenceOnSelfTypes")
           @TestDataPath("$PROJECT_ROOT")
           public class EnabledInferenceOnSelfTypes {
@@ -21744,12 +22185,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("kt41394.kt")
-        public void testKt41394() {
-          runTest("compiler/testData/diagnostics/tests/inference/regressions/kt41394.kt");
-        }
-
-        @Test
         @TestMetadata("kt4420.kt")
         public void testKt4420() {
           runTest("compiler/testData/diagnostics/tests/inference/regressions/kt4420.kt");
@@ -21819,6 +22254,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("noRecursionOnCallingPureKotlinFunctionAsSyntheticJavaAccessor.kt")
         public void testNoRecursionOnCallingPureKotlinFunctionAsSyntheticJavaAccessor() {
           runTest("compiler/testData/diagnostics/tests/inference/regressions/noRecursionOnCallingPureKotlinFunctionAsSyntheticJavaAccessor.kt");
+        }
+
+        @Test
+        @TestMetadata("preferLowerToUpperConstraint.kt")
+        public void testPreferLowerToUpperConstraint() {
+          runTest("compiler/testData/diagnostics/tests/inference/regressions/preferLowerToUpperConstraint.kt");
         }
       }
 
@@ -22111,6 +22552,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("callableReferenceOnInlineParameter.kt")
+      public void testCallableReferenceOnInlineParameter() {
+        runTest("compiler/testData/diagnostics/tests/inline/callableReferenceOnInlineParameter.kt");
+      }
+
+      @Test
       @TestMetadata("capture.kt")
       public void testCapture() {
         runTest("compiler/testData/diagnostics/tests/inline/capture.kt");
@@ -22138,6 +22585,72 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("defaultLambdaInlining.kt")
       public void testDefaultLambdaInlining() {
         runTest("compiler/testData/diagnostics/tests/inline/defaultLambdaInlining.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingInternalTypesInProtected.kt")
+      public void testExposingInternalTypesInProtected() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingInternalTypesInProtected.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingInternalTypesInProtectedAfter.kt")
+      public void testExposingInternalTypesInProtectedAfter() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingInternalTypesInProtectedAfter.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingObjects.kt")
+      public void testExposingObjects() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingObjects.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingObjectsAfter.kt")
+      public void testExposingObjectsAfter() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingObjectsAfter.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateCallableReferenceInInternal.kt")
+      public void testExposingPrivateCallableReferenceInInternal() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateCallableReferenceInInternal.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateCallableReferenceInInternalAfter.kt")
+      public void testExposingPrivateCallableReferenceInInternalAfter() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateCallableReferenceInInternalAfter.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateCallableReferenceInPublic.kt")
+      public void testExposingPrivateCallableReferenceInPublic() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateCallableReferenceInPublic.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateTypeInInternal.kt")
+      public void testExposingPrivateTypeInInternal() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateTypeInInternal.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateTypeInInternalAfter.kt")
+      public void testExposingPrivateTypeInInternalAfter() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateTypeInInternalAfter.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateTypeInPublic.kt")
+      public void testExposingPrivateTypeInPublic() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateTypeInPublic.kt");
+      }
+
+      @Test
+      @TestMetadata("exposingPrivateTypeInPublicAfter.kt")
+      public void testExposingPrivateTypeInPublicAfter() {
+        runTest("compiler/testData/diagnostics/tests/inline/exposingPrivateTypeInPublicAfter.kt");
       }
 
       @Test
@@ -22707,6 +23220,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("nonLocalReturnInSubstitutionOverride.kt")
+        public void testNonLocalReturnInSubstitutionOverride() {
+          runTest("compiler/testData/diagnostics/tests/inline/nonLocalReturns/nonLocalReturnInSubstitutionOverride.kt");
+        }
+
+        @Test
         @TestMetadata("onlyLocalReturnLambda.kt")
         public void testOnlyLocalReturnLambda() {
           runTest("compiler/testData/diagnostics/tests/inline/nonLocalReturns/onlyLocalReturnLambda.kt");
@@ -22735,6 +23254,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("compiler/testData/diagnostics/tests/inline/nonPublicMember")
       @TestDataPath("$PROJECT_ROOT")
       public class NonPublicMember {
+        @Test
+        @TestMetadata("delegatedConstructorOfPrivateClass.kt")
+        public void testDelegatedConstructorOfPrivateClass() {
+          runTest("compiler/testData/diagnostics/tests/inline/nonPublicMember/delegatedConstructorOfPrivateClass.kt");
+        }
+
         @Test
         @TestMetadata("enumMemberInAnnotation.kt")
         public void testEnumMemberInAnnotation() {
@@ -23797,6 +24322,30 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("javaField.kt")
+      public void testJavaField() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaField.kt");
+      }
+
+      @Test
+      @TestMetadata("javaFieldViaJJInheritance.kt")
+      public void testJavaFieldViaJJInheritance() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaFieldViaJJInheritance.kt");
+      }
+
+      @Test
+      @TestMetadata("javaFieldViaJKJInheritance.kt")
+      public void testJavaFieldViaJKJInheritance() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaFieldViaJKJInheritance.kt");
+      }
+
+      @Test
+      @TestMetadata("javaFieldViaKJInheritance.kt")
+      public void testJavaFieldViaKJInheritance() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaFieldViaKJInheritance.kt");
+      }
+
+      @Test
       @TestMetadata("javaLangStringCtr.kt")
       public void testJavaLangStringCtr() {
         runTest("compiler/testData/diagnostics/tests/j+k/javaLangStringCtr.kt");
@@ -23812,6 +24361,30 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("javaOverrideOfExtensionProperty.kt")
       public void testJavaOverrideOfExtensionProperty() {
         runTest("compiler/testData/diagnostics/tests/j+k/javaOverrideOfExtensionProperty.kt");
+      }
+
+      @Test
+      @TestMetadata("javaStaticField.kt")
+      public void testJavaStaticField() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaStaticField.kt");
+      }
+
+      @Test
+      @TestMetadata("javaStaticFieldViaJJInheritance.kt")
+      public void testJavaStaticFieldViaJJInheritance() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaStaticFieldViaJJInheritance.kt");
+      }
+
+      @Test
+      @TestMetadata("javaStaticFieldViaJKJInheritance.kt")
+      public void testJavaStaticFieldViaJKJInheritance() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaStaticFieldViaJKJInheritance.kt");
+      }
+
+      @Test
+      @TestMetadata("javaStaticFieldViaKJInheritance.kt")
+      public void testJavaStaticFieldViaKJInheritance() {
+        runTest("compiler/testData/diagnostics/tests/j+k/javaStaticFieldViaKJInheritance.kt");
       }
 
       @Test
@@ -23971,6 +24544,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("manyImplNotImplementedComplexHierarchy.kt")
+      public void testManyImplNotImplementedComplexHierarchy() {
+        runTest("compiler/testData/diagnostics/tests/j+k/manyImplNotImplementedComplexHierarchy.kt");
+      }
+
+      @Test
+      @TestMetadata("manyImplNotImplementedComplexHierarchy2.kt")
+      public void testManyImplNotImplementedComplexHierarchy2() {
+        runTest("compiler/testData/diagnostics/tests/j+k/manyImplNotImplementedComplexHierarchy2.kt");
+      }
+
+      @Test
       @TestMetadata("matchers.kt")
       public void testMatchers() {
         runTest("compiler/testData/diagnostics/tests/j+k/matchers.kt");
@@ -24064,6 +24649,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("overrideWithTypeParameterAfter.kt")
       public void testOverrideWithTypeParameterAfter() {
         runTest("compiler/testData/diagnostics/tests/j+k/overrideWithTypeParameterAfter.kt");
+      }
+
+      @Test
+      @TestMetadata("overrideWithTypeParameterNoFlexible.kt")
+      public void testOverrideWithTypeParameterNoFlexible() {
+        runTest("compiler/testData/diagnostics/tests/j+k/overrideWithTypeParameterNoFlexible.kt");
       }
 
       @Test
@@ -25998,6 +26589,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("loopParameter.kt")
+        public void testLoopParameter() {
+          runTest("compiler/testData/diagnostics/tests/lateinit/local/loopParameter.kt");
+        }
+
+        @Test
         @TestMetadata("uninitialized.kt")
         public void testUninitialized() {
           runTest("compiler/testData/diagnostics/tests/lateinit/local/uninitialized.kt");
@@ -26523,6 +27120,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("InaccessibleIntersectionType.kt")
       public void testInaccessibleIntersectionType() {
         runTest("compiler/testData/diagnostics/tests/multimodule/InaccessibleIntersectionType.kt");
+      }
+
+      @Test
+      @TestMetadata("inaccessibleSuperTypeWithRepeatedContext.kt")
+      public void testInaccessibleSuperTypeWithRepeatedContext() {
+        runTest("compiler/testData/diagnostics/tests/multimodule/inaccessibleSuperTypeWithRepeatedContext.kt");
       }
 
       @Test
@@ -27367,12 +27970,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("platformRedeclarationOfExpect.kt")
-      public void testPlatformRedeclarationOfExpect() {
-        runTest("compiler/testData/diagnostics/tests/multiplatform/platformRedeclarationOfExpect.kt");
-      }
-
-      @Test
       @TestMetadata("privateExpectFakeOverride.kt")
       public void testPrivateExpectFakeOverride() {
         runTest("compiler/testData/diagnostics/tests/multiplatform/privateExpectFakeOverride.kt");
@@ -27436,6 +28033,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("typeResolutionOfNestedClassActualizedViaTypealias.kt")
       public void testTypeResolutionOfNestedClassActualizedViaTypealias() {
         runTest("compiler/testData/diagnostics/tests/multiplatform/typeResolutionOfNestedClassActualizedViaTypealias.kt");
+      }
+
+      @Test
+      @TestMetadata("valueClassWithExtraProperty.kt")
+      public void testValueClassWithExtraProperty() {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/valueClassWithExtraProperty.kt");
       }
 
       @Test
@@ -28968,12 +29571,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("expectsHmppRedeclaration.kt")
-        public void testExpectsHmppRedeclaration() {
-          runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/expectsHmppRedeclaration.kt");
-        }
-
-        @Test
         @TestMetadata("hmppModalityClash.kt")
         public void testHmppModalityClash() {
           runTest("compiler/testData/diagnostics/tests/multiplatform/hmpp/hmppModalityClash.kt");
@@ -29111,6 +29708,107 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Nested
+      @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement")
+      @TestDataPath("$PROJECT_ROOT")
+      public class HmppRefinement {
+        @Test
+        @TestMetadata("actualTypealias.kt")
+        public void testActualTypealias() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/actualTypealias.kt");
+        }
+
+        @Test
+        @TestMetadata("actualWithoutExpect.kt")
+        public void testActualWithoutExpect() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/actualWithoutExpect.kt");
+        }
+
+        @Test
+        @TestMetadata("addNewMembersRefinement.kt")
+        public void testAddNewMembersRefinement() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/addNewMembersRefinement.kt");
+        }
+
+        @Test
+        @TestMetadata("defaultParameters.kt")
+        public void testDefaultParameters() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/defaultParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("doubleActuals.kt")
+        public void testDoubleActuals() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/doubleActuals.kt");
+        }
+
+        @Test
+        @TestMetadata("expectRefinementAnnotationMissing.kt")
+        public void testExpectRefinementAnnotationMissing() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/expectRefinementAnnotationMissing.kt");
+        }
+
+        @Test
+        @TestMetadata("expectRefinementAnnotationWrongTargets.kt")
+        public void testExpectRefinementAnnotationWrongTargets() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/expectRefinementAnnotationWrongTargets.kt");
+        }
+
+        @Test
+        @TestMetadata("expectsConflictingOverloads.kt")
+        public void testExpectsConflictingOverloads() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/expectsConflictingOverloads.kt");
+        }
+
+        @Test
+        @TestMetadata("expectsHmppBasicRefinement.kt")
+        public void testExpectsHmppBasicRefinement() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/expectsHmppBasicRefinement.kt");
+        }
+
+        @Test
+        @TestMetadata("invalidRefinement_dropMember.kt")
+        public void testInvalidRefinement_dropMember() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/invalidRefinement_dropMember.kt");
+        }
+
+        @Test
+        @TestMetadata("invalidRefinement_incorrectDependsOnGraph.kt")
+        public void testInvalidRefinement_incorrectDependsOnGraph() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/invalidRefinement_incorrectDependsOnGraph.kt");
+        }
+
+        @Test
+        @TestMetadata("invalidRefinement_returnType.kt")
+        public void testInvalidRefinement_returnType() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/invalidRefinement_returnType.kt");
+        }
+
+        @Test
+        @TestMetadata("propertiesRefinement.kt")
+        public void testPropertiesRefinement() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/propertiesRefinement.kt");
+        }
+
+        @Test
+        @TestMetadata("turnOffExpectRefinementFeature.kt")
+        public void testTurnOffExpectRefinementFeature() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/turnOffExpectRefinementFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("unrelatedExpects.kt")
+        public void testUnrelatedExpects() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/unrelatedExpects.kt");
+        }
+
+        @Test
+        @TestMetadata("widenVisibilityRefinement.kt")
+        public void testWidenVisibilityRefinement() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/hmppRefinement/widenVisibilityRefinement.kt");
+        }
+      }
+
+      @Nested
       @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/inlineClasses")
       @TestDataPath("$PROJECT_ROOT")
       public class InlineClasses {
@@ -29243,6 +29941,23 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("varPropertyAgainstJavaGetterAndNonFinalField.kt")
         public void testVarPropertyAgainstJavaGetterAndNonFinalField() {
           runTest("compiler/testData/diagnostics/tests/multiplatform/java/varPropertyAgainstJavaGetterAndNonFinalField.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/testData/diagnostics/tests/multiplatform/lenientMode")
+      @TestDataPath("$PROJECT_ROOT")
+      public class LenientMode {
+        @Test
+        @TestMetadata("supported.kt")
+        public void testSupported() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/lenientMode/supported.kt");
+        }
+
+        @Test
+        @TestMetadata("unsupported.kt")
+        public void testUnsupported() {
+          runTest("compiler/testData/diagnostics/tests/multiplatform/lenientMode/unsupported.kt");
         }
       }
 
@@ -29685,6 +30400,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("multipleJavaCandidates.kt")
+      public void testMultipleJavaCandidates() {
+        runTest("compiler/testData/diagnostics/tests/namedArguments/multipleJavaCandidates.kt");
+      }
+
+      @Test
       @TestMetadata("multipleJavaOverloadsNamedArgumentsNotAllowed.kt")
       public void testMultipleJavaOverloadsNamedArgumentsNotAllowed() {
         runTest("compiler/testData/diagnostics/tests/namedArguments/multipleJavaOverloadsNamedArgumentsNotAllowed.kt");
@@ -30060,6 +30781,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("nullableSupertypeWithTypealiases.kt")
+      public void testNullableSupertypeWithTypealiases() {
+        runTest("compiler/testData/diagnostics/tests/nullableTypes/nullableSupertypeWithTypealiases.kt");
+      }
+
+      @Test
+      @TestMetadata("nullableSupertypeWithoutTypealiases.kt")
+      public void testNullableSupertypeWithoutTypealiases() {
+        runTest("compiler/testData/diagnostics/tests/nullableTypes/nullableSupertypeWithoutTypealiases.kt");
+      }
+
+      @Test
       @TestMetadata("redundantNullable.kt")
       public void testRedundantNullable() {
         runTest("compiler/testData/diagnostics/tests/nullableTypes/redundantNullable.kt");
@@ -30075,12 +30808,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("safeAccessOnUnit.kt")
       public void testSafeAccessOnUnit() {
         runTest("compiler/testData/diagnostics/tests/nullableTypes/safeAccessOnUnit.kt");
-      }
-
-      @Test
-      @TestMetadata("safeCallOnNotNullableType.kt")
-      public void testSafeCallOnNotNullableType() {
-        runTest("compiler/testData/diagnostics/tests/nullableTypes/safeCallOnNotNullableType.kt");
       }
 
       @Test
@@ -30631,6 +31358,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("missingCompareToTypeMismatchOnInapplicableOperatorFun.kt")
+      public void testMissingCompareToTypeMismatchOnInapplicableOperatorFun() {
+        runTest("compiler/testData/diagnostics/tests/operatorsOverloading/missingCompareToTypeMismatchOnInapplicableOperatorFun.kt");
+      }
+
+      @Test
       @TestMetadata("plusAssignOnArray.kt")
       public void testPlusAssignOnArray() {
         runTest("compiler/testData/diagnostics/tests/operatorsOverloading/plusAssignOnArray.kt");
@@ -30740,6 +31473,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("ConflictingOverloadsValsDifferentTypeInClass.kt")
       public void testConflictingOverloadsValsDifferentTypeInClass() {
         runTest("compiler/testData/diagnostics/tests/overload/ConflictingOverloadsValsDifferentTypeInClass.kt");
+      }
+
+      @Test
+      @TestMetadata("conflictingOverloadsWithContextParameters.kt")
+      public void testConflictingOverloadsWithContextParameters() {
+        runTest("compiler/testData/diagnostics/tests/overload/conflictingOverloadsWithContextParameters.kt");
       }
 
       @Test
@@ -31509,6 +32248,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("overridesWithFlexibleBase5.kt")
+      public void testOverridesWithFlexibleBase5() {
+        runTest("compiler/testData/diagnostics/tests/override/overridesWithFlexibleBase5.kt");
+      }
+
+      @Test
       @TestMetadata("overridesWithFlexibleBaseOff.kt")
       public void testOverridesWithFlexibleBaseOff() {
         runTest("compiler/testData/diagnostics/tests/override/overridesWithFlexibleBaseOff.kt");
@@ -31530,6 +32275,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("overridesWithFlexibleBaseOff4.kt")
       public void testOverridesWithFlexibleBaseOff4() {
         runTest("compiler/testData/diagnostics/tests/override/overridesWithFlexibleBaseOff4.kt");
+      }
+
+      @Test
+      @TestMetadata("overridesWithFlexibleBaseOff5.kt")
+      public void testOverridesWithFlexibleBaseOff5() {
+        runTest("compiler/testData/diagnostics/tests/override/overridesWithFlexibleBaseOff5.kt");
       }
 
       @Test
@@ -33554,6 +34305,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("extensionWithContext.kt")
+        public void testExtensionWithContext() {
+          runTest("compiler/testData/diagnostics/tests/redeclarations/shadowedExtension/extensionWithContext.kt");
+        }
+
+        @Test
         @TestMetadata("infixExtensionVsNonInfixMember.kt")
         public void testInfixExtensionVsNonInfixMember() {
           runTest("compiler/testData/diagnostics/tests/redeclarations/shadowedExtension/infixExtensionVsNonInfixMember.kt");
@@ -34924,6 +35681,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("dslMarkerNamedArgumentLambda.kt")
+        public void testDslMarkerNamedArgumentLambda() {
+          runTest("compiler/testData/diagnostics/tests/resolve/dslMarker/dslMarkerNamedArgumentLambda.kt");
+        }
+
+        @Test
         @TestMetadata("dslMarkerOnExpectedTypeForInvokeExtensionCall.kt")
         public void testDslMarkerOnExpectedTypeForInvokeExtensionCall() {
           runTest("compiler/testData/diagnostics/tests/resolve/dslMarker/dslMarkerOnExpectedTypeForInvokeExtensionCall.kt");
@@ -35852,6 +36615,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("samConversionToGenericWrongNullabilityForbiddenAndNoFlexible.kt")
+      public void testSamConversionToGenericWrongNullabilityForbiddenAndNoFlexible() {
+        runTest("compiler/testData/diagnostics/tests/samConversions/samConversionToGenericWrongNullabilityForbiddenAndNoFlexible.kt");
+      }
+
+      @Test
       @TestMetadata("samConversionWithCallableReference.kt")
       public void testSamConversionWithCallableReference() {
         runTest("compiler/testData/diagnostics/tests/samConversions/samConversionWithCallableReference.kt");
@@ -35933,6 +36702,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("samWithLambdaDnnRepresentation.kt")
       public void testSamWithLambdaDnnRepresentation() {
         runTest("compiler/testData/diagnostics/tests/samConversions/samWithLambdaDnnRepresentation.kt");
+      }
+
+      @Test
+      @TestMetadata("samWithLambdaNoFlexible.kt")
+      public void testSamWithLambdaNoFlexible() {
+        runTest("compiler/testData/diagnostics/tests/samConversions/samWithLambdaNoFlexible.kt");
       }
 
       @Test
@@ -39196,6 +39971,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("loopInInitBlock.kt")
+        public void testLoopInInitBlock() {
+          runTest("compiler/testData/diagnostics/tests/smartCasts/loops/loopInInitBlock.kt");
+        }
+
+        @Test
         @TestMetadata("nestedDoWhile.kt")
         public void testNestedDoWhile() {
           runTest("compiler/testData/diagnostics/tests/smartCasts/loops/nestedDoWhile.kt");
@@ -39834,9 +40615,21 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("propertyFromDependencyModule.kt")
+        public void testPropertyFromDependencyModule() {
+          runTest("compiler/testData/diagnostics/tests/smartCasts/variables/propertyFromDependencyModule.kt");
+        }
+
+        @Test
         @TestMetadata("propertyFromDependsOnModule.kt")
         public void testPropertyFromDependsOnModule() {
           runTest("compiler/testData/diagnostics/tests/smartCasts/variables/propertyFromDependsOnModule.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyFromFriendsModule.kt")
+        public void testPropertyFromFriendsModule() {
+          runTest("compiler/testData/diagnostics/tests/smartCasts/variables/propertyFromFriendsModule.kt");
         }
 
         @Test
@@ -40791,6 +41584,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("complexCases.kt")
+      public void testComplexCases() {
+        runTest("compiler/testData/diagnostics/tests/suspendConversion/complexCases.kt");
+      }
+
+      @Test
       @TestMetadata("conversionInLastStatementOfWhenBranch.kt")
       public void testConversionInLastStatementOfWhenBranch() {
         runTest("compiler/testData/diagnostics/tests/suspendConversion/conversionInLastStatementOfWhenBranch.kt");
@@ -41454,6 +42253,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("extensions.kt")
+      public void testExtensions() {
+        runTest("compiler/testData/diagnostics/tests/testsWithExplicitReturnTypes/extensions.kt");
+      }
+
+      @Test
       @TestMetadata("interfaces.kt")
       public void testInterfaces() {
         runTest("compiler/testData/diagnostics/tests/testsWithExplicitReturnTypes/interfaces.kt");
@@ -42079,12 +42884,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("inProjectedDnnParameter.kt")
       public void testInProjectedDnnParameter() {
         runTest("compiler/testData/diagnostics/tests/typeParameters/inProjectedDnnParameter.kt");
-      }
-
-      @Test
-      @TestMetadata("kt42042.kt")
-      public void testKt42042() {
-        runTest("compiler/testData/diagnostics/tests/typeParameters/kt42042.kt");
       }
 
       @Test
@@ -43062,6 +43861,53 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Nested
+    @TestMetadata("compiler/testData/diagnostics/tests/unnamedLocalVariables")
+    @TestDataPath("$PROJECT_ROOT")
+    public class UnnamedLocalVariables {
+      @Test
+      @TestMetadata("unnamedLocalVariableVsNamedUnderscore.kt")
+      public void testUnnamedLocalVariableVsNamedUnderscore() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedLocalVariableVsNamedUnderscore.kt");
+      }
+
+      @Test
+      @TestMetadata("unnamedLocalVariableVsNamedUnderscore_Disabled.kt")
+      public void testUnnamedLocalVariableVsNamedUnderscore_Disabled() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedLocalVariableVsNamedUnderscore_Disabled.kt");
+      }
+
+      @Test
+      @TestMetadata("unnamedLocalVariableWithUnderscoreJavaField.kt")
+      public void testUnnamedLocalVariableWithUnderscoreJavaField() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedLocalVariableWithUnderscoreJavaField.kt");
+      }
+
+      @Test
+      @TestMetadata("unnamedLocalVariables.kt")
+      public void testUnnamedLocalVariables() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedLocalVariables.kt");
+      }
+
+      @Test
+      @TestMetadata("unnamedLocalVariablesAndUnderscore.kt")
+      public void testUnnamedLocalVariablesAndUnderscore() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedLocalVariablesAndUnderscore.kt");
+      }
+
+      @Test
+      @TestMetadata("unnamedLocalVariables_Disabled.kt")
+      public void testUnnamedLocalVariables_Disabled() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedLocalVariables_Disabled.kt");
+      }
+
+      @Test
+      @TestMetadata("unnamedTypeArgumentVsNamedUnderscore.kt")
+      public void testUnnamedTypeArgumentVsNamedUnderscore() {
+        runTest("compiler/testData/diagnostics/tests/unnamedLocalVariables/unnamedTypeArgumentVsNamedUnderscore.kt");
+      }
+    }
+
+    @Nested
     @TestMetadata("compiler/testData/diagnostics/tests/unsignedTypes")
     @TestDataPath("$PROJECT_ROOT")
     public class UnsignedTypes {
@@ -43399,15 +44245,15 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("assignArrayToVararagInNamedFormWithInference.kt")
-      public void testAssignArrayToVararagInNamedFormWithInference() {
-        runTest("compiler/testData/diagnostics/tests/varargs/assignArrayToVararagInNamedFormWithInference.kt");
+      @TestMetadata("assignArrayToVararagInNamedForm.kt")
+      public void testAssignArrayToVararagInNamedForm() {
+        runTest("compiler/testData/diagnostics/tests/varargs/assignArrayToVararagInNamedForm.kt");
       }
 
       @Test
-      @TestMetadata("assignArrayToVararagInNamedForm_1_4.kt")
-      public void testAssignArrayToVararagInNamedForm_1_4() {
-        runTest("compiler/testData/diagnostics/tests/varargs/assignArrayToVararagInNamedForm_1_4.kt");
+      @TestMetadata("assignArrayToVararagInNamedFormWithInference.kt")
+      public void testAssignArrayToVararagInNamedFormWithInference() {
+        runTest("compiler/testData/diagnostics/tests/varargs/assignArrayToVararagInNamedFormWithInference.kt");
       }
 
       @Test
@@ -43429,21 +44275,15 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("assigningSingleElementsInNamedFormAnnDeprecation_after.kt")
-      public void testAssigningSingleElementsInNamedFormAnnDeprecation_after() {
-        runTest("compiler/testData/diagnostics/tests/varargs/assigningSingleElementsInNamedFormAnnDeprecation_after.kt");
+      @TestMetadata("assigningSingleElementsInNamedFormAnnDeprecation.kt")
+      public void testAssigningSingleElementsInNamedFormAnnDeprecation() {
+        runTest("compiler/testData/diagnostics/tests/varargs/assigningSingleElementsInNamedFormAnnDeprecation.kt");
       }
 
       @Test
-      @TestMetadata("assigningSingleElementsInNamedFormAnnDeprecation_before.kt")
-      public void testAssigningSingleElementsInNamedFormAnnDeprecation_before() {
-        runTest("compiler/testData/diagnostics/tests/varargs/assigningSingleElementsInNamedFormAnnDeprecation_before.kt");
-      }
-
-      @Test
-      @TestMetadata("assigningSingleElementsInNamedFormFunDeprecation_after.kt")
-      public void testAssigningSingleElementsInNamedFormFunDeprecation_after() {
-        runTest("compiler/testData/diagnostics/tests/varargs/assigningSingleElementsInNamedFormFunDeprecation_after.kt");
+      @TestMetadata("assigningSingleElementsInNamedFormFunDeprecation.kt")
+      public void testAssigningSingleElementsInNamedFormFunDeprecation() {
+        runTest("compiler/testData/diagnostics/tests/varargs/assigningSingleElementsInNamedFormFunDeprecation.kt");
       }
 
       @Test
@@ -44353,12 +45193,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("kt48653_before.kt")
-      public void testKt48653_before() {
-        runTest("compiler/testData/diagnostics/tests/when/kt48653_before.kt");
-      }
-
-      @Test
       @TestMetadata("kt49702.kt")
       public void testKt49702() {
         runTest("compiler/testData/diagnostics/tests/when/kt49702.kt");
@@ -44473,18 +45307,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("nonExhaustiveWhenStatement_1_5.kt")
-      public void testNonExhaustiveWhenStatement_1_5() {
-        runTest("compiler/testData/diagnostics/tests/when/nonExhaustiveWhenStatement_1_5.kt");
-      }
-
-      @Test
-      @TestMetadata("nonExhaustiveWhenStatement_1_6.kt")
-      public void testNonExhaustiveWhenStatement_1_6() {
-        runTest("compiler/testData/diagnostics/tests/when/nonExhaustiveWhenStatement_1_6.kt");
-      }
-
-      @Test
       @TestMetadata("nonExhaustiveWhenStatement_1_7.kt")
       public void testNonExhaustiveWhenStatement_1_7() {
         runTest("compiler/testData/diagnostics/tests/when/nonExhaustiveWhenStatement_1_7.kt");
@@ -44588,6 +45410,96 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("ExhaustiveStarProjection.kt")
         public void testExhaustiveStarProjection() {
           runTest("compiler/testData/diagnostics/tests/when/exhaustive/ExhaustiveStarProjection.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeBooleans.kt")
+        public void testExhaustiveWithNegativeBooleans() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeBooleans.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeContract.kt")
+        public void testExhaustiveWithNegativeContract() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeContract.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeDataClasses.kt")
+        public void testExhaustiveWithNegativeDataClasses() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeDataClasses.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeDeepSealedHierarchy.kt")
+        public void testExhaustiveWithNegativeDeepSealedHierarchy() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeDeepSealedHierarchy.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeEnums.kt")
+        public void testExhaustiveWithNegativeEnums() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeEnums.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeEnums_Disabled.kt")
+        public void testExhaustiveWithNegativeEnums_Disabled() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeEnums_Disabled.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeNullable.kt")
+        public void testExhaustiveWithNegativeNullable() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeNullable.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeSealedDataObjects.kt")
+        public void testExhaustiveWithNegativeSealedDataObjects() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeSealedDataObjects.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeSealedTypes.kt")
+        public void testExhaustiveWithNegativeSealedTypes() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeSealedTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeUntrustworthySealedTypes.kt")
+        public void testExhaustiveWithNegativeUntrustworthySealedTypes() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeUntrustworthySealedTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeUntrustworthySealedTypesFromAnotherModule.kt")
+        public void testExhaustiveWithNegativeUntrustworthySealedTypesFromAnotherModule() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeUntrustworthySealedTypesFromAnotherModule.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithNegativeValueClasses.kt")
+        public void testExhaustiveWithNegativeValueClasses() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithNegativeValueClasses.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithReversedNegativeUntrustworthySealedTypes.kt")
+        public void testExhaustiveWithReversedNegativeUntrustworthySealedTypes() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithReversedNegativeUntrustworthySealedTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithUnstableNegativeInformation.kt")
+        public void testExhaustiveWithUnstableNegativeInformation() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithUnstableNegativeInformation.kt");
+        }
+
+        @Test
+        @TestMetadata("exhaustiveWithUntrustworthyExpectAny.kt")
+        public void testExhaustiveWithUntrustworthyExpectAny() {
+          runTest("compiler/testData/diagnostics/tests/when/exhaustive/exhaustiveWithUntrustworthyExpectAny.kt");
         }
       }
 
@@ -45538,15 +46450,21 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestDataPath("$PROJECT_ROOT")
         public class JvmDefaultWithCompatibility {
           @Test
-          @TestMetadata("target8.kt")
-          public void testTarget8() {
-            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithCompatibility/target8.kt");
+          @TestMetadata("disable.kt")
+          public void testDisable() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithCompatibility/disable.kt");
           }
 
           @Test
-          @TestMetadata("target8Disabled.kt")
-          public void testTarget8Disabled() {
-            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithCompatibility/target8Disabled.kt");
+          @TestMetadata("enable.kt")
+          public void testEnable() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithCompatibility/enable.kt");
+          }
+
+          @Test
+          @TestMetadata("noCompatibility.kt")
+          public void testNoCompatibility() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithCompatibility/noCompatibility.kt");
           }
         }
 
@@ -45555,15 +46473,21 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestDataPath("$PROJECT_ROOT")
         public class JvmDefaultWithoutCompatibility {
           @Test
-          @TestMetadata("target8.kt")
-          public void testTarget8() {
-            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithoutCompatibility/target8.kt");
+          @TestMetadata("disable.kt")
+          public void testDisable() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithoutCompatibility/disable.kt");
           }
 
           @Test
-          @TestMetadata("target8Disabled.kt")
-          public void testTarget8Disabled() {
-            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithoutCompatibility/target8Disabled.kt");
+          @TestMetadata("enable.kt")
+          public void testEnable() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithoutCompatibility/enable.kt");
+          }
+
+          @Test
+          @TestMetadata("noCompatibility.kt")
+          public void testNoCompatibility() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmDefault/jvmDefaultWithoutCompatibility/noCompatibility.kt");
           }
         }
       }
@@ -45614,9 +46538,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("jvmOverloadsOnAnnotationClassConstructor_1_4.kt")
-        public void testJvmOverloadsOnAnnotationClassConstructor_1_4() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmOverloads/jvmOverloadsOnAnnotationClassConstructor_1_4.kt");
+        @TestMetadata("jvmOverloadsOnAnnotationClassConstructor.kt")
+        public void testJvmOverloadsOnAnnotationClassConstructor() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmOverloads/jvmOverloadsOnAnnotationClassConstructor.kt");
         }
 
         @Test
@@ -45671,12 +46595,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("constructorProperty_LL13.kt")
-        public void testConstructorProperty_LL13() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/constructorProperty_LL13.kt");
-        }
-
-        @Test
         @TestMetadata("constructors.kt")
         public void testConstructors() {
           runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/constructors.kt");
@@ -45695,33 +46613,15 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("functions_LL13.kt")
-        public void testFunctions_LL13() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/functions_LL13.kt");
-        }
-
-        @Test
-        @TestMetadata("interfaceCompanion_LL12.kt")
-        public void testInterfaceCompanion_LL12() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/interfaceCompanion_LL12.kt");
-        }
-
-        @Test
-        @TestMetadata("interfaceCompanion_LL13_18.kt")
-        public void testInterfaceCompanion_LL13_18() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/interfaceCompanion_LL13_18.kt");
+        @TestMetadata("interfaceCompanion.kt")
+        public void testInterfaceCompanion() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/interfaceCompanion.kt");
         }
 
         @Test
         @TestMetadata("localFun.kt")
         public void testLocalFun() {
           runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/localFun.kt");
-        }
-
-        @Test
-        @TestMetadata("localFun_LL13.kt")
-        public void testLocalFun_LL13() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/localFun_LL13.kt");
         }
 
         @Test
@@ -45740,12 +46640,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("property.kt")
         public void testProperty() {
           runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/property.kt");
-        }
-
-        @Test
-        @TestMetadata("property_LL13.kt")
-        public void testProperty_LL13() {
-          runTest("compiler/testData/diagnostics/testsWithStdLib/annotations/jvmStatic/property_LL13.kt");
         }
       }
 
@@ -46239,6 +47133,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestDataPath("$PROJECT_ROOT")
       public class Dsl {
         @Test
+        @TestMetadata("accessorsAllowedInK2.kt")
+        public void testAccessorsAllowedInK2() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/accessorsAllowedInK2.kt");
+        }
+
+        @Test
         @TestMetadata("callUsualContractFunction.kt")
         public void testCallUsualContractFunction() {
           runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/callUsualContractFunction.kt");
@@ -46248,6 +47148,24 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("fqnContractFunction.kt")
         public void testFqnContractFunction() {
           runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/fqnContractFunction.kt");
+        }
+
+        @Test
+        @TestMetadata("operatorsAllowedInK2.kt")
+        public void testOperatorsAllowedInK2() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/operatorsAllowedInK2.kt");
+        }
+
+        @Test
+        @TestMetadata("operatorsForAugmentedAssignsK2.kt")
+        public void testOperatorsForAugmentedAssignsK2() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/operatorsForAugmentedAssignsK2.kt");
+        }
+
+        @Test
+        @TestMetadata("operatorsForbiddenInK2.kt")
+        public void testOperatorsForbiddenInK2() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/operatorsForbiddenInK2.kt");
         }
 
         @Test
@@ -46769,6 +47687,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("kt37309.kt")
       public void testKt37309() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/kt37309.kt");
+      }
+
+      @Test
+      @TestMetadata("kt37456.kt")
+      public void testKt37456() {
+        runTest("compiler/testData/diagnostics/testsWithStdLib/coroutines/kt37456.kt");
       }
 
       @Test
@@ -47773,21 +48697,27 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("delegatedConstructorCalls.kt")
+      public void testDelegatedConstructorCalls() {
+        runTest("compiler/testData/diagnostics/testsWithStdLib/experimental/delegatedConstructorCalls.kt");
+      }
+
+      @Test
       @TestMetadata("diffrentModules.kt")
       public void testDiffrentModules() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/experimental/diffrentModules.kt");
       }
 
       @Test
-      @TestMetadata("duration.kt")
-      public void testDuration() {
-        runTest("compiler/testData/diagnostics/testsWithStdLib/experimental/duration.kt");
-      }
-
-      @Test
       @TestMetadata("enumCompanion.kt")
       public void testEnumCompanion() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/experimental/enumCompanion.kt");
+      }
+
+      @Test
+      @TestMetadata("enumEntries.kt")
+      public void testEnumEntries() {
+        runTest("compiler/testData/diagnostics/testsWithStdLib/experimental/enumEntries.kt");
       }
 
       @Test
@@ -48349,6 +49279,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("noInferDelegatedPropertyReference.kt")
+        public void testNoInferDelegatedPropertyReference() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/inference/annotationsForResolve/noInferDelegatedPropertyReference.kt");
+        }
+
+        @Test
+        @TestMetadata("noInferMismatchingClosestReceiver.kt")
+        public void testNoInferMismatchingClosestReceiver() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/inference/annotationsForResolve/noInferMismatchingClosestReceiver.kt");
+        }
+
+        @Test
         @TestMetadata("notNullAnnotation.kt")
         public void testNotNullAnnotation() {
           runTest("compiler/testData/diagnostics/testsWithStdLib/inference/annotationsForResolve/notNullAnnotation.kt");
@@ -48722,6 +49664,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       public void testIsInitialized() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/lateinit/isInitialized.kt");
       }
+
+      @Test
+      @TestMetadata("isInitializedWithStaticJava.kt")
+      public void testIsInitializedWithStaticJava() {
+        runTest("compiler/testData/diagnostics/testsWithStdLib/lateinit/isInitializedWithStaticJava.kt");
+      }
     }
 
     @Nested
@@ -48935,6 +49883,17 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("useInferenceInformationFromExtensionWithRestrictions.kt")
       public void testUseInferenceInformationFromExtensionWithRestrictions() {
         runTest("compiler/testData/diagnostics/testsWithStdLib/pcla/useInferenceInformationFromExtensionWithRestrictions.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/testData/diagnostics/testsWithStdLib/pcla/issue")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Issue {
+        @Test
+        @TestMetadata("kt76171.kt")
+        public void testKt76171() {
+          runTest("compiler/testData/diagnostics/testsWithStdLib/pcla/issue/kt76171.kt");
+        }
       }
     }
 
@@ -50072,6 +51031,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("dataClassWithInheritedComponent.kt")
+    public void testDataClassWithInheritedComponent() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/dataClassWithInheritedComponent.kt");
+    }
+
+    @Test
     @TestMetadata("defaultJavaImportHiding.kt")
     public void testDefaultJavaImportHiding() {
       runTest("compiler/fir/analysis-tests/testData/resolve/defaultJavaImportHiding.kt");
@@ -50330,6 +51295,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     }
 
     @Test
+    @TestMetadata("javaNullability.kt.can-freeze-ide")
+    public void testJavaNullability() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/javaNullability.kt.can-freeze-ide");
+    }
+
+    @Test
     @TestMetadata("javaStaticScopeInheritance.kt")
     public void testJavaStaticScopeInheritance() {
       runTest("compiler/fir/analysis-tests/testData/resolve/javaStaticScopeInheritance.kt");
@@ -50405,6 +51376,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("localObject.kt")
     public void testLocalObject() {
       runTest("compiler/fir/analysis-tests/testData/resolve/localObject.kt");
+    }
+
+    @Test
+    @TestMetadata("multipleDefaultsAnonymousObject.kt")
+    public void testMultipleDefaultsAnonymousObject() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/multipleDefaultsAnonymousObject.kt");
     }
 
     @Test
@@ -50736,6 +51713,24 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestDataPath("$PROJECT_ROOT")
     public class Annotations {
       @Test
+      @TestMetadata("annotatedLocalContextParameterWithAnnotatedType.kt")
+      public void testAnnotatedLocalContextParameterWithAnnotatedType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/annotatedLocalContextParameterWithAnnotatedType.kt");
+      }
+
+      @Test
+      @TestMetadata("danglingModifierInsideEnumEntry.kt")
+      public void testDanglingModifierInsideEnumEntry() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/danglingModifierInsideEnumEntry.kt");
+      }
+
+      @Test
+      @TestMetadata("functionInsideFileAnnotation.kt")
+      public void testFunctionInsideFileAnnotation() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/functionInsideFileAnnotation.kt");
+      }
+
+      @Test
       @TestMetadata("kindaCompilerRequiredNestedAnnotation.kt")
       public void testKindaCompilerRequiredNestedAnnotation() {
         runTest("compiler/fir/analysis-tests/testData/resolve/annotations/kindaCompilerRequiredNestedAnnotation.kt");
@@ -50757,6 +51752,114 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("kt55286.kt")
       public void testKt55286() {
         runTest("compiler/fir/analysis-tests/testData/resolve/annotations/kt55286.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithFakeOverrideAsImportedArgument.kt")
+      public void testRequiredAnnotationWithFakeOverrideAsImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithFakeOverrideAsImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedArgument.kt")
+      public void testRequiredAnnotationWithImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedExplicitJavaArgument.kt")
+      public void testRequiredAnnotationWithImportedExplicitJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedExplicitJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedJavaArgument.kt")
+      public void testRequiredAnnotationWithImportedJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedStarJavaArgument.kt")
+      public void testRequiredAnnotationWithImportedStarJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedStarJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectExplicitJavaArgument.kt")
+      public void testRequiredAnnotationWithIncorrectExplicitJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectExplicitJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectImportedArgument.kt")
+      public void testRequiredAnnotationWithIncorrectImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectImportedJavaArgument.kt")
+      public void testRequiredAnnotationWithIncorrectImportedJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectImportedJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectImportedObjectArgument.kt")
+      public void testRequiredAnnotationWithIncorrectImportedObjectArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectImportedObjectArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarFakeOverrideAsImportedArgument.kt")
+      public void testRequiredAnnotationWithStarFakeOverrideAsImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarFakeOverrideAsImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarImportedArgument.kt")
+      public void testRequiredAnnotationWithStarImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarIncorrectImportedArgument.kt")
+      public void testRequiredAnnotationWithStarIncorrectImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarIncorrectImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarIncorrectImportedJavaArgument.kt")
+      public void testRequiredAnnotationWithStarIncorrectImportedJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarIncorrectImportedJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarIncorrectImportedObjectArgument.kt")
+      public void testRequiredAnnotationWithStarIncorrectImportedObjectArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarIncorrectImportedObjectArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarTypealiasedImportedArgument.kt")
+      public void testRequiredAnnotationWithStarTypealiasedImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarTypealiasedImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithTypealiasedArgument.kt")
+      public void testRequiredAnnotationWithTypealiasedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithTypealiasedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithTypealiasedArgumentAsMetaAnnotation.kt")
+      public void testRequiredAnnotationWithTypealiasedArgumentAsMetaAnnotation() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithTypealiasedArgumentAsMetaAnnotation.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithTypealiasedImportedArgument.kt")
+      public void testRequiredAnnotationWithTypealiasedImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithTypealiasedImportedArgument.kt");
       }
     }
 
@@ -51294,6 +52397,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("initializationInAnonymous.kt")
+      public void testInitializationInAnonymous() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/cfg/initializationInAnonymous.kt");
+      }
+
+      @Test
+      @TestMetadata("initializationInAnonymousForbidden.kt")
+      public void testInitializationInAnonymousForbidden() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/cfg/initializationInAnonymousForbidden.kt");
+      }
+
+      @Test
       @TestMetadata("inlineLambdasAreInplace.kt")
       public void testInlineLambdasAreInplace() {
         runTest("compiler/fir/analysis-tests/testData/resolve/cfg/inlineLambdasAreInplace.kt");
@@ -51437,6 +52552,42 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("delegationToItself.kt")
+      public void testDelegationToItself() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself2.kt")
+      public void testDelegationToItself2() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself2.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself3.kt")
+      public void testDelegationToItself3() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself3.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself4.kt")
+      public void testDelegationToItself4() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself4.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself5.kt")
+      public void testDelegationToItself5() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself5.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItselfEnabled.kt")
+      public void testDelegationToItselfEnabled() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItselfEnabled.kt");
+      }
+
+      @Test
       @TestMetadata("dnnTypeWithAdditionalNullableBound.kt")
       public void testDnnTypeWithAdditionalNullableBound() {
         runTest("compiler/fir/analysis-tests/testData/resolve/checkers/dnnTypeWithAdditionalNullableBound.kt");
@@ -51464,6 +52615,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("invalidLhsOfClassLiteral.kt")
       public void testInvalidLhsOfClassLiteral() {
         runTest("compiler/fir/analysis-tests/testData/resolve/checkers/invalidLhsOfClassLiteral.kt");
+      }
+
+      @Test
+      @TestMetadata("notImplementedEqualsWithContextParameters.kt")
+      public void testNotImplementedEqualsWithContextParameters() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/notImplementedEqualsWithContextParameters.kt");
       }
 
       @Test
@@ -51503,6 +52660,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("uselessCast.kt")
+      public void testUselessCast() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/uselessCast.kt");
+      }
+
+      @Test
       @TestMetadata("uselessCastLeadsToRecursiveProblem.kt")
       public void testUselessCastLeadsToRecursiveProblem() {
         runTest("compiler/fir/analysis-tests/testData/resolve/checkers/uselessCastLeadsToRecursiveProblem.kt");
@@ -51529,6 +52692,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("cyclicSupertypeBetweenModules.kt")
       public void testCyclicSupertypeBetweenModules() {
         runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertypeBetweenModules.kt");
+      }
+
+      @Test
+      @TestMetadata("localClasspathSubstitution.kt")
+      public void testLocalClasspathSubstitution() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/localClasspathSubstitution.kt");
       }
     }
 
@@ -51601,6 +52770,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("contextualFunctionTypeInSignatureWithoutLF.kt")
+      public void testContextualFunctionTypeInSignatureWithoutLF() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualFunctionTypeInSignatureWithoutLF.kt");
+      }
+
+      @Test
+      @TestMetadata("contextualLambdaWithExplicitParameterType.kt")
+      public void testContextualLambdaWithExplicitParameterType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualLambdaWithExplicitParameterType.kt");
+      }
+
+      @Test
       @TestMetadata("contextualLateinit.kt")
       public void testContextualLateinit() {
         runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualLateinit.kt");
@@ -51616,6 +52797,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("expectActualMismatch.kt")
       public void testExpectActualMismatch() {
         runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/expectActualMismatch.kt");
+      }
+
+      @Test
+      @TestMetadata("inferringContextOfType.kt")
+      public void testInferringContextOfType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inferringContextOfType.kt");
+      }
+
+      @Test
+      @TestMetadata("localContextReceiver.kt")
+      public void testLocalContextReceiver() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/localContextReceiver.kt");
       }
 
       @Test
@@ -51713,12 +52906,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("dslMarkerOnContextType.kt")
-        public void testDslMarkerOnContextType() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/dslMarkerOnContextType.kt");
-        }
-
-        @Test
         @TestMetadata("emptyContextName.kt")
         public void testEmptyContextName() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/emptyContextName.kt");
@@ -51728,6 +52915,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("emptyListOfContextParameters.kt")
         public void testEmptyListOfContextParameters() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/emptyListOfContextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("funWithContextWithTypeParameter.kt")
+        public void testFunWithContextWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/funWithContextWithTypeParameter.kt");
         }
 
         @Test
@@ -51785,12 +52978,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
-        @TestMetadata("multipleDslMarkers.kt")
-        public void testMultipleDslMarkers() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/multipleDslMarkers.kt");
-        }
-
-        @Test
         @TestMetadata("nameClashes.kt")
         public void testNameClashes() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/nameClashes.kt");
@@ -51839,9 +53026,27 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("propertyWithContextWithTypeParameter.kt")
+        public void testPropertyWithContextWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/propertyWithContextWithTypeParameter.kt");
+        }
+
+        @Test
         @TestMetadata("theSameContextAndDispatchReceiver.kt")
         public void testTheSameContextAndDispatchReceiver() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/theSameContextAndDispatchReceiver.kt");
+        }
+
+        @Test
+        @TestMetadata("typeWithContextWithTypeParameter.kt")
+        public void testTypeWithContextWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/typeWithContextWithTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("typealiasToContextFunctionType.kt")
+        public void testTypealiasToContextFunctionType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/typealiasToContextFunctionType.kt");
         }
 
         @Test
@@ -51892,9 +53097,33 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestDataPath("$PROJECT_ROOT")
       public class Diagnostics {
         @Test
+        @TestMetadata("ambigousContext.kt")
+        public void testAmbigousContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/ambigousContext.kt");
+        }
+
+        @Test
         @TestMetadata("anonymousFunctionsWithModifiers.kt")
         public void testAnonymousFunctionsWithModifiers() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/anonymousFunctionsWithModifiers.kt");
+        }
+
+        @Test
+        @TestMetadata("conflictingOverloads.kt")
+        public void testConflictingOverloads() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/conflictingOverloads.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterNameChanged.kt")
+        public void testContextParameterNameChanged() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/contextParameterNameChanged.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterOnPackage.kt")
+        public void testContextParameterOnPackage() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/contextParameterOnPackage.kt");
         }
 
         @Test
@@ -51910,9 +53139,33 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("danglingContextParameter.kt")
+        public void testDanglingContextParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/danglingContextParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("danglingContextParameterAndAnnotations.kt")
+        public void testDanglingContextParameterAndAnnotations() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/danglingContextParameterAndAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("extensionShadowedWithContextParameters.kt")
+        public void testExtensionShadowedWithContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/extensionShadowedWithContextParameters.kt");
+        }
+
+        @Test
         @TestMetadata("multipleContextParameterLists.kt")
         public void testMultipleContextParameterLists() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/multipleContextParameterLists.kt");
+        }
+
+        @Test
+        @TestMetadata("noContextArgument.kt")
+        public void testNoContextArgument() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/noContextArgument.kt");
         }
 
         @Test
@@ -51925,6 +53178,57 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("unsupportedContextParameters.kt")
         public void testUnsupportedContextParameters() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/unsupportedContextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("varianceConflict.kt")
+        public void testVarianceConflict() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/varianceConflict.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker")
+      @TestDataPath("$PROJECT_ROOT")
+      public class DslMarker {
+        @Test
+        @TestMetadata("dslMarkerOnContextType.kt")
+        public void testDslMarkerOnContextType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker/dslMarkerOnContextType.kt");
+        }
+
+        @Test
+        @TestMetadata("dslMarkerOnFunctionType.kt")
+        public void testDslMarkerOnFunctionType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker/dslMarkerOnFunctionType.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleDslMarkers.kt")
+        public void testMultipleDslMarkers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker/multipleDslMarkers.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Inference {
+        @Nested
+        @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer")
+        @TestDataPath("$PROJECT_ROOT")
+        public class NoInfer {
+          @Test
+          @TestMetadata("MismatchingClosestImplicitValue.kt")
+          public void testMismatchingClosestImplicitValue() {
+            runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer/MismatchingClosestImplicitValue.kt");
+          }
+
+          @Test
+          @TestMetadata("MultipleClosestImplicitValues.kt")
+          public void testMultipleClosestImplicitValues() {
+            runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer/MultipleClosestImplicitValues.kt");
+          }
         }
       }
 
@@ -52033,6 +53337,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("genericPropertyOverride.kt")
+        public void testGenericPropertyOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/genericPropertyOverride.kt");
+        }
+
+        @Test
         @TestMetadata("intersectionOverride.kt")
         public void testIntersectionOverride() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/intersectionOverride.kt");
@@ -52069,6 +53379,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("kjkContextParameterOverridesValueParameter.kt")
+        public void testKjkContextParameterOverridesValueParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/kjkContextParameterOverridesValueParameter.kt");
+        }
+
+        @Test
         @TestMetadata("nameCanBeChangedInOverride.kt")
         public void testNameCanBeChangedInOverride() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/nameCanBeChangedInOverride.kt");
@@ -52093,6 +53409,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("varPropertyOverride.kt")
+        public void testVarPropertyOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/varPropertyOverride.kt");
+        }
+
+        @Test
         @TestMetadata("withContextInType.kt")
         public void testWithContextInType() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/withContextInType.kt");
@@ -52104,9 +53426,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestDataPath("$PROJECT_ROOT")
       public class Parsing {
         @Test
-        @TestMetadata("propertyInContext.nkt")
+        @TestMetadata("propertyInContext.kt.can-freeze-ide")
         public void testPropertyInContext() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing/propertyInContext.nkt");
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing/propertyInContext.kt.can-freeze-ide");
         }
       }
 
@@ -52142,6 +53464,470 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("withImpliesContract.kt")
         public void testWithImpliesContract() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast/withImpliesContract.kt");
+        }
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType")
+    @TestDataPath("$PROJECT_ROOT")
+    public class ContextSensitiveResolutionUsingExpectedType {
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition")
+      @TestDataPath("$PROJECT_ROOT")
+      public class CallArgumentPosition {
+        @Test
+        @TestMetadata("ambiguouslyImported.kt")
+        public void testAmbiguouslyImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/ambiguouslyImported.kt");
+        }
+
+        @Test
+        @TestMetadata("ambiguouslyImportedInvisible.kt")
+        public void testAmbiguouslyImportedInvisible() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/ambiguouslyImportedInvisible.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationArguments.kt")
+        public void testAnnotationArguments() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/annotationArguments.kt");
+        }
+
+        @Test
+        @TestMetadata("anonymousFun.kt")
+        public void testAnonymousFun() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/anonymousFun.kt");
+        }
+
+        @Test
+        @TestMetadata("bound.kt")
+        public void testBound() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/bound.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameters.kt")
+        public void testContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/contextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("defaultArg.kt")
+        public void testDefaultArg() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/defaultArg.kt");
+        }
+
+        @Test
+        @TestMetadata("expectedType.kt")
+        public void testExpectedType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/expectedType.kt");
+        }
+
+        @Test
+        @TestMetadata("expectedTypeEnum.kt")
+        public void testExpectedTypeEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/expectedTypeEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("generic.kt")
+        public void testGeneric() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/generic.kt");
+        }
+
+        @Test
+        @TestMetadata("infixFun.kt")
+        public void testInfixFun() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/infixFun.kt");
+        }
+
+        @Test
+        @TestMetadata("invisibleImported.kt")
+        public void testInvisibleImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/invisibleImported.kt");
+        }
+
+        @Test
+        @TestMetadata("lambda.kt")
+        public void testLambda() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambda.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaEnum.kt")
+        public void testLambdaEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambdaEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaReceiver.kt")
+        public void testLambdaReceiver() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambdaReceiver.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaReceiverParametrized.kt")
+        public void testLambdaReceiverParametrized() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambdaReceiverParametrized.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleOverloads.kt")
+        public void testMultipleOverloads() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/multipleOverloads.kt");
+        }
+
+        @Test
+        @TestMetadata("namedArg.kt")
+        public void testNamedArg() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/namedArg.kt");
+        }
+
+        @Test
+        @TestMetadata("noContextSensitiveResolutionShouldHappen.kt")
+        public void testNoContextSensitiveResolutionShouldHappen() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/noContextSensitiveResolutionShouldHappen.kt");
+        }
+
+        @Test
+        @TestMetadata("nonEnums.kt")
+        public void testNonEnums() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/nonEnums.kt");
+        }
+
+        @Test
+        @TestMetadata("operatorOverload.kt")
+        public void testOperatorOverload() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/operatorOverload.kt");
+        }
+
+        @Test
+        @TestMetadata("overload.kt")
+        public void testOverload() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/overload.kt");
+        }
+
+        @Test
+        @TestMetadata("pcla.kt")
+        public void testPcla() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/pcla.kt");
+        }
+
+        @Test
+        @TestMetadata("regularArg.kt")
+        public void testRegularArg() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/regularArg.kt");
+        }
+
+        @Test
+        @TestMetadata("regularArgEnum.kt")
+        public void testRegularArgEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/regularArgEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simple.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleDisabledFeature.kt")
+        public void testSimpleDisabledFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simpleDisabledFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleGeneric.kt")
+        public void testSimpleGeneric() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simpleGeneric.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleVarargs.kt")
+        public void testSimpleVarargs() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simpleVarargs.kt");
+        }
+
+        @Test
+        @TestMetadata("varargs.kt")
+        public void testVarargs() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/varargs.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions")
+      @TestDataPath("$PROJECT_ROOT")
+      public class OtherExpectedTypePositions {
+        @Test
+        @TestMetadata("basicExampleWithEnumAndWhens.kt")
+        public void testBasicExampleWithEnumAndWhens() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/basicExampleWithEnumAndWhens.kt");
+        }
+
+        @Test
+        @TestMetadata("differentTrivialExpectedTypeMismatch.kt")
+        public void testDifferentTrivialExpectedTypeMismatch() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/differentTrivialExpectedTypeMismatch.kt");
+        }
+
+        @Test
+        @TestMetadata("differentTrivialExpectedTypePositions.kt")
+        public void testDifferentTrivialExpectedTypePositions() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/differentTrivialExpectedTypePositions.kt");
+        }
+
+        @Test
+        @TestMetadata("elvisOperator.kt")
+        public void testElvisOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/elvisOperator.kt");
+        }
+
+        @Test
+        @TestMetadata("elvisOperatorEnum.kt")
+        public void testElvisOperatorEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/elvisOperatorEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("equalityOperator.kt")
+        public void testEqualityOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/equalityOperator.kt");
+        }
+
+        @Test
+        @TestMetadata("equalityOperatorOnBoundedEnumTypeParameter.kt")
+        public void testEqualityOperatorOnBoundedEnumTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/equalityOperatorOnBoundedEnumTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("equalityOperatorOnBoundedSealedTypeParameter.kt")
+        public void testEqualityOperatorOnBoundedSealedTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/equalityOperatorOnBoundedSealedTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitReturnTypes.kt")
+        public void testExplicitReturnTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/explicitReturnTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("extensions.kt")
+        public void testExtensions() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/extensions.kt");
+        }
+
+        @Test
+        @TestMetadata("functionalTypes.kt")
+        public void testFunctionalTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/functionalTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdasReturnStatements.kt")
+        public void testLambdasReturnStatements() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/lambdasReturnStatements.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdasReturnStatementsWithResolvedQualifiers.kt")
+        public void testLambdasReturnStatementsWithResolvedQualifiers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/lambdasReturnStatementsWithResolvedQualifiers.kt");
+        }
+
+        @Test
+        @TestMetadata("notNullAssertion.kt")
+        public void testNotNullAssertion() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/notNullAssertion.kt");
+        }
+
+        @Test
+        @TestMetadata("notNullAssertionEnum.kt")
+        public void testNotNullAssertionEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/notNullAssertionEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("propInitializers.kt")
+        public void testPropInitializers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/propInitializers.kt");
+        }
+
+        @Test
+        @TestMetadata("sameNamedEnumEntry.kt")
+        public void testSameNamedEnumEntry() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/sameNamedEnumEntry.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/simple.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleDisabledFeature.kt")
+        public void testSimpleDisabledFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/simpleDisabledFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("tryCatchStatements.kt")
+        public void testTryCatchStatements() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/tryCatchStatements.kt");
+        }
+
+        @Test
+        @TestMetadata("tryCatchStatementsEnum.kt")
+        public void testTryCatchStatementsEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/tryCatchStatementsEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("whenIfLastStatement.kt")
+        public void testWhenIfLastStatement() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/whenIfLastStatement.kt");
+        }
+
+        @Test
+        @TestMetadata("whenIfLastStatementEnum.kt")
+        public void testWhenIfLastStatementEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/whenIfLastStatementEnum.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition")
+      @TestDataPath("$PROJECT_ROOT")
+      public class TypePosition {
+        @Test
+        @TestMetadata("ambiguouslyImported.kt")
+        public void testAmbiguouslyImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/ambiguouslyImported.kt");
+        }
+
+        @Test
+        @TestMetadata("ambiguouslyImportedInvisible.kt")
+        public void testAmbiguouslyImportedInvisible() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/ambiguouslyImportedInvisible.kt");
+        }
+
+        @Test
+        @TestMetadata("either.kt")
+        public void testEither() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/either.kt");
+        }
+
+        @Test
+        @TestMetadata("eitherInDifferentPositions.kt")
+        public void testEitherInDifferentPositions() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/eitherInDifferentPositions.kt");
+        }
+
+        @Test
+        @TestMetadata("innerClassInGeneric.kt")
+        public void testInnerClassInGeneric() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/innerClassInGeneric.kt");
+        }
+
+        @Test
+        @TestMetadata("invisibleImported.kt")
+        public void testInvisibleImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/invisibleImported.kt");
+        }
+
+        @Test
+        @TestMetadata("isInIf.kt")
+        public void testIsInIf() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/isInIf.kt");
+        }
+
+        @Test
+        @TestMetadata("isInWhen.kt")
+        public void testIsInWhen() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/isInWhen.kt");
+        }
+
+        @Test
+        @TestMetadata("javaInterop.kt")
+        public void testJavaInterop() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/javaInterop.kt");
+        }
+
+        @Test
+        @TestMetadata("nonSealed.kt")
+        public void testNonSealed() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/nonSealed.kt");
+        }
+
+        @Test
+        @TestMetadata("nonTrivialTypes.kt")
+        public void testNonTrivialTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/nonTrivialTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("regularlyResolved.kt")
+        public void testRegularlyResolved() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/regularlyResolved.kt");
+        }
+
+        @Test
+        @TestMetadata("regularlyResolvedNoGenericArgument.kt")
+        public void testRegularlyResolvedNoGenericArgument() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/regularlyResolvedNoGenericArgument.kt");
+        }
+
+        @Test
+        @TestMetadata("sealedWithNonSealedSubclass.kt")
+        public void testSealedWithNonSealedSubclass() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/sealedWithNonSealedSubclass.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/simple.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleDisabledFeature.kt")
+        public void testSimpleDisabledFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/simpleDisabledFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("singleDefiniteExpectedType.kt")
+        public void testSingleDefiniteExpectedType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/singleDefiniteExpectedType.kt");
+        }
+
+        @Test
+        @TestMetadata("typeCast.kt")
+        public void testTypeCast() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/typeCast.kt");
+        }
+
+        @Test
+        @TestMetadata("typeParameter.kt")
+        public void testTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/typeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("typeParametersComplex.kt")
+        public void testTypeParametersComplex() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/typeParametersComplex.kt");
+        }
+
+        @Test
+        @TestMetadata("unsupportedTypePosition.kt")
+        public void testUnsupportedTypePosition() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/unsupportedTypePosition.kt");
         }
       }
     }
@@ -52293,6 +54079,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("annotationArgumentRegex.kt")
+      public void testAnnotationArgumentRegex() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/annotationArgumentRegex.kt");
+      }
+
+      @Test
       @TestMetadata("annotationClassMember.kt")
       public void testAnnotationClassMember() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/annotationClassMember.kt");
@@ -52332,6 +54124,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("constructorInInterface.kt")
       public void testConstructorInInterface() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/constructorInInterface.kt");
+      }
+
+      @Test
+      @TestMetadata("contextParameterOnPrimaryConstructor.kt")
+      public void testContextParameterOnPrimaryConstructor() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/contextParameterOnPrimaryConstructor.kt");
       }
 
       @Test
@@ -52485,12 +54283,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("qualifiedSupertypeExtendedByOtherSupertype.kt")
-      public void testQualifiedSupertypeExtendedByOtherSupertype() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/qualifiedSupertypeExtendedByOtherSupertype.kt");
-      }
-
-      @Test
       @TestMetadata("recursiveProblemWithSyntaxError.kt")
       public void testRecursiveProblemWithSyntaxError() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/recursiveProblemWithSyntaxError.kt");
@@ -52620,6 +54412,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("valOnAnnotationParameter.kt")
       public void testValOnAnnotationParameter() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/valOnAnnotationParameter.kt");
+      }
+
+      @Test
+      @TestMetadata("VirtualMemberHiddenOnMemberFromMappedJavaScope.kt")
+      public void testVirtualMemberHiddenOnMemberFromMappedJavaScope() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/VirtualMemberHiddenOnMemberFromMappedJavaScope.kt");
       }
 
       @Nested
@@ -53346,12 +55144,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("RedundantExplicitTypeChecker.kt")
-      public void testRedundantExplicitTypeChecker() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/RedundantExplicitTypeChecker.kt");
-      }
-
-      @Test
       @TestMetadata("RedundantModalityModifierChecker.kt")
       public void testRedundantModalityModifierChecker() {
         runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/RedundantModalityModifierChecker.kt");
@@ -53397,125 +55189,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("RedundantVisibilityModifierCheckerWithExplicitApiMode.kt")
       public void testRedundantVisibilityModifierCheckerWithExplicitApiMode() {
         runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/RedundantVisibilityModifierCheckerWithExplicitApiMode.kt");
-      }
-
-      @Nested
-      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment")
-      @TestDataPath("$PROJECT_ROOT")
-      public class CanBeReplacedWithOperatorAssignment {
-        @Test
-        @TestMetadata("BasicTest.kt")
-        public void testBasicTest() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/BasicTest.kt");
-        }
-
-        @Test
-        @TestMetadata("ComplexExpression.kt")
-        public void testComplexExpression() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/ComplexExpression.kt");
-        }
-
-        @Test
-        @TestMetadata("flexibleTypeBug.kt")
-        public void testFlexibleTypeBug() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/flexibleTypeBug.kt");
-        }
-
-        @Test
-        @TestMetadata("illegalMultipleOperators.kt")
-        public void testIllegalMultipleOperators() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/illegalMultipleOperators.kt");
-        }
-
-        @Test
-        @TestMetadata("illegalMultipleOperatorsMiddle.kt")
-        public void testIllegalMultipleOperatorsMiddle() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/illegalMultipleOperatorsMiddle.kt");
-        }
-
-        @Test
-        @TestMetadata("invalidSubtraction.kt")
-        public void testInvalidSubtraction() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/invalidSubtraction.kt");
-        }
-
-        @Test
-        @TestMetadata("list.kt")
-        public void testList() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/list.kt");
-        }
-
-        @Test
-        @TestMetadata("logicOperators.kt")
-        public void testLogicOperators() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/logicOperators.kt");
-        }
-
-        @Test
-        @TestMetadata("multipleOperators.kt")
-        public void testMultipleOperators() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/multipleOperators.kt");
-        }
-
-        @Test
-        @TestMetadata("multipleOperatorsRightSideRepeat.kt")
-        public void testMultipleOperatorsRightSideRepeat() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/multipleOperatorsRightSideRepeat.kt");
-        }
-
-        @Test
-        @TestMetadata("mutableList.kt")
-        public void testMutableList() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/mutableList.kt");
-        }
-
-        @Test
-        @TestMetadata("nonCommutativeRepeat.kt")
-        public void testNonCommutativeRepeat() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/nonCommutativeRepeat.kt");
-        }
-
-        @Test
-        @TestMetadata("nonRepeatingAssignment.kt")
-        public void testNonRepeatingAssignment() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/nonRepeatingAssignment.kt");
-        }
-
-        @Test
-        @TestMetadata("OperatorAssignment.kt")
-        public void testOperatorAssignment() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/OperatorAssignment.kt");
-        }
-
-        @Test
-        @TestMetadata("plusAssignConflict.kt")
-        public void testPlusAssignConflict() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/plusAssignConflict.kt");
-        }
-
-        @Test
-        @TestMetadata("rightSideRepeat.kt")
-        public void testRightSideRepeat() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/rightSideRepeat.kt");
-        }
-
-        @Test
-        @TestMetadata("simpleAssign.kt")
-        public void testSimpleAssign() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/simpleAssign.kt");
-        }
-
-        @Test
-        @TestMetadata("validAddition.kt")
-        public void testValidAddition() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/validAddition.kt");
-        }
-
-        @Test
-        @TestMetadata("validSubtraction.kt")
-        public void testValidSubtraction() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/validSubtraction.kt");
-        }
       }
 
       @Nested
@@ -53737,6 +55410,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         }
 
         @Test
+        @TestMetadata("LocalFunction.kt")
+        public void testLocalFunction() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/LocalFunction.kt");
+        }
+
+        @Test
         @TestMetadata("localVariable.kt")
         public void testLocalVariable() {
           runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/localVariable.kt");
@@ -53752,6 +55431,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         @TestMetadata("manyLocalVariables.kt")
         public void testManyLocalVariables() {
           runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/manyLocalVariables.kt");
+        }
+
+        @Test
+        @TestMetadata("UnaryOperator.kt")
+        public void testUnaryOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/UnaryOperator.kt");
         }
 
         @Test
@@ -53912,6 +55597,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("coercionToUnitWithEarlyReturn.kt")
       public void testCoercionToUnitWithEarlyReturn() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/coercionToUnitWithEarlyReturn.kt");
+      }
+
+      @Test
+      @TestMetadata("conflictedExpectedType.kt")
+      public void testConflictedExpectedType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/conflictedExpectedType.kt");
       }
 
       @Test
@@ -54119,9 +55810,26 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("uninferredTypeVariableTypeInInferenceFromSelfUpperBound.kt.can-freeze-ide")
+      public void testUninferredTypeVariableTypeInInferenceFromSelfUpperBound() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/uninferredTypeVariableTypeInInferenceFromSelfUpperBound.kt.can-freeze-ide");
+      }
+
+      @Test
       @TestMetadata("unitUpperBound.kt")
       public void testUnitUpperBound() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/unitUpperBound.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/inference/forks")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Forks {
+        @Test
+        @TestMetadata("failForkPointWhenNoneOfThemSuccessfulFeatureDisabled.kt")
+        public void testFailForkPointWhenNoneOfThemSuccessfulFeatureDisabled() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/forks/failForkPointWhenNoneOfThemSuccessfulFeatureDisabled.kt");
+        }
       }
 
       @Nested
@@ -54156,6 +55864,24 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
         public void testIfInBuildMap() {
           runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/ifInBuildMap.kt");
         }
+
+        @Test
+        @TestMetadata("kt73771Original.kt.can-freeze-ide")
+        public void testKt73771Original() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/kt73771Original.kt.can-freeze-ide");
+        }
+
+        @Test
+        @TestMetadata("kt73771Simple.kt.can-freeze-ide")
+        public void testKt73771Simple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/kt73771Simple.kt.can-freeze-ide");
+        }
+
+        @Test
+        @TestMetadata("manyDelegateInsidePCLA.kt.can-freeze-ide")
+        public void testManyDelegateInsidePCLA() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/manyDelegateInsidePCLA.kt.can-freeze-ide");
+        }
       }
     }
 
@@ -54185,6 +55911,23 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("reservedMethodsInInterfaces.kt")
       public void testReservedMethodsInInterfaces() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inlineClasses/reservedMethodsInInterfaces.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed")
+      @TestDataPath("$PROJECT_ROOT")
+      public class JvmExposeBoxed {
+        @Test
+        @TestMetadata("jvmName.kt")
+        public void testJvmName() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed/jvmName.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed/simple.kt");
+        }
       }
     }
 
@@ -54346,9 +56089,33 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestDataPath("$PROJECT_ROOT")
     public class NestedTypeAliases {
       @Test
+      @TestMetadata("annotations.kt")
+      public void testAnnotations() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/annotations.kt");
+      }
+
+      @Test
+      @TestMetadata("companion.kt")
+      public void testCompanion() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/companion.kt");
+      }
+
+      @Test
+      @TestMetadata("declarationNegatives.kt")
+      public void testDeclarationNegatives() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/declarationNegatives.kt");
+      }
+
+      @Test
       @TestMetadata("deepInnerRHS.kt")
       public void testDeepInnerRHS() {
         runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/deepInnerRHS.kt");
+      }
+
+      @Test
+      @TestMetadata("forFun.kt")
+      public void testForFun() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/forFun.kt");
       }
 
       @Test
@@ -54358,9 +56125,15 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("innerRHSandTypeArguments.kt")
-      public void testInnerRHSandTypeArguments() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHSandTypeArguments.kt");
+      @TestMetadata("innerRHSInGeneric.kt")
+      public void testInnerRHSInGeneric() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHSInGeneric.kt");
+      }
+
+      @Test
+      @TestMetadata("KJInterop.kt")
+      public void testKJInterop() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/KJInterop.kt");
       }
 
       @Test
@@ -54370,9 +56143,9 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
-      @TestMetadata("local.kt")
-      public void testLocal() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/local.kt");
+      @TestMetadata("overrides.kt")
+      public void testOverrides() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/overrides.kt");
       }
 
       @Test
@@ -54444,6 +56217,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("supertypeGenericsComplex.kt")
       public void testSupertypeGenericsComplex() {
         runTest("compiler/fir/analysis-tests/testData/resolve/overrides/supertypeGenericsComplex.kt");
+      }
+
+      @Test
+      @TestMetadata("suspendMismatchOnOverride.kt")
+      public void testSuspendMismatchOnOverride() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/overrides/suspendMismatchOnOverride.kt");
       }
 
       @Test
@@ -55624,6 +57403,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("kt69995.kt.can-freeze-ide")
+      public void testKt69995() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/kt69995.kt.can-freeze-ide");
+      }
+
+      @Test
+      @TestMetadata("manyCapturedTypes.kt.can-freeze-ide")
+      public void testManyCapturedTypes() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/manyCapturedTypes.kt.can-freeze-ide");
+      }
+
+      @Test
       @TestMetadata("starProjectionForMultipleBounds.kt")
       public void testStarProjectionForMultipleBounds() {
         runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/starProjectionForMultipleBounds.kt");
@@ -55933,6 +57724,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
     @TestMetadata("concurrentMapOfAliases.kt")
     public void testConcurrentMapOfAliases() {
       runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/concurrentMapOfAliases.kt");
+    }
+
+    @Test
+    @TestMetadata("contextParametersFunctions.kt")
+    public void testContextParametersFunctions() {
+      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contextParametersFunctions.kt");
+    }
+
+    @Test
+    @TestMetadata("delegationTypeMismatchAnonymous.kt")
+    public void testDelegationTypeMismatchAnonymous() {
+      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/delegationTypeMismatchAnonymous.kt");
     }
 
     @Test
@@ -56270,6 +58073,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("annotationAllUseSiteTargetCompilable.kt")
+      public void testAnnotationAllUseSiteTargetCompilable() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationAllUseSiteTargetCompilable.kt");
+      }
+
+      @Test
       @TestMetadata("annotationDefaultTargetFirstOnly.kt")
       public void testAnnotationDefaultTargetFirstOnly() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationDefaultTargetFirstOnly.kt");
@@ -56300,9 +58109,33 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("combinationOfAllNotAllAndDefaultTarget.kt")
+      public void testCombinationOfAllNotAllAndDefaultTarget() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/combinationOfAllNotAllAndDefaultTarget.kt");
+      }
+
+      @Test
       @TestMetadata("multipleAnnotationsWithAllUseSiteTarget.kt")
       public void testMultipleAnnotationsWithAllUseSiteTarget() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/multipleAnnotationsWithAllUseSiteTarget.kt");
+      }
+
+      @Test
+      @TestMetadata("multipleAnnotationsWithDefaultTarget.kt")
+      public void testMultipleAnnotationsWithDefaultTarget() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/multipleAnnotationsWithDefaultTarget.kt");
+      }
+
+      @Test
+      @TestMetadata("useSiteTargetOnExpression.kt")
+      public void testUseSiteTargetOnExpression() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/useSiteTargetOnExpression.kt");
+      }
+
+      @Test
+      @TestMetadata("useSiteTargetOnExpressionForbidden.kt")
+      public void testUseSiteTargetOnExpressionForbidden() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/useSiteTargetOnExpressionForbidden.kt");
       }
     }
 
@@ -56637,12 +58470,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
           @TestDataPath("$PROJECT_ROOT")
           public class ReturnsImplies {
             @Test
-            @TestMetadata("notNull.kt")
-            public void testNotNull() {
-              runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/returnsImplies/notNull.kt");
-            }
-
-            @Test
             @TestMetadata("propertyGetter.kt")
             public void testPropertyGetter() {
               runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/returnsImplies/propertyGetter.kt");
@@ -56960,6 +58787,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("dnnTypeWithNullable.kt")
+      public void testDnnTypeWithNullable() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/dnnTypeWithNullable.kt");
+      }
+
+      @Test
       @TestMetadata("flexibleTypeInSystem.kt")
       public void testFlexibleTypeInSystem() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/flexibleTypeInSystem.kt");
@@ -57092,6 +58925,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("IntersectionWithJavaString.kt")
       public void testIntersectionWithJavaString() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/IntersectionWithJavaString.kt");
+      }
+
+      @Test
+      @TestMetadata("javaFunctionParamNullability.kt")
+      public void testJavaFunctionParamNullability() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/javaFunctionParamNullability.kt");
       }
 
       @Test
@@ -57553,9 +59392,21 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("dynamicVsNothingInIf.kt")
+      public void testDynamicVsNothingInIf() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/dynamicVsNothingInIf.kt");
+      }
+
+      @Test
       @TestMetadata("EnumMapGet.kt")
       public void testEnumMapGet() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/EnumMapGet.kt");
+      }
+
+      @Test
+      @TestMetadata("enumMapWithPair.kt.can-freeze-ide")
+      public void testEnumMapWithPair() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/enumMapWithPair.kt.can-freeze-ide");
       }
 
       @Test
@@ -57667,6 +59518,12 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       }
 
       @Test
+      @TestMetadata("reifiedToNothing.kt")
+      public void testReifiedToNothing() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/reifiedToNothing.kt");
+      }
+
+      @Test
       @TestMetadata("resolveToLocalFromCallSite.kt")
       public void testResolveToLocalFromCallSite() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/resolveToLocalFromCallSite.kt");
@@ -57688,6 +59545,18 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("stringConstructors.kt")
       public void testStringConstructors() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/stringConstructors.kt");
+      }
+
+      @Test
+      @TestMetadata("typeAnnotationArgument.kt")
+      public void testTypeAnnotationArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/typeAnnotationArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("typeAnnotationArgument2.kt")
+      public void testTypeAnnotationArgument2() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/typeAnnotationArgument2.kt");
       }
 
       @Test
@@ -57846,51 +59715,6 @@ public class PhasedJvmDiagnosticPsiTestGenerated extends AbstractPhasedJvmDiagno
       @TestMetadata("tryWithLambdaInside.kt")
       public void testTryWithLambdaInside() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/smartcasts/tryWithLambdaInside.kt");
-      }
-    }
-  }
-
-  @Nested
-  @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE")
-  @TestDataPath("$PROJECT_ROOT")
-  public class ResolveFreezesIDE {
-    @Test
-    @TestMetadata("kt69995.nkt")
-    public void testKt69995() {
-      runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/kt69995.nkt");
-    }
-
-    @Test
-    @TestMetadata("manyCapturedTypes.nkt")
-    public void testManyCapturedTypes() {
-      runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/manyCapturedTypes.nkt");
-    }
-
-    @Nested
-    @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla")
-    @TestDataPath("$PROJECT_ROOT")
-    public class Pcla {
-      @Nested
-      @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues")
-      @TestDataPath("$PROJECT_ROOT")
-      public class Issues {
-        @Test
-        @TestMetadata("kt73771Original.nkt")
-        public void testKt73771Original() {
-          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/kt73771Original.nkt");
-        }
-
-        @Test
-        @TestMetadata("kt73771Simple.nkt")
-        public void testKt73771Simple() {
-          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/kt73771Simple.nkt");
-        }
-
-        @Test
-        @TestMetadata("manyDelegateInsidePCLA.nkt")
-        public void testManyDelegateInsidePCLA() {
-          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/manyDelegateInsidePCLA.nkt");
-        }
       }
     }
   }

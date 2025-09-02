@@ -66,14 +66,15 @@ PsiJetFileStubImpl[package=test]
               REFERENCE_EXPRESSION[referencedName=io]
             REFERENCE_EXPRESSION[referencedName=Serializable]
     CLASS_BODY
-      PROPERTY[fqName=test.TypeParams.useSomeParam, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=false, isTopLevel=false, isVar=false, name=useSomeParam]
+      PROPERTY[fqName=test.TypeParams.useSomeParam, hasBackingField=false, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=false, isTopLevel=false, isVar=false, name=useSomeParam]
         MODIFIER_LIST[public final]
         TYPE_REFERENCE
           USER_TYPE
             REFERENCE_EXPRESSION[referencedName=T2]
-        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=false, isGetter=true]
+        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=true, isGetter=true]
           MODIFIER_LIST[public final]
-      PROPERTY[fqName=test.TypeParams.withOwnBoundedParam, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=false, isVar=false, name=withOwnBoundedParam]
+          VALUE_PARAMETER_LIST
+      PROPERTY[fqName=test.TypeParams.withOwnBoundedParam, hasBackingField=false, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=false, isVar=false, name=withOwnBoundedParam]
         MODIFIER_LIST[public final]
         TYPE_PARAMETER_LIST
           TYPE_PARAMETER[fqName=null, isInVariance=false, isOutVariance=false, name=G1]
@@ -89,9 +90,10 @@ PsiJetFileStubImpl[package=test]
         TYPE_REFERENCE
           USER_TYPE
             REFERENCE_EXPRESSION[referencedName=G1]
-        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=false, isGetter=true]
+        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=true, isGetter=true]
           MODIFIER_LIST[public final]
-      PROPERTY[fqName=test.TypeParams.withOwnBoundedParamByOther, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=false, isVar=false, name=withOwnBoundedParamByOther]
+          VALUE_PARAMETER_LIST
+      PROPERTY[fqName=test.TypeParams.withOwnBoundedParamByOther, hasBackingField=false, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=false, isVar=false, name=withOwnBoundedParamByOther]
         MODIFIER_LIST[public final]
         TYPE_PARAMETER_LIST
           TYPE_PARAMETER[fqName=null, isInVariance=false, isOutVariance=false, name=G1]
@@ -104,9 +106,10 @@ PsiJetFileStubImpl[package=test]
         TYPE_REFERENCE
           USER_TYPE
             REFERENCE_EXPRESSION[referencedName=G1]
-        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=false, isGetter=true]
+        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=true, isGetter=true]
           MODIFIER_LIST[public final]
-      PROPERTY[fqName=test.TypeParams.withOwnParam, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=false, isVar=false, name=withOwnParam]
+          VALUE_PARAMETER_LIST
+      PROPERTY[fqName=test.TypeParams.withOwnParam, hasBackingField=false, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=false, isVar=false, name=withOwnParam]
         MODIFIER_LIST[public final]
         TYPE_PARAMETER_LIST
           TYPE_PARAMETER[fqName=null, isInVariance=false, isOutVariance=false, name=G1]
@@ -116,8 +119,9 @@ PsiJetFileStubImpl[package=test]
         TYPE_REFERENCE
           USER_TYPE
             REFERENCE_EXPRESSION[referencedName=G1]
-        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=false, isGetter=true]
+        PROPERTY_ACCESSOR[hasBlockBody=true, hasBody=true, isGetter=true]
           MODIFIER_LIST[public final]
+          VALUE_PARAMETER_LIST
       FUN[fqName=test.TypeParams.f, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=true, isExtension=false, isTopLevel=false, mayHaveContract=false, name=f]
         MODIFIER_LIST[public final inline]
         TYPE_PARAMETER_LIST

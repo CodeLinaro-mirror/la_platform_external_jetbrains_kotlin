@@ -1111,7 +1111,7 @@ class ComposeCrossModuleTests(useFir: Boolean) : AbstractCodegenTest(useFir) {
                 )
             ),
             validate = {
-                val indyExpr = Regex("INVOKEDYNAMIC.*?\\[([\\w\\W]*?)]").find(it)
+                val indyExpr = Regex("INVOKEDYNAMIC getContent.*?\\[([\\w\\W]*?)]").find(it)
                 val indyParams = indyExpr?.groupValues?.first()
 
                 assertTrue(
@@ -1119,7 +1119,6 @@ class ComposeCrossModuleTests(useFir: Boolean) : AbstractCodegenTest(useFir) {
                     indyParams != null
                 )
                 assertEquals(
-                    indyParams!!.lines().joinToString("\n") { it.trimEnd() },
                     """
                         INVOKEDYNAMIC getContent()Lbase/Base; [
                               // handle kind 0x6 : INVOKESTATIC
@@ -1130,7 +1129,8 @@ class ComposeCrossModuleTests(useFir: Boolean) : AbstractCodegenTest(useFir) {
                               main/MainKt.funInterfaceReturnComposable%lambda%0(Lkotlin/jvm/functions/Function2;)Lkotlin/jvm/functions/Function2;,
                               (Lkotlin/jvm/functions/Function2;)Lkotlin/jvm/functions/Function2;
                             ]
-                    """.trimIndent()
+                    """.trimIndent(),
+                    indyParams!!.lines().joinToString("\n") { it.trimEnd() },
                 )
             },
         )
@@ -1405,6 +1405,54 @@ class ComposeCrossModuleTests(useFir: Boolean) : AbstractCodegenTest(useFir) {
                     fun Foo() {
                         Bar()
                     }
+                    """
+                )
+            )
+        )
+    }
+
+    // Regression test for b/397855145
+    @Test
+    fun testB397855145() {
+        compile(
+            mapOf(
+                "lib" to mapOf(
+                    "lib.kt" to """
+                        import androidx.compose.runtime.Composable
+    
+                        interface AssetScope {
+                            @Composable
+                            fun GraphicAsset(asset: Int, modifier: Int = 0): Int
+                        }
+            
+            
+                        class DefaultAssetScope : AssetScope {
+                            @Composable
+                            override fun GraphicAsset(asset: Int, modifier: Int) = asset
+                        }
+            
+                        @Composable
+                        fun SomeView(visualAsset: @Composable AssetScope.() -> Unit = {}) {
+                            DefaultAssetScope().visualAsset()
+                        }
+                    """
+                ),
+                "Main" to mapOf(
+                    "main.kt" to """
+                        import androidx.compose.runtime.Composable
+                        
+                        // in code
+                        data class Graphic(val res: Int)
+            
+                        @Composable
+                        fun Test() {
+                            val asset = Graphic(0)
+                            SomeView(
+                                visualAsset = {
+                                    GraphicAsset(asset = asset.res)
+                                }
+                            )
+                        }
                     """
                 )
             )

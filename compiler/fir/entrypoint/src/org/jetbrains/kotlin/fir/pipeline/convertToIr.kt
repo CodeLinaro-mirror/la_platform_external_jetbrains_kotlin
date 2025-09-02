@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.backend.generators.Fir2IrDataClassGeneratedMemberBodyGenerator
 import org.jetbrains.kotlin.fir.backend.utils.generatedBuiltinsDeclarationsFileName
 import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyClass
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
@@ -113,12 +114,15 @@ private class Fir2IrPipeline(
     private class Fir2IrConversionResult(
         val mainIrFragment: IrModuleFragmentImpl,
         val dependentIrFragments: List<IrModuleFragmentImpl>,
-        val componentsStorage: Fir2IrComponentsStorage,
+        val componentsStoragePerSourceSession: Map<FirSession, Fir2IrComponentsStorage>,
         val commonMemberStorage: Fir2IrCommonMemberStorage,
         val irBuiltIns: IrBuiltIns,
         val symbolTable: SymbolTable,
-        val irTypeSystemContext: IrTypeSystemContext
-    )
+        val irTypeSystemContext: IrTypeSystemContext,
+        val fakeOverrideResolver: SpecialFakeOverrideSymbolsResolver
+    ) {
+        val componentsStorage: Fir2IrComponentsStorage = componentsStoragePerSourceSession.values.last()
+    }
 
     fun convertToIrAndActualize(): Fir2IrActualizedResult {
         require(outputs.isNotEmpty()) { "No modules found" }
@@ -138,13 +142,14 @@ private class Fir2IrPipeline(
 
         val syntheticIrBuiltinsSymbolsContainer = Fir2IrSyntheticIrBuiltinsSymbolsContainer()
 
-        lateinit var componentsStorage: Fir2IrComponentsStorage
+        val fakeOverrideResolver = SpecialFakeOverrideSymbolsResolver()
 
-        val fragments = outputs.map {
-            componentsStorage = Fir2IrComponentsStorage(
-                it.session,
-                it.scopeSession,
-                it.fir,
+        val componentsStorages = mutableMapOf<FirSession, Fir2IrComponentsStorage>()
+        val fragments = outputs.map { output ->
+            val componentsStorage = Fir2IrComponentsStorage(
+                output.session,
+                output.scopeSession,
+                output.fir,
                 fir2IrExtensions,
                 fir2IrConfiguration,
                 visibilityConverter,
@@ -152,29 +157,36 @@ private class Fir2IrPipeline(
                 irMangler,
                 kotlinBuiltIns,
                 specialAnnotationsProvider,
-                firProvidersWithGeneratedFiles.getValue(it.session.moduleData),
+                firProvidersWithGeneratedFiles.getValue(output.session.moduleData),
                 syntheticIrBuiltinsSymbolsContainer,
-            )
+                fakeOverrideResolver,
+            ).also {
+                componentsStorages[output.session] = it
+            }
 
-            Fir2IrConverter.generateIrModuleFragment(componentsStorage, it.fir).also { moduleFragment ->
+            Fir2IrConverter.generateIrModuleFragment(componentsStorage, output.fir).also { moduleFragment ->
                 irModuleFragmentPostCompute(moduleFragment)
             }
         }
 
         val dependentIrFragments = fragments.dropLast(1)
         val mainIrFragment = fragments.last()
-        val (irBuiltIns, symbolTable) = createBuiltInsAndSymbolTable(componentsStorage, syntheticIrBuiltinsSymbolsContainer)
+        val (irBuiltIns, symbolTable) = createBuiltInsAndSymbolTable(
+            componentsStorages.values.last(),
+            syntheticIrBuiltinsSymbolsContainer
+        )
 
         val irTypeSystemContext = typeSystemContextProvider(irBuiltIns)
 
         return Fir2IrConversionResult(
             mainIrFragment,
             dependentIrFragments,
-            componentsStorage,
+            componentsStorages,
             commonMemberStorage,
             irBuiltIns,
             symbolTable,
-            irTypeSystemContext
+            irTypeSystemContext,
+            fakeOverrideResolver,
         )
     }
 
@@ -201,7 +213,8 @@ private class Fir2IrPipeline(
 
         generateSyntheticBodiesOfDataValueMembers()
 
-        val (fakeOverrideStrategy, delegatedMembersGenerationStrategy) = buildFakeOverridesAndPlatformSpecificDeclarations(irActualizer)
+        val (fakeOverrideStrategy, delegatedMembersGenerationStrategy) =
+            buildFakeOverridesAndPlatformSpecificDeclarations(irActualizer)
 
         val expectActualMap = irActualizer?.actualizeCallablesAndMergeModules() ?: IrExpectActualMap()
 
@@ -216,8 +229,7 @@ private class Fir2IrPipeline(
             )
         }
 
-        val fakeOverrideResolver = SpecialFakeOverrideSymbolsResolver(expectActualMap)
-        resolveFakeOverrideSymbols(fakeOverrideResolver)
+        resolveFakeOverrideSymbols()
         delegatedMembersGenerationStrategy.updateMetadataSources(
             commonMemberStorage.firClassesWithInheritanceByDelegation,
             outputs.last().session,
@@ -226,7 +238,7 @@ private class Fir2IrPipeline(
             fakeOverrideResolver
         )
 
-        checkUnboundSymbols(mainIrFragment)
+        checkUnboundSymbols()
 
         evaluateConstants()
 
@@ -246,6 +258,8 @@ private class Fir2IrPipeline(
 
     private fun Fir2IrConversionResult.createIrActualizer(): IrActualizer? {
         return runIf(dependentIrFragments.isNotEmpty()) {
+            referenceAllCommonDependencies(outputs)
+
             IrActualizer(
                 KtDiagnosticReporterWithImplicitIrBasedContext(
                     fir2IrConfiguration.diagnosticReporter,
@@ -255,10 +269,15 @@ private class Fir2IrPipeline(
                 fir2IrConfiguration.expectActualTracker,
                 mainIrFragment,
                 dependentIrFragments,
-                this@Fir2IrPipeline.extraActualDeclarationExtractorsInitializer(componentsStorage),
+                extraActualDeclarationExtractorsInitializer(componentsStorage),
+                missingActualProvider = LenientModeMissingActualDeclarationProvider.initializeIfNeeded(componentsStorage),
+                IrCommonToPlatformDependencyActualizerMapContributor.create(
+                    outputs.last().session,
+                    componentsStoragePerSourceSession,
+                ),
+                hmppSchemeEnabled = componentsStorage.session.languageVersionSettings.getFlag(AnalysisFlags.hierarchicalMultiplatformCompilation)
             )
         }
-
     }
 
     private fun Fir2IrConversionResult.generateSyntheticBodiesOfDataValueMembers() {
@@ -290,7 +309,7 @@ private class Fir2IrPipeline(
     }
 
     private fun Fir2IrConversionResult.buildFakeOverridesAndPlatformSpecificDeclarations(
-        irActualizer: IrActualizer?
+        irActualizer: IrActualizer?,
     ): Pair<Fir2IrFakeOverrideStrategy, Fir2IrDelegatedMembersGenerationStrategy> {
         val (fakeOverrideBuilder, delegatedMembersGenerationStrategy) = createFakeOverrideBuilder(irActualizer)
         buildFakeOverrides(fakeOverrideBuilder)
@@ -302,26 +321,30 @@ private class Fir2IrPipeline(
         return fakeOverrideStrategy to delegatedMembersGenerationStrategy
     }
 
-    private fun Fir2IrConversionResult.buildFakeOverrides(fakeOverrideBuilder: IrFakeOverrideBuilder) {
-        val temporaryResolver = SpecialFakeOverrideSymbolsResolver(IrExpectActualMap())
-        fakeOverrideBuilder.buildForAll(dependentIrFragments + mainIrFragment, temporaryResolver)
-        @OptIn(Fir2IrSymbolsMappingForLazyClasses.SymbolRemapperInternals::class)
-        componentsStorage.symbolsMappingForLazyClasses.initializeRemapper(temporaryResolver)
+    private fun Fir2IrConversionResult.buildFakeOverrides(
+        fakeOverrideBuilder: IrFakeOverrideBuilder,
+    ) {
+        fakeOverrideBuilder.buildForAll(dependentIrFragments + mainIrFragment, fakeOverrideResolver)
+        componentsStorage.symbolsMappingForLazyClasses.enableRemapper()
     }
 
-    private fun Fir2IrConversionResult.resolveFakeOverrideSymbols(fakeOverrideResolver: SpecialFakeOverrideSymbolsResolver) {
+    private fun Fir2IrConversionResult.resolveFakeOverrideSymbols() {
         mainIrFragment.acceptVoid(SpecialFakeOverrideSymbolsResolverVisitor(fakeOverrideResolver))
+    }
 
-        val expectActualMap = fakeOverrideResolver.expectActualMap
-        if (expectActualMap.propertyAccessorsActualizedByFields.isNotEmpty()) {
-            mainIrFragment.transform(SpecialFakeOverrideSymbolsActualizedByFieldsTransformer(expectActualMap), null)
+    private fun Fir2IrConversionResult.checkUnboundSymbols() {
+        validateIr(fir2IrConfiguration.messageCollector, IrVerificationMode.ERROR) {
+            performBasicIrValidation(
+                mainIrFragment,
+                irBuiltIns,
+                phaseName = "",
+                IrValidatorConfig(
+                    checkTreeConsistency = false,
+                    checkFunctionBody = false,
+                    checkUnboundSymbols = true,
+                )
+            )
         }
-
-        // TODO: remove this and create a correct remapper from the beginnning: KT-70907
-        @OptIn(Fir2IrSymbolsMappingForLazyClasses.SymbolRemapperInternals::class)
-        componentsStorage.symbolsMappingForLazyClasses.unregisterRemapper()
-        @OptIn(Fir2IrSymbolsMappingForLazyClasses.SymbolRemapperInternals::class)
-        componentsStorage.symbolsMappingForLazyClasses.initializeRemapper(fakeOverrideResolver)
     }
 
     private fun Fir2IrConversionResult.evaluateConstants() {
@@ -373,7 +396,7 @@ private class Fir2IrPipeline(
                 try {
                     file.acceptVoid(ClassVisitor())
                 } catch (e: Throwable) {
-                    CodegenUtil.reportBackendException(e, "IR fake override builder", file.fileEntry.name) { offset ->
+                    BackendException.report(e, "IR fake override builder", file.fileEntry.name) { offset ->
                         file.fileEntry.takeIf { it.supportsDebugInfo }?.let {
                             val (line, column) = it.getLineAndColumnNumbers(offset)
                             line to column
@@ -436,8 +459,10 @@ private fun IrPluginContext.runMandatoryIrValidation(
     fir2IrConfiguration: Fir2IrConfiguration,
 ) {
     if (!fir2IrConfiguration.validateIrAfterPlugins) return
-    // TODO(KT-71138): Replace with IrVerificationMode.ERROR in Kotlin 2.2
-    validateIr(fir2IrConfiguration.messageCollector, IrVerificationMode.WARNING) {
+    val mode =
+        if (languageVersionSettings.supportsFeature(LanguageFeature.ForbidCrossFileIrFieldAccessInKlibs)) IrVerificationMode.ERROR
+        else IrVerificationMode.WARNING
+    validateIr(fir2IrConfiguration.messageCollector, mode) {
         customMessagePrefix = if (extension == null) {
             "The frontend generated invalid IR. This is a compiler bug, please report it to https://kotl.in/issue."
         } else {

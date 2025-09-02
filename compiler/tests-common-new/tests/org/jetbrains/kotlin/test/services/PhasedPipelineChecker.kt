@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.test.directives.TestPhaseDirectives.RUN_PIPELINE_TIL
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.model.AfterAnalysisChecker
 import org.jetbrains.kotlin.test.model.ArtifactKind
+import org.jetbrains.kotlin.test.model.ArtifactKinds
 import org.jetbrains.kotlin.test.model.BackendKind
 import org.jetbrains.kotlin.test.model.FrontendKind
 import org.jetbrains.kotlin.test.model.TestArtifactKind
@@ -21,12 +22,13 @@ import org.jetbrains.kotlin.test.utils.firTestDataFile
 import org.jetbrains.kotlin.test.utils.latestLVTestDataFile
 import org.jetbrains.kotlin.test.utils.llFirTestDataFile
 import org.jetbrains.kotlin.test.utils.originalTestDataFile
+import org.jetbrains.kotlin.test.utils.partialBodyTestDataFile
 import org.jetbrains.kotlin.test.utils.reversedTestDataFile
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
 class PhasedPipelineChecker(
     testServices: TestServices,
-    val defaultRunPipelineTill: TestPhaseLabel? = null,
+    val defaultRunPipelineTill: TestPhase? = null,
 ) : AfterAnalysisChecker(testServices) {
     override val order: Order
         get() = Order.P4
@@ -35,39 +37,40 @@ class PhasedPipelineChecker(
         get() = listOf(TestPhaseDirectives)
 
     override fun suppressIfNeeded(failedAssertions: List<WrappedException>): List<WrappedException> {
-        checkLatestPhaseDirective()?.let { return failedAssertions + it }
+        latestPhaseDirectiveOr { return failedAssertions + it }
         val targetedPhase = getTargetedPhase()
         if (targetedPhase == null) {
             return failedAssertions + reportMissingDirective(failedAssertions)
         }
 
-        val (suppressibleFailures, nonSuppressibleFailures, hasFailuresInNonLeafModule) = sortFailures(failedAssertions)
+        val (suppressibleFailures, nonSuppressibleFailures, hasFailuresInNonLeafModule, hasNonSuppressibleFailuresFromFacade) = sortFailures(failedAssertions)
 
         return nonSuppressibleFailures + when {
-            suppressibleFailures.isEmpty() && !hasFailuresInNonLeafModule -> checkPhaseConsistency()
+            suppressibleFailures.isEmpty() && !hasNonSuppressibleFailuresFromFacade && !hasFailuresInNonLeafModule -> checkPhaseConsistency()
             else -> emptyList()
         }
     }
 
-    private fun getTargetedPhase(): TestPhaseLabel? {
+    private fun getTargetedPhase(): TestPhase? {
         return testServices.moduleStructure.allDirectives[RUN_PIPELINE_TILL].firstOrNull() ?: defaultRunPipelineTill
     }
 
-    private fun TestArtifactKind<*>.toPhase(): TestPhaseLabel? = when (this) {
-        is FrontendKind -> TestPhaseLabel.FRONTEND
-        is BackendKind -> TestPhaseLabel.FIR2IR
-        is ArtifactKind -> TestPhaseLabel.BACKEND
+    private fun TestArtifactKind<*>.toPhase(): TestPhase? = when (this) {
+        is FrontendKind -> TestPhase.FRONTEND
+        is BackendKind -> TestPhase.FIR2IR
+        is ArtifactKinds.KLib -> TestPhase.KLIB
+        is ArtifactKind -> TestPhase.BACKEND
         else -> null
     }
 
-    private fun checkLatestPhaseDirective(): WrappedException? {
+    private inline fun latestPhaseDirectiveOr(otherwise: (WrappedException) -> Nothing): TestPhase {
         val latestPhases = testServices.moduleStructure.allDirectives[LATEST_PHASE_IN_PIPELINE].distinct()
         val message = when (latestPhases.size) {
+            1 -> return latestPhases[0]
             0 -> "LATEST_PHASE_IN_PIPELINE directive is not specified for the test"
-            1 -> return null
             else -> "LATEST_PHASE_IN_PIPELINE directive defined multiple times: $latestPhases"
         }
-        return WrappedException.FromAfterAnalysisChecker(IllegalStateException(message))
+        otherwise(WrappedException.FromAfterAnalysisChecker(IllegalStateException(message)))
     }
 
     private fun checkPhaseConsistency(): List<WrappedException> {
@@ -75,6 +78,9 @@ class PhasedPipelineChecker(
         if (DISABLE_NEXT_PHASE_SUGGESTION in directives) return emptyList()
         val expectedLastPhase = directives[LATEST_PHASE_IN_PIPELINE].first()
         val targetedPhase = getTargetedPhase()
+        if (targetedPhase == expectedLastPhase) {
+            return emptyList()
+        }
         if (targetedPhase != null && targetedPhase > expectedLastPhase) {
             val message = "RUN_PIPELINE_TILL ($targetedPhase) cannot be greater than $LATEST_PHASE_IN_PIPELINE ($expectedLastPhase)"
             return listOf(WrappedException.FromAfterAnalysisChecker(IllegalStateException(message)))
@@ -83,21 +89,14 @@ class PhasedPipelineChecker(
         return createDiffsForAllTestDataFiles("Phase $targetedPhase could be promoted to $expectedLastPhase") {
             val proposedDirectiveDeclaration = when (targetedPhase) {
                 defaultRunPipelineTill -> ""
-                else -> "// RUN_PIPELINE_TILL: $expectedLastPhase\n"
+                else -> "// RUN_PIPELINE_TILL: $expectedLastPhase"
             }
-            it.replace("// RUN_PIPELINE_TILL: $targetedPhase\n", proposedDirectiveDeclaration)
+            it.replace("// RUN_PIPELINE_TILL: $targetedPhase", proposedDirectiveDeclaration)
         }
     }
 
     private fun reportMissingDirective(failedAssertions: List<WrappedException>): List<WrappedException> {
-        val latestPhases = testServices.moduleStructure.allDirectives[LATEST_PHASE_IN_PIPELINE]
-        val expectedLastPhase = latestPhases.singleOrNull() ?: run {
-            val message = when (latestPhases.size) {
-                0 -> "LATEST_PHASE_IN_PIPELINE directive is not specified for the test"
-                else -> "LATEST_PHASE_IN_PIPELINE directive defined multiple times: $latestPhases"
-            }
-            WrappedException.FromAfterAnalysisChecker(IllegalStateException(message))
-        }
+        val expectedLastPhase = latestPhaseDirectiveOr { return failedAssertions + it }
         val proposedPhase = failedAssertions.mapNotNull {
             when (it) {
                 is WrappedException.FromFacade -> it.facade.outputKind
@@ -126,6 +125,7 @@ class PhasedPipelineChecker(
                 originalFile.llFirTestDataFile,
                 originalFile.latestLVTestDataFile,
                 originalFile.reversedTestDataFile,
+                originalFile.partialBodyTestDataFile,
             )
         }
         return filesList.filter { it.exists() }.mapNotNull { file ->
@@ -147,6 +147,7 @@ class PhasedPipelineChecker(
         val suppressibleFailures: List<WrappedException>,
         val nonSuppressibleFailures: List<WrappedException>,
         val hasFailuresInNonLeafModule: Boolean,
+        val hasNonSuppressibleFailuresFromFacade: Boolean,
     )
 
     private fun sortFailures(failedAssertions: List<WrappedException>): SortedFailures {
@@ -154,6 +155,7 @@ class PhasedPipelineChecker(
         val nonSuppressibleFailures = mutableListOf<WrappedException>()
         val targetedPhase = getTargetedPhase()!!
         var hasFailuresInNonLeafModule = false
+        var hasNonSuppressibleFailuresFromFacade = false
 
         fun processFailure(module: TestModule?, kind: TestArtifactKind<*>, exception: WrappedException): MutableList<WrappedException> {
             val actualPhase = kind.toPhase()
@@ -165,10 +167,19 @@ class PhasedPipelineChecker(
                 actualPhase == null -> nonSuppressibleFailures
                 actualPhase == targetedPhase -> when {
                     exception is WrappedException.FromHandler && exception.failureDisablesNextSteps -> suppressibleFailures
+                    exception is WrappedException.FromFacade -> {
+                        hasNonSuppressibleFailuresFromFacade = true
+                        nonSuppressibleFailures
+                    }
                     else -> nonSuppressibleFailures
                 }
                 actualPhase > targetedPhase -> suppressibleFailures
-                actualPhase < targetedPhase -> nonSuppressibleFailures
+                actualPhase < targetedPhase -> {
+                    if (exception is WrappedException.FromFacade) {
+                        hasNonSuppressibleFailuresFromFacade = true
+                    }
+                    nonSuppressibleFailures
+                }
                 else -> shouldNotBeCalled()
             }
         }
@@ -188,7 +199,8 @@ class PhasedPipelineChecker(
         return SortedFailures(
             suppressibleFailures = suppressibleFailures,
             nonSuppressibleFailures = nonSuppressibleFailures,
-            hasFailuresInNonLeafModule
+            hasFailuresInNonLeafModule,
+            hasNonSuppressibleFailuresFromFacade
         )
     }
 }

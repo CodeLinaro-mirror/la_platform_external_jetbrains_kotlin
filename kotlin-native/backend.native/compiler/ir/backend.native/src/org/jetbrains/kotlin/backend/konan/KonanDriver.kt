@@ -9,15 +9,15 @@ import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.backend.common.serialization.codedInputStream
 import org.jetbrains.kotlin.backend.common.serialization.fileEntry
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFile
-import org.jetbrains.kotlin.backend.konan.driver.DynamicCompilerDriver
+import org.jetbrains.kotlin.backend.konan.driver.NativeCompilerDriver
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
+import org.jetbrains.kotlin.cli.common.copyCommonKlibArgumentsFrom
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
-import org.jetbrains.kotlin.config.KlibConfigurationKeys
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.impl.createKonanLibrary
@@ -25,25 +25,9 @@ import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.uniqueName
 import org.jetbrains.kotlin.protobuf.ExtensionRegistryLite
+import org.jetbrains.kotlin.util.PhaseType
+import org.jetbrains.kotlin.util.PerformanceManager
 import java.util.*
-
-/**
- * [this] is a value passed to `-target` CLI-argument (see [KonanConfigKeys.TARGET])
- * Returns 'true' if this argument is most likely a removed [KonanTarget], allowing for a
- * more readable and graceful error message.
- */
-private fun String.looksLikeRemovedTarget(): Boolean =
-        // NB: zephyr had loadable targets, so the full value was of form 'zephyr_<subtarget>'
-        this in removedTargetsNames || this.startsWith("zephyr_")
-
-private val removedTargetsNames = setOf(
-        "ios_arm32",
-        "watchos_x86",
-        "linux_mips32",
-        "linux_mipsel32",
-        "mingw_x86",
-        "wasm32"
-)
 
 private val softDeprecatedTargets = setOf(
         KonanTarget.LINUX_ARM32_HFP,
@@ -60,6 +44,7 @@ class KonanDriver(
         val project: Project,
         val environment: KotlinCoreEnvironment,
         val configuration: CompilerConfiguration,
+        val performanceManager: PerformanceManager?,
         val compilationSpawner: CompilationSpawner
 ) {
     fun run() {
@@ -99,11 +84,6 @@ class KonanDriver(
             configuration.put(KonanConfigKeys.FILES_TO_CACHE, fileNames)
         }
 
-        val target = configuration.get(KonanConfigKeys.TARGET)
-        if (target != null && target.looksLikeRemovedTarget()) {
-            configuration.report(CompilerMessageSeverity.ERROR,
-                    "target $target is no longer available. See: $DEPRECATION_LINK")
-        }
         var konanConfig = KonanConfig(project, configuration)
 
         if (configuration.get(KonanConfigKeys.LIST_TARGETS) == true) {
@@ -145,15 +125,14 @@ class KonanDriver(
             konanConfig.cacheSupport.checkConsistency()
         }
 
-        val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
         val sourcesFiles = environment.getSourceFiles()
         performanceManager?.apply {
             targetDescription = "${konanConfig.moduleId}-${konanConfig.produce}"
             addSourcesStats(sourcesFiles.size, environment.countLinesOfCode(sourcesFiles))
-            notifyCompilerInitialized()
+            notifyPhaseFinished(PhaseType.Initialization)
         }
 
-        DynamicCompilerDriver(performanceManager).run(konanConfig, environment)
+        NativeCompilerDriver(performanceManager).run(konanConfig, environment)
     }
 
     private fun ensureModuleName(config: KonanConfig) {
@@ -212,12 +191,7 @@ class KonanDriver(
 
             // KT-71976: Restore keys, which are reset within `compilationSpawner.spawn(emptyList())`,
             // during invocation of `prepareEnvironment()` with empty arguments.
-            copy(KlibConfigurationKeys.DUPLICATED_UNIQUE_NAME_STRATEGY)
-            copy(KlibConfigurationKeys.KLIB_RELATIVE_PATH_BASES)
-            copy(KlibConfigurationKeys.KLIB_NORMALIZE_ABSOLUTE_PATH)
-            copy(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
-            copy(KlibConfigurationKeys.PRODUCE_KLIB_SIGNATURES_CLASH_CHECKS)
-            copy(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY)
+            copyCommonKlibArgumentsFrom(configuration)
         }
 
         // For the second stage, remove already compiled source files from the configuration.

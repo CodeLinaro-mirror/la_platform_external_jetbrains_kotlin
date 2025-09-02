@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.ExplicitApiMode
 import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.jetbrains.kotlin.config.LanguageVersion
+import org.jetbrains.kotlin.config.ReturnValueCheckerMode
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 
 object LanguageSettingsDirectives : SimpleDirectivesContainer() {
@@ -64,6 +65,11 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
         additionalParser = ExplicitApiMode.Companion::fromString
     )
 
+    val RETURN_VALUE_CHECKER_MODE by enumDirective(
+        "Configures return value checker mode (AnalysisFlags.returnValueCheckerMode)",
+        additionalParser = ReturnValueCheckerMode.Companion::fromString
+    )
+
     val ALLOW_KOTLIN_PACKAGE by directive(
         description = "Allow compiling code in package 'kotlin' and allow not requiring kotlin.stdlib in module-info (AnalysisFlags.allowKotlinPackage)"
     )
@@ -99,6 +105,10 @@ object LanguageSettingsDirectives : SimpleDirectivesContainer() {
 
     val PROGRESSIVE_MODE by directive(
         description = "Enables progressive mode"
+    )
+
+    val LENIENT_MODE by directive(
+        description = "Enabled lenient compiler mode."
     )
 
     // --------------------- Jvm Analysis Flags ---------------------

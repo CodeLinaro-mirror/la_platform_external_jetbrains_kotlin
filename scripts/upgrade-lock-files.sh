@@ -7,20 +7,11 @@ echo "Start upgrade 'kotlin-js-store/yarn.lock'"
 rm -rf kotlin-js-store && ./gradlew :kotlinUpgradeYarnLock
 echo "End upgrade 'kotlin-js-store/yarn.lock'"
 
-# Upgrade kotlin-native/tools/performance-server/kotlin-js-store/yarn.lock
-
-echo "Start upgrade 'kotlin-native/tools/performance-server/kotlin-js-store/yarn.lock'"
-cd ./kotlin-native/tools/performance-server/
-rm -rf kotlin-js-store && ./gradlew :kotlinUpgradeYarnLock
-
-cd $root_dir
-echo "End upgrade 'kotlin-native/tools/performance-server/kotlin-js-store/yarn.lock'"
-
 # Upgrade js/js.translator/testData/package-lock.json
 
 echo "Start upgrade 'js/js.translator/testData/package-lock.json'"
 cd ./js/js.translator/testData
-npm config set registry https://packages.jetbrains.team/npm/p/kt/kotlin-dependencies --location=project
+npm config set registry https://redirector.kotlinlang.org/npm/kotlin-dependencies --location=project
 npm upgrade
 
 cd $root_dir
@@ -30,7 +21,7 @@ echo "End upgrade 'js/js.translator/testData/package-lock.json'"
 
 echo "Start upgrade 'libraries/kotlin.test/js/it/package-lock.json'"
 cd ./libraries/kotlin.test/js/it
-npm config set registry https://packages.jetbrains.team/npm/p/kt/kotlin-dependencies --location=project
+npm config set registry https://redirector.kotlinlang.org/npm/kotlin-dependencies --location=project
 npm upgrade
 
 cd $root_dir

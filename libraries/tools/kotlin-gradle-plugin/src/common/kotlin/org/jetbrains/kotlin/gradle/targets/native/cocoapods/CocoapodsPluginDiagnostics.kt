@@ -6,14 +6,14 @@
 package org.jetbrains.kotlin.gradle.targets.native.cocoapods
 
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.diagnostics.DiagnosticGroups
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.DiagnosticGroup
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity.*
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnosticFactory
 import java.net.URI
 
 internal object CocoapodsPluginDiagnostics {
 
-    object DeprecatedPropertiesUsed : ToolingDiagnosticFactory(WARNING, DiagnosticGroups.KGP.Deprecation) {
+    object DeprecatedPropertiesUsed : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
         operator fun invoke(usedDeprecatedProperties: List<String>) = build {
             title("Deprecated Properties Used")
                 .description {
@@ -29,7 +29,7 @@ internal object CocoapodsPluginDiagnostics {
         }
     }
 
-    object LinkOnlyUsedWithStaticFramework : ToolingDiagnosticFactory(WARNING, DiagnosticGroups.KGP.Misconfiguration) {
+    object LinkOnlyUsedWithStaticFramework : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(podName: String) = build {
             title("Link-Only Option Ignored")
                 .description {
@@ -44,7 +44,7 @@ internal object CocoapodsPluginDiagnostics {
         }
     }
 
-    object UnsupportedOs : ToolingDiagnosticFactory(WARNING, DiagnosticGroups.KGP.Misconfiguration) {
+    object UnsupportedOs : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke() = build {
             title("Unsupported Operating System")
                 .description {
@@ -56,7 +56,7 @@ internal object CocoapodsPluginDiagnostics {
         }
     }
 
-    object InteropBindingSelfDependency : ToolingDiagnosticFactory(ERROR, DiagnosticGroups.KGP.Misconfiguration) {
+    object InteropBindingSelfDependency : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(podName: String) = build {
             title("Self-Referential Interop-Binding Dependency")
                 .description {
@@ -68,7 +68,7 @@ internal object CocoapodsPluginDiagnostics {
         }
     }
 
-    object InteropBindingUnknownDependency : ToolingDiagnosticFactory(ERROR, DiagnosticGroups.KGP.Misconfiguration) {
+    object InteropBindingUnknownDependency : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(podName: String, dependencyName: String) = build {
             title("Unknown Interop-Binding Dependency")
                 .description {
@@ -80,25 +80,36 @@ internal object CocoapodsPluginDiagnostics {
         }
     }
 
-    object EmbedAndSignUsedWithPodDependencies : ToolingDiagnosticFactory(FATAL, DiagnosticGroups.KGP.Misconfiguration) {
+    object EmbedAndSignUsedWithPodDependencies : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke() = build {
-            title("Incompatible 'embedAndSign' Task with Pod Dependencies")
+            title("Incompatible 'embedAndSign' Task with CocoaPods Dependencies")
                 .description {
                     """
-                    'embedAndSign' task can't be used in a project with dependencies to pods.
+                The 'embedAndSign' task cannot be used in projects that have CocoaPods dependencies configured.
+                
+                This conflict occurs because:
+                • The 'embedAndSign' task is designed for manual framework integration
+                • CocoaPods manages its own framework integration and dependency resolution
+                • Using both simultaneously can lead to duplicate symbols, conflicting build phases, and unpredictable build behavior
+                
+                Your project currently has CocoaPods dependencies that conflict with the embedAndSign workflow.
+                
+                To temporarily suppress this error, add the following to your gradle.properties:
                     
-                    To temporarily suppress this error, put the following in your gradle.properties:
-                        
-                        ${PropertiesProvider.PropertyNames.KOTLIN_APPLE_ALLOW_EMBED_AND_SIGN_WITH_COCOAPODS}=true
-                    
-                    Please note that this property is deprecated and it will be removed in the upcoming releases
-                    """.trimIndent()
+                    ${PropertiesProvider.PropertyNames.KOTLIN_APPLE_ALLOW_EMBED_AND_SIGN_WITH_COCOAPODS}=true
+                
+                ⚠️  WARNING: This property is deprecated and will be removed in future releases. 
+                Using this workaround may cause build issues and is not supported.
+                """.trimIndent()
                 }
-                .solution {
-                    "Migrate to CocoaPods for integration into Xcode"
+                .solutions {
+                    listOf(
+                        "Remove CocoaPods dependencies and use 'embedAndSignAppleFrameworkForXcode' task for manual framework integration",
+                        "Remove 'embedAndSign' task and migrate to CocoaPods for framework integration"
+                    )
                 }
                 .documentationLink(URI("https://kotl.in/vc2iq3")) { url ->
-                    "Please migrate to CocoaPods for integration into Xcode: $url"
+                    "For detailed migration instructions and best practices, see: $url"
                 }
         }
     }

@@ -11,8 +11,9 @@ import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.TranslationMode
 import org.jetbrains.kotlin.js.config.EcmaVersion
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.SourceMapSourceEmbedding
+import org.jetbrains.kotlin.js.config.friendLibraries
+import org.jetbrains.kotlin.js.config.outputDir
 import org.jetbrains.kotlin.platform.isJs
-import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
@@ -25,7 +26,6 @@ import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.DUMP_KLIB_SYNTHETIC_ACCESSORS
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.KLIB_RELATIVE_PATH_BASES
-import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.model.TestModule
@@ -150,6 +150,9 @@ class JsEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigu
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
         if (!module.targetPlatform(testServices).isJs()) return
 
+        configuration.phaseConfig = createJsTestPhaseConfig(testServices, module)
+        configuration.outputDir = getKlibArtifactFile(testServices, module.name)
+
         val registeredDirectives = module.directives
         val moduleKinds = registeredDirectives[MODULE_KIND]
         val moduleKind = when (moduleKinds.size) {
@@ -163,21 +166,19 @@ class JsEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigu
         val noInline = registeredDirectives.contains(NO_INLINE)
         configuration.put(CommonConfigurationKeys.DISABLE_INLINE, noInline)
 
-        val dependencies = module.regularDependencies.map { getJsModuleArtifactPath(testServices, it.dependencyModule.name) + ".meta.js" }
-        val allDependencies = module.transitiveRegularDependencies().map { getJsModuleArtifactPath(testServices, it.name) + ".meta.js" }
-        val friends = module.friendDependencies.map { getJsModuleArtifactPath(testServices, it.dependencyModule.name) + ".meta.js" }
+        val dependencies = module.regularDependencies.map { getKlibArtifactFile(testServices, it.dependencyModule.name).absolutePath }
+        val friends = module.friendDependencies.map { getKlibArtifactFile(testServices, it.dependencyModule.name).absolutePath }
 
         val libraries = when (val targetBackend = testServices.defaultsProvider.targetBackend) {
             null -> listOf(
                 testServices.standardLibrariesPathProvider.fullJsStdlib().absolutePath,
                 testServices.standardLibrariesPathProvider.kotlinTestJsKLib().absolutePath
             )
-            TargetBackend.JS_IR, TargetBackend.JS_IR_ES6 -> dependencies + friends
+            TargetBackend.JS_IR, TargetBackend.JS_IR_ES6 -> getRuntimePathsForModule(module, testServices) + dependencies + friends
             else -> error("Unsupported target backend: $targetBackend")
         }
         configuration.put(JSConfigurationKeys.LIBRARIES, libraries)
-        configuration.put(JSConfigurationKeys.TRANSITIVE_LIBRARIES, allDependencies)
-        configuration.put(JSConfigurationKeys.FRIEND_PATHS, friends)
+        configuration.friendLibraries = friends
 
         configuration.put(CommonConfigurationKeys.MODULE_NAME, module.name.removeSuffix(OLD_MODULE_SUFFIX))
         configuration.put(JSConfigurationKeys.TARGET, EcmaVersion.es5)
@@ -185,7 +186,7 @@ class JsEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigu
         val multiModule = testServices.moduleStructure.modules.size > 1
         configuration.put(JSConfigurationKeys.META_INFO, multiModule)
 
-        val sourceDirs = module.files.map { it.originalFile.parent }.distinct()
+        val sourceDirs = module.files.mapNotNull { it.originalFile.parent }.distinct()
         configuration.put(JSConfigurationKeys.SOURCE_MAP_SOURCE_ROOTS, sourceDirs)
         configuration.put(JSConfigurationKeys.SOURCE_MAP, true)
 
@@ -207,11 +208,13 @@ class JsEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigu
             )
         }
 
-        configuration.syntheticAccessorsWithNarrowedVisibility = KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY in registeredDirectives
-
         configuration.klibRelativePathBases = registeredDirectives[KLIB_RELATIVE_PATH_BASES].applyIf(testServices.cliBasedFacadesEnabled) {
             val modulePath = testServices.sourceFileProvider.getKotlinSourceDirectoryForModule(module).canonicalPath
             map { "$modulePath/$it" }
+        }
+
+        if (testServices.cliBasedFacadesEnabled) {
+            configuration.addSourcesForDependsOnClosure(module, testServices)
         }
     }
 }

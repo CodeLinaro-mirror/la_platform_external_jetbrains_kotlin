@@ -76,6 +76,12 @@ public class JsPartialLinkageNoICES6TestCaseGenerated extends AbstractJsPartialL
   }
 
   @Test
+  @TestMetadata("fakeOverridesUnboundClassifiers")
+  public void testFakeOverridesUnboundClassifiers() {
+    runTest("compiler/testData/klib/partial-linkage/fakeOverridesUnboundClassifiers/");
+  }
+
+  @Test
   @TestMetadata("functionTransformations")
   public void testFunctionTransformations() {
     runTest("compiler/testData/klib/partial-linkage/functionTransformations/");
@@ -88,9 +94,15 @@ public class JsPartialLinkageNoICES6TestCaseGenerated extends AbstractJsPartialL
   }
 
   @Test
-  @TestMetadata("kt73511")
-  public void testKt73511() {
-    runTest("compiler/testData/klib/partial-linkage/kt73511/");
+  @TestMetadata("inlineFunctions-noInliningInKlibs")
+  public void testInlineFunctions_noInliningInKlibs() {
+    runTest("compiler/testData/klib/partial-linkage/inlineFunctions-noInliningInKlibs/");
+  }
+
+  @Test
+  @TestMetadata("inlineFunctions-withInliningInKlibs")
+  public void testInlineFunctions_withInliningInKlibs() {
+    runTest("compiler/testData/klib/partial-linkage/inlineFunctions-withInliningInKlibs/");
   }
 
   @Test
@@ -112,15 +124,15 @@ public class JsPartialLinkageNoICES6TestCaseGenerated extends AbstractJsPartialL
   }
 
   @Test
-  @TestMetadata("propertyTransformations")
-  public void testPropertyTransformations() {
-    runTest("compiler/testData/klib/partial-linkage/propertyTransformations/");
-  }
-
-  @Test
   @TestMetadata("referencingUnusableDeclarations")
   public void testReferencingUnusableDeclarations() {
     runTest("compiler/testData/klib/partial-linkage/referencingUnusableDeclarations/");
+  }
+
+  @Test
+  @TestMetadata("referencingUnusableDeclarationsWithRichReferences")
+  public void testReferencingUnusableDeclarationsWithRichReferences() {
+    runTest("compiler/testData/klib/partial-linkage/referencingUnusableDeclarationsWithRichReferences/");
   }
 
   @Test
@@ -157,6 +169,12 @@ public class JsPartialLinkageNoICES6TestCaseGenerated extends AbstractJsPartialL
   @TestMetadata("replaceCallableReturnType")
   public void testReplaceCallableReturnType() {
     runTest("compiler/testData/klib/partial-linkage/replaceCallableReturnType/");
+  }
+
+  @Test
+  @TestMetadata("richReferencesOperations")
+  public void testRichReferencesOperations() {
+    runTest("compiler/testData/klib/partial-linkage/richReferencesOperations/");
   }
 
   @Test

@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.test.frontend.fir.handlers
 
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.utils.createFilesWithGeneratedDeclarations
+import org.jetbrains.kotlin.fir.declarations.DirectDeclarationsAccess
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.extensions.generatedMembers
@@ -16,6 +17,7 @@ import org.jetbrains.kotlin.fir.renderer.FirPackageDirectiveRenderer
 import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.renderer.FirSymbolRendererWithStaticFlag
 import org.jetbrains.kotlin.fir.symbols.lazyDeclarationResolver
+import org.jetbrains.kotlin.test.TestInfrastructureInternals
 import org.jetbrains.kotlin.test.backend.handlers.assertFileDoesntExist
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.CHECK_BYTECODE_LISTING
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.DISABLE_TYPEALIAS_EXPANSION
@@ -24,11 +26,14 @@ import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.USE_LATEST_
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
+import org.jetbrains.kotlin.test.impl.testConfiguration
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
+import java.io.File
 
+@OptIn(DirectDeclarationsAccess::class)
 class FirDumpHandler(
     testServices: TestServices
 ) : FirAnalysisHandler(testServices) {
@@ -43,8 +48,11 @@ class FirDumpHandler(
         for (part in info.partsForDependsOnModules) {
             val currentModule = part.module
             byteCodeListingEnabled = byteCodeListingEnabled || CHECK_BYTECODE_LISTING in module.directives
-            if (FirDiagnosticsDirectives.FIR_DUMP !in currentModule.directives) return
-            if (FirDiagnosticsDirectives.SKIP_FIR_DUMP in currentModule.directives) return
+            val isFirDumpEnabled =
+                expectedFile().exists() || FirDiagnosticsDirectives.FIR_DUMP in currentModule.directives
+
+            if (!isFirDumpEnabled) return
+
             val builderForModule = dumper.builderForModule(currentModule)
             val firFiles = info.mainFirFiles
 
@@ -69,11 +77,7 @@ class FirDumpHandler(
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
         if (testServices.moduleStructure.allDirectives.shouldSkip()) return
-
-        // TODO: change according to multiple testdata files
-        val testDataFile = testServices.moduleStructure.originalTestDataFiles.first()
-        val extension = if (byteCodeListingEnabled) ".fir2.txt" else ".fir.txt"
-        val expectedFile = testDataFile.parentFile.resolve("${testDataFile.nameWithoutFirExtension}$extension")
+        val expectedFile = expectedFile()
 
         if (dumper.isEmpty()) {
             assertions.assertFileDoesntExist(expectedFile, FirDiagnosticsDirectives.FIR_DUMP)
@@ -81,6 +85,22 @@ class FirDumpHandler(
             val actualText = dumper.generateResultingDump()
             assertions.assertEqualsToFile(expectedFile, actualText, message = { "Content is not equal" })
         }
+    }
+
+    private fun expectedFile(): File {
+        // TODO: change according to multiple testdata files
+        val testDataFile = testServices.moduleStructure.originalTestDataFiles.first()
+        val extension = if (byteCodeListingEnabled) ".fir2.txt" else ".fir.txt"
+        val originalExpectedFilePath = testDataFile.parentFile.resolve("${testDataFile.nameWithoutFirExtension}$extension").path
+
+        @OptIn(TestInfrastructureInternals::class)
+        val expectedFilePath = testServices.testConfiguration
+            .metaTestConfigurators
+            .fold(originalExpectedFilePath) { fileName, configurator ->
+                configurator.transformTestDataPath(fileName)
+            }
+
+        return File(expectedFilePath)
     }
 
     private class FirClassMemberRendererWithGeneratedDeclarations(val session: FirSession) : FirClassMemberRenderer() {

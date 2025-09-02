@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.buildtools.api
 
+import org.jetbrains.kotlin.buildtools.api.internal.KotlinCompilerVersion
+import org.jetbrains.kotlin.buildtools.api.internal.wrappers.PreKotlin220Wrapper
 import org.jetbrains.kotlin.buildtools.api.jvm.ClassSnapshotGranularity
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathEntrySnapshot
 import org.jetbrains.kotlin.buildtools.api.jvm.JvmCompilationConfiguration
@@ -32,8 +34,28 @@ public interface CompilationService {
      *
      * @param classpathEntry path to existent classpath entry
      * @param granularity determines granularity of tracking.
+     * @param parseInlinedLocalClasses enables extended snapshotting mode for inline methods and accessors
      */
-    public fun calculateClasspathSnapshot(classpathEntry: File, granularity: ClassSnapshotGranularity): ClasspathEntrySnapshot
+    public fun calculateClasspathSnapshot(
+        classpathEntry: File,
+        granularity: ClassSnapshotGranularity,
+        parseInlinedLocalClasses: Boolean
+    ): ClasspathEntrySnapshot
+
+    /**
+     * Calculates JVM classpath snapshot for [classpathEntry] used for detecting changes in incremental compilation with specified [granularity].
+     *
+     * The [ClassSnapshotGranularity.CLASS_LEVEL] granularity should be preferred for rarely changing dependencies as more lightweight in terms of the resulting snapshot size.
+     *
+     * @param classpathEntry path to existent classpath entry
+     * @param granularity determines granularity of tracking.
+     *
+     * This is equivalent to calling the three-argument version of [calculateClasspathSnapshot] with parseInlinedLocalClasses=true.
+     */
+    public fun calculateClasspathSnapshot(
+        classpathEntry: File,
+        granularity: ClassSnapshotGranularity
+    ): ClasspathEntrySnapshot
 
     /**
      * Provides a default [CompilerExecutionStrategyConfiguration] allowing to use it as is or customizing for specific requirements.
@@ -92,7 +114,16 @@ public interface CompilationService {
     @ExperimentalBuildToolsApi
     public companion object {
         @JvmStatic
-        public fun loadImplementation(classLoader: ClassLoader): CompilationService =
-            loadImplementation(CompilationService::class, classLoader)
+        public fun loadImplementation(classLoader: ClassLoader): CompilationService  {
+            val baseImplementation = loadImplementation(CompilationService::class, classLoader)
+            val kotlinCompilerVersion = KotlinCompilerVersion(baseImplementation.getCompilerVersion())
+
+            return when {
+                kotlinCompilerVersion <= KotlinCompilerVersion(2, 1, 255, null) -> {
+                    PreKotlin220Wrapper(baseImplementation)
+                }
+                else -> baseImplementation
+            }
+        }
     }
 }

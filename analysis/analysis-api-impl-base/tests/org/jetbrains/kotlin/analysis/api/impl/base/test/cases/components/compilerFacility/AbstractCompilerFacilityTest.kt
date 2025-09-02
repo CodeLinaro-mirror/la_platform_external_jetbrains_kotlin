@@ -6,13 +6,14 @@
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.compilerFacility
 
 import com.intellij.openapi.extensions.LoadingOrder
-import org.jetbrains.kotlin.analysis.api.analyze
+import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.components.*
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnostic
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnosticWithPsi
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.ktTestModuleStructure
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.TestModuleKind
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
@@ -45,6 +46,7 @@ import org.jetbrains.kotlin.psi.KtCodeFragment
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtPsiFactory
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives
@@ -52,16 +54,14 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.model.DirectiveApplicability
 import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.model.TestModule
-import org.jetbrains.kotlin.test.services.EnvironmentConfigurator
-import org.jetbrains.kotlin.test.services.RuntimeClasspathProvider
-import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.services.assertions
-import org.jetbrains.kotlin.test.services.targetPlatform
+import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.org.objectweb.asm.ClassReader
 import org.jetbrains.org.objectweb.asm.Opcodes
-import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.tree.ClassNode
+import org.jetbrains.org.objectweb.asm.util.TraceClassVisitor
 import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.util.jar.JarFile
 import kotlin.reflect.jvm.jvmName
 
@@ -98,7 +98,7 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
             val binaryMainModuleAsFile =
                 binaryMainModule.binaryRoots.singleOrNull()?.toFile() ?: error("The binary main module must have a single Jar file")
             val actualText = dumpClassesFromJar(binaryMainModuleAsFile)
-            testServices.assertions.assertEqualsToTestDataFileSibling(actualText)
+            testServices.assertions.assertEqualsToTestOutputFile(actualText)
             return
         }
         super.doTestByMainModuleAndOptionalMainFile(mainFile, mainModule, testServices)
@@ -125,8 +125,24 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
                 ?.let { put(KaCompilerFacility.CODE_FRAGMENT_METHOD_NAME, it) }
         }
 
-        analyze(mainFile) {
-            val target = KaCompilerTarget.Jvm(isTestMode = true)
+        val callStack = mutableListOf<PsiElement>()
+        var stackDepth = 0
+        while (true) {
+            val callStackExpr = testServices.ktTestModuleStructure.mainModules.flatMap { it.psiFiles }.firstNotNullOfOrNull { file ->
+                val offset =
+                    testServices.expressionMarkerProvider.getCaretOrNull(file, "stack_$stackDepth") ?: return@firstNotNullOfOrNull null
+                file.findElementAt(offset)?.getParentOfType<KtElement>(strict = false)
+            }
+            if (callStackExpr != null) callStack.add(callStackExpr) else break
+            stackDepth++
+        }
+
+        analyzeForTest(mainFile) {
+            val target = KaCompilerTarget.Jvm(
+                isTestMode = true,
+                compiledClassHandler = null,
+                debuggerExtension = DebuggerExtension(callStack.asSequence())
+            )
             val allowedErrorFilter: (KaDiagnostic) -> Boolean = { it.factoryName in ALLOWED_ERRORS }
 
             val exceptionExpected = mainModule.testModule.directives.contains(Directives.CODE_COMPILATION_EXCEPTION)
@@ -134,26 +150,29 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
                 compile(mainFile, compilerConfiguration, target, allowedErrorFilter)
             } catch (e: Throwable) {
                 if (exceptionExpected && e is KaCodeCompilationException) {
-                    e.cause?.message?.let { testServices.assertions.assertEqualsToTestDataFileSibling("CODE_COMPILATION_EXCEPTION:\n$it") }
+                    e.cause?.message?.let { testServices.assertions.assertEqualsToTestOutputFile("CODE_COMPILATION_EXCEPTION:\n$it") }
                         ?: throw e
-                    return
+                    return@analyzeForTest
                 }
                 throw e
             }
 
             val actualText = when (result) {
                 is KaCompilationResult.Failure -> result.errors.joinToString("\n") { dumpDiagnostic(it) }
-                is KaCompilationResult.Success -> dumpClassFiles(result.output)
+                is KaCompilationResult.Success -> dumpClassFiles(
+                    result.output,
+                    mainModule.testModule.directives.contains(Directives.DUMP_CODE)
+                )
             }
 
-            testServices.assertions.assertEqualsToTestDataFileSibling(actualText)
+            testServices.assertions.assertEqualsToTestOutputFile(actualText)
 
             if (result is KaCompilationResult.Success) {
-                testServices.assertions.assertEqualsToTestDataFileSibling(irCollector.result, extension = ".ir.txt")
+                testServices.assertions.assertEqualsToTestOutputFile(irCollector.result, extension = ".ir.txt")
             }
 
             if (annotationToCheckCalls != null) {
-                testServices.assertions.assertEqualsToTestDataFileSibling(
+                testServices.assertions.assertEqualsToTestOutputFile(
                     irCollector.functionsWithAnnotationToCheckCalls.joinToString("\n"), extension = ".check_calls.txt"
                 )
             }
@@ -195,13 +214,13 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
         }
     }
 
-    private fun dumpClassFiles(outputFiles: List<KaCompiledFile>): String {
+    private fun dumpClassFiles(outputFiles: List<KaCompiledFile>, dumpCode: Boolean): String {
         val classReaders = outputFiles.filter { it.path.endsWith(".class", ignoreCase = true) }
             .also { check(it.isNotEmpty()) }
             .sortedBy { it.path }
             .map { ClassReader(it.content) }
 
-        return dumpClassFromClassReaders(classReaders)
+        return dumpClassFromClassReaders(classReaders, dumpCode)
     }
 
     private fun dumpClassesFromJar(jar: File): String {
@@ -216,31 +235,33 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
             }
         }.sortedBy { it.name }.map { jarFile.getInputStream(it) }
 
-        val result = dumpClassFromClassReaders(classInputStreamList.map { ClassReader(it) })
+        val result = dumpClassFromClassReaders(classInputStreamList.map { ClassReader(it) }, dumpCode = false)
         classInputStreamList.forEach { it.close() }
         jarFile.close()
 
         return result
     }
 
-    private fun dumpClassFromClassReaders(classReaders: List<ClassReader>): String {
+    private fun dumpClassFromClassReaders(classReaders: List<ClassReader>, dumpCode: Boolean): String {
         val classes = classReaders.map { classReader ->
-            ClassNode(Opcodes.API_VERSION).also { classReader.accept(it, ClassReader.SKIP_CODE) }
+            ClassNode(Opcodes.API_VERSION).also { classReader.accept(it, if (dumpCode) 0 else ClassReader.SKIP_CODE) }
         }
 
-        val allClasses = classes.associateBy { Type.getObjectType(it.name) }
-
         return classes.joinToString("\n\n") { node ->
-            val visitor = BytecodeListingTextCollectingVisitor(
-                BytecodeListingTextCollectingVisitor.Filter.EMPTY,
-                allClasses,
-                withSignatures = false,
-                withAnnotations = false,
-                sortDeclarations = true
-            )
-
-            node.accept(visitor)
-            visitor.text
+            if (dumpCode) {
+                val writer = StringWriter()
+                node.accept(TraceClassVisitor(PrintWriter(writer)))
+                writer.toString()
+            } else {
+                val visitor = BytecodeListingTextCollectingVisitor(
+                    BytecodeListingTextCollectingVisitor.Filter.EMPTY,
+                    withSignatures = false,
+                    withAnnotations = false,
+                    sortDeclarations = true
+                )
+                node.accept(visitor)
+                visitor.text
+            }
         }
     }
 
@@ -265,6 +286,10 @@ abstract class AbstractCompilerFacilityTest : AbstractAnalysisApiBasedTest() {
 
         val CODE_COMPILATION_EXCEPTION by directive(
             "An exception caused by CodeGen API i.e., ${KaCodeCompilationException::class.jvmName} is expected"
+        )
+
+        val DUMP_CODE by directive(
+            "Dump full bytecode instead of declarations listing"
         )
     }
 }

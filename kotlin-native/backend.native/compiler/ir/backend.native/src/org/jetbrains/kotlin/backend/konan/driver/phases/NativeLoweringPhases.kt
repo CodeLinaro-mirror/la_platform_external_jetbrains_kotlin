@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
 import org.jetbrains.kotlin.ir.expressions.IrSuspensionPoint
 import org.jetbrains.kotlin.ir.inline.*
 import org.jetbrains.kotlin.backend.konan.lower.NativeAssertionWrapperLowering
+import org.jetbrains.kotlin.backend.konan.optimizations.CastsOptimization
 import org.jetbrains.kotlin.ir.interpreter.IrInterpreterConfiguration
 
 internal typealias LoweringList = List<NamedCompilerPhase<NativeGenerationState, IrFile, IrFile>>
@@ -291,11 +292,6 @@ private val propertyReferencePhase = createFileLoweringPhase(
 )
 
 
-private val volatileLambdaPhase = createFileLoweringPhase(
-        lowering = ::VolatileLambdaLowering,
-        name = "VolatileLambdaLowering",
-)
-
 private val functionReferencePhase = createFileLoweringPhase(
         lowering = ::NativeFunctionReferenceLowering,
         name = "FunctionReference",
@@ -342,8 +338,8 @@ private val builtinOperatorPhase = createFileLoweringPhase(
  * The first phase of inlining (inline only private functions).
  */
 private val inlineOnlyPrivateFunctionsPhase = createFileLoweringPhase(
-        lowering = { context: Context ->
-            NativeIrInliner(context, inlineMode = InlineMode.PRIVATE_INLINE_FUNCTIONS)
+        lowering = { generationState: NativeGenerationState ->
+            NativeIrInliner(generationState, inlineMode = InlineMode.PRIVATE_INLINE_FUNCTIONS)
         },
         name = "InlineOnlyPrivateFunctions",
 )
@@ -364,16 +360,33 @@ private val syntheticAccessorGenerationPhase = createFileLoweringPhase(
  * The second phase of inlining (inline all functions).
  */
 internal val inlineAllFunctionsPhase = createFileLoweringPhase(
-        lowering = { context: Context ->
-            NativeIrInliner(context, inlineMode = InlineMode.ALL_INLINE_FUNCTIONS)
+        lowering = { generationState: NativeGenerationState ->
+            NativeIrInliner(generationState, inlineMode = InlineMode.ALL_INLINE_FUNCTIONS)
         },
         name = "InlineAllFunctions",
+)
+
+private val specializeSharedVariableBoxes = createFileLoweringPhase(
+        lowering = { context: Context -> SharedVariablesPrimitiveBoxSpecializationLowering(context, context.symbols) },
+        name = "SpecializeSharedVariableBoxes",
+        prerequisite = setOf(sharedVariablesPhase),
 )
 
 private val interopPhase = createFileLoweringPhase(
         lowering = ::InteropLowering,
         name = "Interop",
-        prerequisite = setOf(inlineAllFunctionsPhase, localFunctionsPhase, functionReferencePhase)
+)
+
+private val specialInteropIntrinsicsPhase = createFileLoweringPhase(
+        lowering = ::SpecialInteropIntrinsicsLowering,
+        name = "SpecialInteropIntrinsics",
+        prerequisite = setOf(inlineAllFunctionsPhase)
+)
+
+internal val specialObjCValidationPhase = createFileLoweringPhase(
+        lowering = ::SpecialObjCValidationLowering,
+        name = "SpecialObjCValidation",
+        prerequisite = setOf(inlineAllFunctionsPhase)
 )
 
 private val varargPhase = createFileLoweringPhase(
@@ -407,11 +420,11 @@ private val coroutinesLivenessAnalysisPhase = createFileLoweringPhase(
         lowering = { context: NativeGenerationState ->
             object : BodyLoweringPass {
                 override fun lower(irBody: IrBody, container: IrDeclaration) {
-                    val liveVariablesAtSuspensionPoints = context.liveVariablesAtSuspensionPoints
                     LivenessAnalysis.run(irBody) { it is IrSuspensionPoint }
                             .forEach { (irElement, liveVariables) ->
-                                liveVariablesAtSuspensionPoints[irElement as IrSuspensionPoint] = liveVariables
+                                (irElement as IrSuspensionPoint).liveVariablesAtSuspensionPoint = liveVariables
                             }
+                    context.coroutinesLivenessAnalysisPhasePerformed = true
                 }
             }
         },
@@ -454,6 +467,11 @@ private val autoboxPhase = createFileLoweringPhase(
 private val constructorsLoweringPhase = createFileLoweringPhase(
     name = "ConstructorsLowering",
     lowering = ::ConstructorsLowering,
+)
+
+private val optimizeCastsPhase = createFileLoweringPhase(
+        name = "OptimizeCasts",
+        lowering = { context: Context -> CastsOptimization(context) },
 )
 
 private val expressionBodyTransformPhase = createFileLoweringPhase(
@@ -543,19 +561,22 @@ internal val constEvaluationPhase = createFileLoweringPhase(
 )
 
 internal fun getLoweringsUpToAndIncludingSyntheticAccessors(): LoweringList = listOfNotNull(
-    testProcessorPhase,
-    upgradeCallableReferencesPhase,
-    assertionWrapperPhase,
-    lateinitPhase,
-    sharedVariablesPhase,
-    extractLocalClassesFromInlineBodies,
-    arrayConstructorPhase,
-    inlineOnlyPrivateFunctionsPhase,
-    outerThisSpecialAccessorInInlineFunctionsPhase,
-    syntheticAccessorGenerationPhase,
+        testProcessorPhase,
+        upgradeCallableReferencesPhase,
+        assertionWrapperPhase,
+        lateinitPhase,
+        sharedVariablesPhase,
+        extractLocalClassesFromInlineBodies,
+        arrayConstructorPhase,
+        inlineOnlyPrivateFunctionsPhase,
+        outerThisSpecialAccessorInInlineFunctionsPhase,
+        syntheticAccessorGenerationPhase,
 )
 
 internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNull(
+        specializeSharedVariableBoxes,
+        interopPhase,
+        specialInteropIntrinsicsPhase,
         dumpTestsPhase.takeIf { this.configuration.getNotNull(KonanConfigKeys.GENERATE_TEST_RUNNER) != TestRunnerKind.NONE },
         removeExpectDeclarationsPhase,
         stripTypeAliasDeclarationsPhase,
@@ -563,7 +584,6 @@ internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNu
         volatilePhase,
         delegatedPropertyOptimizationPhase,
         propertyReferencePhase,
-        volatileLambdaPhase,
         functionReferencePhase,
         postInlinePhase,
         contractsDslRemovePhase,
@@ -588,17 +608,17 @@ internal fun KonanConfig.getLoweringsAfterInlining(): LoweringList = listOfNotNu
         finallyBlocksPhase,
         enumClassPhase,
         enumUsagePhase,
-        interopPhase,
         varargPhase,
         kotlinNothingValueExceptionPhase,
         coroutinesPhase,
         // Either of these could be turned off without losing correctness.
         coroutinesLivenessAnalysisPhase, // This is more optimal
         coroutinesLivenessAnalysisFallbackPhase, // While this is simple
-        typeOperatorPhase,
         expressionBodyTransformPhase,
         objectClassesPhase,
         staticInitializersPhase,
+        optimizeCastsPhase.takeIf { this.genericSafeCasts },
+        typeOperatorPhase,
         builtinOperatorPhase,
         bridgesPhase,
         exportInternalAbiPhase.takeIf { this.produce.isCache },

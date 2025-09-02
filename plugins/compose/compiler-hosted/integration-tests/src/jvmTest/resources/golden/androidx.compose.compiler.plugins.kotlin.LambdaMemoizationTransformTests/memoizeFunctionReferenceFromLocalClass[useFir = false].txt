@@ -24,10 +24,11 @@ class MainActivity {
 class MainActivity {
   val test: <no name provided> = object : Test {
     override fun go() {
-      <this>
+      <this>@MainActivity
     }
   }
   @Composable
+  @FunctionKeyMeta(key = -763171782, startOffset = 304, endOffset = 365)
   fun Test(%composer: Composer?, %changed: Int) {
     %composer = %composer.startRestartGroup(<>)
     sourceInformation(%composer, "C(Test)<test::...>:Test.kt")
@@ -35,7 +36,7 @@ class MainActivity {
     if (%changed and 0b0110 == 0) {
       %dirty = %dirty or if (%composer.changed(<this>)) 0b0100 else 0b0010
     }
-    if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %dirty, -1, <>)
       }

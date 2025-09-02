@@ -2063,6 +2063,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     }
 
     @Test
+    @TestMetadata("inheritedInterfaceFunctionJvmDefaultDisable.kt")
+    public void testInheritedInterfaceFunctionJvmDefaultDisable() {
+      runTest("compiler/testData/codegen/bytecodeText/defaultArguments/inheritedInterfaceFunctionJvmDefaultDisable.kt");
+    }
+
+    @Test
     @TestMetadata("kt11962.kt")
     public void testKt11962() {
       runTest("compiler/testData/codegen/bytecodeText/defaultArguments/kt11962.kt");
@@ -3587,6 +3593,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     }
 
     @Test
+    @TestMetadata("kt69624.kt")
+    public void testKt69624() {
+      runTest("compiler/testData/codegen/bytecodeText/inline/kt69624.kt");
+    }
+
+    @Test
     @TestMetadata("linenumberForOneParametersArgumentCall.kt")
     public void testLinenumberForOneParametersArgumentCall() {
       runTest("compiler/testData/codegen/bytecodeText/inline/linenumberForOneParametersArgumentCall.kt");
@@ -3866,6 +3878,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     @TestMetadata("equalsIsCalledByInlineClass.kt")
     public void testEqualsIsCalledByInlineClass() {
       runTest("compiler/testData/codegen/bytecodeText/inlineClasses/equalsIsCalledByInlineClass.kt");
+    }
+
+    @Test
+    @TestMetadata("equalsIsCalledByInlineClassK1.kt")
+    public void testEqualsIsCalledByInlineClassK1() {
+      runTest("compiler/testData/codegen/bytecodeText/inlineClasses/equalsIsCalledByInlineClassK1.kt");
     }
 
     @Test
@@ -4219,6 +4237,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     }
 
     @Test
+    @TestMetadata("firstInheritedMethodIsAbstractJvmDefaultDisable.kt")
+    public void testFirstInheritedMethodIsAbstractJvmDefaultDisable() {
+      runTest("compiler/testData/codegen/bytecodeText/interfaces/firstInheritedMethodIsAbstractJvmDefaultDisable.kt");
+    }
+
+    @Test
     @TestMetadata("noAnyMethodsOnInterfaceInheritance.kt")
     public void testNoAnyMethodsOnInterfaceInheritance() {
       runTest("compiler/testData/codegen/bytecodeText/interfaces/noAnyMethodsOnInterfaceInheritance.kt");
@@ -4228,6 +4252,12 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     @TestMetadata("noNullCheckOnThisInDefaultMethod.kt")
     public void testNoNullCheckOnThisInDefaultMethod() {
       runTest("compiler/testData/codegen/bytecodeText/interfaces/noNullCheckOnThisInDefaultMethod.kt");
+    }
+
+    @Test
+    @TestMetadata("noNullCheckOnThisInDefaultMethodJvmDefaultDisable.kt")
+    public void testNoNullCheckOnThisInDefaultMethodJvmDefaultDisable() {
+      runTest("compiler/testData/codegen/bytecodeText/interfaces/noNullCheckOnThisInDefaultMethodJvmDefaultDisable.kt");
     }
 
     @Test
@@ -4999,12 +5029,6 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
     }
 
     @Test
-    @TestMetadata("redundantSafeCall_1_4.kt")
-    public void testRedundantSafeCall_1_4() {
-      runTest("compiler/testData/codegen/bytecodeText/nullCheckOptimization/redundantSafeCall_1_4.kt");
-    }
-
-    @Test
     @TestMetadata("reifiedIs.kt")
     public void testReifiedIs() {
       runTest("compiler/testData/codegen/bytecodeText/nullCheckOptimization/reifiedIs.kt");
@@ -5054,6 +5078,22 @@ public class FirLightTreeBytecodeTextTestGenerated extends AbstractFirLightTreeB
       public void testInitialized() {
         runTest("compiler/testData/codegen/bytecodeText/nullCheckOptimization/localLateinit/initialized.kt");
       }
+    }
+  }
+
+  @Nested
+  @TestMetadata("compiler/testData/codegen/bytecodeText/objects")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Objects {
+    @Test
+    public void testAllFilesPresentInObjects() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/bytecodeText/objects"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+    }
+
+    @Test
+    @TestMetadata("kt77438.kt")
+    public void testKt77438() {
+      runTest("compiler/testData/codegen/bytecodeText/objects/kt77438.kt");
     }
   }
 

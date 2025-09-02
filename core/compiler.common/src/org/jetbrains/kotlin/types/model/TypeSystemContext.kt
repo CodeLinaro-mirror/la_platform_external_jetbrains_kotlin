@@ -77,14 +77,30 @@ interface TypeSystemBuiltInsContext {
 /**
  * Context that allow construction of types
  */
-interface TypeSystemTypeFactoryContext: TypeSystemBuiltInsContext {
+interface TypeSystemTypeFactoryContext : TypeSystemContext, TypeSystemBuiltInsContext {
     fun createFlexibleType(lowerBound: RigidTypeMarker, upperBound: RigidTypeMarker): KotlinTypeMarker
+
+    fun createTrivialFlexibleTypeOrSelf(lowerBound: KotlinTypeMarker): KotlinTypeMarker {
+        if (lowerBound.isFlexible()) return lowerBound
+        return createFlexibleType(lowerBound.lowerBoundIfFlexible(), lowerBound.lowerBoundIfFlexible().withNullability(true))
+    }
+
+    fun isTriviallyFlexible(flexibleType: FlexibleTypeMarker): Boolean = false
+
+    fun makeLowerBoundDefinitelyNotNullOrNotNull(flexibleType: FlexibleTypeMarker): KotlinTypeMarker {
+        return createFlexibleType(
+            flexibleType.lowerBound().makeDefinitelyNotNullOrNotNull(),
+            flexibleType.upperBound()
+        )
+    }
+
     fun createSimpleType(
         constructor: TypeConstructorMarker,
         arguments: List<TypeArgumentMarker>,
         nullable: Boolean,
         isExtensionFunction: Boolean = false,
-        attributes: List<AnnotationMarker>? = null
+        contextParameterCount: Int = 0,
+        attributes: List<AnnotationMarker>? = null,
     ): SimpleTypeMarker
 
     fun createTypeArgument(type: KotlinTypeMarker, variance: TypeVariance): TypeArgumentMarker
@@ -162,8 +178,6 @@ interface TypeSystemInferenceExtensionContextDelegate : TypeSystemInferenceExten
 interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBuiltInsContext, TypeSystemCommonSuperTypesContext {
     fun KotlinTypeMarker.contains(predicate: (KotlinTypeMarker) -> Boolean): Boolean
 
-    fun TypeConstructorMarker.isUnitTypeConstructor(): Boolean
-
     fun TypeConstructorMarker.getApproximatedIntegerLiteralType(expectedType: KotlinTypeMarker?): KotlinTypeMarker
 
     fun TypeConstructorMarker.isCapturedTypeConstructor(): Boolean
@@ -229,7 +243,7 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
 
     fun TypeConstructorMarker.isFinalClassConstructor(): Boolean
 
-    fun TypeVariableMarker.freshTypeConstructor(): TypeConstructorMarker
+    fun TypeVariableMarker.freshTypeConstructor(): TypeVariableTypeConstructorMarker
 
     fun CapturedTypeMarker.typeConstructorProjection(): TypeArgumentMarker
     fun CapturedTypeMarker.typeParameter(): TypeParameterMarker?
@@ -266,6 +280,8 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
     fun KotlinTypeMarker.functionTypeKind(): FunctionTypeKind?
 
     fun KotlinTypeMarker.isExtensionFunctionType(): Boolean
+
+    fun KotlinTypeMarker.contextParameterCount(): Int
 
     fun KotlinTypeMarker.extractArgumentsForFunctionTypeOrSubtype(): List<KotlinTypeMarker>
 
@@ -319,6 +335,7 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
      *
      * In future once we have only K2 (or FE 1.0 behavior is fixed) this method should be inlined to the use-site
      * TODO: Get rid of this function once KT-59138 is fixed and the relevant feature for disabling it will be removed
+     * In fact it may be done during the fix of KT-76065 (dropping JavaTypeParameterDefaultRepresentationWithDNN)
      */
     fun useRefinedBoundsForTypeVariableInFlexiblePosition(): Boolean
 
@@ -339,7 +356,11 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
         val superType = intersectTypes(
             typesForRecursiveTypeParameters.map { type ->
                 type.replaceArgumentsDeeply {
-                    if (it.getType()?.typeConstructor() == typeVariable) starProjection else it
+                    when (val typeConstructor = it.getType()?.typeConstructor()) {
+                        typeVariable -> starProjection
+                        is TypeVariableTypeConstructorMarker -> createTypeArgument(createUninferredType(typeConstructor), it.getVariance())
+                        else -> it
+                    }
                 }
             }
         )
@@ -350,9 +371,11 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
     fun createSubstitutorForSuperTypes(baseType: KotlinTypeMarker): TypeSubstitutorMarker?
 
     fun computeEmptyIntersectionTypeKind(types: Collection<KotlinTypeMarker>): EmptyIntersectionTypeInfo? =
-        EmptyIntersectionTypeChecker.computeEmptyIntersectionEmptiness(this, types)
+        EmptyIntersectionTypeChecker.computeEmptyIntersectionEmptiness(types)
 
     val isK2: Boolean
+
+    val allowSemiFixationToOtherTypeVariables: Boolean get() = false
 }
 
 

@@ -60,6 +60,8 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
         applicability = Global
     )
 
+    val IGNORE_HMPP by enumDirective<TargetBackend>("Ignore test in HMPP setup")
+
     val USE_JAVAC_BASED_ON_JVM_TARGET by directive(
         description = """
             Determine version of javac for compilation of java files based
@@ -134,6 +136,10 @@ object CodegenTestDirectives : SimpleDirectivesContainer() {
 
     val DUMP_IR by directive(
         description = "Dumps generated backend IR (enables ${IrTextDumpHandler::class})"
+    )
+
+    val DUMP_IR_AFTER_INLINE by directive(
+        description = "Dumps generated backend IR after inlining (enables ${IrTextDumpHandler::class} after inlining)"
     )
 
     val DUMP_EXTERNAL_CLASS by stringDirective(

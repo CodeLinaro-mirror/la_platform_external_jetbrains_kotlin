@@ -12,6 +12,10 @@ import kotlin.io.path.writeText
 @DisplayName("Test multiplatform resources publication")
 class MultiplatformResourcesPublicationIT : KGPBaseTest() {
 
+    override val defaultBuildOptions: BuildOptions
+        // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+        get() = super.defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
+
     @DisplayName("Multiplatform resources publication for Android target with release build type")
     @GradleAndroidTest
     fun testAndroidReleaseResourcesPublicationInNewerAgpVersions(
@@ -154,7 +158,10 @@ class MultiplatformResourcesPublicationIT : KGPBaseTest() {
             providedJdk = providedJdk,
         )
 
-        project.build(":publishAndroidReleasePublicationToMavenRepository")
+        project.build(
+            ":publishAndroidReleasePublicationToMavenRepository",
+            buildOptions = project.buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)
+        )
         val publishedAarPath = "repo/test/publication-android/1.0/publication-android-1.0.aar"
         val classesInAar = project.projectPath.resolve("classesInAar")
         val classesJar = "classes.jar"

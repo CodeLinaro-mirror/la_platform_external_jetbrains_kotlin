@@ -1,45 +1,51 @@
-# Check-out https://www.jetbrains.com/help/space/code-owners.html#codeowners-file-syntax
+# This file uses Space CODEOWNERS syntax https://www.jetbrains.com/help/space/code-owners.html#codeowners-file-syntax with additional requirements:
+# 1. Team names have to be in quotations
+# 2. Individual owners have to be added via email address which is linked to a GitHub account (it can be a secondary email for the account)
+
+# It supports a `virtual team` setup, where 3rd party contributors outside JetBrains organization can be added
+# to `codeowners-virtual-team-mapping.json` for custom team management.
+
 # This file is checked by org.jetbrains.kotlin.code.SpaceCodeOwnersTest
 # Directive OWNER_LIST specifies possible values for owner field
 # Directive UNKNOWN specifies that path is unclaimed
 # Ownership must be exhaustive modulo UNKNOWN
 
-# OWNER_LIST: Kotlin
+# OWNER_LIST: "Kotlin"
 # OWNER_LIST: "Kotlin Libraries"
 # OWNER_LIST: "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 # OWNER_LIST: "Kotlin Frontend"
 # OWNER_LIST: "Kotlin Build Infrastructure" "Kotlin Build Tools"
 # OWNER_LIST: "Kotlin Performance QA"
-# OWNER_LIST: "Kotlin IDE Analysis Core"
+# OWNER_LIST: "Kotlin Analysis API"
 # OWNER_LIST: "Kotlin Release"
 # OWNER_LIST: "Kotlin Language Evolution"
-# OWNER_LIST: Compose
-# OWNER_LIST: Parcelize
-# OWNER_LIST: Mikhail.Glukhikh Dmitriy.Novozhilov Kirill.Rakhman
-# OWNER_LIST: Yan.Zhulanow
-# OWNER_LIST: Alexander.Udalov
-# OWNER_LIST: Zalim.Bashorov
-# OWNER_LIST: Ilya.Goncharov Artem.Kobzar
-# OWNER_LIST: Simon.Ogorodnik Stanislav.Erokhin
-# OWNER_LIST: Alexander.Shabalin Aleksei.Glushko Sergey.Bogolepov Svyatoslav.Scherbina
-# OWNER_LIST: Brian.Norman
-# OWNER_LIST: Ilya.Chernikov Alejandro.Serrano.Mena
-# OWNER_LIST: Sergej.Jaskiewicz
-# OWNER_LIST: Wojciech.Litewka
+# OWNER_LIST: "Compose"
+# OWNER_LIST: "Parcelize"
+# OWNER_LIST: mikhail.glukhikh@jetbrains.com dmitriy.novozhilov@jetbrains.com kirill.rakhman@jetbrains.com
+# OWNER_LIST: yan.zhulanow@jetbrains.com
+# OWNER_LIST: alexander.udalov@jetbrains.com
+# OWNER_LIST: zalim.bashorov@jetbrains.com
+# OWNER_LIST: ilya.goncharov@jetbrains.com artem.kobzar@jetbrains.com
+# OWNER_LIST: simon.ogorodnik@jetbrains.com stanislav.erokhin@jetbrains.com
+# OWNER_LIST: alexander.shabalin@jetbrains.com aleksei.glushko@jetbrains.com sergey.bogolepov@jetbrains.com svyatoslav.scherbina@jetbrains.com
+# OWNER_LIST: brian.norman@jetbrains.com
+# OWNER_LIST: ilya.chernikov@jetbrains.com alejandro.serrano.mena@jetbrains.com
+# OWNER_LIST: sergej.jaskiewicz@jetbrains.com
+# OWNER_LIST: "Kotlin for Data Science"
 # Kotlin Libraries
-# OWNER_LIST: Vsevolod.Tolstopyato Ilya.Gorbunov Sergey.Shanshin Leonid.Startsev Filipp.Zhinkin
+# OWNER_LIST: vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com sergey.shanshin@jetbrains.com leonid.startsev@jetbrains.com filipp.zhinkin@jetbrains.com
 
 # Fallback rule, must always be top
-* Kotlin
+* "Kotlin"
 
 /.idea/ "Kotlin Build Infrastructure"
-/.idea/kotlinTestDataPluginTestDataPaths.xml Dmitriy.Novozhilov Kirill.Rakhman Sergej.Jaskiewicz
+/.idea/kotlinTestDataPluginTestDataPaths.xml dmitriy.novozhilov@jetbrains.com kirill.rakhman@jetbrains.com sergej.jaskiewicz@jetbrains.com
 
 /.fleet/ "Kotlin Build Infrastructure"
 
 /.space/ "Kotlin Build Infrastructure"
 
-/analysis/ "Kotlin IDE Analysis Core"
+/analysis/ "Kotlin Analysis API"
 /analysis/analysis-api-fir/src/org/jetbrains/kotlin/analysis/api/fir/diagnostics/KaFirDiagnostics.kt "Kotlin Frontend"
 /analysis/analysis-api-fir/src/org/jetbrains/kotlin/analysis/api/fir/diagnostics/KaFirDiagnosticsImpl.kt "Kotlin Frontend"
 /analysis/analysis-api-fir/src/org/jetbrains/kotlin/analysis/api/fir/diagnostics/KaFirDataClassConverters.kt "Kotlin Frontend"
@@ -52,19 +58,21 @@
 
 /build-common/ "Kotlin Build Tools"
 
+/compiler/arguments.common/ "Kotlin Frontend" "Kotlin Build Tools"
+/compiler/arguments/ "Kotlin Frontend" "Kotlin Build Tools"
+/compiler/arguments/src/org/jetbrains/kotlin/arguments/description/WasmCompilerArguments.kt "Kotlin Wasm"
 /compiler/android-tests/ "Kotlin JVM"
 /compiler/backend/ "Kotlin JVM"
 /compiler/backend.common.jvm/ "Kotlin JVM"
 /compiler/backend-common/ "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 /compiler/build-tools/ "Kotlin Build Tools"
-/compiler/builtins-serializer/ "Kotlin Frontend"
 /compiler/cli/ "Kotlin Frontend"
 /compiler/cli/cli-js/ "Kotlin JS" "Kotlin Wasm"
-/compiler/cli/cli-common/src/org/jetbrains/kotlin/cli/common/arguments/K2NativeCompilerArguments.kt "Kotlin Native"
+/compiler/cli/cli-common/gen/org/jetbrains/kotlin/cli/common/arguments/K2NativeCompilerArguments.kt "Kotlin Native"
 /compiler/cli/cli-common/gen/org/jetbrains/kotlin/cli/common/arguments/K2NativeCompilerArgumentsCopyGenerated.kt "Kotlin Native"
-/compiler/cli/cli-common/src/org/jetbrains/kotlin/cli/common/arguments/K2WasmCompilerArguments.kt "Kotlin Wasm"
+/compiler/cli/cli-common/gen/org/jetbrains/kotlin/cli/common/arguments/K2WasmCompilerArguments.kt "Kotlin Wasm"
 /compiler/cli/cli-common/gen/org/jetbrains/kotlin/cli/common/arguments/K2WasmCompilerArgumentsCopyGenerated.kt "Kotlin Wasm"
-/compiler/cli/cli-common/src/org/jetbrains/kotlin/cli/common/arguments/K2JSCompilerArguments.kt "Kotlin JS"
+/compiler/cli/cli-common/gen/org/jetbrains/kotlin/cli/common/arguments/K2JSCompilerArguments.kt "Kotlin JS"
 /compiler/cli/cli-common/gen/org/jetbrains/kotlin/cli/common/arguments/K2JSCompilerArgumentsCopyGenerated.kt "Kotlin JS"
 /compiler/compiler.version/ "Kotlin Frontend"
 /compiler/compiler-runner/ "Kotlin Frontend"
@@ -74,14 +82,13 @@
 /compiler/container/ "Kotlin Frontend"
 /compiler/daemon/ "Kotlin Build Tools"
 /compiler/fir/ "Kotlin Frontend"
-/compiler/fir/checkers/src/org/jetbrains/kotlin/fir/analysis/diagnostics/FirErrorsDefaultMessages.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
-/compiler/fir/checkers/checkers.jvm/src/org/jetbrains/kotlin/fir/analysis/diagnostics/jvm/FirJvmErrorsDefaultMessages.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
-/compiler/fir/checkers/checkers.native/src/org/jetbrains/kotlin/fir/analysis/diagnostics/native/FirNativeErrorsDefaultMessages.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
-/compiler/fir/checkers/checkers.wasm/src/org/jetbrains/kotlin/fir/analysis/diagnostics/wasm/FirWasmErrorsDefaultMessages.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
-/compiler/fir/raw-fir/raw-fir.common/src/org/jetbrains/kotlin/fir/builder/FirSyntaxErrorsDefaultMessages.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
+/compiler/fir/checkers/src/org/jetbrains/kotlin/fir/analysis/diagnostics/FirErrorsDefaultMessages.kt alejandro.serrano.mena@jetbrains.com brian.norman@jetbrains.com ilya.chernikov@jetbrains.com kirill.rakhman@jetbrains.com
+/compiler/fir/checkers/checkers.jvm/src/org/jetbrains/kotlin/fir/analysis/diagnostics/jvm/FirJvmErrorsDefaultMessages.kt alejandro.serrano.mena@jetbrains.com brian.norman@jetbrains.com ilya.chernikov@jetbrains.com kirill.rakhman@jetbrains.com
+/compiler/fir/checkers/checkers.native/src/org/jetbrains/kotlin/fir/analysis/diagnostics/native/FirNativeErrorsDefaultMessages.kt alejandro.serrano.mena@jetbrains.com brian.norman@jetbrains.com ilya.chernikov@jetbrains.com kirill.rakhman@jetbrains.com
+/compiler/fir/checkers/checkers.wasm/src/org/jetbrains/kotlin/fir/analysis/diagnostics/wasm/FirWasmErrorsDefaultMessages.kt alejandro.serrano.mena@jetbrains.com brian.norman@jetbrains.com ilya.chernikov@jetbrains.com kirill.rakhman@jetbrains.com
+/compiler/fir/raw-fir/raw-fir.common/src/org/jetbrains/kotlin/fir/builder/FirSyntaxErrorsDefaultMessages.kt alejandro.serrano.mena@jetbrains.com brian.norman@jetbrains.com ilya.chernikov@jetbrains.com kirill.rakhman@jetbrains.com
 /compiler/fir/fir2ir/tests-gen/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 /compiler/frontend/ "Kotlin Frontend"
-/compiler/frontend/src/org/jetbrains/kotlin/diagnostics/rendering/KtDefaultErrorMessages.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
 /compiler/frontend.common/ "Kotlin Frontend"
 /compiler/frontend.common.jvm/ "Kotlin Frontend"
 /compiler/frontend.common-psi/ "Kotlin Frontend"
@@ -97,7 +104,7 @@
 /compiler/ir/ir.interpreter/ "Kotlin Common Backend"
 /compiler/ir/ir.psi2ir/ "Kotlin JVM"
 /compiler/ir/ir.tree/ "Kotlin Common Backend"
-/compiler/ir/ir.tree/tree-generator "Kotlin Common Backend" Wojciech.Litewka
+/compiler/ir/ir.tree/tree-generator "Kotlin Common Backend" sergej.jaskiewicz@jetbrains.com
 /compiler/ir/ir.objcinterop/ "Kotlin Native"
 /compiler/ir/serialization.common/ "Kotlin Common Backend"
 /compiler/ir/serialization.js/ "Kotlin JS"
@@ -105,10 +112,11 @@
 /compiler/ir/serialization.native/ "Kotlin Native"
 /compiler/ir/ir.inline/ "Kotlin Common Backend"
 /compiler/javac-wrapper/ "Kotlin Frontend"
-/compiler/light-classes/ "Kotlin IDE Analysis Core"
+/compiler/light-classes/ "Kotlin Analysis API"
 /compiler/plugin-api/ "Kotlin Frontend"
 /compiler/preloader/ "Kotlin Frontend"
 /compiler/psi/ "Kotlin Frontend"
+/compiler/multiplatform-parsing/ "Kotlin Frontend"
 /compiler/resolution/ "Kotlin Frontend"
 /compiler/resolution.common/ "Kotlin Frontend"
 /compiler/resolution.common.jvm/ "Kotlin Frontend"
@@ -117,7 +125,7 @@
 /compiler/test-infrastructure-utils/ "Kotlin Frontend"
 
 /compiler/testData/asJava/findClasses/ "Kotlin Frontend"
-/compiler/testData/asJava/lightClasses/ "Kotlin IDE Analysis Core"
+/compiler/testData/asJava/lightClasses/ "Kotlin Analysis API"
 /compiler/testData/builtin-classes/ "Kotlin Libraries"
 /compiler/testData/capturedTypeApproximation/ "Kotlin Frontend"
 /compiler/testData/cfg/ "Kotlin Frontend"
@@ -132,7 +140,7 @@
 /compiler/testData/cli/metadata/ "Kotlin Frontend"
 /compiler/testData/codegen/asmLike/ "Kotlin JVM"
 /compiler/testData/codegen/box/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
-/compiler/testData/codegen/box/size/ Zalim.Bashorov
+/compiler/testData/codegen/box/size/ zalim.bashorov@jetbrains.com
 /compiler/testData/codegen/boxInline/ "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 /compiler/testData/codegen/boxKlib/ "Kotlin JVM"
 /compiler/testData/codegen/boxModernJdk/ "Kotlin JVM"
@@ -145,11 +153,10 @@
 /compiler/testData/codegen/customScript/ "Kotlin Frontend"
 /compiler/testData/codegen/helpers/ "Kotlin JVM"
 /compiler/testData/codegen/innerClassInfo/ "Kotlin JVM"
-/compiler/testData/codegen/kapt/ "Kotlin JVM"
 /compiler/testData/codegen/notNullAssertions/ "Kotlin JVM"
 /compiler/testData/codegen/outerClassInfo/ "Kotlin JVM"
 /compiler/testData/codegen/properties/ "Kotlin JVM"
-/compiler/testData/codegen/reflection/ "Kotlin Libraries"
+/compiler/testData/codegen/reflection/ "Kotlin Libraries" alexander.udalov@jetbrains.com
 /compiler/testData/codegen/script/ "Kotlin Frontend"
 /compiler/testData/codegen/scriptCustom/ "Kotlin Frontend"
 # UNKNOWN: /compiler/testData/codegen/sourceInfo/
@@ -159,6 +166,8 @@
 /compiler/testData/compiler/smoke/ "Kotlin Frontend"
 /compiler/testData/debug/ "Kotlin Frontend" "Kotlin JVM" "Kotlin JS" "Kotlin Wasm"
 /compiler/testData/diagnostics/ "Kotlin Frontend"
+/compiler/testData/diagnostics/klibSerializationTests/ "Kotlin Common Backend"
+/compiler/testData/diagnostics/irInliner/ "Kotlin Common Backend"
 /compiler/testData/friendPaths/ "Kotlin Frontend"
 # UNKNOWN: /compiler/testData/integration/
 /compiler/testData/ir/closureAnnotator/ "Kotlin JVM"
@@ -185,9 +194,9 @@
 /compiler/testData/parseCodeFragment/ "Kotlin Frontend"
 /compiler/testData/psi/ "Kotlin Frontend"
 /compiler/testData/psiUtil/ "Kotlin Frontend"
-/compiler/testData/psiKdocCoverage/ "Kotlin IDE Analysis Core"
+/compiler/testData/psiKdocCoverage/ "Kotlin Analysis API"
 /compiler/testData/recursiveProcessor/ "Kotlin Frontend"
-/compiler/testData/reflection/ "Kotlin Libraries"
+/compiler/testData/reflection/ "Kotlin Libraries" alexander.udalov@jetbrains.com
 /compiler/testData/repl/ "Kotlin Frontend"
 /compiler/testData/resolve/ "Kotlin Frontend"
 /compiler/testData/resolveAnnotations/ "Kotlin Frontend"
@@ -204,11 +213,11 @@
 /compiler/testData/type-checker-test.kt "Kotlin Frontend"
 /compiler/testData/type-substitutor.kt "Kotlin Frontend"
 /compiler/tests/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
-/compiler/tests/org/jetbrains/kotlin/psi/PsiKDocCoverageTest.kt "Kotlin IDE Analysis Core"
-/compiler/tests/org/jetbrains/kotlin/util/KDocCoverageTest.kt "Kotlin IDE Analysis Core"
+/compiler/tests/org/jetbrains/kotlin/psi/PsiKDocCoverageTest.kt "Kotlin Analysis API"
+/compiler/tests/org/jetbrains/kotlin/util/KDocCoverageTest.kt "Kotlin Analysis API"
 /compiler/tests-against-klib/ "Kotlin JVM"
 /compiler/tests-common/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
-/compiler/tests-common/tests/org/jetbrains/kotlin/asJava/ "Kotlin IDE Analysis Core"
+/compiler/tests-common/tests/org/jetbrains/kotlin/asJava/ "Kotlin Analysis API"
 /compiler/tests-common-new/ "Kotlin Frontend"
 /compiler/tests-common-new/tests-gen/org/jetbrains/kotlin/test/runners/codegen/ "Kotlin Frontend" "Kotlin JVM" "Kotlin JS" "Kotlin Native" "Kotlin Wasm"
 /compiler/tests-common-new/tests-gen/org/jetbrains/kotlin/test/runners/ir/ "Kotlin Frontend" "Kotlin JVM" "Kotlin JS" "Kotlin Native" "Kotlin Wasm"
@@ -216,10 +225,9 @@
 /compiler/tests-common-new/tests/org/jetbrains/kotlin/test/services/configuration/WasmEnvironmentConfigurator.kt "Kotlin Wasm"
 /compiler/tests-common-new/tests/org/jetbrains/kotlin/test/directives/JsEnvironmentConfigurationDirectives.kt "Kotlin JS"
 /compiler/tests-common-new/tests/org/jetbrains/kotlin/test/services/configuration/JsEnvironmentConfigurator.kt "Kotlin JS"
-/compiler/tests-compiler-utils/ "Kotlin Frontend"
-/compiler/tests-integration/ "Kotlin Frontend"
+/compiler/tests-compiler-utils/ "Kotlin Frontend" "Kotlin Common Backend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin JS"
+/compiler/tests-integration/ "Kotlin Frontend" "Kotlin Common Backend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin JS"
 /compiler/tests-integration/tests/org/jetbrains/kotlin/klib/ "Kotlin Common Backend"
-/compiler/tests-integration/tests-gen "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 /compiler/tests-different-jdk/ "Kotlin JVM"
 /compiler/tests-for-compiler-generator/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 /compiler/tests-gen/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
@@ -233,7 +241,6 @@
 /compiler/util-klib-abi/ "Kotlin Common Backend"
 /compiler/util-klib-metadata/ "Kotlin Common Backend"
 
-/core/builtins/ "Kotlin Frontend"
 /core/compiler.common/ "Kotlin Frontend"
 /core/compiler.common.jvm/ "Kotlin Frontend"
 /core/compiler.common.js/ "Kotlin Frontend"
@@ -248,19 +255,19 @@
 /core/deserialization.common.jvm/ "Kotlin Frontend"
 /core/metadata/ "Kotlin Frontend"
 /core/metadata.jvm/ "Kotlin JVM"
-/core/reflection.jvm/ "Kotlin Libraries"
+/core/reflection.jvm/ "Kotlin Libraries" alexander.udalov@jetbrains.com
 /core/script.runtime/ "Kotlin Frontend"
 /core/util.runtime/ "Kotlin Frontend"
 
 /dependencies/ "Kotlin Build Infrastructure"
 
 # UNKNOWN: /docs/
-/docs/analysis/ "Kotlin IDE Analysis Core"
-/docs/code_authoring_and_core_review.md Vsevolod.Tolstopyato Simon.Ogorodnik
+/docs/analysis/ "Kotlin Analysis API"
+/docs/code_authoring_and_core_review.md vsevolod.tolstopyatov@jetbrains.com simon.ogorodnik@jetbrains.com
 
 /generators/ReadMe.md "Kotlin Build Infrastructure"
-/generators/analysis-api-generator/ "Kotlin IDE Analysis Core"
-/generators/builtins/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
+/generators/analysis-api-generator/ "Kotlin Analysis API"
+/generators/builtins/ vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
 /generators/evaluate/ "Kotlin Frontend"
 /generators/ide-iml-to-gradle-generator/ "Kotlin Build Infrastructure"
 /generators/interpreter/ "Kotlin Common Backend"
@@ -271,7 +278,7 @@
 # UNKNOWN: /generators/protobufCompare/
 /generators/test-generator/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
 /generators/tests/ "Kotlin Frontend" "Kotlin JVM" "Kotlin Native" "Kotlin Wasm" "Kotlin Common Backend" "Kotlin JS"
-/generators/tree-generator-common/ "Kotlin Frontend" "Kotlin Common Backend" Wojciech.Litewka
+/generators/tree-generator-common/ "Kotlin Frontend" "Kotlin Common Backend" sergej.jaskiewicz@jetbrains.com
 /generators/wasm/ "Kotlin Wasm"
 
 /gradle/ "Kotlin Build Infrastructure"
@@ -284,18 +291,17 @@
 /js/js.sourcemap/ "Kotlin JS" "Kotlin Wasm"
 /js/js.translator/testData/ "Kotlin JS" "Kotlin Wasm"
 
-/kotlin-js-store/ Ilya.Goncharov
+/kotlin-js-store/ ilya.goncharov@jetbrains.com
 
 /kotlin-native/ "Kotlin Native"
-/kotlin-native/runtime/ Alexander.Shabalin Aleksei.Glushko
-/kotlin-native/runtime/src/main/kotlin/ "Kotlin Native" Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
-/kotlin-native/runtime/test "Kotlin Native" Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
-/kotlin-native/runtime/**/*.mm Alexander.Shabalin Aleksei.Glushko Sergey.Bogolepov Svyatoslav.Scherbina
+/kotlin-native/runtime/ alexander.shabalin@jetbrains.com aleksei.glushko@jetbrains.com
+/kotlin-native/runtime/src/main/kotlin/ "Kotlin Native" vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
+/kotlin-native/runtime/test "Kotlin Native" vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
+/kotlin-native/runtime/**/*.mm alexander.shabalin@jetbrains.com aleksei.glushko@jetbrains.com sergey.bogolepov@jetbrains.com svyatoslav.scherbina@jetbrains.com
 /kotlin-native/licenses/ "Kotlin Build Infrastructure"
 /kotlin-native/klib/ "Kotlin Common Backend"
 /kotlin-native/tools/benchmarks "Kotlin Native" "Kotlin Performance QA"
 /kotlin-native/tools/benchmarksAnalyzer "Kotlin Native" "Kotlin Performance QA"
-/kotlin-native/tools/performance-server "Kotlin Native" "Kotlin Performance QA"
 /kotlin-native/performance "Kotlin Native" "Kotlin Performance QA"
 /kotlin-native/backend.native/compiler/ir/backend.native/src/org/jetbrains/kotlin/backend/konan/NativeFir2IrExtensions.kt "Kotlin Native" "Kotlin Frontend"
 
@@ -303,12 +309,12 @@
 /libraries/examples/kotlin-gradle-subplugin-example/ "Kotlin Frontend"
 /libraries/examples/kotlin-java-example/ "Kotlin JVM"
 /libraries/examples/scripting/ "Kotlin Frontend"
-/libraries/kotlin.test/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
-/libraries/kotlinx-metadata/ Alexander.Udalov Vsevolod.Tolstopyato Ilya.Gorbunov Leonid.Startsev
+/libraries/kotlin.test/ vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
+/libraries/kotlinx-metadata/ alexander.udalov@jetbrains.com vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com leonid.startsev@jetbrains.com
 /libraries/lib/ "Kotlin Build Infrastructure"
-/libraries/reflect/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
+/libraries/reflect/ "Kotlin Libraries" alexander.udalov@jetbrains.com
 /libraries/scripting/ "Kotlin Frontend"
-/libraries/stdlib/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
+/libraries/stdlib/ vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
 /libraries/stdlib/wasm/builtins/ "Kotlin Wasm"
 /libraries/stdlib/wasm/internal/ "Kotlin Wasm"
 /libraries/stdlib/wasm/src/generated/wasm/internal/ "Kotlin Wasm"
@@ -318,8 +324,8 @@
 /libraries/tools/binary-compatibility-validator/ "Kotlin Libraries"
 /libraries/tools/abi-validation/ "Kotlin Libraries"
 /libraries/tools/dukat/ "Kotlin Wasm" "Kotlin JS"
-/libraries/tools/ide-plugin-dependencies-validator "Kotlin IDE Analysis Core"
-/libraries/kotlin-dom-api-compat/ Ilya.Goncharov Stanislav.Erokhin
+/libraries/tools/ide-plugin-dependencies-validator "Kotlin Analysis API"
+/libraries/kotlin-dom-api-compat/ ilya.goncharov@jetbrains.com stanislav.erokhin@jetbrains.com
 /libraries/tools/kotlin-build-tools-enum-compat/ "Kotlin Build Tools"
 /libraries/tools/gradle/ "Kotlin Build Tools"
 /libraries/tools/jdk-api-validator/ "Kotlin Libraries"
@@ -348,7 +354,7 @@
 /libraries/tools/kotlin-gradle-plugin-integration-tests/src/test/resources/testProject/kotlin-js-*/ "Kotlin Build Tools" "Kotlin JS"
 /libraries/tools/kotlin-gradle-plugin-integration-tests/src/test/resources/testProject/new-mpp-js-*/ "Kotlin Build Tools" "Kotlin JS"
 /libraries/tools/kotlin-gradle-plugin-model/ "Kotlin Build Tools"
-/libraries/tools/kotlin-gradle-plugin-npm-versions-codegen/ Ilya.Goncharov
+/libraries/tools/kotlin-gradle-plugin-npm-versions-codegen/ ilya.goncharov@jetbrains.com
 /libraries/tools/kotlin-gradle-plugin-test-utils-embeddable/ "Kotlin Build Tools"
 /libraries/tools/kotlin-gradle-plugin-tcs-android/ "Kotlin Build Tools"
 /libraries/tools/kotlin-gradle-statistics/ "Kotlin Build Tools"
@@ -363,6 +369,7 @@
 /libraries/tools/kotlin-maven-power-assert/ "Kotlin Build Tools"
 /libraries/tools/kotlin-maven-sam-with-receiver/ "Kotlin Build Tools"
 /libraries/tools/kotlin-maven-serialization/ "Kotlin Build Tools"
+/libraries/tools/kotlin-maven-dataframe/ "Kotlin Build Tools"
 /libraries/tools/kotlin-osgi-bundle/ "Kotlin Build Tools"
 /libraries/tools/kotlin-noarg/ "Kotlin Build Tools"
 /libraries/tools/kotlin-prepush-hook/ "Kotlin Build Infrastructure"
@@ -371,9 +378,9 @@
 /libraries/tools/kotlin-sam-with-receiver/ "Kotlin Build Tools"
 /libraries/tools/kotlin-serialization/ "Kotlin Build Tools"
 /libraries/tools/kotlin-serialization-unshaded/ "Kotlin Build Tools"
-/libraries/tools/kotlin-stdlib-docs/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
-/libraries/tools/kotlin-stdlib-docs-legacy/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
-/libraries/tools/kotlin-stdlib-gen/ Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
+/libraries/tools/kotlin-stdlib-docs/ vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
+/libraries/tools/kotlin-stdlib-docs-legacy/ vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
+/libraries/tools/kotlin-stdlib-gen/ vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
 /libraries/tools/kotlin-tooling-core/ "Kotlin Build Tools"
 /libraries/tools/kotlin-tooling-metadata/ "Kotlin Build Tools"
 /libraries/tools/kotlinp/ "Kotlin JVM" "Kotlin Common Backend"
@@ -383,13 +390,14 @@
 /libraries/tools/mutability-annotations-compat/ "Kotlin Libraries"
 /libraries/tools/script-runtime/ "Kotlin Frontend"
 /libraries/tools/required-reason-finder/ "Kotlin Build Tools"
+/libraries/tools/kotlin-dataframe/ "Kotlin Build Tools"
 
 /libraries/maven-settings.xml "Kotlin Build Infrastructure"
 /libraries/pom.xml "Kotlin Build Infrastructure"
 /libraries/mvnw "Kotlin Build Infrastructure"
 /libraries/mvnw.cmd "Kotlin Build Infrastructure"
 /libraries/.mvn/wrapper/maven-wrapper.properties "Kotlin Build Infrastructure"
-/libraries/ReadMe.md Vsevolod.Tolstopyato Ilya.Gorbunov Filipp.Zhinkin
+/libraries/ReadMe.md vsevolod.tolstopyatov@jetbrains.com ilya.gorbunov@jetbrains.com filipp.zhinkin@jetbrains.com
 
 /license/ "Kotlin Build Infrastructure"
 
@@ -409,27 +417,25 @@
 /native/objcexport-header-generator/impl/analysis-api/ "Kotlin Native"
 
 /plugins/allopen/ "Kotlin Frontend"
-/plugins/android-extensions/ "Kotlin Frontend"
 /plugins/assign-plugin/ "Kotlin Frontend"
 /plugins/atomicfu/ "Kotlin Libraries"
-/plugins/compose/ Compose
+/plugins/compose/ "Compose"
 /plugins/plugin-sandbox/ "Kotlin Frontend"
-/plugins/imports-dumper/ "Kotlin Frontend"
 /plugins/jvm-abi-gen/ "Kotlin JVM"
 /plugins/kapt/ "Kotlin JVM"
-/plugins/kotlinx-serialization/ Sergey.Shanshin Leonid.Startsev
-/plugins/kotlinx-serialization/kotlinx-serialization.k2/src/org/jetbrains/kotlinx/serialization/compiler/fir/checkers/KtDefaultErrorMessagesSerialization.kt Alejandro.Serrano.Mena Brian.Norman Ilya.Chernikov Kirill.Rakhman
+/plugins/kotlinx-serialization/ sergey.shanshin@jetbrains.com leonid.startsev@jetbrains.com
+/plugins/kotlinx-serialization/kotlinx-serialization.k2/src/org/jetbrains/kotlinx/serialization/compiler/fir/checkers/KtDefaultErrorMessagesSerialization.kt alejandro.serrano.mena@jetbrains.com brian.norman@jetbrains.com ilya.chernikov@jetbrains.com kirill.rakhman@jetbrains.com
 /plugins/js-plain-objects/ "Kotlin JS"
 /libraries/tools/js-plain-objects "Kotlin JS"
 /plugins/lombok/ "Kotlin Frontend"
 /plugins/noarg/ "Kotlin Frontend"
-/plugins/parcelize/ Parcelize
-/plugins/pill/ Yan.Zhulanow "Kotlin Build Infrastructure"
-/plugins/power-assert/ Brian.Norman "Kotlin Common Backend"
+/plugins/parcelize/ "Parcelize"
+/plugins/pill/ yan.zhulanow@jetbrains.com "Kotlin Build Infrastructure"
+/plugins/power-assert/ brian.norman@jetbrains.com "Kotlin Common Backend" sergej.jaskiewicz@jetbrains.com
 /plugins/sam-with-receiver/ "Kotlin Frontend"
 /plugins/scripting/ "Kotlin Frontend"
 /plugins/plugins-interactions-testing/ "Kotlin Frontend"
-
+/plugins/kotlin-dataframe/ "Kotlin for Data Science"
 
 /prepare/ "Kotlin Build Infrastructure"
 
@@ -450,10 +456,13 @@
 /wasm/ "Kotlin Wasm"
 
 # Generated files (no review required)
-*Generated.java "Kotlin" "Kotlin IDE Analysis Core" "Kotlin Wasm" "Compose" "Parcelize" 
+*Generated.java "Kotlin" "Kotlin Analysis API" "Kotlin Wasm" "Kotlin for Data Science"
+/plugins/compose/**/*Generated.java "Kotlin" "Kotlin Analysis API" "Kotlin Wasm" "Kotlin for Data Science" "Compose"
+/plugins/parcelize/**/*Generated.java "Kotlin" "Kotlin Analysis API" "Kotlin Wasm" "Kotlin for Data Science" "Parcelize"
 
 # Singular files
 /.gitattributes "Kotlin Build Infrastructure"
+/tests-permissions.template.policy "Kotlin Build Infrastructure"
 /ChangeLog.md "Kotlin Release"
 /CODE_OF_CONDUCT.md "Kotlin Build Infrastructure"
 /intellij.yaml "Kotlin Build Infrastructure"
@@ -480,3 +489,4 @@ gradlew.bat "Kotlin Build Infrastructure"
 /gradle.properties "Kotlin Build Infrastructure"
 
 /.space/CODEOWNERS "Kotlin Build Infrastructure"
+/.github/CODEOWNERS "Kotlin Build Infrastructure"

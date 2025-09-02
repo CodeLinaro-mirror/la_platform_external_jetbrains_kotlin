@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticUtils
 import org.jetbrains.kotlin.diagnostics.Severity
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.diagnostics.rendering.DefaultErrorMessages
-import org.jetbrains.kotlin.diagnostics.rendering.RootDiagnosticRendererFactory
 import org.jetbrains.kotlin.test.Assertions
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_DIAGNOSTICS
@@ -78,20 +77,20 @@ fun BinaryArtifactHandler<*>.checkFullDiagnosticRender() {
             val finder =
                 SequentialPositionFinder(testServices.sourceFileProvider.getContentOfSourceFile(testFile).byteInputStream().reader())
             for (metaInfo in testServices.globalMetadataInfoHandler.getReportedMetaInfosForFile(testFile).sortedBy { it.start }) {
-                when (metaInfo) {
+                val rendered = when (metaInfo) {
                     is DiagnosticCodeMetaInfo -> metaInfo.diagnostic.let {
                         val message = DefaultErrorMessages.render(it)
                         val position = DiagnosticUtils.getLineAndColumnRange(it.psiFile, it.textRanges).start
-                        reportedDiagnostics +=
-                            renderDiagnosticMessage(it.psiFile.name, it.severity, message, position.line, position.column)
+                        renderDiagnosticMessage(it.psiFile.name, it.severity, message, position.line, position.column)
                     }
                     is FirDiagnosticCodeMetaInfo -> metaInfo.diagnostic.let {
-                        val message = RootDiagnosticRendererFactory(it).render(it)
+                        val message = it.renderMessage()
                         val position = finder.findNextPosition(DiagnosticUtils.firstRange(it.textRanges).startOffset, false)
-                        reportedDiagnostics +=
-                            renderDiagnosticMessage(testFile.relativePath, it.severity, message, position.line, position.column)
+                        renderDiagnosticMessage(testFile.relativePath, it.severity, message, position.line, position.column)
                     }
+                    else -> continue
                 }
+                reportedDiagnostics += rendered.replace(module.independentSourceDirectoryPath(testServices), "")
             }
         }
         if (reportedDiagnostics.isNotEmpty()) {

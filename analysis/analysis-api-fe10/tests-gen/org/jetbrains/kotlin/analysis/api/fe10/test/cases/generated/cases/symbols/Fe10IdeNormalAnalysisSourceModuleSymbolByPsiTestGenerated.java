@@ -287,6 +287,24 @@ public class Fe10IdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends A
   }
 
   @Test
+  @TestMetadata("localDeclarationsInsideProperty.kt")
+  public void testLocalDeclarationsInsideProperty() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/localDeclarationsInsideProperty.kt");
+  }
+
+  @Test
+  @TestMetadata("localDeclarationsInsidePropertyGetter.kt")
+  public void testLocalDeclarationsInsidePropertyGetter() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/localDeclarationsInsidePropertyGetter.kt");
+  }
+
+  @Test
+  @TestMetadata("localDeclarationsInsidePropertySetter.kt")
+  public void testLocalDeclarationsInsidePropertySetter() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/localDeclarationsInsidePropertySetter.kt");
+  }
+
+  @Test
   @TestMetadata("memberFunctions.kt")
   public void testMemberFunctions() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/memberFunctions.kt");
@@ -320,6 +338,54 @@ public class Fe10IdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends A
   @TestMetadata("propertiesFromCompanion.kt")
   public void testPropertiesFromCompanion() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertiesFromCompanion.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotation.kt")
+  public void testPropertyFromAnnotation() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotation.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationJs.kt")
+  public void testPropertyFromAnnotationJs() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationJs.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationWithDefaultValue.kt")
+  public void testPropertyFromAnnotationWithDefaultValue() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationWithDefaultValue.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationWithDefaultValueJs.kt")
+  public void testPropertyFromAnnotationWithDefaultValueJs() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationWithDefaultValueJs.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationWithVarargAnd.kt")
+  public void testPropertyFromAnnotationWithVarargAnd() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationWithVarargAnd.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationWithVarargAndDefaultValue.kt")
+  public void testPropertyFromAnnotationWithVarargAndDefaultValue() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationWithVarargAndDefaultValue.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationWithVarargAndDefaultValueJs.kt")
+  public void testPropertyFromAnnotationWithVarargAndDefaultValueJs() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationWithVarargAndDefaultValueJs.kt");
+  }
+
+  @Test
+  @TestMetadata("propertyFromAnnotationWithVarargAndJs.kt")
+  public void testPropertyFromAnnotationWithVarargAndJs() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromAnnotationWithVarargAndJs.kt");
   }
 
   @Test
@@ -407,6 +473,18 @@ public class Fe10IdeNormalAnalysisSourceModuleSymbolByPsiTestGenerated extends A
     @TestMetadata("contextReceiversOnProperty.kt")
     public void testContextReceiversOnProperty() {
       runTest("analysis/analysis-api/testData/symbols/symbolByPsi/contextReceivers/contextReceiversOnProperty.kt");
+    }
+
+    @Test
+    @TestMetadata("danglingContextParameter.kt")
+    public void testDanglingContextParameter() {
+      runTest("analysis/analysis-api/testData/symbols/symbolByPsi/contextReceivers/danglingContextParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("danglingContextParameterAndAnnotations.kt")
+    public void testDanglingContextParameterAndAnnotations() {
+      runTest("analysis/analysis-api/testData/symbols/symbolByPsi/contextReceivers/danglingContextParameterAndAnnotations.kt");
     }
 
     @Test

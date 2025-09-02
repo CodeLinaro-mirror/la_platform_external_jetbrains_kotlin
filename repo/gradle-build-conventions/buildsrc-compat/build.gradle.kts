@@ -54,15 +54,11 @@ gradlePlugin {
 }
 
 repositories {
-    mavenCentral()
-    google()
+    mavenCentral { setUrl("https://cache-redirector.jetbrains.com/maven-central") }
+    google { setUrl("https://cache-redirector.jetbrains.com/dl.google.com/dl/android/maven2") }
     maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
-    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies")
+    maven("https://redirector.kotlinlang.org/maven/kotlin-dependencies")
     gradlePluginPortal()
-
-    extra["bootstrapKotlinRepo"]?.let {
-        maven(url = it)
-    }
 }
 
 kotlin {
@@ -112,8 +108,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:${project.bootstrapKotlinVersion}")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:${project.bootstrapKotlinVersion}")
     implementation("org.jetbrains.kotlin:kotlin-reflect:${project.bootstrapKotlinVersion}")
+    implementation("org.jetbrains.kotlin:kotlin-metadata-jvm:${project.bootstrapKotlinVersion}")
     implementation(libs.gson)
-    implementation(libs.kotlinx.metadataJvm)
     implementation(project(":d8-configuration"))
 }
 

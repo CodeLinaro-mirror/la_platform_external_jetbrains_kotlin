@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.codeMetaInfo.model.CodeMetaInfo
 import org.jetbrains.kotlin.codeMetaInfo.renderConfigurations.AbstractCodeMetaInfoRenderConfiguration
 import org.jetbrains.kotlin.diagnostics.AbstractKtDiagnosticWithParametersRenderer
 import org.jetbrains.kotlin.diagnostics.KtDiagnostic
-import org.jetbrains.kotlin.diagnostics.rendering.RootDiagnosticRendererFactory
 
 object FirMetaInfoUtils {
     val renderDiagnosticNoArgs = FirDiagnosticCodeMetaRenderConfiguration().apply { renderParams = false }
@@ -48,6 +47,11 @@ class FirDiagnosticCodeMetaRenderConfiguration(
 ) : AbstractCodeMetaInfoRenderConfiguration(renderParams = false) {
     private val crossPlatformLineBreak = """\r?\n""".toRegex()
 
+    companion object {
+        const val METADATA_TAG = "METADATA"
+        const val PLATFORM_TAG = "PLATFORM"
+    }
+
     override fun asString(codeMetaInfo: CodeMetaInfo): String {
         if (codeMetaInfo !is FirDiagnosticCodeMetaInfo) return ""
         return (getTag(codeMetaInfo)
@@ -62,7 +66,7 @@ class FirDiagnosticCodeMetaRenderConfiguration(
 
         val diagnostic = codeMetaInfo.diagnostic
 
-        val renderer = RootDiagnosticRendererFactory(diagnostic)
+        val renderer = diagnostic.factory.ktRenderer
         if (renderer is AbstractKtDiagnosticWithParametersRenderer) {
             renderer.renderParameters(diagnostic).mapTo(params) {
                 it.toString().replace("\"", "\\\"")
@@ -84,5 +88,13 @@ class FirDiagnosticCodeMetaRenderConfiguration(
 
     fun getTag(codeMetaInfo: FirDiagnosticCodeMetaInfo): String {
         return codeMetaInfo.diagnostic.factory.name
+    }
+
+    override fun postProcessAttributes(codeMetaInfo: CodeMetaInfo) {
+        val attributes = codeMetaInfo.attributes
+        if (METADATA_TAG in attributes && PLATFORM_TAG in attributes) {
+            attributes.remove(PLATFORM_TAG)
+            attributes.remove(METADATA_TAG)
+        }
     }
 }

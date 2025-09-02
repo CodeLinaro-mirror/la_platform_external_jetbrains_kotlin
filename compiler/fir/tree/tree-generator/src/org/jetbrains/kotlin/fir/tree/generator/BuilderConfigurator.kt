@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -15,7 +15,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
         }
 
         val annotationContainerBuilder by builder {
-            fields from annotationContainer
+            fields from annotationContainer without "source"
         }
 
         val expressionBuilder by builder {
@@ -221,6 +221,8 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             default("origin") {
                 value = "FirFunctionCallOrigin.Regular"
             }
+
+            withCopy()
         }
         builder(integerLiteralOperatorCall, config = configurationForFunctionCallBuilder)
         builder(implicitInvokeCall) {
@@ -288,6 +290,10 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             withCopy()
         }
 
+        builder(superReceiverExpression) {
+            parents += qualifiedAccessExpressionBuilder
+        }
+
         builder(anonymousFunction) {
             parents += functionBuilder
             parents += typeParametersOwnerBuilder
@@ -296,6 +302,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             default("status", "FirResolvedDeclarationStatusImpl.DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS")
             default("typeRef", "FirImplicitTypeRefImplWithoutSource")
             additionalImports(resolvedDeclarationStatusImport, firImplicitTypeWithoutSourceType)
+            withCopy()
         }
 
         builder(propertyAccessor) {
@@ -370,6 +377,15 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
 
         builder(spreadArgumentExpression) {
             defaultFalse("isNamed", "isFakeSpread")
+            withCopy()
+        }
+
+        builder(namedArgumentExpression) {
+            withCopy()
+        }
+
+        builder(argumentList) {
+            withCopy()
         }
 
         val abstractWhenBranchBuilder by builder {
@@ -411,10 +427,10 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
 //        builder(checkedSafeCallSubject) {
 //            useTypes(expressionType)
 //        }
-//
-//        builder(whenSubjectExpression) {
-//            useTypes(whenExpressionType)
-//        }
+
+        builder(whenSubjectExpression) {
+            parents += qualifiedAccessExpressionBuilder
+        }
 
         noBuilder(literalExpression)
 

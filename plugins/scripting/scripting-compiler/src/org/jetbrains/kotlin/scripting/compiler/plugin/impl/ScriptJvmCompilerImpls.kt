@@ -285,6 +285,7 @@ private fun analyze(sourceFiles: Collection<KtFile>, environment: KotlinCoreEnvi
 
     analyzerWithCompilerReport.analyzeAndReport(sourceFiles) {
         val project = environment.project
+        @Suppress("DEPRECATION")
         TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(
             project,
             sourceFiles,
@@ -411,7 +412,7 @@ private fun doCompileWithK2(
 
     val irInput = convertAnalyzedFirToIr(configuration, targetId, analysisResults, compilerEnvironment)
 
-    val codegenOutput = generateCodeFromIr(irInput, compilerEnvironment)
+    val generationState = generateCodeFromIr(irInput, compilerEnvironment)
 
     diagnosticsReporter.reportToMessageCollector(messageCollector, renderDiagnosticName)
 
@@ -420,7 +421,7 @@ private fun doCompileWithK2(
     }
 
     return makeCompiledScript(
-        codegenOutput.generationState,
+        generationState,
         script,
         sourceFiles.first(),
         sourceDependencies,

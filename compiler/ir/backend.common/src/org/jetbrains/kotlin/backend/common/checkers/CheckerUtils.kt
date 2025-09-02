@@ -12,32 +12,14 @@ import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.descriptors.toEffectiveVisibilityOrNull
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.declarations.IrConstructor
-import org.jetbrains.kotlin.ir.declarations.IrDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
-import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.declarations.moduleDescriptor
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmentSymbol
-import org.jetbrains.kotlin.ir.types.IrDynamicType
-import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.IrTypeProjection
-import org.jetbrains.kotlin.ir.types.classifierOrNull
-import org.jetbrains.kotlin.ir.types.isArray
-import org.jetbrains.kotlin.ir.types.isNullableArray
-import org.jetbrains.kotlin.ir.util.fileOrNull
-import org.jetbrains.kotlin.ir.util.getPackageFragment
-import org.jetbrains.kotlin.ir.util.hasEqualFqName
-import org.jetbrains.kotlin.ir.util.isAccessor
-import org.jetbrains.kotlin.ir.util.isPublishedApi
-import org.jetbrains.kotlin.ir.util.parentClassOrNull
-import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.library.KOTLINTEST_MODULE_NAME
 import org.jetbrains.kotlin.library.KOTLIN_JS_STDLIB_NAME
 import org.jetbrains.kotlin.library.KOTLIN_NATIVE_STDLIB_NAME
@@ -109,27 +91,15 @@ private fun IrDeclarationWithVisibility.isVisibleAsPrivate(file: IrFile): Boolea
 /**
  * The set of declarations' fully qualified names references to which we don't want to check for visibility violations.
  *
- * FIXME: This is temporary hack until KT-70295 is fixed.
+ * FIXME: We need to get rid of this list of exceptions (KT-70295, KT-69947).
  */
 private val FQ_NAMES_EXCLUDED_FROM_VISIBILITY_CHECKS: Set<FqName> = listOf(
-    "kotlin.js.sharedBoxCreate",
-    "kotlin.js.sharedBoxWrite",
-    "kotlin.js.sharedBoxRead",
-    "kotlin.wasm.internal.ClosureBoxBoolean",
-    "kotlin.wasm.internal.ClosureBoxByte",
-    "kotlin.wasm.internal.ClosureBoxShort",
-    "kotlin.wasm.internal.ClosureBoxChar",
-    "kotlin.wasm.internal.ClosureBoxInt",
-    "kotlin.wasm.internal.ClosureBoxLong",
-    "kotlin.wasm.internal.ClosureBoxFloat",
-    "kotlin.wasm.internal.ClosureBoxDouble",
-    "kotlin.wasm.internal.ClosureBoxAny",
-    "kotlin.wasm.internal.wasmTypeId",
-    "kotlin.coroutines.CoroutineImpl",
-    "kotlin.native.internal.KClassImpl",
-    "kotlin.native.internal.KTypeImpl",
-    "kotlin.native.internal.KTypeProjectionList",
-    "kotlin.native.internal.KTypeParameterImpl",
+    "kotlin.wasm.internal.wasmTypeId",        // TODO: stop it leaking through kotlin.reflect.findAssociatedObject() inline function from Kotlin/Wasm stdlib, KT-76285
+    "kotlin.coroutines.CoroutineImpl",        // TODO: stop it leaking through kotlin.coroutines.intrinsics.startCoroutineUninterceptedOrReturn() inline function in Kotlin/Wasm stdlib, KT-76285
+    "kotlin.native.internal.KClassImpl",          // TODO: stop it leaking through kotlin.reflect.typeOf() in Kotlin/Native, KT-77293
+    "kotlin.native.internal.KTypeImpl",           // TODO: stop it leaking through kotlin.reflect.typeOf() in Kotlin/Native, KT-77293
+    "kotlin.native.internal.KTypeProjectionList", // TODO: stop it leaking through kotlin.reflect.typeOf() in Kotlin/Native, KT-77293
+    "kotlin.native.internal.KTypeParameterImpl",  // TODO: stop it leaking through kotlin.reflect.typeOf() in Kotlin/Native, KT-77293
 ).mapTo(hashSetOf(), ::FqName)
 
 private fun IrSymbol.isExcludedFromVisibilityChecks(): Boolean {
@@ -146,6 +116,14 @@ internal fun checkVisibility(
     reference: IrElement,
     context: CheckerContext,
 ) {
+    if ((reference as? IrOverridableDeclaration<*>)?.isFakeOverride == true && referencedDeclarationSymbol in reference.overriddenSymbols) {
+        return
+    }
+
+    if (reference is IrClass && referencedDeclarationSymbol in reference.sealedSubclasses) {
+        return
+    }
+
     if (referencedDeclarationSymbol.isExcludedFromVisibilityChecks()) {
         return
     }

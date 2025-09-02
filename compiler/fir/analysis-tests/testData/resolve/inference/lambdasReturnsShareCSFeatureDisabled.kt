@@ -18,7 +18,10 @@ fun main() {
 }
 
 val x: Any = x@{
-    if (b) return@x <!CANNOT_INFER_PARAMETER_TYPE, NEW_INFERENCE_NO_INFORMATION_FOR_PARAMETER!>myEmptyList<!>()
+    if (b) return@x <!CANNOT_INFER_PARAMETER_TYPE!>myEmptyList<!>()
 
     myEmptyList<String>()
 }
+
+/* GENERATED_FIR_TAGS: functionDeclaration, ifExpression, lambdaLiteral, nullableType, propertyDeclaration,
+typeParameter */

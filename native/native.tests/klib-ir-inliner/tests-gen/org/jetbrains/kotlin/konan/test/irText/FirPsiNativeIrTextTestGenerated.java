@@ -996,6 +996,12 @@ public class FirPsiNativeIrTextTestGenerated extends AbstractFirPsiNativeIrTextT
       }
 
       @Test
+      @TestMetadata("delegateForExtPropertyInClass.kt")
+      public void testDelegateForExtPropertyInClass() {
+        runTest("compiler/testData/ir/irText/declarations/delegate/delegateForExtPropertyInClass.kt");
+      }
+
+      @Test
       @TestMetadata("delegationEvaluationOrder1.kt")
       public void testDelegationEvaluationOrder1() {
         runTest("compiler/testData/ir/irText/declarations/delegate/delegationEvaluationOrder1.kt");
@@ -1229,12 +1235,6 @@ public class FirPsiNativeIrTextTestGenerated extends AbstractFirPsiNativeIrTextT
     public void testSuppressedNonPublicCall() {
       runTest("compiler/testData/ir/irText/errors/suppressedNonPublicCall.kt");
     }
-
-    @Test
-    @TestMetadata("unresolvedReference.kt")
-    public void testUnresolvedReference() {
-      runTest("compiler/testData/ir/irText/errors/unresolvedReference.kt");
-    }
   }
 
   @Nested
@@ -1281,6 +1281,12 @@ public class FirPsiNativeIrTextTestGenerated extends AbstractFirPsiNativeIrTextT
     @TestMetadata("assignments.kt")
     public void testAssignments() {
       runTest("compiler/testData/ir/irText/expressions/assignments.kt");
+    }
+
+    @Test
+    @TestMetadata("atomicFuUncheckedCast.kt")
+    public void testAtomicFuUncheckedCast() {
+      runTest("compiler/testData/ir/irText/expressions/atomicFuUncheckedCast.kt");
     }
 
     @Test
@@ -2025,6 +2031,12 @@ public class FirPsiNativeIrTextTestGenerated extends AbstractFirPsiNativeIrTextT
     @TestMetadata("tryCatch.kt")
     public void testTryCatch() {
       runTest("compiler/testData/ir/irText/expressions/tryCatch.kt");
+    }
+
+    @Test
+    @TestMetadata("tryCatchIlt.kt")
+    public void testTryCatchIlt() {
+      runTest("compiler/testData/ir/irText/expressions/tryCatchIlt.kt");
     }
 
     @Test
@@ -3077,6 +3089,17 @@ public class FirPsiNativeIrTextTestGenerated extends AbstractFirPsiNativeIrTextT
     @TestMetadata("nonLocalReturn.kt")
     public void testNonLocalReturn() {
       runTest("compiler/testData/ir/irText/lambdas/nonLocalReturn.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("compiler/testData/ir/irText/lenientMode")
+  @TestDataPath("$PROJECT_ROOT")
+  @ClassicPipeline()
+  public class LenientMode {
+    @Test
+    public void testAllFilesPresentInLenientMode() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/ir/irText/lenientMode"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
     }
   }
 

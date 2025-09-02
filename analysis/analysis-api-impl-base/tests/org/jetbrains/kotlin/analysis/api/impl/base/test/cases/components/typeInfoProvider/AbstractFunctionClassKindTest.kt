@@ -20,8 +20,8 @@ abstract class AbstractFunctionClassKindTest : AbstractAnalysisApiBasedTest() {
         val expressionAtCaret = testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret(mainFile) as KtExpression
 
         val (type, functionClassKind) = executeOnPooledThreadInReadAction {
-            analyseForTest(expressionAtCaret) {
-                val functionType = expressionAtCaret.expectedType
+            copyAwareAnalyzeForTest(expressionAtCaret) { contextExpression ->
+                val functionType = contextExpression.expectedType
                 functionType?.render(position = Variance.INVARIANT) to functionType?.functionTypeKind
             }
         }
@@ -30,6 +30,6 @@ abstract class AbstractFunctionClassKindTest : AbstractAnalysisApiBasedTest() {
             appendLine("expected type: $type")
             appendLine("functionClassKind: $functionClassKind")
         }
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+        testServices.assertions.assertEqualsToTestOutputFile(actual)
     }
 }

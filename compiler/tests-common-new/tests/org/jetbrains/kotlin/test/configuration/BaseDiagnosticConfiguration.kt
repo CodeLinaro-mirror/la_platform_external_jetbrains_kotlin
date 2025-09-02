@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.test.configuration
 
 import org.jetbrains.kotlin.config.ExplicitApiMode
 import org.jetbrains.kotlin.config.LanguageVersion
+import org.jetbrains.kotlin.config.ReturnValueCheckerMode
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.SessionConfiguration
 import org.jetbrains.kotlin.fir.symbols.FirLazyDeclarationResolver
@@ -19,8 +20,8 @@ import org.jetbrains.kotlin.test.builders.firHandlersStep
 import org.jetbrains.kotlin.test.builders.irHandlersStep
 import org.jetbrains.kotlin.test.cli.CliDirectives.CHECK_COMPILER_OUTPUT
 import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.WITH_STDLIB
+import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.DUMP_VFIR
-import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_DUMP
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.TEST_ALONGSIDE_K1_TESTDATA
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.USE_LATEST_LANGUAGE_VERSION
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.WITH_EXPERIMENTAL_CHECKERS
@@ -33,6 +34,7 @@ import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.EXPLICIT_
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.EXPLICIT_RETURN_TYPES_MODE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE_VERSION
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.RETURN_VALUE_CHECKER_MODE
 import org.jetbrains.kotlin.test.directives.configureFirParser
 import org.jetbrains.kotlin.test.frontend.classic.handlers.FirTestDataConsistencyHandler
 import org.jetbrains.kotlin.test.frontend.fir.*
@@ -51,7 +53,6 @@ import org.jetbrains.kotlin.test.services.fir.LatestLanguageVersionMetaConfigura
 import org.jetbrains.kotlin.test.services.service
 import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
-import org.jetbrains.kotlin.utils.bind
 
 /**
  * General test configuration for FIR-based diagnostic tests
@@ -103,7 +104,6 @@ fun TestConfigurationBuilder.configurationForClassicAndFirTestsAlongside(
  * - source dependency kind between modules
  * - target platform is JVM
  *
- * @param [baseDir] is used in Kotlin plugin from IJ infra
  * @param [testDataConsistencyHandler] is used to ensure consistency between `.kt` and `.xxx.kt` files if they are present.
  * Known usages:
  * - `.fir.kt` for diagnostics testdata shared between the K1 and K2
@@ -112,7 +112,7 @@ fun TestConfigurationBuilder.configurationForClassicAndFirTestsAlongside(
  * - `.reversed.fir.kt` for reversed AA tests
  */
 fun TestConfigurationBuilder.baseFirDiagnosticTestConfiguration(
-    baseDir: String = ".",
+    @Suppress("unused") baseDir: String = ".",
     frontendFacade: Constructor<FrontendFacade<FirOutputArtifact>> = ::FirFrontendFacade,
     testDataConsistencyHandler: Constructor<AfterAnalysisChecker> = ::FirTestDataConsistencyHandler,
 ) {
@@ -135,8 +135,8 @@ fun TestConfigurationBuilder.baseFirDiagnosticTestConfiguration(
     )
 
     useAdditionalSourceProviders(
-        ::AdditionalDiagnosticsSourceFilesProvider.bind(baseDir),
-        ::CoroutineHelpersSourceFilesProvider.bind(baseDir),
+        ::AdditionalDiagnosticsSourceFilesProvider,
+        ::CoroutineHelpersSourceFilesProvider,
     )
 
     facadeStep(frontendFacade)
@@ -154,6 +154,7 @@ fun HandlersStepBuilder<FirOutputArtifact, FrontendKinds.FIR>.setupHandlersForDi
         ::FirDumpHandler,
         ::FirCfgDumpHandler,
         ::FirVFirDumpHandler,
+        ::FirInferenceLogsHandler,
         ::FirCfgConsistencyHandler,
         ::FirResolvedTypesVerifier,
         ::FirScopeDumpHandler,
@@ -171,9 +172,6 @@ fun TestConfigurationBuilder.configureCommonDiagnosticTestPaths(
     }
 
     forTestsMatching("compiler/fir/analysis-tests/testData/*") {
-        defaultDirectives {
-            +FIR_DUMP
-        }
         useAfterAnalysisCheckers(::FirFailingTestSuppressor)
     }
 
@@ -216,6 +214,30 @@ fun TestConfigurationBuilder.configureCommonDiagnosticTestPaths(
     forTestsMatching("compiler/testData/diagnostics/tests/testsWithExplicitReturnTypes/*") {
         defaultDirectives {
             EXPLICIT_RETURN_TYPES_MODE with ExplicitApiMode.STRICT
+        }
+    }
+
+    forTestsMatching("compiler/testData/diagnostics/tests/crv/*") {
+        defaultDirectives {
+            RETURN_VALUE_CHECKER_MODE with ReturnValueCheckerMode.CHECKER
+            +WITH_EXTRA_CHECKERS
+            DIAGNOSTICS with "-UNUSED_VARIABLE"
+            LANGUAGE with "+UnnamedLocalVariables"
+        }
+    }
+
+    forTestsMatching("compiler/testData/diagnostics/tests/crvFull/*") {
+        defaultDirectives {
+            RETURN_VALUE_CHECKER_MODE with ReturnValueCheckerMode.FULL
+            +WITH_EXTRA_CHECKERS
+            DIAGNOSTICS with "-UNUSED_VARIABLE"
+            LANGUAGE with "+UnnamedLocalVariables"
+        }
+    }
+
+    forTestsMatching("compiler/testData/diagnostics/tests/crvDisabled/*") {
+        defaultDirectives {
+            RETURN_VALUE_CHECKER_MODE with ReturnValueCheckerMode.DISABLED
         }
     }
 

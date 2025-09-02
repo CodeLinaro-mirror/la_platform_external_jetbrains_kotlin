@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.resolve
 
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbolOfType
 import org.jetbrains.kotlin.analysis.low.level.api.fir.lazyResolveRenderer
-import org.jetbrains.kotlin.analysis.low.level.api.fir.withResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.withResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirOutOfContentRootTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirScriptTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModul
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
+import org.jetbrains.kotlin.fir.scopes.ScopeFunctionRequiresPrewarm
 import org.jetbrains.kotlin.fir.scopes.processAllCallables
 import org.jetbrains.kotlin.fir.scopes.processAllOverriddenCallables
 import org.jetbrains.kotlin.fir.scopes.unsubstitutedScope
@@ -36,25 +37,28 @@ import org.jetbrains.kotlin.test.services.assertions
 abstract class AbstractLazyDeclarationResolveScopeBasedTest : AbstractAnalysisApiBasedTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val classOrObject = testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret<KtClassOrObject>(mainFile)
-        withResolveSession(classOrObject) { session ->
-            val classSymbol = classOrObject.resolveToFirSymbolOfType<FirClassSymbol<*>>(session)
-            val symbols = collectAllCallableDeclarations(classSymbol, session)
+        withResolutionFacade(classOrObject) { resolutionFacade ->
+            val classSymbol = classOrObject.resolveToFirSymbolOfType<FirClassSymbol<*>>(resolutionFacade)
+            val symbols = collectAllCallableDeclarations(classSymbol, resolutionFacade)
             val dumpBefore = dumpSymbols(symbols)
-            testServices.assertions.assertEqualsToTestDataFileSibling(dumpBefore, extension = "before.txt")
+            testServices.assertions.assertEqualsToTestOutputFile(dumpBefore, extension = "before.txt")
             for (callableSymbol in symbols) {
                 callableSymbol.lazyResolveToPhase(FirResolvePhase.BODY_RESOLVE)
             }
 
             val dumpAfter = dumpSymbols(symbols)
-            testServices.assertions.assertEqualsToTestDataFileSibling(dumpAfter, extension = "after.txt")
+            testServices.assertions.assertEqualsToTestOutputFile(dumpAfter, extension = "after.txt")
         }
     }
 }
 
-private fun collectAllCallableDeclarations(classSymbol: FirClassSymbol<*>, session: LLFirResolveSession): Collection<FirCallableSymbol<*>> {
+private fun collectAllCallableDeclarations(
+    classSymbol: FirClassSymbol<*>,
+    resolutionFacade: LLResolutionFacade
+): Collection<FirCallableSymbol<*>> {
     val baseScope = classSymbol.unsubstitutedScope(
-        session.useSiteFirSession,
-        session.getScopeSessionFor(session.useSiteFirSession),
+        resolutionFacade.useSiteFirSession,
+        resolutionFacade.getScopeSessionFor(resolutionFacade.useSiteFirSession),
         false,
         FirResolvePhase.STATUS,
     )
@@ -62,6 +66,7 @@ private fun collectAllCallableDeclarations(classSymbol: FirClassSymbol<*>, sessi
     return buildSet {
         baseScope.processAllCallables { callable ->
             add(callable)
+            @OptIn(ScopeFunctionRequiresPrewarm::class)
             baseScope.processAllOverriddenCallables(
                 callable,
                 processor = {

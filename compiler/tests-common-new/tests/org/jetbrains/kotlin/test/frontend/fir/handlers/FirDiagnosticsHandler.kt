@@ -5,21 +5,19 @@
 
 package org.jetbrains.kotlin.test.frontend.fir.handlers
 
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.*
-import org.jetbrains.kotlin.checkers.diagnostics.factories.DebugInfoDiagnosticFactory0
-import org.jetbrains.kotlin.checkers.diagnostics.factories.DebugInfoDiagnosticFactory1
 import org.jetbrains.kotlin.checkers.utils.TypeOfCall
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
-import org.jetbrains.kotlin.config.AnalysisFlag
-import org.jetbrains.kotlin.config.AnalysisFlags
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.cli.pipeline.metadata.MetadataFrontendPipelineArtifact
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.*
+import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.TO_STRING
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.diagnostics.impl.SimpleDiagnosticsCollector
+import org.jetbrains.kotlin.diagnostics.rendering.BaseDiagnosticRendererFactory
 import org.jetbrains.kotlin.diagnostics.rendering.Renderers
-import org.jetbrains.kotlin.diagnostics.rendering.RootDiagnosticRendererFactory
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
@@ -49,20 +47,23 @@ import org.jetbrains.kotlin.platform.isJs
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.platform.konan.isNative
 import org.jetbrains.kotlin.psi.KtBinaryExpression
+import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtQualifiedExpression
 import org.jetbrains.kotlin.resolve.AnalyzingUtils
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.backend.handlers.assertFileDoesntExist
 import org.jetbrains.kotlin.test.directives.AdditionalFilesDirectives
+import org.jetbrains.kotlin.test.directives.ConfigurationDirectives.SEPARATE_KMP_COMPILATION
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
+import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.DISABLE_DOUBLE_CHECKING_COMMON_DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.USE_LATEST_LANGUAGE_VERSION
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.SimpleDirective
 import org.jetbrains.kotlin.test.directives.model.singleValue
-import org.jetbrains.kotlin.test.frontend.fir.FirCliBasedJvmOutputArtifact
+import org.jetbrains.kotlin.test.frontend.fir.FirCliBasedOutputArtifact
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputPartForDependsOnModule
 import org.jetbrains.kotlin.test.model.AfterAnalysisChecker
@@ -73,8 +74,10 @@ import org.jetbrains.kotlin.test.utils.AbstractTwoAttributesMetaInfoProcessor
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
+import org.jetbrains.kotlin.utils.DummyDelegate
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
-import java.io.File
+import kotlin.properties.ReadOnlyProperty
+import kotlin.reflect.KProperty
 
 class FullDiagnosticsRenderer(private val directive: SimpleDirective) {
     private val dumper: MultiModuleInfoDumper = MultiModuleInfoDumper(moduleHeaderTemplate = "// -- Module: <%s> --")
@@ -103,13 +106,21 @@ class FullDiagnosticsRenderer(private val directive: SimpleDirective) {
         if (directive !in module.directives) return
         if (diagnostics.isEmpty()) return
 
-        val reportedDiagnostics = diagnostics.sortedBy { it.textRanges.first().startOffset }.map {
-            val severity = AnalyzerWithCompilerReport.convertSeverity(it.severity).toString().toLowerCaseAsciiOnly()
-            val message = RootDiagnosticRendererFactory(it).render(it)
-            "/${file.name}:${it.textRanges.first()}: $severity: $message"
-        }
+        class DiagnosticData(val textRanges: List<TextRange>, val severity: String, val message: String)
 
-        dumper.builderForModule(module).appendLine(reportedDiagnostics.joinToString(separator = "\n\n"))
+        val reportedDiagnostics = diagnostics
+            .map {
+                DiagnosticData(
+                    textRanges = it.textRanges,
+                    severity = AnalyzerWithCompilerReport.convertSeverity(it.severity).toString().toLowerCaseAsciiOnly(),
+                    message = it.renderMessage()
+                )
+            }
+            .sortedWith(compareBy<DiagnosticData> { it.textRanges.first().startOffset }.thenBy { it.message })
+
+        dumper.builderForModule(module).appendLine(reportedDiagnostics.joinToString(separator = "\n\n") {
+            "/${file.name}:${it.textRanges.first()}: ${it.severity}: ${it.message}"
+        })
     }
 }
 
@@ -166,7 +177,6 @@ class FirDiagnosticsHandler(testServices: TestServices) : FirAnalysisHandler(tes
                         )
                     }
                 globalMetadataInfoHandler.addMetadataInfosForFile(file, diagnosticsMetadataInfos)
-                val session = info.partsForDependsOnModules.last().session
                 collectDebugInfoDiagnostics(currentModule, file, firFile, lightTreeEnabled, lightTreeComparingModeEnabled)
                 fullDiagnosticsRenderer.storeFullDiagnosticRender(module, diagnostics.map { it.diagnostic }, file)
             }
@@ -258,9 +268,7 @@ class FirDiagnosticsHandler(testServices: TestServices) : FirAnalysisHandler(tes
 
             override fun visitPropertyAccessExpression(propertyAccessExpression: FirPropertyAccessExpression) {
                 val reference = propertyAccessExpression.calleeReference
-                if (reference is FirNamedReference) {
-                    consumer.reportContainingClassDiagnostic(propertyAccessExpression, reference)
-                }
+                consumer.reportContainingClassDiagnostic(propertyAccessExpression, reference)
 
                 super.visitPropertyAccessExpression(propertyAccessExpression)
             }
@@ -288,13 +296,13 @@ class FirDiagnosticsHandler(testServices: TestServices) : FirAnalysisHandler(tes
     }
 
     private fun DebugDiagnosticConsumer.reportExpressionTypeDiagnostic(element: FirExpression) {
-        report(DebugInfoDiagnosticFactory1.EXPRESSION_TYPE, element) {
+        report(KtDebugInfoDiagnostics.EXPRESSION_TYPE, element) {
             element.resolvedType.renderForDebugInfo()
         }
     }
 
     private fun DebugDiagnosticConsumer.reportCallDiagnostic(element: FirElement, reference: FirNamedReference) {
-        report(DebugInfoDiagnosticFactory1.CALL, element) {
+        report(KtDebugInfoDiagnostics.CALL, element) {
             val resolvedSymbol = (reference as? FirResolvedNamedReference)?.resolvedSymbol
             val fqName = resolvedSymbol?.fqNameUnsafe()
             Renderers.renderCallInfo(fqName, getTypeOfCall(reference, resolvedSymbol))
@@ -302,19 +310,22 @@ class FirDiagnosticsHandler(testServices: TestServices) : FirAnalysisHandler(tes
     }
 
     private fun DebugDiagnosticConsumer.reportContainingClassDiagnostic(element: FirElement, reference: FirNamedReference) {
-        report(DebugInfoDiagnosticFactory1.CALLABLE_OWNER, element) {
+        report(KtDebugInfoDiagnostics.CALLABLE_OWNER, element) {
             val resolvedSymbol = (reference as? FirResolvedNamedReference)?.resolvedSymbol
             val callable = resolvedSymbol?.fir as? FirCallableDeclaration ?: return@report ""
-            DebugInfoDiagnosticFactory1.renderCallableOwner(
-                callable.symbol.callableId,
-                callable.containingClassLookupTag()?.classId,
-                callable.containingClassForStaticMemberAttr == null
-            )
+            buildString {
+                append(callable.symbol.callableId.asFqNameForDebugInfo().asString())
+                append(" in ")
+                if (callable.containingClassForStaticMemberAttr == null) {
+                    append("implicit ")
+                }
+                append(callable.containingClassLookupTag()?.classId?.asFqNameString() ?: "<unknown>")
+            }
         }
     }
 
     private fun DebugDiagnosticConsumer.reportDynamicDiagnostic(sourceElement: KtSourceElement?) {
-        report(DebugInfoDiagnosticFactory0.DYNAMIC, sourceElement)
+        report(KtDebugInfoDiagnostics.DYNAMIC, sourceElement)
     }
 
     private fun getTypeOfCall(
@@ -427,7 +438,7 @@ private class DebugDiagnosticConsumer(
         )
     }
 
-    fun report(debugFactory: DebugInfoDiagnosticFactory0, sourceElement: KtSourceElement?) {
+    fun report(factory: KtDiagnosticFactory0, sourceElement: KtSourceElement?) {
         if (sourceElement == null || sourceElement.kind !in allowedKindsForDebugInfo) return
 
         // Lambda argument is always (?) duplicated by function literal
@@ -435,27 +446,20 @@ private class DebugDiagnosticConsumer(
         if (sourceElement.elementType == KtNodeTypes.LAMBDA_ARGUMENT || sourceElement.elementType == KtNodeTypes.BLOCK) return
 
         val availableDiagnostics = diagnosedRangesToDiagnosticNames[sourceElement.startOffset..sourceElement.endOffset]
-        if (availableDiagnostics == null || debugFactory.name !in availableDiagnostics) {
+        if (availableDiagnostics == null || factory.name !in availableDiagnostics) {
             return
         }
-
-        val factory = KtDiagnosticFactory0(
-            name = debugFactory.name,
-            severity = debugFactory.severity,
-            defaultPositioningStrategy = SourceElementPositioningStrategies.DEFAULT,
-            psiType = PsiElement::class
-        )
 
         val diagnostic = when (sourceElement) {
             is KtPsiSourceElement -> KtPsiSimpleDiagnostic(
                 sourceElement,
-                debugFactory.severity,
+                factory.severity,
                 factory,
                 factory.defaultPositioningStrategy
             )
             is KtLightSourceElement -> KtLightSimpleDiagnostic(
                 sourceElement,
-                debugFactory.severity,
+                factory.severity,
                 factory,
                 factory.defaultPositioningStrategy
             )
@@ -464,7 +468,7 @@ private class DebugDiagnosticConsumer(
         result.add(diagnostic)
     }
 
-    fun report(debugFactory: DebugInfoDiagnosticFactory1, element: FirElement, argumentFactory: () -> String) {
+    fun report(factory: KtDiagnosticFactory1<String>, element: FirElement, argumentFactory: () -> String) {
         val sourceElement = element.source?.takeIf { it.kind in allowedKindsForDebugInfo } ?: return
 
         // Lambda argument is always (?) duplicated by function literal
@@ -473,32 +477,25 @@ private class DebugDiagnosticConsumer(
 
         // Unfortunately I had to repeat positioning strategy logic here
         // (we need to check diagnostic range before applying it)
-        val positionedElement = debugFactory.getPositionedElement(sourceElement)
+        val positionedElement = factory.getPositionedElement(sourceElement)
 
         val availableDiagnostics = diagnosedRangesToDiagnosticNames[positionedElement.startOffset..positionedElement.endOffset]
-        if (availableDiagnostics == null || debugFactory.name !in availableDiagnostics) {
+        if (availableDiagnostics == null || factory.name !in availableDiagnostics) {
             return
         }
-
-        val factory = KtDiagnosticFactory1<String>(
-            name = debugFactory.name,
-            severity = debugFactory.severity,
-            defaultPositioningStrategy = SourceElementPositioningStrategies.DEFAULT,
-            psiType = PsiElement::class
-        )
 
         val diagnostic = when (positionedElement) {
             is KtPsiSourceElement -> KtPsiDiagnosticWithParameters1(
                 positionedElement,
                 argumentFactory(),
-                debugFactory.severity,
+                factory.severity,
                 factory,
                 factory.defaultPositioningStrategy
             )
             is KtLightSourceElement -> KtLightDiagnosticWithParameters1(
                 positionedElement,
                 argumentFactory(),
-                debugFactory.severity,
+                factory.severity,
                 factory,
                 factory.defaultPositioningStrategy
             )
@@ -507,9 +504,9 @@ private class DebugDiagnosticConsumer(
         result.add(diagnostic)
     }
 
-    private fun DebugInfoDiagnosticFactory1.getPositionedElement(sourceElement: KtSourceElement): KtSourceElement {
+    private fun KtDiagnosticFactory1<String>.getPositionedElement(sourceElement: KtSourceElement): KtSourceElement {
         val elementType = sourceElement.elementType
-        return if (this === DebugInfoDiagnosticFactory1.CALL
+        return if (this === KtDebugInfoDiagnostics.CALL
             && (elementType == KtNodeTypes.DOT_QUALIFIED_EXPRESSION || elementType == KtNodeTypes.SAFE_ACCESS_EXPRESSION)
         ) {
             if (sourceElement is KtPsiSourceElement) {
@@ -580,8 +577,11 @@ fun KtDiagnostic.toMetaInfos(
             else -> error("Should not be here")
         }
     }
+    if (SEPARATE_KMP_COMPILATION in module.directives && kmpCompilationMode == KmpCompilationMode.PLATFORM) {
+        metaInfo.attributes += FirDiagnosticCodeMetaRenderConfiguration.PLATFORM_TAG
+    }
     if (kmpCompilationMode == KmpCompilationMode.METADATA) {
-        metaInfo.attributes += "METADATA"
+        metaInfo.attributes += FirDiagnosticCodeMetaRenderConfiguration.METADATA_TAG
     }
     metaInfo
 }
@@ -639,17 +639,26 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
             val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(platformPart.module)
             val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
-            when (info) {
-                is FirCliBasedJvmOutputArtifact -> {
-                    val diagnosticsCollector = info.cliArtifact.diagnosticCollector
-                    val diagnosticsPerFirFile = buildMap {
-                        for ((filePath, diagnostics) in diagnosticsCollector.diagnosticsByFilePath) {
-                            if (filePath == null) continue
-                            val firFile = allFiles.first { it.sourceFile?.path == filePath }
-                            put(firFile, diagnostics)
-                        }
+            fun processDiagnosticsFromCliPhase(diagnosticsCollector: BaseDiagnosticsCollector, mode: KmpCompilationMode) {
+                val diagnosticsPerFirFile = buildMap {
+                    for ((filePath, diagnostics) in diagnosticsCollector.diagnosticsByFilePath) {
+                        if (filePath == null) continue
+                        val firFile = allFiles.first { it.sourceFile?.path == filePath }
+                        put(firFile, diagnostics)
                     }
-                    result += diagnosticsPerFirFile.convertToTestDiagnostics(KmpCompilationMode.PLATFORM)
+                }
+                result += diagnosticsPerFirFile.convertToTestDiagnostics(mode)
+            }
+
+            when (info) {
+                is FirCliBasedOutputArtifact<*> -> {
+                    val diagnosticsCollector = info.cliArtifact.diagnosticCollector
+                    val mode = if (info.cliArtifact is MetadataFrontendPipelineArtifact) {
+                        KmpCompilationMode.METADATA
+                    } else {
+                        KmpCompilationMode.PLATFORM
+                    }
+                    processDiagnosticsFromCliPhase(diagnosticsCollector, mode)
                 }
                 else -> {
                     result += platformPart.session.runCheckers(
@@ -674,15 +683,16 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                     }
                 }
             }
-
-            for (part in info.partsForDependsOnModules.dropLast(1)) {
-                part.session.turnOnMetadataCompilationAnalysisFlag {
-                    result += part.session.runCheckers(
-                        part.scopeSession,
-                        part.firFiles.values,
-                        DiagnosticReporterFactory.createPendingReporter(messageCollector),
-                        mppCheckerKind = MppCheckerKind.Platform
-                    ).convertToTestDiagnostics(KmpCompilationMode.METADATA)
+            if (DISABLE_DOUBLE_CHECKING_COMMON_DIAGNOSTICS !in testServices.defaultDirectives) {
+                for (part in info.partsForDependsOnModules.dropLast(1)) {
+                    part.session.turnOnMetadataCompilationAnalysisFlag {
+                        result += part.session.runCheckers(
+                            part.scopeSession,
+                            part.firFiles.values,
+                            DiagnosticReporterFactory.createPendingReporter(messageCollector),
+                            mppCheckerKind = MppCheckerKind.Platform
+                        ).convertToTestDiagnostics(KmpCompilationMode.METADATA)
+                    }
                 }
             }
 
@@ -724,7 +734,12 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
             val syntaxErrors = if (firFile.psi != null) {
                 AnalyzingUtils.getSyntaxErrorRanges(firFile.psi!!).map {
                     @OptIn(InternalDiagnosticFactoryMethod::class)
-                    FirSyntaxErrors.SYNTAX.on(KtRealPsiSourceElement(it), it.errorDescription, positioningStrategy = null)
+                    FirSyntaxErrors.SYNTAX.on(
+                        KtRealPsiSourceElement(it),
+                        it.errorDescription,
+                        positioningStrategy = null,
+                        LanguageVersionSettingsImpl.DEFAULT, // syntax errors couldn't be suppressed anyway
+                    )!!
                 }
             } else {
                 reporterForLTSyntaxErrors
@@ -756,3 +771,49 @@ private fun FirSession.turnOnMetadataCompilationAnalysisFlag(body: () -> Unit) {
 }
 
 val TestServices.firDiagnosticCollectorService: FirDiagnosticCollectorService by TestServices.testServiceAccessor()
+
+private object KtDebugInfoDiagnostics : KtDiagnosticsContainer() {
+    val DYNAMIC by debugInfo0()
+    val EXPRESSION_TYPE by debugInfo1()
+    val CALL by debugInfo1()
+    val CALLABLE_OWNER by debugInfo1()
+
+    override fun getRendererFactory(): BaseDiagnosticRendererFactory = Renderers
+
+    private object Renderers : BaseDiagnosticRendererFactory() {
+        override val MAP: KtDiagnosticFactoryToRendererMap by KtDiagnosticFactoryToRendererMap("DebugInfo") {
+            it.put(DYNAMIC, "")
+            it.put(EXPRESSION_TYPE, "{0}", TO_STRING)
+            it.put(CALL, "{0}", TO_STRING)
+            it.put(CALLABLE_OWNER, "{0}", TO_STRING)
+        }
+    }
+
+    private fun debugInfo0() = object {
+        operator fun provideDelegate(thisRef: Any?, prop: KProperty<*>): ReadOnlyProperty<Any?, KtDiagnosticFactory0> {
+            return DummyDelegate(
+                KtDiagnosticFactory0(
+                    "DEBUG_INFO_${prop.name}",
+                    Severity.INFO,
+                    SourceElementPositioningStrategies.DEFAULT,
+                    KtElement::class,
+                    this@KtDebugInfoDiagnostics.getRendererFactory()
+                )
+            )
+        }
+    }
+
+    private fun debugInfo1() = object {
+        operator fun provideDelegate(thisRef: Any?, prop: KProperty<*>): ReadOnlyProperty<Any?, KtDiagnosticFactory1<String>> {
+            return DummyDelegate(
+                KtDiagnosticFactory1(
+                    "DEBUG_INFO_${prop.name}",
+                    Severity.INFO,
+                    SourceElementPositioningStrategies.DEFAULT,
+                    KtElement::class,
+                    this@KtDebugInfoDiagnostics.getRendererFactory()
+                )
+            )
+        }
+    }
+}

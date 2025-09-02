@@ -6,10 +6,10 @@
 package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
-import org.jetbrains.kotlin.backend.common.getOrPut
 import org.jetbrains.kotlin.backend.common.ir.isPure
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.backend.js.JsCommonBackendContext
+import org.jetbrains.kotlin.ir.backend.js.hasPureInitialization
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.objectInstanceField
 import org.jetbrains.kotlin.ir.backend.js.utils.isObjectInstanceField
@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
 
 /**
  * Optimization: make object instance getter functions pure whenever it's possible.
@@ -87,7 +88,7 @@ class PurifyObjectInstanceGettersLowering(val context: JsCommonBackendContext) :
     }
 
     private fun IrClass.isPureObject(): Boolean {
-        return context.mapping.objectsWithPureInitialization.getOrPut(this) {
+        return this::hasPureInitialization.getOrSetIfNull {
             val constructor = primaryConstructor ?: primaryConstructorReplacement
             superClass == null && constructor?.body?.statements?.all { it.isPureStatementForObjectInitialization(this@isPureObject) } != false
         }
@@ -98,7 +99,7 @@ class PurifyObjectInstanceGettersLowering(val context: JsCommonBackendContext) :
                 (this is IrReturn && value.isPureStatementForObjectInitialization(owner)) ||
                         // Only objects which don't have a class parent
                         (this is IrDelegatingConstructorCall && symbol.owner.parent == context.irBuiltIns.anyClass.owner) ||
-                        (this is IrExpression && isPure(anyVariable = true, checkFields = false, symbols = context.ir.symbols)) ||
+                        (this is IrExpression && isPure(anyVariable = true, checkFields = false, symbols = context.symbols)) ||
                         (this is IrContainerExpression && statements.all { it.isPureStatementForObjectInitialization(owner) }) ||
                         (this is IrVariable && (isEs6DelegatingConstructorCallReplacement || initializer?.isPureStatementForObjectInitialization(owner) != false)) ||
                         // Only fields of the objects are safe to not save an intermediate state of another class/object/global
@@ -106,7 +107,7 @@ class PurifyObjectInstanceGettersLowering(val context: JsCommonBackendContext) :
                         (this is IrSetField && receiver?.isPureStatementForObjectInitialization(owner) == true && value.isPureStatementForObjectInitialization(owner)) ||
                         // Only current object could be initialized inside the object constructor, so we need to ignore it as an effect
                         (this is IrSetField && symbol.owner.isObjectInstanceField()) ||
-                        (this is IrSetValue && symbol.owner.isLocal && value.isPureStatementForObjectInitialization(owner))
+                        (this is IrSetValue && symbol.owner.isOriginallyLocal && value.isPureStatementForObjectInitialization(owner))
                 )
 
     }

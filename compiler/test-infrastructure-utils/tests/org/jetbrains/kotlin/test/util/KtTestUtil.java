@@ -19,6 +19,7 @@ import kotlin.collections.SetsKt;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime;
 import org.jetbrains.kotlin.idea.KotlinLanguage;
 import org.jetbrains.kotlin.psi.KtFile;
 import org.jetbrains.kotlin.test.KtAssert;
@@ -35,6 +36,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import static org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime.transformTestDataPath;
+import static org.jetbrains.kotlin.codegen.forTestCompile.TestCompilePaths.*;
 import static org.jetbrains.kotlin.test.InTextDirectivesUtils.isCompatibleTarget;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
@@ -188,13 +191,23 @@ public class KtTestUtil {
     }
 
     public static File findMockJdkRtJar() {
-        return new File(getHomeDirectory(), "compiler/testData/mockJDK/jre/lib/rt.jar");
+        String property = System.getProperty(KOTLIN_MOCKJDK_RUNTIME_PATH);
+        if (property!= null) {
+            return new File(property);
+        } else {
+            return new File(getHomeDirectory(), "compiler/testData/mockJDK/jre/lib/rt.jar");
+        }
     }
 
     // Differs from common mock JDK only by one additional 'nonExistingMethod' in Collection and constructor from Double in Throwable
     // It's needed to test the way we load additional built-ins members that neither in black nor white lists
     public static File findMockJdkRtModified() {
-        return new File(getHomeDirectory(), "compiler/testData/mockJDKModified/rt.jar");
+        String property = System.getProperty(KOTLIN_MOCKJDKMODIFIED_RUNTIME_PATH);
+        if (property!= null) {
+            return new File(property);
+        } else {
+            return new File(getHomeDirectory(), "compiler/testData/mockJDKModified/rt.jar");
+        }
     }
 
     public static File findAndroidApiJar() {
@@ -227,7 +240,12 @@ public class KtTestUtil {
     }
 
     public static File getAnnotationsJar() {
-        return new File(getHomeDirectory(), "compiler/testData/mockJDK/jre/lib/annotations.jar");
+        String property = System.getProperty(KOTLIN_MOCKJDK_ANNOTATIONS_PATH);
+        if (property!= null) {
+            return new File(property);
+        } else {
+            return new File(getHomeDirectory(), "compiler/testData/mockJDK/jre/lib/annotations.jar");
+        }
     }
 
     public static void mkdirs(@NotNull File file) {
@@ -283,12 +301,12 @@ public class KtTestUtil {
             boolean recursive,
             @NotNull String... excludeDirs
     ) {
-        File rootFile = new File(getTestsRoot(testCaseClass));
+        File rootFile = transformTestDataPath(getTestsRoot(testCaseClass));
 
         Set<String> filePaths = collectPathsMetadata(testCaseClass);
         Set<String> exclude = SetsKt.setOf(excludeDirs);
 
-        File[] files = testDataDir.listFiles();
+        File[] files = transformTestDataPath(testDataDir.getPath()).listFiles();
         if (files != null) {
             for (File file : files) {
                 if (file.isDirectory()) {
@@ -417,7 +435,7 @@ public class KtTestUtil {
     private static void assertTestClassPresentByMetadata(@NotNull Class<?> outerClass, @NotNull File testDataDir) {
         for (Class<?> nestedClass : outerClass.getDeclaredClasses()) {
             TestMetadata testMetadata = nestedClass.getAnnotation(TestMetadata.class);
-            if (testMetadata != null && testMetadata.value().equals(getFilePath(testDataDir))) {
+            if (testMetadata != null && getFilePath(testDataDir).endsWith(testMetadata.value())) {
                 return;
             }
         }

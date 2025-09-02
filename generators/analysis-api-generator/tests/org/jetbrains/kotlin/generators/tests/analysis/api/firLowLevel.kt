@@ -1,10 +1,11 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.generators.tests.analysis.api
 
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.session.AbstractSessionInvalidationTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.AbstractResolveToFirSymbolTest
 import org.jetbrains.kotlin.analysis.low.level.api.fir.diagnostic.*
@@ -17,12 +18,13 @@ import org.jetbrains.kotlin.generators.TestGroup
 import org.jetbrains.kotlin.generators.TestGroupSuite
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil.KT_OR_KTS
+import org.jetbrains.kotlin.generators.util.TestGeneratorUtil.canFreezeIDE
 import org.jetbrains.kotlin.spec.utils.GeneralConfiguration
 import org.jetbrains.kotlin.spec.utils.tasks.detectDirsWithTestsMapFileOnly
 import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 
 internal fun TestGroupSuite.generateFirLowLevelApiTests() {
-    testGroup("analysis/low-level-api-fir/tests", "compiler/fir/raw-fir/psi2fir/testData") {
+    testGroup("analysis/low-level-api-fir/tests-gen", "compiler/fir/raw-fir/psi2fir/testData") {
         testClass<AbstractFirSourceLazyBodiesCalculatorTest> {
             model("rawBuilder", pattern = TestGeneratorUtil.KT)
         }
@@ -34,9 +36,13 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
         testClass<AbstractFirScriptLazyBodiesCalculatorTest> {
             model("rawBuilder", pattern = TestGeneratorUtil.KTS)
         }
+
+        testClass<AbstractLLSourceAnnotationArgumentsCalculatorTest> {
+            model("rawBuilder", pattern = TestGeneratorUtil.KT)
+        }
     }
 
-    testGroup("analysis/low-level-api-fir/tests", "analysis/low-level-api-fir/testData") {
+    testGroup("analysis/low-level-api-fir/tests-gen", "analysis/low-level-api-fir/testData") {
         testClass<AbstractSourceLazyAnnotationsResolveTest> {
             model("lazyAnnotations", pattern = TestGeneratorUtil.KT)
         }
@@ -145,6 +151,10 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             model("inBlockModification/codeFragments", recursive = false, pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
         }
 
+        testClass<AbstractContentAndResolutionScopesProvidersTest> {
+            model("contentAndResolutionScopesProviders", recursive = false, pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+        }
+
         // Modifiable PSI tests must not be generated until KT-63650 is fixed.
 //        testClass<AbstractDeclarationModificationServiceCallExpressionCalleeResilienceTest> {
 //            model(
@@ -242,6 +252,14 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             model("getOrBuildFir", pattern = TestGeneratorUtil.KTS)
         }
 
+        testClass<AbstractInterruptingSourceGetOrBuildFirTest> {
+            model("getOrBuildFirWithInterruption", pattern = TestGeneratorUtil.KT)
+        }
+
+        testClass<AbstractInterruptingScriptGetOrBuildFirTest> {
+            model("getOrBuildFirWithInterruption", pattern = TestGeneratorUtil.KTS)
+        }
+
         testClass<AbstractLibraryGetOrBuildFirTest> {
             model("getOrBuildFirBinary")
         }
@@ -315,44 +333,54 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
         }
     }
 
-    testGroup("analysis/low-level-api-fir/tests", "analysis/analysis-api/testData") {
+    testGroup("analysis/low-level-api-fir/tests-gen", "analysis/analysis-api/testData") {
         testClass<AbstractCodeFragmentCapturingTest> {
             model("components/compilerFacility/compilation/codeFragments/capturing", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
         }
     }
 
     testGroup(
-        "analysis/low-level-api-fir/tests",
+        "analysis/low-level-api-fir/tests-gen",
         "compiler/fir/analysis-tests/testData",
     ) {
         fun TestGroup.TestClass.modelInit() {
-            model("resolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
-            model("resolveWithStdlib", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
+            model("resolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME.canFreezeIDE)
+            model("resolveWithStdlib", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME.canFreezeIDE)
         }
 
-        testClass<AbstractDiagnosticCompilerTestDataTest>(suiteTestClassName = "DiagnosticCompilerTestFirTestdataTestGenerated") {
+        testClass<AbstractLLDiagnosticsTest>(suiteTestClassName = "LLDiagnosticsFirTestGenerated") {
             modelInit()
         }
 
-        testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest>(suiteTestClassName = "LLFirPreresolvedReversedDiagnosticCompilerFirTestDataTestGenerated") {
+        testClass<AbstractLLReversedDiagnosticsTest>(suiteTestClassName = "LLReversedDiagnosticsFirTestGenerated") {
+            modelInit()
+        }
+
+        testClass<AbstractLLPartialDiagnosticsTest>(suiteTestClassName = "LLPartialDiagnosticsFirTestGenerated") {
             modelInit()
         }
     }
     testGroup(
-        "analysis/low-level-api-fir/tests",
+        "analysis/low-level-api-fir/tests-gen",
         "analysis/low-level-api-fir/testData",
     ) {
-        testClass<AbstractDiagnosticCompilerTestDataTest>(suiteTestClassName = "DiagnosticCompilerTestAATestdataTestGenerated") {
-            model("compilerLikeAnalysis", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
-        }
-        testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest>(suiteTestClassName = "LLFirPreresolvedReversedDiagnosticCompilerAATestDataTestGenerated") {
+        fun TestGroup.TestClass.modelInit() {
             model("compilerLikeAnalysis", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME)
         }
 
+        testClass<AbstractLLDiagnosticsTest> {
+            modelInit()
+        }
+        testClass<AbstractLLReversedDiagnosticsTest> {
+            modelInit()
+        }
+        testClass<AbstractLLPartialDiagnosticsTest> {
+            modelInit()
+        }
     }
 
     testGroup(
-        "analysis/low-level-api-fir/tests",
+        "analysis/low-level-api-fir/tests-gen",
         "plugins/scripting/scripting-tests/testData",
     ) {
         run {
@@ -364,11 +392,11 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
                 )
             }
 
-            testClass<AbstractLLFirScriptDiagnosticCompilerTestDataTest> {
+            testClass<AbstractLLScriptWithCustomDefDiagnosticsTest> {
                 scriptDiagnosticsInit()
             }
 
-            testClass<AbstractLLFirPreresolvedReversedScriptDiagnosticCompilerTestDataTest>() {
+            testClass<AbstractLLReversedScriptWithCustomDefDiagnosticsTest>() {
                 scriptDiagnosticsInit()
             }
         }
@@ -382,18 +410,18 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
                 )
             }
 
-            testClass<AbstractLLFirCustomDefScriptBlackBoxCodegenBasedTest> {
+            testClass<AbstractLLScriptWithCustomDefBlackBoxTest> {
                 scriptCustomDefBackBoxInit()
             }
 
-            testClass<AbstractLLFirReversedCustomDefScriptBlackBoxCodegenBasedTest>() {
+            testClass<AbstractLLReversedScriptWithCustomDefBlackBoxTest>() {
                 scriptCustomDefBackBoxInit()
             }
         }
     }
 
     testGroup(
-        "analysis/low-level-api-fir/tests",
+        "analysis/low-level-api-fir/tests-gen",
         "compiler/testData",
     ) {
         fun TestGroup.TestClass.modelInit() {
@@ -410,15 +438,19 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             )
         }
 
-        testClass<AbstractDiagnosticCompilerTestDataTest>(suiteTestClassName = "DiagnosticCompilerTestFE10TestdataTestGenerated") {
+        testClass<AbstractLLDiagnosticsTest>(suiteTestClassName = "LLDiagnosticsFe10TestGenerated") {
             modelInit()
         }
 
-        testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataTest>(suiteTestClassName = "LLFirPreresolvedReversedDiagnosticCompilerFE10TestDataTestGenerated") {
+        testClass<AbstractLLReversedDiagnosticsTest>(suiteTestClassName = "LLReversedDiagnosticsFe10TestGenerated") {
             modelInit()
         }
 
-        testClass<AbstractLLFirBlackBoxCodegenBasedTest> {
+        testClass<AbstractLLPartialDiagnosticsTest>(suiteTestClassName = "LLPartialDiagnosticsFe10TestGenerated") {
+            modelInit()
+        }
+
+        testClass<AbstractLLBlackBoxTest> {
             model(
                 "codegen/box",
                 excludeDirs = listOf(
@@ -428,7 +460,7 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             )
         }
 
-        testClass<AbstractLLFirReversedBlackBoxCodegenBasedTest> {
+        testClass<AbstractLLReversedBlackBoxTest> {
             model(
                 "codegen/box",
                 excludeDirs = listOf(
@@ -438,11 +470,11 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             )
         }
 
-        testClass<AbstractLLFirBlackBoxCodegenBasedTest>(suiteTestClassName = "LLFirBlackBoxModernJdkCodegenBasedTestGenerated") {
+        testClass<AbstractLLBlackBoxTest>(suiteTestClassName = "LLBlackBoxModernJdkTestGenerated") {
             model("codegen/boxModernJdk")
         }
 
-        testClass<AbstractLLFirReversedBlackBoxCodegenBasedTest>(suiteTestClassName = "LLFirReversedBlackBoxModernJdkCodegenBasedTestGenerated") {
+        testClass<AbstractLLReversedBlackBoxTest>(suiteTestClassName = "LLReversedBlackBoxModernJdkTestGenerated") {
             model("codegen/boxModernJdk")
         }
 
@@ -451,17 +483,17 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
                 model("codegen/script", pattern = TestGeneratorUtil.KTS)
             }
 
-            testClass<AbstractLLFirScriptBlackBoxCodegenBasedTest> {
+            testClass<AbstractLLScriptBlackBoxTest> {
                 scriptBlackBoxInit()
             }
 
-            testClass<AbstractLLFirReversedScriptBlackBoxCodegenBasedTest> {
+            testClass<AbstractLLReversedScriptBlackBoxTest> {
                 scriptBlackBoxInit()
             }
         }
     }
 
-    testGroup("analysis/low-level-api-fir/tests", testDataRoot = GeneralConfiguration.SPEC_TESTDATA_PATH) {
+    testGroup("analysis/low-level-api-fir/tests-gen", testDataRoot = GeneralConfiguration.SPEC_TESTDATA_PATH) {
         fun TestGroup.TestClass.modelInit() {
             model(
                 "diagnostics",
@@ -470,39 +502,73 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             )
         }
 
-        testClass<AbstractLLFirDiagnosticCompilerTestDataSpecTest>(suiteTestClassName = "FirIdeSpecTestGenerated") {
+        testClass<AbstractLLSpecTest> {
             modelInit()
         }
 
-        testClass<AbstractLLFirPreresolvedReversedDiagnosticCompilerTestDataSpecTest>(suiteTestClassName = "PreFirIdeSpecTestGenerated") {
+        testClass<AbstractLLReversedSpecTest> {
             modelInit()
         }
     }
 
-    testGroup(testsRoot = "analysis/low-level-api-fir/tests", testDataRoot = "analysis/analysis-api/testData") {
+    testGroup("analysis/low-level-api-fir/tests-gen", testDataRoot = "plugins/plugin-sandbox/testData") {
+        testClass<AbstractLLSandboxBackBoxTest> {
+            model("box", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+        }
+
+        testClass<AbstractLLReversedSandboxBackBoxTest> {
+            model("box", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+        }
+
+        testClass<AbstractLLSandboxDiagnosticsTest> {
+            model("diagnostics", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+        }
+
+        testClass<AbstractLLReversedSandboxDiagnosticsTest> {
+            model("diagnostics", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+        }
+    }
+
+    testGroup(testsRoot = "analysis/low-level-api-fir/tests-gen", testDataRoot = "analysis/analysis-api/testData") {
         // Session invalidation test data is shared with analysis session invalidation tests.
         testClass<AbstractModuleStateModificationLLFirSessionInvalidationTest> {
-            model("sessions/sessionInvalidation")
+            model("sessions/sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
         }
 
         testClass<AbstractModuleOutOfBlockModificationLLFirSessionInvalidationTest> {
-            model("sessions/sessionInvalidation")
+            model("sessions/sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
         }
 
         testClass<AbstractGlobalModuleStateModificationLLFirSessionInvalidationTest> {
-            model("sessions/sessionInvalidation")
+            model("sessions/sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
         }
 
         testClass<AbstractGlobalSourceModuleStateModificationLLFirSessionInvalidationTest> {
-            model("sessions/sessionInvalidation")
+            model("sessions/sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
         }
 
         testClass<AbstractGlobalSourceOutOfBlockModificationLLFirSessionInvalidationTest> {
-            model("sessions/sessionInvalidation")
+            model("sessions/sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
         }
 
         testClass<AbstractCodeFragmentContextModificationLLFirSessionInvalidationTest> {
-            model("sessions/sessionInvalidation")
+            model("sessions/sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+        }
+
+        testClass<AbstractSourceResolveCandidatesFirTreeConsistencyTest> {
+            model("components/resolver/singleByPsi", pattern = TestGeneratorUtil.KT)
+        }
+
+        testClass<AbstractScriptResolveCandidatesFirTreeConsistencyTest> {
+            model("components/resolver/singleByPsi", pattern = TestGeneratorUtil.KTS)
+        }
+
+        testClass<AbstractSourceResolveCandidatesByFileFirTreeConsistencyTest> {
+            model("components/resolver/allByPsi", pattern = TestGeneratorUtil.KT)
+        }
+
+        testClass<AbstractScriptResolveCandidatesByFileFirTreeConsistencyTest> {
+            model("components/resolver/allByPsi", pattern = TestGeneratorUtil.KTS)
         }
     }
 }

@@ -46,6 +46,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: kotlin/String
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: Anno
           getContainingFileSymbol: KaFileSymbol(annotations.kt)
           getContainingJvmClassName: Anno
           getContainingModule: KaSourceModule "Sources of main"
@@ -59,13 +63,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -124,6 +127,7 @@ KaConstructorSymbol:
         javaGetterName: getParam1
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false
@@ -174,6 +178,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: kotlin/Int
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: Anno
           getContainingFileSymbol: KaFileSymbol(annotations.kt)
           getContainingJvmClassName: Anno
           getContainingModule: KaSourceModule "Sources of main"
@@ -187,13 +195,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -252,6 +259,7 @@ KaConstructorSymbol:
         javaGetterName: getParam2
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false

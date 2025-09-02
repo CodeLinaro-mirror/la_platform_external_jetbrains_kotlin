@@ -24,33 +24,23 @@ import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.createIncrementalCo
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.createProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.targetDescription
 import org.jetbrains.kotlin.cli.pipeline.*
+import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFrontendPipelinePhase.createEnvironmentAndSources
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.JVMConfigurationKeys
-import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.config.messageCollector
-import org.jetbrains.kotlin.config.moduleName
-import org.jetbrains.kotlin.config.useLightTree
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.DependencyListForCliModule
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.pipeline.*
-import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
-import org.jetbrains.kotlin.fir.session.FirJvmSessionFactory
-import org.jetbrains.kotlin.fir.session.FirSharableJavaComponents
-import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
-import org.jetbrains.kotlin.fir.session.createSymbolProviders
+import org.jetbrains.kotlin.fir.session.*
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
-import org.jetbrains.kotlin.fir.session.firCachesFactoryForCliMode
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
+import org.jetbrains.kotlin.util.PhaseType
 import org.jetbrains.kotlin.utils.fileUtils.descendantRelativeTo
 import java.io.File
 
@@ -63,21 +53,22 @@ object JvmFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, J
         val messageCollector = configuration.messageCollector
 
         val perfManager = configuration.perfManager
+        val chunk = configuration.moduleChunk!!
+        val targetDescription = chunk.targetDescription()
+        perfManager?.targetDescription = targetDescription
 
         if (!checkNotSupportedPlugins(configuration, messageCollector)) {
-            perfManager?.notifyCompilerInitialized()
+            perfManager?.notifyPhaseFinished(PhaseType.Initialization)
             return null
         }
 
-        val chunk = configuration.moduleChunk!!
-        val targetDescription = chunk.targetDescription()
         val (environment, sourcesProvider) = createEnvironmentAndSources(
             configuration,
             rootDisposable,
             targetDescription,
             diagnosticsCollector
         ) ?: run {
-            perfManager?.notifyCompilerInitialized()
+            perfManager?.notifyPhaseFinished(PhaseType.Initialization)
             return null
         }
 
@@ -97,7 +88,7 @@ object JvmFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, J
         val sources = sourcesProvider()
         val allSources = sources.allFiles
 
-        perfManager?.notifyCompilerInitialized()
+        perfManager?.notifyPhaseFinished(PhaseType.Initialization)
 
         if (
             allSources.isEmpty() &&
@@ -110,7 +101,7 @@ object JvmFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, J
             return null
         }
 
-        perfManager?.notifyAnalysisStarted()
+        perfManager?.notifyPhaseStarted(PhaseType.Analysis)
         val sourceScope: AbstractProjectFileSearchScope
         when (configuration.useLightTree) {
             true -> {
@@ -292,7 +283,7 @@ object JvmFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, J
             ?.mapTo(destination) { it::class.qualifiedName }
     }
 
-    fun checkIfScriptsInCommonSources(configuration: CompilerConfiguration, ktFiles: List<KtFile>): Boolean {
+    private fun checkIfScriptsInCommonSources(configuration: CompilerConfiguration, ktFiles: List<KtFile>): Boolean {
         val lastHmppModule = configuration.get(CommonConfigurationKeys.HMPP_MODULE_STRUCTURE)?.modules?.lastOrNull()
         val commonScripts = ktFiles.filter { it.isScript() && (it.isCommonSource == true || it.hmppModuleName != lastHmppModule?.name) }
         if (commonScripts.isNotEmpty()) {
@@ -327,54 +318,61 @@ object JvmFrontendPipelinePhase : PipelinePhase<ConfigurationPipelineArtifact, J
         var firJvmIncrementalCompilationSymbolProviders: FirJvmIncrementalCompilationSymbolProviders? = null
         var firJvmIncrementalCompilationSymbolProvidersIsInitialized = false
 
+        val packagePartProviderForLibraries = projectEnvironment.getPackagePartProvider(librariesScope)
         return SessionConstructionUtils.prepareSessions(
             files, configuration, rootModuleName, JvmPlatforms.unspecifiedJvmPlatform,
-            metadataCompilationMode = false, libraryList, isCommonSource, isScript, fileBelongsToModule,
-            createLibrarySession = { sessionProvider ->
-                FirJvmSessionFactory.createLibrarySession(
+            metadataCompilationMode = false, libraryList, extensionRegistrars, isCommonSource, isScript, fileBelongsToModule,
+            createSharedLibrarySession = { ->
+                FirJvmSessionFactory.createSharedLibrarySession(
                     rootModuleName,
-                    sessionProvider,
-                    libraryList.moduleDataProvider,
                     projectEnvironment,
                     extensionRegistrars,
-                    librariesScope,
-                    projectEnvironment.getPackagePartProvider(librariesScope),
+                    packagePartProviderForLibraries,
                     configuration.languageVersionSettings,
                     predefinedJavaComponents = predefinedJavaComponents,
                 )
             },
-        ) { moduleFiles, moduleData, sessionProvider, sessionConfigurator ->
-            FirJvmSessionFactory.createModuleBasedSession(
-                moduleData,
-                sessionProvider,
-                javaSourcesScope,
-                projectEnvironment,
-                createIncrementalCompilationSymbolProviders = { session ->
-                    // Temporary solution for KT-61942 - we need to share the provider built on top of previously compiled files,
-                    // because we do not distinguish classes generated from common and platform sources, so may end up with the
-                    // same type loaded from both. And if providers are not shared, the types will not match on the actualizing.
-                    // The proper solution would be to build IC providers only on class files generated for the currently compiled module.
-                    // But to solve it we need to have a mapping from module to its class files.
-                    // TODO: reimplement with splitted providers after fixing KT-62686
-                    if (firJvmIncrementalCompilationSymbolProvidersIsInitialized) firJvmIncrementalCompilationSymbolProviders
-                    else {
-                        firJvmIncrementalCompilationSymbolProvidersIsInitialized = true
-                        createProviderAndScopeForIncrementalCompilation(moduleFiles)
-                            ?.createSymbolProviders(session, moduleData, projectEnvironment)?.also {
-                                firJvmIncrementalCompilationSymbolProviders = it
-                            }
-                    }
-                },
-                extensionRegistrars,
-                configuration.languageVersionSettings,
-                configuration.get(JVMConfigurationKeys.JVM_TARGET, JvmTarget.DEFAULT),
-                configuration.get(CommonConfigurationKeys.LOOKUP_TRACKER),
-                configuration.get(CommonConfigurationKeys.ENUM_WHEN_TRACKER),
-                configuration.get(CommonConfigurationKeys.IMPORT_TRACKER),
-                predefinedJavaComponents = predefinedJavaComponents,
-                needRegisterJavaElementFinder = true,
-                sessionConfigurator,
-            )
-        }
+            createLibrarySession = { sharedLibrarySession ->
+                FirJvmSessionFactory.createLibrarySession(
+                    sharedLibrarySession,
+                    libraryList.moduleDataProvider,
+                    projectEnvironment,
+                    extensionRegistrars,
+                    librariesScope,
+                    packagePartProviderForLibraries,
+                    configuration.languageVersionSettings,
+                    predefinedJavaComponents = predefinedJavaComponents,
+                )
+            },
+            createSourceSession = { moduleFiles, moduleData, isForLeafHmppModule, sessionConfigurator ->
+                FirJvmSessionFactory.createSourceSession(
+                    moduleData,
+                    javaSourcesScope,
+                    projectEnvironment,
+                    createIncrementalCompilationSymbolProviders = { session ->
+                        // Temporary solution for KT-61942 - we need to share the provider built on top of previously compiled files,
+                        // because we do not distinguish classes generated from common and platform sources, so may end up with the
+                        // same type loaded from both. And if providers are not shared, the types will not match on the actualizing.
+                        // The proper solution would be to build IC providers only on class files generated for the currently compiled module.
+                        // But to solve it we need to have a mapping from module to its class files.
+                        // TODO: reimplement with splitted providers after fixing KT-62686
+                        if (firJvmIncrementalCompilationSymbolProvidersIsInitialized) firJvmIncrementalCompilationSymbolProviders
+                        else {
+                            firJvmIncrementalCompilationSymbolProvidersIsInitialized = true
+                            createProviderAndScopeForIncrementalCompilation(moduleFiles)
+                                ?.createSymbolProviders(session, moduleData, projectEnvironment)?.also {
+                                    firJvmIncrementalCompilationSymbolProviders = it
+                                }
+                        }
+                    },
+                    extensionRegistrars,
+                    configuration,
+                    predefinedJavaComponents = predefinedJavaComponents,
+                    needRegisterJavaElementFinder = true,
+                    isForLeafHmppModule = isForLeafHmppModule,
+                    sessionConfigurator,
+                )
+            }
+        )
     }
 }

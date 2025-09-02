@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.backend.common.lower.at
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irNot
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
+import org.jetbrains.kotlin.backend.wasm.instanceCheckForExternalClass
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.getRuntimeClass
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.isExternalType
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -25,7 +26,6 @@ import org.jetbrains.kotlin.ir.declarations.IrVariable
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.util.erasedUpperBound
 import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
@@ -102,10 +102,34 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
     private fun IrType.isInlined(): Boolean =
         context.inlineClassesUtils.isTypeInlined(this)
 
+    private fun generateCCE(valueProvider: () -> IrExpression, fromType: IrType, toType: IrType): IrExpression {
+        val klass = toType.erasedUpperBound
+
+        if (klass.isEffectivelyExternal() && klass.isInterface) {
+            return builder.irCall(context.symbols.throwTypeCastException)
+        }
+
+        val kClass = builder.irCall(context.reflectionSymbols.getKClass).also { getKClassCall ->
+            getKClassCall.typeArguments[0] = klass.defaultType
+        }
+
+        val value = narrowType(fromType, context.irBuiltIns.anyNType, valueProvider())
+
+        return builder.irCall(context.symbols.throwTypeCastWithInfoException).also { cceCall ->
+            cceCall.arguments[0] = value
+            cceCall.arguments[1] = kClass
+            cceCall.arguments[2] = builder.irBoolean(toType.isNullable())
+        }
+    }
+
     private fun generateTypeCheck(
         valueProvider: () -> IrExpression,
         toType: IrType
     ): IrExpression {
+        if (toType == context.irBuiltIns.nothingType) {
+            return builder.irFalse()
+        }
+
         val toNotNullable = toType.makeNotNull()
         val valueInstance: IrExpression = valueProvider()
         val fromType = valueInstance.type
@@ -264,34 +288,31 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
     ): IrExpression {
         val toType = expression.typeOperand
         val fromType = expression.argument.type
+        val expressionType = expression.type
 
-        if (fromType.erasedUpperBound.isSubclassOf(expression.type.erasedUpperBound)) {
-            return narrowType(fromType, expression.type, expression.argument)
+        if (toType != context.irBuiltIns.nothingType &&
+            fromType.erasedUpperBound.isSubclassOf(expressionType.erasedUpperBound)
+        ) {
+            return narrowType(fromType, expressionType, expression.argument)
         }
 
-        val failResult = if (isSafe) {
-            builder.irNull()
-        } else {
-            builder.irCall(context.ir.symbols.throwTypeCastException)
-        }
-
-        return builder.irComposite(resultType = expression.type) {
+        return builder.irComposite(resultType = expressionType) {
             val argument = cacheValue(expression.argument)
-            val narrowArg = narrowType(fromType, expression.type, argument())
             val check = generateTypeCheck(argument, toType)
             if (check is IrConst) {
                 val value = check.value as Boolean
                 if (value) {
-                    +narrowArg
+                    +narrowType(fromType, expressionType, argument())
                 } else {
-                    +failResult
+                    val cceOrNull = if (!isSafe) generateCCE(argument, fromType, toType) else builder.irNull()
+                    +cceOrNull
                 }
             } else {
                 +builder.irIfThenElse(
-                    type = expression.type,
+                    type = expressionType,
                     condition = check,
-                    thenPart = narrowArg,
-                    elsePart = failResult
+                    thenPart = narrowType(fromType, expressionType, argument()),
+                    elsePart = if (!isSafe) generateCCE(argument, fromType, toType) else builder.irNull()
                 )
             }
         }
@@ -329,6 +350,10 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
             return builder.irTrue()
         }
 
+        if (toType.isNothing()) {
+            return builder.irFalse()
+        }
+
         val fromType = argument.type
         if (isExternalType(fromType) != isExternalType(toType)) {
             return builder.irFalse()
@@ -350,7 +375,7 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
     }
 
     private fun generateIsExternalClass(argument: IrExpression, klass: IrClass): IrExpression {
-        val instanceCheckFunction = context.mapping.wasmExternalClassToInstanceCheck[klass]!!
+        val instanceCheckFunction = klass.instanceCheckForExternalClass!!
         return builder.irCall(instanceCheckFunction).also {
             it.arguments[0] = narrowType(argument.type, context.irBuiltIns.anyType, argument) //TODO("Why we need it?)
         }

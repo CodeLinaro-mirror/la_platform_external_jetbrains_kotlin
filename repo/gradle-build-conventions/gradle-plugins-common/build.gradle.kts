@@ -8,12 +8,13 @@ kotlin {
 
     compilerOptions {
         allWarningsAsErrors.set(true)
+        freeCompilerArgs.add("-Xsuppress-version-warnings")
     }
 }
 
 repositories {
-    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies")
-    mavenCentral()
+    maven("https://redirector.kotlinlang.org/maven/kotlin-dependencies")
+    mavenCentral { setUrl("https://cache-redirector.jetbrains.com/maven-central") }
 }
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion}")

@@ -15,11 +15,9 @@ import org.jetbrains.kotlin.psi.*
 /**
  * [KaSymbolProvider] provides [KaSymbol]s for given PSI elements.
  *
- * **Important**: Symbols can be created only for elements which are a part of the current [KaSession][org.jetbrains.kotlin.analysis.api.KaSession],
- * where [KaAnalysisScopeProvider.canBeAnalysed][org.jetbrains.kotlin.analysis.api.components.KaAnalysisScopeProvider.canBeAnalysed]
- * is **true**.
+ * **Important**: Symbols can be created only for elements which are a part of the current [KaSession][org.jetbrains.kotlin.analysis.api.KaSession].
  *
- * @see org.jetbrains.kotlin.analysis.api.components.KaAnalysisScopeProvider
+ * @see org.jetbrains.kotlin.analysis.api.KaSession
  */
 public interface KaSymbolProvider : KaSessionComponent {
     /**
@@ -175,9 +173,6 @@ public interface KaSymbolProvider : KaSessionComponent {
      * Returns a [KaClassSymbol] for the specified [ClassId], or `null` if such a symbol cannot be found.
      */
     public fun findClass(classId: ClassId): KaClassSymbol?
-
-    @Deprecated("Use 'findClass() instead.", replaceWith = ReplaceWith("findClass(classId)"), level = DeprecationLevel.HIDDEN)
-    public fun getClassOrObjectSymbolByClassId(classId: ClassId): KaClassSymbol? = findClass(classId)
 
     /**
      * Returns a [KaTypeAliasSymbol] for the specified [ClassId], or `null` if such a symbol cannot be found.

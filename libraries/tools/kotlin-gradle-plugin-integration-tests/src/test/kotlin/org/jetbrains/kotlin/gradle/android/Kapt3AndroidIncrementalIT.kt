@@ -51,7 +51,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
                 """.trimIndent()
             )
 
-            build(":app:kaptDebugKotlin") {
+            build(":app:kaptDebugKotlin", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 assertTasksExecuted(":app:kaptGenerateStubsDebugKotlin")
             }
 
@@ -94,7 +94,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build("assembleDebug")
+            build("assembleDebug", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion))
 
             val androidModuleKt = subProject("app").javaSourcesDir().resolve("com/example/dagger/kotlin/AndroidModule.kt")
             androidModuleKt.modify {
@@ -104,7 +104,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
                 )
             }
 
-            build(":app:assembleDebug", buildOptions = buildOptions.copy(logLevel = LogLevel.DEBUG)) {
+            build("assembleDebug", buildOptions = buildOptions.copy(logLevel = LogLevel.DEBUG)) {
                 assertTasksExecuted(
                     ":app:kaptGenerateStubsDebugKotlin",
                     ":app:kaptDebugKotlin",
@@ -148,7 +148,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
                 """.trimMargin()
             }
 
-            build(":app:testDebugUnitTest")
+            build(":app:testDebugUnitTest", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion))
 
             appProject.kotlinSourcesDir().resolve("com/example/KotlinActivity.kt").appendText(
                 //language=kt
@@ -178,7 +178,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build("assembleDebug") {
+            build("assembleDebug", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 assertKaptSuccessful()
             }
 

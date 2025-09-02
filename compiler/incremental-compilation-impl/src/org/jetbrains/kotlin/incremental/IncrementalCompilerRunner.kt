@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.incremental
@@ -27,7 +16,7 @@ import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
 import org.jetbrains.kotlin.build.report.metrics.measure
 import org.jetbrains.kotlin.build.report.warn
-import org.jetbrains.kotlin.cli.common.*
+import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.MessageCollectorImpl
@@ -41,7 +30,6 @@ import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.dirtyFiles.DirtyFilesContainer
 import org.jetbrains.kotlin.incremental.dirtyFiles.DirtyFilesProvider
-import org.jetbrains.kotlin.incremental.parsing.classesFqNames
 import org.jetbrains.kotlin.incremental.storage.BasicFileToPathConverter
 import org.jetbrains.kotlin.incremental.storage.FileLocations
 import org.jetbrains.kotlin.incremental.util.ExceptionLocation
@@ -49,13 +37,8 @@ import org.jetbrains.kotlin.incremental.util.reportException
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
-import org.jetbrains.kotlin.util.CodeAnalysisMeasurement
-import org.jetbrains.kotlin.util.CodeGenerationMeasurement
-import org.jetbrains.kotlin.util.PerformanceManager
-import org.jetbrains.kotlin.util.CompilerInitializationMeasurement
-import org.jetbrains.kotlin.util.IRMeasurement
 import org.jetbrains.kotlin.util.removeSuffixIfPresent
-import org.jetbrains.kotlin.util.toMetadataVersion
+import org.jetbrains.kotlin.util.toJvmMetadataVersion
 import java.io.File
 import java.nio.file.Files
 
@@ -482,7 +465,7 @@ abstract class IncrementalCompilerRunner<
 
         // TODO: ideally we should read arguments not here but at earlier stages
         val metadataVersionFromLanguageVersion =
-            LanguageVersion.fromVersionString(args.languageVersion)?.toMetadataVersion() ?: MetadataVersion.INSTANCE
+            LanguageVersion.fromVersionString(args.languageVersion)?.toJvmMetadataVersion() ?: MetadataVersion.INSTANCE
 
         while (dirtySources.any() || runWithNoDirtyKotlinSources(caches)) {
             val complementaryFiles = caches.platformCache.getComplementaryFilesRecursive(dirtySources)
@@ -525,6 +508,14 @@ abstract class IncrementalCompilerRunner<
             dirtySources.addAll(compiledSources)
             allDirtySources.addAll(dirtySources)
             dirtyFilesProvider.cachedHistory.store(transaction, allDirtySources)
+
+            outputItemsCollector.outputs.firstOrNull { !it.outputFile.exists() }?.let { brokenOutput ->
+                reporter.warn { "Expected output item, but file doesn't exist: ${brokenOutput.outputFile}" }
+                reporter.reportCompileIteration(compilationMode is CompilationMode.Incremental, compiledSources, exitCode)
+                bufferingMessageCollector.forward(originalMessageCollector)
+                check(exitCode != ExitCode.OK) { "Expected compiler error, but got exitCode=$exitCode" }
+                break
+            }
 
             val generatedFiles = outputItemsCollector.outputs.map {
                 it.toGeneratedFile(metadataVersionFromLanguageVersion)
@@ -656,46 +647,6 @@ abstract class IncrementalCompilerRunner<
 
     private object EmptyCompilationCanceledStatus : CompilationCanceledStatus {
         override fun checkCanceled() {
-        }
-    }
-
-    protected fun reportPerformanceData(defaultPerformanceManager: PerformanceManager) {
-        defaultPerformanceManager.getMeasurementResults().forEach {
-            when (it) {
-                is CompilerInitializationMeasurement -> reporter.addTimeMetricMs(GradleBuildTime.COMPILER_INITIALIZATION, it.milliseconds)
-                is CodeAnalysisMeasurement -> {
-                    reporter.addTimeMetricMs(GradleBuildTime.CODE_ANALYSIS, it.milliseconds)
-                    it.lines?.apply {
-                        reporter.addMetric(GradleBuildPerformanceMetric.ANALYZED_LINES_NUMBER, this.toLong())
-                        if (it.milliseconds > 0) {
-                            reporter.addMetric(GradleBuildPerformanceMetric.ANALYSIS_LPS, this * 1000 / it.milliseconds)
-                        }
-                    }
-                }
-                is CodeGenerationMeasurement -> {
-                    reporter.addTimeMetricMs(GradleBuildTime.CODE_GENERATION, it.milliseconds)
-                    it.lines?.apply {
-                        reporter.addMetric(GradleBuildPerformanceMetric.CODE_GENERATED_LINES_NUMBER, this.toLong())
-                        if (it.milliseconds > 0) {
-                            reporter.addMetric(GradleBuildPerformanceMetric.CODE_GENERATION_LPS, this * 1000 / it.milliseconds)
-                        }
-                    }
-                }
-                is IRMeasurement -> {
-                    when (it.kind) {
-                        IRMeasurement.Kind.TRANSLATION -> reportIrMeasurements(it, GradleBuildTime.IR_TRANSLATION, GradleBuildPerformanceMetric.IR_TRANSLATION_LINES_NUMBER)
-                        IRMeasurement.Kind.LOWERING -> reportIrMeasurements(it, GradleBuildTime.IR_LOWERING, GradleBuildPerformanceMetric.IR_LOWERING_LINES_NUMBER)
-                        IRMeasurement.Kind.GENERATION -> reportIrMeasurements(it, GradleBuildTime.IR_GENERATION, GradleBuildPerformanceMetric.IR_GENERATION_LINES_NUMBER)
-                    }
-                }
-            }
-        }
-    }
-
-    private fun reportIrMeasurements(it: IRMeasurement, timeMetric: GradleBuildTime, lineMetric: GradleBuildPerformanceMetric) {
-        reporter.addTimeMetricMs(timeMetric, it.milliseconds)
-        it.lines?.also {
-            reporter.addMetric(lineMetric, it.toLong())
         }
     }
 }

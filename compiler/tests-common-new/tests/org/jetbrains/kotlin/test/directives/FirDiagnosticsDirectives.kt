@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.test.directives
 
+import org.jetbrains.kotlin.config.InferenceLogsFormat
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_PARSER
@@ -35,14 +36,7 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
 
     val FIR_DUMP by directive(
         description = """
-            Dumps resulting fir to `testName.fir` file
-        """.trimIndent(),
-        applicability = Global
-    )
-
-    val SKIP_FIR_DUMP by directive(
-        description = """
-            Forces ignoring FIR_DUMP if it's enabled by default
+            Dumps resulting fir to `testName.fir.txt` file
         """.trimIndent(),
         applicability = Global
     )
@@ -98,6 +92,10 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
         description = "Enable experimental checkers"
     )
 
+    val DUMP_INFERENCE_LOGS by enumDirective<InferenceLogsFormat>(
+        description = "Render the inference constraints dump file"
+    )
+
     val DISABLE_JAVA_FACADE by directive(
         description = "Disables javac for diagnostic tests containing incorrect Java code. Such tests must be fixed, but until they are, use this directive"
     )
@@ -138,9 +136,13 @@ object FirDiagnosticsDirectives : SimpleDirectivesContainer() {
     )
 
     val SUPPRESS_NO_TYPE_ALIAS_EXPANSION_MODE by stringDirective(
-        description = """S
+        description = """
             Suppresses AbstractFirLightTreeDiagnosticsWithoutAliasExpansionTest
         """
+    )
+
+    val DISABLE_DOUBLE_CHECKING_COMMON_DIAGNOSTICS by directive(
+        description = "Disables additional run of platform checkers in common environment"
     )
 }
 

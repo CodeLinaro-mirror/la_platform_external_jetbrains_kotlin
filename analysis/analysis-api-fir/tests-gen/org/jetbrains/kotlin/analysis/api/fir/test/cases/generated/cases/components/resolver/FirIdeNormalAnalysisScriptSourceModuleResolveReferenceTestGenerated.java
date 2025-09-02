@@ -525,6 +525,26 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveReferenceTestGenerated
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/libraryDependency")
+  @TestDataPath("$PROJECT_ROOT")
+  public class LibraryDependency {
+    @Test
+    public void testAllFilesPresentInLibraryDependency() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/libraryDependency"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/libraryDependency/fallbackDependencies")
+    @TestDataPath("$PROJECT_ROOT")
+    public class FallbackDependencies {
+      @Test
+      public void testAllFilesPresentInFallbackDependencies() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/libraryDependency/fallbackDependencies"), Pattern.compile("^(.+)\\.kts$"), null, true);
+      }
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/nestedTypes")
   @TestDataPath("$PROJECT_ROOT")
   public class NestedTypes {
@@ -731,16 +751,6 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveReferenceTestGenerated
     @Test
     public void testAllFilesPresentInWithErrors() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors"), Pattern.compile("^(.+)\\.kts$"), null, true);
-    }
-
-    @Nested
-    @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/partiallyUnresolvedTypeQualifier")
-    @TestDataPath("$PROJECT_ROOT")
-    public class PartiallyUnresolvedTypeQualifier {
-      @Test
-      public void testAllFilesPresentInPartiallyUnresolvedTypeQualifier() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/withErrors/partiallyUnresolvedTypeQualifier"), Pattern.compile("^(.+)\\.kts$"), null, true);
-      }
     }
   }
 

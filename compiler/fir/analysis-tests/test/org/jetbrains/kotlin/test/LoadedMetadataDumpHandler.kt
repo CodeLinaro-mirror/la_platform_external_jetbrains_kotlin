@@ -7,19 +7,14 @@ package org.jetbrains.kotlin.test
 
 import com.intellij.openapi.vfs.StandardFileSystems
 import com.intellij.openapi.vfs.VirtualFileManager
-import org.jetbrains.kotlin.backend.common.CommonKLibResolver
 import org.jetbrains.kotlin.cli.common.LegacyK2CliPipeline
 import org.jetbrains.kotlin.cli.common.SessionWithSources
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.messages.getLogger
 import org.jetbrains.kotlin.cli.common.prepareJsSessions
 import org.jetbrains.kotlin.cli.common.prepareJvmSessions
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.MinimizedFrontendContext
-import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
-import org.jetbrains.kotlin.fir.BinaryModuleData
 import org.jetbrains.kotlin.fir.DependencyListForCliModule
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
@@ -29,7 +24,9 @@ import org.jetbrains.kotlin.fir.renderer.FirDeclarationRendererWithFilteredAttri
 import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInTestPipeline
 import org.jetbrains.kotlin.js.resolve.JsPlatformAnalyzerServices
+import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -44,10 +41,8 @@ import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 import org.jetbrains.kotlin.resolve.jvm.platform.JvmPlatformAnalyzerServices
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.PLATFORM_DEPENDANT_METADATA
-import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE_VERSION
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
-import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
 import org.jetbrains.kotlin.test.frontend.classic.ClassicFrontendOutputArtifact
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
@@ -112,7 +107,7 @@ class KlibLoadedMetadataDumpHandler(testServices: TestServices) : AbstractLoaded
     override val platformAnalyzerServices: PlatformDependentAnalyzerServices
         get() = JsPlatformAnalyzerServices
     override val dependencyKind: DependencyKind
-        get() = DependencyKind.KLib
+        get() = DependencyKind.Binary
 
     override fun prepareSessions(
         module: TestModule,
@@ -121,22 +116,21 @@ class KlibLoadedMetadataDumpHandler(testServices: TestServices) : AbstractLoaded
         moduleName: Name,
         libraryList: DependencyListForCliModule,
     ): List<SessionWithSources<KtFile>> {
-        val libraries = getAllJsDependenciesPaths(module, testServices)
-        val resolvedLibraries = CommonKLibResolver.resolve(
-            libraries,
-            configuration.getLogger(treatWarningsAsErrors = true)
-        ).getFullResolvedList()
+        val klibs = loadWebKlibsInTestPipeline(
+            configuration = configuration,
+            libraryPaths = getAllJsDependenciesPaths(module, testServices),
+            platformChecker = KlibPlatformChecker.JS,
+        )
 
         return prepareJsSessions(
             files = emptyList(),
             configuration,
             moduleName,
-            resolvedLibraries.map { it.library },
+            klibs.all,
             libraryList,
             extensionRegistrars = emptyList(),
             isCommonSource = { false },
             fileBelongsToModule = { _, _ -> false },
-            lookupTracker = null,
             icData = null
         )
     }
@@ -157,18 +151,17 @@ abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>
         get() = listOf(FirDiagnosticsDirectives)
 
     override fun processModule(module: TestModule, info: A) {
-        if (testServices.loadedMetadataSuppressionDirective in module.directives) return
-        val languageVersion = module.directives.singleOrZeroValue(LANGUAGE_VERSION)
-        val languageVersionSettings = if (languageVersion != null) {
-            LanguageVersionSettingsImpl(languageVersion, ApiVersion.createByLanguageVersion(languageVersion))
-        } else {
-            LanguageVersionSettingsImpl.DEFAULT
-        }
+        val languageSettingsBuilder = testServices.defaultsProvider.newLanguageSettingsBuilder()
+        languageSettingsBuilder.configureUsingDirectives(
+            testServices.defaultDirectives,
+            testServices.environmentConfigurators,
+            testServices.defaultsProvider.frontendKind == FrontendKinds.FIR
+        )
 
         val emptyModule = TestModule(
             name = "dump-${module.name}", files = emptyList(),
             allDependencies = listOf(DependencyDescription(module, dependencyKind, DependencyRelation.RegularDependency)),
-            RegisteredDirectives.Empty, languageVersionSettings
+            RegisteredDirectives.Empty, languageSettingsBuilder.build()
         )
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(emptyModule)
         val environment = VfsBasedProjectEnvironment(
@@ -177,12 +170,8 @@ abstract class AbstractLoadedMetadataDumpHandler<A : ResultingArtifact.Binary<A>
             testServices.compilerConfigurationProvider.getPackagePartProviderFactory(emptyModule)
         )
         val moduleName = Name.identifier(emptyModule.name)
-        val binaryModuleData = BinaryModuleData.initialize(
-            moduleName,
-            targetPlatform,
-        )
         val libraryList = FirFrontendFacade.initializeLibraryList(
-            emptyModule, binaryModuleData, targetPlatform, configuration, testServices
+            emptyModule, moduleName, targetPlatform, configuration, testServices
         )
 
         val session = prepareSessions(

@@ -1,9 +1,9 @@
 MODULE main
 	CLASS test/KotlinAnnotationKt.class
 		PACKAGE METADATA
-			FUNCTION topLevelFunction2(Ljava/lang/String;)V
-				Property: class.metadata.function.valueParameters
+			PROPERTY getO()Ljava/lang/String;
+				Property: class.metadata.property.getterModifiers
 					K1
-						(parameter: kotlin/String)
+						public final /* non-default */
 					K2
-						(@test/A(value = "parameter1") @test/A(value = "parameter2") parameter: kotlin/String)
+						public final

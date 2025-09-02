@@ -58,8 +58,8 @@
         <kotlin-sdk>${kotlin-dist}/kotlinc</kotlin-sdk>
         <kotlin.compiler.jdkHome>${jdk_1_8}</kotlin.compiler.jdkHome>
 
-        <maven.compiler.source>1.6</maven.compiler.source>
-        <maven.compiler.target>1.6</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <deploy-snapshot-repo>sonatype-nexus-staging</deploy-snapshot-repo>
         <deploy-snapshot-url>https://oss.sonatype.org/content/repositories/snapshots/</deploy-snapshot-url>
     </properties>
@@ -92,6 +92,7 @@
         <module>tools/kotlin-maven-sam-with-receiver</module>
         <module>tools/kotlin-maven-serialization</module>
         <module>tools/kotlin-maven-lombok</module>
+        <module>tools/kotlin-maven-dataframe</module>
 
         <module>tools/kotlin-bom</module>
         <module>tools/kotlin-dist-for-jps-meta</module>

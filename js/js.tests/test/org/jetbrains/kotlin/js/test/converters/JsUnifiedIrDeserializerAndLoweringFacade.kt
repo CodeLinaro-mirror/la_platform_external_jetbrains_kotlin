@@ -5,15 +5,16 @@
 
 package org.jetbrains.kotlin.js.test.converters
 
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageConfig
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageLogLevel
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageMode
-import org.jetbrains.kotlin.ir.linkage.partial.setupPartialLinkageConfig
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageConfig
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageLogLevel
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageMode
+import org.jetbrains.kotlin.backend.common.linkage.partial.setupPartialLinkageConfig
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.model.AbstractTestFacade
 import org.jetbrains.kotlin.test.model.ArtifactKinds
 import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.TestModule
+import org.jetbrains.kotlin.test.services.ServiceRegistrationData
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 
@@ -35,6 +36,9 @@ class JsUnifiedIrDeserializerAndLoweringFacade(
     private val deserializerFacade = JsIrDeserializerFacade(testServices, firstTimeCompilation)
 
     private val loweringFacade = JsIrLoweringFacade(testServices, firstTimeCompilation)
+
+    override val additionalServices: List<ServiceRegistrationData>
+        get() = deserializerFacade.additionalServices + loweringFacade.additionalServices
 
     override fun shouldTransform(module: TestModule): Boolean {
         return deserializerFacade.shouldTransform(module) && loweringFacade.shouldTransform(module)

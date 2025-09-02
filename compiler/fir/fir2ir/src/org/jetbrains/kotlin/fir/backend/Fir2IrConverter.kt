@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.KtPsiSourceFileLinesMapping
 import org.jetbrains.kotlin.KtSourceFileLinesMappingFromLineStartOffsets
 import org.jetbrains.kotlin.backend.common.CommonBackendErrors
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
-import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
@@ -148,7 +147,7 @@ class Fir2IrConverter(
                             NaiveSourceBasedFileEntryImpl(file.sourceFile?.path ?: file.sourceFile?.name ?: file.name)
                     }
             is FirDeclarationOrigin.Synthetic -> NaiveSourceBasedFileEntryImpl(file.name)
-            else -> error("Unsupported file origin: ${file.origin}")
+            else -> error("Unsupported file origin ${file.origin}; file: ${file.name}")
         }
         val irFile = IrFileImpl(
             fileEntry,
@@ -221,15 +220,13 @@ class Fir2IrConverter(
                 addAll(klass.generatedMembers(session))
                 addAll(klass.generatedNestedClassifiers(session))
             }
-            if (session.languageVersionSettings.getFlag(JvmAnalysisFlags.expectBuiltinsAsPartOfStdlib)) {
-                // For kotlin classes mapped to JDK classes, we must create IR for 'enhanced' functions
-                // They might be queried as owners of overridden symbols
-                if (JavaToKotlinClassMap.mapKotlinToJava(klass.classId.asSingleFqName().toUnsafe()) != null) {
-                    klass.unsubstitutedScope(c).processAllFunctions {
-                        // additional check to add IR declarations only in declaring class
-                        if (it.origin == FirDeclarationOrigin.Enhancement && it.callableId.classId == klass.classId) {
-                            add(it.fir)
-                        }
+            // For kotlin classes mapped to JDK classes, we must create IR for 'enhanced' functions
+            // They might be queried as owners of overridden symbols
+            if (JavaToKotlinClassMap.mapKotlinToJava(klass.classId.asSingleFqName().toUnsafe()) != null) {
+                klass.unsubstitutedScope().processAllFunctions {
+                    // additional check to add IR declarations only in declaring class
+                    if (it.origin == FirDeclarationOrigin.Enhancement && it.callableId.classId == klass.classId) {
+                        add(it.fir)
                     }
                 }
             }
@@ -309,7 +306,7 @@ class Fir2IrConverter(
 
         IrSimpleFunctionSymbolImpl().let { irSymbol ->
             val lastStatement = codeFragment.block.statements.lastOrNull()
-            val returnType = (lastStatement as? FirExpression)?.resolvedType?.toIrType(c) ?: builtins.unitType
+            val returnType = (lastStatement as? FirExpression)?.resolvedType?.toIrType() ?: builtins.unitType
 
             IrFactoryImpl.createSimpleFunction(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
@@ -339,7 +336,7 @@ class Fir2IrConverter(
                         origin = if (isMutated) IrDeclarationOrigin.SHARED_VARIABLE_IN_EVALUATOR_FRAGMENT else IrDeclarationOrigin.DEFINED,
                         kind = IrParameterKind.Regular,
                         name = Name.identifier("p$index"),
-                        type = injectedValue.typeRef.toIrType(typeConverter),
+                        type = injectedValue.typeRef.toIrType(),
                         isAssignable = isMutated,
                         symbol = injectedValue.irParameterSymbol,
                         varargElementType = null,
@@ -488,9 +485,6 @@ class Fir2IrConverter(
                 val irSnippet = declarationStorage.createIrReplSnippet(declaration)
                 addDeclarationToParentIfNeeded(irSnippet)
                 irSnippet.parent = parent
-                this.declarationStorage.withScope(irSnippet.symbol) {
-                    processScriptLikeDeclaration(irSnippet, declaration.body.statements.filterIsInstance<FirDeclaration>())
-                }
             }
             is FirSimpleFunction -> {
                 declarationStorage.createAndCacheIrFunction(declaration, parent, isLocal = isInLocalClass)
@@ -514,7 +508,7 @@ class Fir2IrConverter(
             }
             is FirField -> {
                 if (!declaration.isSynthetic) {
-                    error("Unexpected non-synthetic field: ${declaration::class}")
+                    error("Unexpected non-synthetic field: ${declaration.render()}")
                 }
                 requireNotNull(containingClass)
                 requireNotNull(delegateFieldToPropertyMap)
@@ -528,7 +522,7 @@ class Fir2IrConverter(
                     declarationStorage.findBackingFieldOfProperty(correspondingIrProperty as IrPropertySymbol)
                         ?: error("Backing field not found for property ${correspondingClassProperty.returnTypeRef}")
                 }
-                val delegationTargetType = declaration.returnTypeRef.toIrType(c)
+                val delegationTargetType = declaration.returnTypeRef.toIrType()
                 declarationStorage.recordSupertypeDelegationInformation(containingClass, parent, delegationTargetType, irFieldSymbol)
 
             }
@@ -554,7 +548,7 @@ class Fir2IrConverter(
                 addDeclarationToParentIfNeeded(codeFragmentClass)
             }
             else -> {
-                error("Unexpected member: ${declaration::class}")
+                error("Unexpected member: ${declaration.render()}")
             }
         }
     }
@@ -579,10 +573,13 @@ class Fir2IrConverter(
             val needProcessMember = when (scriptDeclaration) {
                 is FirAnonymousInitializer -> false // processed later
                 is FirProperty -> {
-                    // '_' DD element
-                    scriptDeclaration.name != SpecialNames.UNDERSCORE_FOR_UNUSED_VAR ||
-                            scriptDeclaration.destructuringDeclarationContainerVariable == null
+                    !scriptDeclaration.isLocal &&
+                            // '_' DD element
+                            (scriptDeclaration.name != SpecialNames.UNDERSCORE_FOR_UNUSED_VAR ||
+                                    scriptDeclaration.destructuringDeclarationContainerVariable == null)
                 }
+                is FirClassLikeDeclaration -> !scriptDeclaration.isLocal
+                is FirSimpleFunction -> !scriptDeclaration.isLocal
                 else -> true
             }
             if (needProcessMember) {

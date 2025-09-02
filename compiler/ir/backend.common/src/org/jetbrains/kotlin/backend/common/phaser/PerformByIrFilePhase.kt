@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.backend.common.phaser
 
-import org.jetbrains.kotlin.backend.common.CodegenUtil
 import com.intellij.openapi.progress.ProgressManager
+import org.jetbrains.kotlin.backend.common.BackendException
 import org.jetbrains.kotlin.backend.common.LoweringContext
 import org.jetbrains.kotlin.config.phaser.*
 import org.jetbrains.kotlin.ir.declarations.IrFile
@@ -36,7 +36,7 @@ class PerformByIrFilePhase<Context : LoweringContext>(
                     phase.invoke(phaseConfig, phaserState, context, irFile)
                 }
             } catch (e: Throwable) {
-                CodegenUtil.reportBackendException(e, "IR lowering", irFile.fileEntry.name) { offset ->
+                BackendException.report(e, "IR lowering", irFile.fileEntry.name) { offset ->
                     irFile.fileEntry.takeIf { it.supportsDebugInfo }?.let {
                         val (line, column) = it.getLineAndColumnNumbers(offset)
                         line to column

@@ -1,7 +1,11 @@
-// Copyright 2000-2021 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license that can be found in the LICENSE file.
+/*
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
+ */
 
 package org.jetbrains.kotlin.analysis.decompiler.stub
 
+import com.intellij.openapi.util.IntellijInternalApi
 import com.intellij.psi.PsiElement
 import com.intellij.psi.stubs.StubElement
 import com.intellij.util.io.StringRef
@@ -14,6 +18,7 @@ import org.jetbrains.kotlin.load.kotlin.JvmPackagePartSource
 import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinaryClass
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.metadata.ProtoBuf
+import org.jetbrains.kotlin.metadata.deserialization.Flags
 import org.jetbrains.kotlin.metadata.deserialization.TypeTable
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.name.ClassId
@@ -22,6 +27,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.stubs.KotlinModifierListStub
 import org.jetbrains.kotlin.psi.stubs.KotlinUserTypeStub
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 import org.jetbrains.kotlin.psi.stubs.impl.*
@@ -57,6 +63,7 @@ fun createPackageFacadeStub(
 fun createFileFacadeStub(
     packageProto: ProtoBuf.Package,
     facadeFqName: FqName,
+    jvmFqName: FqName,
     c: ClsStubBuilderContext
 ): KotlinFileStubImpl {
     val packageFqName = facadeFqName.parent()
@@ -64,7 +71,13 @@ fun createFileFacadeStub(
     setupFileStub(fileStub, packageFqName)
     val container = ProtoContainer.Package(
         packageFqName, c.nameResolver, c.typeTable,
-        JvmPackagePartSource(JvmClassName.byClassId(ClassId.topLevel(facadeFqName)), null, packageProto, c.nameResolver)
+        JvmPackagePartSource(
+            className = JvmClassName.byClassId(ClassId.topLevel(facadeFqName)),
+            facadeClassName = null,
+            jvmClassName = JvmClassName.byClassId(ClassId.topLevel(jvmFqName)),
+            packageProto,
+            c.nameResolver
+        )
     )
     createPackageDeclarationsStubs(fileStub, c, container, packageProto)
     return fileStub
@@ -173,25 +186,41 @@ fun createStubForTypeName(
 fun createModifierListStubForDeclaration(
     parent: StubElement<out PsiElement>,
     flags: Int,
-    flagsToTranslate: List<FlagsToModifiers> = listOf(),
-    additionalModifiers: List<KtModifierKeywordToken> = listOf()
+    flagsToTranslate: List<FlagsToModifiers>,
+    additionalModifiers: List<KtModifierKeywordToken>,
+    mustUseReturnValueFlag: Flags.BooleanFlagField?,
 ): KotlinModifierListStubImpl {
     assert(flagsToTranslate.isNotEmpty())
 
     val modifiers = flagsToTranslate.mapNotNull { it.getModifiers(flags) } + additionalModifiers
-    return createModifierListStub(parent, modifiers)!!
+    return createModifierListStub(
+        parent,
+        modifiers,
+        mustUseReturnValue = mustUseReturnValueFlag?.get(flags) == true,
+    )!!
 }
 
 fun createModifierListStub(
     parent: StubElement<out PsiElement>,
-    modifiers: Collection<KtModifierKeywordToken>
+    modifiers: Collection<KtModifierKeywordToken>,
+    mustUseReturnValue: Boolean,
 ): KotlinModifierListStubImpl? {
     if (modifiers.isEmpty()) {
         return null
     }
+
+    val regularMask = ModifierMaskUtils.computeMask { it in modifiers }
+
+    @OptIn(IntellijInternalApi::class)
+    val specialMask = ModifierMaskUtils.computeMaskForSpecialFlags { flag ->
+        when (flag) {
+            KotlinModifierListStub.SpecialFlag.MustUseReturnValue -> mustUseReturnValue
+        }
+    }
+
     return KotlinModifierListStubImpl(
         parent,
-        ModifierMaskUtils.computeMask { it in modifiers },
+        regularMask or specialMask,
         KtStubElementTypes.MODIFIER_LIST
     )
 }
@@ -241,8 +270,8 @@ internal fun createStubOrigin(protoContainer: ProtoContainer): KotlinStubOrigin?
             if (facadeClassName != null) {
                 return KotlinStubOrigin.MultiFileFacade(className, facadeClassName)
             }
-
-            return KotlinStubOrigin.Facade(className)
+            val jvmClassName = if (source is JvmPackagePartSource) source.jvmClassName?.internalName else null
+            return KotlinStubOrigin.Facade(className = className, jvmClassName = if (jvmClassName != className) jvmClassName else null)
         }
     }
 

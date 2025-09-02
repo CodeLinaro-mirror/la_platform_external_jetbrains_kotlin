@@ -11,33 +11,35 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 
 object FirUpperBoundViolatedDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind.Common) {
-    override fun check(declaration: FirDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirDeclaration) {
         if (declaration is FirClass) {
             for (typeParameter in declaration.typeParameters) {
                 if (typeParameter is FirTypeParameter) {
                     for (bound in typeParameter.bounds) {
-                        checkUpperBoundViolated(bound, context, reporter)
+                        checkUpperBoundViolated(bound)
                     }
                 }
             }
 
             for (superTypeRef in declaration.superTypeRefs) {
-                checkUpperBoundViolated(superTypeRef, context, reporter)
+                checkUpperBoundViolated(superTypeRef)
             }
         } else if (declaration is FirTypeAlias) {
-            checkUpperBoundViolated(declaration.expandedTypeRef, context, reporter, isIgnoreTypeParameters = true)
+            checkUpperBoundViolated(declaration.expandedTypeRef, isIgnoreTypeParameters = true)
         } else if (declaration is FirCallableDeclaration) {
             if (declaration.returnTypeRef.source?.kind !is KtFakeSourceElementKind) {
                 checkUpperBoundViolated(
-                    declaration.returnTypeRef, context, reporter,
-                    isIgnoreTypeParameters = context.containingDeclarations.lastOrNull() is FirTypeAlias
+                    declaration.returnTypeRef,
+                    isIgnoreTypeParameters = context.containingDeclarations.lastOrNull() is FirTypeAliasSymbol
                 )
             }
 
             declaration.receiverParameter?.typeRef?.let { receiverTypeRef ->
-                checkUpperBoundViolated(receiverTypeRef, context, reporter)
+                checkUpperBoundViolated(receiverTypeRef)
             }
         }
     }

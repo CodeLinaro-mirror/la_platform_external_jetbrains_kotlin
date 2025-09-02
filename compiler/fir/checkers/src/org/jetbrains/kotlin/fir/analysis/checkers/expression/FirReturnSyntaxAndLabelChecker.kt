@@ -21,22 +21,27 @@ import org.jetbrains.kotlin.fir.expressions.FirReturnExpression
 import org.jetbrains.kotlin.fir.expressions.arguments
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.references.toResolvedNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 
 object FirReturnSyntaxAndLabelChecker : FirReturnExpressionChecker(MppCheckerKind.Common) {
-    override fun check(expression: FirReturnExpression, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(expression: FirReturnExpression) {
         val source = expression.source
         if (source?.kind is KtFakeSourceElementKind.ImplicitReturn) return
 
         val labeledElement = expression.target.labeledElement
         val targetSymbol = labeledElement.symbol
         if (labeledElement is FirErrorFunction && (labeledElement.diagnostic as? ConeSimpleDiagnostic)?.kind == DiagnosticKind.NotAFunctionLabel) {
-            reporter.reportOn(source, FirErrors.NOT_A_FUNCTION_LABEL, context)
+            reporter.reportOn(source, FirErrors.NOT_A_FUNCTION_LABEL)
         } else if (labeledElement is FirErrorFunction && (labeledElement.diagnostic as? ConeSimpleDiagnostic)?.kind == DiagnosticKind.UnresolvedLabel) {
-            reporter.reportOn(source, FirErrors.UNRESOLVED_LABEL, context)
-        } else if (!isReturnAllowed(targetSymbol, context)) {
-            reporter.reportOn(source, FirErrors.RETURN_NOT_ALLOWED, context)
+            reporter.reportOn(source, FirErrors.UNRESOLVED_LABEL)
+        } else if (!isReturnAllowed(targetSymbol)) {
+            reporter.reportOn(source, FirErrors.RETURN_NOT_ALLOWED)
         }
 
         if (targetSymbol is FirAnonymousFunctionSymbol) {
@@ -52,39 +57,38 @@ object FirReturnSyntaxAndLabelChecker : FirReturnExpressionChecker(MppCheckerKin
                         it is FirAnonymousFunctionExpression && it.anonymousFunction.symbol == targetSymbol
                     }
                 ) {
-                    reporter.reportOn(source, FirErrors.RETURN_FOR_BUILT_IN_SUSPEND, context)
+                    reporter.reportOn(source, FirErrors.RETURN_FOR_BUILT_IN_SUSPEND)
                 }
             }
         }
 
-        val containingDeclaration = context.containingDeclarations.last()
+        @OptIn(SymbolInternals::class)
+        val containingDeclaration = context.containingDeclarations.last().fir
         if (containingDeclaration is FirFunction &&
             containingDeclaration.body is FirSingleExpressionBlock &&
             containingDeclaration.source?.kind != KtFakeSourceElementKind.DelegatedPropertyAccessor
         ) {
-            reporter.reportOn(source, FirErrors.RETURN_IN_FUNCTION_WITH_EXPRESSION_BODY, context)
+            reporter.reportOn(source, FirErrors.RETURN_IN_FUNCTION_WITH_EXPRESSION_BODY)
         }
     }
 
-    private fun isReturnAllowed(targetSymbol: FirFunctionSymbol<*>, context: CheckerContext): Boolean {
-        if (context.containingDeclarations.lastOrNull() is FirValueParameter) {
-            return false
-        }
+    context(context: CheckerContext)
+    private fun isReturnAllowed(targetSymbol: FirFunctionSymbol<*>): Boolean {
         for (containingDeclaration in context.containingDeclarations.asReversed()) {
             when (containingDeclaration) {
                 // return from member of local class or anonymous object
-                is FirClass -> return false
-                is FirFunction -> {
+                is FirClassSymbol -> return false
+                is FirFunctionSymbol -> {
                     when {
-                        containingDeclaration.symbol == targetSymbol -> return true
-                        containingDeclaration is FirAnonymousFunction -> {
+                        containingDeclaration == targetSymbol -> return true
+                        containingDeclaration is FirAnonymousFunctionSymbol -> {
                             if (!containingDeclaration.inlineStatus.returnAllowed) return false
                         }
                         else -> return false
                     }
                 }
-                is FirProperty -> if (!containingDeclaration.isLocal) return false
-                is FirValueParameter -> return true
+                is FirPropertySymbol -> if (!containingDeclaration.isLocal) return false
+                is FirValueParameterSymbol -> return false
                 else -> {}
             }
         }

@@ -23,13 +23,12 @@ RUNTIME_WEAK uint32_t Kotlin_auxGCThreads = 0;
 RUNTIME_WEAK uint32_t Kotlin_concurrentMarkMaxIterations = 100;
 RUNTIME_WEAK int32_t Kotlin_suspendFunctionsFromAnyThreadFromObjC = 0;
 RUNTIME_WEAK Kotlin_getSourceInfo_FunctionType Kotlin_getSourceInfo_Function = nullptr;
+RUNTIME_WEAK int32_t Kotlin_CoreSymbolication_useOnlyKotlinImage = 0;
 #ifdef KONAN_ANDROID
 RUNTIME_WEAK int32_t Kotlin_printToAndroidLogcat = 1;
 #endif
 // Keep it 0 even when the compiler defaults to 1: if the overriding mechanism breaks, keeping it disabled is safer.
 RUNTIME_WEAK int32_t Kotlin_appStateTracking = 0;
-RUNTIME_WEAK int32_t Kotlin_mimallocUseDefaultOptions = 1;
-RUNTIME_WEAK int32_t Kotlin_mimallocUseCompaction = 0;
 RUNTIME_WEAK int32_t Kotlin_objcDisposeOnMain = 0;
 RUNTIME_WEAK int32_t Kotlin_objcDisposeWithRunLoop = 1;
 RUNTIME_WEAK int32_t Kotlin_enableSafepointSignposts = 0;
@@ -72,12 +71,8 @@ ALWAYS_INLINE int compiler::getSourceInfo(void* addr, SourceInfo *result, int re
     }
 }
 
-ALWAYS_INLINE bool compiler::mimallocUseDefaultOptions() noexcept {
-    return Kotlin_mimallocUseDefaultOptions != 0;
-}
-
-ALWAYS_INLINE bool compiler::mimallocUseCompaction() noexcept {
-    return Kotlin_mimallocUseCompaction != 0;
+ALWAYS_INLINE bool compiler::coreSymbolicationUseOnlyKotlinImage() noexcept {
+    return Kotlin_CoreSymbolication_useOnlyKotlinImage != 0;
 }
 
 ALWAYS_INLINE bool compiler::objcDisposeOnMain() noexcept {

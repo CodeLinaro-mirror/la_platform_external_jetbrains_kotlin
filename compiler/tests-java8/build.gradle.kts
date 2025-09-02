@@ -3,6 +3,8 @@ import kotlin.io.path.createTempDirectory
 plugins {
     kotlin("jvm")
     id("jps-compatible")
+    id("compiler-tests-convention")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -20,20 +22,40 @@ dependencies {
 
 sourceSets {
     "main" {}
-    "test" { projectDefault() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
 }
 
-projectTest(parallel = true) {
-    dependsOn(":dist")
+compilerTests {
+    testData(project(":compiler").isolated, "testData/loadJava")
+    testData(project(":compiler").isolated, "testData/loadJava8")
+    testData(project(":compiler").isolated, "testData/resolvedCalls/enhancedSignatures")
+    testData(project(":compiler").isolated, "testData/builtin-classes")
+    withScriptRuntime()
+    withScriptingPlugin()
+    withTestJar()
+    withAnnotations()
+    withMockJdkAnnotationsJar()
+    withThirdPartyJava8Annotations()
+}
+
+
+projectTest(
+    parallel = true,
+    defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_21_0)
+) {
     useJUnitPlatform()
-    workingDir = rootDir
     systemProperty("kotlin.test.script.classpath", testSourceSet.output.classesDirs.joinToString(File.pathSeparator))
 }
+
+optInToK1Deprecation()
 
 val generateTests by generator("org.jetbrains.kotlin.generators.tests.GenerateJava8TestsKt")
 val generateKotlinUseSiteFromJavaOnesForJspecifyTests by generator("org.jetbrains.kotlin.generators.tests.GenerateKotlinUseSitesFromJavaOnesForJspecifyTestsKt")
 
-task<Exec>("downloadJspecifyTests") {
+tasks.register<Exec>("downloadJspecifyTests") {
     val tmpDirPath = createTempDirectory().toAbsolutePath().toString()
     doFirst {
         executable("git")
@@ -50,7 +72,7 @@ task<Exec>("downloadJspecifyTests") {
 tasks.test {
     exclude("**/*JspecifyAnnotationsTestGenerated*")
 }
-task<Test>("jspecifyTests") {
+tasks.register<Test>("jspecifyTests") {
     workingDir(project.rootDir)
     include("**/*JspecifyAnnotationsTestGenerated*")
 }

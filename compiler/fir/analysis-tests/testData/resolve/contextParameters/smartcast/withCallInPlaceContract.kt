@@ -10,9 +10,9 @@ fun <R> materialize(): R = null!!
 context(block: () -> R)
 @ExperimentalContracts
 fun <R> myRun(): R {
-    contract {
+    <!ERROR_IN_CONTRACT_DESCRIPTION("callsInPlace contract cannot be applied to context parameter because context arguments can never be lambdas.")!>contract {
         callsInPlace(block, InvocationKind.EXACTLY_ONCE)
-    }
+    }<!>
     return block()
 }
 
@@ -29,3 +29,7 @@ fun test() {
         myRun()
     }
 }
+
+/* GENERATED_FIR_TAGS: assignment, checkNotNullCall, contractCallsEffect, contracts, functionDeclaration,
+functionDeclarationWithContext, functionalType, ifExpression, integerLiteral, isExpression, lambdaLiteral, localProperty,
+nullableType, propertyDeclaration, typeParameter */

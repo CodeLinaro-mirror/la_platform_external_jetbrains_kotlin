@@ -9,31 +9,35 @@ import org.jetbrains.kotlin.backend.common.getCompilerMessageLocation
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.lower.inline.LocalClassesInInlineLambdasLowering
 import org.jetbrains.kotlin.backend.konan.Context
-import org.jetbrains.kotlin.backend.konan.ir.konanLibrary
+import org.jetbrains.kotlin.backend.konan.NativeGenerationState
 import org.jetbrains.kotlin.backend.konan.reportCompilationError
-import org.jetbrains.kotlin.ir.builders.Scope
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.inline.*
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.util.getPackageFragment
-import org.jetbrains.kotlin.library.isHeader
+import org.jetbrains.kotlin.ir.util.file
 
-private var IrFunction.wasLowered: Boolean? by irAttribute(followAttributeOwner = true)
+private var IrFunction.wasLowered: Boolean? by irAttribute(copyByDefault = true)
 
 internal class NativeInlineFunctionResolver(
-        context: Context,
+        val generationState: NativeGenerationState,
         inlineMode: InlineMode,
-) : InlineFunctionResolverReplacingCoroutineIntrinsics<Context>(context, inlineMode) {
+) : InlineFunctionResolverReplacingCoroutineIntrinsics<Context>(
+        context = generationState.context,
+        inlineMode = inlineMode,
+        callInlinerStrategy = NativeCallInlinerStrategy(generationState.context)
+) {
     override fun getFunctionDeclaration(symbol: IrFunctionSymbol): IrFunction? {
         val function = super.getFunctionDeclaration(symbol) ?: return null
 
         if (function.body != null) {
             // TODO this `if` check can be dropped after KT-72441
-            if (function.getPackageFragment().konanLibrary?.isHeader == true && function.wasLowered != true) {
+            if (function.wasLowered != true) {
                 lower(function)
                 function.wasLowered = true
             }
@@ -42,6 +46,7 @@ internal class NativeInlineFunctionResolver(
 
         context.getInlineFunctionDeserializer(function).deserializeInlineFunction(function)
         lower(function)
+        function.wasLowered = true
 
         return function
     }
@@ -61,22 +66,21 @@ internal class NativeInlineFunctionResolver(
 
         ArrayConstructorLowering(context).lower(body, function)
 
-        NativeIrInliner(context, inlineMode = InlineMode.PRIVATE_INLINE_FUNCTIONS).lower(body, function)
+        NativeIrInliner(generationState, inlineMode = InlineMode.PRIVATE_INLINE_FUNCTIONS).lower(body, function)
         OuterThisInInlineFunctionsSpecialAccessorLowering(context).lowerWithoutAddingAccessorsToParents(function)
         SyntheticAccessorLowering(context).lowerWithoutAddingAccessorsToParents(function)
     }
 
-    override val callInlinerStrategy: CallInlinerStrategy = NativeCallInlinerStrategy()
-
-    inner class NativeCallInlinerStrategy : CallInlinerStrategy {
+    class NativeCallInlinerStrategy(val context: Context) : CallInlinerStrategy {
         private lateinit var builder: NativeRuntimeReflectionIrBuilder
-        override fun at(scope: Scope, expression: IrExpression) {
-            val symbols = this@NativeInlineFunctionResolver.context.ir.symbols
-            builder = context.createIrBuilder(scope.scopeOwnerSymbol, expression.startOffset, expression.endOffset)
+        override fun at(container: IrDeclaration, expression: IrExpression) {
+            val symbols = context.symbols
+            builder = symbols.irBuiltIns.createIrBuilder(container.symbol, expression.startOffset, expression.endOffset)
                     .toNativeRuntimeReflectionBuilder(symbols) { message ->
-                        this@NativeInlineFunctionResolver.context.reportCompilationError(message, getCompilerMessageLocation())
+                        this@NativeCallInlinerStrategy.context.reportCompilationError(message, expression.getCompilerMessageLocation(container.file))
                     }
         }
+
         override fun postProcessTypeOf(expression: IrCall, nonSubstitutedTypeArgument: IrType): IrExpression {
             return builder.irKType(nonSubstitutedTypeArgument)
         }

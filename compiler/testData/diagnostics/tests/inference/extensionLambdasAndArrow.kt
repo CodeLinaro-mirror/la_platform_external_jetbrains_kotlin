@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 // DIAGNOSTICS: -UNUSED_VARIABLE -UNUSED_ANONYMOUS_PARAMETER
 
 fun <T> select(vararg x: T) = x[0]
@@ -16,3 +15,7 @@ fun main() {
     val x7: String.() -> String = select({ -> this }, { -> this })
     val x8: String.() -> String = select({ this }, { this })
 }
+
+/* GENERATED_FIR_TAGS: capturedType, functionDeclaration, functionalType, ifExpression, integerLiteral, lambdaLiteral,
+localProperty, nullableType, outProjection, propertyDeclaration, stringLiteral, thisExpression, typeParameter,
+typeWithExtension, vararg */

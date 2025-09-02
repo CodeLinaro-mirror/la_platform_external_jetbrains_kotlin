@@ -23,14 +23,14 @@ abstract class AbstractSealedInheritorsTest : AbstractAnalysisApiBasedTest() {
      * [ktFile] may be a fake file for dangling module tests.
      */
     protected fun doTestByKtFile(ktFile: KtFile, testServices: TestServices) {
-        analyseForTest(ktFile) {
+        analyzeForTest(ktFile) {
             val classSymbol = getSingleTestTargetSymbolOfType<KaNamedClassSymbol>(testDataPath, ktFile)
 
             val actualText = classSymbol.sealedClassInheritors.joinToString("\n\n") { inheritor ->
                 "${inheritor.classId!!}\n${inheritor.render(KaDeclarationRendererForDebug.WITH_QUALIFIED_NAMES)}"
             }
 
-            testServices.assertions.assertEqualsToTestDataFileSibling(actualText)
+            testServices.assertions.assertEqualsToTestOutputFile(actualText)
         }
     }
 }

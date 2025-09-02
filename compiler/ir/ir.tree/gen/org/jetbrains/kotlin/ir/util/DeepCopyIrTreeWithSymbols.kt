@@ -39,7 +39,9 @@ open class DeepCopyIrTreeWithSymbols(
         }
     }
 
-    override fun IrType.remapType() = typeRemapper.remapType(this)
+    // You can't call super from extension version, so we must create non-extension to make it easily overridable
+    protected open fun remapTypeImpl(type: IrType) = typeRemapper.remapType(type)
+    final override fun IrType.remapType() = remapTypeImpl(this)
 
     override fun visitElement(element: IrElement): IrElement =
         throw IllegalArgumentException("Unsupported element type: $element")
@@ -62,7 +64,7 @@ open class DeepCopyIrTreeWithSymbols(
             with(factory) { declarationCreated() }
             annotations = declaration.annotations.memoryOptimizedMap { it.transform() }
             defaultValue = declaration.defaultValue?.transform()
-            _kind = declaration._kind
+            kind = declaration.kind
             processAttributes(declaration)
         }
 
@@ -605,9 +607,9 @@ open class DeepCopyIrTreeWithSymbols(
             endOffset = expression.endOffset,
             type = expression.type.remapType(),
             reflectionTargetSymbol = expression.reflectionTargetSymbol?.let(symbolRemapper::getReferencedFunction),
+            origin = expression.origin,
             overriddenFunctionSymbol = symbolRemapper.getReferencedSimpleFunction(expression.overriddenFunctionSymbol),
             invokeFunction = expression.invokeFunction.transform(),
-            origin = expression.origin,
             hasUnitConversion = expression.hasUnitConversion,
             hasSuspendConversion = expression.hasSuspendConversion,
             hasVarargConversion = expression.hasVarargConversion,
@@ -624,9 +626,9 @@ open class DeepCopyIrTreeWithSymbols(
             endOffset = expression.endOffset,
             type = expression.type.remapType(),
             reflectionTargetSymbol = expression.reflectionTargetSymbol?.let(symbolRemapper::getReferencedDeclarationWithAccessors),
+            origin = expression.origin,
             getterFunction = expression.getterFunction.transform(),
             setterFunction = expression.setterFunction?.transform(),
-            origin = expression.origin,
         ).apply {
             expression.boundValues.mapTo(boundValues) { it.transform() }
             processAttributes(expression)

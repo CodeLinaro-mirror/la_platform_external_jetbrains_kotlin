@@ -47,6 +47,7 @@ dependencies {
     // runtime tests
     testImplementation(composeRuntime()) { isTransitive = false }
     testImplementation(composeRuntimeTestUtils()) { isTransitive = false }
+    testImplementation(composeRuntimeAnnotations()) { isTransitive = false }
     testImplementation(libs.androidx.collections)
 
     // other compose
@@ -73,10 +74,9 @@ kotlin {
     jvmToolchain(8)
 }
 
-val generationRoot = projectDir.resolve("tests-gen")
 sourceSets {
     "test" {
-        this.java.srcDir(generationRoot.name)
+        generatedTestDir()
     }
 }
 

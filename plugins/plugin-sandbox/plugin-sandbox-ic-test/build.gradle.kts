@@ -19,14 +19,11 @@ dependencies {
     testRuntimeOnly(commonDependency("org.lz4:lz4-java"))
     testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps.jna:jna"))
     testRuntimeOnly(intellijJDom())
-    testRuntimeOnly(commonDependency("org.jetbrains.intellij.deps:trove4j"))
     testRuntimeOnly(libs.intellij.fastutil)
 
     testRuntimeOnly(toolsJar())
     testRuntimeOnly(libs.junit.vintage.engine)
 }
-
-val generationRoot = projectDir.resolve("tests-gen")
 
 sourceSets {
     "main" {
@@ -34,18 +31,12 @@ sourceSets {
     }
     "test" {
         projectDefault()
-        this.java.srcDir(generationRoot.name)
-    }
-}
-
-if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
-    apply(plugin = "idea")
-    idea {
-        this.module.generatedSourceDirs.add(generationRoot)
+        generatedTestDir()
     }
 }
 
 projectTest(parallel = true, jUnitMode = JUnitMode.JUnit4, maxHeapSizeMb = 3072) {
+    dependsOn(":dist")
     workingDir = rootDir
     useJUnitPlatform()
     dependsOn(":plugins:plugin-sandbox:jar")

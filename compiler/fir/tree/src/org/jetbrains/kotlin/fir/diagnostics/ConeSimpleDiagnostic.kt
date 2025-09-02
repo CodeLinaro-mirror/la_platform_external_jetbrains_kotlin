@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -39,8 +39,8 @@ class ConeCannotInferTypeParameterType(
 ) : ConeCannotInferType()
 
 class ConeCannotInferValueParameterType(
-    val valueParameter: FirValueParameterSymbol,
-    override val reason: String = "Cannot infer type for parameter ${valueParameter.name}",
+    val valueParameter: FirValueParameterSymbol?,
+    override val reason: String = "Cannot infer type for parameter " + (valueParameter?.let { "${it.name}" } ?: "it"),
     // Currently, we use it to preserve the exact previous diagnostic VALUE_PARAMETER_WITHOUT_EXPLICIT_TYPE for top-levels.
     // By top-level, we mean any lambda outside any call, both with and without an expected type.
     val isTopLevelLambda: Boolean = false,
@@ -54,10 +54,6 @@ class ConeTypeVariableTypeIsNotInferred(
     val typeVariableType: ConeTypeVariableType,
     override val reason: String = "Type for ${typeVariableType.typeConstructor.debugName} is not inferred"
 ) : ConeCannotInferType()
-
-class ConeUnderscoreUsageWithoutBackticks(source: KtSourceElement) : ConeDiagnosticWithSource(source) {
-    override val reason: String get() = "Names _, __, ___, ... can be used only in back-ticks (`_`, `__`, `___`, ...)"
-}
 
 class ConeAmbiguousSuper(val candidateTypes: List<ConeKotlinType>) : ConeDiagnostic {
     override val reason: String
@@ -126,7 +122,6 @@ enum class DiagnosticKind {
     Java,
     SuperNotAllowed,
     ValueParameterWithNoTypeAnnotation,
-    CannotInferParameterType, // TODO: replace this with ConeCannotInferValueParameterType and ConeCannotInferTypeParameterType
     IllegalProjectionUsage,
     MissingStdlibClass,
     NotASupertype,

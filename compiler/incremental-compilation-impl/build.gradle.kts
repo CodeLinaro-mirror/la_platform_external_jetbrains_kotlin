@@ -37,17 +37,24 @@ dependencies {
     testRuntimeOnly(project(":core:descriptors.runtime"))
 }
 
+optInToK1Deprecation()
+
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
 }
 
 projectTest(parallel = true) {
+    dependsOn(":dist")
     workingDir = rootDir
     useJsIrBoxTests(version = version, buildDir = layout.buildDirectory)
 }
 
 projectTest("testJvmICWithJdk11", parallel = true) {
+    dependsOn(":dist")
     workingDir = rootDir
     useJsIrBoxTests(version = version, buildDir = layout.buildDirectory)
     filter {

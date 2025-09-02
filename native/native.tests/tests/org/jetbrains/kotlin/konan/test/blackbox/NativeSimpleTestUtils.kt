@@ -117,13 +117,13 @@ fun AbstractNativeSimpleTest.compileToLibrary(sourcesDir: File, vararg dependenc
 fun AbstractNativeSimpleTest.compileToLibrary(testCase: TestCase, vararg dependencies: TestCompilationDependency<*>) =
     compileToLibrary(testCase, buildDir, dependencies.asList())
 
-internal fun AbstractNativeSimpleTest.compileToLibrary(
+fun AbstractNativeSimpleTest.compileToLibrary(
     sourcesDir: File,
     outputDir: File,
     vararg dependencies: TestCompilationArtifact.KLIB
 ): TestCompilationArtifact.KLIB = compileToLibrary(sourcesDir, outputDir, TestCompilerArgs.EMPTY, dependencies.map { it.asLibraryDependency() })
 
-internal fun AbstractNativeSimpleTest.compileToLibrary(
+fun AbstractNativeSimpleTest.compileToLibrary(
     sourcesDir: File,
     outputDir: File,
     freeCompilerArgs: TestCompilerArgs,
@@ -207,7 +207,6 @@ internal fun AbstractNativeSimpleTest.compileToStaticCache(
         settings = testRunSettings,
         freeCompilerArgs = TestCompilerArgs.EMPTY,
         StaticCacheCompilation.Options.Regular,
-        pipelineType = testRunSettings.get(),
         dependencies = buildList {
             this += klib.asLibraryDependency()
             dependencies.mapTo(this) { it.asStaticCacheDependency() }
@@ -292,7 +291,7 @@ internal fun AbstractNativeSimpleTest.generateCInteropTestCaseFromSingleDefFile(
     }
 }
 
-internal fun AbstractNativeSimpleTest.generateObjCFrameworkTestCase(
+fun AbstractNativeSimpleTest.generateObjCFrameworkTestCase(
     kind: TestKind,
     extras: TestCase.Extras,
     moduleName: String,

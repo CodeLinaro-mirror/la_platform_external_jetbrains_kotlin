@@ -21,6 +21,7 @@ dependencies {
     testImplementation(projectTests(":analysis:analysis-api-impl-base"))
     testImplementation(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
     testImplementation(projectTests(":analysis:decompiled:decompiler-to-psi"))
+    testImplementation(projectTests(":analysis:stubs"))
     testImplementation(projectTests(":analysis:symbol-light-classes"))
     testImplementation(projectTests(":analysis:decompiled:decompiler-native"))
     testImplementation(intellijCore())
@@ -30,9 +31,7 @@ dependencies {
 }
 
 val generateFrontendApiTests by generator("org.jetbrains.kotlin.generators.tests.analysis.api.GenerateAnalysisApiTestsKt") {
-    if (kotlinBuildProperties.isKotlinNativeEnabled) {
-        dependsOn(":generators:analysis-api-generator:generator-kotlin-native:generateAnalysisApiNativeTests")
-    }
+    dependsOn(":generators:analysis-api-generator:generator-kotlin-native:generateAnalysisApiNativeTests")
 }
 
 testsJar()

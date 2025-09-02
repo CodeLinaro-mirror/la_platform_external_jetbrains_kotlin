@@ -1,5 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -DEBUG_INFO_SMARTCAST
+// LATEST_LV_DIFFERENCE
 
 class Foo {
     fun foo(a: Foo): Foo = a
@@ -41,3 +42,6 @@ fun main() {
     <!SMARTCAST_IMPOSSIBLE!>w.f<!>.f = z
     w.f!!.f = z
 }
+
+/* GENERATED_FIR_TAGS: assignment, checkNotNullCall, classDeclaration, functionDeclaration, localProperty, nullableType,
+propertyDeclaration, smartcast */

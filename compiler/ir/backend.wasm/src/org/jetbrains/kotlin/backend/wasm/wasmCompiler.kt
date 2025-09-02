@@ -28,6 +28,8 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.util.PerformanceManager
+import org.jetbrains.kotlin.util.PhaseType
+import org.jetbrains.kotlin.util.tryMeasurePhaseTime
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
@@ -47,7 +49,8 @@ class WasmCompilerResult(
     val jsWrapper: String,
     val wasm: ByteArray,
     val debugInformation: DebugInformation?,
-    val dts: String?
+    val dts: String?,
+    val useDebuggerCustomFormatters: Boolean
 )
 
 class DebugInformation(
@@ -70,18 +73,22 @@ fun compileToLoweredIr(
     generateTypeScriptFragment: Boolean,
     propertyLazyInitialization: Boolean,
 ): LoweredIrWithExtraArtifacts {
-    val (moduleFragment, dependencyModules, irBuiltIns, symbolTable, irLinker) = irModuleInfo
-
-    val allModules = when (mainModule) {
-        is MainModule.SourceFiles -> dependencyModules + listOf(moduleFragment)
-        is MainModule.Klib -> dependencyModules
-    }
+    val (moduleFragment, moduleDependencies, irBuiltIns, symbolTable, irLinker) = irModuleInfo
 
     val moduleDescriptor = moduleFragment.descriptor
     val context = WasmBackendContext(moduleDescriptor, irBuiltIns, symbolTable, moduleFragment, propertyLazyInitialization, configuration)
 
     // Create stubs
     ExternalDependenciesGenerator(symbolTable, listOf(irLinker)).generateUnboundSymbolsAsDependencies()
+
+    // Sort dependencies after IR linkage.
+    val sortedModuleDependencies = irLinker.moduleDependencyTracker.reverseTopoOrder(moduleDependencies)
+
+    val allModules = when (mainModule) {
+        is MainModule.SourceFiles -> sortedModuleDependencies.all + moduleFragment
+        is MainModule.Klib -> sortedModuleDependencies.all
+    }
+
     allModules.forEach { it.patchDeclarationParents() }
 
     irLinker.postProcess(inOrAfterLinkageStep = true)
@@ -94,23 +101,20 @@ fun compileToLoweredIr(
 
     val typeScriptFragment = runIf(generateTypeScriptFragment) {
         val exportModel = ExportModelGenerator(context).generateExport(allModules)
-        val exportModelToDtsTranslator = ExportModelToTsDeclarations()
-        val fragment = exportModelToDtsTranslator.generateTypeScriptFragment(ModuleKind.ES, exportModel.declarations)
-        TypeScriptFragment(exportModelToDtsTranslator.generateTypeScript("", ModuleKind.ES, listOf(fragment)))
+        val exportModelToDtsTranslator = ExportModelToTsDeclarations(ModuleKind.ES)
+        val fragment = exportModelToDtsTranslator.generateTypeScriptFragment(exportModel.declarations)
+        TypeScriptFragment(exportModelToDtsTranslator.generateTypeScript("", listOf(fragment)))
     }
-    performanceManager?.notifyIRTranslationFinished()
+    performanceManager?.notifyPhaseFinished(PhaseType.TranslationToIr)
 
-    performanceManager?.notifyGenerationStarted()
-    performanceManager?.notifyIRLoweringStarted()
-
-    lowerPreservingTags(
-        allModules,
-        context,
-        context.irFactory.stageController as WholeWorldStageController,
-        isIncremental = false,
-    )
-
-    performanceManager?.notifyIRLoweringFinished()
+    performanceManager.tryMeasurePhaseTime(PhaseType.IrLowering) {
+        lowerPreservingTags(
+            allModules,
+            context,
+            context.irFactory.stageController as WholeWorldStageController,
+            isIncremental = false,
+        )
+    }
 
     return LoweredIrWithExtraArtifacts(allModules, context, typeScriptFragment)
 }
@@ -143,11 +147,11 @@ fun compileWasm(
     configuration: CompilerConfiguration,
     typeScriptFragment: TypeScriptFragment?,
     baseFileName: String,
-    emitNameSection: Boolean = false,
-    generateWat: Boolean = false,
-    generateSourceMaps: Boolean = false,
-    useDebuggerCustomFormatters: Boolean = false,
-    generateDwarf: Boolean = false
+    emitNameSection: Boolean,
+    generateWat: Boolean,
+    generateSourceMaps: Boolean,
+    useDebuggerCustomFormatters: Boolean,
+    generateDwarf: Boolean
 ): WasmCompilerResult {
     val useJsTag = configuration.getBoolean(WasmConfigurationKeys.WASM_USE_JS_TAG)
     val isWasmJsTarget = configuration.get(WasmConfigurationKeys.WASM_TARGET) != WasmTarget.WASI
@@ -157,8 +161,6 @@ fun compileWasm(
         configuration.getBoolean(WasmConfigurationKeys.WASM_USE_TRAPS_INSTEAD_OF_EXCEPTIONS),
         isWasmJsTarget && useJsTag,
     )
-
-    wasmCompiledModuleFragment.createInterfaceTablesAndLinkTableSymbols()
 
     val linkedModule = wasmCompiledModuleFragment.linkWasmCompiledFragments()
 
@@ -237,7 +239,8 @@ fun compileWasm(
             sourceMapGeneratorForBinary?.generate(),
             sourceMapGeneratorForText?.generate(),
         ),
-        dts = typeScriptFragment?.raw
+        dts = typeScriptFragment?.raw,
+        useDebuggerCustomFormatters = useDebuggerCustomFormatters
     )
 }
 
@@ -468,8 +471,7 @@ ${generateExports(exports)}
 fun writeCompilationResult(
     result: WasmCompilerResult,
     dir: File,
-    fileNameBase: String,
-    useDebuggerCustomFormatters: Boolean
+    fileNameBase: String
 ) {
     dir.mkdirs()
     if (result.wat != null) {
@@ -488,10 +490,10 @@ fun writeCompilationResult(
     result.debugInformation?.sourceMapForText?.let {
         File(dir, "$fileNameBase.wat.map").writeText(it)
     }
-    if (useDebuggerCustomFormatters) {
+    if (result.useDebuggerCustomFormatters) {
         val fileName = "custom-formatters.js"
         val systemClassLoader = ClassLoader.getSystemClassLoader()
-        val customFormattersInputStream = systemClassLoader.getResourceAsStream(fileName)
+        val customFormattersInputStream = systemClassLoader.getResourceAsStream(fileName) ?: error("Resource $fileName not found")
 
         Files.copy(customFormattersInputStream, Paths.get(dir.path, fileName), StandardCopyOption.REPLACE_EXISTING)
     }

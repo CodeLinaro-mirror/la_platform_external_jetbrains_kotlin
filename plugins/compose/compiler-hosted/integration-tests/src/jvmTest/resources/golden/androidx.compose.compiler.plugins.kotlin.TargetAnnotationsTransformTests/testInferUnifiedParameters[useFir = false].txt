@@ -15,6 +15,7 @@ fun Test(content: @Composable () -> Unit) {
 
 @Composable
 @ComposableInferredTarget(scheme = "[0[0]]")
+@FunctionKeyMeta(key = -1745160432, startOffset = 81, endOffset = 154)
 fun Test(content: Function2<Composer, Int, Unit>, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Test)<conten...>:Test.kt")
@@ -22,7 +23,7 @@ fun Test(content: Function2<Composer, Int, Unit>, %composer: Composer?, %changed
   if (%changed and 0b0110 == 0) {
     %dirty = %dirty or if (%composer.changedInstance(content)) 0b0100 else 0b0010
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }

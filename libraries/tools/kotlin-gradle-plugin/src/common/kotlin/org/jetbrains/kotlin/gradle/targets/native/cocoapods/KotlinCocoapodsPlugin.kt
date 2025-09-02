@@ -312,10 +312,13 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
                         interopTask.onlyIf { HostManager.hostIsMac }
 
                         with(interop) {
-                            @Suppress("DEPRECATION") // deprecated property is used intentionally during deprecation period
+                            @Suppress("DEPRECATION_ERROR") // deprecated property is used intentionally during deprecation period
                             defFileProperty.set(defTask.flatMap { it.defFile.asFile })
                             _packageNameProp.set(project.provider { pod.packageName })
                             _extraOptsProp.addAll(project.provider { pod.extraOpts })
+                            _extraOptsProp.addAll(pod.useClangModules.map { useModules ->
+                                if (useModules) listOf("-compiler-option", "-fmodules") else emptyList()
+                            })
                         }
 
                         val podBuildTaskProvider = project.getPodBuildTaskProvider(target, pod)
@@ -411,6 +414,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun registerPodspecTask(
         project: Project,
         artifact: KotlinNativeArtifact,
@@ -448,6 +452,7 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun injectPodspecExtensionToArtifacts(
         project: Project,
         artifactsExtension: KotlinArtifactsExtension,
@@ -878,6 +883,8 @@ open class KotlinCocoapodsPlugin : Plugin<Project> {
  *
  * Only needed in *.kts build files. In Groovy you can use the same syntax but without explicit extension import
  */
+@Suppress("DEPRECATION")
+@Deprecated(KotlinArtifactsExtension.KOTLIN_NATIVE_ARTIFACTS_DEPRECATION)
 fun KotlinNativeArtifactConfig.withPodspec(configure: KotlinArtifactsPodspecExtension.() -> Unit) {
     val extension = cast<ExtensionAware>().kotlinArtifactsPodspecExtension
 

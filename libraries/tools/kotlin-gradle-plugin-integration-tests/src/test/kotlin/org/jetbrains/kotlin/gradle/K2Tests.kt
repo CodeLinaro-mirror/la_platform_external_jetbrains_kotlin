@@ -5,7 +5,10 @@
 
 package org.jetbrains.kotlin.gradle
 
+import org.gradle.kotlin.dsl.kotlin
+import org.gradle.kotlin.dsl.withType
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
@@ -23,7 +26,7 @@ class K2HierarchicalMppIT : HierarchicalMppIT() {
 @MppGradlePluginTests
 @DisplayName("KLibs in K2")
 class K2KlibBasedMppIT : KlibBasedMppIT() {
-    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions.copyEnsuringK2().disableConfigurationCache_KT70416()
+    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions.copyEnsuringK2()
 }
 
 @Disabled("Used for local testing only")
@@ -33,9 +36,7 @@ class K2CommonizerIT : CommonizerIT() {
 
 @Ignore
 class K2CommonizerHierarchicalIT : CommonizerHierarchicalIT() {
-    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions
-        .copy(languageVersion = "2.0")
-        .disableConfigurationCache_KT70416()
+    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions.copy(languageVersion = "2.0")
 }
 
 @MppGradlePluginTests
@@ -49,6 +50,8 @@ class CustomK2Tests : KGPBaseTest() {
         project(
             "k2-serialization-plugin-in-common-sourceset",
             gradleVersion,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
         ) {
             val taskToExecute = ":compileKotlinJs"
             build(taskToExecute) {
@@ -71,7 +74,14 @@ class CustomK2Tests : KGPBaseTest() {
     @GradleTest
     @DisplayName("HMPP compilation with JS target and old stdlib. KT-59151")
     fun testHmppCompilationWithJsAndOldStdlib(gradleVersion: GradleVersion) {
-        with(project("k2-mpp-js-old-stdlib", gradleVersion)) {
+        with(
+            project(
+                "k2-mpp-js-old-stdlib",
+                gradleVersion,
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            )
+        ) {
             val taskToExecute = ":compileKotlinJs"
             build(taskToExecute) {
                 assertTasksExecuted(taskToExecute)
@@ -172,6 +182,8 @@ class CustomK2Tests : KGPBaseTest() {
         project(
             "k2-serialization-plugin-in-common-sourceset",
             gradleVersion,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
         ) {
             val taskToExecute = ":compileCommonMainKotlinMetadata"
             build(taskToExecute) {
@@ -228,6 +240,15 @@ class CustomK2Tests : KGPBaseTest() {
     @DisplayName("Native metadata compilation against other klib (KT-65840)")
     fun nativeMetadataCompilationWithAgainstOtherKlib(gradleVersion: GradleVersion) {
         project("k2-common-native-against-other-klib", gradleVersion) {
+            subprojects("app", "lib").buildScriptInjection {
+                kotlinMultiplatform.apply {
+                    applyDefaultHierarchyTemplate()
+                    linuxX64()
+                    macosX64()
+
+                    compilerOptions.freeCompilerArgs.add("-Xrender-internal-diagnostic-names")
+                }
+            }
             build(":app:compileNativeMainKotlinMetadata") {
                 assertTasksExecuted(":app:compileNativeMainKotlinMetadata")
             }

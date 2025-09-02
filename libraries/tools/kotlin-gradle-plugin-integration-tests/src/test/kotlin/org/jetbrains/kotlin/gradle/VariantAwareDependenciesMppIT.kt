@@ -7,7 +7,9 @@ package org.jetbrains.kotlin.gradle
 
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.testbase.*
-import org.jetbrains.kotlin.gradle.util.*
+import org.jetbrains.kotlin.gradle.util.checkedReplace
+import org.jetbrains.kotlin.gradle.util.replaceText
+import org.jetbrains.kotlin.gradle.util.testResolveAllConfigurations
 import org.junit.jupiter.api.DisplayName
 import kotlin.io.path.appendText
 import kotlin.test.assertTrue
@@ -20,7 +22,9 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
         nativeOptions = super.defaultBuildOptions.nativeOptions.copy(
             // Use kotlin-native bundle version provided by default in KGP, because it will be pushed in one of the known IT repos for sure
             version = null
-        )
+        ),
+        // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+        isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED,
     )
 
     @DisplayName("JVM project could depend on multiplatform project")
@@ -228,7 +232,7 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
                 |
                 |configurations {
                 |    customConfiguration.extendsFrom implementation
-                |    customConfiguration.canBeResolved(true)
+                |    customConfiguration.canBeResolved = true
                 |}
                 |
                 """.trimMargin()
@@ -257,24 +261,14 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
             )
             buildGradle.replaceText("\"com.example:sample-lib:1.0\"", "project(':sample-lib')")
 
-            val isAtLeastGradle75 = gradleVersion >= GradleVersion.version("7.5")
-
             listOf("jvm6" to "Classpath", "nodeJs" to "Classpath").forEach { (target, suffix) ->
                 build("dependencyInsight", "--configuration", "${target}Compile$suffix", "--dependency", "sample-lib") {
-                    if (isAtLeastGradle75) {
-                        assertOutputContains("Variant ${target}ApiElements")
-                    } else {
-                        assertOutputContains("variant \"${target}ApiElements\" [")
-                    }
+                    assertOutputContains("Variant ${target}ApiElements")
                 }
 
                 if (suffix == "Classpath") {
                     build("dependencyInsight", "--configuration", "${target}Runtime$suffix", "--dependency", "sample-lib") {
-                        if (isAtLeastGradle75) {
-                            assertOutputContains("Variant ${target}RuntimeElements")
-                        } else {
-                            assertOutputContains("variant \"${target}RuntimeElements\" [")
-                        }
+                        assertOutputContains("Variant ${target}RuntimeElements")
                     }
                 }
             }
@@ -283,7 +277,6 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
 
     @DisplayName("Custom configuration with dependency on multiplatform project could be resolved")
     @GradleTest
-    @BrokenOnMacosTest
     fun testResolveDependencyOnMppInCustomConfiguration(gradleVersion: GradleVersion) {
         project("simpleProject", gradleVersion) {
             buildGradle.appendText(
@@ -291,7 +284,10 @@ class VariantAwareDependenciesMppIT : KGPBaseTest() {
                 |
                 |configurations.create("custom")
                 |dependencies { custom("org.jetbrains.kotlinx:atomicfu:${TestVersions.ThirdPartyDependencies.KOTLINX_ATOMICFU}") }
-                |tasks.register("resolveCustom") { doLast { println("###" + configurations.custom.toList()) } }
+                |tasks.register("resolveCustom") {
+                |    def resolvedFiles = project.provider { configurations.custom.resolve() }
+                |    doLast { println("###" + resolvedFiles.get().toList()) }
+                |}
                 |
                 """.trimMargin()
             )

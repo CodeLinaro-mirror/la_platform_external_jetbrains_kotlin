@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.konan.target.withOSVersion
 import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestCase.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.allDependsOnDependencies
+import org.jetbrains.kotlin.konan.test.blackbox.support.TestModule.Companion.directDependsOnDependencies
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation.Companion.applyFileCheckArgs
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation.Companion.applyPartialLinkageArgs
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.ExecutableCompilation.Companion.applyTestRunnerSpecificArgs
@@ -45,6 +46,11 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
     private val classLoader: KotlinNativeClassLoader,
     private val optimizationMode: OptimizationMode,
     private val compilerOutputInterceptor: CompilerOutputInterceptor,
+    private val threadStateChecker: ThreadStateChecker,
+    private val sanitizer: Sanitizer,
+    private val gcType: GCType,
+    private val gcScheduler: GCScheduler,
+    private val allocator: Allocator,
     protected val freeCompilerArgs: TestCompilerArgs,
     protected val compilerPlugins: CompilerPlugins,
     protected val cacheMode: CacheMode,
@@ -84,6 +90,12 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
 
         add(irValidationCompilerOptions)
 
+        threadStateChecker.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+        sanitizer.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+        gcType.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+        gcScheduler.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+        allocator.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
+
         // We use dev distribution for tests as it provides a full set of testing utilities,
         // which might not be available in user distribution.
         add("-Xllvm-variant=dev")
@@ -106,12 +118,7 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
                 // just pass auto cacheable directory which will force the compiler to select and use proper system cache directory.
                 when (targets.testTarget) {
                     // MinGW platform libraries are not cacheable due to historical reasons, so we cache only stdlib.
-                    KonanTarget.MINGW_X64 -> add(
-                        listOf(
-                            "-Xauto-cache-from=${this@BasicCompilation.home.librariesDir}/common",
-                            "-Xexplicit-caches-only"
-                        )
-                    )
+                    KonanTarget.MINGW_X64 -> add("-Xauto-cache-from=${this@BasicCompilation.home.librariesDir}/common")
                     else -> add("-Xauto-cache-from=${this@BasicCompilation.home.librariesDir}")
                 }
                 add("-Xbackend-threads=1") // The tests are run in parallel already, don't add more here.
@@ -246,11 +253,11 @@ abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
     classLoader: KotlinNativeClassLoader,
     protected val optimizationMode: OptimizationMode,
     compilerOutputInterceptor: CompilerOutputInterceptor,
-    private val threadStateChecker: ThreadStateChecker,
-    private val sanitizer: Sanitizer,
-    private val gcType: GCType,
-    private val gcScheduler: GCScheduler,
-    private val allocator: Allocator,
+    threadStateChecker: ThreadStateChecker,
+    sanitizer: Sanitizer,
+    gcType: GCType,
+    gcScheduler: GCScheduler,
+    allocator: Allocator,
     private val pipelineType: PipelineType,
     cacheMode: CacheMode,
     freeCompilerArgs: TestCompilerArgs,
@@ -268,15 +275,15 @@ abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
     compilerPlugins = compilerPlugins,
     cacheMode = cacheMode,
     dependencies = dependencies,
-    expectedArtifact = expectedArtifact
+    expectedArtifact = expectedArtifact,
+    threadStateChecker = threadStateChecker,
+    sanitizer = sanitizer,
+    gcType = gcType,
+    gcScheduler = gcScheduler,
+    allocator = allocator,
 ) {
     override fun applySpecificArgs(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
-        threadStateChecker.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
-        sanitizer.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
-        gcType.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
-        gcScheduler.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
         pipelineType.compilerFlags.forEach { compilerFlag -> add(compilerFlag) }
-        allocator.compilerFlag?.let { compilerFlag -> add(compilerFlag) }
         applyK2MPPArgs(this)
     }
 
@@ -293,7 +300,7 @@ abstract class SourceBasedCompilation<A : TestCompilationArtifact>(
         if (pipelineType == PipelineType.K2 && freeCompilerArgs.compilerArgs.any { it == "-XXLanguage:+MultiPlatformProjects" }) {
             sourceModules.mapToSet { "-Xfragments=${it.name}" }
                 .sorted().forEach { add(it) }
-            sourceModules.flatMapToSet { module -> module.allDependsOnDependencies.map { "-Xfragment-refines=${module.name}:${it.name}" } }
+            sourceModules.flatMapToSet { module -> module.directDependsOnDependencies.map { "-Xfragment-refines=${module.name}:${it.name}" } }
                 .sorted().forEach { add(it) }
             sourceModules.flatMapToSet { module -> module.files.map { "-Xfragment-sources=${module.name}:${it.location.path}" } }
                 .sorted().forEach { add(it) }
@@ -733,7 +740,6 @@ class StaticCacheCompilation(
     settings: Settings,
     freeCompilerArgs: TestCompilerArgs,
     private val options: Options,
-    private val pipelineType: PipelineType,
     dependencies: Iterable<TestCompilationDependency<*>>,
     makePerFileCacheOverride: Boolean? = null,
     private val createHeaderCache: Boolean = false,
@@ -748,7 +754,12 @@ class StaticCacheCompilation(
     compilerPlugins = settings.get(),
     cacheMode = settings.get(),
     dependencies = CategorizedDependencies(dependencies),
-    expectedArtifact = expectedArtifact
+    expectedArtifact = expectedArtifact,
+    threadStateChecker = settings.get(),
+    sanitizer = settings.get(),
+    gcType = settings.get(),
+    gcScheduler = settings.get(),
+    allocator = settings.get(),
 ) {
     sealed interface Options {
         object Regular : Options
@@ -766,7 +777,6 @@ class StaticCacheCompilation(
 
     override fun applySpecificArgs(argsBuilder: ArgsBuilder): Unit = with(argsBuilder) {
         add("-produce", if (createHeaderCache) "header_cache" else "static_cache")
-        pipelineType.compilerFlags.forEach { compilerFlag -> add(compilerFlag) }
 
         when (options) {
             is Options.Regular -> Unit /* Nothing to do. */

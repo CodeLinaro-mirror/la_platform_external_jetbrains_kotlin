@@ -9,7 +9,6 @@ package org.jetbrains.kotlin.gradle.plugin.mpp
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.attributes.Attribute
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
@@ -26,7 +25,6 @@ import org.jetbrains.kotlin.gradle.targets.native.KotlinNativeSimulatorTestRunFa
 import org.jetbrains.kotlin.gradle.utils.dashSeparatedName
 import org.jetbrains.kotlin.gradle.utils.klibModuleName
 import org.jetbrains.kotlin.gradle.utils.newInstance
-import org.jetbrains.kotlin.gradle.utils.setAttribute
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
@@ -43,14 +41,12 @@ abstract class KotlinNativeTarget @Inject constructor(
 ) {
 
     init {
-        attributes.setAttribute(konanTargetAttribute, konanTarget.name)
+        attributes.attribute(konanTargetAttribute, konanTarget.name)
     }
 
     internal val hostSpecificMetadataElementsConfigurationName get() = disambiguateName("MetadataElements")
 
     override val kotlinComponents: Set<KotlinTargetComponent> by lazy {
-        if (!project.isKotlinGranularMetadataEnabled)
-            return@lazy super.kotlinComponents
 
         val mainCompilation = compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME)
 

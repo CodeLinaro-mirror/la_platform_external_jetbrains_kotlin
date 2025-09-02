@@ -19,6 +19,7 @@ fun Example(a: Int = 0, b: Int = makeInt(), c: Int = 0) {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 1492566679, startOffset = 165, endOffset = 260)
 fun Example(a: Int, b: Int, c: Int, %composer: Composer?, %changed: Int, %default: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Example):Test.kt")
@@ -36,7 +37,7 @@ fun Example(a: Int, b: Int, c: Int, %composer: Composer?, %changed: Int, %defaul
   } else if (%changed and 0b000110000000 == 0) {
     %dirty = %dirty or if (%composer.changed(c)) 0b000100000000 else 0b10000000
   }
-  if (%dirty and 0b10010011 != 0b10010010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b10010011 != 0b10010010, %dirty and 0b0001)) {
     %composer.startDefaults()
     sourceInformation(%composer, "<makeIn...>")
     if (%changed and 0b0001 == 0 || %composer.defaultsInvalid) {

@@ -8,8 +8,8 @@ package org.jetbrains.kotlin.analysis.api.platform.projectStructure
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileResolutionMode
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileResolutionMode
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.utils.errors.withKaModuleEntry
 import org.jetbrains.kotlin.analysis.api.utils.errors.withPsiEntry
@@ -19,11 +19,16 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.psiUtil.createSmartPointer
 import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
 
+/**
+ * The default implementation of the dangling file module, which provides all knowledge from the context module.
+ * Note that if you need custom behavior, you should create a custom implementation of a [KaDanglingFileModule], as the Analysis API
+ * treats this implementation specially (by allowing certain performance optimizations).
+ */
 public class KaDanglingFileModuleImpl(
     files: List<KtFile>,
     override val contextModule: KaModule,
     override val resolutionMode: KaDanglingFileResolutionMode,
-) : KaDanglingFileModule {
+) : KaDanglingFileModule, KaModuleBase() {
     override val isCodeFragment: Boolean = files.any { it is KtCodeFragment }
 
     @Suppress("DEPRECATION")
@@ -58,7 +63,7 @@ public class KaDanglingFileModuleImpl(
     override val targetPlatform: TargetPlatform
         get() = contextModule.targetPlatform
 
-    override val contentScope: GlobalSearchScope
+    override val baseContentScope: GlobalSearchScope
         get() {
             val virtualFiles = files.mapNotNull { it.virtualFile }
             return when {

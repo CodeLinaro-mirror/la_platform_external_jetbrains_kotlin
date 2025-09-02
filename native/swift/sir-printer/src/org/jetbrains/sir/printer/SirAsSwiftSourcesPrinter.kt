@@ -126,10 +126,13 @@ public class SirAsSwiftSourcesPrinter private constructor(
     }
 
     private fun SirExtension.printDeclaration() {
-        printVisibility()
+        if (this.protocols.isEmpty()) {
+            printVisibility()
+        }
         print("extension ")
         printName()
         printInheritanceClause()
+        printWhereClause()
         printBody()
     }
 
@@ -282,6 +285,7 @@ public class SirAsSwiftSourcesPrinter private constructor(
         get() = when (this) {
             is SirClass -> superClass to protocols
             is SirProtocol -> superClass to protocols
+            is SirExtension -> null to protocols
             else -> null to emptyList()
         }
 
@@ -292,6 +296,19 @@ public class SirAsSwiftSourcesPrinter private constructor(
             .takeIf { it.isNotEmpty() }
             ?.joinToString(", ")
             ?.let { print(": $it") }
+    }
+
+    private fun SirConstrainedDeclaration.printWhereClause() {
+        constraints.takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "where ") {
+            listOf(
+                (it.subjectPath.takeIf { it.isNotEmpty() }?.joinToString(separator = ".") ?: "Self"),
+                when (it) {
+                    is SirTypeConstraint.Conformance -> ":"
+                    is SirTypeConstraint.Equality -> "=="
+                },
+                it.constraint.swiftRenderAsConstraint
+            ).joinToString(separator = " ")
+        }?.let { print(" $it") }
     }
 
     private fun SirElement.printName() = print(
@@ -321,7 +338,7 @@ public class SirAsSwiftSourcesPrinter private constructor(
                     printVisibility()
                 }
                 if (callableKind == SirCallableKind.CLASS_METHOD) {
-                    print("class ")
+                    print(if (this.parent is SirClass) "class " else "static ")
                 }
             }
             SirModality.FINAL -> {
@@ -338,7 +355,7 @@ public class SirAsSwiftSourcesPrinter private constructor(
             SirModality.UNSPECIFIED -> {
                 printVisibility()
                 if (callableKind == SirCallableKind.CLASS_METHOD) {
-                    print("class ")
+                    print(if (this.parent is SirClass) "class " else "static ")
                 }
             }
         }
@@ -468,13 +485,18 @@ private val SirVisibility.swift
         SirVisibility.PACKAGE -> "package"
     }
 
-
 private val SirType.swiftRender: String
     get() = when (this) {
         is SirOptionalType -> wrappedType.swiftRender.let { if (it.any { it.isWhitespace() }) "($it)" else it } + "?"
         is SirArrayType -> "[${elementType.swiftRender}]"
         is SirDictionaryType -> "[${keyType.swiftRender}: ${valueType.swiftRender}]"
         else -> swiftName
+    }
+
+private val SirType.swiftRenderAsConstraint: String
+    get() = when (this) {
+        is SirExistentialType -> protocols.takeIf { it.isNotEmpty() }?.joinToString(separator = " & ") { it.swiftFqName } ?: "Any"
+        else -> this.swiftRender
     }
 
 private val SirClassMemberDeclaration.callableKind: SirCallableKind

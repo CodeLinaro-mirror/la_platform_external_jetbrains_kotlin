@@ -101,12 +101,32 @@ class TestGroup(
             methodModels += method
         }
 
+        fun modelForDirectoryBasedTest(
+            relativePath: String,
+            testDirectoryName: String,
+            extension: String? = "kt",
+            excludeParentDirs: Boolean = false,
+            recursive: Boolean = true,
+            targetBackend: TargetBackend? = null,
+            excludedPattern: String? = null,
+        ) {
+            model(
+                "${relativePath}/${testDirectoryName}",
+                extension = extension,
+                recursive = recursive,
+                excludeParentDirs = excludeParentDirs,
+                targetBackend = targetBackend,
+                excludedPattern = excludedPattern,
+                testClassName = testDirectoryName.replaceFirstChar { it.uppercaseChar() } + testKClass.simpleName,
+            )
+        }
+
         fun model(
             relativeRootPath: String = "",
             recursive: Boolean = true,
             excludeParentDirs: Boolean = false,
             extension: String? = "kt", // null string means dir (name without dot)
-            pattern: String = if (extension == null) """^([^\.]+)$""" else "^(.+)\\.$extension\$",
+            pattern: String = if (extension == null) """^([^.]+)$""" else """^(.+)\.$extension$""",
             excludedPattern: String? = null,
             testMethod: String = "doTest",
             singleClass: Boolean = false, // if true then tests from subdirectories will be flattened to single class

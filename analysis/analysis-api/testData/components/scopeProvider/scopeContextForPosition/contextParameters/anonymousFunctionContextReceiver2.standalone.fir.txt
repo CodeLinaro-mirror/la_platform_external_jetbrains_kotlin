@@ -120,7 +120,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -178,7 +178,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -264,7 +264,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -325,7 +325,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -386,7 +386,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -436,14 +436,13 @@ scopes:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
-          isOverride: false
+          isNotDefault: false
+          isOverride: true
           location: PROPERTY
           modality: OPEN
           origin: LIBRARY
@@ -466,7 +465,7 @@ scopes:
         isExternal: false
         isFromPrimaryConstructor: false
         isLateInit: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isVal: true
         location: CLASS
@@ -540,7 +539,32 @@ scopes:
   LocalScope, index = 1
     packages: 0
     classifiers: 0
-    callables: 0
+    callables: 1
+      KaValueParameterSymbol:
+        annotations: []
+        callableId: null
+        compilerVisibility: Public
+        contextReceivers: []
+        generatedPrimaryConstructorProperty: null
+        hasDefaultValue: false
+        isActual: false
+        isCrossinline: false
+        isExpect: false
+        isExtension: false
+        isImplicitLambdaParameter: false
+        isNoinline: false
+        isVal: true
+        isVararg: false
+        location: LOCAL
+        modality: FINAL
+        name: p
+        origin: SOURCE
+        receiverParameter: null
+        returnType: KaUsualClassType:
+          annotations: []
+          typeArguments: []
+          type: kotlin/Int
+        visibility: PUBLIC
     constructors: 0
 
   LocalScope, index = 2

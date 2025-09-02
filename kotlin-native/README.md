@@ -43,19 +43,18 @@ Prerequisites:
 *   at the root directory of the repository,
     create `local.properties` file with `kotlin.native.enabled=true` line
 *   macOS: Xcode 16.0 or newer
-    * on `MacOS aarch64`, CInterop functionality is available only using aarch64 JDK builds, e.g.
+    * on `macOS aarch64`, CInterop functionality is available only using aarch64 JDK builds, e.g.
 [Eclipse Temurin 17.0.5](https://github.com/adoptium/temurin17-binaries/releases) or
 [Azul Zulu JDK8](https://www.azul.com/downloads/?version=java-8-lts&os=macos&architecture=arm-64-bit&package=jdk)
 
-      Note: using `JDK x86_64` on `MacOS aarch64` will cause `java.lang.UnsatisfiedLinkError` for `libclang.dylib`
+      Note: using `JDK x86_64` on `macOS aarch64` will cause `java.lang.UnsatisfiedLinkError` for `libclang.dylib`
 *   Linux: glibc 2.23 or newer
 *   Windows:
     * Microsoft C++ build tools for Visual Studio 2019 14.29.
       It might work with other VS2019 versions, but this was never tested.
     * Windows SDK 10.0.18362.0 or newer
 
-The commands below should be run from either repository root or this (`kotlin-native/`) directory.
-For the latter, `:kotlin-native:` task name prefix can be omitted.
+The commands below should be run from the repository root.
 
 To compile the basic compiler distribution from sources, run following command:
 
@@ -97,14 +96,14 @@ For an optimized compilation, use `-opt`:
 To import a C or Objective-C library, use `./dist/bin/cinterop` tool.
 See the [documentation](https://kotlinlang.org/docs/native-c-interop.html) for more details.
 
-Note: on MacOS aarch64, [JDK aarch64 is required](./README.md#building-from-source)
+Note: on macOS aarch64, [JDK aarch64 is required](./README.md#building-from-source)
 
 
 ### Running tests
 
-For tests, use `./gradlew :native:native.tests:codegenBoxTest` and `./gradlew :kotlin-native:backend.native:tests:run`.
+For tests, use `./gradlew :nativeCompilerTest :nativeCompilerUnitTest --continue`.
 
-Note: on MacOS aarch64, for target-specific tests, [JDK aarch64 is required](./README.md#building-from-source)
+Note: on macOS aarch64, [JDK aarch64 is required](./README.md#building-from-source)
 
 For more details see [Testing](HACKING.md#Testing).
 

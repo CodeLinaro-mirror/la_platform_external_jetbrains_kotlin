@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.backend.jvm.metadata.MetadataSerializer
 import org.jetbrains.kotlin.codegen.ClassBuilderMode
 import org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings
 import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
@@ -34,7 +35,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
-import org.jetbrains.kotlin.util.metadataVersion
+import org.jetbrains.kotlin.util.jvmMetadataVersion
 import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.org.objectweb.asm.commons.Method
 
@@ -99,8 +100,8 @@ fun makeLocalFirMetadataSerializerForMetadataSource(
         configuration.getBoolean(JVMConfigurationKeys.DISABLE_PARAM_ASSERTIONS),
         session.languageVersionSettings.apiVersion >= ApiVersion.KOTLIN_1_4 &&
                 !configuration.getBoolean(JVMConfigurationKeys.NO_UNIFIED_NULL_CHECKS),
-        configuration.metadataVersion(session.languageVersionSettings.languageVersion),
-        session.languageVersionSettings.getFlag(JvmAnalysisFlags.jvmDefaultMode),
+        configuration.jvmMetadataVersion(session.languageVersionSettings.languageVersion),
+        session.languageVersionSettings.jvmDefaultMode,
         stringTable,
         constValueProvider = null,
         additionalMetadataProvider = null
@@ -232,6 +233,7 @@ private fun FirFunction.copyToFreeAnonymousFunction(approximator: AbstractTypeAp
         annotations += function.annotations
         moduleData = function.moduleData
         origin = FirDeclarationOrigin.Source
+        source = this@copyToFreeAnonymousFunction.source
         symbol = FirAnonymousFunctionSymbol()
         returnTypeRef = function.returnTypeRef.approximated(approximator, typeParameterSet, toSuper = true)
         receiverParameter = function.receiverParameter?.let { receiverParameter ->
@@ -263,6 +265,7 @@ private fun FirPropertyAccessor.copyToFreeAccessor(
         val typeParameterSet = accessor.typeParameters.toMutableSet()
         moduleData = accessor.moduleData
         origin = FirDeclarationOrigin.Source
+        source = this@copyToFreeAccessor.source
         returnTypeRef = accessor.returnTypeRef.approximated(approximator, typeParameterSet, toSuper = true)
         symbol = FirPropertyAccessorSymbol()
         propertySymbol = newPropertySymbol
@@ -300,6 +303,7 @@ internal fun FirProperty.copyToFreeProperty(approximator: AbstractTypeApproximat
         delegateFieldSymbol = property.delegateFieldSymbol?.let {
             FirDelegateFieldSymbol(it.callableId)
         }
+        source = this@copyToFreeProperty.source
         getter = property.getter?.copyToFreeAccessor(approximator, newPropertySymbol)
         setter = property.setter?.copyToFreeAccessor(approximator, newPropertySymbol)
         isVar = property.isVar

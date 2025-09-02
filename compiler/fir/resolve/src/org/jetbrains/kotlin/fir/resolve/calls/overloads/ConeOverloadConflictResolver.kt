@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.ConeResolutionAtom
 import org.jetbrains.kotlin.fir.resolve.calls.ConeResolvedCallableReferenceAtom
+import org.jetbrains.kotlin.fir.resolve.calls.TypeVariableReplacement
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.Candidate
 import org.jetbrains.kotlin.fir.resolve.calls.candidate.FirNamedReferenceWithCandidate
 import org.jetbrains.kotlin.fir.resolve.calls.removeTypeVariableTypes
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.fir.resolve.calls.stages.shouldHaveLowPriorityDueToS
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.inference.ConeTypeParameterBasedTypeVariable
 import org.jetbrains.kotlin.fir.resolve.inference.InferenceComponents
+import org.jetbrains.kotlin.fir.resolve.inference.inferenceLogger
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.overrides
@@ -48,6 +50,7 @@ import org.jetbrains.kotlin.name.StandardClassIds.UByte
 import org.jetbrains.kotlin.name.StandardClassIds.UInt
 import org.jetbrains.kotlin.name.StandardClassIds.ULong
 import org.jetbrains.kotlin.name.StandardClassIds.UShort
+import org.jetbrains.kotlin.resolve.calls.inference.components.ConstraintSystemMarker
 import org.jetbrains.kotlin.resolve.calls.inference.model.NewConstraintSystemImpl
 import org.jetbrains.kotlin.resolve.calls.inference.model.SimpleConstraintSystemConstraintPosition
 import org.jetbrains.kotlin.resolve.calls.results.*
@@ -396,7 +399,9 @@ class ConeOverloadConflictResolver(
             if (call1.contextReceiverCount < call2.contextReceiverCount) return false
         }
 
-        return createEmptyConstraintSystem().isSignatureEquallyOrMoreSpecific(
+        return createEmptyConstraintSystem().also {
+            inferenceComponents.session.inferenceLogger?.logStage("Some compareCallsByUsedArguments() call", it.constraintSystemMarker)
+        }.isSignatureEquallyOrMoreSpecific(
             call1,
             call2,
             SpecificityComparisonWithNumerics,
@@ -536,7 +541,10 @@ class ConeOverloadConflictResolver(
                 // Return type isn't needed here       v
                 typeForCallableReference.typeArguments.dropLast(1)
                     .mapTo(this) {
-                        TypeWithConversion((it as ConeKotlinType).prepareType(session, call).removeTypeVariableTypes(session.typeContext))
+                        TypeWithConversion(
+                            (it as ConeKotlinType).prepareType(session, call)
+                                .removeTypeVariableTypes(session.typeContext, TypeVariableReplacement.TypeParameter)
+                        )
                     }
             } else {
                 if (!contextParametersEnabled) {
@@ -644,4 +652,6 @@ class ConeSimpleConstraintSystemImpl(val system: NewConstraintSystemImpl, val se
     override val context: TypeSystemInferenceExtensionContext
         get() = system
 
+    override val constraintSystemMarker: ConstraintSystemMarker
+        get() = system
 }

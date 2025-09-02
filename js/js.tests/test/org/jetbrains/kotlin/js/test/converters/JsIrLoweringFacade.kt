@@ -21,7 +21,6 @@ import org.jetbrains.kotlin.js.backend.ast.ESM_EXTENSION
 import org.jetbrains.kotlin.js.backend.ast.REGULAR_EXTENSION
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.test.handlers.JsBoxRunner
-import org.jetbrains.kotlin.js.test.utils.createTestPhaseConfig
 import org.jetbrains.kotlin.js.test.utils.extractTestPackage
 import org.jetbrains.kotlin.js.test.utils.jsIrIncrementalDataProvider
 import org.jetbrains.kotlin.js.test.utils.wrapWithModuleEmulationMarkers
@@ -35,6 +34,7 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.compilerConfigurationProvider
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator.Companion.getJsModuleArtifactName
+import org.jetbrains.kotlin.test.services.configuration.createJsTestPhaseConfig
 import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
@@ -74,7 +74,7 @@ class JsIrLoweringFacade(
         configuration: CompilerConfiguration,
         klib: File,
     ): BinaryArtifacts.Js? {
-        val (irModuleFragment, dependencyModules, irBuiltIns, symbolTable, deserializer) = moduleInfo
+        val (irModuleFragment, moduleDependencies, irBuiltIns, symbolTable, deserializer) = moduleInfo
 
         val splitPerModule = JsEnvironmentConfigurationDirectives.SPLIT_PER_MODULE in module.directives
         val splitPerFile = JsEnvironmentConfigurationDirectives.SPLIT_PER_FILE in module.directives
@@ -117,20 +117,19 @@ class JsIrLoweringFacade(
             ).dump(module, firstTimeCompilation)
         }
 
-        configuration.phaseConfig = createTestPhaseConfig(testServices, module)
+        configuration.phaseConfig = createJsTestPhaseConfig(testServices, module)
 
         val mainArguments = JsEnvironmentConfigurator.getMainCallParametersForModule(module)
 
         val loweredIr = compileIr(
-            irModuleFragment.apply { resolveTestPaths() },
-            MainModule.Klib(klib.absolutePath),
-            mainArguments,
-            configuration,
-            dependencyModules.onEach { it.resolveTestPaths() },
-            emptyMap(),
-            irBuiltIns,
-            symbolTable,
-            deserializer,
+            moduleFragment = irModuleFragment.apply { resolveTestPaths() },
+            mainModule = MainModule.Klib(klib.absolutePath),
+            mainCallArguments = mainArguments,
+            configuration = configuration,
+            moduleDependencies = moduleDependencies.apply { all.onEach { it.resolveTestPaths() } },
+            irBuiltIns = irBuiltIns,
+            symbolTable = symbolTable,
+            irLinker = deserializer,
             exportedDeclarations = setOf(FqName.fromSegments(listOfNotNull(testPackage, JsBoxRunner.TEST_FUNCTION))),
             keep = keep,
             dceRuntimeDiagnostic = null,

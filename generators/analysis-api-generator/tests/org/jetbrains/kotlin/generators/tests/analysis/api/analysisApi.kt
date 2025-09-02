@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.generators.tests.analysis.api
 
 import org.jetbrains.kotlin.analysis.api.fir.test.cases.imports.AbstractKaDefaultImportsProviderTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.annotations.*
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.analysisScopeProvider.AbstractCanBeAnalysedTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.compileTimeConstantProvider.AbstractCompileTimeConstantEvaluatorTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.compilerFacility.AbstractCompilerFacilityTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.compilerFacility.AbstractFirPluginPrototypeCompilerFacilityTestWithAnalysis
@@ -50,8 +51,8 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolD
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolDeclarationRenderer.AbstractRendererTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolDeclarationRenderer.AbstractSymbolRenderingByReferenceTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractAnnotationApplicableTargetsTest
-import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractSamClassBySamConstructorTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractCanBeOperatorTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.symbolInfoProvider.AbstractSamClassBySamConstructorTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeCreator.AbstractBuildClassTypeTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeCreator.AbstractTypeParameterTypeTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.typeInfoProvider.AbstractDoubleColonReceiverTypeTest
@@ -67,6 +68,8 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.references.Abstrac
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.references.AbstractReferenceImportAliasTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.references.AbstractReferenceShortenerForWholeFileTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.references.AbstractReferenceShortenerTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.restrictedAnalysis.AbstractRestrictedAnalysisExceptionWrappingTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.restrictedAnalysis.AbstractRestrictedAnalysisRejectionTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.session.*
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.symbols.*
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.types.*
@@ -95,22 +98,9 @@ internal fun AnalysisApiTestGroup.generateAnalysisApiTests() {
                         // Sources with errors cannot be compiled to a library.
                         add("withErrors")
 
-                        // Tests which rely on missing dependencies (e.g. the main module missing a dependency to a library module) will not
-                        // work as expected with library source modules, because they use "rest symbol providers" which provide symbols from
-                        // all other libraries (as dependencies between libraries are not usually known). So the "missing" dependencies
-                        // would effectively not be missing.
+                        // Main modules in tests which rely on missing dependencies (e.g. the main module missing a dependency to a library
+                        // module) cannot be compiled to a library.
                         add("missingDependency")
-
-                        // Tests which rely on a particular project structure where independent modules depend on globally duplicate
-                        // libraries will not work as expected with library source modules because of "rest symbol providers." For example,
-                        // we could have two libraries `L1` and `L2` which both contain a class `X` of the same name. We have two
-                        // independent modules `A` and `B`, where `A` depends on `L1`, and `B` depends on `L2`. From `A`, we should see `X`
-                        // from `L1`, and from `B`, we should see `X` from `L2`.
-                        //
-                        // "Rest symbol providers" break such tests. Let's say `A` is a `LibrarySource` module. Then its rest library
-                        // provider will find both versions of `X` from `L1` and `L2`. It will return a symbol for one version, which may
-                        // not be the one expected by `A`.
-                        add("globallyDuplicateLibraries")
                     }
 
                     else -> {}
@@ -124,7 +114,7 @@ internal fun AnalysisApiTestGroup.generateAnalysisApiTests() {
         test<AbstractResolveCandidatesTest>(init = singleByPsiInit)
         test<AbstractResolveReferenceTest>(init = singleByPsiInit)
 
-        group(filter = testModuleKindIs(TestModuleKind.Source)) {
+        group(filter = testModuleKindIs(TestModuleKind.Source, TestModuleKind.ScriptSource)) {
             val allByPsiInit: TestGroup.TestClass.(data: AnalysisApiTestConfiguratorFactoryData) -> Unit = { data ->
                 model(data, "allByPsi")
             }
@@ -152,7 +142,11 @@ internal fun AnalysisApiTestGroup.generateAnalysisApiTests() {
                 and analysisSessionModeIs(AnalysisSessionMode.Normal)
                 and analysisApiModeIs(AnalysisApiMode.Ide)
     ) {
-        test<AbstractCompilerFacilityTest>(filter = testModuleKindIs(TestModuleKind.Source, TestModuleKind.LibrarySource)) {
+        test<AbstractCompilerFacilityTest>(filter = testModuleKindIs(TestModuleKind.LibrarySource)) {
+            model("compilation", pattern = TestGeneratorUtil.KT, excludeDirs = listOf("codeFragments/reifiedTypeParams"))
+        }
+
+        test<AbstractCompilerFacilityTest>(filter = testModuleKindIs(TestModuleKind.Source)) {
             model("compilation", pattern = TestGeneratorUtil.KT)
         }
 
@@ -278,6 +272,16 @@ private fun AnalysisApiTestGroup.generateAnalysisApiNonComponentsTests() {
             }
         }
 
+        group("restrictedAnalysis", filter = analysisSessionModeIs(AnalysisSessionMode.Normal)) {
+            test<AbstractRestrictedAnalysisExceptionWrappingTest> {
+                model(it, "exceptionWrapping")
+            }
+
+            test<AbstractRestrictedAnalysisRejectionTest> {
+                model(it, "restriction")
+            }
+        }
+
         group("substitutors", filter = frontendIs(FrontendKind.Fir)) {
             test<AbstractAnalysisApiSubstitutorsTest> {
                 model(it, "typeSubstitution")
@@ -309,40 +313,43 @@ private fun AnalysisApiTestGroup.generateAnalysisApiNonComponentsTests() {
         }
     }
 
-    // We don't test Standalone API analysis session invalidation because it doesn't support modification (yet). The test infrastructure
-    // registers an "always accessible" lifetime token, which is at odds with checking the validity of an analysis session after
-    // invalidation.
-    group(
-        "sessions",
-        filter = frontendIs(FrontendKind.Fir)
-                and testModuleKindIs(TestModuleKind.Source)
-                and analysisSessionModeIs(AnalysisSessionMode.Normal)
-                and analysisApiModeIs(AnalysisApiMode.Ide)
-    ) {
-        test<AbstractModuleStateModificationAnalysisSessionInvalidationTest> {
-            model("sessionInvalidation")
+    group("sessions", filter = analysisSessionModeIs(AnalysisSessionMode.Normal)) {
+        test<AbstractUseSiteLibraryModuleAnalysisRejectionTest>(filter = testModuleKindIs(TestModuleKind.LibraryBinary)) {
+            model(it, "allowUseSiteLibraryModuleAnalysis")
         }
 
-        test<AbstractModuleOutOfBlockModificationAnalysisSessionInvalidationTest> {
-            model("sessionInvalidation")
-        }
+        // We don't test Standalone API analysis session invalidation because it doesn't support modification (yet). The test infrastructure
+        // registers an "always accessible" lifetime token, which is at odds with checking the validity of an analysis session after
+        // invalidation.
+        group(
+            filter = frontendIs(FrontendKind.Fir) and testModuleKindIs(TestModuleKind.Source) and analysisApiModeIs(AnalysisApiMode.Ide),
+        ) {
+            test<AbstractModuleStateModificationAnalysisSessionInvalidationTest> {
+                model("sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+            }
 
-        test<AbstractGlobalModuleStateModificationAnalysisSessionInvalidationTest> {
-            model("sessionInvalidation")
-        }
+            test<AbstractModuleOutOfBlockModificationAnalysisSessionInvalidationTest> {
+                model("sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+            }
 
-        test<AbstractGlobalSourceModuleStateModificationAnalysisSessionInvalidationTest> {
-            model("sessionInvalidation")
-        }
+            test<AbstractGlobalModuleStateModificationAnalysisSessionInvalidationTest> {
+                model("sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+            }
 
-        test<AbstractGlobalSourceOutOfBlockModificationAnalysisSessionInvalidationTest> {
-            model("sessionInvalidation")
-        }
+            test<AbstractGlobalSourceModuleStateModificationAnalysisSessionInvalidationTest> {
+                model("sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+            }
 
-        test<AbstractCodeFragmentContextModificationAnalysisSessionInvalidationTest> {
-            model("sessionInvalidation")
+            test<AbstractGlobalSourceOutOfBlockModificationAnalysisSessionInvalidationTest> {
+                model("sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+            }
+
+            test<AbstractCodeFragmentContextModificationAnalysisSessionInvalidationTest> {
+                model("sessionInvalidation", excludeDirsRecursively = AbstractSessionInvalidationTest.TEST_OUTPUT_DIRECTORY_NAMES)
+            }
         }
     }
+
     group("imports") {
         test<AbstractKaDefaultImportsProviderTest>(
             filter = analysisSessionModeIs(AnalysisSessionMode.Normal)
@@ -356,6 +363,12 @@ private fun AnalysisApiTestGroup.generateAnalysisApiNonComponentsTests() {
 }
 
 private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
+    component("analysisScopeProvider", filter = frontendIs(FrontendKind.Fir) and analysisSessionModeIs(AnalysisSessionMode.Normal)) {
+        test<AbstractCanBeAnalysedTest> {
+            model(it, "canBeAnalysed")
+        }
+    }
+
     component("compileTimeConstantProvider") {
         test<AbstractCompileTimeConstantEvaluatorTest> {
             model(it, "evaluate")
@@ -446,7 +459,9 @@ private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
             model(it, "containingDeclarationByDelegatedMemberScope")
         }
 
-        test<AbstractContainingModuleByFileTest> {
+        // The containing module of a file in dependent analysis is always the dangling file module, so there's no sense in generating
+        // dependent analysis tests here.
+        test<AbstractContainingModuleByFileTest>(filter = analysisSessionModeIs(AnalysisSessionMode.Normal)) {
             model(it, "containingModuleByFile")
         }
     }

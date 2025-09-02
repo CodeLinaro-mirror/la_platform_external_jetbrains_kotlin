@@ -6,12 +6,10 @@
 package org.jetbrains.kotlin.ir.util
 
 import org.jetbrains.kotlin.ir.IrElement
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationParent
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrParameterKind
-import org.jetbrains.kotlin.ir.declarations.IrValueParameter
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.irAttribute
+import org.jetbrains.kotlin.ir.types.IrType
 
 /**
  * There is some compiler info from IR inliner that may not be available in non-JVM backends due to serialization in KLIBs.
@@ -24,13 +22,14 @@ import org.jetbrains.kotlin.ir.irAttribute
 annotation class JvmIrInlineExperimental
 
 @JvmIrInlineExperimental
-var IrInlinedFunctionBlock.inlineCall: IrFunctionAccessExpression? by irAttribute(followAttributeOwner = true)
+var IrInlinedFunctionBlock.inlineCall: IrFunctionAccessExpression? by irAttribute(copyByDefault = true)
 @JvmIrInlineExperimental
-var IrInlinedFunctionBlock.inlinedElement: IrElement? by irAttribute(followAttributeOwner = true)
+var IrInlinedFunctionBlock.inlinedElement: IrElement? by irAttribute(copyByDefault = true)
 
-@OptIn(JvmIrInlineExperimental::class)
+var IrSimpleFunction.erasedTopLevelCopy: IrSimpleFunction? by irAttribute(copyByDefault = true)
+
 fun IrInlinedFunctionBlock.isFunctionInlining(): Boolean {
-    return this.inlinedElement is IrFunction
+    return this.inlinedFunctionSymbol != null
 }
 
 fun IrInlinedFunctionBlock.isLambdaInlining(): Boolean {
@@ -40,11 +39,12 @@ fun IrInlinedFunctionBlock.isLambdaInlining(): Boolean {
 val IrContainerExpression.innerInlinedBlockOrThis: IrContainerExpression
     get() = (this as? IrReturnableBlock)?.statements?.singleOrNull() as? IrInlinedFunctionBlock ?: this
 
+fun IrType.isInlinableParameterType() = !isNullable() && (isFunction() || isSuspendFunction())
+
 fun IrValueParameter.isInlineParameter() =
     kind == IrParameterKind.Regular
             && !isNoinline
-            && !type.isNullable()
-            && (type.isFunction() || type.isSuspendFunction())
+            && type.isInlinableParameterType()
             && parent.isInlineFunction()
 
 private fun IrDeclarationParent.isInlineFunction(): Boolean {

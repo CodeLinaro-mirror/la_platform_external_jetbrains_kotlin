@@ -5,18 +5,19 @@
 
 package org.jetbrains.kotlin.incremental
 
-import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.build.GeneratedFile
 import org.jetbrains.kotlin.build.GeneratedJvmClass
 import org.jetbrains.kotlin.build.report.BuildReporter
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
 import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
+import org.jetbrains.kotlin.build.report.reportPerformanceData
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.MessageCollectorImpl
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.config.Services
+import org.jetbrains.kotlin.incremental.DifferenceCalculatorForPackageFacade.Companion.getVisibleTypeAliasFqNames
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.incremental.javaInterop.JavaInteropCoordinator
@@ -24,6 +25,8 @@ import org.jetbrains.kotlin.load.java.JavaClassesTracker
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompilationComponents
 import org.jetbrains.kotlin.modules.TargetId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.utils.addIfNotNull
 import java.io.File
 
 /**
@@ -52,10 +55,10 @@ abstract class IncrementalJvmCompilerRunnerBase(
     override val shouldStoreFullFqNamesInLookupCache = true
 
     protected val messageCollector = MessageCollectorImpl()
-    internal val javaInteropCoordinator = JavaInteropCoordinator(
+    internal val javaInteropCoordinator = JavaInteropCoordinator.getImplementation(
         icFeatures.usePreciseJavaTracking,
+        reporter,
         messageCollector,
-        reporter
     )
 
     override fun createCacheManager(icContext: IncrementalCompilationContext, args: K2JVMCompilerArguments) =
@@ -97,15 +100,14 @@ abstract class IncrementalJvmCompilerRunnerBase(
 
             val outputClass = generatedFile.outputClass
 
+            fun addSourceFilesWhenClassLikeDeclarationNameClash(classLikeFqName: FqName) {
+                result.addIfNotNull(cache.getSourceFileIfClass(classLikeFqName))
+                result.addAll(cache.getSourceFilesIfTypealias(classLikeFqName))
+            }
+
             when (outputClass.classHeader.kind) {
                 KotlinClassHeader.Kind.CLASS -> {
-                    val fqName = outputClass.className.fqNameForClassNameWithoutDollars
-                    val cachedSourceFile = cache.getSourceFileIfClass(fqName)
-
-                    if (cachedSourceFile != null) {
-                        // todo: seems useless, remove?
-                        result.add(cachedSourceFile)
-                    }
+                    addSourceFilesWhenClassLikeDeclarationNameClash(outputClass.className.fqNameForClassNameWithoutDollars)
                 }
                 // todo: more optimal is to check if public API or parts list changed
                 KotlinClassHeader.Kind.MULTIFILE_CLASS -> {
@@ -114,7 +116,13 @@ abstract class IncrementalJvmCompilerRunnerBase(
                 KotlinClassHeader.Kind.MULTIFILE_CLASS_PART -> {
                     result.addAll(partsByFacadeName(outputClass.classHeader.multifileClassName!!))
                 }
-                KotlinClassHeader.Kind.FILE_FACADE, KotlinClassHeader.Kind.SYNTHETIC_CLASS, KotlinClassHeader.Kind.UNKNOWN -> {
+                KotlinClassHeader.Kind.FILE_FACADE -> {
+                    val packagePartProtoData = KotlinClassInfo.createFrom(generatedFile.outputClass).protoData as PackagePartProtoData
+                    for (typeAliasName in packagePartProtoData.getVisibleTypeAliasFqNames()) {
+                        addSourceFilesWhenClassLikeDeclarationNameClash(typeAliasName)
+                    }
+                }
+                KotlinClassHeader.Kind.SYNTHETIC_CLASS, KotlinClassHeader.Kind.UNKNOWN -> {
                 }
             }
         }
@@ -167,7 +175,7 @@ abstract class IncrementalJvmCompilerRunnerBase(
         args.allowNoSourceFiles = true
         val exitCode = compiler.exec(messageCollector, services, args)
         args.freeArgs = freeArgsBackup
-        reportPerformanceData(compiler.defaultPerformanceManager)
+        reporter.reportPerformanceData(compiler.defaultPerformanceManager.unitStats)
         return exitCode to sourcesToCompile
     }
 }

@@ -22,7 +22,11 @@ import org.jetbrains.kotlin.cpp.CompilationDatabasePlugin
 import org.jetbrains.kotlin.cpp.CppUsage
 import org.jetbrains.kotlin.cpp.GitClangFormatPlugin
 import org.jetbrains.kotlin.CompareDistributionSignatures
+import org.jetbrains.kotlin.nativeDistribution.LLVMDistributionKind
+import org.jetbrains.kotlin.nativeDistribution.LLVMDistributionSourceKt
 import org.jetbrains.kotlin.nativeDistribution.NativeDistributionKt
+import org.jetbrains.kotlin.nativeDistribution.NativeProtoDistributionKt
+import org.jetbrains.kotlin.nativeDistribution.PrepareKonanProperties
 import org.jetbrains.kotlin.xcode.XcodeOverridePlugin
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.apache.tools.ant.filters.ReplaceTokens
@@ -33,7 +37,6 @@ import java.security.MessageDigest
 import static BuildPropertiesKt.getKotlinBuildProperties
 
 buildscript {
-    apply from: "gradle/kotlinGradlePlugin.gradle"
 
     repositories {
         mavenCentral()
@@ -104,11 +107,6 @@ configurations {
             attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, CppUsage.LIBRARY_RUNTIME))
         }
     }
-
-    trove4j_jar {
-        canBeConsumed = false
-        canBeResolved = true
-    }
 }
 
 apply plugin: CompilationDatabasePlugin
@@ -126,9 +124,6 @@ dependencies {
     nativeLibs project(':kotlin-native:llvmInterop')
     nativeLibs project(':kotlin-native:libclangInterop')
     nativeLibs project(':kotlin-native:Interop:Runtime')
-    use(RepoDependencies) {
-        trove4j_jar commonDependency("org.jetbrains.intellij.deps:trove4j")
-    }
 
     // declared to be included in verification-metadata.xml
     implicitDependencies("org.jetbrains.kotlin:kotlin-native-prebuilt:$bootstrapKotlinVersion:macos-aarch64@tar.gz")
@@ -179,9 +174,6 @@ tasks.register("distNativeSources", Zip) {
         from(project(':kotlin-native:runtime').file('src/main/kotlin'))
         from(project(':kotlin-native:Interop:Runtime').file('src/main/kotlin'))
         from(project(':kotlin-native:Interop:Runtime').file('src/native/kotlin'))
-        from(project(':kotlin-native:Interop:JsRuntime').file('src/main/kotlin')) {
-            into('kotlinx/wasm/jsinterop')
-        }
     }
 }
 
@@ -195,8 +187,6 @@ def shadowJar = tasks.register("shadowJar", ShadowJar) {
     archiveBaseName.set("kotlin-native")
     archiveVersion.set("")
     archiveClassifier.set("")
-    // Exclude trove4j because of license agreement.
-    exclude "*trove4j*"
     exclude("META-INF/versions/9/module-info.class")
     configurations = [project.configurations.distPack]
 }
@@ -216,6 +206,7 @@ tasks.register("distCompiler") {
         dependsOn 'distTools'
         dependsOn 'distBin'
         dependsOn 'distSwiftExport'
+        dependsOn 'distKonanPlatforms'
         dependsOn 'distKonanProperties'
     }
 }
@@ -262,13 +253,6 @@ tasks.register("distNativeLibs", Sync) {
 
 tasks.register("distCompilerJars", Sync) {
     from(shadowJar.map { it.archiveFile })
-    from(configurations.trove4j_jar) {
-        include "trove4j*.jar"
-        rename "trove4j(.*).jar", "trove4j.jar"
-        filePermissions {
-            unix("0644")
-        }
-    }
     from(configurations.embeddableJar) {
         rename {
             "kotlin-native-compiler-embeddable.jar"
@@ -311,30 +295,17 @@ tasks.register("distSwiftExport", Sync) {
     into(nativeDistribution.map { it.swiftExport })
 }
 
-// This task moves files into konan subfolder of the root distribution folder. Other tasks
-// move into other subfolders of that folder; so this cannot be made Sync.
-tasks.register("distKonanProperties", Copy) {
-    from(project.file('konan')) {
-        exclude('**/*.properties')
-    }
+tasks.register("distKonanPlatforms", Sync) {
+    from(NativeProtoDistributionKt.getNativeProtoDistribution(project).konanPlatforms)
+    into(nativeDistribution.map { it.konanPlatforms })
+}
 
-    from(project.file('konan')) {
-        include('**/*.properties')
-        filter(ReplaceTokens, tokens: [compilerVersion: kotlinVersion])
-        // Set LLVM variant that will be used by default in the distribution.
-        // `user` - smaller, includes only necessary components.
-        // `dev` - bigger, includes (almost) every possible component. Use this one,
-        //          if your feature requires component that is not a part of user distribution (yet).
-        // Note: by default konan.properties use `dev` variant because it is needed for building our LLVM dynamic library.
-        String llvmVariant = 'user'
-        filter(ReplaceTokens,
-                beginToken: '$',
-                endToken: '',
-                tokens: [("llvm.${hostName}.dev".toString()): "\$llvm.${hostName}.${llvmVariant}".toString()]
-        )
-    }
-
-    into(nativeDistribution.map { it.konanProperties.asFile.parentFile })
+tasks.register("distKonanProperties", PrepareKonanProperties) {
+    input = NativeProtoDistributionKt.getNativeProtoDistribution(project).konanProperties
+    output = nativeDistribution.map { it.konanProperties }
+    compilerVersion = kotlinVersion
+    llvmVariants.put(HostManager.host, LLVMDistributionKind.ESSENTIALS)
+    llvmProperties.set(LLVMDistributionSourceKt.getAsProperties(LLVMDistributionSourceKt.getLlvmDistributionSource(project)))
 }
 
 tasks.register("crossDistRuntime") {
@@ -383,7 +354,7 @@ targetList.each { target ->
 
             into(nativeDistribution.map { it.cache("stdlib", target) })
 
-            from(project(":kotlin-native:runtime").layout.buildDirectory.dir("cache/$target/$target-gSTATIC/stdlib-cache")) {
+            from(project(":kotlin-native:runtime").layout.buildDirectory.dir("cache/$target/$target-gSTATIC-system/stdlib-cache")) {
                 include('**')
             }
         }

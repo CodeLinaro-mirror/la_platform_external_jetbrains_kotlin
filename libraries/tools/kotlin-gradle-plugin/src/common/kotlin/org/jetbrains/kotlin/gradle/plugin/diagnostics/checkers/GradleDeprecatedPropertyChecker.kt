@@ -9,6 +9,8 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.internal.properties.PropertiesBuildService
 import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_RESOURCES_RESOLUTION_STRATEGY
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_PLATFORM_INTEGER_COMMONIZATION
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_OPTIMISTIC_NUMBER_COMMONIZATION
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.*
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinGradleProjectChecker
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinGradleProjectCheckerContext
@@ -31,12 +33,26 @@ internal object GradleDeprecatedPropertyChecker : KotlinGradleProjectChecker {
         DeprecatedProperty(KotlinJsCompilerType.jsCompilerProperty),
         DeprecatedProperty("${KotlinJsCompilerType.jsCompilerProperty}.nowarn"),
         DeprecatedProperty("kotlin.mpp.androidGradlePluginCompatibility.nowarn"), // Since 2.1.0
+        DeprecatedProperty("kotlin.experimental.swift-export.enabled"),
+        DeprecatedProperty(
+            propertyName = "kotlin.incremental.useClasspathSnapshot",
+            details = "History based incremental compilation approach for JVM platform is removed." +
+                    " Kotlin Gradle plugin is now using a more efficient approach based on ABI snapshots."
+        ),
     )
 
     private val errorDeprecatedProperties: List<DeprecatedProperty> = listOf(
         DeprecatedProperty(
             KOTLIN_MPP_RESOURCES_RESOLUTION_STRATEGY,
             "Resolution strategy for resources shouldn't be specified. See https://youtrack.jetbrains.com/issue/KT-66133 for details.",
+        ),
+        DeprecatedProperty(
+            KOTLIN_MPP_ENABLE_OPTIMISTIC_NUMBER_COMMONIZATION,
+            "See https://kotl.in/KT-75161 for details.",
+        ),
+        DeprecatedProperty(
+            KOTLIN_MPP_ENABLE_PLATFORM_INTEGER_COMMONIZATION,
+            "See https://kotl.in/KT-75161 for details.",
         ),
     )
 

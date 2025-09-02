@@ -53,6 +53,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   }
 
   @Test
+  @TestMetadata("callablesFromScript.kt")
+  public void testCallablesFromScript() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/callablesFromScript.kt");
+  }
+
+  @Test
   @TestMetadata("contextParameters.kt")
   public void testContextParameters() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/contextParameters.kt");
@@ -83,9 +89,27 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   }
 
   @Test
+  @TestMetadata("danglingAnnotationOnMemberFunction.kt")
+  public void testDanglingAnnotationOnMemberFunction() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/danglingAnnotationOnMemberFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("danglingAnnotationOnTopLevelFunction.kt")
+  public void testDanglingAnnotationOnTopLevelFunction() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/danglingAnnotationOnTopLevelFunction.kt");
+  }
+
+  @Test
   @TestMetadata("declarationErrors.kt")
   public void testDeclarationErrors() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/declarationErrors.kt");
+  }
+
+  @Test
+  @TestMetadata("delegationByLambda.kt")
+  public void testDelegationByLambda() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/delegationByLambda.kt");
   }
 
   @Test
@@ -221,6 +245,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   }
 
   @Test
+  @TestMetadata("unavailableRecord.kt")
+  public void testUnavailableRecord() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/unavailableRecord.kt");
+  }
+
+  @Test
   @TestMetadata("unresolved.kt")
   public void testUnresolved() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/unresolved.kt");
@@ -284,6 +314,40 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   @TestMetadata("varargParameterFromLibraryWithFunctionalType.kt")
   public void testVarargParameterFromLibraryWithFunctionalType() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/varargParameterFromLibraryWithFunctionalType.kt");
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue")
+  @TestDataPath("$PROJECT_ROOT")
+  public class MustUseReturnValue {
+    @Test
+    public void testAllFilesPresentInMustUseReturnValue() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("mustUseReturnValueFullEnabled.kt")
+    public void testMustUseReturnValueFullEnabled() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue/mustUseReturnValueFullEnabled.kt");
+    }
+
+    @Test
+    @TestMetadata("mustUseReturnValueFullEnabledFromLibrary.kt")
+    public void testMustUseReturnValueFullEnabledFromLibrary() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue/mustUseReturnValueFullEnabledFromLibrary.kt");
+    }
+
+    @Test
+    @TestMetadata("mustUseReturnValueHalfEnabled.kt")
+    public void testMustUseReturnValueHalfEnabled() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue/mustUseReturnValueHalfEnabled.kt");
+    }
+
+    @Test
+    @TestMetadata("mustUseReturnValueHalfEnabledFromLibrary.kt")
+    public void testMustUseReturnValueHalfEnabledFromLibrary() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue/mustUseReturnValueHalfEnabledFromLibrary.kt");
+    }
   }
 
   @Nested

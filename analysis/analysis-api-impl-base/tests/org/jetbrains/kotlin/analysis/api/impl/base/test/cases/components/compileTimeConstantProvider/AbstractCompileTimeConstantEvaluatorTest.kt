@@ -24,10 +24,9 @@ abstract class AbstractCompileTimeConstantEvaluatorTest : AbstractAnalysisApiBas
             is KtValueArgument -> element.getArgumentExpression()
             else -> null
         } ?: testServices.assertions.fail { "Unsupported expression: $element" }
+
         val constantValue = executeOnPooledThreadInReadAction {
-            analyseForTest(expression) {
-                expression.evaluate()
-            }
+            copyAwareAnalyzeForTest(expression) { it.evaluate() }
         }
 
         val actual = buildString {
@@ -37,6 +36,6 @@ abstract class AbstractCompileTimeConstantEvaluatorTest : AbstractAnalysisApiBas
             appendLine("constantValueKind: ${constantValue?.let { renderFrontendIndependentKClassNameOf(it) } ?: "NOT_EVALUATED"}")
         }
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+        testServices.assertions.assertEqualsToTestOutputFile(actual)
     }
 }

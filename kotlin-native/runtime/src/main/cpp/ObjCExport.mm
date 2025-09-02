@@ -33,6 +33,7 @@
 #import "Natives.h"
 #import "TypeInfoObjCExportAddition.hpp"
 #import "WritableTypeInfo.hpp"
+#include "swiftExportRuntime/SwiftExport.hpp"
 
 using namespace kotlin;
 
@@ -265,10 +266,11 @@ extern "C" void Kotlin_ObjCExport_initializeClass(Class clazz) {
     // This is pretty much ok, and we shouldn't replace that method with our own.
   }
 
+  Class metaClazz = object_getClass(clazz);
   for (int i = 0; i < typeAdapter->classAdapterNum; ++i) {
     const ObjCToKotlinMethodAdapter* adapter = typeAdapter->classAdapters + i;
     SEL selector = sel_registerName(adapter->selector);
-    class_addMethod(object_getClass(clazz), selector, adapter->imp, adapter->encoding);
+    class_addMethod(metaClazz, selector, adapter->imp, adapter->encoding);
   }
 
   if (isClassForPackage) return;
@@ -972,8 +974,10 @@ static void addVirtualAdapters(Class clazz, const ObjCTypeAdapter* typeAdapter) 
 }
 
 static Class createClass(const TypeInfo* typeInfo, Class superClass) {
+  // NOTE: in swift export, the generated class isn't used for direct instantiation, but rather serves the purpose of marker type
+  // - for kotlin existentials (_KotlinExistential, KotlinRuntimeSupport.swift). This relies on generated class conformance to
+  // - objc protocol counterparsts bound trough kotlin interface TypeInfo's
   RuntimeAssert(typeInfo->superType_ != nullptr, "");
-  RuntimeAssert(!compiler::swiftExport(), "Not available with Swift Export");
 
   kotlin::NativeOrUnregisteredThreadGuard threadStateGuard(/* reentrant = */ true);
 
@@ -1036,13 +1040,12 @@ static void setClassEnsureInitialized(const TypeInfo* typeInfo, Class cls) {
   objCExport(typeInfo).objCClass = cls;
 }
 
+// TODO: KT-76128 – With swift export, this method should return the best fitting swift class, while class creation facilities should be moved elsewhere
 static Class getOrCreateClass(const TypeInfo* typeInfo) {
   Class result = objCExport(typeInfo).objCClass;
   if (result != nullptr) {
     return result;
   }
-
-  RuntimeAssert(!compiler::swiftExport(), "Not available with Swift Export");
 
   const ObjCTypeAdapter* typeAdapter = getTypeAdapter(typeInfo);
   if (typeAdapter != nullptr) {
@@ -1063,6 +1066,18 @@ static Class getOrCreateClass(const TypeInfo* typeInfo) {
   }
 
   return result;
+}
+
+extern "C" Class Kotlin_ObjCExport_GetOrCreateClass(const TypeInfo *typeInfo) {
+    if (compiler::swiftExport()) {
+        return swiftExportRuntime::classWrapperFor(typeInfo);
+    } else {
+        return getOrCreateClass(typeInfo);
+    }
+}
+
+extern "C" Class Kotlin_ObjCExport_GetOrCreateObjCClass(const TypeInfo *typeInfo) {
+    return getOrCreateClass(typeInfo);
 }
 
 extern "C" void Kotlin_ObjCExport_AbstractMethodCalled(id self, SEL selector) {

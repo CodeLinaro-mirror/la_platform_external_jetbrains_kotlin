@@ -12,6 +12,7 @@ FILE: onConstructor.kt
 
     }
     public final class Test1 : R|kotlin/Any| {
+        context(c: R|A|)
         public constructor(firstName: R|kotlin/String|): R|Test1| {
             super<R|kotlin/Any|>()
         }
@@ -38,21 +39,23 @@ FILE: onConstructor.kt
             super<R|Base|>()
         }
 
+        context(c: R|A|)
         <DANGLING MODIFIER: Top level declaration expected>
+        context(c: R|A|)
         <DANGLING MODIFIER: Top level declaration expected>
     }
     public final class Test4 : R|kotlin/Any| {
-        public constructor(a: R|@ContextFunctionTypeParams (A) -> kotlin/String| = context(<unused var>: R|A|) fun <anonymous>(): R|kotlin/String| <inline=Unknown>  {
+        public constructor(a: R|@ContextFunctionTypeParams(1) context(A) () -> kotlin/String| = context(<unused var>: R|A|) fun <anonymous>(): R|kotlin/String| <inline=Unknown>  {
             ^ String()
         }
         ): R|Test4| {
             super<R|kotlin/Any|>()
         }
 
-        public final val a: R|@ContextFunctionTypeParams (A) -> kotlin/String| = R|<local>/a|
-            public get(): R|@ContextFunctionTypeParams (A) -> kotlin/String|
+        public final val a: R|@ContextFunctionTypeParams(1) context(A) () -> kotlin/String| = R|<local>/a|
+            public get(): R|@ContextFunctionTypeParams(1) context(A) () -> kotlin/String|
 
-        public constructor(b: R|@ContextFunctionTypeParams (A, kotlin/String) -> kotlin/String|): R|Test4| {
+        public constructor(b: R|@ContextFunctionTypeParams(1) context(A) (kotlin/String) -> kotlin/String|): R|Test4| {
             this<R|Test4|>()
         }
 

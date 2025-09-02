@@ -1,5 +1,5 @@
+// LATEST_LV_DIFFERENCE
 // RUN_PIPELINE_TILL: BACKEND
-// FIR_IDENTICAL
 // NI_EXPECTED_FILE
 
 class Foo<A : Number>
@@ -16,3 +16,6 @@ val test2 = Test(1, 2)
 typealias Bas<T> = Hr<T, T, Foo<T>, Bar<T>>
 
 val test3 = Bas(1, 1)
+
+/* GENERATED_FIR_TAGS: classDeclaration, integerLiteral, nullableType, primaryConstructor, propertyDeclaration,
+stringLiteral, typeAliasDeclaration, typeAliasDeclarationWithTypeParameter, typeConstraint, typeParameter */

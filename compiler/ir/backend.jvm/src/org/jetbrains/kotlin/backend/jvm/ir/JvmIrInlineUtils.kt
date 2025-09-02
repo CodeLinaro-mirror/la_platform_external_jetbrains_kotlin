@@ -13,12 +13,12 @@ import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.originalBeforeInline
+import org.jetbrains.kotlin.backend.common.originalBeforeInline
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.resolve.inline.INLINE_ONLY_ANNOTATION_FQ_NAME
 
 fun IrValueParameter.isInlineParameter(): Boolean =
-    indexInOldValueParameters >= 0 && !isNoinline && (type.isFunction() || type.isSuspendFunction()) &&
+    kind == IrParameterKind.Regular && !isNoinline && (type.isFunction() || type.isSuspendFunction()) &&
             // Parameters with default values are always nullable, so check the expression too.
             // Note that the frontend has a diagnostic for nullable inline parameters, so actually
             // making this return `false` requires using `@Suppress`.

@@ -39,6 +39,11 @@ private enum class TestProperty(shortName: String) {
     LATEST_RELEASED_COMPILER_PATH("latestReleasedCompilerPath");
 
     val fullName = "kotlin.internal.native.test.$shortName"
+
+    /**
+     * Shorter version to make DX a bit nicer.
+     */
+    val shortName = "kn.$shortName"
 }
 
 private sealed class ComputedTestProperty {
@@ -76,7 +81,12 @@ private class ComputedTestProperties(private val task: Test) {
         buildList(builder).takeIf { it.isNotEmpty() }?.joinToString(File.pathSeparator) { it.absolutePath }
     }
 
-    fun Project.readFromGradle(property: TestProperty): String? = findProperty(property.fullName)?.toString()
+    fun Project.readFromGradle(property: TestProperty): String? {
+        val value = findProperty(property.fullName)
+            ?: findProperty(property.shortName)
+            ?: return null
+        return value.toString()
+    }
 
     fun resolveAndApplyToTask() {
         computedProperties.forEach { computedProperty ->
@@ -166,7 +176,6 @@ fun Project.nativeTest(
                 val kotlinNativeCompilerEmbeddable = if (customNativeHome == null)
                     configurations.detachedConfiguration(
                         dependencies.project(":kotlin-native:prepare:kotlin-native-compiler-embeddable"),
-                        dependencies.create(commonDependency("org.jetbrains.intellij.deps:trove4j"))
                     ).also { dependsOn(it) }
                 else
                     null
@@ -178,7 +187,6 @@ fun Project.nativeTest(
                         addAll(kotlinNativeCompilerEmbeddable!!.files)
                     } else {
                         this += file(customNativeHome).resolve("konan/lib/kotlin-native-compiler-embeddable.jar")
-                        this += file(customNativeHome).resolve("konan/lib/trove4j.jar")
                     }
 
                     customCompilerDependencies.flatMapTo(this) { it.files }

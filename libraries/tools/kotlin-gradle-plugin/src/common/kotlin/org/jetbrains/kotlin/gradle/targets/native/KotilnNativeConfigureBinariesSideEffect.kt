@@ -86,8 +86,10 @@ internal val KotlinNativeConfigureBinariesSideEffect = KotlinTargetSideEffect<Ko
  * Creates a resolvable configuration from non-resolvable "api" of [KotlinNativeCompilation]
  * Kotlin Native requires that only API dependencies can be exported. So we need to resolve API-only dependencies
  * and exported dependencies to check that.
+ *
+ * FIXME: KT-76704 consider removing this configuration and the validation that exported klibs are present in the api scope configuration
  */
-private fun KotlinNativeCompilation.resolvableApiConfiguration(): Configuration {
+internal fun KotlinNativeCompilation.resolvableApiConfiguration(): Configuration {
     val apiConfiguration = compilation.internal.configurations.apiConfiguration
     return project
         .configurations.maybeCreateResolvable(lowerCamelCaseName("resolvable", apiConfiguration.name)) {
@@ -127,7 +129,7 @@ private fun Project.createLinkTask(binary: NativeBinary) {
         // Gradle build cache transforms symlinks into regular files https://guides.gradle.org/using-build-cache/#symbolic_links
         task.outputs.cacheIf { task.outputKind != CompilerOutputKind.FRAMEWORK }
 
-        task.setSource(compilation.compileTaskProvider.flatMap { it.outputFile })
+        task.source(compilation.compileTaskProvider.flatMap { it.outputFile })
         task.includes.clear() // we need to include non '.kt' or '.kts' files
         task.disallowSourceChanges()
 

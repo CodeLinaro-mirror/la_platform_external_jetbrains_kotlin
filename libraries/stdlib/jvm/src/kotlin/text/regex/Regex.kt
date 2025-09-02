@@ -4,11 +4,13 @@
  */
 package kotlin.text
 
+import java.io.ObjectInputStream
 import java.util.Collections
 import java.util.EnumSet
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import kotlin.internal.IMPLEMENTATIONS
+import kotlin.internal.throwReadObjectNotSupported
 
 private interface FlagEnum {
     public val value: Int
@@ -268,7 +270,6 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
      * @sample samples.text.Regexps.splitToSequence
      */
     @SinceKotlin("1.6")
-    @WasExperimental(ExperimentalStdlibApi::class)
     @Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
     public actual fun splitToSequence(input: CharSequence, limit: Int = 0): Sequence<String> {
         requireNonNegativeLimit(limit)
@@ -308,6 +309,8 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
     public fun toPattern(): Pattern = nativePattern
 
     private fun writeReplace(): Any = Serialized(nativePattern.pattern(), nativePattern.flags())
+
+    private fun readObject(input: ObjectInputStream): Unit = throwReadObjectNotSupported()
 
     private class Serialized(val pattern: String, val flags: Int) : Serializable {
         companion object {

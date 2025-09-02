@@ -19,6 +19,7 @@ import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
 import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
+import org.jetbrains.kotlin.commonizer.KonanDistribution
 import org.jetbrains.kotlin.compilerRunner.ArgumentUtils
 import org.jetbrains.kotlin.compilerRunner.KotlinCompilerArgumentsLogLevel
 import org.jetbrains.kotlin.compilerRunner.addBuildMetricsForTaskAction
@@ -38,8 +39,9 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
 import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.report.UsesBuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.native.UsesKonanPropertiesBuildService
-import org.jetbrains.kotlin.gradle.targets.native.internal.*
+import org.jetbrains.kotlin.gradle.targets.native.internal.getOriginalPlatformLibrariesFor
 import org.jetbrains.kotlin.gradle.targets.native.tasks.CompilerPluginData
+import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeFromToolchainProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.UsesKotlinNativeBundleBuildService
@@ -69,10 +71,19 @@ constructor(
     UsesClassLoadersCachingBuildService,
     KotlinToolTask<KotlinCommonCompilerToolOptions>,
     UsesKotlinNativeBundleBuildService,
-    UsesBuildFusService
-{
+    UsesBuildFusService {
 
-    @Deprecated("Visibility will be lifted to private in the future releases")
+    init {
+        outputs.upToDateWhen {
+            // upToDateWhen executes after configuration phase, but before inputs are calculated,
+            when (val kotlinNativeProvider = kotlinNativeProvider.get()) {
+                is KotlinNativeFromToolchainProvider -> kotlinNativeProvider.konanDistributionProvider.get().root.exists()
+                is NoopKotlinNativeProvider -> true
+            }
+        }
+    }
+
+    @Deprecated("Visibility will be lifted to private in Kotlin 2.3.", level = DeprecationLevel.ERROR)
     @get:Internal
     val compilation: KotlinNativeCompilation
         get() = binary.compilation
@@ -82,20 +93,24 @@ constructor(
 
     override val destinationDirectory: DirectoryProperty = binary.outputDirectoryProperty
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     @get:Internal
     internal val konanTarget = compilation.konanTarget
 
-    @Suppress("DEPRECATION")
+    private val objects = project.objects
+
     @get:Internal
-    internal val nativeDependencies = compilation.nativeDependencies
+    internal val excludeDependencies
+        get() = objects.getOriginalPlatformLibrariesFor(actualNativeHomeDirectory.map {
+            KonanDistribution(it)
+        }, konanTarget)
 
     @get:Classpath
     override val libraries: ConfigurableFileCollection = objectFactory.fileCollection().from(
         {
             // Avoid resolving these dependencies during task graph construction when we can't build the target:
-            @Suppress("DEPRECATION")
-            if (konanTarget.enabledOnCurrentHostForBinariesCompilation()) compilation.compileDependencyFiles.exclude(originalPlatformLibraries())
+            @Suppress("DEPRECATION_ERROR")
+            if (konanTarget.enabledOnCurrentHostForBinariesCompilation()) compilation.compileDependencyFiles.exclude(excludeDependencies)
             else objectFactory.fileCollection()
         }
     )
@@ -115,7 +130,7 @@ constructor(
     @get:Input
     internal val binaryName: String by lazyConvention { binary.name }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     @Deprecated("Use toolOptions to configure the task")
     @get:Internal
     val languageSettings: LanguageSettings = compilation.defaultSourceSet.languageSettings
@@ -136,23 +151,30 @@ constructor(
     @get:Internal
     val additionalCompilerOptions: Provider<Collection<String>> = toolOptions.freeCompilerArgs as Provider<Collection<String>>
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
     @get:Internal
     val kotlinOptions: KotlinCommonToolOptions = object : KotlinCommonToolOptions {
+        @OptIn(org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi::class)
+        @Deprecated(
+            message = org.jetbrains.kotlin.gradle.dsl.KOTLIN_OPTIONS_DEPRECATION_MESSAGE,
+            level = DeprecationLevel.ERROR,
+        )
         override val options: KotlinCommonCompilerToolOptions
             get() = toolOptions
     }
 
     @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     fun kotlinOptions(fn: KotlinCommonToolOptions.() -> Unit) {
+        @Suppress("DEPRECATION")
         kotlinOptions.fn()
     }
 
     @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     fun kotlinOptions(fn: Action<KotlinCommonToolOptions>) {
+        @Suppress("DEPRECATION")
         fn.execute(kotlinOptions)
     }
 
@@ -188,7 +210,7 @@ constructor(
     @get:Input
     val isStaticFramework: Boolean by lazyConvention { binary.let { it is Framework && it.isStatic } }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     @get:Input
     val target: String = compilation.konanTarget.name
 
@@ -212,8 +234,8 @@ constructor(
 
     private val konanCacheDir = project.getKonanCacheKind(konanTarget)
     private val gradleUserHomeDir = project.gradle.gradleUserHomeDir
-    private val cacheBuilderSettings
-        get() = CacheBuilder.Settings(
+    private val cacheBuilderSettings by lazy {
+        CacheBuilder.Settings(
             konanHome = kotlinNativeProvider.flatMap { it.bundleDirectory }.map { File(it) },
             konanCacheKind = konanCacheDir,
             gradleUserHomeDir = gradleUserHomeDir,
@@ -226,6 +248,7 @@ constructor(
             kotlinCompilerArgumentsLogLevel = kotlinCompilerArgumentsLogLevel,
             forceDisableRunningInProcess = forceDisableRunningInProcess,
         )
+    }
 
     private class CacheSettings(
         val orchestration: NativeCacheOrchestration,
@@ -278,7 +301,7 @@ constructor(
 
         dependencyClasspath { args ->
             args.libraries = runSafe {
-                libraries.exclude(originalPlatformLibraries()).files.filterKlibsPassedToCompiler()
+                libraries.exclude(excludeDependencies).files.filterKlibsPassedToCompiler()
             }?.toPathsArray()
             args.exportedLibraries = runSafe { exportLibraries.files.filterKlibsPassedToCompiler() }?.toPathsArray()
             args.friendModules = runSafe { friendModule.files.toList().takeIf { it.isNotEmpty() } }
@@ -289,8 +312,6 @@ constructor(
             args.includes = sourceFiles.files.toPathsArray()
         }
     }
-
-    internal fun originalPlatformLibraries() = objectFactory.fileCollection().from(nativeDependencies)
 
     private fun validatedExportedLibraries() {
         if (exportLibrariesResolvedConfiguration == null) return
@@ -326,11 +347,11 @@ constructor(
         }
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     @get:Classpath
     protected val friendModule: FileCollection = objectFactory.fileCollection().from({ compilation.friendPaths })
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     private val resolvedConfiguration = LazyResolvedConfiguration(
         project.configurations.getByName(compilation.compileDependencyConfigurationName)
     )
@@ -395,6 +416,7 @@ constructor(
     private val runnerJvmArgs = project.nativeProperties.jvmArgs
     private val forceDisableRunningInProcess = project.nativeProperties.forceDisableRunningInProcess
     private val useXcodeMessageStyle = project.useXcodeMessageStyle
+    private val simpleKotlinNativeVersion = project.nativeProperties.kotlinNativeVersion
 
     @get:Internal
     internal val nativeCompilerRunner
@@ -407,7 +429,8 @@ constructor(
             actualNativeHomeDirectory,
             runnerJvmArgs,
             konanPropertiesService,
-            buildFusService
+            buildFusService,
+            simpleKotlinNativeVersion
         )
 
     @TaskAction

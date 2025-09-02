@@ -56,10 +56,10 @@ object CompareTo : IntrinsicMethod() {
         classCodegen: ClassCodegen
     ): IntrinsicFunction {
         val callee = expression.symbol.owner
-        val calleeParameter = callee.dispatchReceiverParameter ?: callee.extensionReceiverParameter!!
+        val calleeParameter = callee.parameters[0]
         val parameterType = comparisonOperandType(
             classCodegen.typeMapper.mapType(calleeParameter.type),
-            signature.valueParameters.single().asmType,
+            signature.parameters.single(),
         )
         return IntrinsicFunction.create(expression, signature, classCodegen, listOf(parameterType, parameterType)) {
             genInvoke(parameterType, it)

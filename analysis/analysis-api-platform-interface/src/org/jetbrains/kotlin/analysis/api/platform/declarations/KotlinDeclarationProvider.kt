@@ -29,12 +29,19 @@ import org.jetbrains.kotlin.psi.*
  *
  * If a [KotlinDeclarationProvider] has been created for a specific [KaModule][org.jetbrains.kotlin.analysis.api.projectStructure.KaModule],
  * its lifetime does not exceed the lifetime of the underlying LL FIR session. For other declaration providers, the Analysis API guarantees
- * that their lifetime is constrained by the next out-of-block or module state modification (see [KotlinModificationTopics][org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationTopics]).
+ * that their lifetime is constrained by the next out-of-block or module state modification (see [KotlinModificationEvent][org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationEvent]).
  *
  * This allows a declaration provider to cache values without worrying about invalidation as it can assume an immutable module/project
  * state.
  */
 public interface KotlinDeclarationProvider : KotlinComposableProvider {
+    /**
+     * Returns a [KtClassLikeDeclaration] that has the given [classId], or `null` if no such declaration exists.
+     *
+     * [getClassLikeDeclarationByClassId] does not guarantee a stable result for ambiguous class IDs. If multiple declarations share the
+     * same class ID, the declaration provider may return any one of them. To get a list of all possibilities, [getAllClassesByClassId] and
+     * [getAllTypeAliasesByClassId] should be used instead.
+     */
     public fun getClassLikeDeclarationByClassId(classId: ClassId): KtClassLikeDeclaration?
 
     public fun getAllClassesByClassId(classId: ClassId): Collection<KtClassOrObject>

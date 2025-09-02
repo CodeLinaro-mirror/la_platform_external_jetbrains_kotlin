@@ -5,9 +5,11 @@
 
 package org.jetbrains.kotlin.cli.klib
 
+import org.jetbrains.kotlin.backend.common.DumpIrReferenceRenderingAsSignatureStrategy
 import org.jetbrains.kotlin.backend.common.serialization.IrModuleDeserializer
 import org.jetbrains.kotlin.backend.konan.serialization.KonanIdSignaturer
 import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerDesc
+import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerIr
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions
@@ -20,16 +22,17 @@ import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.KotlinIrSignatureVersion
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.abi.*
+import org.jetbrains.kotlin.library.hasAbi
 import org.jetbrains.kotlin.library.metadata.kotlinLibrary
 import org.jetbrains.kotlin.library.metadata.parseModuleHeader
 import org.jetbrains.kotlin.library.metadata.parsePackageFragment
 import org.jetbrains.kotlin.library.nativeTargets
-import org.jetbrains.kotlin.metadata.ProtoBuf.PackageFragment as PackageFragmentProto
 import org.jetbrains.kotlin.psi2ir.descriptors.IrBuiltInsOverDescriptors
 import org.jetbrains.kotlin.psi2ir.generators.TypeTranslatorImpl
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import java.io.File
 import java.util.*
+import org.jetbrains.kotlin.metadata.ProtoBuf.PackageFragment as PackageFragmentProto
 
 internal sealed class KlibToolCommand(
     protected val output: KlibToolOutput,
@@ -109,6 +112,7 @@ internal class Info(output: KlibToolOutput, args: KlibToolArguments) : KlibToolC
         irInfo?.meaningfulInlineFunctionNumber?.let { output.appendLine("  Non-local inline functions: $it") }
         output.appendLine("Has FileEntries table: ${library.hasFileEntriesTable}")
         output.appendLine("Has LLVM bitcode: ${library.hasBitcode}")
+        output.appendLine("Has ABI: ${library.hasAbi}")
         output.appendLine("Manifest properties:")
         manifestProperties.entries.forEach { (key, value) ->
             output.appendLine("  $key=$value")
@@ -184,7 +188,12 @@ internal class DumpIr(output: KlibToolOutput, args: KlibToolArguments) : KlibToo
         linker.resolveModuleDeserializer(module, null).init()
         linker.modulesWithReachableTopLevels.forEach(IrModuleDeserializer::deserializeReachableDeclarations)
 
-        output.append(irFragment.dump(DumpIrTreeOptions(printSignatures = args.printSignatures)))
+        val dumpOptions = DumpIrTreeOptions(
+            printSignatures = true,
+            referenceRenderingStrategy = DumpIrReferenceRenderingAsSignatureStrategy(KonanManglerIr)
+        )
+
+        output.append(irFragment.dump(dumpOptions))
     }
 }
 

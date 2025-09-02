@@ -45,9 +45,10 @@ class TestImpl : TestBetween {
 
 interface Test {
   @Composable
+  @FunctionKeyMeta(key = -671088329, startOffset = 69, endOffset = 118)
   open fun bar(param: Int, %composer: Composer?, %changed: Int): Int {
     %composer.startReplaceGroup(<>)
-    sourceInformation(%composer, "C(bar):Test.kt")
+    sourceInformation(%composer, "C(bar)N(param):Test.kt")
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -61,7 +62,7 @@ interface Test {
   class ComposeDefaultImpls {
     @Composable
     fun bar%default(param: Int, %this%: Test, %composer: Composer?, %changed: Int, %default: Int): Int {
-      sourceInformationMarkerStart(%composer, <>, "C(bar%default)<rememb...>:Test.kt")
+      sourceInformationMarkerStart(%composer, <>, "C(bar%default)N(param)<rememb...>:Test.kt")
       if (%default and 0b0001 != 0) {
         param = <block>{
           sourceInformationMarkerStart(%composer, <>, "CC(remember):Test.kt#9igjgp")
@@ -75,11 +76,12 @@ interface Test {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }
-      %this%.bar(param, %composer, 0b1110 and %changed or 0b01110000 and %changed)
+      val tmp1 = %this%.bar(param, %composer, 0b1110 and %changed or 0b01110000 and %changed)
       if (isTraceInProgress()) {
         traceEventEnd()
       }
       sourceInformationMarkerEnd(%composer)
+      return tmp1
     }
   }
   @Composable
@@ -91,9 +93,10 @@ interface Test {
 }
 interface TestBetween : Test {
   @Composable
+  @FunctionKeyMeta(key = 1749450838, startOffset = 170, endOffset = 223)
   open fun betweenFooDefault(param: Int, %composer: Composer?, %changed: Int) {
     %composer.startReplaceGroup(<>)
-    sourceInformation(%composer, "C(betweenFooDefault):Test.kt")
+    sourceInformation(%composer, "C(betweenFooDefault)N(param):Test.kt")
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -103,9 +106,10 @@ interface TestBetween : Test {
     %composer.endReplaceGroup()
   }
   @Composable
+  @FunctionKeyMeta(key = 104269963, startOffset = 241, endOffset = 297)
   open fun betweenBar(param: Int, %composer: Composer?, %changed: Int): Int {
     %composer.startReplaceGroup(<>)
-    sourceInformation(%composer, "C(betweenBar):Test.kt")
+    sourceInformation(%composer, "C(betweenBar)N(param):Test.kt")
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -120,16 +124,14 @@ interface TestBetween : Test {
     @Composable
     fun betweenFooDefault%default(param: Int, %this%: TestBetween, %composer: Composer?, %changed: Int, %default: Int) {
       %composer = %composer.startRestartGroup(<>)
-      sourceInformation(%composer, "C(betweenFooDefault%default)<rememb...>:Test.kt")
+      sourceInformation(%composer, "C(betweenFooDefault%default)N(param)<rememb...>:Test.kt")
       val %dirty = %changed
       if (%default and 0b0001 != 0) {
         %dirty = %dirty or 0b0110
       } else if (%changed and 0b0110 == 0) {
         %dirty = %dirty or if (%composer.changed(param)) 0b0100 else 0b0010
       }
-      if (%default and 0b0010 != 0) {
-        %dirty = %dirty or 0b00110000
-      } else if (%changed and 0b00110000 == 0) {
+      if (%changed and 0b00110000 == 0) {
         %dirty = %dirty or if (if (%changed and 0b01000000 == 0) {
           %composer.changed(%this%)
         } else {
@@ -137,7 +139,7 @@ interface TestBetween : Test {
         }
         ) 0b00100000 else 0b00010000
       }
-      if (%dirty and 0b00010011 != 0b00010010 || !%composer.skipping) {
+      if (%composer.shouldExecute(%dirty and 0b00010011 != 0b00010010, %dirty and 0b0001)) {
         if (%default and 0b0001 != 0) {
           param = <block>{
             sourceInformationMarkerStart(%composer, <>, "CC(remember):Test.kt#9igjgp")
@@ -164,7 +166,7 @@ interface TestBetween : Test {
     }
     @Composable
     fun betweenBar%default(param: Int, %this%: TestBetween, %composer: Composer?, %changed: Int, %default: Int): Int {
-      sourceInformationMarkerStart(%composer, <>, "C(betweenBar%default)<rememb...>:Test.kt")
+      sourceInformationMarkerStart(%composer, <>, "C(betweenBar%default)N(param)<rememb...>:Test.kt")
       if (%default and 0b0001 != 0) {
         param = <block>{
           sourceInformationMarkerStart(%composer, <>, "CC(remember):Test.kt#9igjgp")
@@ -178,11 +180,12 @@ interface TestBetween : Test {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }
-      %this%.betweenBar(param, %composer, 0b1110 and %changed or 0b01110000 and %changed)
+      val tmp1 = %this%.betweenBar(param, %composer, 0b1110 and %changed or 0b01110000 and %changed)
       if (isTraceInProgress()) {
         traceEventEnd()
       }
       sourceInformationMarkerEnd(%composer)
+      return tmp1
     }
   }
   @Composable
@@ -201,9 +204,10 @@ interface TestBetween : Test {
 @StabilityInferred(parameters = 1)
 class TestImpl : TestBetween {
   @Composable
+  @FunctionKeyMeta(key = 278947191, startOffset = 357, endOffset = 421)
   override fun bar(param: Int, %composer: Composer?, %changed: Int): Int {
     %composer.startReplaceGroup(<>)
-    sourceInformation(%composer, "C(bar)<bar(pa...>:Test.kt")
+    sourceInformation(%composer, "C(bar)N(param)<bar(pa...>:Test.kt")
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -217,9 +221,10 @@ class TestImpl : TestBetween {
   static val %stable: Int = 0
 }
 @Composable
+@FunctionKeyMeta(key = -190439358, startOffset = 437, endOffset = 888)
 fun CallWithDefaults(test: Test, testBetween: TestBetween, testImpl: TestImpl, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
-  sourceInformation(%composer, "C(CallWithDefaults)<bar()>,<bar(0)>,<bar()>,<bar(0)>,<betwee...>,<betwee...>,<betwee...>,<betwee...>,<bar()>,<bar(0)>,<betwee...>,<betwee...>,<betwee...>,<betwee...>:Test.kt")
+  sourceInformation(%composer, "C(CallWithDefaults)N(test,testBetween,testImpl)<bar()>,<bar(0)>,<bar()>,<bar(0)>,<betwee...>,<betwee...>,<betwee...>,<betwee...>,<bar()>,<bar(0)>,<betwee...>,<betwee...>,<betwee...>,<betwee...>:Test.kt")
   val %dirty = %changed
   if (%changed and 0b0110 == 0) {
     %dirty = %dirty or if (if (%changed and 0b1000 == 0) {
@@ -240,7 +245,7 @@ fun CallWithDefaults(test: Test, testBetween: TestBetween, testImpl: TestImpl, %
   if (%changed and 0b000110000000 == 0) {
     %dirty = %dirty or if (%composer.changed(testImpl)) 0b000100000000 else 0b10000000
   }
-  if (%dirty and 0b10010011 != 0b10010010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b10010011 != 0b10010010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }

@@ -36,12 +36,13 @@ import org.jetbrains.kotlin.load.java.structure.impl.classFiles.BinaryJavaClass
 import org.jetbrains.kotlin.load.java.structure.impl.classFiles.ClassifierResolutionContext
 import org.jetbrains.kotlin.load.java.structure.impl.classFiles.isNotTopLevelClass
 import org.jetbrains.kotlin.load.java.structure.impl.source.JavaElementSourceFactory
+import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.jvm.KotlinCliJavaFileManager
 import org.jetbrains.kotlin.util.PerformanceManager
-import org.jetbrains.kotlin.util.FindJavaClassMeasurement
-import org.jetbrains.kotlin.util.tryMeasureTime
+import org.jetbrains.kotlin.util.PhaseSideType
+import org.jetbrains.kotlin.util.tryMeasureSideTime
 import org.jetbrains.kotlin.utils.SmartList
 import org.jetbrains.kotlin.utils.addIfNotNull
 
@@ -52,7 +53,7 @@ class KotlinCliJavaFileManagerImpl(private val myPsiManager: PsiManager) : CoreJ
     private var perfManager: PerformanceManager? = null
     private lateinit var index: JvmDependenciesIndex
     private lateinit var singleJavaFileRootsIndex: SingleJavaFileRootsIndex
-    private lateinit var packagePartProviders: List<JvmPackagePartProvider>
+    private lateinit var packagePartProviders: List<PackagePartProvider>
 
     /**
      * Caches the [VirtualFile]s found in [index] for the key [FqName].
@@ -71,7 +72,7 @@ class KotlinCliJavaFileManagerImpl(private val myPsiManager: PsiManager) : CoreJ
 
     fun initialize(
         index: JvmDependenciesIndex,
-        packagePartProviders: List<JvmPackagePartProvider>,
+        packagePartProviders: List<PackagePartProvider>,
         singleJavaFileRootsIndex: SingleJavaFileRootsIndex,
         usePsiClassFilesReading: Boolean,
         perfManager: PerformanceManager?,
@@ -84,7 +85,7 @@ class KotlinCliJavaFileManagerImpl(private val myPsiManager: PsiManager) : CoreJ
     }
 
     private fun findPsiClass(classId: ClassId, searchScope: GlobalSearchScope): PsiClass? {
-        return perfManager.tryMeasureTime(FindJavaClassMeasurement::class) {
+        return perfManager.tryMeasureSideTime(PhaseSideType.FindJavaClass) {
             findVirtualFileForTopLevelClass(classId, searchScope)?.findPsiClassInVirtualFile(classId.relativeClassName.asString())
         }
     }
@@ -200,7 +201,7 @@ class KotlinCliJavaFileManagerImpl(private val myPsiManager: PsiManager) : CoreJ
     }
 
     override fun findClasses(qName: String, scope: GlobalSearchScope): Array<PsiClass> =
-        perfManager.tryMeasureTime(FindJavaClassMeasurement::class) {
+        perfManager.tryMeasureSideTime(PhaseSideType.FindJavaClass) {
             val result = ArrayList<PsiClass>(1)
             forEachClassId(qName) { classId ->
                 val relativeClassName = classId.relativeClassName.asString()
@@ -226,7 +227,7 @@ class KotlinCliJavaFileManagerImpl(private val myPsiManager: PsiManager) : CoreJ
                 }
 
                 if (result.isNotEmpty()) {
-                    return@tryMeasureTime result.toTypedArray()
+                    return@tryMeasureSideTime result.toTypedArray()
                 }
             }
 

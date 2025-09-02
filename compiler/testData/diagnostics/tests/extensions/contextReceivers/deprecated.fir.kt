@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FIR2IR
-// DISABLE_NEXT_PHASE_SUGGESTION: Null argument in ExpressionCodegen for parameter VALUE_PARAMETER name:$context_receiver_0 index:0 type:<root>.A
 // LANGUAGE: +ContextReceivers
 
 class A
@@ -78,3 +77,8 @@ enum class E
 
 <!CONTEXT_CLASS_OR_CONSTRUCTOR, CONTEXT_RECEIVERS_DEPRECATED!>context<!>(A)
 object O
+
+/* GENERATED_FIR_TAGS: classDeclaration, enumDeclaration, funWithExtensionReceiver, functionDeclaration,
+functionDeclarationWithContext, functionalType, getter, integerLiteral, interfaceDeclaration, lambdaLiteral,
+localProperty, objectDeclaration, propertyDeclaration, propertyDeclarationWithContext, propertyWithExtensionReceiver,
+secondaryConstructor, setter, suspend, typeAliasDeclaration, typeWithContext, typeWithExtension */

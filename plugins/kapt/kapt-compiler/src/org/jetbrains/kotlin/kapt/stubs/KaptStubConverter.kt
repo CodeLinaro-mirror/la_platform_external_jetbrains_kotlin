@@ -95,7 +95,8 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 import org.jetbrains.kotlin.resolve.descriptorUtil.isCompanionObject
 import org.jetbrains.kotlin.resolve.jvm.JvmPrimitiveType
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
-import org.jetbrains.kotlin.resolve.jvm.replaceAnonymousTypeWithSuperType
+import org.jetbrains.kotlin.kapt.util.replaceAnonymousTypeWithSuperType
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.resolve.source.getPsi
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.types.KotlinType
@@ -924,7 +925,7 @@ class KaptStubConverter(val kaptContext: KaptContextForStubGeneration, val gener
         return null
     }
 
-    @OptIn(SymbolInternals::class)
+    @OptIn(SymbolInternals::class, DirectDeclarationsAccess::class)
     private fun convertNonConstPropertyInitializerFir(property: FirProperty, containingClass: ClassNode): JCExpression? {
         val propertyInitializer = property.initializer ?: return null
         val reference = propertyInitializer.toReference(kaptContext.firSession!!)
@@ -946,7 +947,11 @@ class KaptStubConverter(val kaptContext: KaptContextForStubGeneration, val gener
 
         // KT-70839 K2 kapt: consider using IR evaluator instead of FIR for non-const property initializers
         @OptIn(PrivateConstantEvaluatorAPI::class, PrivateForInline::class)
-        val result = FirExpressionEvaluator.evaluateExpression(expression, session)?.result ?: return null
+        val result = try {
+            FirExpressionEvaluator.evaluateExpression(expression, session)?.result
+        } catch (_: Exception) {
+            null
+        } ?: return null
 
         return when (result) {
             is FirLiteralExpression -> result.value?.let { constValue ->
@@ -1120,7 +1125,11 @@ class KaptStubConverter(val kaptContext: KaptContextForStubGeneration, val gener
                 Annotations.EMPTY /* TODO */
             )
 
-            val name = info.name.takeIf { isValidIdentifier(it) } ?: ("p" + index + "_" + info.name.hashCode().ushr(1))
+            val name = when {
+                info.name == "_" -> "p$index"
+                isValidIdentifier(info.name) -> info.name
+                else -> "p" + index + "_" + info.name.hashCode().ushr(1)
+            }
             val type = treeMaker.Type(info.type)
             treeMaker.VarDef(modifiers, treeMaker.name(name), type, null)
         }

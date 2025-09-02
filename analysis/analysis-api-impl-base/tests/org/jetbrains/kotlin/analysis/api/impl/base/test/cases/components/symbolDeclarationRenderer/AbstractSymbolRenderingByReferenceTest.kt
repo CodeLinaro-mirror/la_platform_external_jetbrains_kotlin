@@ -19,18 +19,17 @@ import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractSymbolRenderingByReferenceTest : AbstractAnalysisApiBasedTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
-        val renderedString = executeOnPooledThreadInReadAction {
-            analyseForTest(mainFile) {
-                val referenceExpression = testServices.expressionMarkerProvider
-                    .getBottommostElementOfTypeAtCaret<KtReferenceExpression>(mainFile)
+        val referenceExpression = testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret<KtReferenceExpression>(mainFile)
 
-                val ktSymbol = referenceExpression.mainReference.resolveToSymbol()
+        val renderedString = executeOnPooledThreadInReadAction {
+            copyAwareAnalyzeForTest(referenceExpression) { contextReferenceExpression ->
+                val ktSymbol = contextReferenceExpression.mainReference.resolveToSymbol()
                 testServices.assertions.assertNotNull(ktSymbol)
                 testServices.assertions.assertTrue(ktSymbol is KaDeclarationSymbol)
                 (ktSymbol as KaDeclarationSymbol).render(WITH_QUALIFIED_NAMES_DENOTABLE)
             }
         }
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(renderedString)
+        testServices.assertions.assertEqualsToTestOutputFile(renderedString)
     }
 }

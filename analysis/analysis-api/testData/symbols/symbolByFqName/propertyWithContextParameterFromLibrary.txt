@@ -93,13 +93,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Public
     contextReceivers: []
-    hasBody: false
     hasStableParameterNames: true
     isActual: false
-    isDefault: false
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: true
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -115,7 +114,7 @@ KaKotlinPropertySymbol:
     getContainingJvmClassName: one.LibraryKt
     getContainingModule: KaLibraryModule "Library library"
     deprecationStatus: null
-  hasBackingField: true
+  hasBackingField: false
   hasGetter: true
   hasSetter: false
   initializer: null
@@ -150,3 +149,4 @@ KaKotlinPropertySymbol:
   javaGetterName: getFoo
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false

@@ -19,8 +19,9 @@ private fun Test(param: String?): String? {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 942225780, startOffset = 92, endOffset = 340)
 private fun Test(param: String?, %composer: Composer?, %changed: Int): String? {
-  sourceInformationMarkerStart(%composer, <>, "C(Test)<Test("...>:Test.kt")
+  sourceInformationMarkerStart(%composer, <>, "C(Test)N(param)<Test("...>:Test.kt")
   if (isTraceInProgress()) {
     traceEventStart(<>, %changed, -1, <>)
   }

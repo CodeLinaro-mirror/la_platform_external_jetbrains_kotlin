@@ -46,6 +46,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: kotlin/Int
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: MyColor
           getContainingFileSymbol: KaFileSymbol(delegateField.kt)
           getContainingJvmClassName: MyColor
           getContainingModule: KaSourceModule "Sources of main"
@@ -59,13 +63,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -124,6 +127,7 @@ KaConstructorSymbol:
         javaGetterName: getX
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false
@@ -174,6 +178,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: kotlin/Int
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: MyColor
           getContainingFileSymbol: KaFileSymbol(delegateField.kt)
           getContainingJvmClassName: MyColor
           getContainingModule: KaSourceModule "Sources of main"
@@ -187,13 +195,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -252,6 +259,7 @@ KaConstructorSymbol:
         javaGetterName: getY
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false
@@ -302,6 +310,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: kotlin/Int
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: MyColor
           getContainingFileSymbol: KaFileSymbol(delegateField.kt)
           getContainingJvmClassName: MyColor
           getContainingModule: KaSourceModule "Sources of main"
@@ -315,13 +327,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -380,6 +391,7 @@ KaConstructorSymbol:
         javaGetterName: getZ
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false
@@ -488,6 +500,10 @@ KaKotlinPropertySymbol:
       typeArguments: []
       type: MyColor
     visibility: PRIVATE
+    getDispatchReceiver(): KaUsualClassType:
+      annotations: []
+      typeArguments: []
+      type: Some
     getContainingFileSymbol: KaFileSymbol(delegateField.kt)
     getContainingJvmClassName: Some
     getContainingModule: KaSourceModule "Sources of main"
@@ -501,13 +517,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Public
     contextReceivers: []
-    hasBody: true
     hasStableParameterNames: true
     isActual: false
-    isDefault: false
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: true
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -562,6 +577,7 @@ KaKotlinPropertySymbol:
   javaGetterName: getDelegate
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false
 
 KaAnonymousFunctionSymbol:
   annotations: []
@@ -615,6 +631,10 @@ KaKotlinPropertySymbol:
       ]
       type: kotlin/Lazy<MyColor>
     visibility: PRIVATE
+    getDispatchReceiver(): KaUsualClassType:
+      annotations: []
+      typeArguments: []
+      type: Some
     getContainingFileSymbol: KaFileSymbol(delegateField.kt)
     getContainingJvmClassName: Some
     getContainingModule: KaSourceModule "Sources of main"
@@ -628,13 +648,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Public
     contextReceivers: []
-    hasBody: false
     hasStableParameterNames: true
     isActual: false
-    isDefault: true
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: false
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -703,6 +722,7 @@ KaKotlinPropertySymbol:
   javaGetterName: getLambda
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false
 
 KaKotlinPropertySymbol:
   annotations: []
@@ -726,6 +746,10 @@ KaKotlinPropertySymbol:
       typeArguments: []
       type: MyColor
     visibility: PRIVATE
+    getDispatchReceiver(): KaUsualClassType:
+      annotations: []
+      typeArguments: []
+      type: Some
     getContainingFileSymbol: KaFileSymbol(delegateField.kt)
     getContainingJvmClassName: Some
     getContainingModule: KaSourceModule "Sources of main"
@@ -739,13 +763,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Public
     contextReceivers: []
-    hasBody: false
     hasStableParameterNames: true
     isActual: false
-    isDefault: true
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: false
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -804,6 +827,7 @@ KaKotlinPropertySymbol:
   javaGetterName: getNonLazy
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false
 
 KaNamedClassSymbol:
   annotations: []

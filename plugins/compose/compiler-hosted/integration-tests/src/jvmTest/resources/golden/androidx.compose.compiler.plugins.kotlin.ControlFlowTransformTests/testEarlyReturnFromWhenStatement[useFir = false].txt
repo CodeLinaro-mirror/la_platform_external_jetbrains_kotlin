@@ -18,10 +18,11 @@ private fun Test(param: String?) {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = -1971298841, startOffset = 92, endOffset = 354)
 private fun Test(param: String?, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Test)<rememb...>:Test.kt")
-  if (%changed and 0b0001 != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed and 0b0001 != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }

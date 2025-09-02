@@ -8,7 +8,10 @@ package org.jetbrains.kotlin.backend.konan
 import com.google.common.base.StandardSystemProperty
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.backend.common.linkage.issues.UserVisibleIrModulesSupport
+import org.jetbrains.kotlin.backend.common.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.backend.konan.ir.BridgesPolicy
+import org.jetbrains.kotlin.backend.konan.llvm.runtime.RuntimeModule
+import org.jetbrains.kotlin.backend.konan.llvm.runtime.RuntimeModulesConfig
 import org.jetbrains.kotlin.backend.konan.objcexport.ObjCEntryPoints
 import org.jetbrains.kotlin.backend.konan.objcexport.readObjCEntryPoints
 import org.jetbrains.kotlin.backend.konan.serialization.KonanUserVisibleIrModulesSupport
@@ -16,10 +19,8 @@ import org.jetbrains.kotlin.backend.konan.serialization.PartialCacheInfo
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.KlibConfigurationKeys.CUSTOM_KLIB_ABI_VERSION
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.config.phaseConfig
-import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.KonanLibrary
 import org.jetbrains.kotlin.konan.properties.loadProperties
@@ -64,8 +65,17 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     val generateDebugTrampoline = debug && configuration.get(KonanConfigKeys.GENERATE_DEBUG_TRAMPOLINE) ?: false
     val optimizationsEnabled = configuration.getBoolean(KonanConfigKeys.OPTIMIZATION)
 
-    val smallBinary: Boolean get() = configuration.get(BinaryOptions.smallBinary)
-            ?: (target.needSmallBinary() || debug)
+    val smallBinary: Boolean = run {
+        val explicit = configuration.get(BinaryOptions.smallBinary)
+        if (debug) {
+            if (explicit == true) {
+                configuration.report(CompilerMessageSeverity.WARNING, "smallBinary is not compatible with debug, and will be ignored")
+            }
+            return@run false
+        }
+        explicit ?: target.needSmallBinary()
+    }
+    val inlineForPerformance get() = !debug && !smallBinary
 
     val assertsEnabled = configuration.getBoolean(KonanConfigKeys.ENABLE_ASSERTIONS)
 
@@ -84,7 +94,9 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
     }
 
     private val defaultGC get() = GC.PARALLEL_MARK_CONCURRENT_SWEEP
-    val gc: GC get() = configuration.get(BinaryOptions.gc) ?: defaultGC
+    val gc: GC get() = configuration.get(BinaryOptions.gc) ?: run {
+        if (swiftExport) GC.CONCURRENT_MARK_AND_SWEEP else defaultGC
+    }
     val runtimeAssertsMode: RuntimeAssertsMode get() = configuration.get(BinaryOptions.runtimeAssertionsMode) ?: RuntimeAssertsMode.IGNORE
     val checkStateAtExternalCalls: Boolean get() = configuration.get(BinaryOptions.checkStateAtExternalCalls) ?: false
     private val defaultDisableMmap get() = target.family == Family.MINGW || !pagedAllocator
@@ -156,6 +168,13 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         get() = configuration.get(BinaryOptions.sourceInfoType)
                 ?: SourceInfoType.CORESYMBOLICATION.takeIf { debug && target.supportsCoreSymbolication() }
                 ?: SourceInfoType.NOOP
+
+    val coreSymbolicationUseOnlyKotlinImage: Boolean
+        get() = when (configuration.get(BinaryOptions.coreSymbolicationImageListType)) {
+            CoreSymbolicationImageListType.ALL_LOADED -> false
+            null,
+            CoreSymbolicationImageListType.ONLY_KOTLIN -> true
+        }
 
     val defaultGCSchedulerType
         get() =
@@ -229,16 +248,6 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         configuration.get(BinaryOptions.appStateTracking) ?: AppStateTracking.DISABLED
     }
 
-
-    val mimallocUseDefaultOptions: Boolean by lazy {
-        configuration.get(BinaryOptions.mimallocUseDefaultOptions) ?: false
-    }
-
-    val mimallocUseCompaction: Boolean by lazy {
-        // Turned off by default, because it slows down allocation.
-        configuration.get(BinaryOptions.mimallocUseCompaction) ?: false
-    }
-
     val objcDisposeOnMain: Boolean by lazy {
         configuration.get(BinaryOptions.objcDisposeOnMain) ?: true
     }
@@ -252,6 +261,13 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
                 .get(BinaryOptions.objcExportEntryPointsPath)
                 ?.let { File(it).readObjCEntryPoints() }
                 ?: ObjCEntryPoints.ALL
+    }
+
+    /**
+     * Path to store ObjC selector to Kotlin signature mapping
+     */
+    val dumpObjcSelectorToSignatureMapping: String? by lazy {
+        configuration.get(BinaryOptions.dumpObjcSelectorToSignatureMapping)
     }
 
     val enableSafepointSignposts: Boolean = configuration.get(BinaryOptions.enableSafepointSignposts)?.also {
@@ -320,8 +336,6 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
     internal val headerKlibPath get() = configuration.get(KonanConfigKeys.HEADER_KLIB)?.removeSuffixIfPresent(".klib")
 
-    internal val customAbiVersion get() = configuration.get(CUSTOM_KLIB_ABI_VERSION)
-
     internal val produceStaticFramework get() = configuration.getBoolean(KonanConfigKeys.STATIC_FRAMEWORK)
 
     internal val purgeUserLibs: Boolean
@@ -371,18 +385,6 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         when (configuration.get(KonanConfigKeys.ALLOCATION_MODE)) {
             null -> defaultAllocationMode
             AllocationMode.STD -> AllocationMode.STD
-            AllocationMode.MIMALLOC -> {
-                if (sanitizer != null) {
-                    configuration.report(CompilerMessageSeverity.STRONG_WARNING, "Sanitizers are useful only with the std allocator")
-                }
-                if (target.supportsMimallocAllocator()) {
-                    AllocationMode.MIMALLOC
-                } else {
-                    configuration.report(CompilerMessageSeverity.STRONG_WARNING,
-                            "Mimalloc allocator isn't supported on target ${target.name}. Used standard mode.")
-                    AllocationMode.STD
-                }
-            }
             AllocationMode.CUSTOM -> {
                 if (sanitizer != null) {
                     configuration.report(CompilerMessageSeverity.STRONG_WARNING, "Sanitizers are useful only with the std allocator")
@@ -401,80 +403,11 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
         } ?: false
     }
 
-    internal val runtimeNativeLibraries: List<String> = mutableListOf<String>().apply {
-        if (debug) add("debug.bc")
-        add("runtime.bc")
-        add("mm.bc")
-        add("common_alloc.bc")
-        add("common_gc.bc")
-        add("common_gcScheduler.bc")
-        when (gcSchedulerType) {
-            GCSchedulerType.MANUAL -> {
-                add("manual_gcScheduler.bc")
-            }
-            GCSchedulerType.ADAPTIVE -> {
-                add("adaptive_gcScheduler.bc")
-            }
-            GCSchedulerType.AGGRESSIVE -> {
-                add("aggressive_gcScheduler.bc")
-            }
-            GCSchedulerType.DISABLED, GCSchedulerType.WITH_TIMER, GCSchedulerType.ON_SAFE_POINTS -> {
-                throw IllegalStateException("Deprecated options must have already been handled")
-            }
-        }
-        when (gc) {
-            GC.STOP_THE_WORLD_MARK_AND_SWEEP -> add("same_thread_ms_gc.bc")
-            GC.NOOP -> add("noop_gc.bc")
-            GC.PARALLEL_MARK_CONCURRENT_SWEEP -> add("pmcs_gc.bc")
-            GC.CONCURRENT_MARK_AND_SWEEP -> add("concurrent_ms_gc.bc")
-        }
-        if (target.supportsCoreSymbolication()) {
-            add("source_info_core_symbolication.bc")
-        }
-        if (target.supportsLibBacktrace()) {
-            add("source_info_libbacktrace.bc")
-            add("libbacktrace.bc")
-        }
-        when (allocationMode) {
-            AllocationMode.MIMALLOC -> {
-                add("legacy_alloc.bc")
-                add("mimalloc_alloc.bc")
-                add("mimalloc.bc")
-            }
-            AllocationMode.STD -> {
-                add("legacy_alloc.bc")
-                add("std_alloc.bc")
-            }
-            AllocationMode.CUSTOM -> {
-                add("custom_alloc.bc")
-            }
-        }
-        when (checkStateAtExternalCalls) {
-            true -> add("impl_externalCallsChecker.bc")
-            false -> add("noop_externalCallsChecker.bc")
-        }
-    }.map {
-        File(distribution.defaultNatives(target)).child(it).absolutePath
-    }
-
     internal val runtimeLinkageStrategy: RuntimeLinkageStrategy by lazy {
         // Intentionally optimize in debug mode only. See `RuntimeLinkageStrategy`.
         val defaultStrategy = if (debug) RuntimeLinkageStrategy.Optimize else RuntimeLinkageStrategy.Raw
         configuration.get(BinaryOptions.linkRuntime) ?: defaultStrategy
     }
-
-    internal val launcherNativeLibraries: List<String> = distribution.launcherFiles.map {
-        File(distribution.defaultNatives(target)).child(it).absolutePath
-    }
-
-    internal val objCNativeLibrary: String =
-            File(distribution.defaultNatives(target)).child("objc.bc").absolutePath
-
-    internal val xcTestLauncherNativeLibrary: String =
-            File(distribution.defaultNatives(target)).child("xctest_launcher.bc").absolutePath
-
-    internal val exceptionsSupportNativeLibrary: String =
-            File(distribution.defaultNatives(target)).child("exceptionsSupport.bc").absolutePath
 
     internal val nativeLibraries: List<String> =
             configuration.getList(KonanConfigKeys.NATIVE_LIBRARY_FILES)
@@ -533,6 +466,13 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
     internal val threadsCount = configuration.get(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS) ?: 1
 
+    val stackProtectorMode = configuration.get(BinaryOptions.stackProtector)?.let {
+        if (it != StackProtectorMode.NO && target.family == Family.MINGW) {
+            configuration.reportCompilationError("Stack protector is not supported on MinGW targets")
+            null
+        } else it
+    } ?: StackProtectorMode.NO
+
     private fun StringBuilder.appendCommonCacheFlavor() {
         append(target.toString())
         if (debug) append("-g")
@@ -540,17 +480,24 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
         if (propertyLazyInitialization != defaultPropertyLazyInitialization)
             append("-lazy_init${if (propertyLazyInitialization) "ENABLE" else "DISABLE"}")
+        if (sanitizer != null)
+            append("-sanitizer${sanitizer.name}")
+        if (checkStateAtExternalCalls)
+            append("-check_state_at_external_calls")
+        if (stackProtectorMode != StackProtectorMode.NO)
+            append("-stack_protector${stackProtectorMode.name}")
     }
 
     private val systemCacheFlavorString = buildString {
         appendCommonCacheFlavor()
+        append("-system")
 
         if (useDebugInfoInNativeLibs)
             append("-runtime_debug")
         if (allocationMode != defaultAllocationMode)
             append("-allocator${allocationMode.name}")
         if (gc != defaultGC)
-            append("-gc${gc.name}")
+            append("-gc${gc.shortcut ?: gc.name.lowercase()}")
         if (gcSchedulerType != defaultGCSchedulerType)
             append("-gc_scheduler${gcSchedulerType.name}")
         if (runtimeAssertsMode != RuntimeAssertsMode.IGNORE)
@@ -567,6 +514,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
     private val userCacheFlavorString = buildString {
         appendCommonCacheFlavor()
+        append("-user")
         if (partialLinkageConfig.isEnabled) append("-pl")
     }
 
@@ -587,9 +535,7 @@ class KonanConfig(val project: Project, val configuration: CompilerConfiguration
 
     internal val ignoreCacheReason = when {
         optimizationsEnabled -> "for optimized compilation"
-        sanitizer != null -> "with sanitizers enabled"
         runtimeLogsEnabled -> "with runtime logs"
-        checkStateAtExternalCalls -> "with external calls state checker"
         else -> null
     }
 

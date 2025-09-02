@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTest {
   @Test
   public void testAllFilesPresentInNativeTests() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true, "specialBackendChecks");
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true, "specialBackendChecks");
   }
 
   @Test
@@ -51,6 +51,12 @@ public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTes
   }
 
   @Test
+  @TestMetadata("errorProneAtomicArrayNullable.kt")
+  public void testErrorProneAtomicArrayNullable() {
+    runTest("compiler/testData/diagnostics/nativeTests/errorProneAtomicArrayNullable.kt");
+  }
+
+  @Test
   @TestMetadata("errorProneAtomicArrayPrimitives.kt")
   public void testErrorProneAtomicArrayPrimitives() {
     runTest("compiler/testData/diagnostics/nativeTests/errorProneAtomicArrayPrimitives.kt");
@@ -72,6 +78,12 @@ public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTes
   @TestMetadata("identifiers.kt")
   public void testIdentifiers() {
     runTest("compiler/testData/diagnostics/nativeTests/identifiers.kt");
+  }
+
+  @Test
+  @TestMetadata("identityHashCodeOnValueClass.kt")
+  public void testIdentityHashCodeOnValueClass() {
+    runTest("compiler/testData/diagnostics/nativeTests/identityHashCodeOnValueClass.kt");
   }
 
   @Test
@@ -171,6 +183,12 @@ public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTes
   }
 
   @Test
+  @TestMetadata("oldAtomicTypes.kt")
+  public void testOldAtomicTypes() {
+    runTest("compiler/testData/diagnostics/nativeTests/oldAtomicTypes.kt");
+  }
+
+  @Test
   @TestMetadata("resolveToDelegatedProperty.kt")
   public void testResolveToDelegatedProperty() {
     runTest("compiler/testData/diagnostics/nativeTests/resolveToDelegatedProperty.kt");
@@ -219,7 +237,7 @@ public class DiagnosticsNativeTestGenerated extends AbstractDiagnosticsNativeTes
   public class Multiplatform {
     @Test
     public void testAllFilesPresentInMultiplatform() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/multiplatform"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/multiplatform"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
     }
 
     @Test

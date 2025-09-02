@@ -30,7 +30,8 @@ dependencies {
     testApi(project(":compiler:fir:checkers:checkers.js"))
     testApi(project(":compiler:fir:checkers:checkers.native"))
     testApi(project(":compiler:fir:checkers:checkers.wasm"))
-    testApi(project(":compiler:fir:java"))
+    testApi(project(":compiler:fir:fir-jvm"))
+    testApi(project(":compiler:fir:fir-js"))
     testApi(project(":compiler:fir:entrypoint"))
     testApi(project(":compiler:frontend"))
     testApi(project(":compiler:frontend.java"))
@@ -45,7 +46,6 @@ dependencies {
     testApi(project(":daemon-common"))
     testApi(project(":js:js.frontend"))
     testApi(project(":native:frontend.native"))
-    testCompileOnly(project(":plugins:android-extensions-compiler"))
     testApi(projectTests(":generators:test-generator"))
     testApi(projectTests(":compiler:tests-compiler-utils"))
     testApi(kotlinTest())
@@ -86,6 +86,7 @@ dependencies {
 
 optInToExperimentalCompilerApi()
 optInToUnsafeDuringIrConstructionAPI()
+optInToK1Deprecation()
 
 sourceSets {
     "main" { }

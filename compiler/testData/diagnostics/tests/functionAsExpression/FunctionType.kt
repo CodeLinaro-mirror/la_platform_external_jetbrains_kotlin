@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 // CHECK_TYPE
 // DIAGNOSTICS: -UNUSED_ANONYMOUS_PARAMETER -UNUSED_VARIABLE
 
@@ -31,3 +30,6 @@ fun testReceiverType() {
 
     val bag: Int.() -> Unit = <!TYPE_MISMATCH!>fun String.() {}<!>
 }
+
+/* GENERATED_FIR_TAGS: anonymousFunction, classDeclaration, funWithExtensionReceiver, functionDeclaration,
+functionalType, infix, lambdaLiteral, localProperty, nullableType, propertyDeclaration, typeParameter, typeWithExtension */

@@ -37,6 +37,8 @@ import org.jetbrains.kotlin.gradle.internal.properties.PropertiesBuildService
 import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.attributes.KlibPackaging
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.DefaultProblemsReporter
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.ProblemsReporter
 import org.jetbrains.kotlin.gradle.plugin.internal.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.initSwiftExportClasspathConfigurations
@@ -45,12 +47,12 @@ import org.jetbrains.kotlin.gradle.report.BuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsCompilerAttribute
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsPlugin
 import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetAttribute
-import org.jetbrains.kotlin.gradle.targets.metadata.isKotlinGranularMetadataEnabled
 import org.jetbrains.kotlin.gradle.targets.native.internal.CInteropCommonizerArtifactTypeAttribute
 import org.jetbrains.kotlin.gradle.targets.native.internal.CInteropKlibLibraryElements
 import org.jetbrains.kotlin.gradle.targets.native.internal.CommonizerTargetAttribute
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeBundleBuildService
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompileTool
+import org.jetbrains.kotlin.gradle.tasks.addPgpSignatureHelpers
 import org.jetbrains.kotlin.gradle.testing.internal.KotlinTestsRegistry
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
@@ -73,9 +75,7 @@ abstract class DefaultKotlinBasePlugin : KotlinBasePlugin {
         BuildFinishedListenerService.registerIfAbsent(project)
 
         val buildUidService = BuildUidService.registerIfAbsent(project)
-        if (project.kotlinPropertiesProvider.enableFusMetricsCollection) {
-            BuildFusService.registerIfAbsent(project, pluginVersion, buildUidService)
-        }
+        BuildFusService.registerIfAbsent(project, pluginVersion, buildUidService)
         PropertiesBuildService.registerIfAbsent(project)
 
         project.gradle.projectsEvaluated {
@@ -142,6 +142,11 @@ abstract class DefaultKotlinBasePlugin : KotlinBasePlugin {
         val factories = VariantImplementationFactoriesConfigurator.get(project.gradle)
 
         factories.putIfAbsent(
+            ProblemsReporter.Factory::class,
+            DefaultProblemsReporter.Factory()
+        )
+
+        factories.putIfAbsent(
             ProjectIsolationStartParameterAccessor.Factory::class,
             DefaultProjectIsolationStartParameterAccessor.Factory()
         )
@@ -168,13 +173,11 @@ abstract class DefaultKotlinBasePlugin : KotlinBasePlugin {
     }
 
     protected fun setupAttributeMatchingStrategy(
-        project: Project,
-        isKotlinGranularMetadata: Boolean = project.isKotlinGranularMetadataEnabled,
+        project: Project
     ) = with(project.dependencies.attributesSchema) {
         KotlinPlatformType.setupAttributesMatchingStrategy(this)
         KotlinUsages.setupAttributesMatchingStrategy(
             this,
-            isKotlinGranularMetadata,
         )
         ProjectLocalConfigurations.setupAttributesMatchingStrategy(this)
 
@@ -215,6 +218,7 @@ abstract class KotlinBasePluginWrapper : DefaultKotlinBasePlugin() {
         }
         project.maybeCreateCommonizerClasspathConfiguration()
         project.initSwiftExportClasspathConfigurations()
+        project.addPgpSignatureHelpers()
 
         project.createKotlinExtension(projectExtensionClass).apply {
             coreLibrariesVersion = pluginVersion
@@ -293,7 +297,7 @@ abstract class AbstractKotlinJsPluginWrapper : KotlinBasePluginWrapper() {
 }
 
 abstract class AbstractKotlinMultiplatformPluginWrapper : KotlinBasePluginWrapper() {
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     override fun getPlugin(project: Project): Plugin<Project> = KotlinMultiplatformPlugin()
 
     override val projectExtensionClass: KClass<out KotlinMultiplatformExtension>

@@ -5,47 +5,59 @@
 
 package org.jetbrains.kotlin.gradle
 
+import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.dsl.Distribution
+import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject
+import org.jetbrains.kotlin.gradle.targets.js.npm.fromSrcPackageJson
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.d8.D8EnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.d8.D8Plugin
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
+import java.net.URI
 import java.nio.file.Files
-import kotlin.io.path.Path
-import kotlin.io.path.appendText
-import kotlin.io.path.invariantSeparatorsPathString
-import kotlin.io.path.pathString
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
+import kotlin.io.path.*
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @MppGradlePluginTests
 class KotlinWasmGradlePluginIT : KGPBaseTest() {
+
+    override val defaultBuildOptions: BuildOptions
+        // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+        get() = super.defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
 
     @DisplayName("Check wasi target")
     @GradleTest
     fun wasiTarget(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-wasi-test", gradleVersion) {
             build(":wasmWasiTest") {
-                assertTasksExecuted(":kotlinNodeJsSetup")
+                assertTasksExecuted(":kotlinWasmNodeJsSetup")
                 assertTasksExecuted(":compileKotlinWasmWasi")
                 assertTasksExecuted(":wasmWasiNodeTest")
             }
 
             build(":wasmWasiTest") {
-                assertTasksUpToDate(":kotlinNodeJsSetup", ":compileKotlinWasmWasi", ":wasmWasiNodeTest")
+                assertTasksUpToDate(":kotlinWasmNodeJsSetup", ":compileKotlinWasmWasi", ":wasmWasiNodeTest")
             }
 
             projectPath.resolve("src/wasmWasiTest/kotlin/Test.kt").modify {
                 it.replace(
                     "fun test2() = assertEquals(foo(), 2)",
-                    "fun test2() = assertEquals(foo(), 2)" + "\n" +
-                            """
-                            @Test
-                            fun test3() = assertEquals(foo(), 3)
-                            """
+                    """
+                    |fun test2() = assertEquals(foo(), 2)
+                    |
+                    |@Test
+                    |fun test3() = assertEquals(foo(), 3)
+                    |""".trimMargin()
                 )
             }
 
@@ -84,13 +96,13 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
             )
 
             build("build") {
-                assertTasksExecuted(":kotlinNodeJsSetup")
+                assertTasksExecuted(":kotlinWasmNodeJsSetup")
                 assertTasksExecuted(":compileKotlinWasmJs")
                 assertTasksExecuted(":wasmJsNodeTest")
             }
 
             build(":wasmJsTest") {
-                assertTasksUpToDate(":kotlinNodeJsSetup", ":compileKotlinWasmJs", ":wasmJsNodeTest")
+                assertTasksUpToDate(":kotlinWasmNodeJsSetup", ":compileKotlinWasmJs", ":wasmJsNodeTest")
             }
         }
     }
@@ -125,7 +137,7 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     fun wasiTargetWithBinaryen(gradleVersion: GradleVersion) {
         project("new-mpp-wasm-wasi-test", gradleVersion) {
             buildGradleKts.modify {
-                it.replace("wasmWasi {", "wasmWasi {\napplyBinaryen()\nbinaries.executable()")
+                it.replace("wasmWasi {", "wasmWasi {\nbinaries.executable()")
             }
 
             build("assemble") {
@@ -133,9 +145,9 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 assertTasksExecuted(":compileProductionExecutableKotlinWasmWasiOptimize")
 
                 val original =
-                    projectPath.resolve("build/compileSync/wasmWasi/main/productionExecutable/kotlin/new-mpp-wasm-wasi-test-wasm-wasi.wasm")
+                    projectPath.resolve("build/compileSync/wasmWasi/main/productionExecutable/kotlin/new-mpp-wasm-wasi-test.wasm")
                 val optimized =
-                    projectPath.resolve("build/compileSync/wasmWasi/main/productionExecutable/optimized/new-mpp-wasm-wasi-test-wasm-wasi.wasm")
+                    projectPath.resolve("build/compileSync/wasmWasi/main/productionExecutable/optimized/new-mpp-wasm-wasi-test.wasm")
                 assertTrue {
                     Files.size(original) > Files.size(optimized)
                 }
@@ -256,9 +268,9 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
 
                 val dist = "build/dist/wasmWasi/productionLibrary"
                 assertFileExists(projectPath.resolve("$dist/foo.txt"))
-                assertFileExists(projectPath.resolve("$dist/wasm-wasi-library-wasm-wasi.wasm"))
-                assertFileExists(projectPath.resolve("$dist/wasm-wasi-library-wasm-wasi.wasm.map"))
-                assertFileExists(projectPath.resolve("$dist/wasm-wasi-library-wasm-wasi.mjs"))
+                assertFileExists(projectPath.resolve("$dist/wasm-wasi-library.wasm"))
+                assertFileExists(projectPath.resolve("$dist/wasm-wasi-library.wasm.map"))
+                assertFileExists(projectPath.resolve("$dist/wasm-wasi-library.mjs"))
             }
         }
     }
@@ -304,7 +316,7 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 assertTasksExecuted(":wasmJsNodeTest")
                 assertTasksExecuted(":wasmJsTestTestDevelopmentExecutableCompileSync")
 
-                val packageDir = "build/js/packages/mpp-wasm-js-browser-nodejs-wasm-js-test/kotlin"
+                val packageDir = "build/wasm/packages/mpp-wasm-js-browser-nodejs-test/kotlin"
                 assertFileExists(projectPath.resolve("$packageDir/data.json"))
                 assertFileExists(projectPath.resolve("$packageDir/data-test.json"))
             }
@@ -315,7 +327,7 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun testPackageJsonDependsOnMainPackageJson(gradleVersion: GradleVersion) {
         project("mpp-wasm-js-browser-nodejs", gradleVersion) {
-            build(":rootPackageJson") {
+            build(":wasmRootPackageJson") {
                 assertTasksExecuted(":wasmJsPackageJson")
                 assertTasksExecuted(":wasmJsTestPackageJson")
                 assertTasksAreNotInTaskGraph(":compileKotlinWasmJs")
@@ -358,13 +370,13 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 """.trimIndent()
             )
 
-            build(":rootPackageJson") {
+            build(":wasmRootPackageJson") {
                 assertTasksExecuted(
-                    ":rootPackageJson"
+                    ":wasmRootPackageJson"
                 )
 
                 val moduleDir = projectPath
-                    .resolve("build/js/packages_imported/Kotlin-DateTime-library-kotlinx-datetime-wasm-js/0.6.0")
+                    .resolve("build/wasm/packages_imported/Kotlin-DateTime-library-kotlinx-datetime-wasm-js/0.6.0")
 
                 val kotlinxDatetimePackageJson = moduleDir.resolve("package.json")
 
@@ -417,6 +429,22 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
         }
     }
 
+    @DisplayName("webpack configuration is valid")
+    @GradleTest
+    fun testWebpackConfig(gradleVersion: GradleVersion) {
+        project("kotlin-js-test-webpack-config", gradleVersion) {
+            build("wasmJsBrowserDevelopmentWebpack")
+
+            build("wasmJsCheckConfigDevelopmentWebpack")
+
+            build("wasmJsCheckConfigProductionWebpack")
+
+            build("wasmJsCheckConfigDevelopmentRun")
+
+            build("wasmJsCheckConfigProductionRun")
+        }
+    }
+
     // Android Studio touches all properties to analyze
     // It may break some properties with Task source
     // but we need to work in Android Studio,
@@ -425,17 +453,14 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun testTouchingWebpackPropertyToNotBreakAndroidStudio(gradleVersion: GradleVersion) {
         project("wasm-browser-simple-project", gradleVersion) {
-            val moduleName = "hello"
             buildGradleKts.appendText(
-                //language=kotlin
                 """
-                    
-                    tasks.named<org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack>("wasmJsBrowserDevelopmentRun")                    
-                        .get()
-                        .inputFilesDirectory
-                        .get()
-                    
-                """.trimIndent()
+                |
+                |tasks.named<org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack>("wasmJsBrowserDevelopmentRun")                    
+                |    .get()
+                |    .inputFilesDirectory
+                |    .get()
+                |""".trimMargin()
             )
 
             build("help")
@@ -469,6 +494,240 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 assertOutputContains(
                     Path("binaryen-version_118").resolve("bin").resolve("wasm-opt").pathString
                 )
+            }
+        }
+    }
+
+    @DisplayName("Check js target test without kotlin-test")
+    @GradleTest
+    fun nodejsTestWithoutKotlinTest(gradleVersion: GradleVersion) {
+        project("new-mpp-wasm-js", gradleVersion) {
+            buildGradleKts.modify {
+                it.replace(
+                    "<JsEngine> {",
+                    // filter is necessary to mute Gradle error
+                    // https://docs.gradle.org/8.12.1/userguide/upgrading_version_8.html#test_task_fail_on_no_test_executed
+                    """
+                        |nodejs {
+                        |    testTask {
+                        |        filter.isFailOnNoMatchingTests = false
+                        |        filter.includeTest("Foo", "bar")
+                        |    }
+                    """.trimMargin()
+                )
+            }
+
+            projectPath.resolve("src/wasmJsTest/kotlin/foo.kt").apply {
+                toFile().parentFile.mkdirs()
+                writeText(
+                    """
+                    fun foo() = 73
+                """.trimIndent()
+                )
+            }
+
+            build("wasmJsTest") {
+                assertTasksExecuted(":wasmJsTest")
+            }
+        }
+    }
+
+    @DisplayName("wasm js composite build works")
+    @GradleTest
+    fun testWasmJsCompositeBuild(gradleVersion: GradleVersion) {
+        project(
+            "wasm-composite-build",
+            gradleVersion,
+            // `:compileKotlinWasmJs` task is not compatible with CC on Gradle 7
+            buildOptions = defaultBuildOptions.disableConfigurationCacheForGradle7(gradleVersion),
+        ) {
+            fun BuildResult.moduleVersion(rootModulePath: String, moduleName: String): String =
+                projectPath.resolve(rootModulePath).toFile()
+                    .resolve(NpmProject.PACKAGE_JSON)
+                    .also {
+                        if (!it.exists()) {
+                            it
+                                .parentFile // lib2
+                                .parentFile // node_modules
+                                .parentFile // js
+                                .resolve(NpmProject.PACKAGE_JSON)
+                                .let {
+                                    println("root package.json:")
+                                    println(it.readText())
+                                }
+
+                            it
+                                .parentFile // lib2
+                                .parentFile // node_modules
+                                .parentFile // js
+                                .resolve("packages_imported")
+                                .also {
+                                    println("ALL IMPORTED: ")
+                                    it.listFiles()
+                                        ?.forEach {
+                                            println(it.absolutePath)
+                                        }
+                                    it.resolve(".visited-gradle").let {
+                                        println("visited-gradle content")
+                                        println(it.readText())
+                                    }
+                                }
+                                .resolve("lib2")
+                                .resolve("0.0.0-unspecified")
+                                .resolve(NpmProject.PACKAGE_JSON)
+                                .let {
+                                    println("lib2 package.json state:")
+                                    if (it.exists()) {
+                                        println(it.readText())
+                                    } else {
+                                        println("lib2 package.json does not exists")
+                                    }
+                                }
+
+                            printBuildOutput()
+                        }
+                    }
+                    .let { fromSrcPackageJson(it) }
+                    .let { it?.dependencies }
+                    ?.getValue(moduleName)
+                    ?: error("Not found package $moduleName in $rootModulePath")
+
+            build("build") {
+                val libDecamelizeVersion = moduleVersion("build/wasm/node_modules/lib-lib-2", "decamelize")
+                assertEquals("1.1.1", libDecamelizeVersion)
+
+                val libAsyncVersion = moduleVersion("build/wasm/node_modules/lib-lib-2", "async")
+                assertEquals("2.6.2", libAsyncVersion)
+
+                val appNodeFetchVersion = moduleVersion("build/wasm/node_modules/wasm-composite-build", "node-fetch")
+                assertEquals("3.2.8", appNodeFetchVersion)
+            }
+        }
+    }
+
+    @DisplayName("when project has FAIL_ON_PROJECT_REPOS, expect Kotlin/Wasm tools are downloaded correctly")
+    @GradleTest
+    fun testFailOnProjectReposUsingCustomRepo(gradleVersion: GradleVersion) {
+        // Gradle versions below 8.1 do not correctly support repository mode
+        val dependencyManagement =
+            if (gradleVersion <= GradleVersion.version("8.1")) {
+                DependencyManagement.DisabledDependencyManagement
+            } else {
+                DependencyManagement.DefaultDependencyManagement()
+            }
+
+        project(
+            "wasm-project-repos",
+            gradleVersion,
+            dependencyManagement = dependencyManagement
+        ) {
+
+            settingsBuildScriptInjection {
+                settings.dependencyResolutionManagement.repositories.apply {
+                    ivy { repo ->
+                        repo.name = "Node.JS dist"
+                        repo.url = URI("https://nodejs.org/dist")
+                        repo.patternLayout {
+                            it.artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+                        }
+                        repo.metadataSources {
+                            it.artifact()
+                        }
+                        repo.content {
+                            it.includeModule("org.nodejs", "node")
+                        }
+                    }
+                    ivy { repo ->
+                        repo.name = "Yarn dist"
+                        repo.url = URI("https://github.com/yarnpkg/yarn/releases/download")
+                        repo.patternLayout {
+                            it.artifact("v[revision]/[artifact](-v[revision]).[ext]")
+                        }
+                        repo.metadataSources {
+                            it.artifact()
+                        }
+                        repo.content {
+                            it.includeModule("com.yarnpkg", "yarn")
+                        }
+                    }
+                    ivy { repo ->
+                        repo.name = "Binaryen dist"
+                        repo.url = URI("https://github.com/WebAssembly/binaryen/releases/download")
+                        repo.patternLayout {
+                            it.artifact("version_[revision]/binaryen-version_[revision]-[classifier].[ext]")
+                        }
+                        repo.metadataSources {
+                            it.artifact()
+                        }
+                        repo.content {
+                            it.includeModule("com.github.webassembly", "binaryen")
+                        }
+                    }
+                    ivy { repo ->
+                        repo.name = "D8 dist"
+                        repo.url = URI("https://storage.googleapis.com/chromium-v8/official/canary")
+                        repo.patternLayout {
+                            it.artifact("[artifact]-[revision].[ext]")
+                        }
+                        repo.metadataSources {
+                            it.artifact()
+                        }
+                        repo.content {
+                            it.includeModule("google.d8", "v8")
+                        }
+                    }
+                }
+            }
+
+            build("kotlinWasmNodeJsSetup", "kotlinWasmYarnSetup", "kotlinWasmBinaryenSetup", "kotlinWasmD8Setup") {
+                assertTasksExecuted(":kotlinWasmNodeJsSetup")
+                assertTasksExecuted(":kotlinWasmYarnSetup")
+                assertTasksExecuted(":kotlinWasmBinaryenSetup")
+                assertTasksExecuted(":kotlinWasmD8Setup")
+            }
+        }
+    }
+
+    @OptIn(ExperimentalWasmDsl::class)
+    @DisplayName("when project has FAIL_ON_PROJECT_REPOS without downloading tools, expect KGP does not download tools")
+    @GradleTest
+    fun testFailOnProjectReposNoDownload(gradleVersion: GradleVersion) {
+        // Gradle versions below 8.1 do not correctly support repository mode
+        val dependencyManagement =
+            if (gradleVersion <= GradleVersion.version("8.1")) {
+                DependencyManagement.DisabledDependencyManagement
+            } else {
+                DependencyManagement.DefaultDependencyManagement()
+            }
+
+        project(
+            "wasm-project-repos",
+            gradleVersion,
+            dependencyManagement = dependencyManagement
+        ) {
+            buildScriptInjection {
+                project.plugins.withType(WasmNodeJsPlugin::class.java) {
+                    project.extensions.getByType(WasmNodeJsEnvSpec::class.java).download.set(false)
+                }
+
+                project.plugins.withType(WasmYarnPlugin::class.java) {
+                    project.extensions.getByType(WasmYarnRootEnvSpec::class.java).download.set(false)
+                }
+
+                project.plugins.withType(BinaryenPlugin::class.java) {
+                    project.extensions.getByType(BinaryenEnvSpec::class.java).download.set(false)
+                }
+
+                project.plugins.withType(D8Plugin::class.java) {
+                    project.extensions.getByType(D8EnvSpec::class.java).download.set(false)
+                }
+            }
+
+            build("kotlinWasmNodeJsSetup", "kotlinWasmYarnSetup", "kotlinWasmBinaryenSetup", "kotlinWasmD8Setup") {
+                assertTasksSkipped(":kotlinWasmNodeJsSetup")
+                assertTasksSkipped(":kotlinWasmYarnSetup")
+                assertTasksSkipped(":kotlinWasmBinaryenSetup")
+                assertTasksSkipped(":kotlinWasmD8Setup")
             }
         }
     }

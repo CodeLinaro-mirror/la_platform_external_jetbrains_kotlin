@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.resolve.calls.candidate
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.fakeElement
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
@@ -67,7 +68,7 @@ class Candidate(
 
     // ---------------------------------------- Constraint system ----------------------------------------
 
-    val usedOuterCs: Boolean get() = system.usesOuterCs
+    override val usedOuterCs: Boolean get() = system.usesOuterCs
 
     private var systemInitialized: Boolean = false
     override val system: NewConstraintSystemImpl by lazy(LazyThreadSafetyMode.NONE) {
@@ -220,6 +221,24 @@ class Candidate(
         _postponedAtoms += atom
     }
 
+    // ------------------------ Context-sensitively resolved arguments ------------------------------------
+
+    private var _updatedArgumentsFromContextSensitiveResolution: MutableMap<FirElement, FirExpression>? =
+        null
+
+    fun setUpdatedArgumentFromContextSensitiveResolution(old: FirPropertyAccessExpression, new: FirExpression) {
+        if (_updatedArgumentsFromContextSensitiveResolution == null) {
+            _updatedArgumentsFromContextSensitiveResolution = mutableMapOf()
+        }
+
+        val existingValue = _updatedArgumentsFromContextSensitiveResolution!!.put(old, new)
+        check(existingValue == null) {
+            "We shouldn't put the value for $old twice"
+        }
+    }
+
+    val contextSensitiveResolutionReplacements: Map<FirElement, FirExpression>?
+        get() = _updatedArgumentsFromContextSensitiveResolution
     // ---------------------------------------- PCLA-related parts ----------------------------------------
 
     val postponedPCLACalls: MutableList<ConeResolutionAtom> = mutableListOf()
@@ -272,7 +291,7 @@ class Candidate(
      * In case `f: context(C..) (V) -> ..`, `f(e..)`, context values are still being introduced as a prefix of
      * regular arguments for `invoke` function.
      */
-    var expectedContextParameterTypesForInvoke: List<ConeKotlinType>? = null
+    var expectedContextParameterCountForInvoke: Int? = null
 
     // FirExpressionStub can be located here in case of callable reference resolution
     fun dispatchReceiverExpression(): FirExpression? {

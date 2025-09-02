@@ -208,10 +208,11 @@ fun deserializeClassToSymbol(
             generateValuesFunction(
                 moduleData,
                 classId.packageFqName,
-                classId.relativeClassName
+                classId.relativeClassName,
+                origin = origin,
             )
-            generateValueOfFunction(moduleData, classId.packageFqName, classId.relativeClassName)
-            generateEntriesGetter(moduleData, classId.packageFqName, classId.relativeClassName)
+            generateValueOfFunction(moduleData, classId.packageFqName, classId.relativeClassName, origin = origin)
+            generateEntriesGetter(moduleData, classId.packageFqName, classId.relativeClassName, origin = origin)
         }
 
         addCloneForArrayIfNeeded(classId, context.dispatchReceiver, session)
@@ -232,9 +233,11 @@ fun deserializeClassToSymbol(
 
         valueClassRepresentation =
             classProto.loadValueClassRepresentation(
+                session.deserializationExtension?.isMaybeMultiFieldValueClass(containerSource) == true,
                 context.nameResolver,
                 context.typeTable,
-                { context.typeDeserializer.rigidType(it) }) { name ->
+                context.typeDeserializer::rigidType,
+            ) { name ->
                 val member = declarations.singleOrNull { it is FirProperty && it.receiverParameter == null && it.name == name }
                 (member as FirProperty?)?.returnTypeRef?.coneType as ConeRigidType
             } ?: computeValueClassRepresentation(this, session)

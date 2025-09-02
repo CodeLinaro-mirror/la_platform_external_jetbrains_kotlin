@@ -21,7 +21,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.fileExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.isMain
 import org.jetbrains.kotlin.gradle.targets.js.KotlinWasmTargetType
-import org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenExec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec
 import org.jetbrains.kotlin.gradle.targets.js.dsl.Distribution
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsBinaryContainer.Companion.generateBinaryName
@@ -56,6 +56,7 @@ sealed class JsIrBinary(
 
     val validateGeneratedTsTaskName: String = validateTypeScriptTaskName()
 
+    @Deprecated("No longer used. To enable TypeScript definitiions use generateTypeScriptDefinitions() in the Kotlin JS target instead. Scheduled for removal in Kotlin 2.4.")
     var generateTs: Boolean = false
 
     val outputDirBase: Provider<Directory> = project.layout.buildDirectory

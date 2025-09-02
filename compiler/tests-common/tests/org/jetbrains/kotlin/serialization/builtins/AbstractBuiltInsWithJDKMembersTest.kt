@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.builtins.StandardNames.BUILT_INS_PACKAGE_FQ_NAME
 import org.jetbrains.kotlin.builtins.StandardNames.COLLECTIONS_PACKAGE_FQ_NAME
 import org.jetbrains.kotlin.builtins.StandardNames.RANGES_PACKAGE_FQ_NAME
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.descriptors.packageFragments
@@ -26,7 +27,6 @@ import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.util.RecursiveDescriptorComparator
 import org.jetbrains.kotlin.test.util.RecursiveDescriptorComparatorAdaptor
 import org.jetbrains.kotlin.types.isError
-import java.io.File
 
 abstract class AbstractBuiltInsWithJDKMembersTest : KotlinTestWithEnvironment() {
     private val configuration = createComparatorConfiguration()
@@ -35,15 +35,18 @@ abstract class AbstractBuiltInsWithJDKMembersTest : KotlinTestWithEnvironment() 
         createEnvironmentWithJdk(ConfigurationKind.JDK_ONLY, TestJdkKind.FULL_JDK)
 
     protected fun doTest(builtinVersionName: String) {
+        @Suppress("DEPRECATION")
         val module = JvmResolveUtil.analyze(environment).moduleDescriptor as ModuleDescriptorImpl
 
         for (packageFqName in listOf(BUILT_INS_PACKAGE_FQ_NAME, COLLECTIONS_PACKAGE_FQ_NAME, RANGES_PACKAGE_FQ_NAME)) {
             val loaded = module.packageFragmentProvider.packageFragments(packageFqName)
                 .filterIsInstance<BuiltInsPackageFragment>()
                 .single { !it.isFallback }
+            val originalTxtPath =
+                "compiler/testData/builtin-classes/$builtinVersionName/" + packageFqName.asString().replace('.', '-') + ".txt"
             RecursiveDescriptorComparatorAdaptor.validateAndCompareDescriptorWithFile(
                 loaded, configuration,
-                File("compiler/testData/builtin-classes/$builtinVersionName/" + packageFqName.asString().replace('.', '-') + ".txt")
+                ForTestCompileRuntime.transformTestDataPath(originalTxtPath)
             )
         }
     }

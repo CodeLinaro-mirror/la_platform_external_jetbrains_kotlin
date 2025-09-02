@@ -53,9 +53,31 @@ public class FirIdeNormalAnalysisScriptSourceModuleCollectDiagnosticsTestGenerat
   }
 
   @Test
+  @TestMetadata("danglingAnnotationOnMemberFunctionScript.kts")
+  public void testDanglingAnnotationOnMemberFunctionScript() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/danglingAnnotationOnMemberFunctionScript.kts");
+  }
+
+  @Test
+  @TestMetadata("danglingAnnotationOnTopLevelFunctionScript.kts")
+  public void testDanglingAnnotationOnTopLevelFunctionScript() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/danglingAnnotationOnTopLevelFunctionScript.kts");
+  }
+
+  @Test
   @TestMetadata("unresolvedContractsScript.kts")
   public void testUnresolvedContractsScript() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/unresolvedContractsScript.kts");
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue")
+  @TestDataPath("$PROJECT_ROOT")
+  public class MustUseReturnValue {
+    @Test
+    public void testAllFilesPresentInMustUseReturnValue() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
   }
 
   @Nested

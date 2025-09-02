@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.buildtools.internal
 
 import org.jetbrains.kotlin.build.report.metrics.BuildMetrics
 import org.jetbrains.kotlin.buildtools.api.KotlinLogger
-import org.jetbrains.kotlin.buildtools.api.SourcesChanges
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalCompilationApproachParameters
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration
 import org.jetbrains.kotlin.daemon.common.*
@@ -51,16 +50,22 @@ internal val JvmCompilationConfigurationImpl.asDaemonCompilationOptions: Compila
                     buildDir = options.buildDir,
                     kotlinScriptExtensions = ktsExtensionsAsArray,
                     icFeatures = options.extractIncrementalCompilationFeatures(),
-                    useJvmFirRunner = false,
+                    useJvmFirRunner = options.isUsingFirRunner,
                 )
             }
-            else -> CompilationOptions(
+            // no IC configuration -> non-incremental compilation
+            null -> CompilationOptions(
                 compilerMode = CompilerMode.NON_INCREMENTAL_COMPILER,
                 targetPlatform = CompileService.TargetPlatform.JVM,
                 reportCategories = reportCategories,
                 reportSeverity = reportSeverity,
                 requestedCompilationResults = emptyArray(),
                 kotlinScriptExtensions = ktsExtensionsAsArray,
+            )
+            else -> error(
+                "Unexpected incremental compilation configuration: $options. " +
+                        "In this version, it must be an instance of ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration " +
+                        "for incremental compilation, or null for non-incremental compilation."
             )
         }
     }

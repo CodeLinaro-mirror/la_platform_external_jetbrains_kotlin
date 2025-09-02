@@ -10,26 +10,27 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
-import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 
 object FirInfixFunctionDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
-    override fun check(declaration: FirFunction, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirFunction) {
         if (!declaration.status.isInfix) return
         if (
             (declaration.valueParameters.size != 1) ||
-            !hasExtensionOrDispatchReceiver(declaration, context) ||
+            !hasExtensionOrDispatchReceiver(declaration) ||
             declaration.valueParameters.single().isVararg
         ) {
-            reporter.reportOn(declaration.source, FirErrors.INAPPLICABLE_INFIX_MODIFIER, context)
+            reporter.reportOn(declaration.source, FirErrors.INAPPLICABLE_INFIX_MODIFIER)
         }
     }
 
+    context(context: CheckerContext)
     private fun hasExtensionOrDispatchReceiver(
-        function: FirFunction,
-        context: CheckerContext
+        function: FirFunction
     ): Boolean {
         if (function.receiverParameter != null) return true
-        return context.containingDeclarations.lastOrNull() is FirClass
+        return context.containingDeclarations.lastOrNull() is FirClassSymbol
     }
 }

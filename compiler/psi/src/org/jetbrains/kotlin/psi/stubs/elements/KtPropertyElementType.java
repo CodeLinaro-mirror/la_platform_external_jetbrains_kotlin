@@ -1,17 +1,6 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.psi.stubs.elements;
@@ -28,6 +17,7 @@ import org.jetbrains.kotlin.name.FqName;
 import org.jetbrains.kotlin.psi.KtProperty;
 import org.jetbrains.kotlin.psi.psiUtil.KtPsiUtilKt;
 import org.jetbrains.kotlin.psi.stubs.KotlinPropertyStub;
+import org.jetbrains.kotlin.psi.stubs.StubUtils;
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinConstantValueKt;
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinPropertyStubImpl;
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinStubOrigin;
@@ -46,14 +36,21 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStub,
                 String.format("Should not store local property: %s, parent %s",
                               psi.getText(), psi.getParent() != null ? psi.getParent().getText() : "<no parent>");
 
+        Boolean hasBackingField = StubUtils.searchForHasBackingFieldComment$psi(psi);
         return new KotlinPropertyStubImpl(
-                (StubElement<?>) parentStub, StringRef.fromString(psi.getName()),
-                psi.isVar(), psi.isTopLevel(), psi.hasDelegate(),
-                psi.hasDelegateExpression(), psi.hasInitializer(),
-                psi.getReceiverTypeReference() != null, psi.getTypeReference() != null,
+                (StubElement<?>) parentStub,
+                StringRef.fromString(psi.getName()),
+                psi.isVar(),
+                psi.isTopLevel(),
+                psi.hasDelegate(),
+                psi.hasDelegateExpression(),
+                psi.hasInitializer(),
+                psi.getReceiverTypeReference() != null,
+                psi.getTypeReference() != null,
                 KtPsiUtilKt.safeFqNameForLazyResolve(psi),
                 /* constantInitializer = */ null,
-                /* origin = */ null
+                /* origin = */ null,
+                /* hasBackingField = */hasBackingField
         );
     }
 
@@ -75,14 +72,12 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStub,
             KotlinPropertyStubImpl stubImpl = (KotlinPropertyStubImpl) stub;
 
             ConstantValue<?> constantInitializer = ((KotlinPropertyStubImpl) stub).getConstantInitializer();
-            if (constantInitializer != null) {
-                KotlinConstantValueKt.serialize(constantInitializer, dataStream);
-            } else {
-                dataStream.writeInt(-1);
-            }
+            KotlinConstantValueKt.serializeConstantValue(constantInitializer, dataStream);
 
             KotlinStubOrigin.serialize(stubImpl.getOrigin(), dataStream);
         }
+
+        StubUtils.writeNullableBoolean$psi(dataStream, stub.getHasBackingField());
     }
 
     @NotNull
@@ -100,10 +95,23 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStub,
         StringRef fqNameAsString = dataStream.readName();
         FqName fqName = fqNameAsString != null ? new FqName(fqNameAsString.toString()) : null;
 
+        ConstantValue<?> constantInitializer = KotlinConstantValueKt.deserializeConstantValue(dataStream);
+        KotlinStubOrigin stubOrigin = KotlinStubOrigin.deserialize(dataStream);
+        Boolean hasBackingFiled = StubUtils.readNullableBoolean$psi(dataStream);
         return new KotlinPropertyStubImpl(
-                (StubElement<?>) parentStub, name, isVar, isTopLevel, hasDelegate, hasDelegateExpression, hasInitializer,
-                hasReceiverTypeRef, hasReturnTypeRef, fqName, KotlinConstantValueKt.createConstantValue(dataStream),
-                KotlinStubOrigin.deserialize(dataStream)
+                (StubElement<?>) parentStub,
+                name,
+                isVar,
+                isTopLevel,
+                hasDelegate,
+                hasDelegateExpression,
+                hasInitializer,
+                hasReceiverTypeRef,
+                hasReturnTypeRef,
+                fqName,
+                constantInitializer,
+                stubOrigin,
+                hasBackingFiled
         );
     }
 

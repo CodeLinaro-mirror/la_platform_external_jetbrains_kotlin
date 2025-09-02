@@ -308,6 +308,12 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
     }
 
     @Test
+    @TodoAnalysisApi
+    fun `test - special function names with explicit method family`() {
+        doTest(headersTestDataDir.resolve("specialFunctionNamesExplicitMethodFamily"), Configuration(explicitMethodFamily = true))
+    }
+
+    @Test
     fun `test - vararg`() {
         doTest(headersTestDataDir.resolve("vararg"))
     }
@@ -597,6 +603,50 @@ class ObjCExportHeaderGeneratorTest(private val generator: HeaderGenerator) {
     @Test
     fun `test - var with private setter translated as immutable property`() {
         doTest(headersTestDataDir.resolve("varWithPrivateSetterTranslatedAsImmutableProperty"))
+    }
+
+    /**
+     * Disabled because of init constructors order KT-70626
+     */
+    @Test
+    @TodoAnalysisApi
+    fun `test - mangle throws annotation`() {
+        doTest(headersTestDataDir.resolve("mangleThrowsAnnotation"))
+    }
+
+    @Test
+    fun `test - functions annotated with @ObjCName`() {
+        doTest(headersTestDataDir.resolve("functionsAnnotatedWithObjCName"))
+    }
+
+    @Test
+    fun `test - classifiers annotated with @ObjCName`() {
+        doTest(headersTestDataDir.resolve("classifiersAnnotatedWithObjCName"))
+    }
+
+    @Test
+    fun `test - properties annotated with @ObjCName`() {
+        doTest(headersTestDataDir.resolve("propertiesAnnotatedWithObjCName"))
+    }
+
+    @Test
+    fun `test - function parameters annotated with @ObjCName`() {
+        doTest(headersTestDataDir.resolve("functionParametersAnnotatedWithObjCName"))
+    }
+
+    @Test
+    fun `test - frameworkName is not added when class @ObjCName is the same kotlin name exact == true`() {
+        doTest(headersTestDataDir.resolve("frameworkNameWithObjCNameAndExact"), Configuration(frameworkName = "Shared"))
+    }
+
+    @Test
+    fun `test - extension of primitive type`() {
+        doTest(headersTestDataDir.resolve("extensionOfPrimitiveType"))
+    }
+
+    @Test
+    fun `test - receiver annotated with ObjCName`() {
+        doTest(headersTestDataDir.resolve("objCNameWithReceiver"))
     }
 
     private fun doTest(root: File, configuration: Configuration = Configuration()) {

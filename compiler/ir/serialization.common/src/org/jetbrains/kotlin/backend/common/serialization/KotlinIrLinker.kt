@@ -16,10 +16,11 @@ import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.IrCallableReference
 import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
 import org.jetbrains.kotlin.ir.expressions.IrPropertyReference
-import org.jetbrains.kotlin.ir.linkage.IrDeserializer
+import org.jetbrains.kotlin.backend.common.linkage.IrDeserializer
+import org.jetbrains.kotlin.ir.irAttribute
+import org.jetbrains.kotlin.ir.symbols.IrFileSymbol
 import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
@@ -40,7 +41,7 @@ abstract class KotlinIrLinker(
     val builtIns: IrBuiltIns,
     val symbolTable: SymbolTable,
     private val exportedDependencies: List<ModuleDescriptor>,
-    val symbolProcessor: IrSymbolDeserializer.(IrSymbol, IdSignature) -> IrSymbol = { s, _ -> s },
+    val deserializedSymbolPostProcessor: (IrSymbol, IdSignature, IrFileSymbol) -> IrSymbol = { s, _, _ -> s },
 ) : IrDeserializer, FileLocalAwareLinker {
     val irInterner = IrInterningService()
 
@@ -72,6 +73,8 @@ abstract class KotlinIrLinker(
     open val returnUnboundSymbolsIfSignatureNotFound: Boolean
         get() = partialLinkageSupport.isEnabled
 
+    open val moduleDependencyTracker: IrModuleDependencyTracker get() = IrModuleDependencyTracker.DISABLED
+
     protected open val userVisibleIrModulesSupport: UserVisibleIrModulesSupport get() = UserVisibleIrModulesSupport.DEFAULT
 
     fun deserializeOrReturnUnboundIrSymbolIfPartialLinkageEnabled(
@@ -91,17 +94,22 @@ abstract class KotlinIrLinker(
         // might return null (like KonanInteropModuleDeserializer does) or non-null unbound symbol (like JsModuleDeserializer does).
         val symbol: IrSymbol? = actualModuleDeserializer?.tryDeserializeIrSymbol(idSignature, symbolKind)
 
-        return symbol ?: run {
-            if (returnUnboundSymbolsIfSignatureNotFound)
-                referenceDeserializedSymbol(symbolTable, null, symbolKind, idSignature)
-            else
-                SignatureIdNotFoundInModuleWithDependencies(
-                    idSignature = idSignature,
-                    problemModuleDeserializer = moduleDeserializer,
-                    allModuleDeserializers = deserializersForModules.values,
-                    userVisibleIrModulesSupport = userVisibleIrModulesSupport
-                ).raiseIssue(messageCollector)
-        }
+        if (symbol != null) {
+            moduleDependencyTracker?.trackDependency(
+                fromModule = moduleDeserializer.moduleFragment,
+                toModule = actualModuleDeserializer.moduleFragment
+            )
+
+            return symbol
+        } else if (returnUnboundSymbolsIfSignatureNotFound)
+            return referenceDeserializedSymbol(symbolTable, null, symbolKind, idSignature)
+        else
+            SignatureIdNotFoundInModuleWithDependencies(
+                idSignature = idSignature,
+                problemModuleDeserializer = moduleDeserializer,
+                allModuleDeserializers = deserializersForModules.values,
+                userVisibleIrModulesSupport = userVisibleIrModulesSupport
+            ).raiseIssue(messageCollector)
     }
 
     fun resolveModuleDeserializer(module: ModuleDescriptor, idSignature: IdSignature?): IrModuleDeserializer {
@@ -273,6 +281,7 @@ abstract class KotlinIrLinker(
             // We have to exclude classifiers with unbound symbols in supertypes and in type parameter upper bounds from F.O. generation
             // to avoid failing with `Symbol for <signature> is unbound` error or generating fake overrides with incorrect signatures.
             partialLinkageSupport.exploreClassifiers(fakeOverrideBuilder)
+            partialLinkageSupport.generateStubsForClassifiers(symbolTable)
         }
 
         // Fake override generator creates new IR declarations. This may have effect of binding for certain symbols.
@@ -320,11 +329,23 @@ abstract class KotlinIrLinker(
         assert(moduleDescriptor.name.asString() == moduleName) {
             "${moduleDescriptor.name.asString()} != $moduleName"
         }
-        val deserializerForModule = deserializersForModules.getOrPut(moduleName) {
-            maybeWrapWithBuiltInAndInit(moduleDescriptor, createModuleDeserializer(moduleDescriptor, kotlinLibrary, deserializationStrategy))
-        }
+
+        val moduleFragment = deserializersForModules.getOrPut(moduleName) {
+            maybeWrapWithBuiltInAndInit(
+                moduleDescriptor = moduleDescriptor,
+                moduleDeserializer = createModuleDeserializer(
+                    moduleDescriptor = moduleDescriptor,
+                    klib = kotlinLibrary,
+                    strategyResolver = deserializationStrategy
+                )
+            )
+        }.moduleFragment
+
+        moduleFragment.kotlinLibrary = kotlinLibrary
+        moduleDependencyTracker?.addModuleForTracking(module = moduleFragment)
+
         // The IrModule and its IrFiles have been created during module initialization.
-        return deserializerForModule.moduleFragment
+        return moduleFragment
     }
 
     protected open fun maybeWrapWithBuiltInAndInit(
@@ -376,3 +397,7 @@ enum class DeserializationStrategy(
     ONLY_DECLARATION_HEADERS(false, false, false, false, false),
     WITH_INLINE_BODIES(false, false, false, false, true)
 }
+
+/** This is an auxiliary attribute that is used to store [KotlinLibrary] instance for deserialized [IrModuleFragment]. */
+var IrModuleFragment.kotlinLibrary: KotlinLibrary? by irAttribute(copyByDefault = false)
+    private set

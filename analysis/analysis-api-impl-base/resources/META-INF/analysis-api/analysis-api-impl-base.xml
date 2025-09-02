@@ -12,7 +12,15 @@
   </extensionPoints>
 
   <extensions defaultExtensionNs="com.intellij">
-    <projectService serviceImplementation="org.jetbrains.kotlin.resolve.jvm.KotlinJavaPsiFacade"/>
+    <projectService
+        serviceInterface="org.jetbrains.kotlin.resolve.jvm.KotlinJavaPsiFacade"
+        serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.java.KaBaseKotlinJavaPsiFacade"
+    />
+
+    <projectService
+        serviceInterface="org.jetbrains.kotlin.resolve.jvm.modules.JavaModuleResolver"
+        serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.java.KaBaseJavaModuleResolver"
+    />
 
     <projectService
         serviceInterface="org.jetbrains.kotlin.load.java.structure.impl.source.JavaElementSourceFactory"
@@ -45,17 +53,26 @@
     />
 
     <projectService
+        serviceInterface="org.jetbrains.kotlin.analysis.api.platform.projectStructure.KaResolutionScopeProvider"
+        serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.projectStructure.KaBaseResolutionScopeProvider"
+    />
+
+    <projectService
         serviceInterface="org.jetbrains.kotlin.analysis.api.platform.lifetime.KaLifetimeTracker"
         serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.lifetime.KaBaseLifetimeTracker"
     />
 
-    <applicationService serviceImplementation="org.jetbrains.kotlin.analysis.decompiled.light.classes.origin.KotlinDeclarationInCompiledFileSearcher" />
-
     <projectService
-        serviceInterface="org.jetbrains.kotlin.analysis.api.symbols.pointers.KaPsiSymbolPointerCreator"
-        serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.symbols.pointers.KaBasePsiSymbolPointerCreator"
+        serviceInterface="org.jetbrains.kotlin.analysis.api.platform.projectStructure.KaContentScopeProvider"
+        serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.projectStructure.KaBaseContentScopeProvider"
     />
 
+    <projectService
+        serviceInterface="org.jetbrains.kotlin.analysis.api.platform.projectStructure.KaGlobalSearchScopeMerger"
+        serviceImplementation="org.jetbrains.kotlin.analysis.api.impl.base.projectStructure.KotlinOptimizingGlobalSearchScopeMerger"
+    />
+
+    <applicationService serviceImplementation="org.jetbrains.kotlin.analysis.decompiled.light.classes.origin.KotlinDeclarationInCompiledFileSearcher" />
 
     <java.elementFinder implementation="org.jetbrains.kotlin.asJava.finder.JavaElementFinder"/>
 
@@ -67,10 +84,15 @@
     />
 
     <registryKey
-        defaultValue="false"
-        description="Allow a KaSymbol creation in an incorrect context"
-        key="kotlin.analysis.unrelatedSymbolCreation.allowed"
+        defaultValue="true"
+        description="Validate PsiElements passed to the Analysis API"
+        key="kotlin.analysis.validate.psi.input"
         restartRequired="false"
     />
+  </extensions>
+
+  <extensions defaultExtensionNs="org.jetbrains.kotlin">
+    <kotlinContentScopeRefiner implementation="org.jetbrains.kotlin.analysis.api.impl.base.projectStructure.KaResolveExtensionToContentScopeRefinerBridge"/>
+    <kotlinGlobalSearchScopeMergeStrategy implementation="org.jetbrains.kotlin.analysis.api.impl.base.projectStructure.KotlinResolveExtensionGeneratedFileScopeMergeStrategy"/>
   </extensions>
 </idea-plugin>

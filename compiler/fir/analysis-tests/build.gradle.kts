@@ -9,6 +9,7 @@ plugins {
     kotlin("jvm")
     id("jps-compatible")
     id("d8-configuration")
+    id("share-foreign-java-nullability-annotations")
 }
 
 dependencies {
@@ -44,22 +45,15 @@ dependencies {
     testRuntimeOnly(commonDependency("com.fasterxml:aalto-xml"))
     testRuntimeOnly("com.jetbrains.intellij.platform:util-xml-dom:$intellijVersion") { isTransitive = false }
     testRuntimeOnly(toolsJar())
-}
 
-val generationRoot = projectDir.resolve("tests-gen")
+    jakartaAnnotationsClasspath(commonDependency("jakarta.annotation", "jakarta.annotation-api"))
+}
 
 sourceSets {
     "main" { none() }
     "test" {
         projectDefault()
-        this.java.srcDir(generationRoot.name)
-    }
-}
-
-if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
-    apply(plugin = "idea")
-    idea {
-        this.module.generatedSourceDirs.add(generationRoot)
+        generatedTestDir()
     }
 }
 

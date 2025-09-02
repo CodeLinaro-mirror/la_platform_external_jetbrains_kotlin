@@ -22,21 +22,22 @@ import org.jetbrains.kotlin.fir.types.isNothing
 
 object FirImplicitNothingReturnTypeChecker : FirCallableDeclarationChecker(MppCheckerKind.Common) {
 
-    override fun check(declaration: FirCallableDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirCallableDeclaration) {
         if (declaration !is FirSimpleFunction && declaration !is FirProperty) return
         if (declaration is FirProperty && declaration.isLocal) return
         if (declaration.isOverride) return
         if (declaration.origin == FirDeclarationOrigin.ScriptCustomization.ResultProperty) return
         if (declaration.symbol.hasExplicitReturnType) {
             val notDeclaredAsNothing = !declaration.returnTypeRef.coneType.abbreviatedTypeOrSelf.isNothing
-            val expandedNothing = declaration.returnTypeRef.coneType.fullyExpandedType(context.session).isNothing
+            val expandedNothing = declaration.returnTypeRef.coneType.fullyExpandedType().isNothing
             if (notDeclaredAsNothing && expandedNothing) {
                 val factory = when (declaration) {
                     is FirSimpleFunction -> FirErrors.ABBREVIATED_NOTHING_RETURN_TYPE
                     is FirProperty -> FirErrors.ABBREVIATED_NOTHING_PROPERTY_TYPE
                     else -> error("Should not be here")
                 }
-                reporter.reportOn(declaration.source, factory, context)
+                reporter.reportOn(declaration.source, factory)
             }
             return
         }
@@ -46,7 +47,7 @@ object FirImplicitNothingReturnTypeChecker : FirCallableDeclarationChecker(MppCh
                 is FirProperty -> FirErrors.IMPLICIT_NOTHING_PROPERTY_TYPE
                 else -> error("Should not be here")
             }
-            reporter.reportOn(declaration.source, factory, context)
+            reporter.reportOn(declaration.source, factory)
         }
     }
 }

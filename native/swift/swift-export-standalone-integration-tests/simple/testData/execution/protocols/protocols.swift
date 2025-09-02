@@ -1,72 +1,123 @@
 import Main
+import Testing
 
+@Test
 func testInterface() throws {
     let expected = SomeFoo()
 
     let functionResult = identity(obj: expected)
-    try assertSame(actual: functionResult, expected: expected)
+    #expect(functionResult === expected)
 
     property = expected
     let propertyResult = property
-    try assertSame(actual: propertyResult, expected: expected)
+    #expect(propertyResult === expected)
 }
 
 func testNullableInterface() throws {
     let expected = SomeFoo()
 
     let nullableFunctionResult = nullableIdentity(value: expected)
-    try assertSame(actual: nullableFunctionResult, expected: expected)
+    #expect(nullableFunctionResult === expected)
 
     nullableProperty = expected
     let propertyResult = nullableProperty
-    try assertSame(actual: propertyResult, expected: expected)
+    #expect(propertyResult === expected)
 }
 
 func testListOfInterfaces() throws {
     let expected = [SomeFoo()]
     let functionResult = listIdentity(value: expected)
-    try assertEquals(actual: functionResult, expected: expected)
+    #expect(functionResult == expected)
 
     listProperty = expected
     let propertyResult = listProperty
-    try assertEquals(actual: propertyResult, expected: expected)
+    #expect(propertyResult == expected)
 }
 
 func testListOfNullableInterfaces() throws {
     let expected = [Optional(SomeFoo())]
     let functionResult = nullablesListIdentity(value: expected)
-    try assertEquals(actual: functionResult, expected: expected)
+    #expect(functionResult == expected)
 
     nullablesListProperty = expected
     let propertyResult = nullablesListProperty
-    try assertEquals(actual: propertyResult, expected: expected)
+    #expect(propertyResult == expected)
 }
 
+@Test
 func testInterfaceMembers() throws {
     let instance = SomeFoo()
 
     let expected = SomeFoo()
     let functionResult = instance.identity(obj: expected)
-    try assertSame(actual: functionResult, expected: expected)
-    try assertFalse(functionResult === instance, "These should not be same")
+    #expect(functionResult === expected)
+    #expect(functionResult !== instance, "These should not be same")
 
     instance.property = expected
     let propertyResult = instance.property
-    try assertSame(actual: propertyResult, expected: expected)
-    try assertFalse(propertyResult === instance, "These should not be same")
+    #expect(propertyResult === expected)
+    #expect(propertyResult !== instance, "These should not be same")
 }
 
-class ProtocolsTests: TestProvider {
-    var tests: [TestCase] = []
+@Test
+func testInterfaceMembersOfExistential() throws {
+    let instance: any Foo = SomeFoo()
 
-    init() {
-        providers.append(self)
-        tests = [
-            TestCase(name: "testInterface", method: withAutorelease(testInterface)),
-            TestCase(name: "testNullableInterface", method: withAutorelease(testNullableInterface)),
-            TestCase(name: "testListOfInterfaces", method: withAutorelease(testListOfInterfaces)),
-            TestCase(name: "testListOfNullableInterfaces", method: withAutorelease(testListOfNullableInterfaces)),
-            TestCase(name: "testInterfaceMembers", method: withAutorelease(testInterfaceMembers)),
-        ]
-    }
+    let expected = SomeFoo()
+    let functionResult = instance.identity(obj: expected)
+    try #require(functionResult === expected)
+    try #require(functionResult !== instance)
+
+    instance.property = expected
+    let propertyResult = instance.property
+    try #require(propertyResult === expected)
+    try #require(propertyResult !== instance)
+}
+
+@Test
+func testShouldWrapPrivateTypesIntoKotlinExistentialsInFunctions() throws {
+    let expected = value
+    #expect(expected is Baz)
+
+    let actualFunctionResult = identity(baz: expected)
+
+    #expect(ObjectIdentifier(actualFunctionResult) == ObjectIdentifier(expected))
+    #expect(actualFunctionResult === expected)
+}
+
+@Test
+func testShouldCallMethodsThroughKotlinExistentials() throws {
+    let instance: Baz = value
+    let result = instance.identity(baz: instance)
+    #expect(ObjectIdentifier(result) == ObjectIdentifier(instance))
+    #expect(result === instance)
+}
+
+@Test
+func testShouldAccessPropertiesThroughKotlinExistentials() throws {
+    let instance: Baz = value
+
+    instance.value = instance
+    let retrieved = instance.value
+    #expect(ObjectIdentifier(retrieved) == ObjectIdentifier(instance))
+    #expect(retrieved === instance)
+}
+
+@Test
+func testShouldWrapPrivateTypesIntoKotlinExistentialsInVariables() throws {
+    let original = value
+    let newInstance = identity(baz: original)
+
+    value = newInstance
+    #expect(value === newInstance)
+
+    value = original
+}
+
+@Test
+func testSAMConverterShouldBridge() throws {
+    let expected: Int32 = 42
+    let value: any FunctionalInterface = functionalInterface { expected }
+    let actual = testFunctionalInterface(arg: value)
+    #expect(actual == expected)
 }

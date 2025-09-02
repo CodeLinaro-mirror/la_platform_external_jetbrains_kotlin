@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.plugin
 
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.artifacts.*
+import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.diagnostics.UklibPublicationDiagnosticsSetupAction
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.internal.CustomizeKotlinDependenciesSetupAction
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
@@ -30,6 +31,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.publishing.MultiplatformPublishing
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.RegisterMultiplatformResourcesPublicationExtensionAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.publication.SetUpMultiplatformAndroidAssetsAndResourcesPublicationAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.publication.SetUpMultiplatformJvmResourcesPublicationAction
+import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.consumption.UklibConsumptionSetupAction
 import org.jetbrains.kotlin.gradle.plugin.sources.KotlinMultiplatformSourceSetSetupAction
 import org.jetbrains.kotlin.gradle.plugin.sources.LanguageSettingsSetupAction
 import org.jetbrains.kotlin.gradle.plugin.statistics.FinalizeConfigurationFusMetricAction
@@ -109,6 +111,8 @@ internal fun Project.registerKotlinPluginExtensions() {
             }
 
             register(project, NativeToolchainProjectSetupAction)
+            register(project, UklibPublicationDiagnosticsSetupAction)
+            register(project, UklibConsumptionSetupAction)
         }
 
     }
@@ -145,7 +149,6 @@ internal fun Project.registerKotlinPluginExtensions() {
 
     KotlinTargetArtifact.extensionPoint.apply {
         register(project, KotlinMetadataArtifact)
-        register(project, KotlinLegacyMetadataArtifact)
         register(project, KotlinJvmJarArtifact)
         register(project, KotlinJsKlibArtifact)
         register(project, KotlinNativeKlibArtifact)
@@ -186,6 +189,7 @@ internal fun Project.registerKotlinPluginExtensions() {
 
         if (isMultiplatform) {
             register(project, MultipleSourceSetRootsInCompilationChecker)
+            register(project, SwiftExportModuleNameChecker)
         }
     }
 }

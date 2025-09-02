@@ -5,20 +5,19 @@
 
 package org.jetbrains.kotlin.test.backend.handlers
 
+import org.jetbrains.kotlin.backend.common.DumpIrReferenceRenderingAsSignatureStrategy
 import org.jetbrains.kotlin.builtins.StandardNames.DEFAULT_VALUE_PARAMETER
-import org.jetbrains.kotlin.ir.declarations.IrClass
-import org.jetbrains.kotlin.ir.declarations.IrDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.Companion.IR_EXTERNAL_DECLARATION_STUB
-import org.jetbrains.kotlin.ir.declarations.IrPossiblyExternalDeclaration
-import org.jetbrains.kotlin.ir.declarations.IrProperty
-import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrDeclarationReference
+import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
 import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions
+import org.jetbrains.kotlin.ir.util.DumpIrTreeOptions.ReferenceRenderingStrategy
 import org.jetbrains.kotlin.ir.util.dumpTreesFromLineNumber
-import org.jetbrains.kotlin.ir.util.isKFunction
-import org.jetbrains.kotlin.ir.util.isKSuspendFunction
 import org.jetbrains.kotlin.ir.util.resolveFakeOverride
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.SKIP_IR_DESERIALIZATION_CHECKS
@@ -30,7 +29,6 @@ import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.services.temporaryDirectoryManager
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
-import org.jetbrains.kotlin.util.OperatorNameConventions.INVOKE
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import java.io.File
 
@@ -125,6 +123,45 @@ class SerializedIrDumpHandler(
             printParameterNamesInOverriddenSymbols = false,
 
             /**
+             * During deserialization, fake override builder puts `fake overrides symbol` links. They were not created after FIR2IR and IR Inliner.
+             * This mismatch fails deserialization tests with IR Inliner in, for ex.:
+             * - `compiler/testData/codegen/box/coroutines/infiniteLoopInNextMeaningful.kt`
+             * - `compiler/testData/codegen/box/coroutines/bridges/mapSuspendClear.kt`
+             * - `compiler/testData/codegen/box/operatorConventions/suspendOperators.kt`
+             * To make IR dumps the same before and after the serialization, it worth ideally not to dump such links after deserialization,
+             * should they appear within IrInlinedFunctionBlock.
+             * In practice, it's tricky to track their declaration context, so let's simply not dump them at all in presence of IR Inliner.
+             */
+            printFakeOverrideSymbolsInPropertiesOfAnonymousClasses = !testServices.moduleStructure.modules.first().languageVersionSettings
+                .supportsFeature(LanguageFeature.IrInlinerBeforeKlibSerialization),
+
+            /**
+             * Names of type and value parameters are not a part of ABI (except for the single existing case in Kotlin/Native related to
+             * names of value parameters, which should be covered with a separate bunch of tests).
+             *
+             * When running IR deserialization tests running with the enabled IR inliner, it may happen that some [IrMemberAccessExpression]
+             * refers to an unbound function symbol. It means that for such an expression it's not possible to get a function to collect
+             * real type and value parameter names. Thus, the expression is rendered with just indices instead of names:
+             * ```
+             * CALL[1159, 1181] ...
+             *     TYPE_ARG 1: kotlin.Array<kotlin.Any?>
+             *     ARG 1: TYPE_OP[1150, 1158] type=kotlin.Array<out kotlin.Any?> ...
+             * ```
+             *
+             * However, after the deserialization, the function symbol in the expression becomes bound, and it's possible to collect
+             * real names now:
+             * ```
+             * CALL[1159, 1181] ...
+             *     TYPE_ARG T: kotlin.Array<kotlin.Any?>
+             *     ARG <this>: TYPE_OP[1150, 1158] type=kotlin.Array<out kotlin.Any?> ...
+             * ```
+             *
+             * To overcome this artificial difference in IR dumps taken before serialization and after deserialization, the names
+             * of type and value parameters in [IrMemberAccessExpression]s can be forcefully replaced by their indices.
+             */
+            printMemberAccessExpressionArgumentNames = false,
+
+            /**
              * Sealed subclasses are not deserialized from KLIBs, so we need to wipe them out from dumps.
              * For details see KT-54028,
              * and in particular the commit https://github.com/jetbrains/kotlin/commit/3713d95bb1fc0cc434eeed42a0f0adac52af091b
@@ -157,7 +194,8 @@ class SerializedIrDumpHandler(
                 if (IrTextDumpHandler.isHiddenDeclaration(declaration, info.irPluginContext.irBuiltIns)) {
                     /** Reuse the existing rules for filtering declarations as in IR text tests. */
                     true
-                } else if (isAfterDeserialization &&
+                } else if (
+                    isAfterDeserialization &&
                     declaration is IrSimpleFunction &&
                     declaration.isFakeOverride &&
                     declaration.resolveFakeOverride()?.origin == IrDeclarationOrigin.SYNTHETIC_ACCESSOR
@@ -165,6 +203,18 @@ class SerializedIrDumpHandler(
                     /**
                      * Ignore fake overrides for synthetic accessors generated in the deserialized IR.
                      * There were no fake overrides for synthetic accessors in IR built by Fir2Ir.
+                     */
+                    true
+                } else if ((declaration is IrSimpleFunction || declaration is IrProperty) &&
+                    declaration.parent.let { it is IrClass && it.visibility == DescriptorVisibilities.LOCAL } &&
+                    declaration.origin == IrDeclarationOrigin.FAKE_OVERRIDE &&
+                    testServices.moduleStructure.modules.first().languageVersionSettings.supportsFeature(LanguageFeature.IrInlinerBeforeKlibSerialization)
+                ) {
+                    /** KT-76186: Ignore fake overrides in local classes declared within IrInlinedFunctionBlock.
+                     * There are no such declarations after IR Inliner, but they appear after deserialization.
+                     * To make dumps identical, such declarations should not be dumped after deserialization.
+                     * However, it would be tricky here to detect whether a local class is declared within IrInlinedFunctionBlock.
+                     * As a much simpler approach, fake overrides in local classes are not dumped both before and after serialization.
                      */
                     true
                 } else {
@@ -197,6 +247,15 @@ class SerializedIrDumpHandler(
              * ```
              */
             printAnnotationsInFakeOverrides = false,
+
+            /**
+             * It may happen that after running the IR inliner at the 1st phase of compilation, there are unbound symbols in
+             * various flavors of [IrDeclarationReference] expressions. For such expressions, the IR dumper just renders
+             * the standard "unbound symbol" text. Which leads to diverging ID dumps.
+             * To work around this, we use a custom [ReferenceRenderingStrategy] that, for non-private and non-local declarations,
+             * renders signatures instead of KT-like representation of the symbol owner.
+             */
+            referenceRenderingStrategy = DumpIrReferenceRenderingAsSignatureStrategy(info.irMangler),
         )
 
         val builder = dumper.builderForModule(module.name)
@@ -234,7 +293,6 @@ class SerializedIrDumpHandler(
 private class FlagsFilterImpl(private val isAfterDeserialization: Boolean) : DumpIrTreeOptions.FlagsFilter {
     override fun filterFlags(declaration: IrDeclaration, isReference: Boolean, flags: List<String>): List<String> = flags
         .removeExternalFlagInDeclarationReferences(isReference)
-        .removeFakeOverrideFlagInKotlinReflectKFunctionCalls(declaration, isReference)
         .removeDelegatedFlagFromPropertyFakeOverrides(declaration, isReference)
 
     /**
@@ -257,24 +315,6 @@ private class FlagsFilterImpl(private val isAfterDeserialization: Boolean) : Dum
      */
     private fun List<String>.removeExternalFlagInDeclarationReferences(isReference: Boolean): List<String> =
         applyIf(isReference) { this - "external" }
-
-    /**
-     * Remove 'fake_override' flag which is missing in the frontend-generated IR in IR calls of `kotlin.reflect.KFunction<N>.invoke()`
-     * and `kotlin.reflect.KSuspendFunction<N>.invoke()` functions.
-     */
-    private fun List<String>.removeFakeOverrideFlagInKotlinReflectKFunctionCalls(
-        declaration: IrDeclaration,
-        isReference: Boolean,
-    ): List<String> {
-        if (!isAfterDeserialization || !isReference) return this
-
-        if ((declaration as? IrSimpleFunction)?.name != INVOKE) return this
-
-        val parentClass = (declaration.parent as? IrClass) ?: return this
-        if (!parentClass.symbol.isKFunction() && !parentClass.symbol.isKSuspendFunction()) return this
-
-        return this - "fake_override"
-    }
 
     /**
      * Remove 'delegated' flag from property fake overrides and overridden symbols.

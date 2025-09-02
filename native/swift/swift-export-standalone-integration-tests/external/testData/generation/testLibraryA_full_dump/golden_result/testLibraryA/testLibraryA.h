@@ -1,14 +1,18 @@
 #include <Foundation/Foundation.h>
 #include <stdint.h>
 
-uintptr_t org_jetbrains_a_MyLibraryA_init_allocate();
+NS_ASSUME_NONNULL_BEGIN
 
-void org_jetbrains_a_MyLibraryA_init_initialize__TypesOfArguments__Swift_UInt__(uintptr_t __kt);
+void * org_jetbrains_a_MyLibraryA_init_allocate();
 
-int32_t org_jetbrains_a_MyLibraryA_returnInt(uintptr_t self);
+void org_jetbrains_a_MyLibraryA_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
-uintptr_t org_jetbrains_a_MyLibraryA_returnMe(uintptr_t self);
+int32_t org_jetbrains_a_MyLibraryA_returnInt(void * self);
+
+void * org_jetbrains_a_MyLibraryA_returnMe(void * self);
 
 int32_t org_jetbrains_a_topLevelFunction();
 
 int32_t org_jetbrains_a_topLevelProperty_get();
+
+NS_ASSUME_NONNULL_END

@@ -44,6 +44,11 @@ public class CompilerLightClassTestGenerated extends AbstractCompilerLightClassT
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/AnnotatedPropertyWithSites.kt");
   }
 
+  @TestMetadata("annotatedReturnType.kt")
+  public void testAnnotatedReturnType() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/annotatedReturnType.kt");
+  }
+
   @TestMetadata("annotationBinaryRetention.kt")
   public void testAnnotationBinaryRetention() {
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/annotationBinaryRetention.kt");
@@ -354,6 +359,21 @@ public class CompilerLightClassTestGenerated extends AbstractCompilerLightClassT
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SubstitutionOverride.kt");
   }
 
+  @TestMetadata("SuperTypeWithBound.kt")
+  public void testSuperTypeWithBound() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SuperTypeWithBound.kt");
+  }
+
+  @TestMetadata("SuperTypeWithBound2.kt")
+  public void testSuperTypeWithBound2() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SuperTypeWithBound2.kt");
+  }
+
+  @TestMetadata("SuperTypeWithBoundKotlinCollection.kt")
+  public void testSuperTypeWithBoundKotlinCollection() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SuperTypeWithBoundKotlinCollection.kt");
+  }
+
   @TestMetadata("Throws.kt")
   public void testThrows() {
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/Throws.kt");
@@ -479,6 +499,11 @@ public class CompilerLightClassTestGenerated extends AbstractCompilerLightClassT
     @TestMetadata("AnnotationModifiers.kt")
     public void testAnnotationModifiers() {
       runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/AnnotationModifiers.kt");
+    }
+
+    @TestMetadata("EnumCompanion.kt")
+    public void testEnumCompanion() {
+      runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/compilationErrors/EnumCompanion.kt");
     }
 
     @TestMetadata("EnumNameOverride.kt")

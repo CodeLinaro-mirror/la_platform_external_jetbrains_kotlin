@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.test.TestJdkKind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.classicFrontendHandlersStep
 import org.jetbrains.kotlin.test.builders.classicFrontendStep
-import org.jetbrains.kotlin.test.builders.configureClassicFrontendHandlersStep
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.SKIP_TXT
 import org.jetbrains.kotlin.test.directives.ForeignAnnotationsDirectives.ANNOTATIONS_PATH
 import org.jetbrains.kotlin.test.directives.ForeignAnnotationsDirectives.ENABLE_FOREIGN_ANNOTATIONS
@@ -18,12 +17,15 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.PROVIDE_JAVA_AS_BINARIES
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.USE_PSI_CLASS_FILES_READING
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_FOREIGN_ANNOTATIONS
+import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_JAKARTA_ANNOTATIONS
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WITH_JSR305_TEST_ANNOTATIONS
-import org.jetbrains.kotlin.test.frontend.classic.handlers.*
+import org.jetbrains.kotlin.test.frontend.classic.handlers.ClassicDiagnosticsHandler
+import org.jetbrains.kotlin.test.frontend.classic.handlers.DeclarationsDumpHandler
+import org.jetbrains.kotlin.test.frontend.classic.handlers.FirTestDataConsistencyHandler
+import org.jetbrains.kotlin.test.frontend.classic.handlers.OldNewInferenceMetaInfoProcessor
 import org.jetbrains.kotlin.test.model.DependencyKind
 import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.preprocessors.ExternalAnnotationsSourcePreprocessor
-import org.jetbrains.kotlin.test.preprocessors.JspecifyMarksCleanupPreprocessor
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.configuration.*
 import org.jetbrains.kotlin.test.services.jvm.ForeignAnnotationAgainstCompiledJavaTestSuppressor
@@ -88,6 +90,13 @@ abstract class AbstractForeignAnnotationsTestBase(private val kind: ForeignAnnot
             }
         }
 
+        forTestsMatching("compiler/testData/diagnostics/foreignAnnotationsTests/tests/jakarta/*") {
+            defaultDirectives {
+                +WITH_JAKARTA_ANNOTATIONS
+                JDK_KIND with TestJdkKind.FULL_JDK_11
+            }
+        }
+
         forTestsMatching("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/*") {
             defaultDirectives {
                 ANNOTATIONS_PATH with JavaForeignAnnotationType.Java8Annotations
@@ -127,13 +136,6 @@ abstract class AbstractOldFrontendForeignAnnotationsTestBase(kind: ForeignAnnota
                 ::DeclarationsDumpHandler,
                 ::ClassicDiagnosticsHandler,
             )
-        }
-
-        forTestsMatching("compiler/testData/diagnostics/foreignAnnotationsTests/java8Tests/jspecify/*") {
-            configureClassicFrontendHandlersStep {
-                useHandlers(::JspecifyDiagnosticComplianceHandler)
-            }
-            useSourcePreprocessor(::JspecifyMarksCleanupPreprocessor)
         }
 
         useAfterAnalysisCheckers(::FirForeignDiagnosticsTestDataConsistencyHandler)

@@ -33,13 +33,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Public
     contextReceivers: []
-    hasBody: false
     hasStableParameterNames: true
     isActual: false
-    isDefault: true
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: false
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -69,7 +68,7 @@ KaKotlinPropertySymbol:
             psi: KtAnnotationEntry
         ]
         typeArguments: []
-        type: @R|Anno1|()  @R|Anno2|()  @R|Anno3|()  {@R|Anno3|()  SecondTypeAlias=} BaseInterface
+        type: {@R|Anno3|()  SecondTypeAlias=} @R|Anno1|()  @R|Anno2|()  @R|Anno3|()  BaseInterface
       visibility: PUBLIC
       getContainingFileSymbol: KaFileSymbol(typeAnnotationsOnPropertyReceiverType.kt)
       getContainingJvmClassName: TypeAnnotationsOnPropertyReceiverTypeKt
@@ -129,7 +128,7 @@ KaKotlinPropertySymbol:
           psi: KtAnnotationEntry
       ]
       typeArguments: []
-      type: @R|Anno1|()  @R|Anno2|()  @R|Anno3|()  {@R|Anno3|()  SecondTypeAlias=} BaseInterface
+      type: {@R|Anno3|()  SecondTypeAlias=} @R|Anno1|()  @R|Anno2|()  @R|Anno3|()  BaseInterface
     visibility: PUBLIC
     getContainingFileSymbol: KaFileSymbol(typeAnnotationsOnPropertyReceiverType.kt)
     getContainingJvmClassName: TypeAnnotationsOnPropertyReceiverTypeKt
@@ -150,3 +149,4 @@ KaKotlinPropertySymbol:
   javaGetterName: getFoo
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false

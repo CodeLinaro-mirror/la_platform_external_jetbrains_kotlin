@@ -59,6 +59,18 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
   }
 
   @Test
+  @TestMetadata("commonOnlyUsage.kt")
+  public void testCommonOnlyUsage() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonOnlyUsage.kt");
+  }
+
+  @Test
+  @TestMetadata("commonOnlyUsageInline.kt")
+  public void testCommonOnlyUsageInline() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonOnlyUsageInline.kt");
+  }
+
+  @Test
   @TestMetadata("commonSimple.kt")
   public void testCommonSimple() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonSimple.kt");
@@ -248,9 +260,51 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
     }
 
     @Test
+    @TestMetadata("commonOnlyUsage.kt")
+    public void testCommonOnlyUsage() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsage.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInline.kt")
+    public void testCommonOnlyUsageInline() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInline.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive.kt")
+    public void testCommonOnlyUsageInlineTransitive() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive2.kt")
+    public void testCommonOnlyUsageInlineTransitive2() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive2.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive3.kt")
+    public void testCommonOnlyUsageInlineTransitive3() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive3.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive4.kt")
+    public void testCommonOnlyUsageInlineTransitive4() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive4.kt");
+    }
+
+    @Test
     @TestMetadata("constValFromLib.kt")
     public void testConstValFromLib() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/constValFromLib.kt");
+    }
+
+    @Test
+    @TestMetadata("contextualProperty.kt")
+    public void testContextualProperty() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/contextualProperty.kt");
     }
 
     @Test
@@ -686,6 +740,46 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
       @TestMetadata("valueParameter.kt")
       public void testValueParameter() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/valueParameter.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams")
+    @TestDataPath("$PROJECT_ROOT")
+    public class ReifiedTypeParams {
+      @Test
+      public void testAllFilesPresentInReifiedTypeParams() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("complextGeneric.kt")
+      public void testComplextGeneric() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams/complextGeneric.kt");
+      }
+
+      @Test
+      @TestMetadata("crossmodule.kt")
+      public void testCrossmodule() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams/crossmodule.kt");
+      }
+
+      @Test
+      @TestMetadata("multilineCall.kt")
+      public void testMultilineCall() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams/multilineCall.kt");
+      }
+
+      @Test
+      @TestMetadata("properties.kt")
+      public void testProperties() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams/properties.kt");
+      }
+
+      @Test
+      @TestMetadata("smoke.kt")
+      public void testSmoke() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/reifiedTypeParams/smoke.kt");
       }
     }
   }

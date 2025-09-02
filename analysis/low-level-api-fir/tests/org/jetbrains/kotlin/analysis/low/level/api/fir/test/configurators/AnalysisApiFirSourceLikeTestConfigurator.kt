@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.analysis.test.framework.projectStructure.TestModuleS
 import org.jetbrains.kotlin.analysis.test.framework.services.configuration.AnalysisApiBinaryLibraryIndexingMode
 import org.jetbrains.kotlin.analysis.test.framework.services.configuration.AnalysisApiIndexingConfiguration
 import org.jetbrains.kotlin.analysis.test.framework.services.libraries.configurePlatformEnvironmentConfigurators
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiMode
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.FrontendKind
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
@@ -28,6 +29,7 @@ import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.configuration.ExternalAnnotationsEnvironmentConfigurator
 
 abstract class AnalysisApiFirSourceLikeTestConfigurator(override val analyseInDependentSession: Boolean) : AnalysisApiTestConfigurator() {
+    override val analysisApiMode: AnalysisApiMode get() = AnalysisApiMode.Ide
     override val frontendKind: FrontendKind get() = FrontendKind.Fir
 
     override fun configureTest(builder: TestConfigurationBuilder, disposable: Disposable) {
@@ -40,8 +42,8 @@ abstract class AnalysisApiFirSourceLikeTestConfigurator(override val analyseInDe
         }
     }
 
-    override val testPrefix: String?
-        get() = if (analyseInDependentSession) "dependent.fir" else null
+    override val testPrefixes: List<String>
+        get() = if (analyseInDependentSession) listOf("dependent.fir") else emptyList()
 
     override val serviceRegistrars: List<AnalysisApiServiceRegistrar<TestServices>> = listOf(
         AnalysisApiBaseTestServiceRegistrar,

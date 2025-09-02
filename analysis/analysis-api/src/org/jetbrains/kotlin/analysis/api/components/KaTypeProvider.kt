@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
 import org.jetbrains.kotlin.analysis.api.types.KaType
-import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.psi.KtDoubleColonExpression
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtTypeReference
@@ -150,9 +149,17 @@ public interface KaTypeProvider : KaSessionComponent {
     public val KtDoubleColonExpression.receiverType: KaType?
 
     /**
+     * Creates a new [KaType] based on the given type with the updated nullability specified by [isMarkedNullable].
+     */
+    public fun KaType.withNullability(isMarkedNullable: Boolean): KaType
+
+    /**
      * Creates a [KaType] based on the given type with the specified [newNullability].
      */
-    public fun KaType.withNullability(newNullability: KaTypeNullability): KaType
+    @Deprecated("Use `withNullability(Boolean)` instead")
+    @Suppress("Deprecation")
+    public fun KaType.withNullability(newNullability: org.jetbrains.kotlin.analysis.api.types.KaTypeNullability): KaType =
+        withNullability(newNullability.isNullable)
 
     /**
      * Returns the [KaFlexibleType]'s upper bound, or the type itself if it is not flexible.
@@ -227,13 +234,6 @@ public interface KaTypeProvider : KaSessionComponent {
      */
     public val KaType.allSupertypes: Sequence<KaType>
         get() = allSupertypes(shouldApproximate = false)
-
-    @Deprecated(
-        "Use 'allSupertypes()' instead.",
-        replaceWith = ReplaceWith("allSupertypes(shouldApproximate)"),
-        level = DeprecationLevel.HIDDEN
-    )
-    public fun KaType.getAllSuperTypes(shouldApproximate: Boolean = false): List<KaType> = allSupertypes(shouldApproximate).toList()
 
     /**
      * This function is provided for a few use-cases where it's hard to go without it.

@@ -1,3 +1,4 @@
+// LATEST_LV_DIFFERENCE
 // RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-73434
 
@@ -26,9 +27,9 @@ fun <E : Any> funA(
 ) {}
 
 fun <E> funB() where E : Enum<E>, E : InterfaceC {
-    <!NEW_INFERENCE_ERROR!>funA(
+    <!TYPE_MISMATCH!>funA(
         JavaHelper.createInterfaceA(),
-        InterfaceB.default(),
+        InterfaceB.<!UPPER_BOUND_VIOLATED_DEPRECATION_WARNING!>default<!>(),
     )<!>
 
     funA<E>(
@@ -36,9 +37,9 @@ fun <E> funB() where E : Enum<E>, E : InterfaceC {
         InterfaceB.default(),
     )
 
-    <!NEW_INFERENCE_ERROR!>funA(
+    <!TYPE_MISMATCH!>funA(
         createInterfaceAKotlin(),
-        InterfaceB.default(),
+        InterfaceB.<!UPPER_BOUND_VIOLATED_DEPRECATION_WARNING!>default<!>(),
     )<!>
 
     funA<E>(
@@ -46,3 +47,6 @@ fun <E> funB() where E : Enum<E>, E : InterfaceC {
         InterfaceB.default(),
     )
 }
+
+/* GENERATED_FIR_TAGS: anonymousObjectExpression, companionObject, flexibleType, functionDeclaration,
+interfaceDeclaration, javaFunction, nullableType, objectDeclaration, typeConstraint, typeParameter */

@@ -30,7 +30,7 @@ abstract class AbstractMultiModuleSymbolByPsiTest : AbstractAnalysisApiBasedTest
             debugPrinter.appendLine(fileDirective)
             prettyPrinter.appendLine(fileDirective)
 
-            analyseForTest(file) {
+            analyzeForTest(file) {
                 val fileSymbol = file.symbol
                 file.forEachDescendantOfType<KtDeclaration>(predicate = { it.isValidForSymbolCreation }) { declaration ->
                     val symbol = declaration.symbol
@@ -48,8 +48,8 @@ abstract class AbstractMultiModuleSymbolByPsiTest : AbstractAnalysisApiBasedTest
             }
         }
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(debugPrinter.toString())
-        testServices.assertions.assertEqualsToTestDataFileSibling(prettyPrinter.toString(), extension = ".pretty.txt")
+        testServices.assertions.assertEqualsToTestOutputFile(debugPrinter.toString())
+        testServices.assertions.assertEqualsToTestOutputFile(prettyPrinter.toString(), extension = ".pretty.txt")
     }
 
     /**

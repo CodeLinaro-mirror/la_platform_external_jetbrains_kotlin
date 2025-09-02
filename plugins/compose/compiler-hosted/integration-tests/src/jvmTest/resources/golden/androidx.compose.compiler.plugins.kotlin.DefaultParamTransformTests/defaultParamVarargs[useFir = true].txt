@@ -27,10 +27,11 @@ fun VarargWContent(vararg values: Int = intArrayOf(1), content: @Composable () -
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = -1794342280, startOffset = 71, endOffset = 183)
 fun Test(%composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Test)<Vararg...>,<Vararg...>,<Vararg...>,<Vararg...>:Test.kt")
-  if (%changed != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -49,9 +50,10 @@ fun Test(%composer: Composer?, %changed: Int) {
   }
 }
 @Composable
+@FunctionKeyMeta(key = 1060834389, startOffset = 197, endOffset = 271)
 fun VarargWDefault(values: IntArray?, %composer: Composer?, %changed: Int, %default: Int) {
   %composer = %composer.startRestartGroup(<>)
-  sourceInformation(%composer, "C(VarargWDefault):Test.kt")
+  sourceInformation(%composer, "C(VarargWDefault)N(values):Test.kt")
   val %dirty = %changed
   if (%default and 0b0001 == 0) {
     %composer.startMovableGroup(<>, values.size)
@@ -66,7 +68,7 @@ fun VarargWDefault(values: IntArray?, %composer: Composer?, %changed: Int, %defa
       %dirty = %dirty or 0b0010
     }
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     %composer.startDefaults()
     if (%changed and 0b0001 == 0 || %composer.defaultsInvalid) {
       if (%default and 0b0001 != 0) {
@@ -83,7 +85,7 @@ fun VarargWDefault(values: IntArray?, %composer: Composer?, %changed: Int, %defa
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }
-    used(values)
+    used(values as IntArray)
     if (isTraceInProgress()) {
       traceEventEnd()
     }
@@ -95,9 +97,10 @@ fun VarargWDefault(values: IntArray?, %composer: Composer?, %changed: Int, %defa
   }
 }
 @Composable
+@FunctionKeyMeta(key = 1815113582, startOffset = 285, endOffset = 393)
 fun VarargWContent(values: IntArray?, content: Function2<Composer, Int, Unit>, %composer: Composer?, %changed: Int, %default: Int) {
   %composer = %composer.startRestartGroup(<>)
-  sourceInformation(%composer, "C(VarargWContent)P(1):Test.kt")
+  sourceInformation(%composer, "C(VarargWContent)N(values,content):Test.kt")
   val %dirty = %changed
   if (%default and 0b0001 == 0) {
     %composer.startMovableGroup(<>, values.size)
@@ -112,7 +115,7 @@ fun VarargWContent(values: IntArray?, content: Function2<Composer, Int, Unit>, %
       %dirty = %dirty or 0b0010
     }
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     %composer.startDefaults()
     if (%changed and 0b0001 == 0 || %composer.defaultsInvalid) {
       if (%default and 0b0001 != 0) {
@@ -129,7 +132,7 @@ fun VarargWContent(values: IntArray?, content: Function2<Composer, Int, Unit>, %
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }
-    used(values)
+    used(values as IntArray)
     if (isTraceInProgress()) {
       traceEventEnd()
     }
@@ -143,7 +146,7 @@ fun VarargWContent(values: IntArray?, content: Function2<Composer, Int, Unit>, %
 internal object ComposableSingletons%TestKt {
   val lambda%1963231897: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }
@@ -157,7 +160,7 @@ internal object ComposableSingletons%TestKt {
   }
   val lambda%-168993022: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }

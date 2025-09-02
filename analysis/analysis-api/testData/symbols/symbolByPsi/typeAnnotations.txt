@@ -182,6 +182,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: kotlin/String
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: Anno5
           getContainingFileSymbol: KaFileSymbol(typeAnnotations.kt)
           getContainingJvmClassName: Anno5
           getContainingModule: KaSourceModule "Sources of main"
@@ -195,13 +199,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -260,6 +263,7 @@ KaConstructorSymbol:
         javaGetterName: getS
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false
@@ -458,6 +462,10 @@ KaKotlinPropertySymbol:
       typeArguments: []
       type: @R|Anno4|()  I
     visibility: PRIVATE
+    getDispatchReceiver(): KaUsualClassType:
+      annotations: []
+      typeArguments: []
+      type: X
     getContainingFileSymbol: KaFileSymbol(typeAnnotations.kt)
     getContainingJvmClassName: X
     getContainingModule: KaSourceModule "Sources of main"
@@ -471,13 +479,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Public
     contextReceivers: []
-    hasBody: false
     hasStableParameterNames: true
     isActual: false
-    isDefault: true
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: false
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -542,6 +549,7 @@ KaKotlinPropertySymbol:
   javaGetterName: getX
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false
 
 KaNamedClassSymbol:
   annotations: []

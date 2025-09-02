@@ -18,7 +18,10 @@ import org.jetbrains.kotlin.types.model.TypeVariableMarker
  */
 interface ConstraintSystemUtilContext {
     /**
+     * DNN-related hack that softens slightly restrictions in runIsSubtypeOf
+     *
      * TODO: Get rid of this function once KT-59138 is fixed and the relevant feature for disabling it will be removed
+     * Also we should get rid of it once LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible is removed
      */
     fun TypeVariableMarker.shouldBeFlexible(): Boolean
     fun TypeVariableMarker.hasOnlyInputTypesAttribute(): Boolean
@@ -32,6 +35,7 @@ interface ConstraintSystemUtilContext {
     fun extractLambdaParameterTypesFromDeclaration(declaration: PostponedAtomWithRevisableExpectedType): List<KotlinTypeMarker?>?
     fun PostponedAtomWithRevisableExpectedType.isFunctionExpression(): Boolean
     fun PostponedAtomWithRevisableExpectedType.isFunctionExpressionWithReceiver(): Boolean
+    fun PostponedAtomWithRevisableExpectedType.contextParameterCountOfFunctionExpression(): Int
     fun PostponedAtomWithRevisableExpectedType.isLambda(): Boolean
     fun createTypeVariableForLambdaReturnType(): TypeVariableMarker
     fun createTypeVariableForLambdaParameterType(argument: PostponedAtomWithRevisableExpectedType, index: Int): TypeVariableMarker
@@ -40,8 +44,6 @@ interface ConstraintSystemUtilContext {
         argument: PostponedAtomWithRevisableExpectedType,
         index: Int
     ): TypeVariableMarker
-
-    val isForcedConsiderExtensionReceiverFromConstrainsInLambda get() = false
 
     val isForcedAllowForkingInferenceSystem get() = false
 }

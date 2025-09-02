@@ -81,7 +81,7 @@ open class DefaultArgumentStubGenerator<TContext : CommonBackendContext>(
 
                 generateSuperCallHandlerCheckIfNeeded(originalDeclaration, newIrFunction)
 
-                val intAnd = this@DefaultArgumentStubGenerator.context.ir.symbols.getBinaryOperator(
+                val intAnd = this@DefaultArgumentStubGenerator.context.symbols.getBinaryOperator(
                     OperatorNameConventions.AND, context.irBuiltIns.intType, context.irBuiltIns.intType
                 )
                 var defaultableParameterIndex = -1
@@ -223,7 +223,8 @@ open class DefaultArgumentStubGenerator<TContext : CommonBackendContext>(
         //NO-OP Stub
     }
 
-    protected open fun defaultArgumentStubVisibility(function: IrFunction) = DescriptorVisibilities.PUBLIC
+    protected open fun defaultArgumentStubVisibility(function: IrFunction) =
+        function.visibility // Just use whatever visibility the original declaration has
 
     protected open fun useConstructorMarker(function: IrFunction) = function is IrConstructor
 
@@ -430,7 +431,8 @@ open class DefaultParameterInjector<TContext : CommonBackendContext>(
     protected open fun nullConst(startOffset: Int, endOffset: Int, type: IrType): IrExpression =
         IrConstImpl.defaultValueForType(startOffset, endOffset, type)
 
-    protected open fun defaultArgumentStubVisibility(function: IrFunction) = DescriptorVisibilities.PUBLIC
+    protected open fun defaultArgumentStubVisibility(function: IrFunction) =
+        function.visibility // Just use whatever visibility the original declaration has
 
     protected open fun useConstructorMarker(function: IrFunction) = function is IrConstructor
 
@@ -505,9 +507,9 @@ open class MaskedDefaultArgumentFunctionFactory(context: CommonBackendContext, c
         }
 
         if (useConstructorMarker) {
-            val markerType = context.ir.symbols.defaultConstructorMarker.defaultType.makeNullable()
+            val markerType = context.symbols.defaultConstructorMarker.defaultType.makeNullable()
             addValueParameter("marker".synthesizedString, markerType, IrDeclarationOrigin.DEFAULT_CONSTRUCTOR_MARKER)
-        } else if (context.ir.shouldGenerateHandlerParameterForDefaultBodyFun()) {
+        } else if (context.shouldGenerateHandlerParameterForDefaultBodyFun) {
             addValueParameter(
                 "handler".synthesizedString,
                 context.irBuiltIns.anyNType,

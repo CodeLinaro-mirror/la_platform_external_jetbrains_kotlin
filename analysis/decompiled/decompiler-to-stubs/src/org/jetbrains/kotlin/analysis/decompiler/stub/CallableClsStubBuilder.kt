@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -12,16 +12,19 @@ import org.jetbrains.kotlin.analysis.decompiler.stub.flags.*
 import org.jetbrains.kotlin.constant.ConstantValue
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
-import org.jetbrains.kotlin.load.kotlin.*
+import org.jetbrains.kotlin.load.kotlin.AbstractBinaryClassAnnotationLoader
+import org.jetbrains.kotlin.load.kotlin.KotlinClassFinder
+import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinaryClass
+import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinarySourceElement
 import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.ProtoBuf.MemberKind
 import org.jetbrains.kotlin.metadata.ProtoBuf.Modality
 import org.jetbrains.kotlin.metadata.deserialization.*
 import org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf
-import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.psi.KtParameterList
 import org.jetbrains.kotlin.psi.stubs.KotlinPropertyStub
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 import org.jetbrains.kotlin.psi.stubs.impl.*
@@ -133,8 +136,19 @@ abstract class CallableClsStubBuilder(
         }
     }
 
-    protected fun createModifierListStubForCallableDeclaration(flags: Int, flagsToTranslate: List<FlagsToModifiers>): KotlinModifierListStubImpl {
-        val modifierListStub = createModifierListStubForDeclaration(callableStub, flags, flagsToTranslate)
+    protected fun createModifierListStubForCallableDeclaration(
+        flags: Int,
+        flagsToTranslate: List<FlagsToModifiers>,
+        mustUseReturnValueFlag: Flags.BooleanFlagField?,
+    ): KotlinModifierListStubImpl {
+        val modifierListStub = createModifierListStubForDeclaration(
+            callableStub,
+            flags,
+            flagsToTranslate,
+            additionalModifiers = emptyList(),
+            mustUseReturnValueFlag = mustUseReturnValueFlag,
+        )
+
         typeStubBuilder.createContextReceiverStubs(modifierListStub, contextReceiverTypes)
         return modifierListStub
     }
@@ -176,13 +190,24 @@ private class FunctionClsStubBuilder(
 
     override fun createModifierListStub() {
         val modalityModifier = if (isTopLevel) listOf() else listOf(MODALITY)
+        val flags = functionProto.flags
         val modifierListStubImpl = createModifierListStubForCallableDeclaration(
-            flags = functionProto.flags,
-            flagsToTranslate = listOf(VISIBILITY, OPERATOR, INFIX, EXTERNAL_FUN, INLINE, TAILREC, SUSPEND, EXPECT_FUNCTION) + modalityModifier
+            flags = flags,
+            flagsToTranslate = listOf(
+                VISIBILITY,
+                OPERATOR,
+                INFIX,
+                EXTERNAL_FUN,
+                INLINE,
+                TAILREC,
+                SUSPEND,
+                EXPECT_FUNCTION,
+            ) + modalityModifier,
+            mustUseReturnValueFlag = Flags.HAS_MUST_USE_RETURN_VALUE_FUNCTION,
         )
 
         // If function is marked as having no annotations, we don't create stubs for it
-        if (!Flags.HAS_ANNOTATIONS.get(functionProto.flags)) return
+        if (!Flags.HAS_ANNOTATIONS.get(flags)) return
 
         val annotations = c.components.annotationLoader.loadCallableAnnotations(
             protoContainer, functionProto, AnnotatedCallableKind.FUNCTION
@@ -244,13 +269,15 @@ private class PropertyClsStubBuilder(
         val constModifier = if (isVar) listOf() else listOf(CONST)
         val modalityModifier = if (isTopLevel) listOf() else listOf(MODALITY)
 
+        val flags = propertyProto.flags
         val modifierListStubImpl = createModifierListStubForCallableDeclaration(
-            flags = propertyProto.flags,
-            flagsToTranslate = listOf(VISIBILITY, LATEINIT, EXTERNAL_PROPERTY, EXPECT_PROPERTY) + constModifier + modalityModifier
+            flags = flags,
+            flagsToTranslate = listOf(VISIBILITY, LATEINIT, EXTERNAL_PROPERTY, EXPECT_PROPERTY) + constModifier + modalityModifier,
+            mustUseReturnValueFlag = Flags.HAS_MUST_USE_RETURN_VALUE_PROPERTY,
         )
 
         // If field is marked as having no annotations, we don't create stubs for it
-        if (!Flags.HAS_ANNOTATIONS.get(propertyProto.flags)) return
+        if (!Flags.HAS_ANNOTATIONS.get(flags)) return
 
         val propertyAnnotations =
             c.components.annotationLoader.loadCallableAnnotations(protoContainer, propertyProto, AnnotatedCallableKind.PROPERTY)
@@ -271,19 +298,21 @@ private class PropertyClsStubBuilder(
 
         // Note that arguments passed to stubs here and elsewhere are based on what stabs would be generated based on decompiled code
         // This info is anyway irrelevant for the purposes these stubs are used
+        val isDelegatedProperty = Flags.IS_DELEGATED[propertyProto.flags]
         return KotlinPropertyStubImpl(
             parent,
             callableName.ref(),
             isVar,
             isTopLevel,
-            hasDelegate = false,
-            hasDelegateExpression = false,
+            hasDelegate = isDelegatedProperty,
+            hasDelegateExpression = isDelegatedProperty,
             hasInitializer = initializer != null,
             isExtension = propertyProto.hasReceiver(),
             hasReturnTypeRef = true,
             fqName = c.containerFqName.child(callableName),
             initializer,
-            origin = createStubOrigin(protoContainer)
+            origin = createStubOrigin(protoContainer),
+            hasBackingField = propertyProto.getExtensionOrNull(JvmProtoBuf.propertySignature)?.hasField(),
         )
     }
 
@@ -291,57 +320,139 @@ private class PropertyClsStubBuilder(
         if ((callableStub as KotlinPropertyStub).hasInitializer()) {
             KotlinNameReferenceExpressionStubImpl(callableStub, StringRef.fromString(COMPILED_DEFAULT_INITIALIZER))
         }
-        val flags = propertyProto.flags
-        if (Flags.HAS_GETTER[flags] && propertyProto.hasGetterFlags()) {
-            val getterFlags = propertyProto.getterFlags
-            if (Flags.IS_NOT_DEFAULT.get(getterFlags)) {
-                createModifierListAndAnnotationStubsForAccessor(
-                    KotlinPropertyAccessorStubImpl(callableStub, true, false, true),
-                    flags = getterFlags,
-                    callableKind = AnnotatedCallableKind.PROPERTY_GETTER
-                )
-            }
+
+        createGetterStubsIfNeeded(callableStub)
+        createSetterStubsIfNeeded(callableStub)
+    }
+
+    private fun createGetterStubsIfNeeded(callableStub: StubElement<*>) {
+        val propertyFlags = propertyProto.flags
+        if (!Flags.HAS_GETTER[propertyFlags]) return
+
+        val getterFlags = if (propertyProto.hasGetterFlags()) {
+            propertyProto.getterFlags
+        } else {
+            getDefaultPropertyAccessorFlags(propertyFlags)
         }
 
-        if (Flags.HAS_SETTER[flags] && propertyProto.hasSetterFlags()) {
-            val setterFlags = propertyProto.setterFlags
-            if (Flags.IS_NOT_DEFAULT.get(setterFlags)) {
-                val setterStub = KotlinPropertyAccessorStubImpl(callableStub, false, true, true)
-                createModifierListAndAnnotationStubsForAccessor(
-                    setterStub,
-                    flags = setterFlags,
-                    callableKind = AnnotatedCallableKind.PROPERTY_SETTER
-                )
-                if (propertyProto.hasSetterValueParameter()) {
-                    typeStubBuilder.createValueParameterListStub(
-                        setterStub,
-                        propertyProto,
-                        listOf(propertyProto.setterValueParameter),
-                        protoContainer,
-                        AnnotatedCallableKind.PROPERTY_SETTER
-                    )
-                }
-            }
+        val annotations = loadAccessorAnnotations(getterFlags, AnnotatedCallableKind.PROPERTY_GETTER)
+        if (annotations.isEmpty() && !shouldGenerateAccessor(propertyFlags = propertyFlags, accessorFlags = getterFlags)) {
+            return
         }
+
+        val isNotDefault = Flags.IS_NOT_DEFAULT.get(getterFlags)
+        val getterStub = KotlinPropertyAccessorStubImpl(
+            /* parent = */ callableStub,
+            /* isGetter = */ true,
+            /* hasBody = */ isNotDefault,
+            /* hasBlockBody = */ true, // KT-77302: The value is always true due to a current hasBlockBody semantic
+        )
+
+        createModifierListAndAnnotationStubsForAccessor(
+            accessorStub = getterStub,
+            accessorFlags = getterFlags,
+            annotations = annotations,
+        )
+
+        // Getter with a body expect to have a value parameter list
+        if (isNotDefault) {
+            KotlinPlaceHolderStubImpl<KtParameterList>(getterStub, KtStubElementTypes.VALUE_PARAMETER_LIST)
+        }
+    }
+
+    private fun createSetterStubsIfNeeded(callableStub: StubElement<*>) {
+        val propertyFlags = propertyProto.flags
+        if (!Flags.HAS_SETTER[propertyFlags]) return
+
+        val setterFlags = if (propertyProto.hasSetterFlags()) {
+            propertyProto.setterFlags
+        } else {
+            getDefaultPropertyAccessorFlags(propertyFlags)
+        }
+
+        val annotations = loadAccessorAnnotations(setterFlags, AnnotatedCallableKind.PROPERTY_SETTER)
+        if (annotations.isEmpty() && !shouldGenerateAccessor(propertyFlags = propertyFlags, accessorFlags = setterFlags)) {
+            return
+        }
+
+        val isNotDefault = Flags.IS_NOT_DEFAULT.get(setterFlags)
+        val setterStub = KotlinPropertyAccessorStubImpl(
+            /* parent = */ callableStub,
+            /* isGetter = */ false,
+            /* hasBody = */ isNotDefault,
+            /* hasBlockBody = */ true, // KT-77302: The value is always true due to a current hasBlockBody semantic
+        )
+
+        createModifierListAndAnnotationStubsForAccessor(
+            accessorStub = setterStub,
+            accessorFlags = setterFlags,
+            annotations = annotations,
+        )
+
+        if (propertyProto.hasSetterValueParameter()) {
+            typeStubBuilder.createValueParameterListStub(
+                setterStub,
+                propertyProto,
+                listOf(propertyProto.setterValueParameter),
+                protoContainer,
+                AnnotatedCallableKind.PROPERTY_SETTER,
+            )
+        }
+    }
+
+    /**
+     * [Flags.HAS_ANNOTATIONS] is not used here as it is checked separately by [loadAccessorAnnotations]
+     */
+    private fun shouldGenerateAccessor(propertyFlags: Int, accessorFlags: Int): Boolean = when {
+        Flags.IS_NOT_DEFAULT.get(accessorFlags) -> true
+        Flags.IS_INLINE_ACCESSOR.get(accessorFlags) -> true
+        Flags.IS_EXTERNAL_ACCESSOR.get(accessorFlags) -> true
+        Flags.VISIBILITY.get(accessorFlags) != Flags.VISIBILITY.get(propertyFlags) -> true
+        Flags.MODALITY.get(accessorFlags) != Flags.MODALITY.get(propertyFlags) -> true
+        else -> false
+    }
+
+    /**
+     * Per documentation on [ProtoBuf.Property.getGetterFlags], if an accessor flags field is absent, its value should be computed
+     * by taking hasAnnotations/visibility/modality from property flags, and using false for the rest
+     */
+    private fun getDefaultPropertyAccessorFlags(flags: Int): Int = Flags.getAccessorFlags(
+        Flags.HAS_ANNOTATIONS[flags],
+        Flags.VISIBILITY[flags],
+        Flags.MODALITY[flags],
+        false,
+        false,
+        false,
+    )
+
+    private fun loadAccessorAnnotations(
+        accessorFlags: Int,
+        callableKind: AnnotatedCallableKind,
+    ): List<AnnotationWithArgs> = if (Flags.HAS_ANNOTATIONS[accessorFlags]) {
+        c.components.annotationLoader.loadCallableAnnotations(
+            protoContainer,
+            propertyProto,
+            callableKind,
+        )
+    } else {
+        emptyList()
     }
 
     private fun createModifierListAndAnnotationStubsForAccessor(
         accessorStub: KotlinPropertyAccessorStubImpl,
-        flags: Int,
-        callableKind: AnnotatedCallableKind
+        accessorFlags: Int,
+        annotations: List<AnnotationWithArgs>,
     ) {
         val modifierList = createModifierListStubForDeclaration(
             accessorStub,
-            flags,
-            listOf(VISIBILITY, MODALITY, INLINE_ACCESSOR, EXTERNAL_ACCESSOR)
+            accessorFlags,
+            ACCESSOR_FLAGS,
+            additionalModifiers = emptyList(),
+            mustUseReturnValueFlag = null,
         )
-        if (Flags.HAS_ANNOTATIONS.get(flags)) {
-            val annotationIds = c.components.annotationLoader.loadCallableAnnotations(
-                protoContainer,
-                propertyProto,
-                callableKind
-            )
-            createAnnotationStubs(annotationIds, modifierList)
+
+        if (annotations.isNotEmpty()) {
+            createAnnotationStubs(annotations, modifierList)
         }
     }
 
@@ -443,13 +554,15 @@ private class ConstructorClsStubBuilder(
     }
 
     override fun createModifierListStub() {
+        val flags = constructorProto.flags
         val modifierListStubImpl = createModifierListStubForCallableDeclaration(
-            flags = constructorProto.flags,
-            flagsToTranslate = listOf(VISIBILITY)
+            flags = flags,
+            flagsToTranslate = listOf(VISIBILITY),
+            mustUseReturnValueFlag = Flags.HAS_MUST_USE_RETURN_VALUE_CTOR,
         )
 
         // If constructor is marked as having no annotations, we don't create stubs for it
-        if (!Flags.HAS_ANNOTATIONS.get(constructorProto.flags)) return
+        if (!Flags.HAS_ANNOTATIONS.get(flags)) return
 
         val annotationIds = c.components.annotationLoader.loadCallableAnnotations(
             protoContainer, constructorProto, AnnotatedCallableKind.FUNCTION

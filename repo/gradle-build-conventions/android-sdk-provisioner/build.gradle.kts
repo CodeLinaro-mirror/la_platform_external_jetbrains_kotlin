@@ -4,8 +4,8 @@ plugins {
 }
 
 repositories {
-    maven("https://maven.pkg.jetbrains.space/kotlin/p/kotlin/kotlin-dependencies")
-    mavenCentral()
+    maven("https://redirector.kotlinlang.org/maven/kotlin-dependencies")
+    mavenCentral { setUrl("https://cache-redirector.jetbrains.com/maven-central") }
     gradlePluginPortal()
 
     extra["bootstrapKotlinRepo"]?.let {

@@ -43,7 +43,7 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
 
   @Test
   public void testAllFilesPresentInCompilation() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation"), Pattern.compile("^(.+)\\.(kt)$"), null, true, "codeFragments/reifiedTypeParams");
   }
 
   @Test
@@ -56,6 +56,18 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
   @TestMetadata("classKinds.kt")
   public void testClassKinds() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/classKinds.kt");
+  }
+
+  @Test
+  @TestMetadata("commonOnlyUsage.kt")
+  public void testCommonOnlyUsage() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonOnlyUsage.kt");
+  }
+
+  @Test
+  @TestMetadata("commonOnlyUsageInline.kt")
+  public void testCommonOnlyUsageInline() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/commonOnlyUsageInline.kt");
   }
 
   @Test
@@ -214,7 +226,7 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
   public class CodeFragments {
     @Test
     public void testAllFilesPresentInCodeFragments() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments"), Pattern.compile("^(.+)\\.(kt)$"), null, true, "reifiedTypeParams");
     }
 
     @Test
@@ -248,9 +260,51 @@ public class FirIdeNormalAnalysisLibrarySourceModuleCompilerFacilityTestGenerate
     }
 
     @Test
+    @TestMetadata("commonOnlyUsage.kt")
+    public void testCommonOnlyUsage() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsage.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInline.kt")
+    public void testCommonOnlyUsageInline() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInline.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive.kt")
+    public void testCommonOnlyUsageInlineTransitive() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive2.kt")
+    public void testCommonOnlyUsageInlineTransitive2() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive2.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive3.kt")
+    public void testCommonOnlyUsageInlineTransitive3() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive3.kt");
+    }
+
+    @Test
+    @TestMetadata("commonOnlyUsageInlineTransitive4.kt")
+    public void testCommonOnlyUsageInlineTransitive4() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/commonOnlyUsageInlineTransitive4.kt");
+    }
+
+    @Test
     @TestMetadata("constValFromLib.kt")
     public void testConstValFromLib() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/constValFromLib.kt");
+    }
+
+    @Test
+    @TestMetadata("contextualProperty.kt")
+    public void testContextualProperty() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/contextualProperty.kt");
     }
 
     @Test

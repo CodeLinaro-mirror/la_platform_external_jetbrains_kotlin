@@ -199,11 +199,27 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     object EnumSuperTypeRef : KtFakeSourceElementKind()
 
     /**
+     * for record classes we can have an implicit supertype ref to `Record` with a fake source.
+     */
+    object RecordSuperTypeRef : KtFakeSourceElementKind()
+
+    /**
      * `when (x) { "abc" -> 42 }` --> `when(val $subj = x) { $subj == "abc" -> 42 }`
      * where `$subj == "42"` has fake psi source which refers to "42" as inner expression
      * and `$subj` fake source refers to "42" as `KtWhenCondition`.
      */
     object WhenCondition : KtFakeSourceElementKind()
+
+    /**
+     * for additional FIR built for code fragments
+     */
+    object CodeFragment : KtFakeSourceElementKind()
+
+    /**
+     * `when { is Int -> 42 }` --> `when { $subj is Int -> 42 }`
+     * where `$subj` is unresolved because there was no subject.
+     */
+    object UnresolvedWhenConditionSubject : KtFakeSourceElementKind()
 
     /**
      * for primary constructor parameter the corresponding class property is generated
@@ -363,6 +379,23 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     object LambdaReceiver : KtFakeSourceElementKind()
 
     /**
+     * Example:
+     *
+     * ```kotlin
+     * fun foo() {
+     *     val (a, b) = listOf(1, 2)
+     * }
+     * ```
+     *
+     * When constructing the FIR for a destructuring declaration, we initially create an `FirBlock`
+     * containing the properties `<destruct>`, `a`, and `b`.
+     * If the original PSI is well-formed, this block is discarded,
+     * and the properties are added to the outer block (i.e., to the function body).
+     * However, if the PSI is invalid, this synthetic block may persist in the FIR tree.
+     */
+    object DestructuringBlock : KtFakeSourceElementKind()
+
+    /**
      * `{ (a, b) -> foo() }` -> `{ x -> val (a, b) = x; { foo() } }`
      * where the inner block `{ foo() }` has fake source
      */
@@ -491,6 +524,11 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     object SamConversion : KtFakeSourceElementKind()
 
     /**
+     * For synthetic functions created for SAM constructors.
+     */
+    object SamConstructor : KtFakeSourceElementKind()
+
+    /**
      * For it.functionFromAny() calls on a stub type
      */
     object CastToAnyForStubTypes : KtFakeSourceElementKind()
@@ -510,6 +548,11 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
      * See [org.jetbrains.kotlin.config.LanguageFeature.ResolveTopLevelLambdasAsSyntheticCallArgument] and its usages
      */
     object ErrorExpressionForTopLevelLambda : KtFakeSourceElementKind()
+
+    /**
+     * When resolving ENTRY as `MyEnum.ENTRY` this is used for the `MyEnum` part
+     */
+    object QualifierForContextSensitiveResolution : KtFakeSourceElementKind()
 }
 
 sealed class AbstractKtSourceElement {

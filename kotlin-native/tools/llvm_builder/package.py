@@ -123,7 +123,7 @@ def construct_cmake_flags(
             cmake_args.append('-DLLVM_DISTRIBUTION_COMPONENTS=' + ';'.join(distribution_components))
             # These links are actually copies on windows, so they're wasting precious disk space.
             cmake_args.append("-DCLANG_LINKS_TO_CREATE=clang++")
-            cmake_args.append("-DLLD_SYMLINKS_TO_CREATE=ld.lld;wasm-ld")
+            cmake_args.append("-DLLD_SYMLINKS_TO_CREATE=ld.lld")
 
         if host_is_windows():
             # CMake is not tolerant to backslashes
@@ -148,7 +148,7 @@ def construct_cmake_flags(
 
     if host_is_darwin():
         cmake_args.append('-DLLVM_ENABLE_LIBCXX=ON')
-        cmake_args.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=11.2')
+        cmake_args.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0')
         if building_bootstrap:
             # Don't waste time by doing unnecessary work for throwaway toolchain.
             cmake_args.extend([
@@ -160,8 +160,6 @@ def construct_cmake_flags(
                 '-DCOMPILER_RT_ENABLE_WATCHOS=OFF',
                 '-DCOMPILER_RT_ENABLE_TVOS=OFF',
             ])
-        else:
-            cmake_args.append('-DLIBCXX_USE_COMPILER_RT=ON')
 
     if install_path is not None:
         cmake_args.append('-DCMAKE_INSTALL_PREFIX=' + install_path)
@@ -196,6 +194,9 @@ def construct_cmake_flags(
         cmake_args.append('-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded')
         # We don't support PDB, so no need fir DIA.
         cmake_args.append('-DLLVM_ENABLE_DIA_SDK=OFF')
+        # Certain CMake versions may prefer llvm-mt over mt.exe, with llvm-mt crashing without libxml2 present.
+        cmake_args.append('-DCMAKE_MT=mt')
+
 
     # Make distribution much smaller by linking to dynamic library
     # instead of static linkage.
@@ -216,18 +217,22 @@ def run_command(command: List[str], dry_run):
 
     Note that on Windows we prepare environment with vsdevcmd.bat.
     """
+    env = os.environ.copy()
     if host_is_windows():
         if vsdevcmd is None:
             sys.exit("'VsDevCmd.bat' is not set!")
         command = [vsdevcmd, "-arch=amd64", "&&"] + command
         print("Running command: " + ' '.join(command))
     else:
+        if host_is_darwin():
+            # sets CMAKE_OSX_SYSROOT
+            env['SDKROOT'] = 'macosx'
         command = [shlex.quote(arg) for arg in command]
         command = ' '.join(command)
         print("Running command: " + command)
 
     if not dry_run:
-        subprocess.run(command, shell=True, check=True)
+        subprocess.run(command, shell=True, check=True, env=env)
 
 def force_create_directory(parent, name) -> Path:
     build_path = parent / name
@@ -254,7 +259,7 @@ def clone_llvm_repository(repo, branch, llvm_repo_destination, dry_run):
     Downloads a single commit from the given repository.
     """
     default_repo = "https://github.com/Kotlin/llvm-project"
-    default_branch = "kotlin/llvm-16.0.0-apple" if host_is_darwin() else "kotlin/llvm-16.0.0"
+    default_branch = "kotlin/llvm-19-apple"
     repo = default_repo if repo is None else repo
     branch = default_branch if branch is None else branch
     # Download only single commit because we don't need whole history just for building LLVM.
@@ -348,7 +353,7 @@ def build_distribution(args):
             build_targets = ["install"]
 
         projects = ["clang", "lld"]
-        runtimes = ["compiler-rt"] if host_is_windows() else ["libcxx", "libcxxabi", "compiler-rt"]
+        runtimes = ["compiler-rt"]
 
         build_dir = force_create_directory(current_dir, f"llvm-stage-{stage}-build")
         intermediate_build_results.append(build_dir)

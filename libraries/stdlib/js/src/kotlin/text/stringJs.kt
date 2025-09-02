@@ -161,6 +161,8 @@ public actual fun ByteArray.decodeToString(
  * Encodes this string to an array of bytes in UTF-8 encoding.
  *
  * Any malformed char sequence is replaced by the replacement byte sequence.
+ *
+ * @sample samples.text.Strings.encodeToByteArray
  */
 @SinceKotlin("1.4")
 public actual fun String.encodeToByteArray(): ByteArray {
@@ -177,6 +179,8 @@ public actual fun String.encodeToByteArray(): ByteArray {
  * @throws IndexOutOfBoundsException if [startIndex] is less than zero or [endIndex] is greater than the length of this string.
  * @throws IllegalArgumentException if [startIndex] is greater than [endIndex].
  * @throws CharacterCodingException if this string contains malformed char sequence and [throwOnInvalidSequence] is true.
+ *
+ * @sample samples.text.Strings.encodeToByteArray
  */
 @SinceKotlin("1.4")
 @Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
@@ -206,7 +210,6 @@ public actual inline fun String.toUpperCase(): String = asDynamic().toUpperCase(
  * @sample samples.text.Strings.uppercase
  */
 @SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
 @kotlin.internal.InlineOnly
 public actual inline fun String.uppercase(): String = asDynamic().toUpperCase()
 
@@ -227,7 +230,6 @@ public actual inline fun String.toLowerCase(): String = asDynamic().toLowerCase(
  * @sample samples.text.Strings.lowercase
  */
 @SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
 @kotlin.internal.InlineOnly
 public actual inline fun String.lowercase(): String = asDynamic().toLowerCase()
 

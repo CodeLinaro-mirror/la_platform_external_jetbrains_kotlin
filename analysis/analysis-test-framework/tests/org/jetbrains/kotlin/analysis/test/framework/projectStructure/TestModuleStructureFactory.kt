@@ -12,6 +12,7 @@ import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.projectStructure.*
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.StandaloneProjectFactory
 import org.jetbrains.kotlin.analysis.test.framework.AnalysisApiTestDirectives
+import org.jetbrains.kotlin.analysis.test.framework.hasFallbackDependencies
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.TestModuleStructureFactory.addLibraryDependencies
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.TestModuleStructureFactory.getScopeForLibraryByRoots
 import org.jetbrains.kotlin.analysis.test.framework.services.environmentManager
@@ -46,16 +47,15 @@ object TestModuleStructureFactory {
         project: Project,
     ): KtTestModuleStructure {
         val modules = createModules(moduleStructure, testServices, project)
-
         val modulesByName = modules.associateBy { it.testModule.name }
 
         val libraryCache = LibraryCache(testServices, project)
-
         for (ktTestModule in modules) {
             libraryCache.registerLibraryModuleIfNeeded(ktTestModule.ktModule)
             ktTestModule.addDependencies(testServices, modulesByName, libraryCache)
         }
 
+        verifyModules(modules)
         return KtTestModuleStructure(moduleStructure, modules, libraryCache.libraryModules)
     }
 
@@ -81,10 +81,7 @@ object TestModuleStructureFactory {
             val analysisContextModuleName = testModule.directives.singleOrZeroValue(AnalysisApiTestDirectives.ANALYSIS_CONTEXT_MODULE)
             val analysisContextModule = analysisContextModuleName?.let(existingModules::getValue)
 
-            val dependencyBinaryRoots = testModule.regularDependencies.flatMap { dependency ->
-                val libraryModule = existingModules.getValue(dependency.dependencyModule.name).ktModule as? KaLibraryModule
-                libraryModule?.binaryRoots.orEmpty()
-            }
+            val dependencyBinaryRoots = testModule.getDependencyBinaryRoots(existingModules)
 
             val ktTestModule = testServices
                 .getKtModuleFactoryForTestModule(testModule)
@@ -97,22 +94,41 @@ object TestModuleStructureFactory {
         return result
     }
 
+    private fun TestModule.getDependencyBinaryRoots(existingModules: Map<String, KtTestModule>): List<Path> {
+        val dependencyTestModules = if (hasFallbackDependencies) {
+            // To compile a library module with fallback dependencies, it should depend on all preceding library modules, since it doesn't
+            // have explicit dependencies.
+            existingModules.values.filter { it.ktModule is KaLibraryModule }.map { it.testModule }
+        } else {
+            regularDependencies.map { it.dependencyModule }
+        }
+
+        return dependencyTestModules.flatMap { dependency ->
+            val libraryModule = existingModules.getValue(dependency.name).ktModule as? KaLibraryModule
+            libraryModule?.binaryRoots.orEmpty()
+        }
+    }
+
     private fun KtTestModule.addDependencies(
         testServices: TestServices,
         modulesByName: ModulesByName,
         libraryCache: LibraryCache,
-    ) = when (ktModule) {
-        is KaNotUnderContentRootModule, is KaBuiltinsModule -> {
-            // Not-under-content-root and builtin modules have no external dependencies on purpose
+    ) {
+        when (ktModule) {
+            is KaNotUnderContentRootModule, is KaBuiltinsModule -> {
+                // Not-under-content-root and builtin modules have no external dependencies on purpose
+            }
+            is KaDanglingFileModule -> {
+                // Dangling file modules get dependencies from their context
+            }
+            is KtModuleWithModifiableDependencies -> {
+                if (!ktModule.areDependenciesComplete) {
+                    addModuleDependencies(testModule, modulesByName, ktModule)
+                    addLibraryDependencies(testModule, testServices, ktModule, libraryCache)
+                }
+            }
+            else -> error("Unexpected module type: " + ktModule.javaClass.name)
         }
-        is KaDanglingFileModule -> {
-            // Dangling file modules get dependencies from their context
-        }
-        is KtModuleWithModifiableDependencies -> {
-            addModuleDependencies(testModule, modulesByName, ktModule)
-            addLibraryDependencies(testModule, testServices, ktModule, libraryCache)
-        }
-        else -> error("Unexpected module type: " + ktModule.javaClass.name)
     }
 
     private fun addModuleDependencies(
@@ -202,15 +218,16 @@ object TestModuleStructureFactory {
         check(libraryFile.exists()) { "Library $libraryFile does not exist" }
 
         val libraryName = libraryFile.nameWithoutExtension
-        val libraryScope = getScopeForLibraryByRoots(listOf(libraryFile), testServices)
+        val libraryScope = getScopeForLibraryByRoots(project, listOf(libraryFile), testServices)
         return KaLibraryModuleImpl(libraryName, platform, libraryScope, project, listOf(libraryFile), librarySources = null, isSdk = false)
     }
 
-    fun getScopeForLibraryByRoots(roots: Collection<Path>, testServices: TestServices): GlobalSearchScope {
+    fun getScopeForLibraryByRoots(project: Project, roots: Collection<Path>, testServices: TestServices): GlobalSearchScope {
         return StandaloneProjectFactory.createSearchScopeByLibraryRoots(
             roots,
             emptyList(),
-            testServices.environmentManager.getProjectEnvironment()
+            testServices.environmentManager.getApplicationEnvironment(),
+            project,
         )
     }
 
@@ -237,6 +254,23 @@ object TestModuleStructureFactory {
 
                 else -> error("Unexpected file ${testFile.name}")
             }
+        }
+    }
+
+    private fun verifyModules(ktTestModules: List<KtTestModule>) {
+        ktTestModules.forEach { it.verifyModuleWithFallbackDependencies() }
+    }
+
+    private fun KtTestModule.verifyModuleWithFallbackDependencies() {
+        if (!testModule.hasFallbackDependencies) return
+
+        require(ktModule is KaLibraryModule || ktModule is KaLibrarySourceModule) {
+            "Fallback dependencies should only be applied to library (source) modules, but '$name' is a `${ktModule::class.simpleName}`."
+        }
+
+        require(testModule.allDependencies.isEmpty()) {
+            "Module '$name' should not have any explicit dependencies, as it has fallback dependencies. " +
+                    "Actual dependencies: ${testModule.allDependencies.map { it.dependencyModule.name }}."
         }
     }
 }
@@ -299,7 +333,7 @@ private class LibraryCache(
 
         jdkModule?.let { return it }
 
-        val jdkScope = getScopeForLibraryByRoots(jdkRoots, testServices)
+        val jdkScope = getScopeForLibraryByRoots(project, jdkRoots, testServices)
         val jdkModule = KaLibraryModuleImpl(
             "jdk",
             JvmPlatforms.defaultJvmPlatform,

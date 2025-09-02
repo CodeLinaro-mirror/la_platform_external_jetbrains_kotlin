@@ -1,5 +1,4 @@
 // WITH_STDLIB
-
 val <T> T.foo get() = 42
 
 class A

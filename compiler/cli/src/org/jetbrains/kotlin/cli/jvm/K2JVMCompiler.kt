@@ -6,12 +6,14 @@
 package org.jetbrains.kotlin.cli.jvm
 
 import com.intellij.openapi.Disposable
+import org.jetbrains.kotlin.K1Deprecation
 import org.jetbrains.kotlin.backend.jvm.jvmPhases
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.ExitCode.*
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.extensions.ScriptEvaluationExtension
 import org.jetbrains.kotlin.cli.common.extensions.ShellExtension
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.Companion.VERBOSE
 import org.jetbrains.kotlin.cli.common.messages.FilteringMessageCollector
@@ -33,11 +35,17 @@ import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCompil
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
+import org.jetbrains.kotlin.platform.TargetPlatform
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.util.PerformanceManager
 import org.jetbrains.kotlin.utils.KotlinPaths
+import org.jetbrains.kotlin.util.PhaseType
 import java.io.File
 
 class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
+    override val platform: TargetPlatform
+        get() = JvmPlatforms.defaultJvmPlatform
+
     override fun shouldRunK2(
         messageCollector: MessageCollector,
         arguments: K2JVMCompilerArguments,
@@ -102,7 +110,7 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
             arguments.buildFile == null &&
             !arguments.version &&
             !arguments.allowNoSourceFiles &&
-            (arguments.script || arguments.expression != null || arguments.freeArgs.isEmpty())
+            (arguments.script || arguments.expression != null || arguments.repl || arguments.freeArgs.isEmpty())
         ) {
             configuration.configureContentRootsFromClassPath(arguments)
             configuration.configureJdkClasspathRoots()
@@ -129,6 +137,16 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
                 }
                 return scriptingEvaluator.eval(arguments, configuration, projectEnvironment)
             } else {
+                if (!arguments.repl) {
+                    messageCollector.report(
+                        ERROR,
+                        "Kotlin REPL is deprecated and should be enabled explicitly for now; please use the '-Xrepl' option"
+                    )
+                    return COMPILATION_ERROR
+                }
+                if (arguments.freeArgs.isNotEmpty()) {
+                    messageCollector.report(CompilerMessageSeverity.STRONG_WARNING, "The arguments are ignored in the REPL mode")
+                }
                 val shell = ShellExtension.getInstances(projectEnvironment.project).find { it.isAccepted(arguments) }
                 if (shell == null) {
                     messageCollector.report(ERROR, "Unable to run REPL, no scripting plugin loaded")
@@ -153,7 +171,7 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
                 rootDisposable, configuration, messageCollector,
                 moduleChunk.targetDescription()
             ) ?: run {
-                configuration.perfManager?.notifyCompilerInitialized()
+                configuration.perfManager?.notifyPhaseFinished(PhaseType.Initialization)
                 return COMPILATION_ERROR
             }
             environment.registerJavacIfNeeded(arguments).let {
@@ -228,14 +246,13 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
 
     override fun createMetadataVersion(versionArray: IntArray): BinaryVersion = MetadataVersion(*versionArray)
 
-    class K2JVMCompilerPerformanceManager : PerformanceManager("Kotlin to JVM Compiler")
-
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
             doMain(K2JVMCompiler(), args)
         }
 
+        @K1Deprecation
         fun createCoreEnvironment(
             rootDisposable: Disposable,
             configuration: CompilerConfiguration,
@@ -269,8 +286,6 @@ class K2JVMCompiler : CLICompiler<K2JVMCompilerArguments>() {
             return ProfilingCompilerPerformanceManager.create(argument)
         }
     }
-
-    override val defaultPerformanceManager: K2JVMCompilerPerformanceManager = K2JVMCompilerPerformanceManager()
 
     override fun createPerformanceManager(arguments: K2JVMCompilerArguments, services: Services): PerformanceManager {
         return createCustomPerformanceManagerOrNull(arguments, services) ?: defaultPerformanceManager

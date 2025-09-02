@@ -54,7 +54,11 @@ class Test11 {
     companion object { }
 }
 
-val test12 = <!UNRESOLVED_REFERENCE!>context<!>(<!UNRESOLVED_REFERENCE!>c<!><!SYNTAX!>: A<!>)<!SYNTAX!><!> object<!SYNTAX!><!> { }
+val test12 = context(<!UNRESOLVED_REFERENCE!>c<!><!SYNTAX!>: A<!>)<!SYNTAX!><!> object<!SYNTAX!><!> { }
 
 <!UNSUPPORTED!>context(c: A)<!>
 typealias Test13 = String
+
+/* GENERATED_FIR_TAGS: annotationDeclaration, classDeclaration, companionObject, data, enumDeclaration, enumEntry,
+funInterface, functionDeclaration, inner, interfaceDeclaration, nestedClass, nullableType, objectDeclaration,
+primaryConstructor, propertyDeclaration, typeAliasDeclaration, typeParameter, value */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.constant.AnnotationValue
+import org.jetbrains.kotlin.constant.ConstantValue
 import org.jetbrains.kotlin.constant.EnumValue
 import org.jetbrains.kotlin.constant.IntValue
 import org.jetbrains.kotlin.descriptors.*
@@ -53,6 +54,7 @@ import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitNullableAnyTypeRef
 import org.jetbrains.kotlin.metadata.ProtoBuf
 import org.jetbrains.kotlin.metadata.ProtoBuf.MemberKind
+import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.metadata.deserialization.Flags
 import org.jetbrains.kotlin.metadata.deserialization.VersionRequirement
 import org.jetbrains.kotlin.metadata.deserialization.isKotlin1Dot4OrLater
@@ -73,8 +75,8 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.mapToIndex
 
 class FirElementSerializer private constructor(
-    private val session: FirSession,
-    private val scopeSession: ScopeSession,
+    override val session: FirSession,
+    override val scopeSession: ScopeSession,
     private val currentDeclaration: FirDeclaration?,
     private val typeParameters: Interner<FirTypeParameter>,
     private val extension: FirSerializerExtension,
@@ -84,7 +86,7 @@ class FirElementSerializer private constructor(
     private val typeApproximator: AbstractTypeApproximator,
     private val languageVersionSettings: LanguageVersionSettings,
     private val produceHeaderKlib: Boolean,
-) {
+) : SessionAndScopeSessionHolder {
     private val contractSerializer = FirContractSerializer()
     private val providedDeclarationsService = session.providedDeclarationsForMetadataService
     private val stdLibCompilation = languageVersionSettings.getFlag(AnalysisFlags.stdlibCompilation)
@@ -306,15 +308,7 @@ class FirElementSerializer private constructor(
                     }
                 }
             }
-            is MultiFieldValueClassRepresentation -> {
-                val namesToTypes = representation.underlyingPropertyNamesToTypes
-                builder.addAllMultiFieldValueClassUnderlyingName(namesToTypes.map { (name, _) -> getSimpleNameIndex(name) })
-                if (useTypeTable()) {
-                    builder.addAllMultiFieldValueClassUnderlyingTypeId(namesToTypes.map { (_, kotlinType) -> typeId(kotlinType) })
-                } else {
-                    builder.addAllMultiFieldValueClassUnderlyingType(namesToTypes.map { (_, kotlinType) -> typeProto(kotlinType).build() })
-                }
-            }
+            is MultiFieldValueClassRepresentation -> {}
             null -> {}
         }
 
@@ -590,7 +584,15 @@ class FirElementSerializer private constructor(
                 // since we generate the default accessor on fir2ir anyway (Fir2IrDeclarationStorage.createIrProperty), we have to
                 // serialize it accordingly at least for delegates to fix issues like #KT-57373
                 // TODO: rewrite accordingly after fixing #KT-58233
-                FirDefaultPropertyGetter(source = null, moduleData, origin, returnTypeRef, visibility, symbol)
+                FirDefaultPropertyGetter(
+                    source = null,
+                    moduleData = moduleData,
+                    origin = origin,
+                    propertyTypeRef = returnTypeRef,
+                    visibility = visibility,
+                    propertySymbol = symbol,
+                    modality = modality,
+                )
             } else null
         }
         if (getter != null) {
@@ -606,7 +608,15 @@ class FirElementSerializer private constructor(
                 // since we generate the default accessor on fir2ir anyway (Fir2IrDeclarationStorage.createIrProperty), we have to
                 // serialize it accordingly at least for delegates to fix issues like #KT-57373
                 // TODO: rewrite accordingly after fixing #KT-58233
-                FirDefaultPropertySetter(source = null, moduleData, origin, returnTypeRef, visibility, symbol)
+                FirDefaultPropertySetter(
+                    source = null,
+                    moduleData = moduleData,
+                    origin = origin,
+                    propertyTypeRef = returnTypeRef,
+                    visibility = visibility,
+                    propertySymbol = symbol,
+                    modality = modality,
+                )
             } else null
         }
         if (setter != null) {
@@ -627,7 +637,7 @@ class FirElementSerializer private constructor(
         }
 
         val hasConstant = property.isConst || (!property.isVar
-                && property.returnTypeRef.coneType.fullyExpandedType(session).canBeUsedForConstVal()
+                && property.returnTypeRef.coneType.fullyExpandedType().canBeUsedForConstVal()
                 && property.symbol.resolvedInitializer.hasConstantValue(session))
         val flags = Flags.getPropertyFlags(
             hasAnnotations,
@@ -635,7 +645,8 @@ class FirElementSerializer private constructor(
             ProtoEnumFlags.modality(modality),
             property.memberKind(),
             property.isVar, hasGetter, hasSetter, hasConstant, property.isConst, property.isLateInit,
-            property.isExternal, property.delegateFieldSymbol != null, property.isExpect
+            property.isExternal, property.delegateFieldSymbol != null, property.isExpect,
+            property.status.hasMustUseReturnValue
         )
         if (flags != builder.flags) {
             builder.flags = flags
@@ -660,6 +671,13 @@ class FirElementSerializer private constructor(
             } else {
                 builder.addContextReceiverType(local.typeProto(contextParameter.returnTypeRef))
             }
+            builder.addContextParameter(
+                local.valueParameterProto(
+                    contextParameter,
+                    additionalAnnotations = emptyList(),
+                    declaresDefaultValue = false
+                )
+            )
         }
 
         val receiverParameter = property.receiverParameter
@@ -712,6 +730,7 @@ class FirElementSerializer private constructor(
             function.isSuspend,
             simpleFunction?.isExpect == true,
             shouldSetStableParameterNames(function),
+            simpleFunction?.status?.hasMustUseReturnValue == true,
         )
 
         if (flags != builder.flags) {
@@ -746,6 +765,13 @@ class FirElementSerializer private constructor(
             } else {
                 builder.addContextReceiverType(local.typeProto(contextParameter.returnTypeRef))
             }
+            builder.addContextParameter(
+                local.valueParameterProto(
+                    contextParameter,
+                    additionalAnnotations = emptyList(),
+                    declaresDefaultValue = false
+                )
+            )
         }
 
         val receiverParameter = function.receiverParameter
@@ -762,7 +788,7 @@ class FirElementSerializer private constructor(
             builder.addValueParameter(local.valueParameterProto(valueParameter, index, function))
         }
 
-        contractSerializer.serializeContractOfFunctionIfAny(function, builder, this)
+        contractSerializer.serializeContractOfFunctionIfAny(function, builder, local)
 
         extension.serializeFunction(function, builder, versionRequirementTable, local)
 
@@ -828,7 +854,7 @@ class FirElementSerializer private constructor(
             builder.setUnderlyingType(local.typeProto(underlyingType, abbreviationOnly = true))
         }
 
-        val expandedType = underlyingType.fullyExpandedType(session)
+        val expandedType = underlyingType.fullyExpandedType()
         if (useTypeTable()) {
             builder.expandedTypeId = local.typeId(expandedType)
         } else {
@@ -866,7 +892,8 @@ class FirElementSerializer private constructor(
             constructor.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(constructor),
             ProtoEnumFlags.visibility(normalizeVisibility(constructor)),
             !constructor.isPrimary,
-            shouldSetStableParameterNames(constructor)
+            shouldSetStableParameterNames(constructor),
+            constructor.status.hasMustUseReturnValue
         )
         if (flags != builder.flags) {
             builder.flags = flags
@@ -895,8 +922,6 @@ class FirElementSerializer private constructor(
         function: FirFunction,
         additionalAnnotations: List<FirAnnotation> = emptyList(),
     ): ProtoBuf.ValueParameter.Builder = whileAnalysing(session, parameter) {
-        val builder = ProtoBuf.ValueParameter.newBuilder()
-
         val declaresDefaultValue = if (
             stdLibCompilation &&
             function is FirConstructor &&
@@ -906,6 +931,16 @@ class FirElementSerializer private constructor(
         } else {
             function.itOrExpectHasDefaultParameterValue(index)
         }
+
+        return valueParameterProto(parameter, additionalAnnotations, declaresDefaultValue)
+    }
+
+    private fun valueParameterProto(
+        parameter: FirValueParameter,
+        additionalAnnotations: List<FirAnnotation>,
+        declaresDefaultValue: Boolean,
+    ): ProtoBuf.ValueParameter.Builder {
+        val builder = ProtoBuf.ValueParameter.newBuilder()
 
         val flags = Flags.getValueParameterFlags(
             additionalAnnotations.isNotEmpty()
@@ -940,10 +975,21 @@ class FirElementSerializer private constructor(
             }
         }
 
+        if (shouldWriteAnnotationParameterDefaultValues(extension.metadataVersion) &&
+            parameter.containingDeclarationSymbol.isAnnotationConstructor(session)
+        ) {
+            parameter.defaultValue?.toConstantValue<ConstantValue<*>>(session, scopeSession, extension.constValueProvider)?.let { value ->
+                builder.setAnnotationParameterDefaultValue(extension.annotationSerializer.valueProto(value))
+            }
+        }
+
         extension.serializeValueParameter(parameter, builder)
 
         return builder
     }
+
+    private fun shouldWriteAnnotationParameterDefaultValues(version: BinaryVersion): Boolean =
+        version.major > 2 || (version.major == 2 && version.minor >= 2)
 
     private fun typeParameterProto(typeParameter: FirTypeParameter): ProtoBuf.TypeParameter.Builder =
         whileAnalysing(session, typeParameter) {
@@ -1000,7 +1046,7 @@ class FirElementSerializer private constructor(
         // `type` we'll see here will be fully expanded with the declaration
         // site session, but [FirElementSerializer] will be run with a use site one,
         // so it must be expanded twice.
-        val useSiteSessionExpandedType = type.fullyExpandedType(session)
+        val useSiteSessionExpandedType = type.fullyExpandedType()
         val abbreviation = type.abbreviatedTypeOrSelf
         val mainType = if (!abbreviationOnly) useSiteSessionExpandedType else abbreviation
         val mainTypeProto = typeOrTypealiasProto(
@@ -1268,24 +1314,30 @@ class FirElementSerializer private constructor(
     }
 
     private fun getAccessorFlags(accessor: FirPropertyAccessor, property: FirProperty): Int {
-        // [FirDefaultPropertyAccessor]---a property accessor without body---can still hold other information, such as annotations,
-        // user-contributed visibility, and modifiers, such as `external` or `inline`.
-        val hasAnnotations = accessor.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(accessor)
-        val isDefault = property.isLocal ||
-                (accessor is FirDefaultPropertyAccessor &&
-                        !hasAnnotations &&
-                        accessor.visibility == property.visibility &&
-                        !accessor.isExternal &&
-                        !accessor.isInline)
         return Flags.getAccessorFlags(
-            hasAnnotations,
+            accessor.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(accessor),
             ProtoEnumFlags.visibility(normalizeVisibility(accessor)),
             // non-default accessor modality is always final, so we check property.modality instead
             ProtoEnumFlags.modality(property.modality!!),
-            !isDefault,
+            !isDefaultAccessor(accessor, property),
             accessor.isExternal,
-            accessor.isInline
+            accessor.isInline,
         )
+    }
+
+    private fun isDefaultAccessor(accessor: FirPropertyAccessor, property: FirProperty): Boolean {
+        if (property.isLocalInFunction) return true
+
+        // [FirDefaultPropertyAccessor]---a property accessor without body---can still hold other information, such as annotations,
+        // user-contributed visibility, and modifiers, such as `external` or `inline`.
+        val hasSetterParameterAnnotations = accessor.valueParameters.any { setterParameter ->
+            setterParameter.nonSourceAnnotations(session).isNotEmpty() || extension.hasAdditionalAnnotations(setterParameter)
+        }
+        return accessor is FirDefaultPropertyAccessor &&
+                !hasSetterParameterAnnotations &&
+                accessor.visibility == property.visibility &&
+                !accessor.isExternal &&
+                !accessor.isInline
     }
 
     private fun createChildSerializer(declaration: FirDeclaration): FirElementSerializer =
@@ -1364,11 +1416,13 @@ class FirElementSerializer private constructor(
     }
 
     private fun normalizeVisibility(declaration: FirMemberDeclaration): Visibility {
-        return declaration.visibility.normalize()
+        // REPL snippet declarations are lowered to public ones, so we should save the metadata accordingly
+        return if (declaration.isReplSnippetDeclaration == true) Visibilities.Public else declaration.visibility.normalize()
     }
 
     private fun normalizeVisibility(declaration: FirPropertyAccessor): Visibility {
-        return declaration.visibility.normalize()
+        // REPL snippet declarations are lowered to public ones, so we should save the metadata accordingly
+        return if (declaration.isReplSnippetDeclaration == true) Visibilities.Public else declaration.visibility.normalize()
     }
 
     private fun getClassifierId(declaration: FirClassLikeDeclaration): Int {

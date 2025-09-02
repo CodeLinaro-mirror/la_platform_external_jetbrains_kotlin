@@ -31,7 +31,10 @@ dependencies {
 
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
 }
 
 projectTest(jUnitMode = JUnitMode.JUnit5) {
@@ -42,8 +45,6 @@ projectTest(jUnitMode = JUnitMode.JUnit5) {
 }
 
 tasks.withType<KotlinJvmCompile>().configureEach {
-    compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
-
     compilerOptions.optIn.addAll(
         "org.jetbrains.kotlin.analysis.api.permissions.KaAllowProhibitedAnalyzeFromWriteAction",
         "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",

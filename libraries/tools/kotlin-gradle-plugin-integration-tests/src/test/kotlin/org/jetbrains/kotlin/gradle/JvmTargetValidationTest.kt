@@ -7,14 +7,11 @@ package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.JavaVersion
 import org.gradle.api.logging.LogLevel
-import org.gradle.internal.jvm.JavaInfo
-import org.gradle.internal.jvm.Jvm
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
-import java.io.File
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
@@ -109,7 +106,7 @@ class JvmTargetValidationTest : KGPBaseTest() {
     @DisplayName("Should ignore if verification mode is 'ignore' and kotlin and java targets are different")
     @GradleTest
     internal fun shouldNotPrintAnythingIfJavaAndKotlinJvmTargetsAreDifferent(
-        gradleVersion: GradleVersion
+        gradleVersion: GradleVersion,
     ) {
         project(
             projectName = "kotlinJavaProject".fullProjectName,
@@ -157,7 +154,7 @@ class JvmTargetValidationTest : KGPBaseTest() {
     @DisplayName("Should produce Java-Kotlin jvm target incompatibility warning only for related tasks")
     @GradleTest
     internal fun shouldProduceJavaKotlinJvmTargetDifferenceWarningOnlyForRelatedTasks(
-        gradleVersion: GradleVersion
+        gradleVersion: GradleVersion,
     ) {
         project(
             projectName = "kotlinJavaProject".fullProjectName,
@@ -358,12 +355,12 @@ class JvmTargetValidationTest : KGPBaseTest() {
             projectName = "kapt2/simple",
             gradleVersion = gradleVersion,
         ) {
-            val toolchainJavaVersion = if (gradleVersion < GradleVersion.version("6.9")) 11 else 17
+            val toolchainJavaVersion = 17
 
             gradleProperties.append(
                 """
                 kotlin.jvm.target.validation.mode = error
-                org.gradle.java.installations.paths=${getJdk17().javaHome},${getJdk11().javaHome}
+                org.gradle.java.installations.paths=${jdk17Info.javaHome},${jdk11Info.javaHome}
                 """.trimIndent()
             )
 
@@ -504,7 +501,7 @@ class JvmTargetValidationTest : KGPBaseTest() {
     }
 
     private fun TestProject.setJavaCompilationCompatibility(
-        target: JavaVersion
+        target: JavaVersion,
     ) {
         //language=Groovy
         buildGradle.append(
@@ -520,7 +517,7 @@ class JvmTargetValidationTest : KGPBaseTest() {
     }
 
     private fun TestProject.useToolchainToCompile(
-        jdkVersion: Int
+        jdkVersion: Int,
     ) {
         //language=Groovy
         buildGradle.append(
@@ -543,10 +540,6 @@ class JvmTargetValidationTest : KGPBaseTest() {
             """.trimIndent()
         )
     }
-
-    private fun getJdk11(): JavaInfo = Jvm.forHome(File(System.getProperty("jdk11Home")))
-
-    private fun getJdk17(): JavaInfo = Jvm.forHome(File(System.getProperty("jdk17Home")))
 
     private val String.fullProjectName get() = "kotlin-java-toolchain/$this"
 }

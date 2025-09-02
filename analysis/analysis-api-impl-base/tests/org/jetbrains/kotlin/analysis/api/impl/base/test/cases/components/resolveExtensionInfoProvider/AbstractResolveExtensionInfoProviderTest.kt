@@ -27,14 +27,14 @@ abstract class AbstractResolveExtensionInfoProviderTest : AbstractAnalysisApiBas
     }
 
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
-        analyseForTest(mainFile) {
+        copyAwareAnalyzeForTest(mainFile) { _ ->
             val resolveExtensionScope = resolveExtensionScopeWithTopLevelDeclarations
 
             val actual = renderSymbolsWithExtendedPsiInfo(resolveExtensionScope, printPretty = false)
             val actualPretty = renderSymbolsWithExtendedPsiInfo(resolveExtensionScope, printPretty = true)
 
-            testServices.assertions.assertEqualsToTestDataFileSibling(actual)
-            testServices.assertions.assertEqualsToTestDataFileSibling(actualPretty, extension = ".pretty.txt")
+            testServices.assertions.assertEqualsToTestOutputFile(actual)
+            testServices.assertions.assertEqualsToTestOutputFile(actualPretty, extension = ".pretty.txt")
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -77,6 +77,9 @@ fun main(args: Array<String>) {
                 model("boxIr")
             }
 
+            testClass<AbstractSerializationFirJsBoxWithInlinedFunInKlibTest> {
+                model("boxIr")
+            }
             // ------------------------------- code compile -------------------------------
 
             testClass<AbstractCompilerFacilityTestForSerialization> {
@@ -95,11 +98,11 @@ fun main(args: Array<String>) {
                     model("firMembers")
                 }
 
-                testClass<AbstractLLFirSerializationDiagnosticTest> {
+                testClass<AbstractLLSerializationDiagnosticsTest> {
                     diagnosticsModelInit()
                 }
 
-                testClass<AbstractLLFirReversedSerializationDiagnosticTest> {
+                testClass<AbstractLLReversedSerializationDiagnosticsTest> {
                     diagnosticsModelInit()
                 }
             }
@@ -110,11 +113,11 @@ fun main(args: Array<String>) {
                     model("codegen")
                 }
 
-                testClass<AbstractLLFirSerializationBlackBoxCodegenBasedTest> {
+                testClass<AbstractLLSerializationBlackBoxTest> {
                     blackBoxModelInit()
                 }
 
-                testClass<AbstractLLFirReversedSerializationBlackBoxCodegenBasedTest> {
+                testClass<AbstractLLReversedSerializationBlackBoxTest> {
                     blackBoxModelInit()
                 }
             }

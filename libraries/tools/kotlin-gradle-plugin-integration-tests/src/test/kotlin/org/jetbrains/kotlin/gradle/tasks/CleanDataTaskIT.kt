@@ -15,9 +15,13 @@ class CleanDataTaskIT : KGPBaseTest() {
 
     @DisplayName("nodejs is deleted from Gradle user home")
     @GradleTest
-    @BrokenOnMacosTest
     fun testDownloadedFolderDeletion(gradleVersion: GradleVersion) {
-        project("cleanTask", gradleVersion) {
+        project(
+            "cleanTask",
+            gradleVersion,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+        ) {
             build("testCleanTask")
         }
     }

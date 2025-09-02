@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.zip.ZipFile
 import kotlin.io.path.*
+import kotlin.test.Ignore
 
 @JvmGradlePluginTests
 @DisplayName("KGP simple tests")
@@ -55,6 +56,17 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
     }
 
     @GradleTest
+    @DisplayName("Warnings with set warningLevel are reported")
+    fun testWarningLevels(gradleVersion: GradleVersion) {
+        project("warningLevelUsage", gradleVersion) {
+            build("build") {
+                assertTasksExecuted(":compileKotlin")
+                assertOutputContains("""w:.*NOTHING_TO_INLINE.*""".toRegex())
+            }
+        }
+    }
+
+    @GradleTest
     @DisplayName("Plugin should allow to add custom Kotlin directory")
     fun testKotlinCustomDirectory(gradleVersion: GradleVersion) {
         project("customSrcDir", gradleVersion) {
@@ -75,7 +87,7 @@ class SimpleKotlinGradleIT : KGPBaseTest() {
     fun testLanguageVersion(gradleVersion: GradleVersion) {
         project("languageVersion", gradleVersion) {
             buildAndFail("build") {
-                assertOutputContains("The feature \"generic inline class parameter\" is only available since language version 1.8")
+                assertOutputContains("The feature \"break continue in inline lambdas\" is only available since language version 2.2")
             }
         }
     }

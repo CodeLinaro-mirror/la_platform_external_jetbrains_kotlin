@@ -14,7 +14,6 @@ import org.jetbrains.kotlin.fir.contracts.description.ConeContractDescriptionEle
 import org.jetbrains.kotlin.fir.declarations.FirDeprecationInfo
 import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
-import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithNullability
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnosticWithSource
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.FirOperation
@@ -24,7 +23,10 @@ import org.jetbrains.kotlin.fir.resolve.calls.AbstractCallCandidate
 import org.jetbrains.kotlin.fir.resolve.calls.AbstractCandidate
 import org.jetbrains.kotlin.fir.resolve.calls.ResolutionDiagnostic
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.FirQualifierPart
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -63,10 +65,9 @@ class ConeUnresolvedSymbolError(val classId: ClassId) : ConeUnresolvedError {
     override val reason: String get() = "Symbol not found for $classId"
 }
 
-class ConeUnresolvedTypeQualifierError(val qualifiers: List<FirQualifierPart>, override val isNullable: Boolean)
-    : ConeUnresolvedError, ConeDiagnosticWithNullability {
+class ConeUnresolvedTypeQualifierError(val qualifiers: List<FirQualifierPart>) : ConeUnresolvedError {
     override val qualifier: String get() = qualifiers.joinToString(separator = ".") { it.name.asString() }
-    override val reason: String get() = "Symbol not found for $qualifier${if (isNullable) "?" else ""}"
+    override val reason: String get() = "Symbol not found for $qualifier"
 }
 
 class ConeUnresolvedNameError(
@@ -331,6 +332,10 @@ class ConeTypeParameterInQualifiedAccess(val symbol: FirTypeParameterSymbol) : C
     override val reason: String get() = "Type parameter ${symbol.fir.name} in qualified access"
 }
 
+object ConePlaceholderProjectionInQualifierResolution : ConeDiagnostic {
+    override val reason: String get() = "Type argument inference is not supported for qualifier resolution"
+}
+
 class ConeCyclicTypeBound(val symbol: FirTypeParameterSymbol, val bounds: ImmutableList<FirTypeRef>) : ConeDiagnostic {
     override val reason: String get() = "Type parameter ${symbol.fir.name} has cyclic bounds"
 }
@@ -346,7 +351,7 @@ class ConeImportFromSingleton(val name: Name) : ConeDiagnostic {
 open class ConeUnsupported(override val reason: String, val source: KtSourceElement? = null) : ConeDiagnostic
 
 open class ConeUnsupportedDefaultValueInFunctionType(source: KtSourceElement? = null) :
-    ConeUnsupported("Default value of parameter in function type", source)
+    ConeUnsupported("Function type parameters cannot have default values.", source)
 
 class ConeUnresolvedParentInImport(val parentClassId: ClassId) : ConeDiagnostic {
     override val reason: String
@@ -425,7 +430,17 @@ object ConeCallToDeprecatedOverrideOfHidden : ConeDiagnostic {
         get() = "Call to deprecated override of hidden"
 }
 
-class ConeNoInferTypeMismatch(val lowerType: ConeKotlinType, val upperType: ConeKotlinType) : ConeDiagnostic {
+class ConeTypeMismatch(val lowerType: ConeKotlinType, val upperType: ConeKotlinType) : ConeDiagnostic {
     override val reason: String
-        get() = "(@NoInfer) Type mismatch: expected $upperType, actual $lowerType"
+        get() = "Type mismatch: expected $upperType, actual $lowerType"
+}
+
+/**
+ * There are times when setting the resolved type of FirBlock cannot happen due to postponed lambda resolution.
+ * A placeholder is therefore required, and to avoid setting some actual type, a special cone diagnostic type is used.
+ * This also means an error is reported if the type is never correctly resolved, which may help catch issues with call completion.
+ */
+object ConePostponedInferenceDiagnostic : ConeDiagnostic {
+    override val reason: String
+        get() = "Cone type inference has been postponed due to lambda resolution"
 }

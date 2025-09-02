@@ -29,6 +29,7 @@ fun main(args: Array<String>) {
 
     // TODO: repair these tests
     //generateTestDataForReservedWords()
+    generateTypeScriptJsExportOnFiles("js/js.translator/testData/typescript-export/js")
 
     generateTestGroupSuite(args) {
         testGroup("js/js.tests/tests-gen", "compiler/testData/klib/evolution", testRunnerMethodName = "runTest0") {
@@ -58,10 +59,7 @@ fun main(args: Array<String>) {
         }
 
         testGroup("js/js.tests/tests-gen", "compiler/testData/klib/syntheticAccessors") {
-            testClass<AbstractFirJsKlibSyntheticAccessorInPhase1Test> {
-                model()
-            }
-            testClass<AbstractFirJsKlibSyntheticAccessorInPhase2Test> {
+            testClass<AbstractFirJsKlibSyntheticAccessorTest> {
                 model()
             }
             testClass<AbstractFirJsCodegenBoxWithInlinedFunInKlibTest>(
@@ -212,6 +210,10 @@ fun main(args: Array<String>) {
                 model("box", excludeDirs = jvmOnlyBoxTests + k2BoxTestDir)
             }
 
+            testClass<AbstractJsLightTreeBlackBoxCodegenWithSeparateKmpCompilationTest> {
+                model("box/$k2BoxTestDir")
+            }
+
             testClass<AbstractIrJsES6CodegenBoxTest>(annotations = listOf(*legacyFrontend(), *es6())) {
                 model("box", excludeDirs = jvmOnlyBoxTests + k2BoxTestDir)
             }
@@ -222,6 +224,7 @@ fun main(args: Array<String>) {
 
             testClass<AbstractFirJsCodegenBoxWithInlinedFunInKlibTest> {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
+                model("boxInline")
             }
 
             testClass<AbstractFirJsES6CodegenBoxTest>(annotations = listOf(*es6())) {
@@ -256,12 +259,12 @@ fun main(args: Array<String>) {
                 model("boxWasmJsInterop")
             }
 
-            testClass<AbstractFirJsIrDeserializationCodegenBoxTest> {
+            testClass<AbstractJsIrDeserializationCodegenBoxTest> {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir + irInterpreterTests)
                 model("boxInline")
             }
 
-            testClass<AbstractFirJsIrDeserializationCodegenBoxWithInlinedFunInKlibTest> {
+            testClass<AbstractJsIrDeserializationCodegenBoxWithInlinedFunInKlibTest> {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir + irInterpreterTests)
                 model("boxInline")
             }
@@ -326,6 +329,15 @@ fun main(args: Array<String>) {
             }
 
             testClass<AbstractFirLightTreeJsDiagnosticWithBackendTest>(suiteTestClassName = "FirLightTreeJsOldFrontendDiagnosticsWithBackendTestGenerated") {
+                model(
+                    relativeRootPath = "testsWithJsStdLibAndBackendCompilation",
+                    pattern = "^([^_](.+))\\.kt$",
+                    excludedPattern = excludedFirTestdataPattern,
+                    targetBackend = TargetBackend.JS_IR
+                )
+            }
+
+            testClass<AbstractFirJsDiagnosticWithBackendWithInlinedFunInKlibTestBase>(suiteTestClassName = "FirJsOldFrontendDiagnosticsWithBackendWithInlinedFunInKlibTestGenerated") {
                 model(
                     relativeRootPath = "testsWithJsStdLibAndBackendCompilation",
                     pattern = "^([^_](.+))\\.kt$",

@@ -9,12 +9,13 @@ import com.intellij.psi.PsiJavaModule.MODULE_INFO_FILE
 import com.intellij.util.lang.JavaVersion
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
-import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.moduleChunk
 import org.jetbrains.kotlin.cli.common.modules.ModuleBuilder
 import org.jetbrains.kotlin.cli.common.modules.ModuleChunk
 import org.jetbrains.kotlin.cli.jvm.addModularRootIfNotNull
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinToJVMBytecodeCompiler
 import org.jetbrains.kotlin.cli.jvm.config.*
+import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.config.phaser.PhaseConfig
@@ -35,6 +36,7 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ASSERTIONS_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.DISABLE_OPTIMIZATION
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ENABLE_DEBUG_MODE
+import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ENHANCED_COROUTINES_DEBUGGING
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JDK_KIND
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JVM_TARGET
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.LAMBDAS
@@ -44,6 +46,7 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.STRING_CONCAT
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.USE_OLD_INLINE_CLASSES_MANGLING_SCHEME
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.USE_PSI_CLASS_FILES_READING
+import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.WHEN_EXPRESSIONS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.DISABLE_CALL_ASSERTIONS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.DISABLE_PARAM_ASSERTIONS
@@ -193,6 +196,7 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         register(JDK_RELEASE, JVMConfigurationKeys.JDK_RELEASE)
         register(USE_TYPE_TABLE, JVMConfigurationKeys.USE_TYPE_TABLE)
         register(ENABLE_DEBUG_MODE, JVMConfigurationKeys.ENABLE_DEBUG_MODE)
+        register(ENHANCED_COROUTINES_DEBUGGING, JVMConfigurationKeys.ENHANCED_COROUTINES_DEBUGGING)
         register(NO_NEW_JAVA_ANNOTATION_TARGETS, JVMConfigurationKeys.NO_NEW_JAVA_ANNOTATION_TARGETS)
         register(LINK_VIA_SIGNATURES_K1, JVMConfigurationKeys.LINK_VIA_SIGNATURES)
         register(ENABLE_JVM_IR_INLINER, JVMConfigurationKeys.ENABLE_IR_INLINER)
@@ -200,6 +204,7 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         register(USE_PSI_CLASS_FILES_READING, JVMConfigurationKeys.USE_PSI_CLASS_FILES_READING)
         register(ALLOW_KOTLIN_PACKAGE, CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE)
         register(DISABLE_OPTIMIZATION, JVMConfigurationKeys.DISABLE_OPTIMIZATION)
+        register(WHEN_EXPRESSIONS, JVMConfigurationKeys.WHEN_GENERATION_SCHEME)
     }
 
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
@@ -316,18 +321,9 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
             )
         )
         configuration.outputDirectory = outputDir
-        configuration.retainOutputInMemory = true
-        configuration.useClassBuilderFactoryForTest = true
+        configuration.put(KotlinToJVMBytecodeCompiler.customClassBuilderFactory, ClassBuilderFactories.TEST)
 
-        val isMppCompilation = module.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects)
-        for (mppModule in module.transitiveDependsOnDependencies(includeSelf = true, reverseOrder = true)) {
-            for (file in mppModule.kotlinFiles) {
-                configuration.addKotlinSourceRoot(
-                    path = testServices.sourceFileProvider.getOrCreateRealFileForSourceFile(file).canonicalPath,
-                    hmppModuleName = runIf(isMppCompilation) { mppModule.name }
-                )
-            }
-        }
+        configuration.addSourcesForDependsOnClosure(module, testServices)
     }
 
     private fun CompilerConfiguration.addJavaSourceRootsByJavaModules(

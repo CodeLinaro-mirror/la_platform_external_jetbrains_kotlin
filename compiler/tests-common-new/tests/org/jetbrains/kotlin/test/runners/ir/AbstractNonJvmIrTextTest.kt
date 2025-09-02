@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.backend.BlackBoxCodegenSuppressor
 import org.jetbrains.kotlin.test.backend.handlers.*
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
+import org.jetbrains.kotlin.test.backend.ir.IrDiagnosticsHandler
 import org.jetbrains.kotlin.test.backend.ir.KlibFacades
 import org.jetbrains.kotlin.test.builders.*
 import org.jetbrains.kotlin.test.configuration.setupDefaultDirectivesForIrTextTest
@@ -30,11 +31,14 @@ abstract class AbstractNonJvmIrTextTest<FrontendOutput : ResultingArtifact.Front
     abstract val frontend: FrontendKind<*>
     abstract val frontendFacade: Constructor<FrontendFacade<FrontendOutput>>
     abstract val converter: Constructor<Frontend2BackendConverter<FrontendOutput, IrBackendInput>>
+    abstract val preSerializerFacade: Constructor<IrPreSerializationLoweringFacade<IrBackendInput>>
 
     /**
      * Facades for serialization and deserialization to/from klibs.
      */
-    open val klibFacades: KlibFacades?
+    abstract val klibFacades: KlibFacades
+
+    open val klibAbiDumpBeforeInliningSavingHandler: Constructor<AbstractKlibAbiDumpBeforeInliningSavingHandler>?
         get() = null
 
     open fun TestConfigurationBuilder.applyConfigurators() {}
@@ -45,10 +49,7 @@ abstract class AbstractNonJvmIrTextTest<FrontendOutput : ResultingArtifact.Front
             targetPlatform = this@AbstractNonJvmIrTextTest.targetPlatform
             targetBackend = this@AbstractNonJvmIrTextTest.targetBackend
             artifactKind = ArtifactKind.NoArtifact
-            dependencyKind = when (targetBackend) {
-                TargetBackend.JS_IR, TargetBackend.WASM -> DependencyKind.KLib // these irText pipelines register Klib artifacts during *KlibSerializerFacade
-                else -> DependencyKind.Source
-            }
+            dependencyKind = DependencyKind.Binary
         }
 
         applyConfigurators()
@@ -84,21 +85,27 @@ abstract class AbstractNonJvmIrTextTest<FrontendOutput : ResultingArtifact.Front
         facadeStep(converter)
         irHandlersStep {
             setupIrTextDumpHandlers()
+            klibAbiDumpBeforeInliningSavingHandler?.let {
+                useHandlers(it)
+            }
         }
-        klibFacades?.let {klibFacades ->
-            irHandlersStep {
-                useHandlers({ SerializedIrDumpHandler(it, isAfterDeserialization = false) })
-            }
+        facadeStep(preSerializerFacade)
 
-            facadeStep(klibFacades.serializerFacade)
-            klibArtifactsHandlersStep {
-                this.useHandlers(::KlibAbiDumpHandler)
-            }
-            facadeStep(klibFacades.deserializerFacade)
+        loweredIrHandlersStep {
+            useHandlers(::IrDiagnosticsHandler, { SerializedIrDumpHandler(it, isAfterDeserialization = false) })
+        }
 
-            deserializedIrHandlersStep {
-                useHandlers({ SerializedIrDumpHandler(it, isAfterDeserialization = true) })
+        facadeStep(klibFacades.serializerFacade)
+        klibArtifactsHandlersStep {
+            useHandlers(::KlibAbiDumpHandler)
+            klibAbiDumpBeforeInliningSavingHandler?.run {
+                useHandlers(::KlibAbiDumpAfterInliningVerifyingHandler)
             }
+        }
+        facadeStep(klibFacades.deserializerFacade)
+
+        deserializedIrHandlersStep {
+            useHandlers({ SerializedIrDumpHandler(it, isAfterDeserialization = true) })
         }
     }
 }

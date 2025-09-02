@@ -200,6 +200,7 @@ class FirSyntheticCallGenerator(
         val arrayOfSymbol = calculateArrayOfSymbol(expectedType)
         return buildFunctionCall {
             this.argumentList = argumentList
+            this.annotations += arrayLiteral.annotations
             calleeReference = arrayOfSymbol?.let {
                 generateCalleeReferenceWithCandidate(
                     arrayLiteral,
@@ -212,6 +213,7 @@ class FirSyntheticCallGenerator(
                 )
             } ?: buildErrorNamedReference {
                 diagnostic = ConeUnresolvedNameError(ArrayFqNames.ARRAY_OF_FUNCTION)
+                name = ArrayFqNames.ARRAY_OF_FUNCTION
             }
             source = arrayLiteral.source
         }.also {
@@ -278,7 +280,7 @@ class FirSyntheticCallGenerator(
         (resultingCall.calleeReference as? FirResolvedErrorReference)?.let {
             val diagnostic = it.diagnostic
 
-            if (!anonymousFunctionExpression.adaptForTrivialTypeMismatchToBeReportedInChecker(diagnostic, expectedTypeData)) {
+            if (!anonymousFunctionExpression.adaptForTrivialTypeMismatchToBeReportedInChecker(diagnostic)) {
                 // Frankly speaking, all the diagnostics reported further should be transformed into some YT issue
                 // with the `kotlin-error-message` tag.
                 //
@@ -309,9 +311,7 @@ class FirSyntheticCallGenerator(
      */
     private fun FirAnonymousFunctionExpression.adaptForTrivialTypeMismatchToBeReportedInChecker(
         diagnostic: ConeDiagnostic,
-        expectedTypeData: ResolutionMode.WithExpectedType?,
     ): Boolean {
-        if (expectedTypeData?.expectedTypeMismatchIsReportedInChecker != true) return false
         if (diagnostic !is ConeInapplicableCandidateError) return false
 
         val candidate = diagnostic.candidate as Candidate
@@ -411,6 +411,7 @@ class FirSyntheticCallGenerator(
                         CandidateApplicability.INAPPLICABLE,
                         it.candidates,
                     )
+                    name = it.name
                 }
                 replaceCalleeReference(newCalleeReference)
             }

@@ -1,9 +1,11 @@
 #include <Foundation/Foundation.h>
 #include <stdint.h>
 
-uintptr_t org_kotlin_foo_Clazz_init_allocate();
+NS_ASSUME_NONNULL_BEGIN
 
-void org_kotlin_foo_Clazz_init_initialize__TypesOfArguments__Swift_UInt__(uintptr_t __kt);
+void * org_kotlin_foo_Clazz_init_allocate();
+
+void org_kotlin_foo_Clazz_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
 int32_t org_kotlin_foo_constant_get();
 
@@ -17,3 +19,4 @@ NSString * org_kotlin_foo_x_get__TypesOfArguments__Swift_Int32__(int32_t receive
 
 int32_t org_kotlin_foo_y__TypesOfArguments__Swift_String__(NSString * receiver);
 
+NS_ASSUME_NONNULL_END

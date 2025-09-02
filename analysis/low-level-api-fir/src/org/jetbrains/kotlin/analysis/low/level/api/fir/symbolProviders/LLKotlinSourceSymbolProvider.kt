@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders
 
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.util.containers.addIfNotNull
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinCompositeDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinCompositePackageProvider
@@ -20,7 +21,9 @@ import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.declarations.FirScript
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.resolve.providers.FirCompositeCachedSymbolNamesProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolNamesProvider
@@ -36,6 +39,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 import org.jetbrains.kotlin.utils.exceptions.withVirtualFileEntry
 
 /**
@@ -63,28 +67,26 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     session: LLFirSession,
     private val moduleComponents: LLFirModuleResolveComponents,
     extensionTool: LLFirResolveExtensionTool?,
-    searchScope: GlobalSearchScope,
     canContainKotlinPackage: Boolean,
     declarationProviderFactory: (GlobalSearchScope) -> KotlinDeclarationProvider?,
 ) : LLKotlinSymbolProvider(session) {
     constructor(
         session: LLFirSession,
         moduleComponents: LLFirModuleResolveComponents,
-        searchScope: GlobalSearchScope,
         canContainKotlinPackage: Boolean,
         declarationProviderFactory: (GlobalSearchScope) -> KotlinDeclarationProvider?,
-    ) : this(session, moduleComponents, session.llResolveExtensionTool, searchScope, canContainKotlinPackage, declarationProviderFactory)
+    ) : this(session, moduleComponents, session.llResolveExtensionTool, canContainKotlinPackage, declarationProviderFactory)
 
     override val declarationProvider = KotlinCompositeDeclarationProvider.create(
         listOfNotNull(
-            declarationProviderFactory(searchScope),
+            declarationProviderFactory(moduleComponents.module.contentScope),
             extensionTool?.declarationProvider,
         )
     )
 
     override val packageProvider = KotlinCompositePackageProvider.create(
         listOfNotNull(
-            session.project.createPackageProvider(searchScope),
+            session.project.createPackageProvider(moduleComponents.module.contentScope),
             extensionTool?.packageProvider,
         )
     )
@@ -120,7 +122,21 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     ): FirClassLikeSymbol<*>? {
         if (classId.isLocal) return null
         if (!allowKotlinPackage && classId.isKotlinPackage()) return null
-        return classifierCache.getNotNullValueForNotNullContext(classId, classLikeDeclaration)
+        return classifierCache.getNotNullValueForNotNullContext(classId, classLikeDeclaration) { classId, context ->
+            // To find out more about KT-62339, we're adding information about whether the declaration for the given class ID can *now* be
+            // found by the declaration provider (or is still `null`), and whether the given context element is actually in the scope of the
+            // symbol provider.
+            val declaration = declarationProvider.getClassLikeDeclarationByClassId(classId)
+            withPsiEntry("declarationFromDeclarationProvider", declaration)
+
+            val virtualFile = context?.containingFile?.virtualFile
+            withVirtualFileEntry("contextVirtualFile", virtualFile)
+
+            if (virtualFile != null) {
+                val isInContentScope = moduleComponents.module.contentScope.contains(virtualFile)
+                withEntry("isContextInScope", isInContentScope.toString())
+            }
+        }
     }
 
     private fun computeClassLikeSymbolByClassId(classId: ClassId, context: KtClassLikeDeclaration?): FirClassLikeSymbol<*>? {
@@ -151,7 +167,7 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     override fun getTopLevelCallableSymbolsTo(
         destination: MutableList<FirCallableSymbol<*>>,
         callableId: CallableId,
-        callables: Collection<KtCallableDeclaration>
+        callables: Collection<KtCallableDeclaration>,
     ) {
         destination += getTopLevelCallableSymbols(callableId, callables.mapTo(mutableSetOf()) { it.containingKtFile })
     }
@@ -180,7 +196,7 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     override fun getTopLevelFunctionSymbolsTo(
         destination: MutableList<FirNamedFunctionSymbol>,
         callableId: CallableId,
-        functions: Collection<KtNamedFunction>
+        functions: Collection<KtNamedFunction>,
     ) {
         destination += getTopLevelFunctionSymbols(callableId, functions.mapTo(mutableSetOf()) { it.containingKtFile })
     }
@@ -209,7 +225,7 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     override fun getTopLevelPropertySymbolsTo(
         destination: MutableList<FirPropertySymbol>,
         callableId: CallableId,
-        properties: Collection<KtProperty>
+        properties: Collection<KtProperty>,
     ) {
         destination += getTopLevelPropertySymbols(callableId, properties.mapTo(mutableSetOf()) { it.containingKtFile })
     }
@@ -238,14 +254,10 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     ): List<TYPE> {
         require(context == null || context.all { it.isPhysical })
 
-        val files = if (context != null) {
-            context
-        } else {
-            // we want to use `getTopLevelCallableFiles` instead of
-            // `getTopLevelFunctions/Properties`, because it is highly optimized
-            // to retrieve the files in the IDE mode
-            declarationProvider.getTopLevelCallableFiles(callableId)
-        }
+        // we want to use `getTopLevelCallableFiles` instead of
+        // `getTopLevelFunctions/Properties`, because it is highly optimized
+        // to retrieve the files in the IDE mode
+        val files = context ?: declarationProvider.getTopLevelCallableFiles(callableId)
 
         if (files.isEmpty()) return emptyList()
 
@@ -257,8 +269,8 @@ internal class LLKotlinSourceSymbolProvider private constructor(
         }
     }
 
-    private inline fun <reified TYPE : FirCallableSymbol<*>> FirFile.collectCallableSymbolsOfTypeTo(list: MutableList<TYPE>, name: Name) {
-        declarations.mapNotNullTo(list) { declaration ->
+    private inline fun <reified TYPE : FirCallableSymbol<*>> FirFile.collectCallableSymbolsOfTypeTo(result: MutableList<TYPE>, name: Name) {
+        ((declarations.singleOrNull() as? FirScript)?.declarations ?: declarations).mapNotNullTo(result) { declaration ->
             if (declaration is FirCallableDeclaration && declaration.symbol.callableId.callableName == name) {
                 declaration.symbol as? TYPE
             } else null
