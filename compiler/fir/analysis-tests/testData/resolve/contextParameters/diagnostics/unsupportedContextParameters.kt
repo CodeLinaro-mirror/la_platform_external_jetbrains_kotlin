@@ -32,7 +32,7 @@ object O
 <!UNSUPPORTED!>context(_: String)<!>
 typealias TA = Any
 
-val objectExpression = <!UNRESOLVED_REFERENCE!>context<!>(<!UNRESOLVED_REFERENCE!>_<!><!SYNTAX!>: String<!>)<!SYNTAX!><!> object<!SYNTAX!><!> {}
+val objectExpression = context(<!UNRESOLVED_REFERENCE!>_<!><!SYNTAX!>: String<!>)<!SYNTAX!><!> object<!SYNTAX!><!> {}
 
 <!UNSUPPORTED!>context(_: String)<!>
 operator fun Any.getValue(thiz: Any?, metadata: Any?): Any = this
@@ -119,3 +119,10 @@ fun localFunctionsContextParametersWithoutType() {
     context(<!CONTEXT_PARAMETER_WITHOUT_NAME, UNRESOLVED_REFERENCE!>a<!>)
     fun contextReceiverSyntax() {}
 }
+
+/* GENERATED_FIR_TAGS: annotationDeclaration, anonymousFunction, classDeclaration, crossinline, destructuringDeclaration,
+enumDeclaration, forLoop, funWithExtensionReceiver, functionDeclaration, functionDeclarationWithContext, functionalType,
+getter, init, inline, integerLiteral, interfaceDeclaration, localFunction, localProperty, noinline, nullableType,
+objectDeclaration, operator, primaryConstructor, propertyDeclaration, propertyDeclarationWithContext, propertyDelegate,
+propertyWithExtensionReceiver, rangeExpression, secondaryConstructor, setter, stringLiteral, thisExpression,
+typeAliasDeclaration, typeWithContext, unnamedLocalVariable, vararg, whenExpression, whenWithSubject */

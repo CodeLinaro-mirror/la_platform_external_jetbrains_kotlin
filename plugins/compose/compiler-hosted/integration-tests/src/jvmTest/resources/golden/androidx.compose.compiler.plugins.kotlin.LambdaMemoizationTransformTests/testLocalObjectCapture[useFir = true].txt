@@ -22,14 +22,15 @@ fun Test(strings: List<String>) {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 1251603066, startOffset = 88, endOffset = 462)
 fun Test(strings: List<String>, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
-  sourceInformation(%composer, "C(Test)<{>:Test.kt")
+  sourceInformation(%composer, "C(Test)N(strings)<{>:Test.kt")
   val %dirty = %changed
   if (%changed and 0b0110 == 0) {
     %dirty = %dirty or if (%composer.changedInstance(strings)) 0b0100 else 0b0010
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }

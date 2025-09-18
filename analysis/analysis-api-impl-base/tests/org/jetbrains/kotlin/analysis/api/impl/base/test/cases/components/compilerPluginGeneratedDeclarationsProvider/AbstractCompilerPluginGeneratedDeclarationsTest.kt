@@ -15,14 +15,14 @@ import org.jetbrains.kotlin.test.services.assertions
 
 abstract class AbstractCompilerPluginGeneratedDeclarationsTest : AbstractAnalysisApiBasedTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
-        analyseForTest(mainFile) {
+        analyzeForTest(mainFile) {
             val resolveExtensionScope = mainModule.ktModule.compilerPluginGeneratedDeclarations.topLevelDeclarationsScope
 
             val actual = prettyPrint { renderForTests(resolveExtensionScope, this, printPretty = false) }
             val actualPretty = prettyPrint { renderForTests(resolveExtensionScope, this, printPretty = true) }
 
-            testServices.assertions.assertEqualsToTestDataFileSibling(actual)
-            testServices.assertions.assertEqualsToTestDataFileSibling(actualPretty, extension = ".pretty.txt")
+            testServices.assertions.assertEqualsToTestOutputFile(actual)
+            testServices.assertions.assertEqualsToTestOutputFile(actualPretty, extension = ".pretty.txt")
         }
     }
 }

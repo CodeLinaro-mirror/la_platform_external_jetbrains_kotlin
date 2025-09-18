@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
-import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.lexer.KtTokens
@@ -70,9 +69,9 @@ internal class SymbolLightSimpleMethod private constructor(
         }
     }
 
-    override fun hasTypeParameters(): Boolean =
-        hasTypeParameters(ktModule, functionDeclaration, functionSymbolPointer)
-                || containingClass.isDefaultImplsForInterfaceWithTypeParameters
+    override fun hasTypeParameters(): Boolean {
+        return withFunctionSymbol { it.typeParameters.isNotEmpty() } || containingClass.isDefaultImplsForInterfaceWithTypeParameters
+    }
 
     override fun getTypeParameterList(): PsiTypeParameterList? = _typeParameterList
     override fun getTypeParameters(): Array<PsiTypeParameter> = _typeParameterList?.typeParameters ?: PsiTypeParameter.EMPTY_ARRAY
@@ -156,19 +155,19 @@ internal class SymbolLightSimpleMethod private constructor(
                 additionalAnnotationsProvider = CompositeAdditionalAnnotationsProvider(
                     NullabilityAnnotationsProvider {
                         if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) {
-                            KaTypeNullability.UNKNOWN
+                            NullabilityAnnotation.NOT_REQUIRED
                         } else {
                             withFunctionSymbol { functionSymbol ->
                                 when {
                                     functionSymbol.isSuspend -> { // Any?
-                                        KaTypeNullability.NULLABLE
+                                        NullabilityAnnotation.NULLABLE
                                     }
                                     forceBoxedReturnType(functionSymbol) -> {
-                                        KaTypeNullability.NON_NULLABLE
+                                        NullabilityAnnotation.NON_NULLABLE
                                     }
                                     else -> {
                                         val returnType = functionSymbol.returnType
-                                        if (isVoidType(returnType)) KaTypeNullability.UNKNOWN else getTypeNullability(returnType)
+                                        if (isVoidType(returnType)) NullabilityAnnotation.NOT_REQUIRED else getRequiredNullabilityAnnotation(returnType)
                                     }
                                 }
                             }
@@ -187,7 +186,7 @@ internal class SymbolLightSimpleMethod private constructor(
     override fun isOverride(): Boolean = _isOverride
 
     private val _isOverride: Boolean by lazyPub {
-        if (isTopLevel) false else withFunctionSymbol { it.isOverride }
+        withFunctionSymbol { it.isOverride }
     }
 
     // Inspired by KotlinTypeMapper#forceBoxedReturnType
@@ -211,7 +210,7 @@ internal class SymbolLightSimpleMethod private constructor(
 
     private fun KaSession.isVoidType(type: KaType): Boolean {
         val expandedType = type.fullyExpandedType
-        return expandedType.isUnitType && expandedType.nullability != KaTypeNullability.NULLABLE
+        return expandedType.isUnitType && !expandedType.isMarkedNullable
     }
 
     private val _returnedType: PsiType by lazyPub {
@@ -252,23 +251,15 @@ internal class SymbolLightSimpleMethod private constructor(
         ) {
             ProgressManager.checkCanceled()
 
-            if (functionSymbol.hasReifiedParameters || isHiddenOrSynthetic(functionSymbol)) return
-            if (functionSymbol.name.isSpecial || hasTypeForValueClassInSignature(functionSymbol, ignoreReturnType = isTopLevel)) return
+            if (functionSymbol.name.isSpecial || functionSymbol.hasReifiedParameters || isHiddenOrSynthetic(functionSymbol)) return
+            if (hasTypeForValueClassInSignature(functionSymbol, ignoreReturnType = isTopLevel, ignoreValueParameters = true)) return
 
-            result.add(
-                SymbolLightSimpleMethod(
-                    ktAnalysisSession = this,
-                    functionSymbol = functionSymbol,
-                    lightMemberOrigin = lightMemberOrigin,
-                    containingClass = containingClass,
-                    methodIndex = methodIndex,
-                    isTopLevel = isTopLevel,
-                    suppressStatic = suppressStatic,
-                    argumentsSkipMask = null,
-                )
-            )
-
-            createJvmOverloadsIfNeeded(functionSymbol, result) { methodIndex, argumentSkipMask ->
+            createMethodsJvmOverloadsAware(
+                declaration = functionSymbol,
+                result = result,
+                skipValueClassParameters = true,
+                methodIndexBase = methodIndex,
+            ) { methodIndex, argumentSkipMask ->
                 SymbolLightSimpleMethod(
                     ktAnalysisSession = this,
                     functionSymbol = functionSymbol,

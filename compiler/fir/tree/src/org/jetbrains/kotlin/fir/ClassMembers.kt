@@ -66,7 +66,7 @@ private object HasNoEnumEntriesKey : FirDeclarationDataKey()
 var FirClass.hasNoEnumEntriesAttr: Boolean? by FirDeclarationDataRegistry.data(HasNoEnumEntriesKey)
 
 // Must be true iff the class metadata contains the hasEnumEntries flag
-val FirClass.hasEnumEntries get() = hasNoEnumEntriesAttr != true
+val FirClass.hasEnumEntries: Boolean get() = hasNoEnumEntriesAttr != true
 
 private object IsNewPlaceForBodyGeneration : FirDeclarationDataKey()
 var FirRegularClass.isNewPlaceForBodyGeneration: Boolean? by FirDeclarationDataRegistry.data(IsNewPlaceForBodyGeneration)
@@ -196,6 +196,10 @@ private object MatchingParameterFunctionTypeKey : FirDeclarationDataKey()
  * }
  * ```
  * The original function type `@Foo T.() -> Unit` can be accessed with this property on the FirAnonymousFunction at caret.
+ *
+ * The function type can contain unsubstituted type variable types. Therefore, it must be used carefully.
+ *
+ * Currently, it's only used for retrieving type annotations for DSL scope violation checks.
  */
 var <D : FirAnonymousFunction>
         D.matchingParameterFunctionType: ConeKotlinType? by FirDeclarationDataRegistry.data(MatchingParameterFunctionTypeKey)
@@ -222,6 +226,10 @@ var FirFunction.isJavaRecordComponent: Boolean? by FirDeclarationDataRegistry.da
 private object IsCatchParameterProperty : FirDeclarationDataKey()
 
 var FirProperty.isCatchParameter: Boolean? by FirDeclarationDataRegistry.data(IsCatchParameterProperty)
+
+private object IsForLoopParameterProperty : FirDeclarationDataKey()
+
+var FirProperty.isForLoopParameter: Boolean? by FirDeclarationDataRegistry.data(IsForLoopParameterProperty)
 
 private object DelegatedWrapperDataKey : FirDeclarationDataKey()
 

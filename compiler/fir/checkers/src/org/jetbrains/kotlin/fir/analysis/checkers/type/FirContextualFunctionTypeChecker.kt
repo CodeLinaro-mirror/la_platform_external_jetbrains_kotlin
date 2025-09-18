@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.config.FirContextParametersLanguageVersionSettingsChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirContextParametersDeclarationChecker.checkSubTypes
+import org.jetbrains.kotlin.fir.analysis.checkers.requireFeatureSupport
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.forEachChildOfType
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
@@ -32,7 +33,8 @@ import org.jetbrains.kotlin.psi.stubs.elements.KtTokenSets
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 
 object FirContextualFunctionTypeChecker : FirResolvedTypeRefChecker(MppCheckerKind.Platform) {
-    override fun check(typeRef: FirResolvedTypeRef, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(typeRef: FirResolvedTypeRef) {
         if (typeRef.source?.kind is KtFakeSourceElementKind) return
         if (!typeRef.coneType.abbreviatedTypeOrSelf.hasContextParameters) return
 
@@ -42,26 +44,20 @@ object FirContextualFunctionTypeChecker : FirResolvedTypeRefChecker(MppCheckerKi
             }
 
         source.forEachChildOfType(valueParameterElementSet, depth = 1) {
-            reporter.reportOn(it, FirErrors.NAMED_CONTEXT_PARAMETER_IN_FUNCTION_TYPE, context)
+            reporter.reportOn(it, FirErrors.NAMED_CONTEXT_PARAMETER_IN_FUNCTION_TYPE)
         }
 
         if (context.languageVersionSettings.supportsFeature(LanguageFeature.ContextReceivers)) {
-            if (checkSubTypes(typeRef.coneType.contextParameterTypes(context.session), context)) {
+            if (checkSubTypes(typeRef.coneType.contextParameterTypes(context.session))) {
                 reporter.reportOn(
                     source,
-                    FirErrors.SUBTYPING_BETWEEN_CONTEXT_RECEIVERS,
-                    context
+                    FirErrors.SUBTYPING_BETWEEN_CONTEXT_RECEIVERS
                 )
             }
             val message = FirContextParametersLanguageVersionSettingsChecker.getMessage(context.languageVersionSettings)
-            reporter.reportOn(typeRef.source, FirErrors.CONTEXT_RECEIVERS_DEPRECATED, message, context)
-        } else if (!context.languageVersionSettings.supportsFeature(LanguageFeature.ContextParameters)) {
-            reporter.reportOn(
-                source,
-                FirErrors.UNSUPPORTED_FEATURE,
-                LanguageFeature.ContextParameters to context.languageVersionSettings,
-                context
-            )
+            reporter.reportOn(typeRef.source, FirErrors.CONTEXT_RECEIVERS_DEPRECATED, message)
+        } else {
+            source.requireFeatureSupport(LanguageFeature.ContextParameters)
         }
     }
 

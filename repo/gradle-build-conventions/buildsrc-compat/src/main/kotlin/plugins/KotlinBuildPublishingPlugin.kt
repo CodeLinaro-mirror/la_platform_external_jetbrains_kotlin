@@ -6,6 +6,7 @@
 package plugins
 
 import capitalize
+import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.attributes.Usage
@@ -15,7 +16,9 @@ import org.gradle.api.provider.Provider
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.plugins.MavenPublishPlugin
+import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
 import org.gradle.kotlin.dsl.*
+import org.gradle.plugins.signing.Sign
 import org.gradle.plugins.signing.SigningExtension
 import org.gradle.plugins.signing.SigningPlugin
 import java.util.*
@@ -121,7 +124,7 @@ fun MavenPublication.configureKotlinPomAttributes(
         url.set("https://kotlinlang.org/")
         licenses {
             license {
-                name.set("The Apache License, Version 2.0")
+                name.set("Apache-2.0")
                 url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
             }
         }
@@ -157,27 +160,21 @@ fun Project.configureDefaultPublishing(
                 name = KotlinBuildPublishingPlugin.REPOSITORY_NAME
 
                 val repo: String? = project.properties["kotlin.build.deploy-repo"]?.toString() ?: project.properties["deploy-repo"]?.toString()
-                val repoProvider = when (repo) {
-                    "sonatype-nexus-staging" -> "sonatype"
-                    "sonatype-nexus-snapshots" -> "sonatype"
-                    else -> repo
+                if (repo?.contains("sonatype") == true) {
+                    throw GradleException("Do not publish to Sonatype with Gradle. Publish to Space/local maven repository and use a TeamCity deployment.")
                 }
 
                 val deployRepoUrl = (project.properties["kotlin.build.deploy-url"] ?: project.properties["deploy-url"])?.toString()?.takeIf { it.isNotBlank() }
 
-                val sonatypeSnapshotsUrl = "https://oss.sonatype.org/content/repositories/snapshots/".takeIf { repo == "sonatype-nexus-snapshots" }
-
                 val repoUrl: String by extra(
-                    (deployRepoUrl ?: sonatypeSnapshotsUrl ?: "file://${
-                        project.rootProject.layout.buildDirectory.dir("repo").get().asFile
-                    }").toString()
+                    (deployRepoUrl ?: "file://${project.rootProject.layout.buildDirectory.dir("repo").get().asFile}")
                 )
 
                 val username: String? by extra(
-                    project.properties["kotlin.build.deploy-username"]?.toString() ?: project.properties["kotlin.${repoProvider}.user"]?.toString()
+                    project.properties["kotlin.build.deploy-username"]?.toString() ?: project.properties["kotlin.${repo}.user"]?.toString()
                 )
                 val password: String? by extra(
-                    project.properties["kotlin.build.deploy-password"]?.toString() ?: project.properties["kotlin.${repoProvider}.password"]?.toString()
+                    project.properties["kotlin.build.deploy-password"]?.toString() ?: project.properties["kotlin.${repo}.password"]?.toString()
                 )
 
                 setUrl(repoUrl)
@@ -223,5 +220,9 @@ private fun Project.configureSigning() {
         } else {
             useGpgCmd()
         }
+    }
+    // Workaround for https://github.com/gradle/gradle/issues/15568
+    tasks.withType<AbstractPublishToMaven>().configureEach {
+        mustRunAfter(tasks.withType<Sign>())
     }
 }

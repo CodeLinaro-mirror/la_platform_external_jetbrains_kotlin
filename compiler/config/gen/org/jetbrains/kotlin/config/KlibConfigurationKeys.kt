@@ -28,13 +28,13 @@ object KlibConfigurationKeys {
     val SYNTHETIC_ACCESSORS_DUMP_DIR = CompilerConfigurationKey.create<String>("Path to a directory to dump synthetic accessors and their use sites")
 
     @JvmField
-    val SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY = CompilerConfigurationKey.create<Boolean>("Narrow the visibility of generated synthetic accessors to _internal_ if such accessors are only used in inline functions that are not a part of public ABI")
-
-    @JvmField
     val DUPLICATED_UNIQUE_NAME_STRATEGY = CompilerConfigurationKey.create<DuplicatedUniqueNameStrategy>("Duplicated KLIB dependencies handling strategy")
 
     @JvmField
-    val CUSTOM_KLIB_ABI_VERSION = CompilerConfigurationKey.create<KotlinAbiVersion>("Custom klib abi version")
+    val CUSTOM_KLIB_ABI_VERSION = CompilerConfigurationKey.create<KotlinAbiVersion>("Custom KLIB ABI version")
+
+    @JvmField
+    val KLIB_ABI_COMPATIBILITY_LEVEL = CompilerConfigurationKey.create<KlibAbiCompatibilityLevel>("KLIB ABI compatibility level")
 
 }
 
@@ -54,10 +54,6 @@ var CompilerConfiguration.syntheticAccessorsDumpDir: String?
     get() = get(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_DUMP_DIR)
     set(value) { put(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_DUMP_DIR, requireNotNull(value) { "nullable values are not allowed" }) }
 
-var CompilerConfiguration.syntheticAccessorsWithNarrowedVisibility: Boolean
-    get() = getBoolean(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY)
-    set(value) { put(KlibConfigurationKeys.SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY, value) }
-
 var CompilerConfiguration.duplicatedUniqueNameStrategy: DuplicatedUniqueNameStrategy?
     get() = get(KlibConfigurationKeys.DUPLICATED_UNIQUE_NAME_STRATEGY)
     set(value) { put(KlibConfigurationKeys.DUPLICATED_UNIQUE_NAME_STRATEGY, requireNotNull(value) { "nullable values are not allowed" }) }
@@ -65,4 +61,8 @@ var CompilerConfiguration.duplicatedUniqueNameStrategy: DuplicatedUniqueNameStra
 var CompilerConfiguration.customKlibAbiVersion: KotlinAbiVersion?
     get() = get(KlibConfigurationKeys.CUSTOM_KLIB_ABI_VERSION)
     set(value) { putIfNotNull(KlibConfigurationKeys.CUSTOM_KLIB_ABI_VERSION, value) }
+
+var CompilerConfiguration.klibAbiCompatibilityLevel: KlibAbiCompatibilityLevel
+    get() = get(KlibConfigurationKeys.KLIB_ABI_COMPATIBILITY_LEVEL, KlibAbiCompatibilityLevel.LATEST_STABLE)
+    set(value) { put(KlibConfigurationKeys.KLIB_ABI_COMPATIBILITY_LEVEL, value) }
 

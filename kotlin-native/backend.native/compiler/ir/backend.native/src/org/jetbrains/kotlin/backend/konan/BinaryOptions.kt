@@ -24,6 +24,7 @@ object BinaryOptions : BinaryOptionRegistry() {
     val stripDebugInfoFromNativeLibs by booleanOption()
 
     val sourceInfoType by option<SourceInfoType>()
+    val coreSymbolicationImageListType by option<CoreSymbolicationImageListType>()
 
     val androidProgramType by option<AndroidProgramType>()
 
@@ -40,6 +41,10 @@ object BinaryOptions : BinaryOptionRegistry() {
     val objcExportErrorOnNameCollisions by booleanOption()
 
     val objcExportEntryPointsPath by stringOption()
+
+    val objcExportExplicitMethodFamily by booleanOption()
+
+    val dumpObjcSelectorToSignatureMapping by stringOption()
 
     val gc by option<GC>(shortcut = { it.shortcut })
 
@@ -66,10 +71,6 @@ object BinaryOptions : BinaryOptionRegistry() {
     val appStateTracking by option<AppStateTracking>()
 
     val sanitizer by option<SanitizerKind>()
-
-    val mimallocUseDefaultOptions by booleanOption()
-
-    val mimallocUseCompaction by booleanOption()
 
     val compileBitcodeWithXcodeLlvm by booleanOption()
 
@@ -104,6 +105,8 @@ object BinaryOptions : BinaryOptionRegistry() {
     val pagedAllocator by booleanOption()
 
     val latin1Strings by booleanOption()
+
+    val stackProtector by option<StackProtectorMode>()
 }
 
 open class BinaryOption<T : Any>(

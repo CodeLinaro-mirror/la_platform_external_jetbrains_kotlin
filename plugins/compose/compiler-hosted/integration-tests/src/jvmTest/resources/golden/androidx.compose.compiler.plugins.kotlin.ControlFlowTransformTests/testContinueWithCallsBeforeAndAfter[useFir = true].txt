@@ -26,8 +26,9 @@ fun Example(items: Iterator<Int>) {
 
 @NonRestartableComposable
 @Composable
+@FunctionKeyMeta(key = 1376619110, startOffset = 227, endOffset = 408)
 fun Example(items: Iterator<Int>, %composer: Composer?, %changed: Int) {
-  sourceInformationMarkerStart(%composer, <>, "C(Example):Test.kt")
+  sourceInformationMarkerStart(%composer, <>, "C(Example)N(items):Test.kt")
   if (isTraceInProgress()) {
     traceEventStart(<>, %changed, -1, <>)
   }

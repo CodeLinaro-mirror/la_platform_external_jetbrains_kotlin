@@ -2185,6 +2185,11 @@ public class LoadJavaUsingJavacTestGenerated extends AbstractLoadJavaUsingJavacT
           KotlinTestUtils.runTest(this::doTestCompiledKotlin, this, testDataFilePath);
         }
 
+        @TestMetadata("All.kt")
+        public void testAll() {
+          runTest("compiler/testData/loadJava/compiledKotlin/annotations/withUseSiteTarget/All.kt");
+        }
+
         public void testAllFilesPresentInWithUseSiteTarget() {
           KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/withUseSiteTarget"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
@@ -2694,6 +2699,11 @@ public class LoadJavaUsingJavacTestGenerated extends AbstractLoadJavaUsingJavacT
       @TestMetadata("contractOnContextParameter.kt")
       public void testContractOnContextParameter() {
         runTest("compiler/testData/loadJava/compiledKotlin/contextParameters/contractOnContextParameter.kt");
+      }
+
+      @TestMetadata("simpleContextParameters.kt")
+      public void testSimpleContextParameters() {
+        runTest("compiler/testData/loadJava/compiledKotlin/contextParameters/simpleContextParameters.kt");
       }
     }
 

@@ -20,13 +20,14 @@ fun UnskippableComposable(instant: Instant) {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 637373796, startOffset = 81, endOffset = 142)
 fun SkippableComposable(list: List<String>, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   val %dirty = %changed
   if (%changed and 0b1110 == 0) {
     %dirty = %dirty or if (%composer.changed(list)) 0b0100 else 0b0010
   }
-  if (%dirty and 0b1011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b1011 != 0b0010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }
@@ -42,6 +43,7 @@ fun SkippableComposable(list: List<String>, %composer: Composer?, %changed: Int)
   }
 }
 @Composable
+@FunctionKeyMeta(key = -961358826, startOffset = 156, endOffset = 220)
 fun UnskippableComposable(instant: Instant, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   if (isTraceInProgress()) {

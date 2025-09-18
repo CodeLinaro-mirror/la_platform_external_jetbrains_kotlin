@@ -24,10 +24,11 @@ class Valid : Base () {
 
 @Composable
 @ComposableOpenTarget(index = 0)
+@FunctionKeyMeta(key = -1679111647, startOffset = 232, endOffset = 252)
 fun OpenTarget(%composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(OpenTarget):Test.kt")
-  if (%changed != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -45,16 +46,18 @@ fun OpenTarget(%composer: Composer?, %changed: Int) {
 abstract class Base {
   @Composable
   @ComposableTarget(applier = "N")
+  @FunctionKeyMeta(key = -1536258881, startOffset = 346, endOffset = 359)
   abstract fun Compose(%composer: Composer?, %changed: Int)
   static val %stable: Int = 0
 }
 @StabilityInferred(parameters = 1)
 class Valid : Base {
   @Composable
+  @FunctionKeyMeta(key = 528315540, startOffset = 446, endOffset = 506)
   override fun Compose(%composer: Composer?, %changed: Int) {
     %composer = %composer.startRestartGroup(<>)
     sourceInformation(%composer, "C(Compose)<OpenTa...>:Test.kt")
-    if (%changed and 0b0001 != 0 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0001 != 0, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }

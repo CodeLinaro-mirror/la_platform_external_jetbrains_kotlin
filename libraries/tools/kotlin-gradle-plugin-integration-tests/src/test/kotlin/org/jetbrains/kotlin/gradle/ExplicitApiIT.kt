@@ -109,7 +109,11 @@ class ExplicitApiIT : KGPBaseTest() {
         project(
             "new-mpp-lib-and-app/sample-lib",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)
+            buildOptions = defaultBuildOptions.copy(
+                logLevel = LogLevel.DEBUG,
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED,
+            )
         ) {
             buildGradle.appendText(
                 //language=groovy
@@ -218,7 +222,7 @@ class ExplicitApiIT : KGPBaseTest() {
                 """.trimMargin()
                 )
             }
-            build(":compileDebugKotlin") {
+            build(":compileDebugKotlin", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 assertTasksExecuted(":compileDebugKotlin")
                 assertCompilerArgument(":compileDebugKotlin", "-Xexplicit-api=warning")
             }

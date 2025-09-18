@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -24,6 +24,9 @@ import org.jetbrains.kotlin.fir.tree.generator.model.Element.Kind.TypeRef as Typ
 // 3) fields
 object FirTree : AbstractFirTreeBuilder() {
     override val rootElement: Element by element(Other, name = "Element") {
+        hasAcceptChildrenMethod = true
+        hasTransformChildrenMethod = true
+
         +field("source", sourceElementType, nullable = true)
     }
 
@@ -166,6 +169,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(expression)
 
         +listField(statement, withTransform = true)
+        +field("isUnitCoerced", boolean, withReplace = true)
     }
 
     val lazyBlock: Element by element(Expression) {
@@ -217,14 +221,13 @@ object FirTree : AbstractFirTreeBuilder() {
     }
 
     val loop: Element by sealedElement(Expression) {
-        needTransformOtherChildren()
 
         parent(statement)
         parent(targetElement)
 
         +field(block, withTransform = true)
         +field("condition", expression, withTransform = true)
-        +field(label, nullable = true)
+        +field(label, nullable = true, withTransform = true)
     }
 
     val whileLoop: Element by element(Expression) {
@@ -292,8 +295,8 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(expression)
         parent(diagnosticHolder)
 
-        +field("selector", errorExpression)
-        +field("receiver", expression)
+        +field("selector", errorExpression, withTransform = true)
+        +field("receiver", expression, withReplace = true)
     }
 
     val literalExpression: Element by element(Expression) {
@@ -345,7 +348,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(call)
 
         +field("operation", operationType)
-        +field("conversionTypeRef", typeRef, withTransform = true)
+        +field("conversionTypeRef", typeRef, withTransform = true, withReplace = true)
         +field("argFromStubType", boolean, withReplace = true)
     }
 
@@ -563,7 +566,7 @@ object FirTree : AbstractFirTreeBuilder() {
         generateBooleanFields(
             "expect", "actual", "override", "operator", "infix", "inline", "value", "tailRec",
             "external", "const", "lateInit", "inner", "companion", "data", "suspend", "static",
-            "fromSealedClass", "fromEnumClass", "fun", "hasStableParameterNames",
+            "fromSealedClass", "fromEnumClass", "fun", "hasStableParameterNames", "hasMustUseReturnValue"
         )
         +field("defaultVisibility", visibilityType, nullable = false)
         +field("defaultModality", modalityType, nullable = false)
@@ -672,6 +675,7 @@ object FirTree : AbstractFirTreeBuilder() {
     val functionTypeParameter: Element by element(Other) {
         parent(rootElement)
 
+        +field("source", sourceElementType, nullable = false)
         +field("name", nameType, nullable = true)
         +field("returnTypeRef", typeRef)
     }
@@ -713,6 +717,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(diagnosticHolder)
 
         +declaredSymbol(danglingModifierSymbolType)
+        +listField(name = "contextParameters", valueParameter, useMutableOrEmpty = true, withReplace = true, withTransform = true)
     }
 
     val file: Element by element(Declaration) {
@@ -739,6 +744,7 @@ object FirTree : AbstractFirTreeBuilder() {
             withTransform = true
             withReplace = true
         }
+        +field("source", sourceElementType, nullable = false)
         +declaredSymbol(scriptSymbolType)
         +listField("parameters", property, withTransform = true)
         +listField("receivers", scriptReceiverParameter, useMutableOrEmpty = true, withTransform = true)
@@ -759,6 +765,7 @@ object FirTree : AbstractFirTreeBuilder() {
         +FieldSets.name
         +declaredSymbol(replSnippetSymbolType)
 
+        +field("source", sourceElementType, nullable = false)
         +listField("receivers", scriptReceiverParameter, useMutableOrEmpty = true, withTransform = true)
         +field("body", block, nullable = false, withTransform = true, withReplace = true)
         +field("resultTypeRef", typeRef, withReplace = true, withTransform = true)
@@ -857,7 +864,8 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(expression)
 
         +field("originalExpression", expression, withReplace = true, withTransform = true)
-        +field("typesFromSmartCast", StandardTypes.collection.withArgs(coneKotlinTypeType))
+        +field("upperTypesFromSmartCast", StandardTypes.collection.withArgs(coneKotlinTypeType))
+        +field("lowerTypesFromSmartCast", StandardTypes.collection.withArgs(dfaType))
         +field("smartcastType", typeRef)
         +field("smartcastTypeWithoutNullableNothing", typeRef, nullable = true)
         +field("isStable", boolean)
@@ -889,6 +897,7 @@ object FirTree : AbstractFirTreeBuilder() {
 
     val propertyAccessExpression: Element by element(Expression) {
         parent(qualifiedAccessExpression)
+        +field("calleeReference", namedReference, withReplace = true, withTransform = true)
     }
 
     val getClassCall: Element by element(Expression) {
@@ -898,7 +907,7 @@ object FirTree : AbstractFirTreeBuilder() {
         +field("argument", expression)
     }
 
-    val wrappedArgumentExpression: Element by element(Expression) {
+    val wrappedArgumentExpression: Element by sealedElement(Expression) {
         parent(wrappedExpression)
 
         +field("isSpread", boolean)
@@ -1033,9 +1042,7 @@ object FirTree : AbstractFirTreeBuilder() {
     }
 
     val whenSubjectExpression: Element by element(Expression) {
-        parent(expression)
-
-        +field("whenRef", whenRefType)
+        parent(propertyAccessExpression)
     }
 
     val desugaredAssignmentValueReferenceExpression: Element by element(Expression) {
@@ -1124,10 +1131,11 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(reference)
     }
 
-    val typeRef: Element by sealedElement(TypeRefElement) {
+    val typeRef: Element by element(TypeRefElement) {
         parent(annotationContainer)
 
         +annotations
+        +field("customRenderer", boolean)
     }
 
     val resolvedTypeRef: Element by element(TypeRefElement) {
@@ -1138,21 +1146,21 @@ object FirTree : AbstractFirTreeBuilder() {
         +field("delegatedTypeRef", typeRef, nullable = true, isChild = false)
     }
 
-    val typeRefWithNullability: Element by element(TypeRefElement) {
+    val unresolvedTypeRef: Element by sealedElement(TypeRefElement) {
         parent(typeRef)
 
+        +field("source", sourceElementType, nullable = false)
         +field("isMarkedNullable", boolean)
     }
 
     val userTypeRef: Element by element(TypeRefElement) {
-        parent(typeRefWithNullability)
+        parent(unresolvedTypeRef)
 
         +listField("qualifier", firQualifierPartType)
-        +field("customRenderer", boolean)
     }
 
     val functionTypeRef: Element by element(TypeRefElement) {
-        parent(typeRefWithNullability)
+        parent(unresolvedTypeRef)
 
         +field("receiverTypeRef", typeRef, nullable = true)
         +listField("parameters", functionTypeParameter)
@@ -1162,7 +1170,7 @@ object FirTree : AbstractFirTreeBuilder() {
     }
 
     val dynamicTypeRef: Element by element(TypeRefElement) {
-        parent(typeRefWithNullability)
+        parent(unresolvedTypeRef)
     }
 
     val implicitTypeRef: Element by element(TypeRefElement) {
@@ -1188,8 +1196,13 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(diagnosticHolder)
     }
 
+    val errorSuperReference: Element by element(Reference) {
+        parent(superReference)
+        parent(diagnosticHolder)
+    }
+
     val intersectionTypeRef: Element by element(TypeRefElement) {
-        parent(typeRefWithNullability)
+        parent(unresolvedTypeRef)
 
         +field("leftType", typeRef)
         +field("rightType", typeRef)
@@ -1200,6 +1213,12 @@ object FirTree : AbstractFirTreeBuilder() {
 
         +field("calleeReference", thisReference)
         +field("isImplicit", boolean)
+    }
+
+    val superReceiverExpression: Element by element(Expression) {
+        parent(qualifiedAccessExpression)
+
+        +field("calleeReference", superReference)
     }
 
     val inaccessibleReceiverExpression: Element by element(Expression) {
@@ -1215,8 +1234,7 @@ object FirTree : AbstractFirTreeBuilder() {
         parent(expression)
         parent(resolvable)
 
-        +field("subject", expression, nullable = true, withTransform = true)
-        +field("subjectVariable", variable, nullable = true)
+        +field("subjectVariable", variable, nullable = true, withTransform = true)
         +listField("branches", whenBranch, withTransform = true)
         +field("exhaustivenessStatus", exhaustivenessStatusType, nullable = true, withReplace = true)
         +field("usedAsExpression", boolean)
@@ -1290,6 +1308,7 @@ object FirTree : AbstractFirTreeBuilder() {
         val declarations = fieldSet(
             listField(declaration) {
                 useInBaseTransformerDetection = false
+                optInAnnotation = directDeclarationsAccessAnnotation
             }
         )
 

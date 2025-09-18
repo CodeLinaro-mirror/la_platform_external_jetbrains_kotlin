@@ -5,7 +5,9 @@
 
 package org.jetbrains.kotlin.gradle
 
+import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
@@ -17,6 +19,7 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeText
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.listDirectoryEntries
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @DisplayName("FUS statistic")
@@ -29,7 +32,6 @@ class FusStatisticsIT : KGPBaseTest() {
         "GRADLE_VERSION",
         "KOTLIN_STDLIB_VERSION",
         "KOTLIN_COMPILER_VERSION",
-        "USE_CLASSPATH_SNAPSHOT=true"
     )
 
     private val GradleProject.fusStatisticsPath: Path
@@ -94,16 +96,12 @@ class FusStatisticsIT : KGPBaseTest() {
     }
 
     private fun testDokkaPlugin(gradleVersion: GradleVersion, pluginName: String, expectedDokkaFusMetrics: Array<String>) {
-        project(
-            "simpleProject",
-            gradleVersion,
-            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
-        ) {
+        project("simpleProject", gradleVersion) {
             settingsGradle.replaceText(
                 "repositories {",
                 """
                     repositories {
-                         maven { url "https://maven.pkg.jetbrains.space/kotlin/p/dokka/dev/" }
+                         maven { url = "https://redirector.kotlinlang.org/maven/dokka-dev" }
                 """.trimIndent()
             )
 
@@ -112,7 +110,7 @@ class FusStatisticsIT : KGPBaseTest() {
                 "repositories {",
                 """
                     repositories {
-                         maven { url "https://maven.pkg.jetbrains.space/kotlin/p/dokka/dev/" }
+                         maven { url = "https://redirector.kotlinlang.org/maven/dokka-dev" }
                 """.trimIndent()
             )
 
@@ -185,7 +183,10 @@ class FusStatisticsIT : KGPBaseTest() {
             )
         ) {
             build("linkDebugExecutableHost", "-Pkotlin.session.logger.root.path=$projectPath") {
-                assertFileContains(fusStatisticsPath, "KOTLIN_INCREMENTAL_NATIVE_ENABLED=true")
+                assertFileContains(
+                    fusStatisticsPath,
+                    "KOTLIN_INCREMENTAL_NATIVE_ENABLED=true",
+                )
             }
         }
     }
@@ -197,7 +198,12 @@ class FusStatisticsIT : KGPBaseTest() {
         additionalVersions = [TestVersions.Gradle.G_8_2],
     )
     fun testMetricCollectingOfApplyingKotlinJsPlugin(gradleVersion: GradleVersion) {
-        project("simple-js-library", gradleVersion) {
+        project(
+            "simple-js-library",
+            gradleVersion,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.copy(isolatedProjects = IsolatedProjectsMode.DISABLED),
+        ) {
             build("assemble", "-Pkotlin.session.logger.root.path=$projectPath") {
                 assertFileContains(fusStatisticsPath, "KOTLIN_JS_PLUGIN_ENABLED=true")
             }
@@ -260,11 +266,7 @@ class FusStatisticsIT : KGPBaseTest() {
         //KT-64022
         //there are a different build instances in buildSrc and rest project
 
-        project(
-            "instantExecutionWithIncludedBuildPlugin",
-            gradleVersion,
-            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)
-        ) {
+        project("instantExecutionWithIncludedBuildPlugin", gradleVersion) {
             build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
                 projectPath.resolve("kotlin-profile").listDirectoryEntries().forEach {
                     assertFileContains(it, *expectedMetrics)
@@ -324,7 +326,11 @@ class FusStatisticsIT : KGPBaseTest() {
             //Collect metrics from BuildMetricsService also
             build(
                 "compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath",
-                buildOptions = defaultBuildOptions.copy(buildReport = listOf(BuildReportType.FILE))
+                buildOptions = defaultBuildOptions
+                    .copy(buildReport = listOf(BuildReportType.FILE))
+                    // With isolated projects enabled, it creates 2 profile files,
+                    // this behavior is tested in [org.jetbrains.kotlin.gradle.FusPluginIT.withConfigurationCacheAndProjectIsolation]
+                    .disableIsolatedProjects(),
             ) {
                 assertFileContains(
                     fusStatisticsPath,
@@ -361,7 +367,6 @@ class FusStatisticsIT : KGPBaseTest() {
             "simpleProject",
             gradleVersion,
             buildOptions = defaultBuildOptions.copy(
-                configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED,
                 isolatedProjects = isProjectIsolationEnabled,
                 buildReport = listOf(BuildReportType.FILE)
             ),
@@ -476,7 +481,10 @@ class FusStatisticsIT : KGPBaseTest() {
     )
     fun testWasmIncrementalStatisticCollection(gradleVersion: GradleVersion) {
         project(
-            "new-mpp-wasm-test", gradleVersion
+            "new-mpp-wasm-test",
+            gradleVersion,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.copy(isolatedProjects = IsolatedProjectsMode.DISABLED),
         ) {
             gradleProperties.writeText("kotlin.incremental.wasm=true")
 
@@ -509,12 +517,13 @@ class FusStatisticsIT : KGPBaseTest() {
                 |
                 |kotlin {
                 |    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile>().configureEach {
-                |        kotlinOptions {
-                |            freeCompilerArgs += listOf("-Xbinary=gc=noop")
+                |        compilerOptions {
+                |            freeCompilerArgs.add("-Xbinary=gc=noop")
                 |        }
                 |    }
                 |}
-                """.trimMargin())
+                """.trimMargin()
+            )
 
             build("linkDebugExecutableHost", "-Pkotlin.session.logger.root.path=$projectPath") {
                 assertFileContains(
@@ -523,6 +532,71 @@ class FusStatisticsIT : KGPBaseTest() {
                 )
             }
         }
+    }
+
+    @DisplayName("add configuration metrics after build was finish")
+    @GradleTest
+    @MppGradlePluginTests
+    @GradleTestVersions(
+        //test uses internal internal method `org.gradle.internal.extensions.core.serviceOf`
+        minVersion = TestVersions.Gradle.G_8_11,
+    )
+    fun addConfigurationMetricsAfterFlowActionWasCalled(gradleVersion: GradleVersion) {
+        //Test uses deprecated Gradle features
+        project("multiplatformFlowAction", gradleVersion, buildOptions = defaultBuildOptions.copy(warningMode = WarningMode.Summary)) {
+            buildScriptInjection {
+                project.tasks.register("doNothing") {}
+            }
+            build("doNothing")
+        }
+    }
+
+    @DisplayName("add configuration metrics after build was finish")
+    @GradleTest
+    @JvmGradlePluginTests
+    @GradleTestVersions(
+        minVersion = TestVersions.Gradle.G_8_2,
+    )
+    fun concurrencyModificationExceptionTest(gradleVersion: GradleVersion) {
+        val rounds = 100
+        project(
+            "multiClassloaderProject", gradleVersion,
+        ) {
+            repeat(rounds) {
+                build(
+                    "compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath", "-Dorg.gradle.parallel=true",
+                    buildOptions = defaultBuildOptions.copy(
+                        buildReport = listOf(BuildReportType.FILE),
+                        isolatedProjects = IsolatedProjectsMode.ENABLED,
+                    ),
+                ) {
+                    assertOutputDoesNotContain("BuildFusService was not registered")
+                }
+
+                build("clean", buildOptions = buildOptions)
+            }
+
+            val fusReports = baseFusStatisticsDirectory.listDirectoryEntries()
+            assertEquals(getExpectedFusFilesCount(gradleVersion, rounds), fusReports.size)
+
+            fusReports.forEach { path ->
+                assertFileContains(
+                    path,
+                    "CONFIGURATION_IMPLEMENTATION_COUNT",
+                    "NUMBER_OF_SUBPROJECTS",
+                )
+            }
+        }
+    }
+
+    private fun getExpectedFusFilesCount(gradleVersion: GradleVersion, rounds: Int): Int {
+        val expectedFiles = if (gradleVersion >= GradleVersion.version(TestVersions.Gradle.G_8_9)) {
+            //every submodule will create a separate file. There are two modules in the project
+            rounds * 2
+        } else {
+            rounds
+        }
+        return expectedFiles
     }
 
     private fun TestProject.applyDokka(version: String) {

@@ -86,7 +86,7 @@ internal fun <T : PhaseContext> PhaseEngine<T>.runK2SpecialBackendChecks(fir2IrO
     runPhase(K2SpecialBackendChecksPhase, fir2IrOutput)
 }
 
-internal fun <T : PhaseContext> PhaseEngine<T>.runIrInliner(fir2IrOutput: Fir2IrOutput, environment: KotlinCoreEnvironment): Fir2IrOutput {
+internal fun <T : PhaseContext> PhaseEngine<T>.runPreSerializationLowerings(fir2IrOutput: Fir2IrOutput, environment: KotlinCoreEnvironment): Fir2IrOutput {
     val diagnosticReporter = DiagnosticReporterFactory.createReporter(environment.configuration.messageCollector)
     val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
             diagnosticReporter,
@@ -100,7 +100,7 @@ internal fun <T : PhaseContext> PhaseEngine<T>.runIrInliner(fir2IrOutput: Fir2Ir
     val preSerializationLowered = newEngine(loweringContext) { engine ->
         engine.runPreSerializationLoweringPhases(
                 fir2IrOutput.fir2irActualizedResult,
-                nativeLoweringsOfTheFirstPhase,
+                nativeLoweringsOfTheFirstPhase(environment.configuration.languageVersionSettings),
         )
     }
     // TODO: After KT-73624, generate native diagnostic tests for `compiler/testData/diagnostics/irInliner/syntheticAccessors`
@@ -124,7 +124,7 @@ internal val EntryPointPhase = createSimpleNamedCompilerPhase<NativeGenerationSt
         postactions = getDefaultIrActions(),
 ) { context, module ->
     val parent = context.context
-    val entryPoint = parent.ir.symbols.entryPoint!!.owner
+    val entryPoint = parent.symbols.entryPoint!!.owner
     val file: IrFile = if (context.llvmModuleSpecification.containsDeclaration(entryPoint)) {
         entryPoint.file
     } else {

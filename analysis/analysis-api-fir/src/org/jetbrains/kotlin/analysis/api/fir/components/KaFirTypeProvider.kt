@@ -5,11 +5,13 @@
 
 package org.jetbrains.kotlin.analysis.api.fir.components
 
+import com.intellij.openapi.diagnostic.logger
 import org.jetbrains.kotlin.analysis.api.components.KaBuiltinTypes
 import org.jetbrains.kotlin.analysis.api.components.KaTypeProvider
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.dispatchReceiverType
+import org.jetbrains.kotlin.analysis.api.fir.types.KaFirErrorType
 import org.jetbrains.kotlin.analysis.api.fir.types.KaFirType
 import org.jetbrains.kotlin.analysis.api.fir.types.PublicTypeApproximator
 import org.jetbrains.kotlin.analysis.api.fir.utils.ConeSupertypeCalculationMode
@@ -17,14 +19,17 @@ import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.fir.utils.getAllStrictSupertypes
 import org.jetbrains.kotlin.analysis.api.fir.utils.getDirectSupertypes
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
+import org.jetbrains.kotlin.analysis.api.types.KaErrorType
 import org.jetbrains.kotlin.analysis.api.types.KaType
-import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.*
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.InvalidFirElementTypeException
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFir
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbolOfTypeSafe
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.ConeTypeCompatibilityChecker
@@ -35,8 +40,8 @@ import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.java.enhancement.EnhancedForWarningConeSubstitutor
 import org.jetbrains.kotlin.fir.psi
-import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
 import org.jetbrains.kotlin.fir.resolve.defaultType
+import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnsupported
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
@@ -45,6 +50,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirSymbolEntry
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.toKtPsiSourceElement
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 
@@ -115,20 +121,40 @@ internal class KaFirTypeProvider(
         }
 
     override val KtTypeReference.type: KaType
-        get() = withValidityAssertion {
-            val fir = getFirBySymbols() ?: getOrBuildFirOfType<FirElement>(firResolveSession)
-            return when (fir) {
+        get() = withPsiValidityAssertion {
+            when (val fir = getFirBySymbols() ?: getOrBuildFir(resolutionFacade)) {
                 is FirResolvedTypeRef -> fir.coneType.asKtType()
                 is FirDelegatedConstructorCall -> fir.constructedTypeRef.coneType.asKtType()
                 is FirTypeProjectionWithVariance -> {
                     when (val typeRef = fir.typeRef) {
                         is FirResolvedTypeRef -> typeRef.coneType.asKtType()
-                        else -> throwUnexpectedFirElementError(fir, this)
+                        else -> handleUnexpectedFirElementError(fir, this)
                     }
                 }
-                else -> throwUnexpectedFirElementError(fir, this)
+
+                else -> handleUnexpectedFirElementError(fir, this)
             }
         }
+
+    /**
+     * Sometimes, we don't have a proper mapping between PSI and FIR elements yet,
+     * so we have to mitigate the damage and return an error type.
+     * Usually, this happens with incorrect code because it is hard to predict all possible ways
+     * in which code can be broken in the source file.
+     */
+    private fun handleUnexpectedFirElementError(fir: FirElement?, element: KtElement): KaErrorType {
+        val exception = InvalidFirElementTypeException(fir, element, emptyList())
+        logger<KaFirTypeProvider>().error(exception)
+
+        val coneErrorType = ConeErrorType(
+            diagnostic = ConeUnsupported(
+                reason = "The construction is not supported in the Analysis API yet",
+                source = element.toKtPsiSourceElement(),
+            )
+        )
+
+        return KaFirErrorType(coneErrorType, firSymbolBuilder)
+    }
 
     /**
      * Try to get fir element for type reference through symbols.
@@ -138,12 +164,12 @@ internal class KaFirTypeProvider(
         val parent = parent
         return when {
             parent is KtParameter && parent.ownerDeclaration != null && parent.typeReference === this ->
-                parent.resolveToFirSymbolOfTypeSafe<FirValueParameterSymbol>(firResolveSession, FirResolvePhase.TYPES)?.fir?.returnTypeRef
+                parent.resolveToFirSymbolOfTypeSafe<FirValueParameterSymbol>(resolutionFacade, FirResolvePhase.TYPES)?.fir?.returnTypeRef
 
             parent is KtCallableDeclaration && (parent is KtNamedFunction || parent is KtProperty)
                     && (parent.receiverTypeReference === this || parent.typeReference === this) -> {
                 val firCallable = parent.resolveToFirSymbolOfTypeSafe<FirCallableSymbol<*>>(
-                    firResolveSession, FirResolvePhase.TYPES
+                    resolutionFacade, FirResolvePhase.TYPES
                 )?.fir
                 if (parent.receiverTypeReference === this) {
                     firCallable?.receiverParameter?.typeRef
@@ -156,15 +182,15 @@ internal class KaFirTypeProvider(
                     val declaration = annotationEntry.parent?.parent as? KtNamedDeclaration ?: return null
                     return when {
                         declaration is KtClassOrObject -> declaration.resolveToFirSymbolOfTypeSafe<FirClassLikeSymbol<*>>(
-                            firResolveSession, FirResolvePhase.TYPES
+                            resolutionFacade, FirResolvePhase.TYPES
                         )?.fir
                         declaration is KtParameter && declaration.ownerFunction != null ->
                             declaration.resolveToFirSymbolOfTypeSafe<FirValueParameterSymbol>(
-                                firResolveSession, FirResolvePhase.TYPES
+                                resolutionFacade, FirResolvePhase.TYPES
                             )?.fir
                         declaration is KtCallableDeclaration && (declaration is KtNamedFunction || declaration is KtProperty) -> {
                             declaration.resolveToFirSymbolOfTypeSafe<FirCallableSymbol<*>>(
-                                firResolveSession, FirResolvePhase.TYPES
+                                resolutionFacade, FirResolvePhase.TYPES
                             )?.fir
                         }
                         else -> return null
@@ -190,8 +216,8 @@ internal class KaFirTypeProvider(
     }
 
     override val KtDoubleColonExpression.receiverType: KaType?
-        get() = withValidityAssertion {
-            return when (val fir = getOrBuildFir(firResolveSession)) {
+        get() = withPsiValidityAssertion {
+            when (val fir = getOrBuildFir(resolutionFacade)) {
                 is FirGetClassCall -> {
                     fir.resolvedType.getReceiverOfReflectionType()?.asKtType()
                 }
@@ -218,9 +244,7 @@ internal class KaFirTypeProvider(
                         }
                     }
                 }
-                else -> {
-                    throwUnexpectedFirElementError(fir, this)
-                }
+                else -> handleUnexpectedFirElementError(fir, this)
             }
         }
 
@@ -230,9 +254,9 @@ internal class KaFirTypeProvider(
         return typeArguments.firstOrNull()?.type
     }
 
-    override fun KaType.withNullability(newNullability: KaTypeNullability): KaType = withValidityAssertion {
+    override fun KaType.withNullability(isMarkedNullable: Boolean): KaType = withValidityAssertion {
         require(this is KaFirType)
-        return coneType.withNullability(nullable = newNullability == KaTypeNullability.NULLABLE, rootModuleSession.typeContext).asKtType()
+        return coneType.withNullability(isMarkedNullable, rootModuleSession.typeContext).asKtType()
     }
 
     override fun KaType.hasCommonSubtypeWith(that: KaType): Boolean = withValidityAssertion {
@@ -242,14 +266,11 @@ internal class KaFirTypeProvider(
         ) == ConeTypeCompatibilityChecker.Compatibility.COMPATIBLE
     }
 
-    override fun collectImplicitReceiverTypes(position: KtElement): List<KaType> = withValidityAssertion {
+    override fun collectImplicitReceiverTypes(position: KtElement): List<KaType> = withPsiValidityAssertion(position) {
         val ktFile = position.containingKtFile
-        val firFile = ktFile.getOrBuildFirFile(firResolveSession)
+        val firFile = ktFile.getOrBuildFirFile(resolutionFacade)
 
-        val fileSession = firFile.llFirSession
-        val sessionHolder = SessionHolderImpl(fileSession, fileSession.getScopeSession())
-
-        val context = ContextCollector.process(firFile, sessionHolder, position)
+        val context = ContextCollector.process(resolutionFacade, firFile, position)
             ?: errorWithAttachment("Cannot find context for ${position::class}") {
                 withPsiEntry("position", position)
             }
@@ -259,18 +280,24 @@ internal class KaFirTypeProvider(
 
     override fun KaType.directSupertypes(shouldApproximate: Boolean): Sequence<KaType> = withValidityAssertion {
         require(this is KaFirType)
-        return coneType.getDirectSupertypes(
-            analysisSession.firSession,
-            ConeSupertypeCalculationMode.substitution(shouldApproximate),
-        ).map { it.asKtType() }
+
+        val substitution = ConeSupertypeCalculationMode.substitution(shouldApproximate)
+        return sequence {
+            for (supertype in coneType.getDirectSupertypes(analysisSession.firSession, substitution)) {
+                yield(supertype.asKtType())
+            }
+        }
     }
 
     override fun KaType.allSupertypes(shouldApproximate: Boolean): Sequence<KaType> = withValidityAssertion {
         require(this is KaFirType)
-        return coneType.getAllStrictSupertypes(
-            analysisSession.firSession,
-            ConeSupertypeCalculationMode.substitution(shouldApproximate),
-        ).map { it.asKtType() }
+
+        val substitution = ConeSupertypeCalculationMode.substitution(shouldApproximate)
+        return sequence {
+            for (supertype in coneType.getAllStrictSupertypes(analysisSession.firSession, substitution)) {
+                yield(supertype.asKtType())
+            }
+        }
     }
 
     @Suppress("OVERRIDE_DEPRECATION")

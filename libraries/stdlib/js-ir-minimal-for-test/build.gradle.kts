@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.*
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 plugins {
     kotlin("multiplatform")
@@ -26,6 +27,18 @@ val commonMainFullSources by task<Sync> {
     }
 
     into(layout.buildDirectory.dir("commonMainFullSources"))
+}
+
+val commonNonJvmMainFullSources by task<Sync> {
+    val sources = listOf(
+        "libraries/stdlib/common-non-jvm/src/",
+    )
+    sources.forEach { path ->
+        from("$rootDir/$path") {
+            into(path.dropLastWhile { it != '/' })
+        }
+    }
+    into(layout.buildDirectory.dir("commonNonJvmMainFullSources"))
 }
 
 val commonMainSources by task<Sync> {
@@ -86,6 +99,15 @@ val commonMainCollectionSources by task<Sync> {
     into(layout.buildDirectory.dir("commonMainCollectionSources"))
 }
 
+val commonNonJvmMainSources by task<Sync> {
+    dependsOn(commonNonJvmMainFullSources)
+    from {
+        commonNonJvmMainFullSources.get().outputs.files.singleFile
+    }
+
+    into(layout.buildDirectory.dir("commonNonJvmMainSources"))
+}
+
 val jsMainSources by task<Sync> {
     dependsOn(":kotlin-stdlib:prepareJsIrMainSources")
     val jsDir = file("$rootDir/libraries/stdlib/js")
@@ -112,7 +134,7 @@ val jsMainSources by task<Sync> {
             "kotlin/throwableExtensions.kt",
             "kotlin/text/**",
             "kotlin/reflect/KTypeHelpers.kt",
-            "kotlin/reflect/KTypeParameterImpl.kt",
+            "kotlin/reflect/KTypeHelpers.old.kt",
             "kotlin/reflect/KTypeImpl.kt",
             "kotlin/dom/**",
             "kotlin/browser/**",
@@ -141,30 +163,39 @@ val jsMainSources by task<Sync> {
 
 kotlin {
     sourceSets {
-        named("commonMain") {
+        val commonMain by getting {
             kotlin.srcDir(files(commonMainSources.map { it.destinationDir }))
             kotlin.srcDir(files(commonMainCollectionSources.map { it.destinationDir }))
             kotlin.srcDir("common-src")
         }
+        val commonNonJvmMain by creating {
+            dependsOn(commonMain)
+            kotlin.srcDir(files(commonNonJvmMainSources.map { it.destinationDir }))
+        }
         named("jsMain") {
+            dependsOn(commonNonJvmMain)
             kotlin.srcDir(files(jsMainSources.map { it.destinationDir }))
             kotlin.srcDir("js-src")
         }
     }
 }
 
-@Suppress("DEPRECATION")
-tasks.withType<KotlinCompile<*>>().configureEach {
-    kotlinOptions.languageVersion = "2.0"
-    kotlinOptions.apiVersion = "2.0"
-    kotlinOptions.freeCompilerArgs += listOf(
-        "-Xallow-kotlin-package",
-        "-Xexpect-actual-classes",
-        "-Xstdlib-compilation",
-        "-Xdont-warn-on-error-suppression",
-        "-opt-in=kotlin.ExperimentalMultiplatform",
-        "-opt-in=kotlin.contracts.ExperimentalContracts",
-    )
+tasks.withType<KotlinCompilationTask<*>>().configureEach {
+    compilerOptions {
+        compilerOptions.languageVersion = KotlinVersion.KOTLIN_2_2
+        compilerOptions.apiVersion = KotlinVersion.KOTLIN_2_2
+        compilerOptions.freeCompilerArgs.addAll(
+            listOf(
+                "-Xallow-kotlin-package",
+                "-Xexpect-actual-classes",
+                "-Xstdlib-compilation",
+                "-Xdont-warn-on-error-suppression",
+                "-opt-in=kotlin.ExperimentalMultiplatform",
+                "-opt-in=kotlin.contracts.ExperimentalContracts",
+                "-Xcontext-parameters",
+            )
+        )
+    }
 }
 
 tasks {
@@ -172,8 +203,7 @@ tasks {
         enabled = false
     }
 
-    @Suppress("DEPRECATION")
-    named("compileKotlinJs", KotlinCompile::class) {
-        kotlinOptions.freeCompilerArgs += "-Xir-module-name=kotlin"
+    named<KotlinCompilationTask<*>>("compileKotlinJs") {
+        compilerOptions.freeCompilerArgs.add("-Xir-module-name=kotlin")
     }
 }

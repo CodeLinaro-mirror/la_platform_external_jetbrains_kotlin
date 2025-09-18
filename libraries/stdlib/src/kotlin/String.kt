@@ -5,18 +5,18 @@
 
 package kotlin
 
-import kotlin.internal.ActualizeByJvmBuiltinProvider
 
 /**
  * The `String` class represents character strings. All string literals in Kotlin programs, such as `"abc"`, are
  * implemented as instances of this class.
  */
-@ActualizeByJvmBuiltinProvider
 public expect class String : Comparable<String>, CharSequence {
     public companion object {}
 
     /**
      * Returns a string obtained by concatenating this string with the string representation of the given [other] object.
+     *
+     * @sample samples.text.Strings.stringPlus
      */
     @kotlin.internal.IntrinsicConstEvaluation
     public operator fun plus(other: Any?): String
@@ -38,6 +38,15 @@ public expect class String : Comparable<String>, CharSequence {
     @kotlin.internal.IntrinsicConstEvaluation
     public override fun compareTo(other: String): Int
 
+    /**
+     * Indicates if [other] object is equal to this [String].
+     *
+     * An [other] object is equal to this [String] if and only if it is also a [String],
+     * it has the same [length] as this String,
+     * and characters at the same positions in each string are equal to each other.
+     *
+     * @sample samples.text.Strings.stringEquals
+     */
     @kotlin.internal.IntrinsicConstEvaluation
     public override fun equals(other: Any?): Boolean
 

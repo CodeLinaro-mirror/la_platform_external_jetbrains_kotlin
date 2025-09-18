@@ -1,11 +1,12 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.stubBased.deserialization
 
 import com.intellij.extapi.psi.StubBasedPsiElementBase
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.Key
 import com.intellij.psi.impl.source.tree.FileElement
 import com.intellij.psi.stubs.Stub
@@ -48,6 +49,7 @@ import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.stubs.elements.KotlinValueClassRepresentation
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinClassStubImpl
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
+import org.jetbrains.kotlin.utils.exceptions.buildErrorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
@@ -80,10 +82,12 @@ internal fun <S, T> loadStubByElement(ktElement: T): S? where T : StubBasedPsiEl
         @Suppress("UNCHECKED_CAST")
         return it as S
     }
+
     val ktFile = ktElement.containingKtFile
-    require(ktFile.isCompiled) {
-        "Expected compiled file $ktFile"
+    requireWithAttachment(ktFile.isCompiled, { "Expected compiled file" }) {
+        withPsiEntry("ktFile", ktFile)
     }
+
     val virtualFile = PsiUtilCore.getVirtualFile(ktFile) ?: return null
     var stubList = ktFile.getUserData(STUBS_KEY)?.get()
     if (stubList == null) {
@@ -96,7 +100,33 @@ internal fun <S, T> loadStubByElement(ktElement: T): S? where T : StubBasedPsiEl
     }
 
     val nodeList = (ktFile.node as FileElement).stubbedSpine.spineNodes
-    if (stubList.size != nodeList.size) return null
+    if (stubList.size != nodeList.size) {
+        val exception = buildErrorWithAttachment("Compiled stubs are inconsistent with decompiled stubs") {
+            withPsiEntry("ktFile", ktFile)
+
+            withEntry("stubListSize", stubList.size.toString())
+            withEntry("stubList") {
+                stubList.forEachIndexed { index, stub ->
+                    this.print("$index ")
+                    this.println(stub.stubType?.toString() ?: stub::class.simpleName)
+                }
+            }
+
+            withEntry("nodeListSize", nodeList.size.toString())
+            withEntry("nodeList") {
+                nodeList.forEachIndexed { index, node ->
+                    this.print("$index ")
+                    this.println(node.elementType.toString())
+                }
+            }
+        }
+
+        Logger.getInstance("#org.jetbrains.kotlin.analysis.low.level.api.fir.stubBased.deserialization.StubBasedFirDeserializer")
+            .error(exception)
+
+        return null
+    }
+
     @Suppress("UNCHECKED_CAST")
     return stubList[nodeList.indexOf(ktElement.node)] as S
 }
@@ -202,7 +232,13 @@ internal fun deserializeClassToSymbol(
             when (declaration) {
                 is KtConstructor<*> -> addDeclaration(memberDeserializer.loadConstructor(declaration, classOrObject, this))
                 is KtNamedFunction -> addDeclaration(memberDeserializer.loadFunction(declaration, symbol, session))
-                is KtProperty -> addDeclaration(memberDeserializer.loadProperty(declaration, symbol))
+                is KtProperty -> addDeclaration(
+                    memberDeserializer.loadProperty(
+                        property = declaration,
+                        classSymbol = symbol,
+                        isFromAnnotation = kind == ClassKind.ANNOTATION_CLASS,
+                    )
+                )
                 is KtEnumEntry -> addDeclaration(memberDeserializer.loadEnumEntry(declaration, symbol, classId))
                 is KtClassOrObject -> {
                     val name = declaration.name ?: errorWithAttachment("Class doesn't have name $declaration") {
@@ -275,28 +311,27 @@ internal fun deserializeClassToSymbol(
 }
 
 private fun KotlinClassStubImpl.deserializeValueClassRepresentation(klass: FirRegularClass): ValueClassRepresentation<ConeRigidType>? {
-    val representation = valueClassRepresentation ?: return null
-    val constructor = klass.declarations.firstNotNullOfOrNull { declaration ->
-        (declaration as? FirConstructor)?.takeIf(FirConstructor::isPrimary)
-    } ?: errorWithAttachment("Value class must have primary constructor") {
-        withFirEntry("class", klass)
-    }
-
-    return when (representation) {
-        KotlinValueClassRepresentation.INLINE_CLASS -> {
-            val parameter = constructor.valueParameters.single()
-            val type = parameter.coneRigidType()
-            InlineClassRepresentation(parameter.name, type)
-        }
-
-        KotlinValueClassRepresentation.MULTI_FIELD_VALUE_CLASS -> {
-            val mapping = constructor.valueParameters.map { parameter ->
-                parameter.name to parameter.coneRigidType()
-            }
-
-            MultiFieldValueClassRepresentation(mapping)
+    val constructor by lazy(LazyThreadSafetyMode.NONE) {
+        klass.declarations.firstNotNullOfOrNull { declaration ->
+            (declaration as? FirConstructor)?.takeIf(FirConstructor::isPrimary)
+        } ?: errorWithAttachment("Value class must have primary constructor") {
+            withFirEntry("class", klass)
         }
     }
+
+    if (valueClassRepresentation == KotlinValueClassRepresentation.INLINE_CLASS) {
+        val parameter = constructor.valueParameters.single()
+        return InlineClassRepresentation(parameter.name, parameter.coneRigidType())
+    }
+
+    @OptIn(SuspiciousValueClassCheck::class)
+    if (klass.isValue) {
+        return MultiFieldValueClassRepresentation(constructor.valueParameters.map { parameter ->
+            parameter.name to parameter.coneRigidType()
+        })
+    }
+
+    return null
 }
 
 private fun FirValueParameter.coneRigidType(): ConeRigidType {

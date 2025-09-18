@@ -1,14 +1,19 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.light.classes.symbol.methods
 
 import com.intellij.psi.*
+import org.jetbrains.kotlin.analysis.api.symbols.KaConstructorSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.classes.lazyPub
 import org.jetbrains.kotlin.asJava.elements.KtLightIdentifier
+import org.jetbrains.kotlin.light.classes.symbol.annotations.EmptyAnnotationsBox
+import org.jetbrains.kotlin.light.classes.symbol.annotations.GranularAnnotationsBox
+import org.jetbrains.kotlin.light.classes.symbol.annotations.SymbolAnnotationsProvider
 import org.jetbrains.kotlin.light.classes.symbol.classes.SymbolLightClassBase
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.InitializedModifiersBox
 import org.jetbrains.kotlin.light.classes.symbol.modifierLists.SymbolLightMemberModifierList
@@ -19,12 +24,14 @@ internal class SymbolLightNoArgConstructor(
     containingClass: SymbolLightClassBase,
     private val visibility: String,
     methodIndex: Int,
+    private val functionSymbolPointer: KaSymbolPointer<KaConstructorSymbol>? = null,
 ) : SymbolLightMethodBase(lightMemberOrigin, containingClass, methodIndex) {
     override fun getName(): String = containingClass.name ?: ""
 
     override fun isConstructor(): Boolean = true
 
     override fun hasTypeParameters(): Boolean = false
+    override fun isVarArgs(): Boolean = false
     override fun getTypeParameterList(): PsiTypeParameterList? = null
     override fun getTypeParameters(): Array<PsiTypeParameter> = PsiTypeParameter.EMPTY_ARRAY
 
@@ -36,6 +43,17 @@ internal class SymbolLightNoArgConstructor(
         SymbolLightMemberModifierList(
             containingDeclaration = this,
             modifiersBox = InitializedModifiersBox(visibility),
+            annotationsBox =
+                if (functionSymbolPointer == null) {
+                    EmptyAnnotationsBox
+                } else {
+                    GranularAnnotationsBox(
+                        annotationsProvider = SymbolAnnotationsProvider(
+                            ktModule = ktModule,
+                            annotatedSymbolPointer = functionSymbolPointer,
+                        )
+                    )
+                }
         )
     }
 

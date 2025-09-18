@@ -6,7 +6,8 @@
 package org.jetbrains.kotlin.fir
 
 import org.jetbrains.kotlin.build.JvmSourceRoot
-import org.jetbrains.kotlin.cli.common.*
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
+import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
@@ -16,14 +17,11 @@ import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.modules.KotlinModuleXmlBuilder
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.test.kotlinPathsForDistDirectoryForTests
-import org.jetbrains.kotlin.util.CodeAnalysisMeasurement
-import org.jetbrains.kotlin.util.CodeGenerationMeasurement
-import org.jetbrains.kotlin.util.PerformanceManager
-import org.jetbrains.kotlin.util.CompilerInitializationMeasurement
-import org.jetbrains.kotlin.util.GarbageCollectionMeasurement
-import org.jetbrains.kotlin.util.IRMeasurement
 import org.jetbrains.kotlin.util.PerformanceCounter
+import org.jetbrains.kotlin.util.PerformanceManager
+import org.jetbrains.kotlin.util.Time
 import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
@@ -328,39 +326,33 @@ abstract class AbstractFullPipelineModularizedTest : AbstractModularizedTest() {
     }
 
 
-    private inner class CompilerPerformanceManager : PerformanceManager("Modularized test performance manager") {
+    private inner class CompilerPerformanceManager : PerformanceManager(JvmPlatforms.defaultJvmPlatform, "Modularized test performance manager") {
 
         fun reportCumulativeTime(): CumulativeTime {
-            val measurements = getMeasurementResults()
+            val gcInfo = unitStats.gcStats.associate { it.kind to GCInfo(it.kind, it.millis, it.count) }
 
-            val gcInfo = measurements.filterIsInstance<GarbageCollectionMeasurement>()
-                .associate { it.garbageCollectionKind to GCInfo(it.garbageCollectionKind, it.milliseconds, it.count) }
-
-            val analysisMeasurement = measurements.filterIsInstance<CodeAnalysisMeasurement>().firstOrNull()
-            val initMeasurement = measurements.filterIsInstance<CompilerInitializationMeasurement>().firstOrNull()
-            val irMeasurements = measurements.filterIsInstance<IRMeasurement>()
+            val initTime = unitStats.let {
+                (it.initStats ?: Time.ZERO) +
+                        (it.findJavaClassStats?.time ?: Time.ZERO) +
+                        (it.findKotlinClassStats?.time ?: Time.ZERO)
+            }
 
             val components = buildMap {
-                put("Init", initMeasurement?.milliseconds ?: 0)
-                put("Analysis", analysisMeasurement?.milliseconds ?: 0)
-
-                irMeasurements.firstOrNull { it.kind == IRMeasurement.Kind.TRANSLATION }?.milliseconds?.let { put("Translation", it) }
-                irMeasurements.firstOrNull { it.kind == IRMeasurement.Kind.LOWERING }?.milliseconds?.let { put("Lowering", it) }
-
-                val generationTime =
-                    irMeasurements.firstOrNull { it.kind == IRMeasurement.Kind.GENERATION }?.milliseconds ?:
-                    measurements.filterIsInstance<CodeGenerationMeasurement>().firstOrNull()?.milliseconds
-
-                if (generationTime != null) {
-                    put("Generation", generationTime)
-                }
+                put("Init", initTime.millis)
+                put("Analysis", unitStats.analysisStats?.millis ?: 0)
+                unitStats.translationToIrStats?.millis?.let { put("Translation", it) }
+                unitStats.irPreLoweringStats?.millis?.let { put("Pre-lowering", it) }
+                unitStats.irSerializationStats?.millis?.let { put("Serialization", it) }
+                unitStats.klibWritingStats?.millis?.let { put("Klib writing", it) }
+                unitStats.irLoweringStats?.millis?.let { put("Lowering", it) }
+                unitStats.backendStats?.millis?.let { put("Generation", it) }
             }
 
             return CumulativeTime(
                 gcInfo,
                 components,
-                files ?: 0,
-                lines ?: 0
+                files,
+                lines
             )
         }
     }

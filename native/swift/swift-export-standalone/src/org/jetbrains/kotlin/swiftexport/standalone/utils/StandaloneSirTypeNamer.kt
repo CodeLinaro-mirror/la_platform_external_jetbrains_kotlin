@@ -48,7 +48,7 @@ internal object StandaloneSirTypeNamer : SirTypeNamer {
 
             SirSwiftModule.utf16CodeUnit -> "Char"
 
-            SirSwiftModule.uint -> "UInt"
+            SirSwiftModule.unsafeMutableRawPointer -> "kotlin.native.internal.NativePtr"
 
             SirSwiftModule.void -> "Void"
             SirSwiftModule.never -> "Nothing"
@@ -59,7 +59,8 @@ internal object StandaloneSirTypeNamer : SirTypeNamer {
 
             SirSwiftModule.optional -> kotlinFqName(type.typeArguments.first()) + "?"
 
-            else -> declaration.kaSymbolOrNull<KaClassLikeSymbol>()!!.classId!!.asFqNameString()
+            else -> declaration.kaSymbolOrNull<KaClassLikeSymbol>()?.classId?.asFqNameString()
+                ?: error("Unnameable declaration $declaration")
         }
     }
 }

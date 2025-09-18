@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.library.IrLibrary
 import org.jetbrains.kotlin.library.KotlinAbiVersion
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.containsErrorCode
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
 
 class JsIrLinker(
@@ -35,9 +36,9 @@ class JsIrLinker(
     builtIns = builtIns,
     symbolTable = symbolTable,
     exportedDependencies = emptyList(),
-    symbolProcessor = { symbol, idSig ->
-        if (idSig.isLocal) {
-            symbol.privateSignature = IdSignature.CompositeSignature(IdSignature.FileSignature(fileSymbol), idSig)
+    deserializedSymbolPostProcessor = { symbol, signature, fileSymbol ->
+        runIf(signature.isLocal) {
+            symbol.privateSignature = IdSignature.CompositeSignature(IdSignature.FileSignature(fileSymbol), signature)
         }
         symbol
     }) {
@@ -50,6 +51,8 @@ class JsIrLinker(
         friendModules = friendModules,
         partialLinkageSupport = partialLinkageSupport
     )
+
+    override val moduleDependencyTracker: IrModuleDependencyTracker = IrModuleDependencyTrackerImpl()
 
     override fun isBuiltInModule(moduleDescriptor: ModuleDescriptor): Boolean =
         moduleDescriptor === moduleDescriptor.builtIns.builtInsModule
@@ -73,7 +76,7 @@ class JsIrLinker(
     private val deserializedFilesInKlibOrder = mutableMapOf<IrModuleFragment, List<IrFile>>()
 
     private inner class JsModuleDeserializer(moduleDescriptor: ModuleDescriptor, klib: IrLibrary, strategyResolver: (String) -> DeserializationStrategy, libraryAbiVersion: KotlinAbiVersion, allowErrorCode: Boolean) :
-        BasicIrModuleDeserializer(this, moduleDescriptor, klib, strategyResolver, libraryAbiVersion, allowErrorCode, true) {
+        BasicIrModuleDeserializer(this, moduleDescriptor, klib, strategyResolver, libraryAbiVersion, allowErrorCode) {
 
         override fun init(delegate: IrModuleDeserializer) {
             super.init(delegate)

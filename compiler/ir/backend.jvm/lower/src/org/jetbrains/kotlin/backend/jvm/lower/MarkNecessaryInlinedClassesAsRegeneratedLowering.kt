@@ -14,7 +14,7 @@ import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.irFlag
-import org.jetbrains.kotlin.ir.originalBeforeInline
+import org.jetbrains.kotlin.backend.common.originalBeforeInline
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.getClass
@@ -153,8 +153,8 @@ internal class MarkNecessaryInlinedClassesAsRegeneratedLowering(val context: Jvm
             }
 
             override fun visitCall(expression: IrCall) {
-                if (expression.symbol == context.ir.symbols.singleArgumentInlineFunction) {
-                    when (val lambda = expression.getValueArgument(0)) {
+                if (expression.symbol == context.symbols.singleArgumentInlineFunction) {
+                    when (val lambda = expression.arguments[0]) {
                         is IrFunctionExpression -> lambda.function.acceptVoid(this)
                         else -> lambda?.acceptVoid(this) // for example IrFunctionReference
                     }

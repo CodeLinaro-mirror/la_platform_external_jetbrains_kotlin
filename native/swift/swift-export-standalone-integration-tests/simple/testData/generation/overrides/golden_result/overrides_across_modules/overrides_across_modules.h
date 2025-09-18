@@ -1,21 +1,24 @@
 #include <Foundation/Foundation.h>
 #include <stdint.h>
 
-void Cousin_finalOverrideFunc(uintptr_t self);
+NS_ASSUME_NONNULL_BEGIN
 
-int32_t Cousin_primitiveTypeFunc__TypesOfArguments__Swift_Int32__(uintptr_t self, int32_t arg);
+void Cousin_finalOverrideFunc(void * self);
 
-int32_t Cousin_primitiveTypeVar_get(uintptr_t self);
+int32_t Cousin_primitiveTypeFunc__TypesOfArguments__Swift_Int32__(void * self, int32_t arg);
 
-void FinalDerived3_abstractFun1(uintptr_t self);
+int32_t Cousin_primitiveTypeVar_get(void * self);
 
-uintptr_t __root___Cousin_init_allocate();
+void FinalDerived3_abstractFun1(void * self);
 
-void __root___Cousin_init_initialize__TypesOfArguments__Swift_UInt_Swift_String__(uintptr_t __kt, NSString * value);
+void * __root___Cousin_init_allocate();
 
-uintptr_t __root___FinalDerived3_init_allocate();
+void __root___Cousin_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_String__(void * __kt, NSString * value);
 
-void __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UInt__(uintptr_t __kt);
+void * __root___FinalDerived3_init_allocate();
 
-void __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UInt_Swift_Int32__(uintptr_t __kt, int32_t x);
+void __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
+void __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_Int32__(void * __kt, int32_t x);
+
+NS_ASSUME_NONNULL_END

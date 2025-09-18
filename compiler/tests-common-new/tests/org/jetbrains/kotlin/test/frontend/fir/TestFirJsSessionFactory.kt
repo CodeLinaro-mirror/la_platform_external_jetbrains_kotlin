@@ -6,15 +6,14 @@
 package org.jetbrains.kotlin.test.frontend.fir
 
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
-import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.session.FirJsSessionFactory
 import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
-import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInTestPipeline
+import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
@@ -23,19 +22,27 @@ import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurato
 object TestFirJsSessionFactory {
     fun createLibrarySession(
         mainModuleName: Name,
-        sessionProvider: FirProjectSessionProvider,
         moduleDataProvider: ModuleDataProvider,
         module: TestModule,
         testServices: TestServices,
         configuration: CompilerConfiguration,
         extensionRegistrars: List<FirExtensionRegistrar>,
     ): FirSession {
-        val resolvedLibraries = resolveLibraries(configuration, getAllJsDependenciesPaths(module, testServices))
+        val libraries = loadWebKlibsInTestPipeline(
+            configuration = configuration,
+            libraryPaths = getAllJsDependenciesPaths(module, testServices),
+            platformChecker = KlibPlatformChecker.JS,
+        ).all
+
+        val sharedLibrarySession = FirJsSessionFactory.createSharedLibrarySession(
+            mainModuleName,
+            configuration,
+            extensionRegistrars,
+        )
 
         return FirJsSessionFactory.createLibrarySession(
-            mainModuleName,
-            resolvedLibraries.map { it.library },
-            sessionProvider,
+            libraries,
+            sharedLibrarySession,
             moduleDataProvider,
             extensionRegistrars,
             configuration,
@@ -44,18 +51,15 @@ object TestFirJsSessionFactory {
 
     fun createModuleBasedSession(
         mainModuleData: FirModuleData,
-        sessionProvider: FirProjectSessionProvider,
         extensionRegistrars: List<FirExtensionRegistrar>,
         configuration: CompilerConfiguration,
-        lookupTracker: LookupTracker?,
         sessionConfigurator: FirSessionConfigurator.() -> Unit,
     ): FirSession =
-        FirJsSessionFactory.createModuleBasedSession(
+        FirJsSessionFactory.createSourceSession(
             mainModuleData,
-            sessionProvider,
             extensionRegistrars,
             configuration,
-            lookupTracker,
+            isForLeafHmppModule = false,
             icData = null,
             sessionConfigurator
         )

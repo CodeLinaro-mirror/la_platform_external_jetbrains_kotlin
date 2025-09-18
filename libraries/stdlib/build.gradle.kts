@@ -8,6 +8,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.GenerateProjectStructureMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
 import org.jetbrains.kotlin.gradle.targets.js.d8.D8Plugin
+import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinTargetWithNodeJsDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
@@ -20,6 +21,7 @@ import plugins.configureDefaultPublishing
 import plugins.configureKotlinPomAttributes
 import plugins.publishing.configureMultiModuleMavenPublishing
 import plugins.publishing.copyAttributes
+import java.nio.file.Files
 import kotlin.io.path.copyTo
 
 plugins {
@@ -28,6 +30,7 @@ plugins {
     signing
     id("nodejs-cache-redirector-configuration")
     id("d8-configuration")
+    id("binaryen-configuration")
 }
 
 description = "Kotlin Standard Library"
@@ -48,18 +51,12 @@ fun outgoingConfiguration(name: String, configure: Action<Configuration> = Actio
     }
 
 fun KotlinCommonCompilerOptions.mainCompilationOptions() {
-    languageVersion = KotlinVersion.KOTLIN_2_1
-    apiVersion = KotlinVersion.KOTLIN_2_1
+    languageVersion = KotlinVersion.KOTLIN_2_2
+    apiVersion = KotlinVersion.KOTLIN_2_2
     freeCompilerArgs.add("-Xstdlib-compilation")
     freeCompilerArgs.add("-Xdont-warn-on-error-suppression")
+    freeCompilerArgs.add("-Xcontext-parameters")
     if (!kotlinBuildProperties.disableWerror) allWarningsAsErrors = true
-}
-
-val configurationBuiltins = resolvingConfiguration("builtins") {
-    attributes.attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, project.objects.named(LibraryElements.JAR))
-}
-dependencies {
-    configurationBuiltins(project(":core:builtins"))
 }
 
 val jvmBuiltinsRelativeDir = "libraries/stdlib/jvm/builtins"
@@ -134,12 +131,15 @@ kotlin {
                         freeCompilerArgs.set(
                             listOfNotNull(
                                 "-Xjdk-release=6",
+                                "-jvm-default=disable",
                                 "-Xallow-kotlin-package",
                                 "-Xexpect-actual-classes",
                                 "-Xmultifile-parts-inherit",
                                 "-Xuse-14-inline-classes-mangling-scheme",
                                 "-Xno-new-java-annotation-targets",
-                                diagnosticNamesArg,
+                                "-Xoutput-builtins-metadata",
+                                "-Xcompile-builtins-as-part-of-stdlib",
+                                diagnosticNamesArg
                             )
                         )
                         mainCompilationOptions()
@@ -162,6 +162,7 @@ kotlin {
                         freeCompilerArgs.set(
                             listOfNotNull(
                                 "-Xjdk-release=7",
+                                "-jvm-default=disable",
                                 "-Xallow-kotlin-package",
                                 "-Xexpect-actual-classes",
                                 "-Xmultifile-parts-inherit",
@@ -183,6 +184,7 @@ kotlin {
                         freeCompilerArgs.set(
                             listOfNotNull(
                                 "-Xallow-kotlin-package",
+                                "-jvm-default=disable",
                                 "-Xmultifile-parts-inherit",
                                 "-Xno-new-java-annotation-targets",
                                 "-Xexplicit-api=strict",
@@ -220,6 +222,11 @@ kotlin {
                 associateWith(mainJdk7)
                 associateWith(mainJdk8)
             }
+            val recursiveDeletionTest by creating {
+                associateWith(main)
+                associateWith(mainJdk7)
+                associateWith(mainJdk8)
+            }
         }
     }
     js(IR) {
@@ -233,26 +240,26 @@ kotlin {
                 }
             }
         }
+
+        compilerOptions {
+            freeCompilerArgs.addAll(
+                listOf(
+                    "-Xallow-kotlin-package",
+                    "-Xexpect-actual-classes",
+                )
+            )
+        }
+
         compilations {
-            all {
-                @Suppress("DEPRECATION")
-                kotlinOptions {
-                    freeCompilerArgs += listOf(
-                        "-Xallow-kotlin-package",
-                        "-Xexpect-actual-classes",
-                    )
-                }
-            }
             val main by getting {
-                @Suppress("DEPRECATION")
-                kotlinOptions {
-                    freeCompilerArgs += listOfNotNull(
-                        "-Xir-module-name=$KOTLIN_JS_STDLIB_NAME",
-                        diagnosticNamesArg,
-                    )
-                }
                 compileTaskProvider.configure {
                     compilerOptions.mainCompilationOptions()
+                    compilerOptions.freeCompilerArgs.addAll(
+                        listOfNotNull(
+                            "-Xir-module-name=$KOTLIN_JS_STDLIB_NAME",
+                            diagnosticNamesArg,
+                        )
+                    )
                 }
             }
         }
@@ -260,53 +267,30 @@ kotlin {
 
     fun KotlinWasmTargetDsl.commonWasmTargetConfiguration() {
         (this as KotlinTargetWithNodeJsDsl).nodejs()
-        compilations {
-            all {
-                @Suppress("DEPRECATION")
-                kotlinOptions.freeCompilerArgs += listOfNotNull(
+        (this as KotlinJsTargetDsl).compilerOptions {
+            freeCompilerArgs.addAll(
+                listOfNotNull(
                     "-Xallow-kotlin-package",
                     "-Xexpect-actual-classes",
                     diagnosticNamesArg
                 )
-            }
-            @Suppress("DEPRECATION")
+            )
+        }
+        compilations {
             val main by getting {
-                kotlinOptions.freeCompilerArgs += "-Xir-module-name=$KOTLIN_WASM_STDLIB_NAME"
                 compileTaskProvider.configure {
                     compilerOptions.mainCompilationOptions()
+                    compilerOptions.freeCompilerArgs.add("-Xir-module-name=$KOTLIN_WASM_STDLIB_NAME")
                 }
             }
         }
     }
 
-    // Please remove this check after bootstrap and replacing @ExperimentalWasmDsl
-    val newExperimentalWasmDslAvailable = runCatching {
-        Class.forName("org.jetbrains.kotlin.gradle.ExperimentalWasmDsl")
-    }.isSuccess
-
-    if (newExperimentalWasmDslAvailable) {
-        logger.warn(
-            """
-            Apparently kotlin bootstrap just happened. And @ExperimentalWasmDsl annotation was moved to a new FQN.
-            Please replace 'org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl' 
-            with 'org.jetbrains.kotlin.gradle.ExperimentalWasmDsl'
-            and remove this check.
-            
-            Please note that the same check exists in kotlin-test module. Fix it there too.
-            """.trimIndent()
-        )
-    }
-
-    @Suppress("OPT_IN_USAGE")
-    // Remove line above and uncomment line below after bootstrap
-    // @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         commonWasmTargetConfiguration()
     }
-
-    @Suppress("OPT_IN_USAGE")
-    // Remove line above and uncomment line below after bootstrap
-    // @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    @OptIn(ExperimentalWasmDsl::class)
     wasmWasi {
         commonWasmTargetConfiguration()
     }
@@ -320,17 +304,14 @@ kotlin {
             isMingwX64 -> mingwX64("native")
             else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
         }
-        nativeTarget.apply {
-            compilations.all {
-                @Suppress("DEPRECATION")
-                kotlinOptions {
-                    freeCompilerArgs += listOf(
-                        "-Xallow-kotlin-package",
-                        "-Xexpect-actual-classes",
-                        "-nostdlib",
-                    )
-                }
-            }
+        nativeTarget.compilerOptions {
+            freeCompilerArgs.addAll(
+                listOf(
+                    "-Xallow-kotlin-package",
+                    "-Xexpect-actual-classes",
+                    "-nostdlib",
+                )
+            )
         }
     }
 
@@ -365,13 +346,14 @@ kotlin {
             kotlin.srcDir("jvm/compileOnly")
         }
         val jvmMain by getting {
-            project.configurations.getByName("jvmMainCompileOnly").extendsFrom(configurationBuiltins)
+            project.configurations.getByName("jvmMainCompileOnly")
             dependencies {
                 api("org.jetbrains:annotations:13.0")
             }
             val jvmSrcDirs = listOfNotNull(
                 "jvm/src",
                 "jvm/runtime",
+                "jvm/builtins",
             )
             project.sourceSets["main"].java.srcDirs(*jvmSrcDirs.toTypedArray())
             kotlin.setSrcDirs(jvmSrcDirs)
@@ -404,7 +386,20 @@ kotlin {
             kotlin.srcDir("jvm/testLongRunning")
         }
 
+        val jvmRecursiveDeletionTest by getting {
+            dependencies {
+                api(kotlinTest("junit"))
+            }
+            kotlin.srcDir("jdk7/recursiveDeletionTest")
+        }
+
+        val commonNonJvmMain by creating {
+            dependsOn(commonMain.get())
+            kotlin.srcDir("common-non-jvm/src")
+        }
+
         val jsMain by getting {
+            dependsOn(commonNonJvmMain)
             val prepareJsIrMainSources by tasks.registering(Sync::class)
             kotlin {
                 srcDir(prepareJsIrMainSources.requiredForImport())
@@ -435,20 +430,10 @@ kotlin {
 
                 into(jsBuiltinsSrcDir)
 
-// Required to compile native builtins with the rest of runtime
-                val builtInsHeader = """@file:Suppress(
-    "NON_ABSTRACT_FUNCTION_WITH_NO_BODY",
-    "MUST_BE_INITIALIZED_OR_BE_ABSTRACT",
-    "EXTERNAL_TYPE_EXTENDS_NON_EXTERNAL_TYPE",
-    "PRIMARY_CONSTRUCTOR_DELEGATION_CALL_EXPECTED",
-    "WRONG_MODIFIER_TARGET",
-    "UNUSED_PARAMETER"
-)
-"""
                 doLast {
                     unimplementedNativeBuiltIns.forEach { path ->
                         val file = File("$destinationDir/$path")
-                        val sourceCode = builtInsHeader + file.readText()
+                        val sourceCode = file.readText()
                         file.writeText(sourceCode)
                     }
                 }
@@ -459,7 +444,7 @@ kotlin {
         }
 
         val nativeWasmMain by creating {
-            dependsOn(commonMain.get())
+            dependsOn(commonNonJvmMain)
             kotlin.srcDir("native-wasm/src")
         }
 
@@ -630,23 +615,35 @@ tasks {
         archiveAppendix.set("metadata")
     }
     val jvmJar by existing(Jar::class) {
-        dependsOn(configurationBuiltins)
         duplicatesStrategy = DuplicatesStrategy.FAIL
         archiveAppendix.set(null as String?)
         manifestAttributes(manifest, "Main", multiRelease = true)
         manifest.attributes(mapOf("Implementation-Title" to "kotlin-stdlib"))
-        from { zipTree(configurationBuiltins.singleFile) }
         from(kotlin.jvm().compilations["mainJdk7"].output.allOutputs)
         from(kotlin.jvm().compilations["mainJdk8"].output.allOutputs)
         from(project.sourceSets["java9"].output)
     }
 
-    val jvmSourcesJar by existing(Jar::class) {
+    val jvmRearrangedSourcesJar by registering(Jar::class) {
+        archiveClassifier.set("jvm-sources")
+        archiveVersion.set("")
+        destinationDirectory.set(layout.buildDirectory.dir("lib"))
+
+        includeEmptyDirs = false
         duplicatesStrategy = DuplicatesStrategy.FAIL
-        archiveAppendix.set(null as String?)
+
+        into("commonMain") {
+            from(kotlin.sourceSets.commonMain.get().kotlin)
+        }
         into("jvmMain") {
-            from(jvmBuiltinsDir) {
-                into("kotlin")
+            from(kotlin.sourceSets["jvmMain"].kotlin) {
+                // relocate builtins sources that get placed in the root of the sources file tree
+                eachFile {
+                    val sourcePathSegments = relativeSourcePath.segments
+                    if (sourcePathSegments.size == 1) {
+                        relativePath = RelativePath(true, "jvmMain", "kotlin", *sourcePathSegments)
+                    }
+                }
             }
             from(kotlin.sourceSets["jvmMainJdk7"].kotlin) {
                 into("jdk7")
@@ -654,6 +651,17 @@ tasks {
             from(kotlin.sourceSets["jvmMainJdk8"].kotlin) {
                 into("jdk8")
             }
+        }
+    }
+
+    val jvmSourcesJar by existing(Jar::class) {
+        duplicatesStrategy = DuplicatesStrategy.FAIL
+        archiveAppendix.set(null as String?)
+
+        val jvmSourcesJarFile = jvmRearrangedSourcesJar.get().archiveFile
+        inputs.file(jvmSourcesJarFile)
+        doLast {
+            jvmSourcesJarFile.get().asFile.toPath().copyTo(archiveFile.get().asFile.toPath(), overwrite = true)
         }
     }
 
@@ -776,13 +784,20 @@ tasks {
             exclude("collections/MapTest.kt")
         }
         named("compileTestDevelopmentExecutableKotlinWasm$wasmTarget", KotlinJsIrLink::class) {
-            @Suppress("DEPRECATION")
-            kotlinOptions.freeCompilerArgs += listOf("-Xwasm-enable-array-range-checks")
+            compilerOptions.freeCompilerArgs.add("-Xwasm-enable-array-range-checks")
         }
         named("compileTestProductionExecutableKotlinWasm$wasmTarget", KotlinJsIrLink::class) {
             enabled = false  // Causes out-of-memory in CI: KTI-2150
         }
     }
+
+    named("compileTestDevelopmentExecutableKotlinWasmJs", KotlinJsIrLink::class) {
+        enabled = false
+    }
+    named("compileTestDevelopmentExecutableKotlinWasmWasi", KotlinJsIrLink::class) {
+        enabled = false
+    }
+
     val wasmWasiNodeTest by existing {
         if (!kotlinBuildProperties.getBoolean("kotlin.stdlib.wasi.tests")) {
             enabled = false
@@ -824,6 +839,32 @@ tasks {
         }
     }
 
+    val jvmRecursiveDeletionTestTmpDir = layout.buildDirectory.asFile.map {
+        it.toPath().resolve("recursiveDeletionTestsWorkDir")
+    }
+
+    val jvmRecursiveDeletionTestCleanup by registering(Delete::class) {
+        setDelete(jvmRecursiveDeletionTestTmpDir)
+    }
+
+    // A dedicated task for tests on files and directories deletion from the current working directory.
+    // To prevent (to some extent) accidental removal of surrounding files and directories when tested functions
+    // are malfunctioning, this task gets its own working directory where removal will take place.
+    val jvmRecursiveDeletionTest by registering(Test::class) {
+        group = "verification"
+        val compilation = kotlin.jvm().compilations["recursiveDeletionTest"]
+
+        testClassesDirs = compilation.output.classesDirs
+        classpath = compilation.compileDependencyFiles + compilation.runtimeDependencyFiles + compilation.output.allOutputs
+
+        doFirst {
+            workingDir = jvmRecursiveDeletionTestTmpDir.get().toFile()
+            workingDir.deleteRecursively()
+            workingDir.mkdirs()
+        }
+        finalizedBy(jvmRecursiveDeletionTestCleanup)
+    }
+    check.configure { dependsOn(jvmRecursiveDeletionTest) }
 }
 
 

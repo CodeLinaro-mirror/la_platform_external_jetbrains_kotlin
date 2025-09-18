@@ -1,4 +1,8 @@
 #include <Foundation/Foundation.h>
 #include <stdint.h>
 
-uintptr_t foo__TypesOfArguments__MyClass_MyClass__(uintptr_t p0, uintptr_t p1);
+NS_ASSUME_NONNULL_BEGIN
+
+void * foo__TypesOfArguments__MyClass_MyClass__(void * p0, void * p1);
+
+NS_ASSUME_NONNULL_END

@@ -21,14 +21,14 @@ import org.jetbrains.kotlin.test.services.assertions
 abstract class AbstractExitPointSnapshotTest : AbstractAnalysisApiBasedTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val textRange = testServices.expressionMarkerProvider.getSelection(mainFile)
-        val statements = findStatements(mainFile, textRange)
 
-        val actualText = analyseForTest(mainFile) {
+        val actualText = copyAwareAnalyzeForTest(mainFile) { contextFile ->
+            val statements = findStatements(contextFile, textRange)
             val snapshot = computeExitPointSnapshot(statements)
             stringRepresentation(snapshot)
         }
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(actualText)
+        testServices.assertions.assertEqualsToTestOutputFile(actualText)
     }
 
     private fun findStatements(mainFile: KtFile, textRange: TextRange): List<KtExpression> {

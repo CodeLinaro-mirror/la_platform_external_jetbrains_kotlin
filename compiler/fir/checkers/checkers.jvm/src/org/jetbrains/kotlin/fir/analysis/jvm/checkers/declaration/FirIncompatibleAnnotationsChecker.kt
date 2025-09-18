@@ -18,22 +18,26 @@ import org.jetbrains.kotlin.fir.declarations.findArgumentByName
 import org.jetbrains.kotlin.fir.declarations.getAnnotationByClassId
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.unwrapAndFlattenArgument
-import org.jetbrains.kotlin.name.JvmStandardClassIds
+import org.jetbrains.kotlin.name.JvmStandardClassIds.Annotations.Java
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.utils.KOTLIN_TO_JAVA_ANNOTATION_TARGETS
 
 object FirIncompatibleAnnotationsChecker : FirClassChecker(MppCheckerKind.Common) {
-    override fun check(
-        declaration: FirClass,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirClass) {
+        val javaTarget = declaration.getAnnotationByClassId(Java.Target, context.session) ?: return
+        when (val kotlinTarget = declaration.getTargetAnnotation(context.session)) {
+            null -> reporter.reportOn(javaTarget.source, FirJvmErrors.ANNOTATION_TARGETS_ONLY_IN_JAVA)
+            else -> reportIncompatibleTargets(kotlinTarget, javaTarget)
+        }
+    }
+
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    fun reportIncompatibleTargets(
+        kotlinTarget: FirAnnotation,
+        javaTarget: FirAnnotation,
     ) {
-        val kotlinTarget = declaration.getTargetAnnotation(context.session)
-        val javaTarget = declaration.getAnnotationByClassId(JvmStandardClassIds.Annotations.Java.Target, context.session)
-
-        if (kotlinTarget == null || javaTarget == null) return
-
         val correspondingJavaTargets = kotlinTarget.extractArguments(StandardClassIds.Annotations.ParameterNames.targetAllowedTargets)
             .groupBy { KOTLIN_TO_JAVA_ANNOTATION_TARGETS[it] }.toMutableMap()
         // remove things which are included in the Java @Target annotation
@@ -45,8 +49,7 @@ object FirIncompatibleAnnotationsChecker : FirClassChecker(MppCheckerKind.Common
                 javaTarget.source,
                 FirJvmErrors.INCOMPATIBLE_ANNOTATION_TARGETS,
                 correspondingJavaTargets.keys.filterNotNull(),
-                correspondingJavaTargets.values.flatten(),
-                context
+                correspondingJavaTargets.values.flatten()
             )
         }
     }

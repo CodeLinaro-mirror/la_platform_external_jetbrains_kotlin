@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.konan.test.diagnostics;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
-import org.jetbrains.kotlin.konan.test.blackbox.support.group.FirPipeline;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,11 +18,10 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("compiler/testData/diagnostics/nativeTests")
 @TestDataPath("$PROJECT_ROOT")
-@FirPipeline()
 public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFirPsiNativeDiagnosticsTest {
   @Test
   public void testAllFilesPresentInNativeTests() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
   }
 
   @Test
@@ -51,6 +49,12 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
   }
 
   @Test
+  @TestMetadata("errorProneAtomicArrayNullable.kt")
+  public void testErrorProneAtomicArrayNullable() {
+    runTest("compiler/testData/diagnostics/nativeTests/errorProneAtomicArrayNullable.kt");
+  }
+
+  @Test
   @TestMetadata("errorProneAtomicArrayPrimitives.kt")
   public void testErrorProneAtomicArrayPrimitives() {
     runTest("compiler/testData/diagnostics/nativeTests/errorProneAtomicArrayPrimitives.kt");
@@ -72,6 +76,12 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
   @TestMetadata("identifiers.kt")
   public void testIdentifiers() {
     runTest("compiler/testData/diagnostics/nativeTests/identifiers.kt");
+  }
+
+  @Test
+  @TestMetadata("identityHashCodeOnValueClass.kt")
+  public void testIdentityHashCodeOnValueClass() {
+    runTest("compiler/testData/diagnostics/nativeTests/identityHashCodeOnValueClass.kt");
   }
 
   @Test
@@ -171,6 +181,12 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
   }
 
   @Test
+  @TestMetadata("oldAtomicTypes.kt")
+  public void testOldAtomicTypes() {
+    runTest("compiler/testData/diagnostics/nativeTests/oldAtomicTypes.kt");
+  }
+
+  @Test
   @TestMetadata("resolveToDelegatedProperty.kt")
   public void testResolveToDelegatedProperty() {
     runTest("compiler/testData/diagnostics/nativeTests/resolveToDelegatedProperty.kt");
@@ -215,11 +231,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
   @Nested
   @TestMetadata("compiler/testData/diagnostics/nativeTests/multiplatform")
   @TestDataPath("$PROJECT_ROOT")
-  @FirPipeline()
   public class Multiplatform {
     @Test
     public void testAllFilesPresentInMultiplatform() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/multiplatform"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/multiplatform"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
     }
 
     @Test
@@ -268,21 +283,19 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
   @Nested
   @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks")
   @TestDataPath("$PROJECT_ROOT")
-  @FirPipeline()
   public class SpecialBackendChecks {
     @Test
     public void testAllFilesPresentInSpecialBackendChecks() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
     }
 
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/cInterop")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class CInterop {
       @Test
       public void testAllFilesPresentInCInterop() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/cInterop"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/cInterop"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test
@@ -415,11 +428,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/concurrent")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class Concurrent {
       @Test
       public void testAllFilesPresentInConcurrent() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/concurrent"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/concurrent"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test
@@ -450,11 +462,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/immutableBlobOf")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class ImmutableBlobOf {
       @Test
       public void testAllFilesPresentInImmutableBlobOf() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/immutableBlobOf"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/immutableBlobOf"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test
@@ -485,11 +496,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/nativeRef")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class NativeRef {
       @Test
       public void testAllFilesPresentInNativeRef() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/nativeRef"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/nativeRef"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test
@@ -508,11 +518,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/objCInterop")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class ObjCInterop {
       @Test
       public void testAllFilesPresentInObjCInterop() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/objCInterop"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/objCInterop"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test
@@ -681,11 +690,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/posix")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class Posix {
       @Test
       public void testAllFilesPresentInPosix() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/posix"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/posix"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test
@@ -704,11 +712,10 @@ public class FirPsiOldFrontendNativeDiagnosticsTestGenerated extends AbstractFir
     @Nested
     @TestMetadata("compiler/testData/diagnostics/nativeTests/specialBackendChecks/reflect")
     @TestDataPath("$PROJECT_ROOT")
-    @FirPipeline()
     public class Reflect {
       @Test
       public void testAllFilesPresentInReflect() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/reflect"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|fir|ll|latestLV)\\.kts?$"), true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/diagnostics/nativeTests/specialBackendChecks/reflect"), Pattern.compile("^(.+)\\.kt$"), Pattern.compile("^(.+)\\.(reversed|partialBody|fir|ll|latestLV)\\.kts?$"), true);
       }
 
       @Test

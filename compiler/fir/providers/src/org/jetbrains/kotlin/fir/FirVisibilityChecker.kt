@@ -5,16 +5,16 @@
 
 package org.jetbrains.kotlin.fir
 
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.synthetic.FirSyntheticPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
+import org.jetbrains.kotlin.fir.expressions.FirSuperReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
-import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.getContainingFile
@@ -389,7 +389,7 @@ abstract class FirVisibilityChecker : FirSessionComponent {
     ): Boolean {
         if (dispatchReceiver == null) return true
         var dispatchReceiverType = dispatchReceiver.resolvedType
-        if (dispatchReceiver is FirPropertyAccessExpression && dispatchReceiver.calleeReference is FirSuperReference) {
+        if (dispatchReceiver is FirSuperReceiverExpression) {
             // Special 'super' case: type of this, not of super, should be taken for the check below
             dispatchReceiverType = dispatchReceiver.dispatchReceiver!!.resolvedType
         }
@@ -407,10 +407,7 @@ abstract class FirVisibilityChecker : FirSessionComponent {
         }
 
         if (isSyntheticProperty) {
-            return if (session.languageVersionSettings.supportsFeature(LanguageFeature.ImproveReportingDiagnosticsOnProtectedMembersOfBaseClass))
-                containingUseSiteClass.classId.packageFqName == ownerLookupTag.classId.packageFqName
-            else
-                true
+            return containingUseSiteClass.classId.packageFqName == ownerLookupTag.classId.packageFqName
         }
 
         return false
@@ -464,10 +461,7 @@ abstract class FirVisibilityChecker : FirSessionComponent {
                     )
                 ) return true
             } else if (containingDeclaration is FirFile) {
-                if (isSyntheticProperty &&
-                    session.languageVersionSettings.supportsFeature(LanguageFeature.ImproveReportingDiagnosticsOnProtectedMembersOfBaseClass) &&
-                    containingDeclaration.packageFqName == ownerLookupTag.classId.packageFqName
-                ) {
+                if (isSyntheticProperty && containingDeclaration.packageFqName == ownerLookupTag.classId.packageFqName) {
                     return true
                 }
             }
@@ -578,22 +572,37 @@ private fun FirClassLikeDeclaration.containingNonLocalClass(session: FirSession)
     }
 }
 
-/**
- * The returned fir can be passed to the visibility checker, but don't
- * use it for anything else.
- */
-val <D, S : FirBasedSymbol<D>> S.firForVisibilityChecker: D
-    get() = fir.also {
-        lazyResolveToPhase(FirResolvePhase.STATUS)
-    }
-
 fun FirVisibilityChecker.isVisible(
-    symbol: FirCallableSymbol<*>,
+    symbol: FirBasedSymbol<*>,
     session: FirSession,
-    useSiteFile: FirFile,
-    containingDeclarations: List<FirDeclaration>,
+    useSiteFileSymbol: FirFileSymbol,
+    containingDeclarations: List<FirBasedSymbol<*>>,
     dispatchReceiver: FirExpression?,
+    skipCheckForContainingClassVisibility: Boolean = false,
 ): Boolean {
     symbol.lazyResolveToPhase(FirResolvePhase.STATUS)
-    return isVisible(symbol.fir, session, useSiteFile, containingDeclarations, dispatchReceiver)
+    val declaration = symbol.fir as? FirMemberDeclaration ?: error("Not a member declaration: $symbol")
+    return isVisible(
+        declaration = declaration,
+        session,
+        useSiteFile = useSiteFileSymbol.fir,
+        containingDeclarations.map { it.fir },
+        dispatchReceiver,
+        skipCheckForContainingClassVisibility = skipCheckForContainingClassVisibility,
+    )
+}
+
+fun FirVisibilityChecker.isClassLikeVisible(
+    symbol: FirClassLikeSymbol<*>,
+    session: FirSession,
+    useSiteFileSymbol: FirFileSymbol,
+    containingDeclarations: List<FirBasedSymbol<*>>,
+): Boolean {
+    symbol.lazyResolveToPhase(FirResolvePhase.STATUS)
+    return isClassLikeVisible(
+        declaration = symbol.fir,
+        session,
+        useSiteFileSymbol.fir,
+        containingDeclarations.map { it.fir },
+    )
 }

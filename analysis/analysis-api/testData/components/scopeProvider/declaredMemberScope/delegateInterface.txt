@@ -20,6 +20,10 @@ KaKotlinPropertySymbol:
       typeArguments: []
       type: A
     visibility: PRIVATE
+    getDispatchReceiver(): KaUsualClassType:
+      annotations: []
+      typeArguments: []
+      type: I
     getContainingFileSymbol: KaFileSymbol(A.kt)
     getContainingJvmClassName: I
     getContainingModule: KaSourceModule "Sources of main"
@@ -33,13 +37,12 @@ KaKotlinPropertySymbol:
     callableId: null
     compilerVisibility: Private
     contextReceivers: []
-    hasBody: false
     hasStableParameterNames: true
     isActual: false
-    isDefault: true
     isExpect: false
     isExtension: false
     isInline: false
+    isNotDefault: false
     isOverride: false
     location: PROPERTY
     modality: FINAL
@@ -98,6 +101,7 @@ KaKotlinPropertySymbol:
   javaGetterName: getP
   javaSetterName: null
   setterDeprecationStatus: null
+  isInline: false
 
 KaConstructorSymbol:
   annotations: []
@@ -147,6 +151,10 @@ KaConstructorSymbol:
             typeArguments: []
             type: A
           visibility: PRIVATE
+          getDispatchReceiver(): KaUsualClassType:
+            annotations: []
+            typeArguments: []
+            type: I
           getContainingFileSymbol: KaFileSymbol(A.kt)
           getContainingJvmClassName: I
           getContainingModule: KaSourceModule "Sources of main"
@@ -160,13 +168,12 @@ KaConstructorSymbol:
           callableId: null
           compilerVisibility: Private
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -225,6 +232,7 @@ KaConstructorSymbol:
         javaGetterName: getP
         javaSetterName: null
         setterDeprecationStatus: null
+        isInline: false
       hasDefaultValue: false
       isActual: false
       isCrossinline: false

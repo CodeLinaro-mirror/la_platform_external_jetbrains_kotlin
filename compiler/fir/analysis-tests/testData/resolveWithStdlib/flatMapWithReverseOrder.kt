@@ -1,5 +1,5 @@
 // RUN_PIPELINE_TILL: BACKEND
-// LANGUAGE: +PreferDependentTypeVariablesWithProperArgumentConstraint
+// LANGUAGE: +FixationEnhancementsIn22
 // FULL_JDK
 // STDLIB_JDK8
 // JVM_TARGET: 1.8
@@ -33,3 +33,6 @@ fun specifyTypeTest(fragments: Set<MergeFragment>) {
 }
 
 fun testFun(i: Int) {}
+
+/* GENERATED_FIR_TAGS: classDeclaration, flexibleType, forLoop, functionDeclaration, javaFunction, lambdaLiteral,
+localProperty, propertyDeclaration */

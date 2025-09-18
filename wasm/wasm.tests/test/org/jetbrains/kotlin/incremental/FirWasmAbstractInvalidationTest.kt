@@ -5,6 +5,10 @@
 
 package org.jetbrains.kotlin.incremental
 
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageConfig
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageLogLevel
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageMode
+import org.jetbrains.kotlin.backend.common.linkage.partial.setupPartialLinkageConfig
 import org.jetbrains.kotlin.cli.common.collectSources
 import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
 import org.jetbrains.kotlin.cli.common.messages.PrintingMessageCollector
@@ -16,13 +20,14 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.ir.backend.js.MainModule
 import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageConfig
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageLogLevel
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageMode
-import org.jetbrains.kotlin.ir.linkage.partial.setupPartialLinkageConfig
+import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInTestPipeline
+import org.jetbrains.kotlin.js.config.friendLibraries
+import org.jetbrains.kotlin.js.config.libraries
+import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.wasm.config.wasmTarget
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.PrintStream
@@ -39,8 +44,22 @@ abstract class FirWasmAbstractInvalidationWithPLTest(workingDirPath: String) :
         TargetBackend.WASM,
         workingDirPath
     ) {
-    override fun createConfiguration(moduleName: String, language: List<String>, moduleKind: ModuleKind): CompilerConfiguration {
-        val config = super.createConfiguration(moduleName, language, moduleKind)
+    override fun createConfiguration(
+        moduleName: String,
+        moduleKind: ModuleKind,
+        languageFeatures: List<String>,
+        allLibraries: List<String>,
+        friendLibraries: List<String>,
+        includedLibrary: String?,
+    ): CompilerConfiguration {
+        val config = super.createConfiguration(
+            moduleName = moduleName,
+            moduleKind = moduleKind,
+            languageFeatures = languageFeatures,
+            allLibraries = allLibraries,
+            friendLibraries = friendLibraries,
+            includedLibrary = includedLibrary,
+        )
         config.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.WARNING))
         return config
     }
@@ -68,23 +87,28 @@ abstract class FirWasmAbstractInvalidationTest(
         configuration: CompilerConfiguration,
         moduleName: String,
         sourceDir: File,
-        dependencies: Collection<File>,
-        friends: Collection<File>,
         outputKlibFile: File
     ) {
         val outputStream = ByteArrayOutputStream()
         val messageCollector = PrintingMessageCollector(PrintStream(outputStream), MessageRenderer.PLAIN_FULL_PATHS, true)
         val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
 
-        val libraries = dependencies.map { it.absolutePath }
-        val friendLibraries = friends.map { it.absolutePath }
+        val libraries = configuration.libraries
+        val friendLibraries = configuration.friendLibraries
         val sourceFiles = configuration.addSourcesFromDir(sourceDir)
+
+        val klibs = loadWebKlibsInTestPipeline(
+            configuration,
+            libraryPaths = libraries,
+            friendPaths = friendLibraries,
+            platformChecker = KlibPlatformChecker.Wasm(configuration.wasmTarget.alias)
+        )
+
         val moduleStructure = ModulesStructure(
             project = environment.project,
             mainModule = MainModule.SourceFiles(sourceFiles),
             compilerConfiguration = configuration,
-            dependencies = libraries,
-            friendDependenciesPaths = friendLibraries
+            klibs = klibs,
         )
 
         val groupedSources = collectSources(configuration, environment.project, messageCollector)
@@ -117,7 +141,7 @@ abstract class FirWasmAbstractInvalidationTest(
             messageCollector = messageCollector,
             diagnosticsReporter = diagnosticsReporter,
             jsOutputName = moduleName,
-            useWasmPlatform = false,
+            useWasmPlatform = true,
             wasmTarget = WasmTarget.JS,
         )
 

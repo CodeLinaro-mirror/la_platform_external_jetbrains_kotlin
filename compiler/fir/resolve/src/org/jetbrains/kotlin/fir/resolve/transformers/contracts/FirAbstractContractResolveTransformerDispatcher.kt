@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.resolve.transformers.contracts
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.contracts.FirLegacyRawContractDescription
 import org.jetbrains.kotlin.fir.contracts.FirRawContractDescription
@@ -157,7 +158,7 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             hasBodyContract: Boolean
         ): T {
             val valueAndContextParameters = when (owner) {
-                is FirPropertyAccessor -> owner.valueParameters + owner.propertySymbol.resolvedContextParameters
+                is FirPropertyAccessor -> owner.valueParameters + owner.propertySymbol.fir.contextParameters
                 is FirFunction -> owner.valueParameters + owner.contextParameters
             }
 
@@ -239,6 +240,7 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             val effectsBlock = buildAnonymousFunction {
                 moduleData = session.moduleData
                 origin = FirDeclarationOrigin.Source
+                source = contractDescription.source?.fakeElement(KtFakeSourceElementKind.ContractBlock)
                 returnTypeRef = FirImplicitTypeRefImplWithoutSource
                 symbol = FirAnonymousFunctionSymbol()
                 receiverParameter = buildReceiverParameter {
@@ -246,6 +248,7 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
                     symbol = FirReceiverParameterSymbol()
                     moduleData = session.moduleData
                     origin = FirDeclarationOrigin.Source
+                    source = contractDescription.source?.fakeElement(KtFakeSourceElementKind.ContractBlock)
                     containingDeclarationSymbol = this@buildAnonymousFunction.symbol
                 }
                 isLambda = true
@@ -293,14 +296,14 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
         }
 
         override fun transformRegularClass(regularClass: FirRegularClass, data: ResolutionMode): FirRegularClass {
-            return withRegularClass(regularClass) {
+            return forRegularClassBody(regularClass) {
                 transformDeclarationContent(regularClass, data)
                 regularClass
             }
         }
 
-        override fun withRegularClass(regularClass: FirRegularClass, action: () -> FirRegularClass): FirRegularClass {
-            return context.withRegularClass(regularClass, components) {
+        override fun forRegularClassBody(regularClass: FirRegularClass, action: () -> FirRegularClass): FirRegularClass {
+            return context.forRegularClassBody(regularClass, components) {
                 action()
             }
         }
@@ -342,7 +345,7 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
             if (!constructor.hasContractToResolve) {
                 return constructor
             }
-            return context.withConstructor(constructor) {
+            return context.forConstructor(constructor) {
                 context.forConstructorBody(constructor, session) {
                     transformContractDescriptionOwner(constructor)
                 }

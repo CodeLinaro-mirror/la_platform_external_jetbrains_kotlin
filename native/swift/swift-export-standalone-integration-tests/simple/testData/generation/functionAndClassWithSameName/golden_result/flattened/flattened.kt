@@ -3,6 +3,7 @@
 
 import kotlin.native.internal.ExportedBridge
 import kotlinx.cinterop.*
+import kotlinx.cinterop.internal.convertBlockPtrToKotlinFunction
 
 @ExportedBridge("flattenedPackage_FlattenedPackageClass__TypesOfArguments__Swift_Int32__")
 public fun flattenedPackage_FlattenedPackageClass__TypesOfArguments__Swift_Int32__(i: Int): kotlin.native.internal.NativePtr {
@@ -17,9 +18,8 @@ public fun flattenedPackage_FlattenedPackageClass_init_allocate(): kotlin.native
     return kotlin.native.internal.ref.createRetainedExternalRCRef(_result)
 }
 
-@ExportedBridge("flattenedPackage_FlattenedPackageClass_init_initialize__TypesOfArguments__Swift_UInt__")
-public fun flattenedPackage_FlattenedPackageClass_init_initialize__TypesOfArguments__Swift_UInt__(__kt: kotlin.native.internal.NativePtr): Unit {
+@ExportedBridge("flattenedPackage_FlattenedPackageClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__")
+public fun flattenedPackage_FlattenedPackageClass_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt: kotlin.native.internal.NativePtr): Unit {
     val ____kt = kotlin.native.internal.ref.dereferenceExternalRCRef(__kt)!!
     kotlin.native.internal.initInstance(____kt, flattenedPackage.FlattenedPackageClass())
 }
-

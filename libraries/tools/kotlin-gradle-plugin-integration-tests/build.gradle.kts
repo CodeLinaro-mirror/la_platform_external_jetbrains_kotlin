@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.build.androidsdkprovisioner.ProvisioningType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
 import java.nio.file.Paths
-import java.time.Duration
 
 plugins {
     kotlin("jvm")
@@ -33,7 +32,8 @@ tasks.withType(AbstractKotlinCompile::class.java).configureEach {
     friendPaths.from(
         configurations.testCompileClasspath.map { configuration ->
             configuration.incoming.artifacts.artifacts.filter { artifact ->
-                (artifact.id.componentIdentifier as? ProjectComponentIdentifier)?.projectPath == ":kotlin-gradle-plugin"
+                (artifact.id.componentIdentifier as? ProjectComponentIdentifier)?.projectPath == ":kotlin-gradle-plugin" ||
+                        (artifact.id.componentIdentifier as? ProjectComponentIdentifier)?.projectPath == ":gradle:kotlin-gradle-ecosystem-plugin"
             }.also { assert(it.isNotEmpty()) }.map { artifact ->
                 artifact.file
             }
@@ -42,8 +42,14 @@ tasks.withType(AbstractKotlinCompile::class.java).configureEach {
 }
 
 val kotlinGradlePluginTest = project(":kotlin-gradle-plugin").sourceSets.named("test").map { it.output }
+val applePrivacyManifestPluginClasses = configurations.detachedConfiguration(
+    dependencies.create(dependencies.project(":kotlin-privacy-manifests-plugin"))
+).also { it.isTransitive = false }
 
 dependencies {
+    testImplementation(testFixtures(project(":kotlin-gradle-plugin"))) {
+        (this as ModuleDependency).isTransitive = false
+    }
     testImplementation(project(":kotlin-gradle-plugin")) {
         capabilities {
             requireCapability("org.jetbrains.kotlin:kotlin-gradle-plugin-common")
@@ -89,6 +95,7 @@ dependencies {
     testImplementation(project(":kotlin-gradle-plugin-idea"))
     testImplementation(testFixtures(project(":kotlin-gradle-plugin-idea")))
     testImplementation(project(":kotlin-gradle-plugin-idea-proto"))
+    testImplementation(project(":gradle:kotlin-gradle-ecosystem-plugin"))
 
     testImplementation(project(":kotlin-gradle-plugin-model"))
     testImplementation(project(":kotlin-gradle-build-metrics"))
@@ -111,13 +118,18 @@ dependencies {
     testCompileOnly(project(":kotlin-gradle-plugin-test-utils-embeddable"))
     testRuntimeOnly(project(":kotlin-gradle-plugin-test-utils-embeddable")) { isTransitive = false }
 
+    applePrivacyManifestPluginClasses.dependencies.all {
+        testCompileOnly(this) { (this as ModuleDependency).isTransitive = false }
+    }
+
     // AGP classes for buildScriptInjection's
     testImplementation(libs.android.gradle.plugin.gradle.api) { isTransitive = false }
+    testImplementation(libs.android.gradle.plugin.gradle) { isTransitive = false }
+    testImplementation(libs.android.gradle.plugin.builder.model) { isTransitive = false }
 
     testImplementation(project(path = ":examples:annotation-processor-example"))
     testImplementation(kotlinStdlib("jdk8"))
     testImplementation(project(":kotlin-parcelize-compiler"))
-    testImplementation(commonDependency("org.jetbrains.intellij.deps", "trove4j"))
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.ktor.client.cio)
     testImplementation(libs.ktor.client.mock)
@@ -126,6 +138,7 @@ dependencies {
     testImplementation(libs.ktor.server.test.host)
 
     testImplementation(gradleApi())
+    testImplementation(gradleKotlinDsl())
     testImplementation(gradleTestKit())
     testImplementation(commonDependency("com.google.code.gson:gson"))
     testApi(platform(libs.junit.bom))
@@ -203,7 +216,7 @@ val maxParallelTestForks =
 
 // Must be in sync with TestVersions.kt KTI-1612
 val gradleVersions = listOf(
-    "7.0", // check org.jetbrains.kotlin.gradle.GradleCompatibilityIT.testIncompatibleGradleVersion
+    "7.4.2", // check org.jetbrains.kotlin.gradle.GradleCompatibilityIT.testIncompatibleGradleVersion
     "7.6.3",
     "8.0.2",
     "8.1.1",
@@ -217,6 +230,9 @@ val gradleVersions = listOf(
     "8.9",
     "8.10.2",
     "8.11.1",
+    "8.12.1",
+    "8.13",
+    "8.14",
 )
 
 // Keep in sync with testTags.kt
@@ -356,9 +372,11 @@ fun configureJvmTarget8() {
 
 configureJvmTarget8()
 
-val mergedTestClassesClasspathTask = tasks.register<Copy>("testClassesCopy") {
-    from(kotlin.target.compilations.getByName("test").output.classesDirs)
-    into(layout.buildDirectory.dir("testClassesCopy"))
+val kgpTestingUtilities = configurations.detachedConfiguration(
+    dependencies.create(dependencies.testFixtures(dependencies.project(":kotlin-gradle-plugin")))
+).also {
+    // We don't want to influence target build script's classpath; only take the test fixtures jar
+    it.isTransitive = false
 }
 
 tasks.withType<Test>().configureEach {
@@ -369,10 +387,6 @@ tasks.withType<Test>().configureEach {
 
     val noTestProperty = project.providers.gradleProperty("noTest")
     onlyIf { !noTestProperty.isPresent }
-
-    // Trigger task timeout earlier than TC timeout, so we could collect more info what went wrong with IT tests
-    // The longest one are on MacOS/X64 agents in release configurations
-    timeout.set(Duration.ofHours(7))
 
     /**
      * Gradle needs these opens to serialize CC and adds them implicitly:
@@ -400,11 +414,22 @@ tasks.withType<Test>().configureEach {
     dependsOn(":examples:annotation-processor-example:install")
     dependsOn(":kotlin-dom-api-compat:install")
     dependsOn(cleanUserHomeKonanDir)
+    dependsOn(applePrivacyManifestPluginClasses)
 
     systemProperty("kotlinVersion", rootProject.extra["kotlinVersion"] as String)
     systemProperty("runnerGradleVersion", gradle.gradleVersion)
     systemProperty("composeSnapshotVersion", composeRuntimeSnapshot.versions.snapshot.version.get())
     systemProperty("composeSnapshotId", composeRuntimeSnapshot.versions.snapshot.id.get())
+
+    val applePrivacyManifestPluginClasspath = provider {
+        applePrivacyManifestPluginClasses.files.joinToString(":")
+    }
+    doFirst {
+        systemProperty(
+            "applePrivacyManifestPluginClasspath",
+            applePrivacyManifestPluginClasspath.get(),
+        )
+    }
 
     // Add kotlin.gradle.autoDebugIT=false to local.properties to opt out of implicit withDebug when debugging the tests in IDE
     val autoDebugIT = kotlinBuildProperties.getBoolean("kotlin.gradle.autoDebugIT", true)
@@ -415,6 +440,13 @@ tasks.withType<Test>().configureEach {
     val runAllIntegrationTestsOnMacos = kotlinBuildProperties.getBoolean("runAllIntegrationTestsOnMacos", false)
     if (runAllIntegrationTestsOnMacos) {
         systemProperty("runAllIntegrationTestsOnMacos", runAllIntegrationTestsOnMacos)
+    }
+    /**
+     * We run all tests on macOS once a week and this property makes sure that tests that are correctly marked @BrokenOnMacosTest are skipped in this run
+     */
+    val skipIntegrationTestsMarkedBroken = kotlinBuildProperties.getBoolean("skipIntegrationTestsMarkedBroken", false)
+    if (skipIntegrationTestsMarkedBroken) {
+        systemProperty("skipIntegrationTestsMarkedBroken", skipIntegrationTestsMarkedBroken)
     }
 
     val installCocoapods = project.findProperty("installCocoapods") as String?
@@ -431,14 +463,18 @@ tasks.withType<Test>().configureEach {
     val jdk21Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_21_0)
     val mavenLocalRepo = project.providers.systemProperty("maven.repo.local").orNull
 
-    val mergedTestClassesDirectory = files(mergedTestClassesClasspathTask)
-    inputs.files(mergedTestClassesDirectory)
+    // This is a classpath that the injections will see
+    val buildScriptInjectionsClasspath = files(
+        kgpTestingUtilities,
+        kotlin.target.compilations.getByName("test").output.classesDirs,
+    )
     doFirst {
-        systemProperty("buildScriptInjectionsClasspath", mergedTestClassesDirectory.single())
+        systemProperty("buildScriptInjectionsClasspath", buildScriptInjectionsClasspath.joinToString(":"))
     }
 
-    // Query required JDKs paths only on execution phase to avoid triggering auto-download on project configuration phase
-    // names should follow "jdk\\d+Home" regex where number is a major JDK version
+    // Query required JDKs paths only on execution phase to avoid triggering auto-download on project configuration phase.
+    // Names should follow "jdk\\d+Home" regex where number is a major JDK version.
+    // On any change 'jdkHelpers.kt' should be updated as well.
     doFirst {
         systemProperty("jdk8Home", jdk8Provider.get())
         systemProperty("jdk11Home", jdk11Provider.get())
@@ -459,7 +495,7 @@ tasks.withType<Test>().configureEach {
 
     testLogging {
         // set options for log level LIFECYCLE
-        events("passed", "skipped", "failed", "standardOut")
+        events("started", "passed", "skipped", "failed", "standardOut")
         showExceptions = true
         exceptionFormat = TestExceptionFormat.FULL
         showCauses = true

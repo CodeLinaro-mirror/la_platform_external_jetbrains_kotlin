@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -16,16 +16,16 @@ sealed class KotlinStubOrigin {
         @JvmStatic
         fun serialize(origin: KotlinStubOrigin?, dataStream: StubOutputStream) {
             if (origin == null) {
-                dataStream.writeInt(0)
+                dataStream.writeVarInt(0)
             } else {
-                dataStream.writeInt(origin.kind)
+                dataStream.writeVarInt(origin.kind)
                 origin.serializeContent(dataStream)
             }
         }
 
         @JvmStatic
         fun deserialize(dataStream: StubInputStream): KotlinStubOrigin? {
-            return when (dataStream.readInt()) {
+            return when (dataStream.readVarInt()) {
                 FACADE_KIND -> Facade.deserializeContent(dataStream)
                 MULTI_FILE_FACADE_KIND -> MultiFileFacade.deserializeContent(dataStream)
                 else -> null
@@ -38,13 +38,15 @@ sealed class KotlinStubOrigin {
     protected abstract fun serializeContent(dataStream: StubOutputStream)
 
     data class Facade(
-        val className: String // Internal name of the package part class
+        val className: String, // Internal name of the package part class
+        val jvmClassName: String?
     ) : KotlinStubOrigin() {
         companion object {
             @JvmStatic
             internal fun deserializeContent(dataStream: StubInputStream): Facade? {
                 val className = dataStream.readNameString() ?: return null
-                return Facade(className)
+                val jvmClassName = dataStream.readNameString()
+                return Facade(className, jvmClassName)
             }
         }
 
@@ -52,6 +54,7 @@ sealed class KotlinStubOrigin {
 
         override fun serializeContent(dataStream: StubOutputStream) {
             dataStream.writeName(className)
+            dataStream.writeName(jvmClassName)
         }
     }
 

@@ -29,12 +29,12 @@ abstract class AbstractStdLibBasedGetOrBuildFirTest : AbstractAnalysisApiBasedTe
             testServices.assertions.fail { "No references at caret found" }
         }
         val declaration =
-            analyseForTest(ktReferences.first().element) {
+            analyzeForTest(ktReferences.first().element) {
                 ktReferences.first().resolveToSymbol()?.psi as KtDeclaration
             }
 
-        val resolveSession = LLFirResolveSessionService.getInstance(project).getFirResolveSession(mainModule.ktModule)
-        val fir = declaration.resolveToFirSymbol(resolveSession).fir
-        testServices.assertions.assertEqualsToTestDataFileSibling(renderActualFir(fir, declaration, testServices.firRenderingOptions))
+        val resolutionFacade = LLResolutionFacadeService.getInstance(project).getResolutionFacade(mainModule.ktModule)
+        val fir = declaration.resolveToFirSymbol(resolutionFacade).fir
+        testServices.assertions.assertEqualsToTestOutputFile(renderActualFir(fir, declaration, testServices.firRenderingOptions))
     }
 }

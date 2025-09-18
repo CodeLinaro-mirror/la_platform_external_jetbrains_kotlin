@@ -58,8 +58,6 @@ val coneClassLikeTypeType = type<ConeClassLikeType>()
 val coneClassLikeTypeImplType = type<ConeClassLikeTypeImpl>()
 val standardClassIdsType = type<StandardClassIds>()
 
-val whenRefType = generatedType("", "FirExpressionRef")
-    .withArgs(FirTree.whenExpression)
 val referenceToSimpleExpressionType = generatedType("", "FirExpressionRef")
     .withArgs(FirTree.expression)
 val safeCallCheckedSubjectReferenceType = generatedType("", "FirExpressionRef")
@@ -124,6 +122,8 @@ val declarationOriginType = generatedType("declarations", "FirDeclarationOrigin"
 val declarationAttributesType = generatedType("declarations", "FirDeclarationAttributes")
 val valueParameterKindType = generatedType("declarations", "FirValueParameterKind")
 
+val dfaType = generatedType("", "DfaType")
+
 val exhaustivenessStatusType = generatedType("expressions", "ExhaustivenessStatus")
 
 val callableReferenceMappedArgumentsType = type("fir.resolve.calls", "CallableReferenceMappedArguments")
@@ -150,6 +150,7 @@ val firDefaultVisitorVoidType = generatedType("visitors", "FirDefaultVisitorVoid
 val firTransformerType = generatedType("visitors", "FirTransformer")
 
 val resolveStateAccessAnnotation = type("fir.declarations", "ResolveStateAccess", kind = TypeKind.Class)
+val directDeclarationsAccessAnnotation = type("fir.declarations", "DirectDeclarationsAccess", kind = TypeKind.Class)
 val unresolvedExpressionTypeAccessAnnotation = type("fir.expressions", "UnresolvedExpressionTypeAccess", kind = TypeKind.Class)
 val rawFirApi = type("fir.expressions", "RawFirApi", kind = TypeKind.Class)
 val firBuilderDslAnnotation = type("fir.builder", "FirBuilderDsl", kind = TypeKind.Class)

@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContext
 import org.jetbrains.kotlin.ir.types.classOrFail
 import org.jetbrains.kotlin.ir.util.SymbolRemapper
+import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.classIdOrFail
 
 data class IrActualizedResult(
@@ -34,6 +35,9 @@ class IrActualizer(
     val mainFragment: IrModuleFragment,
     val dependentFragments: List<IrModuleFragment>,
     extraActualClassExtractors: List<IrExtraActualDeclarationExtractor> = emptyList(),
+    private val missingActualProvider: IrMissingActualDeclarationProvider?,
+    actualizerMapContributor: IrActualizerMapContributor?,
+    private val hmppSchemeEnabled: Boolean,
 ) {
     private val collector = ExpectActualCollector(
         mainFragment,
@@ -42,6 +46,8 @@ class IrActualizer(
         ktDiagnosticReporter,
         expectActualTracker,
         extraActualClassExtractors,
+        missingActualProvider,
+        actualizerMapContributor
     )
 
     val classActualizationInfo: ClassActualizationInfo = collector.collectClassActualizationInfo()
@@ -49,9 +55,9 @@ class IrActualizer(
     fun actualizeClassifiers() {
         val classSymbolRemapper = object : SymbolRemapper.Empty() {
             override fun getReferencedClass(symbol: IrClassSymbol): IrClassSymbol {
-                if (!symbol.owner.isExpect) return symbol
+                if (!hmppSchemeEnabled && !symbol.owner.isExpect) return symbol
                 if (symbol.owner.containsOptionalExpectation()) return symbol
-                val classId = symbol.owner.classIdOrFail
+                val classId = symbol.owner.classId ?: return symbol
                 classActualizationInfo.actualTypeAliases[classId]?.let { return it.owner.expandedType.classOrFail }
                 classActualizationInfo.actualClasses[classId]?.let { return it }
                 // Can't happen normally, but possible on incorrect code.
@@ -73,9 +79,24 @@ class IrActualizer(
 
         // 3. Actualize expect calls in dependent fragments using info obtained in the previous steps
         val actualizerVisitor = ActualizerVisitor(symbolRemapper)
-        dependentFragments.forEach { it.transform(actualizerVisitor, null) }
+        dependentFragments.forEach { it.transform(actualizerVisitor, data = null) }
 
-        // 4. Move all declarations to mainFragment
+        // 4. Actualize property accessors actualized by java fields
+        if (expectActualMap.propertyAccessorsActualizedByFields.isNotEmpty()) {
+            val specialFakeOverrideSymbolsActualizedByFieldsTransformer =
+                SpecialFakeOverrideSymbolsActualizedByFieldsTransformer(expectActualMap.propertyAccessorsActualizedByFields)
+            dependentFragments.forEach {
+                it.transform(specialFakeOverrideSymbolsActualizedByFieldsTransformer, null)
+            }
+        }
+
+        // In lenient mode, calls in the main fragment can resolve to expect declarations because of missing actuals.
+        // Therefore, we also need to actualize expect calls there.
+        if (missingActualProvider != null) {
+            mainFragment.transform(actualizerVisitor, null)
+        }
+
+        // 5. Move all declarations to mainFragment
         mergeIrFragments(mainFragment, dependentFragments)
         return expectActualMap
     }
@@ -111,7 +132,7 @@ class IrActualizer(
 
     private fun shouldRemoveExpectDeclaration(irDeclaration: IrDeclaration, expectActualMap: IrExpectActualMap): Boolean {
         return when (irDeclaration) {
-            is IrClass -> irDeclaration.isExpect && (!irDeclaration.containsOptionalExpectation() || expectActualMap.expectToActual.containsKey(irDeclaration.symbol))
+            is IrClass -> irDeclaration.isExpect && (!irDeclaration.containsOptionalExpectation() || expectActualMap.symbolMap.containsKey(irDeclaration.symbol))
             is IrProperty -> irDeclaration.isExpect
             is IrFunction -> irDeclaration.isExpect
             else -> false

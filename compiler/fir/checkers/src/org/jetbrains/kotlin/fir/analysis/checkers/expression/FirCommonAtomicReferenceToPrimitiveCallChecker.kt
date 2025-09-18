@@ -28,17 +28,17 @@ abstract class AbstractAtomicReferenceToPrimitiveCallChecker(
 ) : FirFunctionCallChecker(mppKind) {
     val problematicCallableIds: Set<CallableId> = setOf(firstProblematicCallableId, *remainingProblematicCallableIds)
 
-    override fun check(expression: FirFunctionCall, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(expression: FirFunctionCall) {
         val callable = expression.calleeReference.resolved?.resolvedSymbol as? FirFunctionSymbol<*> ?: return
-        val receiverType = expression.dispatchReceiver?.resolvedType?.fullyExpandedType(context.session) ?: return
+        val receiverType = expression.dispatchReceiver?.resolvedType?.fullyExpandedType() ?: return
         val atomicReferenceClassId = receiverType.classId ?: return
         val fullyExpandedCallableId = callable.callableId.withClassId(atomicReferenceClassId)
 
         if (fullyExpandedCallableId in problematicCallableIds) {
             reportAtomicToPrimitiveProblematicAccess(
                 receiverType, expression.source,
-                atomicReferenceClassId, appropriateCandidatesForArgument,
-                context, reporter
+                atomicReferenceClassId, appropriateCandidatesForArgument
             )
         }
     }

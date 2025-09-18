@@ -6,7 +6,9 @@
 package org.jetbrains.kotlin.js.test.fir
 
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.js.test.converters.FirJsKlibSerializerFacade
+import org.jetbrains.kotlin.js.test.converters.Fir2IrCliWebFacade
+import org.jetbrains.kotlin.js.test.converters.FirCliWebFacade
+import org.jetbrains.kotlin.js.test.converters.FirKlibSerializerCliWebFacade
 import org.jetbrains.kotlin.js.test.handlers.JsIrRecompiledArtifactsIdentityHandler
 import org.jetbrains.kotlin.js.test.handlers.JsWrongModuleHandler
 import org.jetbrains.kotlin.js.test.handlers.createFirJsLineNumberHandler
@@ -18,14 +20,16 @@ import org.jetbrains.kotlin.parsing.parseBoolean
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.test.backend.handlers.IrTextDumpHandler
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.*
+import org.jetbrains.kotlin.test.configuration.commonFirHandlersForCodegenTest
 import org.jetbrains.kotlin.test.directives.*
+import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DUMP_IR_AFTER_INLINE
+import org.jetbrains.kotlin.test.directives.KlibAbiConsistencyDirectives.CHECK_SAME_ABI_AFTER_INLINING
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.IGNORE_KLIB_SYNTHETIC_ACCESSORS_CHECKS
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
 import org.jetbrains.kotlin.test.directives.model.ValueDirective
-import org.jetbrains.kotlin.test.frontend.fir.Fir2IrResultsConverter
-import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirMetaInfoDiffSuppressor
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgConsistencyHandler
@@ -33,7 +37,6 @@ import org.jetbrains.kotlin.test.frontend.fir.handlers.FirCfgDumpHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirDumpHandler
 import org.jetbrains.kotlin.test.frontend.fir.handlers.FirResolvedTypesVerifier
 import org.jetbrains.kotlin.test.model.*
-import org.jetbrains.kotlin.test.configuration.commonFirHandlersForCodegenTest
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
 import java.lang.Boolean.getBoolean
 
@@ -47,34 +50,21 @@ open class AbstractFirJsTest(
     FrontendKinds.FIR, targetBackend, pathToTestDir, testGroupOutputDirPrefix
 ) {
     override val frontendFacade: Constructor<FrontendFacade<FirOutputArtifact>>
-        get() = ::FirFrontendFacade
+        get() = ::FirCliWebFacade
 
     override val frontendToIrConverter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
-        get() = ::Fir2IrResultsConverter
+        get() = ::Fir2IrCliWebFacade
 
     override val serializerFacade: Constructor<BackendFacade<IrBackendInput, BinaryArtifacts.KLib>>
-        get() = ::FirJsKlibSerializerFacade
+        get() = ::FirKlibSerializerCliWebFacade
 
     override val backendFacades: JsBackendFacades
         get() = JsBackendFacades.WithRecompilation
 
-    private fun getBoolean(s: String, default: Boolean) = System.getProperty(s)?.let { parseBoolean(it) } ?: default
-
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         with(builder) {
-            defaultDirectives {
-                val runIc = getBoolean("kotlin.js.ir.icMode")
-                if (runIc) +JsEnvironmentConfigurationDirectives.RUN_IC
-                if (getBoolean("kotlin.js.ir.klibMainModule")) +JsEnvironmentConfigurationDirectives.KLIB_MAIN_MODULE
-                if (getBoolean("kotlin.js.ir.perModule", true)) +JsEnvironmentConfigurationDirectives.PER_MODULE
-                if (getBoolean("kotlin.js.ir.dce", true)) +JsEnvironmentConfigurationDirectives.RUN_IR_DCE
-                +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
-                -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
-                DiagnosticsDirectives.DIAGNOSTICS with listOf("-infos")
-                FirDiagnosticsDirectives.FIR_PARSER with parser
-            }
-
+            setupDefaultDirectivesForFirJsBoxTest(parser)
             firHandlersStep {
                 useHandlers(
                     ::FirDumpHandler,
@@ -130,6 +120,7 @@ open class AbstractFirJsCodegenBoxTestBase(testGroupOutputDirPrefix: String) : A
 open class AbstractFirJsCodegenBoxTest : AbstractFirJsCodegenBoxTestBase(
     testGroupOutputDirPrefix = "codegen/firBox/"
 )
+
 open class AbstractFirJsCodegenBoxWithInlinedFunInKlibTest : AbstractFirJsCodegenBoxTestBase(
     testGroupOutputDirPrefix = "codegen/firBoxWithInlinedFunInKlib"
 ) {
@@ -137,7 +128,11 @@ open class AbstractFirJsCodegenBoxWithInlinedFunInKlibTest : AbstractFirJsCodege
         super.configure(builder)
         with(builder) {
             defaultDirectives {
+                +CHECK_SAME_ABI_AFTER_INLINING
                 LANGUAGE with "+${LanguageFeature.IrInlinerBeforeKlibSerialization.name}"
+            }
+            configureLoweredIrHandlersStep {
+                useHandlers({ ts, ak -> IrTextDumpHandler(ts, ak, "inlined.ir", DUMP_IR_AFTER_INLINE) })
             }
         }
     }
@@ -228,12 +223,9 @@ open class AbstractFirJsCodegenWasmJsInteropTest : AbstractFirJsTest(
 )
 
 // TODO(KT-64570): Don't inherit from AbstractFirJsTest after we move the common prefix of lowerings before serialization.
-abstract class AbstractFirJsKlibSyntheticAccessorTest(
-    private val narrowedAccessorVisibility: Boolean,
-    testGroupOutputDirPrefix: String
-) : AbstractFirJsTest(
+open class AbstractFirJsKlibSyntheticAccessorTest : AbstractFirJsTest(
     pathToTestDir = "compiler/testData/klib/syntheticAccessors/",
-    testGroupOutputDirPrefix,
+    testGroupOutputDirPrefix = "klib/syntheticAccessors-k2/phase1",
 ) {
     override val customIgnoreDirective: ValueDirective<TargetBackend>?
         get() = IGNORE_KLIB_SYNTHETIC_ACCESSORS_CHECKS
@@ -246,18 +238,26 @@ abstract class AbstractFirJsKlibSyntheticAccessorTest(
         with(builder) {
             defaultDirectives {
                 +KlibBasedCompilerTestDirectives.DUMP_KLIB_SYNTHETIC_ACCESSORS
-                if (narrowedAccessorVisibility) +KlibBasedCompilerTestDirectives.KLIB_SYNTHETIC_ACCESSORS_WITH_NARROWED_VISIBILITY
+                LANGUAGE with "+${LanguageFeature.IrInlinerBeforeKlibSerialization.name}"
             }
         }
     }
 }
 
-open class AbstractFirJsKlibSyntheticAccessorInPhase1Test : AbstractFirJsKlibSyntheticAccessorTest(
-    narrowedAccessorVisibility = true,
-    testGroupOutputDirPrefix = "klib/syntheticAccessors-k2/phase1",
-)
+fun TestConfigurationBuilder.setupDefaultDirectivesForFirJsBoxTest(parser: FirParser) {
+    defaultDirectives {
+        val runIc = getBoolean("kotlin.js.ir.icMode")
+        if (runIc) +JsEnvironmentConfigurationDirectives.RUN_IC
+        if (getBoolean("kotlin.js.ir.klibMainModule")) +JsEnvironmentConfigurationDirectives.KLIB_MAIN_MODULE
+        if (getBoolean("kotlin.js.ir.perModule", true)) +JsEnvironmentConfigurationDirectives.PER_MODULE
+        if (getBoolean("kotlin.js.ir.dce", true)) +JsEnvironmentConfigurationDirectives.RUN_IR_DCE
+        +LanguageSettingsDirectives.ALLOW_KOTLIN_PACKAGE
+        -JsEnvironmentConfigurationDirectives.GENERATE_NODE_JS_RUNNER
+        DiagnosticsDirectives.DIAGNOSTICS with listOf("-infos")
+        FirDiagnosticsDirectives.FIR_PARSER with parser
+    }
+}
 
-open class AbstractFirJsKlibSyntheticAccessorInPhase2Test : AbstractFirJsKlibSyntheticAccessorTest(
-    narrowedAccessorVisibility = false,
-    testGroupOutputDirPrefix = "klib/syntheticAccessors-k2/phase2",
-)
+private fun getBoolean(s: String, default: Boolean): Boolean {
+    return System.getProperty(s)?.let { parseBoolean(it) } ?: default
+}

@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 fun produceConcreteA(func: () -> (suspend () -> Unit)): suspend () -> Unit = func()
 fun (() -> (suspend () -> Unit)).produceConcreteB(): suspend () -> Unit = this()
 
@@ -12,3 +11,6 @@ fun test() {
     { fun () {} }.<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>produceConcreteB<!>();
     (fun () = fun () {}).<!UNRESOLVED_REFERENCE_WRONG_RECEIVER!>produceConcreteB<!>();
 }
+
+/* GENERATED_FIR_TAGS: anonymousFunction, funWithExtensionReceiver, functionDeclaration, functionalType, lambdaLiteral,
+localFunction, suspend, thisExpression */

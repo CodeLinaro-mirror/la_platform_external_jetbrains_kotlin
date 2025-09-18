@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -17,11 +17,13 @@ import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.FirErrorTypeRef
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.impl.FirImplicitBuiltinTypeRef
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.fir.whileAnalysing
 import org.jetbrains.kotlin.util.PrivateForInline
@@ -94,10 +96,7 @@ abstract class AbstractDiagnosticCollectorVisitor(
 
     override fun visitScript(script: FirScript, data: Nothing?) {
         withAnnotationContainer(script) {
-            checkElement(script)
-            withDeclaration(script) {
-                visitNestedElements(script)
-            }
+            visitWithDeclaration(script)
         }
     }
 
@@ -152,7 +151,7 @@ abstract class AbstractDiagnosticCollectorVisitor(
     }
 
     override fun visitPropertyAccessor(propertyAccessor: FirPropertyAccessor, data: Nothing?) {
-        val property = context.containingDeclarations.last() as FirProperty
+        val property = context.containingDeclarations.last() as FirPropertySymbol
         withAnnotationContainer(propertyAccessor) {
             withInlineFunctionBodyIfApplicable(propertyAccessor, propertyAccessor.isInline || property.isInline) {
                 visitWithDeclaration(propertyAccessor)
@@ -228,6 +227,8 @@ abstract class AbstractDiagnosticCollectorVisitor(
             visitTypeRef(resolvedTypeRef, data)
         }
         if (resolvedTypeRef.source?.kind?.shouldSkipErrorTypeReporting == true) return
+        // As implicit built-in type refs never have sources
+        if (resolvedTypeRef is FirImplicitBuiltinTypeRef) return
 
         // Even though we don't visit the children of the resolvedTypeRef we still add it as an annotation container
         // and take care not to add the corresponding delegatedTypeRef. This is so that diagnostics will have access to
@@ -267,6 +268,12 @@ abstract class AbstractDiagnosticCollectorVisitor(
 
     override fun visitGetClassCall(getClassCall: FirGetClassCall, data: Nothing?) {
         visitWithGetClassCall(getClassCall)
+    }
+
+    override fun visitDanglingModifierList(danglingModifierList: FirDanglingModifierList, data: Nothing?) {
+        withAnnotationContainer(danglingModifierList) {
+            visitWithDeclaration(danglingModifierList)
+        }
     }
 
     protected inline fun visitWithDeclaration(

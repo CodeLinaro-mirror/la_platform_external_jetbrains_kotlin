@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.checkTypeRefForUnderscore
 import org.jetbrains.kotlin.fir.analysis.checkers.isMalformedExpandedType
 import org.jetbrains.kotlin.fir.analysis.checkers.isTopLevel
+import org.jetbrains.kotlin.fir.analysis.checkers.requireFeatureSupport
 import org.jetbrains.kotlin.fir.declarations.FirOuterClassTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
@@ -28,46 +29,40 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 
 object FirAnyTypeAliasChecker : FirTypeAliasChecker(MppCheckerKind.Common) {
-    override fun check(declaration: FirTypeAlias, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirTypeAlias) {
         if (!context.isTopLevel) {
             if (declaration.isLocal) {
-                reporter.reportOn(declaration.source, FirErrors.UNSUPPORTED, "Local type aliases", context)
-            } else if (!context.languageVersionSettings.supportsFeature(LanguageFeature.NestedTypeAliases)) {
-                reporter.reportOn(
-                    declaration.source,
-                    FirErrors.UNSUPPORTED_FEATURE,
-                    LanguageFeature.NestedTypeAliases to context.languageVersionSettings,
-                    context
-                )
+                reporter.reportOn(declaration.source, FirErrors.UNSUPPORTED, "Local type aliases are unsupported.")
+            } else {
+                declaration.requireFeatureSupport(LanguageFeature.NestedTypeAliases)
             }
         }
 
         val expandedTypeRef = declaration.expandedTypeRef
-        val fullyExpandedType = expandedTypeRef.coneType.fullyExpandedType(context.session)
+        val fullyExpandedType = expandedTypeRef.coneType.fullyExpandedType()
 
-        declaration.checkTypeAliasExpansionCapturesOuterTypeParameters(fullyExpandedType, expandedTypeRef, context, reporter)
+        declaration.checkTypeAliasExpansionCapturesOuterTypeParameters(fullyExpandedType, expandedTypeRef)
 
-        declaration.checkTypealiasShouldExpandToClass(fullyExpandedType, expandedTypeRef, context, reporter)
+        declaration.checkTypealiasShouldExpandToClass(fullyExpandedType, expandedTypeRef)
 
-        checkTypeRefForUnderscore(expandedTypeRef, context, reporter)
+        checkTypeRefForUnderscore(expandedTypeRef)
 
         val allowNullableNothing = context.languageVersionSettings.supportsFeature(LanguageFeature.NullableNothingInReifiedPosition)
-        if (fullyExpandedType.isMalformedExpandedType(context, allowNullableNothing)) {
+        if (fullyExpandedType.isMalformedExpandedType(allowNullableNothing)) {
             reporter.reportOn(
                 declaration.expandedTypeRef.source,
                 FirErrors.TYPEALIAS_EXPANDS_TO_ARRAY_OF_NOTHINGS,
-                fullyExpandedType,
-                context
+                fullyExpandedType
             )
         }
     }
 
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     @OptIn(SymbolInternals::class)
     private fun FirTypeAlias.checkTypeAliasExpansionCapturesOuterTypeParameters(
         fullyExpandedType: ConeKotlinType,
         expandedTypeRef: FirTypeRef,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
     ) {
         if (context.isTopLevel || isInner || isLocal) return
 
@@ -75,7 +70,7 @@ object FirAnyTypeAliasChecker : FirTypeAliasChecker(MppCheckerKind.Common) {
 
         fun ConeKotlinType.checkRecursively() {
             for (typeArgument in typeArguments) {
-                typeArgument.type?.fullyExpandedType(context.session)?.checkRecursively()
+                typeArgument.type?.fullyExpandedType()?.checkRecursively()
             }
 
             val regularClassSymbol = toRegularClassSymbol(context.session) ?: return
@@ -96,17 +91,15 @@ object FirAnyTypeAliasChecker : FirTypeAliasChecker(MppCheckerKind.Common) {
             reporter.reportOn(
                 expandedTypeRef.source,
                 FirErrors.TYPEALIAS_EXPANSION_CAPTURES_OUTER_TYPE_PARAMETERS,
-                unsubstitutedOuterTypeParameters,
-                context
+                unsubstitutedOuterTypeParameters
             )
         }
     }
 
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun FirTypeAlias.checkTypealiasShouldExpandToClass(
         fullyExpandedType: ConeKotlinType,
         expandedTypeRef: FirTypeRef,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
     ) {
         fun containsTypeParameter(type: ConeKotlinType): Boolean {
             val unwrapped = type.unwrapToSimpleTypeUsingLowerBound()
@@ -131,9 +124,7 @@ object FirAnyTypeAliasChecker : FirTypeAliasChecker(MppCheckerKind.Common) {
             reporter.reportOn(
                 this.expandedTypeRef.source,
                 FirErrors.TYPEALIAS_SHOULD_EXPAND_TO_CLASS,
-                expandedTypeRef.coneType,
-                context
-            )
+                expandedTypeRef.coneType)
         }
     }
 }

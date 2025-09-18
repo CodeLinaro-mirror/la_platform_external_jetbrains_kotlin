@@ -233,7 +233,7 @@ public interface KtTokens {
     // Reserved for future use:
     KtKeywordToken TYPEOF_KEYWORD           = KtKeywordToken.keyword("typeof", TYPEOF_KEYWORD_Id);
 
-    KtToken AS_SAFE = KtKeywordToken.keyword("AS_SAFE", AS_SAFE_Id);
+    KtToken AS_SAFE = KtKeywordToken.keyword("AS_SAFE", "as?", AS_SAFE_Id);
 
     KtToken IDENTIFIER = new KtToken("IDENTIFIER", IDENTIFIER_Id);
 
@@ -367,7 +367,7 @@ public interface KtTokens {
                                              CATCH_KEYWORD, FINALLY_KEYWORD, OUT_KEYWORD, FINAL_KEYWORD, VARARG_KEYWORD, REIFIED_KEYWORD,
                                              DYNAMIC_KEYWORD, COMPANION_KEYWORD, CONSTRUCTOR_KEYWORD, INIT_KEYWORD, SEALED_KEYWORD,
                                              FIELD_KEYWORD, PROPERTY_KEYWORD, RECEIVER_KEYWORD, PARAM_KEYWORD, SETPARAM_KEYWORD,
-                                             DELEGATE_KEYWORD,
+                                             DELEGATE_KEYWORD, ALL_KEYWORD,
                                              LATEINIT_KEYWORD,
                                              DATA_KEYWORD, INLINE_KEYWORD, NOINLINE_KEYWORD, TAILREC_KEYWORD, EXTERNAL_KEYWORD,
                                              ANNOTATION_KEYWORD, CROSSINLINE_KEYWORD, CONST_KEYWORD, OPERATOR_KEYWORD, INFIX_KEYWORD,

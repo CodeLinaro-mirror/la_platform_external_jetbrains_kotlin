@@ -1,21 +1,11 @@
 /*
- * Copyright 2010-2015 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.psi.stubs
 
+import com.intellij.openapi.util.IntellijInternalApi
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.stubs.NamedStub
 import com.intellij.psi.stubs.PsiFileStub
@@ -112,6 +102,24 @@ interface KotlinImportDirectiveStub : StubElement<KtImportDirective> {
 
 interface KotlinModifierListStub : StubElement<KtDeclarationModifierList> {
     fun hasModifier(modifierToken: KtModifierKeywordToken): Boolean
+
+    /**
+     * Whether the modifier list has a [SpecialFlag].
+     */
+    @IntellijInternalApi
+    fun hasSpecialFlag(flag: SpecialFlag): Boolean
+
+    /** Represents special flags that are common for many declarations */
+    @IntellijInternalApi
+    enum class SpecialFlag {
+        /**
+         * Whether the return type of the modifier list owner must be checked.
+         * This check is supposed to work only for binary stubs.
+         *
+         * See [KT-12719](https://youtrack.jetbrains.com/issue/KT-12719) for details.
+         */
+        MustUseReturnValue,
+    }
 }
 
 interface KotlinNameReferenceExpressionStub : StubElement<KtNameReferenceExpression> {
@@ -144,6 +152,14 @@ interface KotlinPropertyStub : KotlinCallableStubBase<KtProperty> {
     fun hasDelegateExpression(): Boolean
     fun hasInitializer(): Boolean
     fun hasReturnTypeRef(): Boolean
+
+    /**
+     * Whether the property has a backing field.
+     * The property is supposed to work only for binary stubs.
+     *
+     * Returns **null** if the information is not available (e.g., for source stubs or unsupported platforms).
+     */
+    val hasBackingField: Boolean?
 }
 
 interface KotlinCallableStubBase<TDeclaration : KtCallableDeclaration> : KotlinStubWithFqName<TDeclaration> {
@@ -170,7 +186,16 @@ interface KotlinConstantExpressionStub : StubElement<KtConstantExpression> {
 }
 
 interface KotlinClassLiteralExpressionStub : StubElement<KtClassLiteralExpression>
-interface KotlinCollectionLiteralExpressionStub : StubElement<KtCollectionLiteralExpression>
+interface KotlinCollectionLiteralExpressionStub : StubElement<KtCollectionLiteralExpression> {
+    /**
+     * The number of collection literals in the collection literal expression.
+     *
+     * For example, in the collection literal expression `[1, 2, 3]`, this function will return `3`.
+     *
+     * @see org.jetbrains.kotlin.psi.KtCollectionLiteralExpression.getInnerExpressions
+     */
+    val innerExpressionCount: Int
+}
 
 interface KotlinTypeProjectionStub : StubElement<KtTypeProjection> {
     fun getProjectionKind(): KtProjectionKind
@@ -186,4 +211,28 @@ interface KotlinScriptStub : KotlinStubWithFqName<KtScript> {
 
 interface KotlinContextReceiverStub : StubElement<KtContextReceiver> {
     fun getLabel(): String?
+}
+
+interface KotlinStringInterpolationPrefixStub : StubElement<KtStringInterpolationPrefix> {
+    /**
+     * The count of `$` characters in the string interpolation prefix.
+     *
+     * For example, a single `$` in string interpolation would have count of 1,
+     * while `$$` would have count of 2.
+     */
+    val dollarSignCount: Int
+}
+
+interface KotlinBlockStringTemplateEntryStub : KotlinPlaceHolderWithTextStub<KtBlockStringTemplateEntry> {
+    /**
+     * Whether the entry has more than one expression which is illegal code.
+     *
+     * ### Examples
+     *
+     * ```kotlin
+     * @InvalidAnnotation("${CONSTANT ${}}")
+     * fun foo() {}
+     * ```
+     */
+    val hasMultipleExpressions: Boolean
 }

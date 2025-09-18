@@ -34,8 +34,8 @@ import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.idea.MainFunctionDetector
-import org.jetbrains.kotlin.ir.InternalSymbolFinderAPI
 import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.IrProvider
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmDescriptorMangler
 import org.jetbrains.kotlin.ir.backend.jvm.serialization.JvmIrLinker
@@ -45,9 +45,11 @@ import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.MetadataSource
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrModuleFragmentImpl
-import org.jetbrains.kotlin.ir.linkage.IrProvider
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
+import org.jetbrains.kotlin.ir.util.SymbolTable
+import org.jetbrains.kotlin.ir.util.functions
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.library.metadata.DeserializedKlibModuleOrigin
 import org.jetbrains.kotlin.library.metadata.KlibModuleOrigin
 import org.jetbrains.kotlin.metadata.jvm.JvmModuleProtoBuf
@@ -55,7 +57,6 @@ import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStat
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi2ir.Psi2IrConfiguration
 import org.jetbrains.kotlin.psi2ir.Psi2IrTranslator
-import org.jetbrains.kotlin.psi2ir.descriptors.IrBuiltInsOverDescriptors
 import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorForNotFoundClasses
 import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorImpl
 import org.jetbrains.kotlin.psi2ir.generators.fragments.EvaluatorFragmentInfo
@@ -121,6 +122,7 @@ class JvmIrCodegenFactory(
         val context: JvmBackendContext,
         val module: IrModuleFragment,
         val allBuiltins: List<IrFile>,
+        val intrinsicExtensions: List<JvmIrIntrinsicExtension>,
     )
 
     /**
@@ -337,16 +339,33 @@ class JvmIrCodegenFactory(
             backendExtension, irSerializer, JvmIrDeserializerImpl(), irProviders, irPluginContext
         )
         if (evaluatorFragmentInfoForPsi2Ir != null) {
-            context.evaluatorData = JvmEvaluatorData(mutableMapOf(), evaluatorFragmentInfoForPsi2Ir.methodIR)
+            // In K1 CodeFragment metadata is attributed to IrClass, but in K2 it is attributed IrFile
+            val generatedClass = if (context.state.configuration.useFir) {
+                irModuleFragment.files.flatMap { it.declarations }
+                    .filterIsInstance<IrClass>()
+                    .single { it.metadata is MetadataSource.CodeFragment }
+            } else {
+                val fragmentFile = irModuleFragment.files.single { it.metadata is MetadataSource.CodeFragment }
+                fragmentFile.declarations.single() as IrClass
+            }
+
+            @OptIn(ObsoleteDescriptorBasedAPI::class)
+            val evaluationEntryPoint = generatedClass.functions.single { it.descriptor == evaluatorFragmentInfoForPsi2Ir.methodDescriptor }
+            context.evaluatorData =
+                JvmEvaluatorData(
+                    JvmBackendContext.SharedLocalDeclarationsData(),
+                    evaluationEntryPoint,
+                    evaluatorFragmentInfoForPsi2Ir.typeArgumentsMap
+                )
         }
         val generationExtensions = state.project.filteredExtensions
             .mapNotNull { it.getPlatformIntrinsicExtension(context) as? JvmIrIntrinsicExtension }
-        val intrinsics by lazy { IrIntrinsicMethods(irBuiltIns, context.ir.symbols) }
+        val intrinsics by lazy { IrIntrinsicMethods(irBuiltIns, context.symbols) }
         context.getIntrinsic = { symbol: IrFunctionSymbol ->
             intrinsics.getIntrinsic(symbol) ?: generationExtensions.firstNotNullOfOrNull { it.getIntrinsic(symbol) }
         }
 
-        context.enumEntriesIntrinsicMappingsCache = EnumEntriesIntrinsicMappingsCacheImpl(context)
+        context.enumEntriesIntrinsicMappingsCache = EnumEntriesIntrinsicMappingsCacheImpl(context, generationExtensions)
 
         /* JvmBackendContext creates new unbound symbols, have to resolve them. */
         ExternalDependenciesGenerator(symbolTable, irProviders).generateUnboundSymbolsAsDependencies()
@@ -361,11 +380,11 @@ class JvmIrCodegenFactory(
             engine.runPhase(phase, irModuleFragment)
         }
 
-        return CodegenInput(state, context, irModuleFragment, allBuiltins)
+        return CodegenInput(state, context, irModuleFragment, allBuiltins, generationExtensions)
     }
 
     fun invokeCodegen(input: CodegenInput) {
-        val (state, context, module, allBuiltins) = input
+        val (state, context, module, allBuiltins, intrinsicExtensions) = input
 
         fun hasErrors() = (state.diagnosticReporter as? BaseDiagnosticsCollector)?.hasErrors == true
 
@@ -380,14 +399,17 @@ class JvmIrCodegenFactory(
         for (generateMultifileFacades in listOf(true, false)) {
             if (executor != null) {
                 val taskPerFile = module.files.map { irFile ->
-                    CompletableFuture.runAsync( {
-                        generateFile(context, irFile, generateMultifileFacades)
-                    }, executor)
+                    CompletableFuture.runAsync(
+                        {
+                            generateFile(context, irFile, intrinsicExtensions, generateMultifileFacades)
+                        },
+                        executor
+                    )
                 }
                 CompletableFuture.allOf(*taskPerFile.toTypedArray()).get()
             } else {
                 for (irFile in module.files) {
-                    generateFile(context, irFile, generateMultifileFacades)
+                    generateFile(context, irFile, intrinsicExtensions, generateMultifileFacades)
                 }
             }
         }
@@ -397,9 +419,6 @@ class JvmIrCodegenFactory(
         context.enumEntriesIntrinsicMappingsCache.generateMappingsClasses()
 
         if (hasErrors()) return
-        // TODO: split classes into groups connected by inline calls; call this after every group
-        //       and clear `JvmBackendContext.classCodegens`
-        state.afterIndependentPart()
 
         generateModuleMetadata(input.context)
         if (state.config.languageVersionSettings.getFlag(JvmAnalysisFlags.outputBuiltinsMetadata)) {
@@ -411,14 +430,19 @@ class JvmIrCodegenFactory(
         state.factory.done()
     }
 
-    private fun generateFile(context: JvmBackendContext, file: IrFile, generateMultifileFacades: Boolean): IrFile {
+    private fun generateFile(
+        context: JvmBackendContext,
+        file: IrFile,
+        intrinsicExtensions: List<JvmIrIntrinsicExtension>,
+        generateMultifileFacades: Boolean,
+    ): IrFile {
         val isMultifileFacade = file.fileEntry is MultifileFacadeFileEntry
         if (isMultifileFacade == generateMultifileFacades) {
             for (loweredClass in file.declarations) {
                 if (loweredClass !is IrClass) {
                     throw AssertionError("File-level declaration should be IrClass after JvmLower: " + loweredClass.render())
                 }
-                ClassCodegen.getOrCreate(loweredClass, context).generate()
+                ClassCodegen.getOrCreate(loweredClass, context, intrinsicExtensions).generate()
             }
         }
         return file

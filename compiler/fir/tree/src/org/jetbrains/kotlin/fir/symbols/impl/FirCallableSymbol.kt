@@ -37,31 +37,16 @@ abstract class FirCallableSymbol<out D : FirCallableDeclaration> : FirBasedSymbo
         get() = resolvedReturnTypeRef.coneType
 
     val resolvedReceiverTypeRef: FirResolvedTypeRef?
-        get() = calculateReceiverTypeRef()
+        get() = receiverParameterSymbol?.calculateResolvedTypeRef()
 
-    private fun calculateReceiverTypeRef(): FirResolvedTypeRef? {
-        val receiverParameter = fir.receiverParameter ?: return null
-        ensureType(receiverParameter.typeRef)
-        val receiverTypeRef = receiverParameter.typeRef
-        if (receiverTypeRef !is FirResolvedTypeRef) {
-            errorInLazyResolve("receiverTypeRef", receiverTypeRef::class, FirResolvedTypeRef::class)
-        }
+    val resolvedReceiverType: ConeKotlinType?
+        get() = resolvedReceiverTypeRef?.coneType
 
-        return receiverTypeRef
-    }
+    val receiverParameterSymbol: FirReceiverParameterSymbol?
+        get() = fir.receiverParameter?.symbol
 
-    val receiverParameter: FirReceiverParameter?
-        get() {
-            calculateReceiverTypeRef()
-            return fir.receiverParameter
-        }
-
-    val resolvedContextParameters: List<FirValueParameter>
-        get() {
-            if (fir.contextParameters.isEmpty()) return emptyList()
-            lazyResolveToPhase(FirResolvePhase.TYPES)
-            return fir.contextParameters
-        }
+    val contextParameterSymbols: List<FirValueParameterSymbol>
+        get() = fir.contextParameters.map { it.symbol }
 
     val resolvedStatus: FirResolvedDeclarationStatus
         get() = fir.resolvedStatus()
@@ -71,6 +56,9 @@ abstract class FirCallableSymbol<out D : FirCallableDeclaration> : FirBasedSymbo
 
     val typeParameterSymbols: List<FirTypeParameterSymbol>
         get() = fir.typeParameters.map { it.symbol }
+
+    val ownTypeParameterSymbols: List<FirTypeParameterSymbol>
+        get() = fir.typeParameters.mapNotNull { (it as? FirTypeParameter)?.symbol }
 
     val dispatchReceiverType: ConeSimpleKotlinType?
         get() = fir.dispatchReceiverType
@@ -84,8 +72,7 @@ abstract class FirCallableSymbol<out D : FirCallableDeclaration> : FirBasedSymbo
 
     fun getDeprecation(languageVersionSettings: LanguageVersionSettings): DeprecationsPerUseSite? {
         if (deprecationsAreDefinitelyEmpty()) {
-            // here should probably be `null`, see KT-74133
-            return EmptyDeprecationsPerUseSite
+            return null
         }
 
         lazyResolveToPhase(FirResolvePhase.COMPILER_REQUIRED_ANNOTATIONS)
@@ -139,9 +126,5 @@ abstract class FirCallableSymbol<out D : FirCallableDeclaration> : FirBasedSymbo
     override fun toString(): String = "${this::class.simpleName} $callableId"
 }
 
-val FirCallableSymbol<*>.isExtension: Boolean
-    get() = when (fir) {
-        is FirFunction -> fir.receiverParameter != null
-        is FirProperty -> fir.receiverParameter != null
-        is FirVariable -> false
-    }
+val FirCallableSymbol<*>.hasContextParameters: Boolean
+    get() = fir.contextParameters.isNotEmpty()

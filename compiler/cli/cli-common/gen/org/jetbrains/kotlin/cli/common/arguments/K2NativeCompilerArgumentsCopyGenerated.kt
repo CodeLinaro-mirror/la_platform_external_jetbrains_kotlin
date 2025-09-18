@@ -29,7 +29,6 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.dumpSyntheticAccessorsTo = from.dumpSyntheticAccessorsTo
     to.emitLazyObjCHeader = from.emitLazyObjCHeader
     to.enableAssertions = from.enableAssertions
-    to.explicitCachesOnly = from.explicitCachesOnly
     to.exportKDoc = from.exportKDoc
     to.exportedLibraries = from.exportedLibraries?.copyOf()
     to.externalDependencies = from.externalDependencies
@@ -64,7 +63,6 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.manifestNativeTargets = from.manifestNativeTargets?.copyOf()
     to.memoryModel = from.memoryModel
     to.moduleName = from.moduleName
-    to.narrowedSyntheticAccessorsVisibility = from.narrowedSyntheticAccessorsVisibility
     to.nativeLibraries = from.nativeLibraries?.copyOf()
     to.noObjcGenerics = from.noObjcGenerics
     to.nodefaultlibs = from.nodefaultlibs
@@ -87,7 +85,7 @@ fun copyK2NativeCompilerArguments(from: K2NativeCompilerArguments, to: K2NativeC
     to.runtimeFile = from.runtimeFile
     to.runtimeLogs = from.runtimeLogs
     to.saveDependenciesPath = from.saveDependenciesPath
-    to.saveLlvmIrAfter = from.saveLlvmIrAfter.copyOf()
+    to.saveLlvmIrAfter = from.saveLlvmIrAfter?.copyOf()
     to.saveLlvmIrDirectory = from.saveLlvmIrDirectory
     to.serializedDependencies = from.serializedDependencies
     to.shortModuleName = from.shortModuleName

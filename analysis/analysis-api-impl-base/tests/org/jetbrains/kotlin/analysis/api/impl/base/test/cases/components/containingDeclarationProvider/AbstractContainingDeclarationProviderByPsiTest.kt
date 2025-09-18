@@ -20,11 +20,18 @@ abstract class AbstractContainingDeclarationProviderByPsiTest : AbstractAnalysis
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val currentPath = mutableListOf<KtDeclaration>()
         val ktClasses = mutableListOf<KtClassOrObject>()
-        analyseForTest(mainFile) {
-            val expectedFileSymbol = mainFile.symbol
-            mainFile.accept(object : KtVisitorVoid() {
+
+        copyAwareAnalyzeForTest(mainFile) { contextFile ->
+            val expectedFileSymbol = contextFile.symbol
+            contextFile.accept(object : KtVisitorVoid() {
                 override fun visitElement(element: PsiElement) {
                     element.acceptChildren(this)
+                }
+
+                override fun visitLambdaExpression(lambdaExpression: KtLambdaExpression) {
+                    // Due to a PSI quirk, `KtFunctionLiteral` can't be reached by `visitDeclaration` directly,
+                    // but we need to visit it to match it with `KaFirAnonymousFunctionSymbol`
+                    visitDeclaration(lambdaExpression.functionLiteral)
                 }
 
                 override fun visitDeclaration(dcl: KtDeclaration) {
@@ -43,7 +50,7 @@ abstract class AbstractContainingDeclarationProviderByPsiTest : AbstractAnalysis
 
                     checkContainingFileSymbol(expectedFileSymbol, currentDeclarationSymbol, testServices)
                     if (currentDeclarationSymbol is KaCallableSymbol) {
-                        checkContainingJvmClassName(mainFile, ktClasses.lastOrNull(), currentDeclarationSymbol, testServices)
+                        checkContainingJvmClassName(contextFile, ktClasses.lastOrNull(), currentDeclarationSymbol, testServices)
                     }
 
                     currentPath.add(dcl)

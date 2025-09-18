@@ -16,7 +16,7 @@
   <url>https://kotlinlang.org/</url>
   <licenses>
     <license>
-      <name>The Apache License, Version 2.0</name>
+      <name>Apache-2.0</name>
       <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
     </license>
   </licenses>
@@ -71,6 +71,11 @@
       </dependency>
       <dependency>
         <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-gradle-ecosystem-plugin</artifactId>
+        <version>ArtifactsTest.version</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>atomicfu</artifactId>
         <version>ArtifactsTest.version</version>
       </dependency>
@@ -112,6 +117,11 @@
       <dependency>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-assignment</artifactId>
+        <version>ArtifactsTest.version</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-dataframe</artifactId>
         <version>ArtifactsTest.version</version>
       </dependency>
     </dependencies>

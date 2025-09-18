@@ -1,119 +1,122 @@
 #include <Foundation/Foundation.h>
 #include <stdint.h>
 
-void AbstractBase_abstractFun1(uintptr_t self);
+NS_ASSUME_NONNULL_BEGIN
 
-void AbstractBase_abstractFun2(uintptr_t self);
+void AbstractBase_abstractFun1(void * self);
 
-int32_t AbstractBase_abstractVal_get(uintptr_t self);
+void AbstractBase_abstractFun2(void * self);
 
-void AbstractDerived2_abstractFun1(uintptr_t self);
+int32_t AbstractBase_abstractVal_get(void * self);
 
-void Child_actuallyOverride__TypesOfArguments__Swift_Int32_opt__overrides_Parent_overrides_Parent_opt___(uintptr_t self, NSNumber * nullable, uintptr_t poly, uintptr_t nullablePoly);
+void AbstractDerived2_abstractFun1(void * self);
 
-void Child_finalOverrideFunc(uintptr_t self);
+void Child_actuallyOverride__TypesOfArguments__Swift_Optional_Swift_Int32__overrides_Parent_Swift_Optional_overrides_Parent___(void * self, NSNumber * _Nullable nullable, void * poly, void * _Nullable nullablePoly);
 
-NSArray<id> * Child_genericReturnTypeFunc(uintptr_t self);
+void Child_finalOverrideFunc(void * self);
 
-uintptr_t Child_nonoverride(uintptr_t self) __attribute((noreturn));
+NSArray<id> * Child_genericReturnTypeFunc(void * self);
 
-uintptr_t Child_objectFunc__TypesOfArguments__overrides_Child__(uintptr_t self, uintptr_t arg);
+void Child_nonoverride(void * self) __attribute((noreturn));
 
-uintptr_t Child_objectOptionalFunc__TypesOfArguments__overrides_Child__(uintptr_t self, uintptr_t arg);
+void * Child_objectFunc__TypesOfArguments__overrides_Child__(void * self, void * arg);
 
-uintptr_t Child_objectOptionalVar_get(uintptr_t self);
+void * _Nullable Child_objectOptionalFunc__TypesOfArguments__overrides_Child__(void * self, void * arg);
 
-uintptr_t Child_objectVar_get(uintptr_t self);
+void * _Nullable Child_objectOptionalVar_get(void * self);
 
-void Child_overrideChainFunc(uintptr_t self);
+void * Child_objectVar_get(void * self);
 
-int32_t Child_primitiveTypeFunc__TypesOfArguments__Swift_Int32__(uintptr_t self, int32_t arg);
+void Child_overrideChainFunc(void * self);
 
-int32_t Child_primitiveTypeVar_get(uintptr_t self);
+int32_t Child_primitiveTypeFunc__TypesOfArguments__Swift_Int32__(void * self, int32_t arg);
 
-uintptr_t Child_subtypeObjectFunc__TypesOfArguments__overrides_Child__(uintptr_t self, uintptr_t arg);
+int32_t Child_primitiveTypeVar_get(void * self);
 
-uintptr_t Child_subtypeObjectVar_get(uintptr_t self);
+void * Child_subtypeObjectFunc__TypesOfArguments__overrides_Child__(void * self, void * arg);
 
-uintptr_t Child_subtypeOptionalObjectFunc(uintptr_t self);
+void * Child_subtypeObjectVar_get(void * self);
 
-uintptr_t Child_subtypeOptionalObjectVar_get(uintptr_t self);
+void * Child_subtypeOptionalObjectFunc(void * self);
 
-int32_t Child_subtypeOptionalPrimitiveFunc(uintptr_t self);
+void * Child_subtypeOptionalObjectVar_get(void * self);
 
-int32_t Child_subtypeOptionalPrimitiveVar_get(uintptr_t self);
+int32_t Child_subtypeOptionalPrimitiveFunc(void * self);
 
-void GrandChild_finalOverrideHopFunc(uintptr_t self);
+int32_t Child_subtypeOptionalPrimitiveVar_get(void * self);
 
-void GrandChild_hopFunc(uintptr_t self);
+void GrandChild_finalOverrideHopFunc(void * self);
 
-void GrandChild_overrideChainFunc(uintptr_t self);
+void GrandChild_hopFunc(void * self);
 
-void OpenDerived1_abstractFun1(uintptr_t self);
+void GrandChild_overrideChainFunc(void * self);
 
-void OpenDerived1_abstractFun2(uintptr_t self);
+void OpenDerived1_abstractFun1(void * self);
 
-int32_t OpenDerived1_abstractVal_get(uintptr_t self);
+void OpenDerived1_abstractFun2(void * self);
 
-void Parent_actuallyOverride__TypesOfArguments__Swift_Int32_overrides_Child_overrides_Child__(uintptr_t self, int32_t nullable, uintptr_t poly, uintptr_t nullablePoly);
+int32_t OpenDerived1_abstractVal_get(void * self);
 
-void Parent_finalOverrideFunc(uintptr_t self);
+void Parent_actuallyOverride__TypesOfArguments__Swift_Int32_overrides_Child_overrides_Child__(void * self, int32_t nullable, void * poly, void * nullablePoly);
 
-void Parent_finalOverrideHopFunc(uintptr_t self);
+void Parent_finalOverrideFunc(void * self);
 
-NSArray<id> * Parent_genericReturnTypeFunc(uintptr_t self);
+void Parent_finalOverrideHopFunc(void * self);
 
-void Parent_hopFunc(uintptr_t self);
+NSArray<id> * Parent_genericReturnTypeFunc(void * self);
 
-int32_t Parent_nonoverride(uintptr_t self);
+void Parent_hopFunc(void * self);
 
-uintptr_t Parent_objectFunc__TypesOfArguments__overrides_Child__(uintptr_t self, uintptr_t arg);
+int32_t Parent_nonoverride(void * self);
 
-uintptr_t Parent_objectOptionalFunc__TypesOfArguments__overrides_Child__(uintptr_t self, uintptr_t arg);
+void * Parent_objectFunc__TypesOfArguments__overrides_Child__(void * self, void * arg);
 
-uintptr_t Parent_objectOptionalVar_get(uintptr_t self);
+void * _Nullable Parent_objectOptionalFunc__TypesOfArguments__overrides_Child__(void * self, void * arg);
 
-uintptr_t Parent_objectVar_get(uintptr_t self);
+void * _Nullable Parent_objectOptionalVar_get(void * self);
 
-void Parent_overrideChainFunc(uintptr_t self);
+void * Parent_objectVar_get(void * self);
 
-int32_t Parent_primitiveTypeFunc__TypesOfArguments__Swift_Int32__(uintptr_t self, int32_t arg);
+void Parent_overrideChainFunc(void * self);
 
-int32_t Parent_primitiveTypeVar_get(uintptr_t self);
+int32_t Parent_primitiveTypeFunc__TypesOfArguments__Swift_Int32__(void * self, int32_t arg);
 
-uintptr_t Parent_subtypeObjectFunc__TypesOfArguments__overrides_Child__(uintptr_t self, uintptr_t arg);
+int32_t Parent_primitiveTypeVar_get(void * self);
 
-uintptr_t Parent_subtypeObjectVar_get(uintptr_t self);
+void * Parent_subtypeObjectFunc__TypesOfArguments__overrides_Child__(void * self, void * arg);
 
-uintptr_t Parent_subtypeOptionalObjectFunc(uintptr_t self);
+void * Parent_subtypeObjectVar_get(void * self);
 
-uintptr_t Parent_subtypeOptionalObjectVar_get(uintptr_t self);
+void * _Nullable Parent_subtypeOptionalObjectFunc(void * self);
 
-NSNumber * Parent_subtypeOptionalPrimitiveFunc(uintptr_t self);
+void * _Nullable Parent_subtypeOptionalObjectVar_get(void * self);
 
-NSNumber * Parent_subtypeOptionalPrimitiveVar_get(uintptr_t self);
+NSNumber * _Nullable Parent_subtypeOptionalPrimitiveFunc(void * self);
 
-NSString * Parent_value_get(uintptr_t self);
+NSNumber * _Nullable Parent_subtypeOptionalPrimitiveVar_get(void * self);
 
-uintptr_t __root___Child_init_allocate();
+NSString * Parent_value_get(void * self);
 
-void __root___Child_init_initialize__TypesOfArguments__Swift_UInt_Swift_Int32__(uintptr_t __kt, int32_t value);
+void * __root___Child_init_allocate();
 
-void __root___Child_init_initialize__TypesOfArguments__Swift_UInt_Swift_Int32_overrides_Parent_overrides_Parent__(uintptr_t __kt, int32_t nullable, uintptr_t poly, uintptr_t nullablePoly);
+void __root___Child_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_Int32__(void * __kt, int32_t value);
 
-void __root___Child_init_initialize__TypesOfArguments__Swift_UInt_Swift_String__(uintptr_t __kt, NSString * value);
+void __root___Child_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_Int32_overrides_Parent_overrides_Parent__(void * __kt, int32_t nullable, void * poly, void * nullablePoly);
 
-uintptr_t __root___GrandChild_init_allocate();
+void __root___Child_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_String__(void * __kt, NSString * value);
 
-void __root___GrandChild_init_initialize__TypesOfArguments__Swift_UInt_Swift_Int32__(uintptr_t __kt, int32_t value);
+void * __root___GrandChild_init_allocate();
 
-uintptr_t __root___OpenDerived1_init_allocate();
+void __root___GrandChild_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_Int32__(void * __kt, int32_t value);
 
-void __root___OpenDerived1_init_initialize__TypesOfArguments__Swift_UInt__(uintptr_t __kt);
+void * __root___OpenDerived1_init_allocate();
 
-void __root___OpenDerived1_init_initialize__TypesOfArguments__Swift_UInt_Swift_Int32__(uintptr_t __kt, int32_t x);
+void __root___OpenDerived1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
-uintptr_t __root___Parent_init_allocate();
+void __root___OpenDerived1_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_Int32__(void * __kt, int32_t x);
 
-void __root___Parent_init_initialize__TypesOfArguments__Swift_UInt_Swift_String__(uintptr_t __kt, NSString * value);
+void * __root___Parent_init_allocate();
 
+void __root___Parent_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_String__(void * __kt, NSString * value);
+
+NS_ASSUME_NONNULL_END

@@ -6,7 +6,7 @@ package org.jetbrains.kotlin.cli.common.arguments
 
 import org.jetbrains.kotlin.config.LanguageFeature
 
-internal fun HashMap<LanguageFeature, LanguageFeature.State>.configureCommonLanguageFeatures(arguments: CommonCompilerArguments) {
+internal fun MutableMap<LanguageFeature, LanguageFeature.State>.configureCommonLanguageFeatures(arguments: CommonCompilerArguments) {
     if (arguments.multiPlatform) {
         put(LanguageFeature.MultiPlatformProjects, LanguageFeature.State.ENABLED)
     }
@@ -22,14 +22,6 @@ internal fun HashMap<LanguageFeature, LanguageFeature.State>.configureCommonLang
         put(LanguageFeature.InlineClasses, LanguageFeature.State.ENABLED)
     }
 
-    if (arguments.legacySmartCastAfterTry) {
-        put(LanguageFeature.SoundSmartCastsAfterTry, LanguageFeature.State.DISABLED)
-    }
-
-    if (arguments.inferenceCompatibility) {
-        put(LanguageFeature.InferenceCompatibility, LanguageFeature.State.ENABLED)
-    }
-
     if (arguments.consistentDataClassCopyVisibility) {
         put(LanguageFeature.DataClassCopyRespectsConstructorVisibility, LanguageFeature.State.ENABLED)
     }
@@ -38,20 +30,16 @@ internal fun HashMap<LanguageFeature, LanguageFeature.State>.configureCommonLang
         put(LanguageFeature.UnrestrictedBuilderInference, LanguageFeature.State.ENABLED)
     }
 
-    if (arguments.enableBuilderInference) {
-        put(LanguageFeature.UseBuilderInferenceWithoutAnnotation, LanguageFeature.State.ENABLED)
-    }
-
-    if (arguments.selfUpperBoundInference) {
-        put(LanguageFeature.TypeInferenceOnCallsWithSelfTypes, LanguageFeature.State.ENABLED)
-    }
-
     if (arguments.contextReceivers) {
         put(LanguageFeature.ContextReceivers, LanguageFeature.State.ENABLED)
     }
 
     if (arguments.contextParameters) {
         put(LanguageFeature.ContextParameters, LanguageFeature.State.ENABLED)
+    }
+
+    if (arguments.contextSensitiveResolution) {
+        put(LanguageFeature.ContextSensitiveResolutionUsingExpectedType, LanguageFeature.State.ENABLED)
     }
 
     if (arguments.nonLocalBreakContinue) {

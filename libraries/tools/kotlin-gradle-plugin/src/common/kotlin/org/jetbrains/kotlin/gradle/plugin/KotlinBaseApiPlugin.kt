@@ -37,7 +37,7 @@ abstract class KotlinBaseApiPlugin : DefaultKotlinBasePlugin(), KotlinJvmFactory
     override fun apply(project: Project) {
         super.apply(project)
         myProject = project
-        setupAttributeMatchingStrategy(project, isKotlinGranularMetadata = false)
+        setupAttributeMatchingStrategy(project)
     }
 
     override fun addCompilerPluginDependency(dependency: Provider<Any>) {
@@ -55,10 +55,19 @@ abstract class KotlinBaseApiPlugin : DefaultKotlinBasePlugin(), KotlinJvmFactory
         return myProject.objects.KotlinJvmCompilerOptionsDefault(myProject)
     }
 
-    @Suppress("DEPRECATION")
-    @Deprecated("Replaced by compilerJvmOptions", replaceWith = ReplaceWith("createCompilerJvmOptions()"))
+    @Suppress("DEPRECATION_ERROR")
+    @Deprecated(
+        message = "Replaced by compilerJvmOptions",
+        replaceWith = ReplaceWith("createCompilerJvmOptions()"),
+        level = DeprecationLevel.ERROR,
+    )
     override fun createKotlinJvmOptions(): KotlinJvmOptions {
         return object : KotlinJvmOptions {
+            @OptIn(org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi::class)
+            @Deprecated(
+                message = org.jetbrains.kotlin.gradle.dsl.KOTLIN_OPTIONS_DEPRECATION_MESSAGE,
+                level = DeprecationLevel.ERROR,
+            )
             override val options: KotlinJvmCompilerOptions = createCompilerJvmOptions()
         }
     }
@@ -125,7 +134,7 @@ abstract class KotlinBaseApiPlugin : DefaultKotlinBasePlugin(), KotlinJvmFactory
             )
         )
         registeredKotlinJvmCompileTask.configure {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION_ERROR")
             it.moduleName.set(taskCompilerOptions.moduleName)
         }
         return registeredKotlinJvmCompileTask

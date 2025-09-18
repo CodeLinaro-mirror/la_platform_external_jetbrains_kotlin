@@ -46,6 +46,11 @@ public class RawFirBuilderLazyBodiesByStubTestGenerated extends AbstractRawFirBu
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotation.kt");
     }
 
+    @TestMetadata("annotationArguments.kt")
+    public void testAnnotationArguments() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationArguments.kt");
+    }
+
     @TestMetadata("annotationOnContextParameters.kt")
     public void testAnnotationOnContextParameters() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnContextParameters.kt");
@@ -151,6 +156,36 @@ public class RawFirBuilderLazyBodiesByStubTestGenerated extends AbstractRawFirBu
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/contextReceivers.kt");
     }
 
+    @TestMetadata("danglingAnnotationOnMemberClass.kt")
+    public void testDanglingAnnotationOnMemberClass() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationOnMemberClass.kt");
+    }
+
+    @TestMetadata("danglingAnnotationOnMemberFunction.kt")
+    public void testDanglingAnnotationOnMemberFunction() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationOnMemberFunction.kt");
+    }
+
+    @TestMetadata("danglingAnnotationOnMemberProperty.kt")
+    public void testDanglingAnnotationOnMemberProperty() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationOnMemberProperty.kt");
+    }
+
+    @TestMetadata("danglingAnnotationOnTopLevelClass.kt")
+    public void testDanglingAnnotationOnTopLevelClass() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationOnTopLevelClass.kt");
+    }
+
+    @TestMetadata("danglingAnnotationOnTopLevelFunction.kt")
+    public void testDanglingAnnotationOnTopLevelFunction() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationOnTopLevelFunction.kt");
+    }
+
+    @TestMetadata("danglingAnnotationOnTopLevelProperty.kt")
+    public void testDanglingAnnotationOnTopLevelProperty() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationOnTopLevelProperty.kt");
+    }
+
     @TestMetadata("danglingAnnotationsClassLevel.kt")
     public void testDanglingAnnotationsClassLevel() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingAnnotationsClassLevel.kt");
@@ -164,6 +199,11 @@ public class RawFirBuilderLazyBodiesByStubTestGenerated extends AbstractRawFirBu
     @TestMetadata("danglingConstrants.kt")
     public void testDanglingConstrants() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingConstrants.kt");
+    }
+
+    @TestMetadata("danglingModifierInsideEnumEntry.kt")
+    public void testDanglingModifierInsideEnumEntry() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/danglingModifierInsideEnumEntry.kt");
     }
 
     @TestMetadata("dataClassWithAnnotations.kt")
@@ -279,6 +319,11 @@ public class RawFirBuilderLazyBodiesByStubTestGenerated extends AbstractRawFirBu
     @TestMetadata("genericProperty.kt")
     public void testGenericProperty() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/genericProperty.kt");
+    }
+
+    @TestMetadata("importAlias.kt")
+    public void testImportAlias() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/importAlias.kt");
     }
 
     @TestMetadata("incompletePropertyWithDelegate.kt")
@@ -416,6 +461,11 @@ public class RawFirBuilderLazyBodiesByStubTestGenerated extends AbstractRawFirBu
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/suspendFunctionTypes.kt");
     }
 
+    @TestMetadata("targetAnnotationWithDifferentValues.kt")
+    public void testTargetAnnotationWithDifferentValues() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/targetAnnotationWithDifferentValues.kt");
+    }
+
     @TestMetadata("topLevelDestructuringWithAnnotation.kt")
     public void testTopLevelDestructuringWithAnnotation() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/topLevelDestructuringWithAnnotation.kt");
@@ -520,6 +570,31 @@ public class RawFirBuilderLazyBodiesByStubTestGenerated extends AbstractRawFirBu
 
       public void testAllFilesPresentInInvalidCode() {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode"), Pattern.compile("^(.+)\\.(kt|kts)$"), null, true);
+      }
+
+      @TestMetadata("annotationArgumentLocalDeclarations.kt")
+      public void testAnnotationArgumentLocalDeclarations() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/annotationArgumentLocalDeclarations.kt");
+      }
+
+      @TestMetadata("contextParameterOnErrorPrimaryConstructor.kt")
+      public void testContextParameterOnErrorPrimaryConstructor() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/contextParameterOnErrorPrimaryConstructor.kt");
+      }
+
+      @TestMetadata("danglingContextParameter.kt")
+      public void testDanglingContextParameter() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/danglingContextParameter.kt");
+      }
+
+      @TestMetadata("danglingContextParameterAndAnnotations.kt")
+      public void testDanglingContextParameterAndAnnotations() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/danglingContextParameterAndAnnotations.kt");
+      }
+
+      @TestMetadata("destructuringInsideCallChain.kt")
+      public void testDestructuringInsideCallChain() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/destructuringInsideCallChain.kt");
       }
 
       @TestMetadata("duplicatedContextParameter.kt")

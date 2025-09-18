@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,6 +11,8 @@ import org.jetbrains.kotlin.assignment.plugin.AbstractFirLightTreeBlackBoxCodege
 import org.jetbrains.kotlin.assignment.plugin.AbstractFirPsiAssignmentPluginDiagnosticTest
 import org.jetbrains.kotlin.assignment.plugin.AbstractIrBlackBoxCodegenTestAssignmentPlugin
 import org.jetbrains.kotlin.compiler.plugins.AbstractPluginInteractionFirBlackBoxCodegenTest
+import org.jetbrains.kotlin.fir.dataframe.AbstractDataFrameBlackBoxCodegenTest
+import org.jetbrains.kotlin.fir.dataframe.AbstractDataFrameDiagnosticTest
 import org.jetbrains.kotlin.generators.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.impl.generateTestGroupSuite
 import org.jetbrains.kotlin.generators.tests.IncrementalTestsGeneratorUtil.Companion.IcTestTypes.PURE_KOTLIN
@@ -39,6 +41,7 @@ import org.jetbrains.kotlin.powerassert.AbstractIrBlackBoxCodegenTestForPowerAss
 import org.jetbrains.kotlin.samWithReceiver.*
 import org.jetbrains.kotlin.scripting.test.*
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 import org.jetbrains.kotlinx.atomicfu.incremental.AbstractIncrementalK2JVMWithAtomicfuRunnerTest
 import org.jetbrains.kotlinx.atomicfu.runners.*
 
@@ -58,7 +61,7 @@ private class ExcludePattern {
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
     generateTestGroupSuite(args) {
-        testGroup("compiler/incremental-compilation-impl/test", "jps/jps-plugin/testData") {
+        testGroup("compiler/incremental-compilation-impl/tests-gen", "jps/jps-plugin/testData") {
             testClass<AbstractIncrementalK1JvmCompilerRunnerTest>(
                 init = incrementalJvmTestData(
                     targetBackend = TargetBackend.JVM_IR,
@@ -99,57 +102,57 @@ fun main(args: Array<String>) {
 
             testClass<AbstractIncrementalK1JsKlibCompilerRunnerTest> {
                 // IC of sealed interfaces are not supported in JS
-                model("incremental/pureKotlin", extension = null, recursive = false, excludedPattern = "(^sealed.*)|(.*SinceK2)")
-                model("incremental/classHierarchyAffected", extension = null, recursive = false)
+                modelForDirectoryBasedTest("incremental", "pureKotlin", extension = null, recursive = false, excludedPattern = "(^sealed.*)|(.*SinceK2)")
+                modelForDirectoryBasedTest("incremental", "classHierarchyAffected", extension = null, recursive = false)
                 model("incremental/js", extension = null, excludeParentDirs = true)
             }
 
             testClass<AbstractIncrementalK1JsKlibMultiModuleCompilerRunnerTest> {
-                model("incremental/multiModule/common", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental/multiModule", "common", extension = null, excludeParentDirs = true)
             }
 
             testClass<AbstractIncrementalK2JsKlibMultiModuleCompilerRunnerTest> {
-                model("incremental/multiModule/common", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental/multiModule", "common", extension = null, excludeParentDirs = true)
             }
 
             testClass<AbstractIncrementalK1JsKlibCompilerWithScopeExpansionRunnerTest> {
                 // IC of sealed interfaces are not supported in JS
-                model("incremental/pureKotlin", extension = null, recursive = false, excludedPattern = "^sealed.*")
-                model("incremental/classHierarchyAffected", extension = null, recursive = false)
-                model("incremental/js", extension = null, excludeParentDirs = true)
-                model("incremental/scopeExpansion", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental", "pureKotlin", extension = null, recursive = false, excludedPattern = "(^sealed.*)|(.*SinceK2)")
+                modelForDirectoryBasedTest("incremental", "classHierarchyAffected", extension = null, recursive = false)
+                modelForDirectoryBasedTest("incremental", "js", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental", "scopeExpansion", extension = null, excludeParentDirs = true)
             }
 
             // TODO: https://youtrack.jetbrains.com/issue/KT-61602/JS-K2-ICL-Fix-muted-tests
             testClass<AbstractIncrementalK2JsKlibCompilerWithScopeExpansionRunnerTest> {
                 // IC of sealed interfaces are not supported in JS
-                model(
-                    "incremental/pureKotlin", extension = null, recursive = false,
+                modelForDirectoryBasedTest(
+                    "incremental", "pureKotlin", extension = null, recursive = false,
                     // TODO: 'fileWithConstantRemoved' should be fixed in https://youtrack.jetbrains.com/issue/KT-58824
                     excludedPattern = "^(sealed.*|fileWithConstantRemoved|propertyRedeclaration|funRedeclaration|funVsConstructorOverloadConflict)"
                 )
-                model(
-                    "incremental/classHierarchyAffected", extension = null, recursive = false,
+                modelForDirectoryBasedTest(
+                    "incremental", "classHierarchyAffected", extension = null, recursive = false,
                     excludedPattern = "secondaryConstructorAdded"
                 )
-                model("incremental/js", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental", "js", extension = null, excludeParentDirs = true)
             }
 
             testClass<AbstractIncrementalK1JsKlibCompilerRunnerWithFriendModulesDisabledTest> {
-                model("incremental/js/friendsModuleDisabled", extension = null, recursive = false)
+                modelForDirectoryBasedTest("incremental/js", "friendsModuleDisabled", extension = null, recursive = false)
             }
 
             testClass<AbstractIncrementalMultiplatformJvmCompilerRunnerTest> {
-                model("incremental/mpp/allPlatforms", extension = null, excludeParentDirs = true)
-                model("incremental/mpp/jvmOnlyK1", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental/mpp", "allPlatforms", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental/mpp", "jvmOnlyK1", extension = null, excludeParentDirs = true)
             }
             testClass<AbstractIncrementalK1JsKlibMultiplatformJsCompilerRunnerTest> {
-                model("incremental/mpp/allPlatforms", extension = null, excludeParentDirs = true)
+                modelForDirectoryBasedTest("incremental/mpp", "allPlatforms", extension = null, excludeParentDirs = true)
             }
             //TODO: write a proper k2 multiplatform test runner KT-63183
         }
 
-        testGroup("plugins/jvm-abi-gen/test", "plugins/jvm-abi-gen/testData") {
+        testGroup("plugins/jvm-abi-gen/tests-gen", "plugins/jvm-abi-gen/testData") {
             testClass<AbstractCompareJvmAbiTest> {
                 model("compare", recursive = false, extension = null, targetBackend = TargetBackend.JVM_IR)
             }
@@ -179,7 +182,7 @@ fun main(args: Array<String>) {
             }
         }
 
-        testGroup("plugins/atomicfu/atomicfu-compiler/test", "plugins/atomicfu/atomicfu-compiler/testData/") {
+        testGroup("plugins/atomicfu/atomicfu-compiler/tests-gen", "plugins/atomicfu/atomicfu-compiler/testData/") {
             testClass<AbstractIncrementalK2JVMWithAtomicfuRunnerTest> {
                 model("projects/", extension = null, recursive = false, targetBackend = TargetBackend.JVM_IR)
             }
@@ -217,11 +220,11 @@ fun main(args: Array<String>) {
 
         testGroup("plugins/plugin-sandbox/tests-gen", "plugins/plugin-sandbox/testData") {
             testClass<AbstractFirPsiPluginDiagnosticTest> {
-                model("diagnostics")
+                model("diagnostics", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
             }
 
             testClass<AbstractFirLightTreePluginBlackBoxCodegenTest> {
-                model("box")
+                model("box", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
             }
 
             testClass<AbstractFirLoadK2CompiledWithPluginJvmKotlinTest> {
@@ -243,10 +246,14 @@ fun main(args: Array<String>) {
             testRunnerMethodName = "runTest0"
         ) {
             testClass<AbstractAtomicfuJsIrTest> {
-                model("box/")
+                model(relativeRootPath = "box/", excludeDirs = listOf("context_parameters"))
             }
 
             testClass<AbstractAtomicfuJsFirTest> {
+                model("box/")
+            }
+
+            testClass<AbstractAtomicfuJsFirWithInlinedFunInKlibTest> {
                 model("box/")
             }
         }
@@ -261,7 +268,7 @@ fun main(args: Array<String>) {
             }
 
             testClass<AbstractAtomicfuJvmIrTest> {
-                model("box/")
+                model(relativeRootPath = "box/", excludeDirs = listOf("context_parameters"))
             }
 
             testClass<AbstractAtomicfuJvmFirLightTreeTest> {
@@ -425,6 +432,16 @@ fun main(args: Array<String>) {
         testGroup("plugins/plugins-interactions-testing/tests-gen", "plugins/plugins-interactions-testing/testData") {
             testClass<AbstractPluginInteractionFirBlackBoxCodegenTest> {
                 model("box", excludedPattern = excludedFirTestdataPattern)
+            }
+        }
+
+        testGroup("plugins/kotlin-dataframe/tests-gen", "plugins/kotlin-dataframe/testData") {
+            testClass<AbstractDataFrameDiagnosticTest> {
+                model("diagnostics")
+            }
+
+            testClass<AbstractDataFrameBlackBoxCodegenTest> {
+                model("box")
             }
         }
     }

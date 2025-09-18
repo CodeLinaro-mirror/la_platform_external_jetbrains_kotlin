@@ -40,12 +40,12 @@ abstract class AbstractFirClassByPsiClassProviderTest : AbstractAnalysisApiBased
             }
         }
 
-        val rendered = withResolveSession(mainKtModule) { resolveSession ->
-            val firClassSymbol = resolveSession.useSiteFirSession.firClassByPsiClassProvider.getFirClass(psiClassUnderCaret)
+        val rendered = withResolutionFacade(mainKtModule) { resolutionFacade ->
+            val firClassSymbol = resolutionFacade.useSiteFirSession.firClassByPsiClassProvider.getFirClass(psiClassUnderCaret)
             firClassSymbol.fir.render()
         }
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(rendered)
+        testServices.assertions.assertEqualsToTestOutputFile(rendered)
     }
 
     private fun PsiClass.withAllNestedClasses(): List<PsiClass> = buildList {

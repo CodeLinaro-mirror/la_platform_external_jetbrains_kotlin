@@ -16,12 +16,19 @@ import org.jetbrains.kotlin.backend.common.lower.loops.ForLoopsLowering
 import org.jetbrains.kotlin.backend.common.phaser.*
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.KlibConfigurationKeys
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.phaser.NamedCompilerPhase
+import org.jetbrains.kotlin.diagnostics.impl.deduplicating
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
+import org.jetbrains.kotlin.ir.backend.js.checkers.JsKlibErrors
 import org.jetbrains.kotlin.ir.backend.js.lower.*
 import org.jetbrains.kotlin.ir.backend.js.lower.calls.CallsLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.cleanup.CleanupLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.*
 import org.jetbrains.kotlin.ir.backend.js.lower.inline.*
+import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerIr
 import org.jetbrains.kotlin.ir.backend.js.utils.compileSuspendAsJsGenerator
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.expressions.IrFunctionReference
@@ -155,30 +162,29 @@ private val stripTypeAliasDeclarationsPhase = makeIrModulePhase<JsIrBackendConte
     name = "StripTypeAliasDeclarations",
 )
 
-private val noDispatchReceiverApplyingPhase = makeIrModulePhase(
-    { _: JsIrBackendContext -> NoDispatchReceiverAnnotationApplyingLowering },
-    name = "NoDispatchReceiverAnnotationApplyingLowering",
-)
-
 private val jsCodeOutliningPhaseOnSecondStage = makeIrModulePhase(
     { context: JsIrBackendContext -> JsCodeOutliningLowering(context, context.intrinsics, context.dynamicType) },
     name = "JsCodeOutliningLoweringOnSecondStage",
 )
 
 private val jsCodeOutliningPhaseOnFirstStage = makeIrModulePhase(
-    { context: JsPreSerializationLoweringContext -> JsCodeOutliningLowering(context, context.intrinsics, context.dynamicType) },
-    name = "JsCodeOutliningLoweringOnFirstStage",
-)
+    { context: JsPreSerializationLoweringContext ->
+        val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
+            context.diagnosticReporter.deduplicating(),
+            context.configuration.languageVersionSettings
+        )
 
-private val inlineCallableReferenceToLambdaPhase = makeIrModulePhase<JsIrBackendContext>(
-    ::JsInlineCallableReferenceToLambdaPhase,
-    name = "JsInlineCallableReferenceToLambdaPhase",
+        JsCodeOutliningLowering(context, context.intrinsics, context.dynamicType) { jsCall, valueDeclaration, container ->
+            irDiagnosticReporter.at(jsCall, container)
+                .report(JsKlibErrors.JS_CODE_CAPTURES_INLINABLE_FUNCTION, valueDeclaration)
+        }
+    },
+    name = "JsCodeOutliningLoweringOnFirstStage",
 )
 
 private val arrayConstructorPhase = makeIrModulePhase(
     ::ArrayConstructorLowering,
     name = "ArrayConstructor",
-    prerequisite = setOf(inlineCallableReferenceToLambdaPhase)
 )
 
 private val sharedVariablesLoweringPhase = makeIrModulePhase(
@@ -190,11 +196,6 @@ private val sharedVariablesLoweringPhase = makeIrModulePhase(
 private val localClassesInInlineLambdasPhase = makeIrModulePhase(
     ::LocalClassesInInlineLambdasLowering,
     name = "LocalClassesInInlineLambdasPhase",
-)
-
-private val wrapInlineDeclarationsWithReifiedTypeParametersLowering = makeIrModulePhase(
-    ::WrapInlineDeclarationsWithReifiedTypeParametersLowering,
-    name = "WrapInlineDeclarationsWithReifiedTypeParametersLowering",
 )
 
 private val replaceSuspendIntrinsicLowering = makeIrModulePhase(
@@ -210,11 +211,10 @@ private val inlineOnlyPrivateFunctionsPhase = makeIrModulePhase(
         FunctionInlining(
             context,
             JsInlineFunctionResolver(context, inlineMode = InlineMode.PRIVATE_INLINE_FUNCTIONS),
-            produceOuterThisFields = false,
         )
     },
     name = "InlineOnlyPrivateFunctions",
-    prerequisite = setOf(wrapInlineDeclarationsWithReifiedTypeParametersLowering, arrayConstructorPhase)
+    prerequisite = setOf(arrayConstructorPhase)
 )
 
 private val outerThisSpecialAccessorInInlineFunctionsPhase = makeIrModulePhase(
@@ -237,7 +237,6 @@ private val inlineAllFunctionsPhase = makeIrModulePhase(
         FunctionInlining(
             context,
             JsInlineFunctionResolver(context, inlineMode = InlineMode.ALL_INLINE_FUNCTIONS),
-            produceOuterThisFields = false,
         )
     },
     name = "InlineAllFunctions",
@@ -262,14 +261,7 @@ private val captureStackTraceInThrowablesPhase = makeIrModulePhase(
 )
 
 private val throwableSuccessorsLoweringPhase = makeIrModulePhase(
-    { context ->
-        context.run {
-            val extendThrowableSymbol =
-                if (es6mode) setPropertiesToThrowableInstanceSymbol else extendThrowableSymbol
-
-            ThrowableLowering(this, extendThrowableSymbol)
-        }
-    },
+    ::ThrowableLowering,
     name = "ThrowableLowering",
     prerequisite = setOf(captureStackTraceInThrowablesPhase)
 )
@@ -340,10 +332,28 @@ private val enumEntryRemovalLoweringPhase = makeIrModulePhase(
     prerequisite = setOf(enumUsageLoweringPhase)
 )
 
+private val upgradeCallableReferences = makeIrModulePhase(
+    { ctx: LoweringContext ->
+        UpgradeCallableReferences(
+            ctx,
+            upgradeFunctionReferencesAndLambdas = true,
+            upgradePropertyReferences = true,
+            upgradeLocalDelegatedPropertyReferences = true,
+            upgradeSamConversions = false,
+        )
+    },
+    name = "UpgradeCallableReferences"
+)
+
+private val propertyReferenceLoweringPhase = makeIrModulePhase(
+    ::PropertyReferenceLowering,
+    name = "PropertyReferenceLowering",
+)
+
 private val callableReferenceLowering = makeIrModulePhase(
-    ::CallableReferenceLowering,
+    ::JsCallableReferenceLowering,
     name = "CallableReferenceLowering",
-    prerequisite = setOf(inlineAllFunctionsPhase, wrapInlineDeclarationsWithReifiedTypeParametersLowering)
+    prerequisite = setOf(propertyReferenceLoweringPhase, inlineAllFunctionsPhase)
 )
 
 private val returnableBlockLoweringPhase = makeIrModulePhase(
@@ -466,11 +476,6 @@ private val privateMemberUsagesLoweringPhase = makeIrModulePhase(
     name = "PrivateMemberUsagesLowering",
 )
 
-private val propertyReferenceLoweringPhase = makeIrModulePhase(
-    ::PropertyReferenceLowering,
-    name = "PropertyReferenceLowering",
-)
-
 private val interopCallableReferenceLoweringPhase = makeIrModulePhase(
     ::InteropCallableReferenceLowering,
     name = "InteropCallableReferenceLowering",
@@ -544,6 +549,12 @@ private val initializersCleanupLoweringPhase = makeIrModulePhase(
     ::InitializersCleanupLowering,
     name = "InitializersCleanupLowering",
     prerequisite = setOf(initializersLoweringPhase)
+)
+
+private val externalPropertyOverridingLowering = makeIrModulePhase(
+    ::ExternalPropertyOverridingLowering,
+    name = "ExternalPropertyOverridingLowering",
+    prerequisite = setOf(primaryConstructorLoweringPhase, initializersLoweringPhase)
 )
 
 private val multipleCatchesLoweringPhase = makeIrModulePhase(
@@ -724,22 +735,33 @@ val mainFunctionCallWrapperLowering = makeIrModulePhase<JsIrBackendContext>(
     name = "MainFunctionCallWrapperLowering",
 )
 
-val jsLoweringsOfTheFirstPhase: List<NamedCompilerPhase<JsPreSerializationLoweringContext, IrModuleFragment, IrModuleFragment>> =
-    listOf(jsCodeOutliningPhaseOnFirstStage) + loweringsOfTheFirstPhase
+fun jsLoweringsOfTheFirstPhase(
+    languageVersionSettings: LanguageVersionSettings,
+): List<NamedCompilerPhase<JsPreSerializationLoweringContext, IrModuleFragment, IrModuleFragment>> = buildList {
+    // TODO: after the fix of KT-76260 this condition should be simplified to just the check of `IrRichCallableReferencesInKlibs` feature
+    val enableRichReferences = languageVersionSettings.supportsFeature(LanguageFeature.IrRichCallableReferencesInKlibs) ||
+            languageVersionSettings.supportsFeature(LanguageFeature.IrInlinerBeforeKlibSerialization)
+
+    if (enableRichReferences) {
+        this += upgradeCallableReferences
+    }
+    if (languageVersionSettings.supportsFeature(LanguageFeature.IrInlinerBeforeKlibSerialization)) {
+        this += jsCodeOutliningPhaseOnFirstStage
+    }
+    this += loweringsOfTheFirstPhase(JsManglerIr, languageVersionSettings)
+}
 
 fun getJsLowerings(
     configuration: CompilerConfiguration
 ): List<NamedCompilerPhase<JsIrBackendContext, IrModuleFragment, IrModuleFragment>> = listOfNotNull(
     // BEGIN: Common Native/JS/Wasm prefix.
     validateIrBeforeLowering,
-    noDispatchReceiverApplyingPhase,
+    upgradeCallableReferences,
     jsCodeOutliningPhaseOnSecondStage,
     lateinitPhase,
     sharedVariablesLoweringPhase,
     localClassesInInlineLambdasPhase,
-    inlineCallableReferenceToLambdaPhase,
     arrayConstructorPhase,
-    wrapInlineDeclarationsWithReifiedTypeParametersLowering,
     inlineOnlyPrivateFunctionsPhase,
     outerThisSpecialAccessorInInlineFunctionsPhase,
     syntheticAccessorGenerationPhase,
@@ -765,6 +787,7 @@ fun getJsLowerings(
     stripTypeAliasDeclarationsPhase,
     createScriptFunctionsPhase,
     stringConcatenationLoweringPhase,
+    propertyReferenceLoweringPhase,
     callableReferenceLowering,
     singleAbstractMethodPhase,
     tailrecLoweringPhase,
@@ -795,7 +818,6 @@ fun getJsLowerings(
     externalEnumUsageLoweringPhase,
     enumEntryRemovalLoweringPhase,
     suspendFunctionsLoweringPhase,
-    propertyReferenceLoweringPhase,
     interopCallableReferenceLoweringPhase,
     jsSuspendArityStorePhase,
     addContinuationToNonLocalSuspendFunctionsLoweringPhase,
@@ -810,6 +832,7 @@ fun getJsLowerings(
     propertyAccessorInlinerLoweringPhase,
     copyPropertyAccessorBodiesLoweringPass,
     booleanPropertyInExternalLowering,
+    externalPropertyOverridingLowering,
     privateMembersLoweringPhase,
     privateMemberUsagesLoweringPhase,
     defaultArgumentStubGeneratorPhase,

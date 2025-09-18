@@ -17,10 +17,11 @@ fun Test(content: @Composable () -> Unit) {
 
 @Composable
 @ComposableInferredTarget(scheme = "[UI[_]]")
+@FunctionKeyMeta(key = -1745160432, startOffset = 81, endOffset = 193)
 fun Test(content: Function2<Composer, Int, Unit>, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Test)<Inline...>:Test.kt")
-  if (%changed and 0b0001 != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed and 0b0001 != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }

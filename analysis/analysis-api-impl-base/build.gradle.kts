@@ -17,6 +17,7 @@ dependencies {
     implementation(kotlinxCollectionsImmutable())
     api(intellijCore())
     implementation(project(":analysis:analysis-internal-utils"))
+    implementation(libs.caffeine)
 
     testApi(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter.api)
@@ -46,13 +47,13 @@ sourceSets {
 }
 
 tasks.withType<KotlinJvmCompile>().configureEach {
-    compilerOptions.freeCompilerArgs.add("-Xcontext-parameters")
     compilerOptions.optIn.addAll(
         listOf(
             "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",
             "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
             "org.jetbrains.kotlin.analysis.api.KaNonPublicApi",
-            "org.jetbrains.kotlin.analysis.api.KaIdeApi"
+            "org.jetbrains.kotlin.analysis.api.KaIdeApi",
+            "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
         )
     )
 }

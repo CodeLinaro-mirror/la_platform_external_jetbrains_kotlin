@@ -15,8 +15,8 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.ModuleDependencyIdentifier
 import org.jetbrains.kotlin.gradle.plugin.mpp.SourceSetMetadataLayout
 import org.jetbrains.kotlin.gradle.plugin.sources.DefaultKotlinSourceSet
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.util.resolveRepoArtifactPath
 import org.jetbrains.kotlin.gradle.util.checkedReplace
-import org.jetbrains.kotlin.gradle.util.modify
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.test.TestMetadata
 import org.junit.jupiter.api.DisplayName
@@ -25,10 +25,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 import java.util.zip.ZipFile
-import kotlin.io.path.appendText
-import kotlin.io.path.exists
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
+import kotlin.io.path.*
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -37,6 +34,10 @@ import kotlin.test.fail
 @MppGradlePluginTests
 @DisplayName("Hierarchical multiplatform")
 open class HierarchicalMppIT : KGPBaseTest() {
+
+    override val defaultBuildOptions: BuildOptions
+        // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+        get() = super.defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
 
     private val String.withPrefix get() = "hierarchical-mpp-published-modules/$this"
 
@@ -83,7 +84,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("Check no sourceSets visible if no variant matched")
-    @BrokenOnMacosTest
     fun testNoSourceSetsVisibleIfNoVariantMatched(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
         publishThirdPartyLib(gradleVersion = gradleVersion, localRepoDir = tempDir)
 
@@ -116,7 +116,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("Dependencies in tests should be correct with third-party library")
-    @BrokenOnMacosTest
     fun testDependenciesInTests(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
         publishThirdPartyLib(gradleVersion = gradleVersion, localRepoDir = tempDir) {
             kotlinSourcesDir("jvmMain").copyRecursively(kotlinSourcesDir("linuxX64Main"))
@@ -228,7 +227,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
     @GradleTest
     @TestMetadata("hierarchical-mpp-published-modules")
     @DisplayName("Check that only composite metadata artifacts are transformed")
-    @BrokenOnMacosTest
     fun testOnlyCompositeMetadataArtifactsTransformed(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
         val buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)
         publishThirdPartyLib(gradleVersion = gradleVersion, localRepoDir = tempDir)
@@ -300,7 +298,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
     @GradleTest
     @DisplayName("Works with published JS library")
     fun testHmppWithPublishedJsIrDependency(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
-        @Suppress("DEPRECATION")
         publishThirdPartyLib(
             projectName = "hierarchical-mpp-with-js-published-modules/third-party-lib",
             gradleVersion = gradleVersion,
@@ -335,7 +332,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("KT-48370: Multiplatform Gradle build fails for Native targets with \"we cannot choose between the following variants of project\"")
-    @BrokenOnMacosTest
     fun testMultiModulesHmppKt48370(gradleVersion: GradleVersion) {
         project(
             "hierarchical-mpp-multi-modules",
@@ -802,7 +798,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("Check dependencies in non published sourceSets")
-    @BrokenOnMacosTest
     fun testDependenciesInNonPublishedSourceSets(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
         publishThirdPartyLib(gradleVersion = gradleVersion, localRepoDir = tempDir)
 
@@ -824,7 +819,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("Check transitive dependency on self")
-    @BrokenOnMacosTest
     fun testTransitiveDependencyOnSelf(gradleVersion: GradleVersion) =
         with(project("transitive-dep-on-self-hmpp", gradleVersion = gradleVersion)) {
             testDependencyTransformations(subproject = "lib") { reports ->
@@ -1000,27 +994,39 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
             build("publish", "-Pkotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError")
 
-            val gradleModuleFileContent = tempDir.resolve("test/lib/1.0/lib-1.0.module").readText()
-            fun assertNoSourcesPublished(expectedJarLocation: String, variantName: String) {
-                val jarFile = tempDir.resolve(expectedJarLocation).toFile()
+            val gradleModuleFileContent = tempDir.resolveRepoArtifactPath("test", "lib", "1.0", extension = "module").readText()
+            fun assertNoSourcesPublished(expectedJarLocation: Path, variantName: String) {
+                val jarFile = expectedJarLocation.toFile()
                 if (jarFile.exists()) fail("Sources jar '$expectedJarLocation' shouldn't be published")
                 if (gradleModuleFileContent.contains(variantName)) fail("Variant '$variantName' shouldn't be published")
             }
 
-            assertNoSourcesPublished("test/lib/1.0/lib-1.0-sources.jar", "metadataSourcesElements")
-            assertNoSourcesPublished("test/lib-linuxx64/1.0/lib-linuxx64-1.0-sources.jar", "linuxX64SourcesElements-published")
-            assertNoSourcesPublished("test/lib-linuxarm64/1.0/lib-linuxarm64-1.0-sources.jar", "linuxArm64SourcesElements-published")
+            assertNoSourcesPublished(tempDir.resolveRepoArtifactPath("test", "lib", "1.0", classifier = "sources"), "metadataSourcesElements")
+            assertNoSourcesPublished(
+                tempDir.resolveRepoArtifactPath("test", "lib-linuxx64", "1.0", classifier = "sources"),
+                "linuxX64SourcesElements-published",
+            )
+            assertNoSourcesPublished(
+                tempDir.resolveRepoArtifactPath("test", "lib-linuxarm64", "1.0", classifier = "sources"),
+                "linuxArm64SourcesElements-published",
+            )
             if (OS.MAC.isCurrentOs) {
-                assertNoSourcesPublished("test/lib-iosx64/1.0/lib-iosx64-1.0-sources.jar", "iosX64SourcesElements-published")
-                assertNoSourcesPublished("test/lib-iosarm64/1.0/lib-iosarm64-1.0-sources.jar", "iosArm64SourcesElements-published")
                 assertNoSourcesPublished(
-                    "test/lib-iossimulatorarm64/1.0/lib-iossimulatorarm64-1.0-sources.jar",
-                    "iosSimulatorArm64SourcesElements-published"
+                    tempDir.resolveRepoArtifactPath("test", "lib-iosx64", "1.0", classifier = "sources"),
+                    "iosX64SourcesElements-published",
+                )
+                assertNoSourcesPublished(
+                    tempDir.resolveRepoArtifactPath("test", "lib-iosarm64", "1.0", classifier = "sources"),
+                    "iosArm64SourcesElements-published",
+                )
+                assertNoSourcesPublished(
+                    tempDir.resolveRepoArtifactPath("test", "lib-iossimulatorarm64", "1.0", classifier = "sources"),
+                    "iosSimulatorArm64SourcesElements-published",
                 )
             }
 
             // Check that JVM sources were published
-            val jvmSourcesJar = tempDir.resolve("test/lib-jvm/1.0/lib-jvm-1.0-sources.jar")
+            val jvmSourcesJar = tempDir.resolveRepoArtifactPath("test", "lib-jvm", "1.0", classifier = "sources")
             if (!jvmSourcesJar.exists()) {
                 fail("JVM Sources should be published")
             }
@@ -1032,7 +1038,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("KT-44845: all external dependencies is unresolved in IDE")
-    @BrokenOnMacosTest
     fun testMixedScopesFilesExistKt44845(gradleVersion: GradleVersion, @TempDir tempDir: Path) {
         publishThirdPartyLib(gradleVersion = gradleVersion, localRepoDir = tempDir)
 
@@ -1077,7 +1082,6 @@ open class HierarchicalMppIT : KGPBaseTest() {
 
     @GradleTest
     @DisplayName("KT-46417: [UNRESOLVED_REFERENCE] For project to project dependencies of native platform test source sets")
-    @BrokenOnMacosTest
     fun testNativeLeafTestSourceSetsKt46417(gradleVersion: GradleVersion) {
         with(project("kt-46417-ios-test-source-sets", gradleVersion = gradleVersion)) {
             testDependencyTransformations("p2") { reports ->
@@ -1224,7 +1228,7 @@ open class HierarchicalMppIT : KGPBaseTest() {
             }
 
             build(":libWithDefaultLayout:publish") {
-                val pom = tempDir.resolve("test/libWithDefaultLayout-jvm/1.0/libWithDefaultLayout-jvm-1.0.pom").readText()
+                val pom = tempDir.resolveRepoArtifactPath("test", "libWithDefaultLayout-jvm", "1.0", extension = "pom").readText()
                 val expectedDependency = """
                     |    <dependency>
                     |      <groupId>test</groupId>
@@ -1352,7 +1356,7 @@ open class HierarchicalMppIT : KGPBaseTest() {
         subproject: String? = null,
         check: BuildResult.(reports: Iterable<DependencyTransformationReport>) -> Unit,
     ) {
-        val buildGradleKts = (subproject?.let { subProject(subproject).buildGradleKts } ?: buildGradleKts).toFile()
+        val buildGradleKts = (subproject?.let { subProject(subproject).buildGradleKts } ?: buildGradleKts)
         assert(buildGradleKts.exists()) { "Kotlin scripts are not found." }
         assert(buildGradleKts.extension == "kts") { "Only Kotlin scripts are supported." }
 
@@ -1362,9 +1366,10 @@ open class HierarchicalMppIT : KGPBaseTest() {
             buildGradleKts.modify {
                 "import ${DefaultKotlinSourceSet::class.qualifiedName}\n" + it + "\n" + """
                 val $testTaskName by tasks.creating {
-                // adding psm generation if needed
-                // for that purpose we setting all Resolvable Dependencies Metadata Configurations as inputs for report task
-                        kotlin.sourceSets
+                    notCompatibleWithConfigurationCache("During normal usage the transformations are computed in the configuration phase. In this test the transformations must run after KGP is fully configured, i.e. in the execution phase.")
+                    // adding psm generation if needed
+                    // for that purpose we setting all Resolvable Dependencies Metadata Configurations as inputs for report task
+                    kotlin.sourceSets
                         .map { it.name }
                         .forEach { sourceSetName ->
                             val configurationName = sourceSetName + "ResolvableDependenciesMetadata"

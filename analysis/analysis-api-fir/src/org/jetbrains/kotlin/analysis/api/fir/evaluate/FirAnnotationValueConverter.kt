@@ -7,16 +7,17 @@ package org.jetbrains.kotlin.analysis.api.fir.evaluate
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.KaSession
-import org.jetbrains.kotlin.analysis.api.annotations.*
+import org.jetbrains.kotlin.analysis.api.annotations.KaAnnotationValue
+import org.jetbrains.kotlin.analysis.api.annotations.KaNamedAnnotationValue
 import org.jetbrains.kotlin.analysis.api.fir.KaSymbolByFirBuilder
 import org.jetbrains.kotlin.analysis.api.impl.base.*
 import org.jetbrains.kotlin.analysis.api.impl.base.annotations.*
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.analysis.checkers.classKind
-import org.jetbrains.kotlin.fir.analysis.checkers.declaration.primaryConstructorSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.declarations.getTargetType
+import org.jetbrains.kotlin.fir.declarations.primaryConstructorIfAny
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.psi
@@ -34,6 +35,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtCallElement
+import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.resolve.ArrayFqNames
 
@@ -162,7 +164,7 @@ internal object FirAnnotationValueConverter {
 
             is FirAnnotation -> {
                 val annotationSymbol = annotationTypeRef.toRegularClassSymbol(session) ?: return null
-                val constructorSymbol = annotationSymbol.primaryConstructorSymbol(session) ?: return null
+                val constructorSymbol = annotationSymbol.primaryConstructorIfAny(session) ?: return null
                 createNestedAnnotation(builder, psi, constructorSymbol, argumentMapping.mapping)
             }
 
@@ -197,7 +199,7 @@ internal object FirAnnotationValueConverter {
             }
 
             else -> null
-        } ?: FirCompileTimeConstantEvaluator.evaluate(this)
+        } ?: FirCompileTimeConstantEvaluator.evaluate(this, builder.rootSession)
             ?.convertConstantExpression(builder.analysisSession)
     }
 
@@ -217,7 +219,7 @@ internal object FirAnnotationValueConverter {
         return KaNestedAnnotationAnnotationValueImpl(
             KaAnnotationImpl(
                 classId = resolvedSymbol.callableId.classId,
-                psi = psi as? KtCallElement,
+                psi = psi.asKtCallElement(),
                 useSiteTarget = null,
                 lazyArguments = if (argumentMapping.isNotEmpty())
                     lazy { toNamedConstantValue(builder.analysisSession, argumentMapping, builder) }
@@ -231,6 +233,9 @@ internal object FirAnnotationValueConverter {
             token
         )
     }
+
+    private fun PsiElement?.asKtCallElement(): KtCallElement? =
+        this as? KtCallElement ?: (this as? KtDotQualifiedExpression)?.selectorExpression as? KtCallElement
 
     private fun computeErrorCallClassId(call: FirGetClassCall): ClassId? {
         val qualifierParts = mutableListOf<String?>()

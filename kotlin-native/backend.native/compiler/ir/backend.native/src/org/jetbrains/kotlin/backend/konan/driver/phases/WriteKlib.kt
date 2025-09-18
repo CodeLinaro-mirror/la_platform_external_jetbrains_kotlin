@@ -5,26 +5,27 @@
 
 package org.jetbrains.kotlin.backend.konan.driver.phases
 
+import org.jetbrains.kotlin.backend.common.klibAbiVersionForManifest
 import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
 import org.jetbrains.kotlin.backend.common.phaser.createSimpleNamedCompilerPhase
+import org.jetbrains.kotlin.backend.common.serialization.addLanguageFeaturesToManifest
 import org.jetbrains.kotlin.backend.konan.KonanConfigKeys
 import org.jetbrains.kotlin.backend.konan.OutputFiles
 import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
+import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.library.impl.buildLibrary
-import org.jetbrains.kotlin.library.KLIB_LEGACY_METADATA_VERSION
-import org.jetbrains.kotlin.library.KLIB_PROPERTY_HEADER
-import org.jetbrains.kotlin.library.KotlinAbiVersion
-import org.jetbrains.kotlin.library.KotlinLibraryVersioning
+import org.jetbrains.kotlin.library.*
+import org.jetbrains.kotlin.util.klibMetadataVersionOrDefault
 import java.util.*
 
 internal data class KlibWriterInput(
         val serializerOutput: SerializerOutput,
         val customOutputPath: String?,
         val produceHeaderKlib: Boolean,
-        val customAbiVersion: KotlinAbiVersion?,
 )
+
 internal val WriteKlibPhase = createSimpleNamedCompilerPhase<PhaseContext, KlibWriterInput>(
         "WriteKlib",
 ) { context, input ->
@@ -36,13 +37,10 @@ internal val WriteKlibPhase = createSimpleNamedCompilerPhase<PhaseContext, KlibW
     val output = outputFiles.klibOutputFileName(!nopack)
     val libraryName = config.moduleId
     val shortLibraryName = config.shortModuleName
-    val abiVersion = input.customAbiVersion ?: KotlinAbiVersion.CURRENT
-    val compilerVersion = KotlinCompilerVersion.getVersion().toString()
-    val metadataVersion = KLIB_LEGACY_METADATA_VERSION
     val versions = KotlinLibraryVersioning(
-            abiVersion = abiVersion,
-            compilerVersion = compilerVersion,
-            metadataVersion = metadataVersion,
+        compilerVersion = KotlinCompilerVersion.getVersion().toString(),
+        abiVersion = configuration.klibAbiVersionForManifest(),
+        metadataVersion = configuration.klibMetadataVersionOrDefault(),
     )
     val target = config.target
     val manifestProperties = config.manifestProperties ?: Properties()
@@ -50,6 +48,9 @@ internal val WriteKlibPhase = createSimpleNamedCompilerPhase<PhaseContext, KlibW
     if (input.produceHeaderKlib) {
         manifestProperties.setProperty(KLIB_PROPERTY_HEADER, "true")
     }
+
+    addLanguageFeaturesToManifest(manifestProperties, configuration.languageVersionSettings)
+
     val nativeTargetsForManifest = config.nativeTargetsForManifest?.map { it.visibleName } ?: listOf(target.visibleName)
 
     if (!nopack) {
@@ -69,7 +70,9 @@ internal val WriteKlibPhase = createSimpleNamedCompilerPhase<PhaseContext, KlibW
 
     config.writeDependenciesOfProducedKlibTo?.let { path ->
         val usedDependenciesFile = File(path)
-        usedDependenciesFile.writeLines(linkDependencies.map { it.libraryFile.canonicalPath })
+        // We write out the absolute path instead of canonical here to avoid resolving symbolic links
+        // as that can make it difficult to map the dependencies back to the command line arguments.
+        usedDependenciesFile.writeLines(linkDependencies.map { it.libraryFile.absolutePath })
     }
 
     buildLibrary(
@@ -93,7 +96,6 @@ internal fun <T : PhaseContext> PhaseEngine<T>.writeKlib(
         serializationOutput: SerializerOutput,
         customOutputPath: String? = null,
         produceHeaderKlib: Boolean = false,
-        customAbiVersion: KotlinAbiVersion?,
 ) {
-    this.runPhase(WriteKlibPhase, KlibWriterInput(serializationOutput, customOutputPath, produceHeaderKlib, customAbiVersion))
+    this.runPhase(WriteKlibPhase, KlibWriterInput(serializationOutput, customOutputPath, produceHeaderKlib))
 }

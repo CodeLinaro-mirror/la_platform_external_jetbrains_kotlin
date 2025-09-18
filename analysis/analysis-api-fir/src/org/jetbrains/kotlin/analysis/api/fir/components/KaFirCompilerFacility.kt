@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -22,13 +22,13 @@ import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnosticWithPsi
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaClassBuilderFactory
+import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.impl.base.util.KaBaseCompiledFileForOutputFile
 import org.jetbrains.kotlin.analysis.api.impl.base.util.KaNonBoundToPsiErrorDiagnostic
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KaDanglingFileModuleImpl
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinCompilerPluginsProvider
+import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinModuleDependentsProvider
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinModuleOutputProvider
-import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinProjectStructureProvider
 import org.jetbrains.kotlin.analysis.api.projectStructure.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirInternals
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.*
@@ -38,8 +38,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.compile.CompilationPeerCo
 import org.jetbrains.kotlin.analysis.low.level.api.fir.compile.CompilationPeerData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.codeFragment
-import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.*
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.*
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
@@ -49,42 +48,40 @@ import org.jetbrains.kotlin.codegen.state.CompiledCodeProvider
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
-import org.jetbrains.kotlin.diagnostics.DiagnosticMarker
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
-import org.jetbrains.kotlin.diagnostics.KtDiagnostic
-import org.jetbrains.kotlin.diagnostics.KtPsiDiagnostic
-import org.jetbrains.kotlin.diagnostics.Severity
+import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.diagnostics.impl.PendingDiagnosticsCollectorWithSuppress
-import org.jetbrains.kotlin.diagnostics.rendering.RootDiagnosticRendererFactory
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.diagnostics.toFirDiagnostics
-import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
-import org.jetbrains.kotlin.fir.backend.Fir2IrConversionScope
-import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
-import org.jetbrains.kotlin.fir.backend.FirMetadataSource
+import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmVisibilityConverter
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.backend.utils.CodeFragmentConversionData
+import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
 import org.jetbrains.kotlin.fir.backend.utils.InjectedValue
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.hasBody
 import org.jetbrains.kotlin.fir.diagnostics.ConeSyntaxDiagnostic
+import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
+import org.jetbrains.kotlin.fir.expressions.FirVariableAssignment
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.lazy.AbstractFir2IrLazyDeclaration
 import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
+import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.references.toResolvedSymbol
 import org.jetbrains.kotlin.fir.resolve.referencedMemberSymbol
+import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhaseRecursively
-import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.PsiIrFileEntry
@@ -97,8 +94,10 @@ import org.jetbrains.kotlin.ir.descriptors.IrBasedVariableDescriptor
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
+import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.StubGeneratorExtensions
 import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
@@ -108,19 +107,21 @@ import org.jetbrains.kotlin.load.kotlin.toSourceElement
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isCommon
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.parentsWithSelf
 import org.jetbrains.kotlin.psi2ir.generators.fragments.EvaluatorFragmentInfo
 import org.jetbrains.kotlin.resolve.source.PsiSourceFile
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.utils.addIfNotNull
-import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
-import org.jetbrains.kotlin.utils.exceptions.checkWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.rethrowIntellijPlatformExceptionIfNeeded
 import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
+import org.jetbrains.kotlin.utils.yieldIfNotNull
 import java.util.*
 
 /**
@@ -161,7 +162,7 @@ internal class KaFirCompilerFacility(
         configuration: CompilerConfiguration,
         target: KaCompilerTarget,
         allowedErrorFilter: (KaDiagnostic) -> Boolean
-    ): KaCompilationResult = withValidityAssertion {
+    ): KaCompilationResult = withPsiValidityAssertion(file) {
         try {
             return compileUnsafe(file, configuration, target as KaCompilerTarget.Jvm, allowedErrorFilter)
         } catch (e: Throwable) {
@@ -186,12 +187,13 @@ internal class KaFirCompilerFacility(
         val mainFirFile = getFullyResolvedFirFile(mainFile)
 
         val codeFragmentMappings = runIf(mainFile is KtCodeFragment) {
-            computeCodeFragmentMappings(mainFirFile, firResolveSession, configuration)
+            computeCodeFragmentMappings(mainFirFile, resolutionFacade, configuration, target.debuggerExtension)
         }
 
-        val compilationPeerData = CompilationPeerCollector.process(mainFirFile)
+        val actualizer = LLKindBasedPlatformActualizer(ImplementationPlatformKind.JVM)
+        val compilationPeerData = CompilationPeerCollector.process(mainFirFile, actualizer)
 
-        val chunkRegistrar = CompilationChunkRegistrar(mainFile, mainFirFile, target)
+        val chunkRegistrar = CompilationChunkRegistrar(mainFile, mainFirFile, target, actualizer)
         val chunks = collectCompilationChunks(chunkRegistrar, compilationPeerData, codeFragmentMappings)
 
         val jvmIrDeserializer = JvmIrDeserializerImpl()
@@ -206,7 +208,7 @@ internal class KaFirCompilerFacility(
                 // Do not check dependency files – even though there might be errors, it's OK as long as they don't affect the main file.
                 // This is important for the code evaluation scenario, as people may modify code while debugging.
                 // The downside is that we can get unexpected exceptions from the backend (that we wrap into KaCompilationResult.Failure).
-                val diagnostics = mainFile.collectDiagnosticsForFile(firResolveSession, DiagnosticCheckerFilter.ONLY_DEFAULT_CHECKERS)
+                val diagnostics = mainFile.collectDiagnosticsForFile(resolutionFacade, DiagnosticCheckerFilter.ONLY_DEFAULT_CHECKERS)
                 val errors = computeErrors(diagnostics, allowedErrorFilter)
                 if (errors.isNotEmpty()) {
                     return KaCompilationResult.Failure(errors)
@@ -214,9 +216,7 @@ internal class KaFirCompilerFacility(
             }
 
             if (chunk.attachPrecompiledBinaries) {
-                val targetModule = generateSequence(module) { (it as? KaDanglingFileModule)?.contextModule }
-                    .firstIsInstanceOrNull<KaSourceModule>()
-
+                val targetModule = module.baseContextModuleOrSelf as? KaSourceModule
                 if (targetModule != null) {
                     val outputDirectory = KotlinModuleOutputProvider.getInstance(project).getCompilationOutput(targetModule)
                     if (outputDirectory != null) {
@@ -293,7 +293,7 @@ internal class KaFirCompilerFacility(
 
         if (codeFragmentMappings != null) {
             for (capturedFile in codeFragmentMappings.capturedFiles) {
-                val module = firResolveSession.getModule(capturedFile)
+                val module = resolutionFacade.getModule(capturedFile)
                 chunkRegistrar.submit(capturedFile, module)
             }
         }
@@ -331,7 +331,8 @@ internal class KaFirCompilerFacility(
     private inner class CompilationChunkRegistrar(
         private val originalMainFile: KtFile,
         private val originalMainFirFile: FirFile,
-        private val target: KaCompilerTarget
+        private val target: KaCompilerTarget,
+        private val actualizer: LLPlatformActualizer?
     ) {
         private val originalMainModule = originalMainFirFile.llFirModuleData.ktModule
         private val originalMainContextModule = (originalMainModule as? KaDanglingFileModule)?.contextModule
@@ -340,7 +341,7 @@ internal class KaFirCompilerFacility(
 
         /**
          * Attach the file to the appropriate chunk.
-         * The [module] parameter is used for optimization, and it corresponds to [LLFirResolveSession.getModule] called on the [file].
+         * The [module] parameter is used for optimization, and it corresponds to [LLResolutionFacade.getModule] called on the [file].
          */
         fun submit(file: KtFile, module: KaModule) {
             if (module == originalMainContextModule) {
@@ -381,7 +382,11 @@ internal class KaFirCompilerFacility(
 
                 else -> {
                     val substitutedModule = substitute(module)
-                    val isDanglingChild = module != substitutedModule
+                    // If the module is still not a JVM one, we have to create a dangling file module for it, as the JVM compiler
+                    // cannot compile files from common modules. More precisely, it can consume files with 'expect' declarations,
+                    // but dependencies of common modules are also common. From those, the backend cannot get the required information
+                    // (JVM facade class names, bytecode for inlining, and so on).
+                    val isDanglingChild = module != substitutedModule || !module.targetPlatform.isJvm()
                     val spec = ChunkSpec(substitutedModule, isMainChunk, isDanglingChild, attachPrecompiledBinaries)
                     register(spec, file)
                 }
@@ -408,6 +413,9 @@ internal class KaFirCompilerFacility(
                 is KaCompilerTarget.Jvm -> targetPlatform.isJvm()
             }
 
+        private val KaModule.implementingJvmModule: KaModule?
+            get() = actualizer?.actualize(this)
+
         private val moduleCache = HashMap<KaModule, KaModule>()
 
         private fun substitute(module: KaModule): KaModule {
@@ -415,15 +423,7 @@ internal class KaFirCompilerFacility(
 
             return moduleCache.computeIfAbsent(module) { module ->
                 if (module.targetPlatform.isCommon() && target is KaCompilerTarget.Jvm) {
-                    val jvmImplementingModule = KotlinProjectStructureProvider.getInstance(project)
-                        .getImplementingModules(module)
-                        .find { it.targetPlatform.isJvm() }
-
-                    checkWithAttachment(jvmImplementingModule != null, { "Cannot compile a common source without a JVM counterpart" }) {
-                        withFirEntry("file", originalMainFirFile)
-                    }
-
-                    jvmImplementingModule
+                    module.implementingJvmModule ?: module
                 } else {
                     module
                 }
@@ -444,17 +444,15 @@ internal class KaFirCompilerFacility(
              * Create a new multi-file dangling file module, containing copies of [files], with the specified [contextModule].
              */
             fun appendDanglingChunk(spec: ChunkSpec, files: List<KtFile>) {
-                val (codeFragments, ordinaryFiles) = files.partition { it is KtCodeFragment }
-                val newOrdinaryFiles = ordinaryFiles.map { createFileCopy(it, emptyMap()) }
+                val ordinaryFileToNewFile = files.filter { it !is KtCodeFragment }.associateWith { createFileCopy(it, emptyMap()) }
 
-                val newCodeFragments = if (codeFragments.isNotEmpty()) {
-                    val ordinaryFileSubstitutions = ordinaryFiles.zip(newOrdinaryFiles).toMap()
-                    codeFragments.map { createFileCopy(it, ordinaryFileSubstitutions) }
-                } else {
-                    emptyList()
+                val newFiles = files.map {
+                    if (it is KtCodeFragment) {
+                        createFileCopy(it, ordinaryFileToNewFile)
+                    } else {
+                        ordinaryFileToNewFile[it]!!
+                    }
                 }
-
-                val newFiles = newOrdinaryFiles + newCodeFragments
 
                 val mainFile = if (spec.isMain) {
                     val mainFileIndex = files.indexOf(originalMainFile)
@@ -464,12 +462,12 @@ internal class KaFirCompilerFacility(
                     null
                 }
 
-                val newModule = KaDanglingFileModuleImpl(newFiles, spec.module, KaDanglingFileResolutionMode.PREFER_SELF)
+                val newModule = createDanglingFileModule(newFiles, contextModule = spec.module)
                 newFiles.forEach { it.explicitModule = newModule }
 
                 result[newModule] = ChunkToCompile(
                     mainFile = mainFile,
-                    hasCodeFragments = codeFragments.isNotEmpty(),
+                    hasCodeFragments = newFiles.any { it is KtCodeFragment },
                     attachPrecompiledBinaries = spec.attachPrecompiledBinaries,
                     files = createFilesToCompile(newFiles)
                 )
@@ -505,6 +503,165 @@ internal class KaFirCompilerFacility(
             process(mainChunks)
 
             return result
+        }
+
+        fun createDanglingFileModule(newFiles: List<KtFile>, contextModule: KaModule): KaDanglingFileModule {
+            val baseModule = KaDanglingFileModuleImpl(newFiles, contextModule, KaDanglingFileResolutionMode.PREFER_SELF)
+
+            if (!contextModule.targetPlatform.isJvm()) {
+                return createJvmDanglingFileModule(baseModule, contextModule)
+            }
+
+            return baseModule
+        }
+
+        /**
+         * Create a custom dangling file module with substituted target platform and dependencies.
+         *
+         * For multiplatform modules with common and implementation parts, we can use the JVM implementation module for compiling
+         * common declarations. However, in cases when there is no JVM module at all, we have to create one.
+         */
+        private fun createJvmDanglingFileModule(baseModule: KaDanglingFileModule, contextModule: KaModule): KaDanglingFileModule {
+            val dependentSourceModules = KotlinModuleDependentsProvider.getInstance(project)
+                .getTransitiveDependents(contextModule)
+                .asSequence()
+                .filterIsInstance<KaSourceModule>()
+                .filter { it.targetPlatform.isJvm() }
+                .sortedBy { it.name }
+                .toList()
+
+            val minimalJvmTarget = dependentSourceModules
+                .asSequence()
+                .flatMap { it.targetPlatform.componentPlatforms }
+                .distinct()
+                .mapNotNull { it.targetPlatformVersion as? JvmTarget }
+                .sortedBy { it.majorVersion }
+                .firstOrNull()
+
+            // Check in which JVM modules the context module is used, and pick the lowest JVM target,
+            // so it is compatible with all usages.
+            val minimalTargetPlatform = minimalJvmTarget?.let(JvmPlatforms::jvmPlatformByTargetVersion)
+                ?: JvmPlatforms.defaultJvmPlatform
+
+            val newBinaryDependencies = mergeJvmImplementationBinaryDependencies(dependentSourceModules)
+            val newSourceDependencies = collectJvmImplementationSourceDependencies(contextModule)
+
+            val newDependencies = sequenceOf(newBinaryDependencies, newSourceDependencies)
+                .flatten()
+                .toList()
+
+            return object : KaDanglingFileModule by baseModule {
+                override val targetPlatform: TargetPlatform
+                    get() = minimalTargetPlatform
+
+                override val directRegularDependencies: List<KaModule>
+                    get() = newDependencies
+            }
+        }
+
+        /**
+         * Collect JVM counterparts of source modules on which the [contextModule] depends.
+         * These would be (at least some of the) dependencies of the JVM counterpart of the [contextModule] itself.
+         */
+        private fun collectJvmImplementationSourceDependencies(contextModule: KaModule): Sequence<KaSourceModule> {
+            return sequence {
+                val processedModules = HashSet<KaModule>()
+
+                val pendingModules = ArrayDeque<KaModule>()
+                pendingModules.addLast(contextModule)
+
+                while (pendingModules.isNotEmpty()) {
+                    val module = pendingModules.removeLast()
+
+                    for (dependency in module.directRegularDependencies) {
+                        if (dependency is KaSourceModule && processedModules.add(dependency)) {
+                            val dependencyImplementing = dependency.implementingJvmModule as? KaSourceModule
+                            val dependencyEffective = dependencyImplementing ?: dependency
+
+                            // Check for duplicates once more – we could get the implementing module through JVM dependencies,
+                            // and also through the common module implementation
+                            if (dependencyImplementing == null || processedModules.add(dependencyEffective)) {
+                                yield(dependencyEffective)
+
+                                // Also, add source dependencies of the implementing module.
+                                // Note that this adds dependencies to modules unavailable in the original context.
+                                // This may lead to a classpath hell – however, not adding the dependencies can also lead to
+                                // failure in code inlining.
+                                pendingModules.addLast(dependencyEffective)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Collect common JVM binary module dependencies between all provided [dependentSourceModules].
+         * The goal is to figure out what dependencies should be provided instead of the dependency to a common module.
+         */
+        private fun mergeJvmImplementationBinaryDependencies(dependentSourceModules: List<KaSourceModule>): Sequence<KaLibraryModule> {
+            return sequence {
+                val dependentModuleDependencies = dependentSourceModules
+                    .map { collectJvmImplementationBinaryDependencies(it) }
+
+                var sdkModule: KaLibraryModule? = null
+
+                val commonBinaryDependencies = LinkedHashSet<KaLibraryModule>()
+                var isFirst = true
+
+                for (dependencySequence in dependentModuleDependencies) {
+                    val dependencies = dependencySequence.toList()
+
+                    if (sdkModule == null) {
+                        // Pick the first SDK for now.
+                        // In the scope of KT-77426, this should become customizable.
+                        sdkModule = dependencies.firstOrNull { it.isSdk }
+                    }
+
+                    if (isFirst) {
+                        commonBinaryDependencies.addAll(dependencies)
+                        isFirst = false
+                    } else {
+                        commonBinaryDependencies.retainAll(dependencies)
+                    }
+                }
+
+                if (sdkModule != null) {
+                    commonBinaryDependencies.remove(sdkModule)
+                }
+
+                yieldIfNotNull(sdkModule)
+                yieldAll(commonBinaryDependencies)
+            }
+        }
+
+        /**
+         * Collect JVM binary module dependencies of the given [contextModule], including transitive dependencies.
+         */
+        private fun collectJvmImplementationBinaryDependencies(contextModule: KaModule): Sequence<KaLibraryModule> {
+            return sequence {
+                val processedModules = HashSet<KaModule>()
+
+                val pendingModules = ArrayDeque<KaModule>()
+                pendingModules.addLast(contextModule)
+
+                while (pendingModules.isNotEmpty()) {
+                    val module = pendingModules.removeLast()
+                    for (dependency in module.directRegularDependencies) {
+                        if (!processedModules.add(dependency)) {
+                            continue
+                        }
+
+                        if (dependency is KaLibraryModule) {
+                            if (dependency.targetPlatform.isJvm()) {
+                                yield(dependency)
+                            }
+                        } else {
+                            pendingModules.addLast(dependency)
+                        }
+                    }
+                }
+            }
         }
 
         private fun createFilesToCompile(files: Collection<KtFile>): List<FileToCompile> {
@@ -625,18 +782,17 @@ internal class KaFirCompilerFacility(
         }
 
         require(compiledFiles.isNotEmpty()) { "Compilation produced no matching output files" }
-        return KaCompilationResult.Success(compiledFiles, capturedValues)
+        return KaCompilationResult.Success(
+            compiledFiles,
+            capturedValues,
+            canBeCached = codeFragmentMappings?.reifiedTypeParametersMapping.isNullOrEmpty()
+        )
     }
 
     private fun getIrGenerationExtensions(module: KaModule): List<IrGenerationExtension> {
         val projectExtensions = IrGenerationExtension.getInstances(project)
 
-        fun unwrapModule(module: KaModule): KaModule {
-            return if (module is KaDanglingFileModule) unwrapModule(module.contextModule) else module
-        }
-
-        val unwrappedModule = unwrapModule(module)
-
+        val unwrappedModule = module.baseContextModuleOrSelf
         if (unwrappedModule !is KaSourceModule) {
             return projectExtensions
         }
@@ -659,7 +815,7 @@ internal class KaFirCompilerFacility(
         generateClassFilter: GenerationState.GenerateClassFilter,
         compiledCodeProvider: CompiledCodeProvider
     ): KaCompilationResult {
-        val session = firResolveSession.sessionProvider.getResolvableSession(module)
+        val session = resolutionFacade.sessionProvider.getResolvableSession(module)
         val configuration = baseConfiguration.copy().apply {
             put(CommonConfigurationKeys.USE_FIR, true)
             put(CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS, session.languageVersionSettings)
@@ -687,6 +843,11 @@ internal class KaFirCompilerFacility(
             irGeneratorExtensions = if (codeFragmentMappings != null) emptyList() else irGeneratorExtensions
         )
 
+        val convertedMapping = codeFragmentMappings?.reifiedTypeParametersMapping.orEmpty().entries.associate { (firTypeParam, coneType) ->
+            val irTypeParam = fir2IrResult.components.classifierStorage.getIrTypeParameterSymbol(firTypeParam, ConversionTypeOrigin.DEFAULT)
+            irTypeParam to with(fir2IrResult.components) { coneType.toIrType() }
+        }
+
         if (diagnosticReporter.hasErrors) {
             val errors = computeErrors(diagnosticReporter.diagnostics, allowedErrorFilter)
             if (errors.isNotEmpty()) {
@@ -709,7 +870,8 @@ internal class KaFirCompilerFacility(
         val codegenFactory = createJvmIrCodegenFactory(
             configuration = configuration,
             isCodeFragment = codeFragmentMappings != null,
-            irModuleFragment = fir2IrResult.irModuleFragment
+            irModuleFragment = fir2IrResult.irModuleFragment,
+            typeArgumentsMap = convertedMapping
         )
 
         val result = runJvmIrCodeGen(
@@ -795,19 +957,23 @@ internal class KaFirCompilerFacility(
             val receiverClass = (owner.type as? IrSimpleType)?.classifier as? IrClassSymbol
             val receiverClassId = receiverClass?.owner?.classId
 
-            if (receiverClassId != null) {
-                if (owner.indexInOldValueParameters >= 0) {
-                    val labelName = receiverClassId.shortClassName
-                    return CodeFragmentCapturedValue.ContextReceiver(owner.indexInOldValueParameters, labelName, isCrossingInlineBounds = true)
-                }
-
-                val parent = owner.parent
-                if (parent is IrFunction) {
-                    if (parent.dispatchReceiverParameter == owner) {
+            val parent = owner.parent
+            if (receiverClassId != null && parent is IrFunction) {
+                when (owner.kind) {
+                    IrParameterKind.DispatchReceiver -> {
                         return CodeFragmentCapturedValue.ContainingClass(receiverClassId, isCrossingInlineBounds = true)
                     }
-
-                    return CodeFragmentCapturedValue.ExtensionReceiver(parent.name.asString(), isCrossingInlineBounds = true)
+                    IrParameterKind.Context -> {
+                        val contextParameterIndex = parent.parameters
+                            .subList(0, owner.indexInParameters)
+                            .count { it.kind == IrParameterKind.Context }
+                        val labelName = receiverClassId.shortClassName
+                        return CodeFragmentCapturedValue.ContextReceiver(contextParameterIndex, labelName, isCrossingInlineBounds = true)
+                    }
+                    IrParameterKind.ExtensionReceiver -> {
+                        return CodeFragmentCapturedValue.ExtensionReceiver(parent.name.asString(), isCrossingInlineBounds = true)
+                    }
+                    IrParameterKind.Regular -> {}
                 }
             }
         }
@@ -832,7 +998,7 @@ internal class KaFirCompilerFacility(
     }
 
     private fun getFullyResolvedFirFile(file: KtFile): FirFile {
-        val firFile = file.getOrBuildFirFile(firResolveSession)
+        val firFile = file.getOrBuildFirFile(resolutionFacade)
         firFile.lazyResolveToPhaseRecursively(FirResolvePhase.BODY_RESOLVE)
         return firFile
     }
@@ -848,7 +1014,7 @@ internal class KaFirCompilerFacility(
                     val ktDiagnostic = when (diagnostic) {
                         is KtPsiDiagnostic -> diagnostic.asKtDiagnostic()
                         else -> {
-                            val message = RootDiagnosticRendererFactory(diagnostic).render(diagnostic)
+                            val message = diagnostic.renderMessage()
                             KaNonBoundToPsiErrorDiagnostic(diagnostic.factoryName, message, analysisSession.token)
                         }
                     }
@@ -865,17 +1031,19 @@ internal class KaFirCompilerFacility(
         val capturedFiles: List<KtFile>,
         val injectedValues: List<InjectedValue>,
         val conversionData: CodeFragmentConversionData,
+        val reifiedTypeParametersMapping: Map<FirTypeParameterSymbol, ConeKotlinType>,
     )
 
     @OptIn(LLFirInternals::class)
     private fun computeCodeFragmentMappings(
         mainFirFile: FirFile,
-        resolveSession: LLFirResolveSession,
+        resolutionFacade: LLResolutionFacade,
         configuration: CompilerConfiguration,
+        debuggerExtension: DebuggerExtension?,
     ): CodeFragmentMappings {
         val codeFragment = mainFirFile.codeFragment
 
-        val capturedData = CodeFragmentCapturedValueAnalyzer.analyze(resolveSession, codeFragment)
+        val capturedData = CodeFragmentCapturedValueAnalyzer.analyze(resolutionFacade, codeFragment)
 
         val capturedSymbols = capturedData.symbols
         val capturedValues = capturedSymbols.map { it.value }
@@ -887,7 +1055,118 @@ internal class KaFirCompilerFacility(
             injectedValues
         )
 
-        return CodeFragmentMappings(capturedValues, capturedData.files, injectedValues, conversionData)
+        val capturedReifiedTypeParametersMap =
+            collectReifiedTypeParametersMapping(capturedData.reifiedTypeParameters, debuggerExtension).toMutableMap()
+
+        val typeSubstitutor = substitutorByMap(capturedReifiedTypeParametersMap, resolutionFacade.useSiteFirSession)
+
+        // The parameters are ordered in the map according the order of declaring function in execution stack, e.g.:
+        //
+        // fun <reified T3> foo3() {
+        //     ...suspension point...
+        // }
+        // fun <reified T2> foo2() {
+        //     foo3<T2>()
+        // }
+        // fun <reified T1> foo1() {
+        //     foo2<T1>()
+        // }
+        // ... entry point...
+        // fun main() {
+        //     foo1<Int>()
+        // }
+        //
+        // Parameters will be ordered as T3, T2, T1, i.e. argument follows the parameter.
+        // Thus, processing them in reversive order gives the transitive closure of substitution.
+        for (typeParameter in capturedReifiedTypeParametersMap.keys.reversed().iterator()) {
+            capturedReifiedTypeParametersMap[typeParameter] =
+                typeSubstitutor.substituteOrSelf(capturedReifiedTypeParametersMap[typeParameter]!!)
+        }
+
+        return CodeFragmentMappings(
+            capturedValues,
+            capturedData.files,
+            injectedValues,
+            conversionData,
+            // It's vital to leave only parameters immediately captured by code fragment, as JVM ReifiedTypeInliner does not distinguish
+            // different type parameters with the same name
+            // See IntelliJ test:
+            // community/plugins/kotlin/jvm-debugger/test/testData/evaluation/singleBreakpoint/reifiedTypeParameters/crossfileInlining.kt
+            capturedReifiedTypeParametersMap.filterKeys { it in capturedData.reifiedTypeParameters })
+    }
+
+    private fun collectReifiedTypeParametersMapping(
+        capturedReifiedTypeParameters: Set<FirTypeParameterSymbol>,
+        debuggerExtension: DebuggerExtension?,
+    ): Map<FirTypeParameterSymbol, ConeKotlinType> {
+        fun ConeKotlinType.collectTypeParameters(destination: MutableSet<FirTypeParameterSymbol>) {
+            if (this is ConeTypeParameterType) {
+                destination.add(lookupTag.typeParameterSymbol)
+                return
+            }
+            typeArguments.forEach { typeArgument ->
+                typeArgument.type?.collectTypeParameters(destination)
+            }
+        }
+
+        fun FirTypeRef.collectTypeParameters(destination: MutableSet<FirTypeParameterSymbol>) =
+            (this as? FirResolvedTypeRef)?.coneType?.collectTypeParameters(destination)
+
+        // We need to save the order to make a substitution on the correct order later
+        val mapping = linkedMapOf<FirTypeParameterSymbol, FirTypeRef>()
+        if (debuggerExtension == null) return linkedMapOf()
+        val unmappedTypeParameters = capturedReifiedTypeParameters.toMutableSet()
+
+        // We basically roll back along the execution stack until either all required type parameters are mapped on arguments, or
+        // we are unable to proceed further for some reason
+        // (e.g., we've reached the execution stack beginning, or we failed to extract relevant info from the call)
+        // Note that there are cases when a reified type parameter is captured by code fragment, but we are still able to compile it
+        // without reification, that is why we avoid fast-failing here if not all the type parameters are mapped.
+        val stackIterator = debuggerExtension.stack.iterator()
+        while (unmappedTypeParameters.isNotEmpty() && stackIterator.hasNext()) {
+            val previousExprPsi = stackIterator.next() ?: continue
+            // Rolling back by parents trying to find type arguments
+            // The property setter call is a special case as it's represented as `FirVariableAssignment`
+            // and the type arguments should be extracted from its `lvalue`
+            val typeArgumentHolder: FirQualifiedAccessExpression =
+                previousExprPsi.parentsWithSelf.firstNotNullOfOrNull { psiElement ->
+                    if (psiElement is KtElement) {
+                        val fir = psiElement.getOrBuildFir(resolutionFacade)
+                        when (fir) {
+                            is FirQualifiedAccessExpression -> fir
+                            is FirVariableAssignment -> if (fir.lValue is FirQualifiedAccessExpression) {
+                                fir.lValue as FirQualifiedAccessExpression
+                            } else {
+                                null
+                            }
+                            else -> null
+                        }
+                    } else {
+                        null
+                    }
+                } ?: continue
+            val extractedFromPreviousExpression = extractReifiedTypeArguments(typeArgumentHolder)
+            for ((extractedParam, extractedArg) in extractedFromPreviousExpression) {
+                if (extractedParam in unmappedTypeParameters) {
+                    mapping[extractedParam] = extractedArg
+                    unmappedTypeParameters.remove(extractedParam)
+                    extractedArg.collectTypeParameters(unmappedTypeParameters)
+                }
+            }
+        }
+
+        return mapping.mapValues { (_, firTypeRef) -> firTypeRef.coneType }
+    }
+
+    private fun extractReifiedTypeArguments(typeArgumentsHolder: FirQualifiedAccessExpression): Map<FirTypeParameterSymbol, FirTypeRef> {
+        val callableSymbol = typeArgumentsHolder.calleeReference.toResolvedCallableSymbol() ?: return emptyMap()
+        return buildMap {
+            for ((typeParameterSymbol, typeArgument) in callableSymbol.typeParameterSymbols.zip(typeArgumentsHolder.typeArguments)) {
+                if (typeParameterSymbol.isReified && typeArgument is FirTypeProjectionWithVariance) {
+                    put(typeParameterSymbol, typeArgument.typeRef)
+                }
+            }
+        }
     }
 
     private class InjectedSymbolProvider(
@@ -984,6 +1263,7 @@ internal class KaFirCompilerFacility(
         configuration: CompilerConfiguration,
         isCodeFragment: Boolean,
         irModuleFragment: IrModuleFragment,
+        typeArgumentsMap: Map<IrTypeParameterSymbol, IrType>,
     ): JvmIrCodegenFactory {
         val jvmGeneratorExtensions = object : JvmGeneratorExtensionsImpl(configuration) {
             override fun getContainerSource(descriptor: DeclarationDescriptor): DeserializedContainerSource? {
@@ -1016,7 +1296,7 @@ internal class KaFirCompilerFacility(
             val irFile = irModuleFragment.files.single { (it.fileEntry as? PsiIrFileEntry)?.psiFile is KtCodeFragment }
             val irClass = irFile.declarations.single { it is IrClass && it.metadata is FirMetadataSource.CodeFragment } as IrClass
             val irFunction = irClass.declarations.single { it is IrFunction && it !is IrConstructor } as IrFunction
-            EvaluatorFragmentInfo(irClass.descriptor, irFunction.descriptor, irFunction, emptyList())
+            EvaluatorFragmentInfo(irClass.descriptor, irFunction.descriptor, emptyList(), typeArgumentsMap)
         }
 
         return JvmIrCodegenFactory(

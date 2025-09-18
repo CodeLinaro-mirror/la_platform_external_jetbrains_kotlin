@@ -5,88 +5,79 @@
 
 package org.jetbrains.sir.lightclasses.nodes
 
+import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.components.DefaultTypeClassIds
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassKind
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolModality
+import org.jetbrains.kotlin.analysis.api.export.utilities.isCloneable
+import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.builder.buildGetter
-import org.jetbrains.kotlin.sir.builder.buildInit
+import org.jetbrains.kotlin.sir.builder.buildInitCopy
 import org.jetbrains.kotlin.sir.builder.buildVariable
 import org.jetbrains.kotlin.sir.providers.SirSession
 import org.jetbrains.kotlin.sir.providers.source.KotlinSource
 import org.jetbrains.kotlin.sir.providers.utils.KotlinRuntimeModule
+import org.jetbrains.kotlin.sir.providers.utils.KotlinRuntimeSupportModule
 import org.jetbrains.kotlin.sir.providers.utils.containingModule
 import org.jetbrains.kotlin.sir.providers.utils.updateImport
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
+import org.jetbrains.sir.lightclasses.BindableBridgedType
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
 import org.jetbrains.sir.lightclasses.extensions.documentation
 import org.jetbrains.sir.lightclasses.extensions.lazyWithSessions
 import org.jetbrains.sir.lightclasses.extensions.withSessions
+import org.jetbrains.sir.lightclasses.utils.*
 import org.jetbrains.sir.lightclasses.utils.OverrideStatus
 import org.jetbrains.sir.lightclasses.utils.computeIsOverride
+import org.jetbrains.sir.lightclasses.utils.superClassDeclaration
 import org.jetbrains.sir.lightclasses.utils.translatedAttributes
 
 internal fun createSirClassFromKtSymbol(
     ktSymbol: KaNamedClassSymbol,
-    ktModule: KaModule,
     sirSession: SirSession,
 ): SirAbstractClassFromKtSymbol = when (ktSymbol.classKind) {
     KaClassKind.ENUM_CLASS ->
         SirEnumClassFromKtSymbol(
             ktSymbol,
-            ktModule,
             sirSession
         )
     else -> SirClassFromKtSymbol(
         ktSymbol,
-        ktModule,
         sirSession
     )
 }
 
 private class SirClassFromKtSymbol(
     ktSymbol: KaNamedClassSymbol,
-    ktModule: KaModule,
     sirSession: SirSession,
 ) : SirAbstractClassFromKtSymbol(
     ktSymbol,
-    ktModule,
+    sirSession
+)
+
+internal class SirStubClassFromKtSymbol(
+    ktSymbol: KaNamedClassSymbol,
+    sirSession: SirSession,
+) : SirAbstractClassFromKtSymbol(
+    ktSymbol,
     sirSession
 ) {
-    override val superClass: SirType? by lazyWithSessions {
-        ktSymbol.superTypes.filterIsInstanceAnd<KaClassType> {
-            it.isRegularClass && it.classId != DefaultTypeClassIds.ANY
-        }.firstOrNull()?.let {
-            it.symbol.toSir().allDeclarations.firstIsInstanceOrNull<SirClass>()
-                ?.also { ktSymbol.containingModule.sirModule().updateImport(SirImport(it.containingModule().name)) }
-                ?.let { SirNominalType(it) }
-        } ?: let {
-            SirNominalType(KotlinRuntimeModule.kotlinBase).also {
-                ktSymbol.containingModule.sirModule().updateImport(SirImport(KotlinRuntimeModule.name))
-            }
-        }
-    }
+    override val declarations: List<SirDeclaration> = emptyList()
 }
 
 internal class SirEnumClassFromKtSymbol(
     ktSymbol: KaNamedClassSymbol,
-    ktModule: KaModule,
     sirSession: SirSession,
 ) : SirAbstractClassFromKtSymbol(
     ktSymbol,
-    ktModule,
     sirSession
 ) {
-    override val superClass: SirType? by lazyWithSessions {
+    override val superClass: SirNominalType? by lazyWithSessions {
         // TODO: this super class as default will become obsolete with the KT-66855
         SirNominalType(KotlinRuntimeModule.kotlinBase).also {
-            ktSymbol.containingModule.sirModule().updateImport(SirImport(KotlinRuntimeModule.name))
+            ktSymbol.containingModule.sirModule()
         }
     }
     override val protocols: List<SirProtocol> = super.protocols + listOf(SirSwiftModule.caseIterable)
@@ -94,11 +85,10 @@ internal class SirEnumClassFromKtSymbol(
 
 internal abstract class SirAbstractClassFromKtSymbol(
     override val ktSymbol: KaNamedClassSymbol,
-    override val ktModule: KaModule,
     override val sirSession: SirSession,
-) : SirClass(), SirFromKtSymbol<KaNamedClassSymbol> {
+) : SirClass(), SirFromKtSymbol<KaNamedClassSymbol>, BindableBridgedType {
 
-    override val origin: SirOrigin by lazy {
+    override val origin: KotlinSource by lazy {
         KotlinSource(ktSymbol)
     }
     override val visibility: SirVisibility by lazy {
@@ -118,8 +108,9 @@ internal abstract class SirAbstractClassFromKtSymbol(
     override val documentation: String? by lazy {
         ktSymbol.documentation()
     }
-    override val name: String by lazy {
-        ktSymbol.name.asString()
+
+    override val name: String by lazyWithSessions {
+        (this@SirAbstractClassFromKtSymbol.relocatedDeclarationNamePrefix() ?: "") + ktSymbol.sirDeclarationName()
     }
 
     override var parent: SirDeclarationParent
@@ -127,6 +118,18 @@ internal abstract class SirAbstractClassFromKtSymbol(
             ktSymbol.getSirParent(useSiteSession)
         }
         set(_) = Unit
+
+    override val superClass: SirNominalType? by lazyWithSessions {
+        ktSymbol.superTypes.filterIsInstanceAnd<KaClassType> {
+            it.isRegularClass && it.classId != DefaultTypeClassIds.ANY
+        }.firstOrNull()?.let {
+            it.symbol.toSir().allDeclarations.firstIsInstanceOrNull<SirClass>()
+                ?.also { ktSymbol.containingModule.sirModule().updateImport(SirImport(it.containingModule().name)) }
+                ?.let { SirNominalType(it) }
+        } ?: let {
+            SirNominalType(KotlinRuntimeModule.kotlinBase)
+        }
+    }
 
     override val declarations: List<SirDeclaration> by lazyWithSessions {
         childDeclarations + syntheticDeclarations()
@@ -140,17 +143,10 @@ internal abstract class SirAbstractClassFromKtSymbol(
             .toList()
     }
 
-    private fun kotlinBaseInitDeclaration(): SirDeclaration = buildInit {
+    private fun kotlinBaseInitDeclaration(): SirDeclaration = buildInitCopy(KotlinRuntimeModule.kotlinBaseDesignatedInit) {
         origin = SirOrigin.KotlinBaseInitOverride(`for` = KotlinSource(ktSymbol))
         visibility = SirVisibility.PACKAGE // Hide from users, but not from other Swift Export modules.
-        isFailable = false
         isOverride = true
-        parameters.add(
-            SirParameter(
-                argumentName = "__externalRCRef",
-                type = SirNominalType(SirSwiftModule.uint)
-            )
-        )
     }.also { it.parent = this }
 
     private fun syntheticDeclarations(): List<SirDeclaration> = when (ktSymbol.classKind) {
@@ -176,10 +172,19 @@ internal abstract class SirAbstractClassFromKtSymbol(
     }
 
     override val protocols: List<SirProtocol> by lazyWithSessions {
+        (translatedProtocols + listOf(KotlinRuntimeSupportModule.kotlinBridged))
+            .filter { superClassDeclaration?.declaresConformance(it) != true }
+    }
+
+    @OptIn(KaExperimentalApi::class)
+    private val translatedProtocols: List<SirProtocol> by lazyWithSessions {
         ktSymbol.superTypes
-            .filterIsInstance<KaClassType>().mapNotNull { it.expandedSymbol }.filter {
-                it.classKind == KaClassKind.INTERFACE
-            }.flatMap {
+            .filterIsInstance<KaClassType>()
+            .mapNotNull { it.expandedSymbol }
+            .filter { it.classKind == KaClassKind.INTERFACE }
+            .filter { it.typeParameters.isEmpty() } //Exclude generics
+            .filterNot { it.isCloneable }
+            .flatMap {
                 it.toSir().allDeclarations.filterIsInstance<SirProtocol>().also {
                     it.forEach {
                         ktSymbol.containingModule.sirModule().updateImport(SirImport(it.containingModule().name))

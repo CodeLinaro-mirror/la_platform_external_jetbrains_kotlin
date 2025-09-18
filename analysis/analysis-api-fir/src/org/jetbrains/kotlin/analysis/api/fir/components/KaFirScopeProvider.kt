@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -12,10 +12,7 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.*
 import org.jetbrains.kotlin.analysis.api.fir.types.KaFirType
 import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.fir.utils.getAvailableScopesForPosition
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeImplicitReceiverValue
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeContext
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseScopeImplicitArgumentValue
-import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.*
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseCompositeScope
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseCompositeTypeScope
 import org.jetbrains.kotlin.analysis.api.impl.base.scopes.KaBaseEmptyScope
@@ -31,13 +28,13 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector
 import org.jetbrains.kotlin.analysis.utils.errors.unexpectedElementError
 import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.DirectDeclarationsAccess
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.utils.delegateFields
 import org.jetbrains.kotlin.fir.java.JavaScopeProvider
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
-import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticPropertiesScope
 import org.jetbrains.kotlin.fir.resolve.calls.referencedMemberSymbol
 import org.jetbrains.kotlin.fir.resolve.scope
@@ -206,6 +203,8 @@ internal class KaFirScopeProvider(
             val declaredScope = (declaredMemberScope as? KaFirDelegatingNamesAwareScope)?.firScope ?: return createEmptyScope()
 
             val fir = getFirForScope()
+
+            @OptIn(DirectDeclarationsAccess::class)
             val delegateFields = fir.delegateFields
 
             if (delegateFields.isEmpty()) {
@@ -268,8 +267,8 @@ internal class KaFirScopeProvider(
         }
 
     override val KtFile.importingScopeContext: KaScopeContext
-        get() = withValidityAssertion {
-            val firFile = getOrBuildFirFile(firResolveSession)
+        get() = withPsiValidityAssertion {
+            val firFile = getOrBuildFirFile(resolutionFacade)
             val firFileSession = firFile.moduleData.session
             val firImportingScopes = createImportingScopes(
                 firFile,
@@ -284,7 +283,8 @@ internal class KaFirScopeProvider(
             return KaBaseScopeContext(ktScopesWithKinds, implicitValues = emptyList(), token)
         }
 
-    override fun KtFile.scopeContext(position: KtElement): KaScopeContext = withValidityAssertion {
+    // Do not check [this] psi validity as it is not used
+    override fun KtFile.scopeContext(position: KtElement): KaScopeContext = withPsiValidityAssertion(position) {
         val fakeFile = position.containingKtFile
 
         // If the position is in KDoc, we want to pass the owning declaration to the ContextCollector.
@@ -292,11 +292,8 @@ internal class KaFirScopeProvider(
         val parentKDoc = position.parentOfType<KDoc>()
         val correctedPosition = parentKDoc?.owner ?: position
 
-        val context = ContextCollector.process(
-            fakeFile.getOrBuildFirFile(firResolveSession),
-            SessionHolderImpl(analysisSession.firSession, getScopeSession()),
-            correctedPosition,
-        )
+        val firFakeFile = fakeFile.getOrBuildFirFile(resolutionFacade)
+        val context = ContextCollector.process(resolutionFacade, firFakeFile, correctedPosition)
 
         val towerDataContext =
             context?.towerDataContext
@@ -403,15 +400,15 @@ internal class KaFirScopeProvider(
     }
 
     private fun getFirTypeScope(type: KaFirType): FirTypeScope? = type.coneType.scope(
-        firResolveSession.useSiteFirSession,
+        resolutionFacade.useSiteFirSession,
         getScopeSession(),
-        CallableCopyTypeCalculator.Forced,
+        CallableCopyTypeCalculator.CalculateDeferredForceLazyResolution,
         requiredMembersPhase = FirResolvePhase.STATUS,
     )
 
     private fun getFirSyntheticPropertiesScope(coneType: ConeKotlinType, typeScope: FirTypeScope): FirSyntheticPropertiesScope? =
         FirSyntheticPropertiesScope.createIfSyntheticNamesProviderIsDefined(
-            firResolveSession.useSiteFirSession,
+            resolutionFacade.useSiteFirSession,
             coneType,
             typeScope
         )

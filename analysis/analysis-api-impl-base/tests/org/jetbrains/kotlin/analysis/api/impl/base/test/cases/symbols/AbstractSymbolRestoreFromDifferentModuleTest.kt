@@ -34,14 +34,14 @@ abstract class AbstractSymbolRestoreFromDifferentModuleTest : AbstractAnalysisAp
         val declarationModule = KotlinProjectStructureProvider.getModule(project, declaration, useSiteModule = null)
         val restoreAtModule = KotlinProjectStructureProvider.getModule(project, restoreAt, useSiteModule = null)
 
-        val (debugRendered, prettyRendered, pointer) = analyseForTest(declaration) {
+        val (debugRendered, prettyRendered, pointer) = analyzeForTest(declaration) {
             val symbol = declaration.symbol
             val pointer = symbol.createPointer()
             Triple(DebugSymbolRenderer().render(useSiteSession, symbol), symbol.render(defaultRenderer), pointer)
         }
         configurator.doGlobalModuleStateModification(project)
 
-        val (debugRenderedRestored, prettyRenderedRestored) = analyseForTest(restoreAt) {
+        val (debugRenderedRestored, prettyRenderedRestored) = analyzeForTest(restoreAt) {
             val symbol = pointer.restoreSymbol() as? KaDeclarationSymbol
             symbol?.let { DebugSymbolRenderer().render(useSiteSession, it) } to symbol?.render(defaultRenderer)
         }
@@ -53,7 +53,7 @@ abstract class AbstractSymbolRestoreFromDifferentModuleTest : AbstractAnalysisAp
             appendLine("Restored in ${restoreAtModule.moduleDescription}:")
             appendLine(debugRenderedRestored ?: NOT_RESTORED)
         }
-        testServices.assertions.assertEqualsToTestDataFileSibling(actualDebug)
+        testServices.assertions.assertEqualsToTestOutputFile(actualDebug)
 
         val actualPretty = prettyPrint {
             appendLine("Inital from ${declarationModule.moduleDescription}:")
@@ -62,7 +62,7 @@ abstract class AbstractSymbolRestoreFromDifferentModuleTest : AbstractAnalysisAp
             appendLine("Restored in ${restoreAtModule.moduleDescription}:")
             appendLine(prettyRenderedRestored ?: NOT_RESTORED)
         }
-        testServices.assertions.assertEqualsToTestDataFileSibling(actualPretty, extension = ".pretty.txt")
+        testServices.assertions.assertEqualsToTestOutputFile(actualPretty, extension = ".pretty.txt")
     }
 
     companion object {

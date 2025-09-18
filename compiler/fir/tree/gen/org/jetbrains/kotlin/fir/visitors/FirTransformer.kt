@@ -1075,12 +1075,12 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformResolvedTypeRef(resolvedTypeRef, data)
     }
 
-    open fun transformTypeRefWithNullability(typeRefWithNullability: FirTypeRefWithNullability, data: D): FirTypeRef {
-        return transformElement(typeRefWithNullability, data)
+    open fun transformUnresolvedTypeRef(unresolvedTypeRef: FirUnresolvedTypeRef, data: D): FirTypeRef {
+        return transformElement(unresolvedTypeRef, data)
     }
 
-    final override fun visitTypeRefWithNullability(typeRefWithNullability: FirTypeRefWithNullability, data: D): FirTypeRef {
-        return transformTypeRefWithNullability(typeRefWithNullability, data)
+    final override fun visitUnresolvedTypeRef(unresolvedTypeRef: FirUnresolvedTypeRef, data: D): FirTypeRef {
+        return transformUnresolvedTypeRef(unresolvedTypeRef, data)
     }
 
     open fun transformUserTypeRef(userTypeRef: FirUserTypeRef, data: D): FirTypeRef {
@@ -1139,6 +1139,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
         return transformErrorNamedReference(errorNamedReference, data)
     }
 
+    open fun transformErrorSuperReference(errorSuperReference: FirErrorSuperReference, data: D): FirReference {
+        return transformElement(errorSuperReference, data)
+    }
+
+    final override fun visitErrorSuperReference(errorSuperReference: FirErrorSuperReference, data: D): FirReference {
+        return transformErrorSuperReference(errorSuperReference, data)
+    }
+
     open fun transformIntersectionTypeRef(intersectionTypeRef: FirIntersectionTypeRef, data: D): FirTypeRef {
         return transformElement(intersectionTypeRef, data)
     }
@@ -1153,6 +1161,14 @@ abstract class FirTransformer<in D> : FirVisitor<FirElement, D>() {
 
     final override fun visitThisReceiverExpression(thisReceiverExpression: FirThisReceiverExpression, data: D): FirStatement {
         return transformThisReceiverExpression(thisReceiverExpression, data)
+    }
+
+    open fun transformSuperReceiverExpression(superReceiverExpression: FirSuperReceiverExpression, data: D): FirStatement {
+        return transformElement(superReceiverExpression, data)
+    }
+
+    final override fun visitSuperReceiverExpression(superReceiverExpression: FirSuperReceiverExpression, data: D): FirStatement {
+        return transformSuperReceiverExpression(superReceiverExpression, data)
     }
 
     open fun transformInaccessibleReceiverExpression(inaccessibleReceiverExpression: FirInaccessibleReceiverExpression, data: D): FirStatement {

@@ -82,15 +82,18 @@ class FileDeserializationState(
     moduleDeserializer: IrModuleDeserializer
 ) {
 
-    val symbolDeserializer =
-        IrSymbolDeserializer(
-            linker.symbolTable, fileReader, file.symbol,
-            ::addIdSignature,
-            symbolProcessor = linker.symbolProcessor,
-            irInterner = linker.irInterner
-        ) { idSignature, symbolKind ->
+    val symbolDeserializer = IrSymbolDeserializer(
+        symbolTable = linker.symbolTable,
+        libraryFile = fileReader,
+        fileSymbol = file.symbol,
+        enqueueLocalTopLevelDeclaration = ::addIdSignature,
+        deserializedSymbolPostProcessor = linker.deserializedSymbolPostProcessor,
+        irInterner = linker.irInterner,
+        deserializePublicSymbolWithOwnerInUnknownFile = { idSignature, symbolKind ->
+            // Dispatch it through IR linker to find the concrete file deserializer, and then deserialize the symbol
+            // with the associated symbol deserialized.
             linker.deserializeOrReturnUnboundIrSymbolIfPartialLinkageEnabled(idSignature, symbolKind, moduleDeserializer)
-        }
+        })
 
     val declarationDeserializer = IrDeclarationDeserializer(
         linker.builtIns,
@@ -169,7 +172,7 @@ class FileDeserializationState(
         while (reachableTopLevels.isNotEmpty()) {
             val topLevelDeclarationSignature = reachableTopLevels.first()
 
-            val topLevelDeclarationSymbol = symbolDeserializer.deserializedSymbols[topLevelDeclarationSignature]
+            val topLevelDeclarationSymbol = symbolDeserializer.deserializedSymbolsWithOwnersInCurrentFile[topLevelDeclarationSignature]
             if (topLevelDeclarationSymbol == null || !topLevelDeclarationSymbol.isBound) {
                 // Perform actual deserialization:
                 val topLevelDeclaration = fileDeserializer.deserializeDeclaration(topLevelDeclarationSignature)
@@ -186,6 +189,7 @@ class FileDeserializationState(
 
 abstract class IrLibraryFile {
     abstract fun declaration(index: Int): ProtoDeclaration
+    abstract fun inlineDeclaration(index: Int): ProtoDeclaration
     abstract fun type(index: Int): ProtoType
     abstract fun signature(index: Int): ProtoIdSignature
     abstract fun string(index: Int): String
@@ -197,6 +201,7 @@ abstract class IrLibraryFile {
 
 abstract class IrLibraryBytesSource {
     abstract fun irDeclaration(index: Int): ByteArray
+    abstract fun irInlineDeclaration(index: Int): ByteArray
     abstract fun type(index: Int): ByteArray
     abstract fun signature(index: Int): ByteArray
     abstract fun string(index: Int): ByteArray
@@ -209,6 +214,9 @@ class IrLibraryFileFromBytes(private val bytesSource: IrLibraryBytesSource) : Ir
 
     override fun declaration(index: Int): ProtoDeclaration =
         ProtoDeclaration.parseFrom(bytesSource.irDeclaration(index).codedInputStream, extensionRegistryLite)
+
+    override fun inlineDeclaration(index: Int): ProtoDeclaration =
+        ProtoDeclaration.parseFrom(bytesSource.irInlineDeclaration(index).codedInputStream, extensionRegistryLite)
 
     override fun type(index: Int): ProtoType = ProtoType.parseFrom(bytesSource.type(index).codedInputStream, extensionRegistryLite)
 
@@ -235,6 +243,7 @@ class IrLibraryFileFromBytes(private val bytesSource: IrLibraryBytesSource) : Ir
 
 class IrKlibBytesSource(private val klib: IrLibrary, private val fileIndex: Int) : IrLibraryBytesSource() {
     override fun irDeclaration(index: Int): ByteArray = klib.irDeclaration(index, fileIndex)
+    override fun irInlineDeclaration(index: Int): ByteArray = klib.irInlineDeclaration(index, fileIndex)
     override fun type(index: Int): ByteArray = klib.type(index, fileIndex)
     override fun signature(index: Int): ByteArray = klib.signature(index, fileIndex)
     override fun string(index: Int): ByteArray = klib.string(index, fileIndex)

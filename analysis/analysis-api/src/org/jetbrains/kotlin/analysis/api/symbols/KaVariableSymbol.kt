@@ -186,39 +186,89 @@ public sealed class KaPropertySymbol : KaVariableSymbol(), KaTypeParameterOwnerS
     /**
      * Whether the property has a non-null [getter].
      *
-     * To check if the property's getter is a **default** implicit getter, see [KaPropertyGetterSymbol.isDefault].
+     * To check if the property's getter is a **custom** getter, see [KaPropertyGetterSymbol.isNotDefault].
      */
     public abstract val hasGetter: Boolean
 
     /**
      * Whether the property has a non-null [setter].
      *
-     * To check if the property's setter is a **default** implicit setter, see [KaPropertySetterSymbol.isDefault].
+     * To check if the property's setter is a **custom** setter, see [KaPropertySetterSymbol.isNotDefault].
      */
     public abstract val hasSetter: Boolean
 
     /**
-     * The property's explicit or default [getter](https://kotlinlang.org/docs/properties.html#getters-and-setters).
+     * The property's custom or default [getter](https://kotlinlang.org/docs/properties.html#getters-and-setters).
      */
     public abstract val getter: KaPropertyGetterSymbol?
 
     /**
-     * The property's explicit or default [setter](https://kotlinlang.org/docs/properties.html#getters-and-setters).
+     * The property's custom or default [setter](https://kotlinlang.org/docs/properties.html#getters-and-setters).
      */
     public abstract val setter: KaPropertySetterSymbol?
 
     /**
-     * Whether the property has a non-null [backingFieldSymbol].
+     * Whether a [backing field](https://kotlinlang.org/docs/properties.html#backing-fields) is generated or
+     * [declared](https://github.com/Kotlin/KEEP/issues/278) for the property.
+     *
+     * **Important**: this flag is properly supported for source declarations on all platforms,
+     * but for libraries it properly works only on supported platforms.
+     * Only Kotlin/JVM has this information in the metadata yet. Support for other platforms will
+     * be available as soon as a library is compiled with a compiler version that
+     * supports [KT-77281](https://youtrack.jetbrains.com/issue/KT-77281).
+     *
+     * ### Good to know
+     * On Kotlin/JVM compiled properties from annotations classes are compiled without a backing field,
+     * but for sources it still returns **true**.
+     *
+     * @see backingFieldSymbol
+     * @see isDelegatedProperty
      */
     public abstract val hasBackingField: Boolean
 
     /**
-     * The property's [backing field](https://kotlinlang.org/docs/properties.html#backing-fields), if the property has one.
+     * The property's [backing field](https://kotlinlang.org/docs/properties.html#backing-fields).
+     *
+     * It may represent a default, generated, or declared backing field.
+     *
+     * [hasBackingField] can be used to check whether the backing field is not default one.
+     *
+     * #### Example
+     *
+     * ```kotlin
+     * var variable = 0 // generated
+     *
+     * var variableWithCustomSetterVisibility = 1 // generated
+     *   private set
+     *
+     * val customAccessor get() = 2 // default
+     *
+     * val delegated by 3 // default
+     * // for simple `operator fun <T> T.getValue(thisRef: Any?, property: KProperty<*>): String = "str"`
+     *
+     * val delegatedWithBackingField by lazy { 3 } // generated
+     *
+     * abstract class Foo {
+     *     val memberProperty: Int = 4 // generated
+     *       get() = field
+     *
+     *     init {
+     *       memberProperty = 5
+     *     }
+     *
+     *     val abstractProperty: Int // default
+     * }
+     * ```
+     *
+     * @see hasBackingField
+     * @see isDelegatedProperty
      */
     public abstract val backingFieldSymbol: KaBackingFieldSymbol?
 
     /**
      * Whether the property is a [delegated property](https://kotlinlang.org/docs/delegated-properties.html).
+     *
+     * @see backingFieldSymbol
      */
     public abstract val isDelegatedProperty: Boolean
 
@@ -396,6 +446,11 @@ public abstract class KaLocalVariableSymbol : KaVariableSymbol() {
     final override val modality: KaSymbolModality get() = withValidityAssertion { KaSymbolModality.FINAL }
     final override val isActual: Boolean get() = withValidityAssertion { false }
     final override val isExpect: Boolean get() = withValidityAssertion { false }
+
+    /**
+     * Whether the variable is a [late-initialized variable](https://kotlinlang.org/docs/properties.html#late-initialized-properties-and-variables).
+     */
+    public abstract val isLateInit: Boolean
 
     @KaExperimentalApi
     final override val compilerVisibility: Visibility get() = withValidityAssertion { Visibilities.Local }

@@ -18,9 +18,9 @@ import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.fir.utils.processEqualsFunctions
 import org.jetbrains.kotlin.analysis.api.getModule
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseResolver
+import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.impl.base.resolution.*
 import org.jetbrains.kotlin.analysis.api.impl.base.util.KaNonBoundToPsiErrorDiagnostic
-import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.resolution.*
 import org.jetbrains.kotlin.analysis.api.signatures.KaCallableSignature
 import org.jetbrains.kotlin.analysis.api.signatures.KaFunctionSignature
@@ -119,18 +119,18 @@ internal class KaFirResolver(
      * are different, we can certainly say that the [KtReference] does not
      * point to the companion object.
      */
-    override fun KtReference.isImplicitReferenceToCompanion(): Boolean = withValidityAssertion {
+    override fun KtReference.isImplicitReferenceToCompanion(): Boolean = withPsiValidityAssertion(element) {
         if (this !is KtSimpleNameReference) {
             return false
         }
 
         val implicitInvokeCall = run {
             val parentCallExpression = element.parent as? KtCallExpression
-            parentCallExpression?.getOrBuildFir(analysisSession.firResolveSession) as? FirImplicitInvokeCall
+            parentCallExpression?.getOrBuildFir(analysisSession.resolutionFacade) as? FirImplicitInvokeCall
         }
 
         val wholeQualifier = implicitInvokeCall?.explicitReceiver
-            ?: element.getOrBuildFir(analysisSession.firResolveSession)
+            ?: element.getOrBuildFir(analysisSession.resolutionFacade)
 
         if (wholeQualifier !is FirResolvedQualifier) return false
 
@@ -140,7 +140,7 @@ internal class KaFirResolver(
         return wholeQualifier.resolvedToCompanionObject
     }
 
-    override fun KtReference.resolveToSymbols(): Collection<KaSymbol> = withValidityAssertion {
+    override fun KtReference.resolveToSymbols(): Collection<KaSymbol> = withPsiValidityAssertion(element) {
         return doResolveToSymbols(this)
     }
 
@@ -230,7 +230,7 @@ internal class KaFirResolver(
             ?: psi.getContainingDotQualifiedExpressionForSelectorExpression()
             ?: psi.getConstructorDelegationCallForDelegationReferenceExpression()
             ?: psi
-        val fir = psiToResolve.getOrBuildFir(analysisSession.firResolveSession) ?: return emptyList()
+        val fir = psiToResolve.getOrBuildFir(analysisSession.resolutionFacade) ?: return emptyList()
         if (fir is FirDiagnosticHolder) {
             return fir.getErrorCallInfo(psiToResolve)
         }
@@ -423,7 +423,7 @@ internal class KaFirResolver(
         if (binaryExpression.operationToken !in KtTokens.ALL_ASSIGNMENTS) return null
         val leftOfBinary = deparenthesize(binaryExpression.left)
         if (leftOfBinary != lhs && !(leftOfBinary is KtQualifiedExpression && leftOfBinary.selectorExpression == lhs)) return null
-        val firBinaryExpression = binaryExpression.getOrBuildFir(analysisSession.firResolveSession)
+        val firBinaryExpression = binaryExpression.getOrBuildFir(analysisSession.resolutionFacade)
         if (firBinaryExpression is FirFunctionCall) {
             if (firBinaryExpression.origin == FirFunctionCallOrigin.Operator &&
                 firBinaryExpression.calleeReference.name in OperatorNameConventions.ASSIGNMENT_OPERATIONS
@@ -686,6 +686,13 @@ internal class KaFirResolver(
                 backingSignature = signature,
                 dispatchReceiver = fir.dispatchReceiver?.toKtReceiverValue(),
                 extensionReceiver = fir.extensionReceiver?.toKtReceiverValue(),
+                contextArguments = fir.contextArguments.toKaContextParameterValues(),
+            )
+
+            fir is FirDelegatedConstructorCall -> KaBasePartiallyAppliedSymbol(
+                backingSignature = signature,
+                dispatchReceiver = fir.dispatchReceiver?.toKtReceiverValue(),
+                extensionReceiver = null,
                 contextArguments = fir.contextArguments.toKaContextParameterValues(),
             )
 
@@ -986,7 +993,7 @@ internal class KaFirResolver(
 
     @OptIn(SymbolInternals::class)
     private fun getInitializerOfReferencedLocalVariable(variableReference: FirExpression): FirFunctionCall? {
-        return variableReference.toReference(firResolveSession.useSiteFirSession)
+        return variableReference.toReference(resolutionFacade.useSiteFirSession)
             ?.toResolvedVariableSymbol()
             ?.fir
             ?.initializer as? FirFunctionCall
@@ -1300,7 +1307,7 @@ internal class KaFirResolver(
 
         val calleeName = originalFunctionCall.calleeOrCandidateName ?: return emptyList()
         val candidates = AllCandidatesResolver(analysisSession.firSession).getAllCandidates(
-            analysisSession.firResolveSession,
+            analysisSession.resolutionFacade,
             originalFunctionCall,
             calleeName,
             psi,
@@ -1337,10 +1344,10 @@ internal class KaFirResolver(
             }
         }
 
-        val derivedClass = findDerivedClass(psi)?.resolveToFirSymbolOfTypeSafe<FirClassSymbol<*>>(firResolveSession) ?: return emptyList()
+        val derivedClass = findDerivedClass(psi)?.resolveToFirSymbolOfTypeSafe<FirClassSymbol<*>>(resolutionFacade) ?: return emptyList()
 
         val candidates = AllCandidatesResolver(analysisSession.firSession)
-            .getAllCandidatesForDelegatedConstructor(analysisSession.firResolveSession, this, derivedClass.toLookupTag(), psi)
+            .getAllCandidatesForDelegatedConstructor(analysisSession.resolutionFacade, this, derivedClass.toLookupTag(), psi)
 
         return candidates.mapNotNull {
             convertToKaCallCandidateInfo(
@@ -1601,7 +1608,7 @@ internal class KaFirResolver(
             is FirWhenSubjectExpression ->
                 // The subject variable is not processed here as we don't have KtExpression to represent it.
                 // K1 creates a fake expression in this case.
-                whenRef.value.subject?.findSourceKtExpressionForCallArgument()
+                whenSubject?.findSourceKtExpressionForCallArgument()
             // FirBlock is a fake container for desugared expressions like `++index` or `++list[0]`
             is FirBlock -> psi as? KtExpression
             else -> realPsi as? KtExpression
@@ -1617,7 +1624,7 @@ internal class KaFirResolver(
                 exception = e,
             ) {
                 withPsiEntry("psi", element, analysisSession::getModule)
-                element.getOrBuildFir(firResolveSession)?.let { withFirEntry("fir", it) }
+                element.getOrBuildFir(resolutionFacade)?.let { withFirEntry("fir", it) }
             }
         }
 

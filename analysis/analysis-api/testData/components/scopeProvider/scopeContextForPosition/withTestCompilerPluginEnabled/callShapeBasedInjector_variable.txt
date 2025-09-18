@@ -45,13 +45,12 @@ scopes:
           callableId: null
           compilerVisibility: Local
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: false
           isOverride: false
           location: PROPERTY
           modality: FINAL
@@ -296,6 +295,7 @@ scopes:
         isActual: false
         isExpect: false
         isExtension: false
+        isLateInit: false
         isVal: true
         location: LOCAL
         modality: FINAL

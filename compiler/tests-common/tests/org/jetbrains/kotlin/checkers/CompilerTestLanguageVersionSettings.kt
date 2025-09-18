@@ -36,6 +36,12 @@ data class CompilerTestLanguageVersionSettings(
     override fun getFeatureSupport(feature: LanguageFeature): LanguageFeature.State =
         extraLanguageFeatures[feature] ?: delegate.getFeatureSupport(feature)
 
+    override fun getManuallyEnabledLanguageFeatures(): List<LanguageFeature> =
+        delegate.getManuallyEnabledLanguageFeatures()
+
+    override fun getManuallyDisabledLanguageFeatures(): List<LanguageFeature> =
+        delegate.getManuallyDisabledLanguageFeatures()
+
     override fun isPreRelease(): Boolean = KotlinCompilerVersion.isPreRelease()
 
     @Suppress("UNCHECKED_CAST")
@@ -55,7 +61,8 @@ fun parseLanguageVersionSettingsOrDefault(directiveMap: Directives): CompilerTes
 @JvmOverloads
 fun parseLanguageVersionSettings(
     directives: Directives,
-    extraLanguageFeatures: Map<LanguageFeature, LanguageFeature.State> = emptyMap()
+    defaultLanguageVersion: LanguageVersion = LanguageVersion.LATEST_STABLE,
+    extraLanguageFeatures: Map<LanguageFeature, LanguageFeature.State> = emptyMap(),
 ): CompilerTestLanguageVersionSettings? {
     val apiVersionString = directives[API_VERSION_DIRECTIVE]
     val languageFeaturesString = directives[LANGUAGE_DIRECTIVE]
@@ -81,7 +88,7 @@ fun parseLanguageVersionSettings(
         else -> ApiVersion.parse(apiVersionString) ?: error("Unknown API version: $apiVersionString")
     }
 
-    val languageVersion = maxOf(LanguageVersion.LATEST_STABLE, LanguageVersion.fromVersionString(apiVersion.versionString)!!)
+    val languageVersion = maxOf(defaultLanguageVersion, LanguageVersion.fromVersionString(apiVersion.versionString)!!)
 
     val languageFeatures = languageFeaturesString?.let(::collectLanguageFeatureMap).orEmpty() + extraLanguageFeatures
 
@@ -110,7 +117,7 @@ fun setupLanguageVersionSettingsForCompilerTests(originalFileText: String, envir
 }
 
 @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE", "HIDDEN")
-private fun <T : Any> analysisFlag(flag: AnalysisFlag<T>, value: @kotlin.internal.NoInfer T?): Pair<AnalysisFlag<T>, T>? =
+private fun <T : Any> analysisFlag(flag: AnalysisFlag<T?>, value: @kotlin.internal.NoInfer T?): Pair<AnalysisFlag<T?>, T>? =
     value?.let(flag::to)
 
 private fun collectLanguageFeatureMap(directives: String): Map<LanguageFeature, LanguageFeature.State> {
@@ -130,7 +137,6 @@ private fun collectLanguageFeatureMap(directives: String): Map<LanguageFeature, 
         val mode = when (matcher.group(1)) {
             "+" -> LanguageFeature.State.ENABLED
             "-" -> LanguageFeature.State.DISABLED
-            "warn:" -> LanguageFeature.State.ENABLED_WITH_WARNING
             else -> error("Unknown mode for language feature: ${matcher.group(1)}")
         }
         val name = matcher.group(2)

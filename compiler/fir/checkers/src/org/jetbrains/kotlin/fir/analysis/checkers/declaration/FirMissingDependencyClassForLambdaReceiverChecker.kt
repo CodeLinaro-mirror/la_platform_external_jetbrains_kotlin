@@ -15,18 +15,15 @@ import org.jetbrains.kotlin.fir.types.receiverType
 
 object FirMissingDependencyClassForLambdaReceiverChecker :
     FirAnonymousFunctionChecker(MppCheckerKind.Common), FirMissingDependencyClassProxy {
-    override fun check(
-        declaration: FirAnonymousFunction,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
-    ) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirAnonymousFunction) {
         if (!declaration.isLambda) return
         val receiverType = declaration.receiverType ?: return
 
         val missingTypes = mutableSetOf<ConeClassLikeType>()
-        considerType(receiverType, missingTypes, context)
+        considerType(receiverType, missingTypes)
         reportMissingTypes(
-            declaration.source, missingTypes, context, reporter,
+            declaration.source, missingTypes,
             missingTypeOrigin = FirMissingDependencyClassProxy.MissingTypeOrigin.LambdaReceiver
         )
     }

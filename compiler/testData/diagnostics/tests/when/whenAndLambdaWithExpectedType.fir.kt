@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 /*
  * KOTLIN DIAGNOSTICS SPEC TEST (NEGATIVE)
  *
@@ -31,6 +30,8 @@ val test3: (String) -> Boolean =
 
 val test4: (String) -> Boolean =
         when {
-            true -> <!ARGUMENT_TYPE_MISMATCH!>{ s1, <!CANNOT_INFER_PARAMETER_TYPE!>s2<!> -> true }<!>
+            true -> <!ARGUMENT_TYPE_MISMATCH!>{ s1, <!CANNOT_INFER_VALUE_PARAMETER_TYPE!>s2<!> -> true }<!>
             else -> null!!
         }
+
+/* GENERATED_FIR_TAGS: checkNotNullCall, functionalType, lambdaLiteral, propertyDeclaration, whenExpression */

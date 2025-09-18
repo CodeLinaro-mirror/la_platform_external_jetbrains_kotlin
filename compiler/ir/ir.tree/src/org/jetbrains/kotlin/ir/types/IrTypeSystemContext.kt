@@ -339,6 +339,7 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
         arguments: List<TypeArgumentMarker>,
         nullable: Boolean,
         isExtensionFunction: Boolean,
+        contextParameterCount: Int,
         attributes: List<AnnotationMarker>?
     ): IrSimpleType {
         val ourAnnotations = attributes?.memoryOptimizedFilterIsInstance<IrConstructorCall>()
@@ -474,15 +475,6 @@ interface IrTypeSystemContext : TypeSystemContext, TypeSystemCommonSuperTypesCon
 
     override fun KotlinTypeMarker.getUnsubstitutedUnderlyingType(): KotlinTypeMarker? =
         (this as IrType).classOrNull?.owner?.inlineClassRepresentation?.underlyingType
-
-    override fun KotlinTypeMarker.getSubstitutedUnderlyingType(): KotlinTypeMarker? =
-        getUnsubstitutedUnderlyingType()?.let { type ->
-            // Taking only the type parameters of the class (and not its outer classes) is OK since inner classes are always top level
-            IrTypeSubstitutor(
-                (this as IrType).getClass()!!.typeParameters.memoryOptimizedMap { it.symbol },
-                (this as? IrSimpleType)?.arguments.orEmpty(),
-            ).substitute(type as IrType)
-        }
 
     override fun TypeConstructorMarker.getPrimitiveType(): PrimitiveType? =
         getNameForClassUnderKotlinPackage()?.let(PrimitiveType::getByShortName)

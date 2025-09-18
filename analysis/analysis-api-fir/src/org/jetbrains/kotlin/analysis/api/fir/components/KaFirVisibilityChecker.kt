@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,33 +13,29 @@ import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirFileSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPsiJavaClassSymbol
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirSymbol
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
-import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaFileSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaReceiverParameterSymbol
-import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolVisibility
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.api.symbols.*
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirSafe
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.collectUseSiteContainers
+import org.jetbrains.kotlin.analysis.utils.printer.parentsOfType
 import org.jetbrains.kotlin.fir.analysis.checkers.isVisibleInClass
-import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirClass
-import org.jetbrains.kotlin.fir.declarations.FirDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
-import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.packageFqName
+import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.resolve.transformers.publishedApiEffectiveVisibility
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.visibilityChecker
-import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtExpression
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 internal class KaFirVisibilityChecker(
@@ -49,22 +45,32 @@ internal class KaFirVisibilityChecker(
         useSiteFile: KaFileSymbol,
         receiverExpression: KtExpression?,
         position: PsiElement,
-    ): KaUseSiteVisibilityChecker = withValidityAssertion {
+    ): KaUseSiteVisibilityChecker = withPsiValidityAssertion(receiverExpression, position) {
         require(useSiteFile is KaFirFileSymbol)
 
-        val dispatchReceiver = receiverExpression?.getOrBuildFirSafe<FirExpression>(analysisSession.firResolveSession)
-
-        val positionModule = firResolveSession.moduleProvider.getModule(position)
-        val effectiveContainers = collectUseSiteContainers(position, firResolveSession).orEmpty()
+        val dispatchReceiver = receiverExpression?.getOrBuildFirSafe<FirExpression>(analysisSession.resolutionFacade)
+        val positionModule = resolutionFacade.moduleProvider.getModule(position)
+        val effectiveContainers = collectEffectiveContainers(position)
 
         KaFirUseSiteVisibilityChecker(
             positionModule,
             effectiveContainers,
             dispatchReceiver,
             useSiteFile,
-            firResolveSession,
+            resolutionFacade,
             token,
         )
+    }
+
+    private fun collectEffectiveContainers(position: PsiElement): List<FirDeclaration> {
+        val nonLocalLazilyResolvedContainers = collectUseSiteContainers(position, resolutionFacade).orEmpty()
+        val closestNonLocalElement = nonLocalLazilyResolvedContainers.lastOrNull()?.psi ?: return nonLocalLazilyResolvedContainers
+        val localFullyResolvedContainers = position.parentsOfType<KtClassOrObject>()
+            .takeWhile { it != closestNonLocalElement }
+            .map { it.resolveToFirSymbol(resolutionFacade).fir }
+            .toList()
+
+        return nonLocalLazilyResolvedContainers + localFullyResolvedContainers
     }
 
     override fun KaCallableSymbol.isVisibleInClass(classSymbol: KaClassSymbol): Boolean = withValidityAssertion {
@@ -105,7 +111,7 @@ private class KaFirUseSiteVisibilityChecker(
     private val effectiveContainers: List<FirDeclaration>,
     private val dispatchReceiver: FirExpression?,
     private val useSiteFile: KaFirFileSymbol,
-    private val firResolveSession: LLFirResolveSession,
+    private val resolutionFacade: LLResolutionFacade,
     override val token: KaLifetimeToken,
 ) : KaUseSiteVisibilityChecker {
     override fun isVisible(candidateSymbol: KaDeclarationSymbol): Boolean = withValidityAssertion {
@@ -125,9 +131,9 @@ private class KaFirUseSiteVisibilityChecker(
         val effectiveSession = if (positionModule is KaDanglingFileModule && candidateModule != positionModule) {
             @Suppress("USELESS_CAST") // Smart cast is only available in K2
             val contextModule = (positionModule as KaDanglingFileModule).contextModule
-            firResolveSession.getSessionFor(contextModule)
+            resolutionFacade.getSessionFor(contextModule)
         } else {
-            firResolveSession.getSessionFor(positionModule)
+            resolutionFacade.getSessionFor(positionModule)
         }
 
         return effectiveSession.visibilityChecker.isVisible(

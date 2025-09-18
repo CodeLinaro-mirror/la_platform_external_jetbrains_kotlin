@@ -10,7 +10,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.compile.CodeFragmentCapturedValue
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.resolveToFirSymbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.containingKtFileIfAny
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
@@ -27,21 +27,21 @@ import org.jetbrains.kotlin.fir.references.FirSuperReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.resolve.defaultType
-import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolve.referencedMemberSymbol
+import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
-import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
-import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi
-import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.KtCodeFragment
+import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtFunction
 import java.util.*
 
 @KaImplementationDetail
@@ -56,16 +56,20 @@ data class CodeFragmentCapturedId(val symbol: FirBasedSymbol<*>)
 
 @KaImplementationDetail
 object CodeFragmentCapturedValueAnalyzer {
-    fun analyze(resolveSession: LLFirResolveSession, codeFragment: FirCodeFragment): CodeFragmentCapturedValueData {
+    fun analyze(resolutionFacade: LLResolutionFacade, codeFragment: FirCodeFragment): CodeFragmentCapturedValueData {
         val selfSymbols = CodeFragmentDeclarationCollector().apply { codeFragment.accept(this) }.symbols.toSet()
-        val capturedVisitor = CodeFragmentCapturedValueVisitor(resolveSession, selfSymbols)
+        val capturedVisitor = CodeFragmentCapturedValueVisitor(resolutionFacade, selfSymbols)
         codeFragment.accept(capturedVisitor)
-        return CodeFragmentCapturedValueData(capturedVisitor.values, capturedVisitor.files)
+        return CodeFragmentCapturedValueData(capturedVisitor.values, capturedVisitor.files, capturedVisitor.reifiedTypeParameters)
     }
 }
 
 @KaImplementationDetail
-class CodeFragmentCapturedValueData(val symbols: List<CodeFragmentCapturedSymbol>, val files: List<KtFile>)
+class CodeFragmentCapturedValueData(
+    val symbols: List<CodeFragmentCapturedSymbol>,
+    val files: List<KtFile>,
+    val reifiedTypeParameters: Set<FirTypeParameterSymbol>,
+)
 
 private class CodeFragmentDeclarationCollector : FirDefaultVisitorVoid() {
     private val collectedSymbols = mutableListOf<FirBasedSymbol<*>>()
@@ -83,11 +87,12 @@ private class CodeFragmentDeclarationCollector : FirDefaultVisitorVoid() {
 }
 
 private class CodeFragmentCapturedValueVisitor(
-    private val resolveSession: LLFirResolveSession,
+    private val resolutionFacade: LLResolutionFacade,
     private val selfSymbols: Set<FirBasedSymbol<*>>,
 ) : FirDefaultVisitorVoid() {
     private val collectedMappings = LinkedHashMap<CodeFragmentCapturedId, CodeFragmentCapturedSymbol>()
     private val collectedFiles = LinkedHashSet<KtFile>()
+    private val collectedReifiedTypeParameters = HashSet<FirTypeParameterSymbol>()
 
     private val assignmentLhs = mutableListOf<FirBasedSymbol<*>>()
 
@@ -97,8 +102,11 @@ private class CodeFragmentCapturedValueVisitor(
     val files: List<KtFile>
         get() = collectedFiles.toList()
 
+    val reifiedTypeParameters: Set<FirTypeParameterSymbol>
+        get() = collectedReifiedTypeParameters.toSet()
+
     private val session: FirSession
-        get() = resolveSession.useSiteFirSession
+        get() = resolutionFacade.useSiteFirSession
 
     override fun visitElement(element: FirElement) {
         processElement(element)
@@ -206,6 +214,19 @@ private class CodeFragmentCapturedValueVisitor(
                     processCall(element, symbol)
                 }
             }
+            is FirResolvedTypeRef -> {
+                processConeType(element.coneType)
+            }
+        }
+    }
+
+    private fun processConeType(type: ConeKotlinType) {
+        if (type is ConeTypeParameterType) {
+            val symbol = type.lookupTag.typeParameterSymbol
+            if (symbol.isReified) collectedReifiedTypeParameters.add(symbol)
+        }
+        for (typeArgument in type.typeArguments) {
+            typeArgument.type?.let { processConeType(it) }
         }
     }
 
@@ -292,6 +313,8 @@ private class CodeFragmentCapturedValueVisitor(
         }
 
     private fun registerFileIfRequired(symbol: FirBasedSymbol<*>) {
+        if (symbol is FirTypeParameterSymbol && symbol.isReified) collectedReifiedTypeParameters.add(symbol)
+
         val needsRegistration = when (symbol) {
             is FirRegularClassSymbol -> symbol.isLocal
             is FirAnonymousObjectSymbol -> true
@@ -323,7 +346,7 @@ private class CodeFragmentCapturedValueVisitor(
             }
 
             if (elementInBetween is KtFunction) {
-                val symbolInBetween = elementInBetween.resolveToFirSymbol(resolveSession)
+                val symbolInBetween = elementInBetween.resolveToFirSymbol(resolutionFacade)
                 if (symbolInBetween is FirCallableSymbol<*> && !symbolInBetween.isInline) {
                     return true
                 }

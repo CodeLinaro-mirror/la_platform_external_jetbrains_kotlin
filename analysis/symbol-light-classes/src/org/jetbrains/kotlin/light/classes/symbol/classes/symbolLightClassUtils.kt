@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KaDeclarationContainerSymbol
+import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KaClassErrorType
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.types.KaType
@@ -26,10 +27,12 @@ import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_BASE
 import org.jetbrains.kotlin.asJava.classes.findEntry
 import org.jetbrains.kotlin.asJava.hasInterfaceDefaultImpls
 import org.jetbrains.kotlin.asJava.toLightClass
-import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.config.JvmDefaultMode
+import org.jetbrains.kotlin.config.LanguageVersionSettingsImpl
+import org.jetbrains.kotlin.config.jvmDefaultMode
 import org.jetbrains.kotlin.lexer.KtTokens.INLINE_KEYWORD
 import org.jetbrains.kotlin.lexer.KtTokens.VALUE_KEYWORD
+import org.jetbrains.kotlin.light.classes.symbol.analyzeForLightClasses
 import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmNameAnnotation
 import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmOverloadsAnnotation
 import org.jetbrains.kotlin.light.classes.symbol.annotations.hasJvmSyntheticAnnotation
@@ -48,6 +51,8 @@ import org.jetbrains.kotlin.psi.psiUtil.containingClass
 import org.jetbrains.kotlin.psi.psiUtil.isObjectLiteral
 import org.jetbrains.kotlin.utils.SmartList
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
+import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
+import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
 import java.util.*
 
 internal fun createSymbolLightClassNoCache(classOrObject: KtClassOrObject, ktModule: KaModule): KtLightClass? = when {
@@ -166,20 +171,39 @@ internal fun KaSession.createMethods(
     }
 }
 
-internal inline fun <T : KaFunctionSymbol> KaSession.createJvmOverloadsIfNeeded(
+internal fun <T : KaFunctionSymbol> KaSession.createMethodsJvmOverloadsAware(
     declaration: T,
     result: MutableList<PsiMethod>,
-    lightMethodCreator: (Int, BitSet) -> PsiMethod,
+    skipValueClassParameters: Boolean,
+    methodIndexBase: Int,
+    lightMethodCreator: (Int, BitSet?) -> PsiMethod,
 ) {
+    var indexOfFirstParameterWithValueClass: Int? = null
+    if (skipValueClassParameters && !declaration.hasJvmNameAnnotation()) {
+        for ((index, parameter) in declaration.valueParameters.withIndex()) when {
+            !typeForValueClass(parameter.returnType) -> {}
+            !parameter.hasDefaultValue -> return // No method can be generated at all
+            indexOfFirstParameterWithValueClass == null -> indexOfFirstParameterWithValueClass = index
+        }
+    }
+
+    // No value classes in the signature -> the method can be generated as it is
+    // A declaration with @JvmName is also allowed as it replaces the mangling name
+    if (indexOfFirstParameterWithValueClass == null) {
+        result += lightMethodCreator.invoke(methodIndexBase, null)
+    }
+
     if (!declaration.hasJvmOverloadsAnnotation()) return
-    var methodIndex = METHOD_INDEX_BASE
+
+    var methodIndex = methodIndexBase
     val skipMask = BitSet(declaration.valueParameters.size)
     for (i in declaration.valueParameters.size - 1 downTo 0) {
         if (!declaration.valueParameters[i].hasDefaultValue) continue
         skipMask.set(i)
-        result.add(
-            lightMethodCreator.invoke(methodIndex++, skipMask.copy())
-        )
+
+        if (indexOfFirstParameterWithValueClass == null || i <= indexOfFirstParameterWithValueClass) {
+            result += lightMethodCreator.invoke(methodIndex++, skipMask.copy())
+        }
     }
 }
 
@@ -338,15 +362,12 @@ internal fun KaSession.createInnerClasses(
         }
     }
 
-    val jvmDefaultMode = classOrObject
-        ?.let { getModule(it) as? KaSourceModule }
-        ?.languageVersionSettings
-        ?.getFlag(JvmAnalysisFlags.jvmDefaultMode)
-        ?: JvmDefaultMode.DISABLE
+    val languageVersionSettings = classOrObject?.let { getModule(it) as? KaSourceModule }?.languageVersionSettings
+        ?: LanguageVersionSettingsImpl.DEFAULT
 
     if (containingClass is SymbolLightClassForInterface &&
         classOrObject?.hasInterfaceDefaultImpls == true &&
-        jvmDefaultMode != JvmDefaultMode.NO_COMPATIBILITY
+        languageVersionSettings.jvmDefaultMode != JvmDefaultMode.NO_COMPATIBILITY
     ) {
         result.add(SymbolLightClassForInterfaceDefaultImpls(containingClass))
     }
@@ -445,6 +466,8 @@ internal fun KaSession.hasTypeForValueClassInSignature(
     callableSymbol: KaCallableSymbol,
     ignoreReturnType: Boolean = false,
     suppressJvmNameCheck: Boolean = false,
+    argumentsSkipMask: BitSet? = null,
+    ignoreValueParameters: Boolean = false,
 ): Boolean {
     // Declarations with JvmName can be accessible from Java
     when {
@@ -462,8 +485,10 @@ internal fun KaSession.hasTypeForValueClassInSignature(
 
     if (callableSymbol.receiverType?.let { typeForValueClass(it) } == true) return true
     if (callableSymbol.contextParameters.any { typeForValueClass(it.returnType) }) return true
-    if (callableSymbol is KaFunctionSymbol) {
-        return callableSymbol.valueParameters.any { typeForValueClass(it.returnType) }
+    if (!ignoreValueParameters && callableSymbol is KaFunctionSymbol) {
+        return callableSymbol.valueParameters.withIndex().any { (index, valueParameter) ->
+            argumentsSkipMask?.get(index) != true && typeForValueClass(valueParameter.returnType)
+        }
     }
 
     return false
@@ -472,4 +497,18 @@ internal fun KaSession.hasTypeForValueClassInSignature(
 internal fun KaSession.typeForValueClass(type: KaType): Boolean {
     val symbol = type.expandedSymbol as? KaNamedClassSymbol ?: return false
     return symbol.isInline
+}
+
+internal inline fun <reified T : KaClassSymbol> KtClassOrObject.createSymbolPointer(
+    module: KaModule,
+): KaSymbolPointer<T> = analyzeForLightClasses(module) {
+    val symbol = symbol
+    requireWithAttachment(symbol is T, { "Unexpected symbol type" }) {
+        withPsiEntry("declaration", this@createSymbolPointer)
+        withEntry("symbol", symbol) { it.toString() }
+        withEntry("expectedSymbolType", T::class.simpleName ?: "<null>")
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    symbol.createPointer() as KaSymbolPointer<T>
 }

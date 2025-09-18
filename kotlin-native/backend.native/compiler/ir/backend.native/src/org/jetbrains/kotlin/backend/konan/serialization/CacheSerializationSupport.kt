@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.backend.common.serialization.encodings.BinarySymbolD
 import org.jetbrains.kotlin.backend.common.serialization.proto.IdSignature as ProtoIdSignature
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.ir.ClassLayoutBuilder
-import org.jetbrains.kotlin.codegen.StringConcatGenerator.Item.Companion.parameter
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.*
@@ -28,9 +27,9 @@ import org.jetbrains.kotlin.ir.util.getPackageFragment
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.encodings.WobblyTF8
-import org.jetbrains.kotlin.library.impl.IrArrayMemoryReader
-import org.jetbrains.kotlin.library.impl.IrMemoryArrayWriter
-import org.jetbrains.kotlin.library.impl.IrMemoryStringWriter
+import org.jetbrains.kotlin.library.impl.IrArrayReader
+import org.jetbrains.kotlin.library.impl.IrArrayWriter
+import org.jetbrains.kotlin.library.impl.IrStringWriter
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import kotlin.collections.set
@@ -363,7 +362,11 @@ internal class ClassFieldsDeserializer(
 
         fun getByClassId(classId: ClassId): IrClassSymbol {
             val classIdSig = getPublicSignature(classId.packageFqName, classId.relativeClassName.asString())
-            return symbolDeserializer.deserializePublicSymbol(classIdSig, BinarySymbolData.SymbolKind.CLASS_SYMBOL) as IrClassSymbol
+            return deserializer.linker.deserializeOrReturnUnboundIrSymbolIfPartialLinkageEnabled(
+                    classIdSig,
+                    BinarySymbolData.SymbolKind.CLASS_SYMBOL,
+                    deserializer
+            ) as IrClassSymbol
         }
 
         return serializedClassFields.fields.mapIndexed { index, field ->
@@ -524,8 +527,8 @@ internal object ClassFieldsSerializer {
         classFields.forEach {
             idSignatureSerializer.protoIdSignature(it.classSignature)
         }
-        val signatures = IrMemoryArrayWriter(protoIdSignatureArray.map { it.toByteArray() }).writeIntoMemory()
-        val signatureStrings = IrMemoryStringWriter(protoStringArray).writeIntoMemory()
+        val signatures = IrArrayWriter(protoIdSignatureArray.map { it.toByteArray() }).writeIntoMemory()
+        val signatureStrings = IrStringWriter(protoStringArray).writeIntoMemory()
         val stringTable = buildStringTable {
             classFields.forEach {
                 +it.file.fqName
@@ -550,15 +553,16 @@ internal object ClassFieldsSerializer {
                 stream.writeInt(field.alignment)
             }
         }
-        return IrMemoryArrayWriter(listOf(signatures, signatureStrings, stream.buf)).writeIntoMemory()
+        return IrArrayWriter(listOf(signatures, signatureStrings, stream.buf)).writeIntoMemory()
     }
 
     fun deserializeTo(data: ByteArray, result: MutableList<SerializedClassFields>) {
-        val reader = IrArrayMemoryReader(data)
-        val signatures = IrArrayMemoryReader(reader.tableItemBytes(0))
-        val signatureStrings = IrArrayMemoryReader(reader.tableItemBytes(1))
+        val reader = IrArrayReader(data)
+        val signatures = IrArrayReader(reader.tableItemBytes(0))
+        val signatureStrings = IrArrayReader(reader.tableItemBytes(1))
         val libFile: IrLibraryFile = object: IrLibraryFile() {
             override fun declaration(index: Int) = error("Declarations are not needed for IdSignature deserialization")
+            override fun inlineDeclaration(index: Int) = error("Inline declarations are not needed for IdSignature deserialization")
             override fun type(index: Int) = error("Types are not needed for IdSignature deserialization")
             override fun expressionBody(index: Int) = error("Expression bodies are not needed for IdSignature deserialization")
             override fun statementBody(index: Int) = error("Statement bodies are not needed for IdSignature deserialization")

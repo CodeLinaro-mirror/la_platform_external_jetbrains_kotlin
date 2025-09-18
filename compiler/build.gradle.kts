@@ -35,6 +35,7 @@ dependencies {
     testRuntimeOnly(toolsJar())
 }
 
+optInToK1Deprecation()
 optInToExperimentalCompilerApi()
 
 sourceSets {
@@ -66,7 +67,7 @@ if (kotlinBuildProperties.isTeamcityBuild) {
     }
 } else {
     // avoiding IntelliJ test configuration selection menu (see comments in compiler/fir/fir2ir/build.gradle.kts for details)
-    tasks.create("fastJarFSLongTests")
+    tasks.register("fastJarFSLongTests")
 }
 
 val generateTestData by generator("org.jetbrains.kotlin.generators.tests.GenerateCompilerTestDataKt")

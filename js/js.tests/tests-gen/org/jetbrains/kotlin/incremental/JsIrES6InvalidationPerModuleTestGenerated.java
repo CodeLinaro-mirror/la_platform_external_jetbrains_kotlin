@@ -29,6 +29,12 @@ public class JsIrES6InvalidationPerModuleTestGenerated extends AbstractJsIrES6In
   }
 
   @Test
+  @TestMetadata("addJsFunCall")
+  public void testAddJsFunCall() {
+    runTest("js/js.translator/testData/incremental/invalidation/addJsFunCall/");
+  }
+
+  @Test
   @TestMetadata("addUpdateRemoveDependentFile")
   public void testAddUpdateRemoveDependentFile() {
     runTest("js/js.translator/testData/incremental/invalidation/addUpdateRemoveDependentFile/");
@@ -154,6 +160,12 @@ public class JsIrES6InvalidationPerModuleTestGenerated extends AbstractJsIrES6In
   }
 
   @Test
+  @TestMetadata("enumEntriesInlining")
+  public void testEnumEntriesInlining() {
+    runTest("js/js.translator/testData/incremental/invalidation/enumEntriesInlining/");
+  }
+
+  @Test
   @TestMetadata("enumsInInlineFunctions")
   public void testEnumsInInlineFunctions() {
     runTest("js/js.translator/testData/incremental/invalidation/enumsInInlineFunctions/");
@@ -217,12 +229,6 @@ public class JsIrES6InvalidationPerModuleTestGenerated extends AbstractJsIrES6In
   @TestMetadata("fastPath2")
   public void testFastPath2() {
     runTest("js/js.translator/testData/incremental/invalidation/fastPath2/");
-  }
-
-  @Test
-  @TestMetadata("fileNameCaseClash")
-  public void testFileNameCaseClash() {
-    runTest("js/js.translator/testData/incremental/invalidation/fileNameCaseClash/");
   }
 
   @Test

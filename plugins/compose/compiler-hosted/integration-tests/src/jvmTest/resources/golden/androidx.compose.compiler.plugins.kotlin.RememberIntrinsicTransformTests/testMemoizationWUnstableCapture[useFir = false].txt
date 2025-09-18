@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 284871311, startOffset = 72, endOffset = 212)
 fun Test(param: String, unstable: List<*>, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Test)<{>,<Wrappe...>:Test.kt")
@@ -22,7 +23,7 @@ fun Test(param: String, unstable: List<*>, %composer: Composer?, %changed: Int) 
   if (%changed and 0b00110000 == 0) {
     %dirty = %dirty or if (%composer.changedInstance(unstable)) 0b00100000 else 0b00010000
   }
-  if (%dirty and 0b00010001 != 0b00010000 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b00010001 != 0b00010000, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }

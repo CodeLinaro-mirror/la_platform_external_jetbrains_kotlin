@@ -10,9 +10,10 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.analysis.api.platform.analysisMessageBus
 import org.jetbrains.kotlin.analysis.api.platform.modification.KaElementModificationType
-import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationTopics
-import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModuleOutOfBlockModificationListener
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationEvent
+import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationEventListener
+import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModuleOutOfBlockModificationEvent
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirOfType
 import org.jetbrains.kotlin.analysis.low.level.api.fir.element.builder.getNonLocalContainingOrThisDeclaration
@@ -20,7 +21,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.lazyResolveRenderer
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirOutOfContentRootTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirScriptTestConfigurator
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
-import org.jetbrains.kotlin.analysis.low.level.api.fir.withResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.withResolutionFacade
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
@@ -36,6 +37,7 @@ import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 import org.jetbrains.kotlin.test.services.moduleStructure
+import org.jetbrains.kotlin.test.testFramework.runWriteAction
 
 abstract class AbstractInBlockModificationTest : AbstractAnalysisApiBasedTest() {
     override val additionalDirectives: List<DirectivesContainer>
@@ -58,7 +60,7 @@ abstract class AbstractInBlockModificationTest : AbstractAnalysisApiBasedTest() 
             dumpFirFile = Directives.DUMP_FILE in testServices.moduleStructure.allDirectives,
         )
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+        testServices.assertions.assertEqualsToTestOutputFile(actual)
     }
 
     private object Directives : SimpleDirectivesContainer() {
@@ -71,10 +73,10 @@ internal fun testInBlockModification(
     elementToModify: PsiElement,
     testServices: TestServices,
     dumpFirFile: Boolean,
-): String = withResolveSession(file) { firSession ->
+): String = withResolutionFacade(file) { resolutionFacade ->
     // We are trying to invoke a test case twice inside one session to be sure that sequent modifications are work
-    val firstAttempt = doTestInBlockModification(file, elementToModify, testServices, dumpFirFile, firSession)
-    val secondAttempt = doTestInBlockModification(file, elementToModify, testServices, dumpFirFile, firSession)
+    val firstAttempt = doTestInBlockModification(file, elementToModify, testServices, dumpFirFile, resolutionFacade)
+    val secondAttempt = doTestInBlockModification(file, elementToModify, testServices, dumpFirFile, resolutionFacade)
     testServices.assertions.assertEquals(firstAttempt, secondAttempt) { "Invocations must be the same" }
 
     firstAttempt
@@ -85,12 +87,12 @@ private fun doTestInBlockModification(
     elementToModify: PsiElement,
     testServices: TestServices,
     dumpFirFile: Boolean,
-    firSession: LLFirResolveSession,
+    resolutionFacade: LLResolutionFacade,
 ): String {
     val declaration = elementToModify.getNonLocalContainingOrThisDeclaration() ?: file
-    val firDeclarationBefore = declaration.getOrBuildFirOfType<FirDeclaration>(firSession)
+    val firDeclarationBefore = declaration.getOrBuildFirOfType<FirDeclaration>(resolutionFacade)
     val declarationToRender = if (dumpFirFile) {
-        file.getOrBuildFirFile(firSession).also { it.lazyResolveToPhaseRecursively(FirResolvePhase.BODY_RESOLVE) }
+        file.getOrBuildFirFile(resolutionFacade).also { it.lazyResolveToPhaseRecursively(FirResolvePhase.BODY_RESOLVE) }
     } else {
         firDeclarationBefore
     }
@@ -98,19 +100,27 @@ private fun doTestInBlockModification(
     val textBefore = declarationToRender.render()
 
     val modificationService = LLFirDeclarationModificationService.getInstance(elementToModify.project)
-    val isOutOfBlock = modificationService.modifyElement(elementToModify)
-    if (isOutOfBlock) {
+
+    val isApplicable = runWriteAction {
+        val isOutOfBlock = modificationService.modifyElement(elementToModify)
+        if (isOutOfBlock) {
+            return@runWriteAction false
+        }
+
+        elementToModify.modify()
+
+        val textAfterPsiModification = declarationToRender.render()
+        testServices.assertions.assertEquals(textBefore, textAfterPsiModification) {
+            "The declaration before and after modification must be in the same state, because changes in not flushed yet"
+        }
+
+        modificationService.flushModifications()
+        true
+    }
+
+    if (!isApplicable) {
         return "IN-BLOCK MODIFICATION IS NOT APPLICABLE FOR THIS PLACE"
     }
-
-    elementToModify.modify()
-
-    val textAfterPsiModification = declarationToRender.render()
-    testServices.assertions.assertEquals(textBefore, textAfterPsiModification) {
-        "The declaration before and after modification must be in the same state, because changes in not flushed yet"
-    }
-
-    modificationService.flushModifications()
 
     val textAfterModification = declarationToRender.render()
     testServices.assertions.assertNotEquals(textBefore, textAfterModification) {
@@ -123,11 +133,11 @@ private fun doTestInBlockModification(
         declarationToRender.lazyResolveToPhaseRecursively(FirResolvePhase.BODY_RESOLVE)
         declarationToRender.render()
     } else {
-        declaration.getOrBuildFirOfType<FirDeclaration>(firSession)
+        declaration.getOrBuildFirOfType<FirDeclaration>(resolutionFacade)
         declarationToRender.render()
     }
 
-    val firDeclarationAfter = declaration.getOrBuildFirOfType<FirDeclaration>(firSession)
+    val firDeclarationAfter = declaration.getOrBuildFirOfType<FirDeclaration>(resolutionFacade)
     testServices.assertions.assertEquals(firDeclarationBefore, firDeclarationAfter) {
         "The declaration before and after must be the same"
     }
@@ -147,8 +157,12 @@ private fun LLFirDeclarationModificationService.modifyElement(element: PsiElemen
     var isOutOfBlock = false
     try {
         project.analysisMessageBus.connect(disposable).subscribe(
-            KotlinModificationTopics.MODULE_OUT_OF_BLOCK_MODIFICATION,
-            KotlinModuleOutOfBlockModificationListener { isOutOfBlock = true },
+            KotlinModificationEvent.TOPIC,
+            KotlinModificationEventListener { event ->
+                if (event is KotlinModuleOutOfBlockModificationEvent) {
+                    isOutOfBlock = true
+                }
+            }
         )
 
         elementModified(element, modificationType = KaElementModificationType.Unknown)

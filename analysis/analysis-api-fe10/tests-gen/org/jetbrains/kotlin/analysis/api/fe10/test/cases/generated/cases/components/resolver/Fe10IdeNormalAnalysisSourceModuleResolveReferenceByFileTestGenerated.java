@@ -173,6 +173,18 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
   }
 
   @Test
+  @TestMetadata("innerClass.kt")
+  public void testInnerClass() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/innerClass.kt");
+  }
+
+  @Test
+  @TestMetadata("innerClassThis.kt")
+  public void testInnerClassThis() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/innerClassThis.kt");
+  }
+
+  @Test
   @TestMetadata("invoke.kt")
   public void testInvoke() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/invoke.kt");
@@ -194,6 +206,18 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
   @TestMetadata("multiEquals.kt")
   public void testMultiEquals() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/multiEquals.kt");
+  }
+
+  @Test
+  @TestMetadata("nestedClass.kt")
+  public void testNestedClass() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/nestedClass.kt");
+  }
+
+  @Test
+  @TestMetadata("nestedClassThis.kt")
+  public void testNestedClassThis() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/nestedClassThis.kt");
   }
 
   @Test
@@ -317,6 +341,74 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveReferenceByFileTestGenerate
     @TestMetadata("topLevelObject_rootPackage.kt")
     public void testTopLevelObject_rootPackage() {
       runTest("analysis/analysis-api/testData/components/resolver/allByPsi/imports/topLevelObject_rootPackage.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors")
+  @TestDataPath("$PROJECT_ROOT")
+  public class WithErrors {
+    @Test
+    public void testAllFilesPresentInWithErrors() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier")
+    @TestDataPath("$PROJECT_ROOT")
+    public class PartiallyUnresolvedTypeQualifier {
+      @Test
+      public void testAllFilesPresentInPartiallyUnresolvedTypeQualifier() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier"), Pattern.compile("^(.+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeOneUnsresolvedClass.kt")
+      public void testClassNameBeforeOneUnsresolvedClass() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeOneUnsresolvedClass.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeOneUnsresolvedClassWithDot.kt")
+      public void testClassNameBeforeOneUnsresolvedClassWithDot() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeOneUnsresolvedClassWithDot.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeOneUnsresolvedClassWithTwoResolved.kt")
+      public void testClassNameBeforeOneUnsresolvedClassWithTwoResolved() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeOneUnsresolvedClassWithTwoResolved.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeOneUnsresolvedClassWithTwoResolvedWithDot.kt")
+      public void testClassNameBeforeOneUnsresolvedClassWithTwoResolvedWithDot() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeOneUnsresolvedClassWithTwoResolvedWithDot.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeTwoUnsresolvedClasses.kt")
+      public void testClassNameBeforeTwoUnsresolvedClasses() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeTwoUnsresolvedClasses.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeTwoUnsresolvedClassesTwoResolved.kt")
+      public void testClassNameBeforeTwoUnsresolvedClassesTwoResolved() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeTwoUnsresolvedClassesTwoResolved.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassNameBeforeTwoUnsresolvedClassesWithDot.kt")
+      public void testClassNameBeforeTwoUnsresolvedClassesWithDot() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/ClassNameBeforeTwoUnsresolvedClassesWithDot.kt");
+      }
+
+      @Test
+      @TestMetadata("GenericClassNameBeforeOneUnresolvedClass.kt")
+      public void testGenericClassNameBeforeOneUnresolvedClass() {
+        runTest("analysis/analysis-api/testData/components/resolver/allByPsi/withErrors/partiallyUnresolvedTypeQualifier/GenericClassNameBeforeOneUnresolvedClass.kt");
+      }
     }
   }
 }

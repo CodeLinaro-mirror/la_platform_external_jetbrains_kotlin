@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.types
 
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.resolve.calls.NewCommonSuperTypeCalculator.commonSuperType
 import org.jetbrains.kotlin.types.model.*
@@ -146,10 +145,15 @@ abstract class AbstractTypeApproximator(
                      * I.e. for every type B such as L_2 <: B, L_1 <: B. For example B = L_2.
                      */
                     val lowerBound = type.lowerBound()
-                    val upperBound = type.upperBound()
-
                     val lowerResult = approximateTo(lowerBound, conf, depth)
 
+                    if (isTriviallyFlexible(type)) {
+                        return lowerResult?.let {
+                            createTrivialFlexibleTypeOrSelf(it)
+                        }
+                    }
+
+                    val upperBound = type.upperBound()
                     val upperResult = if (!type.isRawType() && !shouldApproximateUpperBoundSeparately(lowerBound, upperBound, conf)) {
                         // We skip approximating the upper bound if the type constructors match as an optimization.
                         lowerResult?.withNullability(upperBound.isMarkedNullable())
@@ -556,14 +560,7 @@ abstract class AbstractTypeApproximator(
             return typeWithErasedNullability
         }
 
-        return if (!conf.approximateDefinitelyNotNullTypes || languageVersionSettings.supportsFeature(LanguageFeature.DefinitelyNonNullableTypes)) {
-            approximatedOriginalType?.makeDefinitelyNotNullOrNotNull(preserveAttributes = true)
-        } else {
-            if (toSuper)
-                (approximatedOriginalType ?: originalType).withNullability(false)
-            else
-                type.defaultResult(toSuper)
-        }
+        return approximatedOriginalType?.makeDefinitelyNotNullOrNotNull(preserveAttributes = true)
     }
 
     private fun isApproximateDirectionToSuper(effectiveVariance: TypeVariance, toSuper: Boolean) =

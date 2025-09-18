@@ -94,9 +94,6 @@ public sealed class KaClassLikeSymbol : KaClassifierSymbol() {
      */
     public abstract val classId: ClassId?
 
-    @Deprecated("Use `classId` instead.", ReplaceWith("classId"), level = DeprecationLevel.HIDDEN)
-    public val classIdIfNonLocal: ClassId? get() = classId
-
     abstract override fun createPointer(): KaSymbolPointer<KaClassLikeSymbol>
 }
 
@@ -211,7 +208,13 @@ public abstract class KaNamedClassSymbol : KaClassSymbol(),
     public abstract val isInline: Boolean
 
     /**
-     * Whether the class is a [functional interface](https://kotlinlang.org/docs/fun-interfaces.html).
+     * Indicates whether the class is a [functional interface](https://kotlinlang.org/docs/fun-interfaces.html)
+     * (i.e., supports SAM conversions).
+     *
+     * A Kotlin or Java interface is considered a functional interface if it has exactly one abstract method.
+     * In Kotlin, a functional interface must also be marked with the `fun` modifier.
+     *
+     * @see org.jetbrains.kotlin.analysis.api.components.KaSymbolRelationProvider.samConstructor
      */
     public abstract val isFun: Boolean
 

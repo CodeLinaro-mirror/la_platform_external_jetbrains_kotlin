@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Tag;
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedProperty;
 import org.jetbrains.kotlin.konan.test.blackbox.support.ClassLevelProperty;
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseStandardTestCaseGroupProvider;
-import org.jetbrains.kotlin.konan.test.blackbox.support.group.FirPipeline;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,7 +25,6 @@ import java.util.regex.Pattern;
 @Tag("standalone")
 @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
 @UseStandardTestCaseGroupProvider()
-@FirPipeline()
 public class FirNativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest {
   @Test
   public void testAllFilesPresentInStandalone() {
@@ -57,41 +55,10 @@ public class FirNativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
-  @FirPipeline()
   public class Checkers {
     @Test
     public void testAllFilesPresentInCheckers() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/standalone/checkers"), Pattern.compile("^(.+)\\.kt$"), null, true);
-    }
-
-    @Test
-    @TestMetadata("cleaner_in_main_with_checker.kt")
-    public void testCleaner_in_main_with_checker() {
-      runTest("native/native.tests/testData/standalone/checkers/cleaner_in_main_with_checker.kt");
-    }
-
-    @Test
-    @TestMetadata("cleaner_in_main_without_checker.kt")
-    public void testCleaner_in_main_without_checker() {
-      runTest("native/native.tests/testData/standalone/checkers/cleaner_in_main_without_checker.kt");
-    }
-
-    @Test
-    @TestMetadata("cleaner_in_tls_main_with_checker.kt")
-    public void testCleaner_in_tls_main_with_checker() {
-      runTest("native/native.tests/testData/standalone/checkers/cleaner_in_tls_main_with_checker.kt");
-    }
-
-    @Test
-    @TestMetadata("cleaner_in_tls_main_without_checker.kt")
-    public void testCleaner_in_tls_main_without_checker() {
-      runTest("native/native.tests/testData/standalone/checkers/cleaner_in_tls_main_without_checker.kt");
-    }
-
-    @Test
-    @TestMetadata("cleaner_leak_with_checker.kt")
-    public void testCleaner_leak_with_checker() {
-      runTest("native/native.tests/testData/standalone/checkers/cleaner_leak_with_checker.kt");
     }
 
     @Test
@@ -149,7 +116,6 @@ public class FirNativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
-  @FirPipeline()
   public class Console {
     @Test
     public void testAllFilesPresentInConsole() {
@@ -223,7 +189,6 @@ public class FirNativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
-  @FirPipeline()
   public class EntryPoint {
     @Test
     public void testAllFilesPresentInEntryPoint() {
@@ -279,7 +244,6 @@ public class FirNativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
-  @FirPipeline()
   public class RuntimeLogging {
     @Test
     public void testAllFilesPresentInRuntimeLogging() {
@@ -305,7 +269,6 @@ public class FirNativeStandaloneTestGenerated extends AbstractNativeBlackBoxTest
   @Tag("standalone")
   @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
   @UseStandardTestCaseGroupProvider()
-  @FirPipeline()
   public class Termination {
     @Test
     public void testAllFilesPresentInTermination() {

@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.compilerPluginMetadata
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.buildUnaryArgumentList
 import org.jetbrains.kotlin.fir.expressions.builder.*
 import org.jetbrains.kotlin.fir.lazy.AbstractFir2IrLazyDeclaration
 import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
@@ -27,6 +28,7 @@ import org.jetbrains.kotlin.fir.serialization.FirAdditionalMetadataProvider
 import org.jetbrains.kotlin.fir.serialization.providedDeclarationsForMetadataService
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
@@ -56,10 +58,10 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
 
     override fun addMetadataVisibleAnnotationsToElement(declaration: IrDeclaration, annotations: List<IrConstructorCall>) {
         require(declaration.origin != IrDeclarationOrigin.FAKE_OVERRIDE) {
-            "FAKE_OVERRIDE declarations are not preserved in metadata and should not be marked with annotations"
+            "FAKE_OVERRIDE declarations are not preserved in metadata and should not be marked with annotations: ${declaration.render()}"
         }
         require(annotations.all { it.typeArguments.isEmpty() }) {
-            "Saving annotations with type arguments from IR to metadata is not supported"
+            "Saving annotations with type arguments from IR to metadata is not supported: ${declaration.render()}"
         }
         annotations.forEach {
             require(it.symbol.owner.constructedClass.isAnnotationClass) { "${it.render()} is not an annotation constructor call" }
@@ -85,7 +87,7 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
             }
             is IrValueParameter -> findFirDeclaration(declaration.parent as IrDeclaration).first to ChildDeclarationKind.ValueParameter(declaration.name)
             is IrTypeParameter -> findFirDeclaration(declaration.parent as IrDeclaration).first to ChildDeclarationKind.TypeParameter(declaration.name)
-            else -> error("Declaration with annotations should be `IrMetadataSourceOwner`, `IrValueParameter` or `IrTypeParameter`")
+            else -> error("Declaration with annotations should be `IrMetadataSourceOwner`, `IrValueParameter` or `IrTypeParameter`, but got ${declaration.render()}")
         }
     }
 
@@ -242,7 +244,7 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
     }
 
     private fun IrDeclarationParent.toFirClass(): FirRegularClass? {
-        return (this as? IrClass)?.classIdOrFail?.toLookupTag()?.toRegularClassSymbol(session)?.fir
+        return ((this as? IrClass)?.metadata as? FirMetadataSource.Class)?.fir as? FirRegularClass
     }
 
     private fun IrAnnotationContainer.convertAnnotations(): List<FirAnnotation> {
@@ -375,7 +377,7 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
                     (classSymbol as? FirRegularClassSymbol)?.declarationSymbols
                         ?.filterIsInstance<FirEnumEntrySymbol>()
                         ?.find { it.name == enumVariantName }
-                } ?: error("Could not resolve FirEnumEntry for $enumVariantName")
+                } ?: error("Could not resolve FirEnumEntry for $enumClassId.$enumVariantName")
 
                 buildPropertyAccessExpression {
                     val receiver = buildResolvedQualifier {
@@ -398,7 +400,7 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
                 val varargElements = this.elements.map { element ->
                     when (element) {
                         is IrExpression -> element.toFirExpression()
-                        else -> error("Unsupported ir type: $element")
+                        else -> error("Unsupported ir type: ${element.render()}")
                     }
                 }
 
@@ -413,7 +415,21 @@ class Fir2IrIrGeneratedDeclarationsRegistrar(private val components: Fir2IrCompo
                     }
                 }
             }
-            else -> error("Unsupported ir type: $this")
+            is IrClassReference -> {
+                buildGetClassCall {
+                    with(emptyTypeConverter) {
+                        val resolvedType = this@toFirExpression.type.toConeType()
+                        coneTypeOrNull = resolvedType
+                        argumentList = buildUnaryArgumentList(
+                            buildClassReferenceExpression {
+                                coneTypeOrNull = this@toFirExpression.classType.toConeType()
+                                classTypeRef = buildResolvedTypeRef { coneType = resolvedType }
+                            }
+                        )
+                    }
+                }
+            }
+            else -> error("Unsupported ir type: ${this.render()}")
         }
     }
 

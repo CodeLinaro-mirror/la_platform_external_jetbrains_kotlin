@@ -20,6 +20,7 @@ package androidx.compose.compiler.test
 
 import androidx.compose.runtime.*
 import androidx.compose.runtime.mock.*
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -344,6 +345,87 @@ class CompositionTests {
         advance()
         revalidate()
     }
+
+    @Test
+    fun earlyReturnInKey() = compositionTest {
+        compose {
+            Text(returnKey("a_key", "first"))
+
+            key("key") {
+                Text("before")
+                return@compose
+                @Suppress("UNREACHABLE_CODE")
+                Text("after")
+            }
+        }
+
+        validate {
+            Text("first")
+            Text("before")
+        }
+    }
+
+    // regression test for b/401484249
+    @Test
+    fun composableCallInArray() = compositionTest {
+        var count by mutableIntStateOf(10)
+        compose {
+            StringArray(count)
+            val text = remember { 0 }.toString()
+            Text(text)
+        }
+
+        validate {
+            Text("0")
+        }
+
+        count -= 5
+        advance()
+        revalidate()
+    }
+
+    @Test
+    fun conditionalCallInMovableGroup() = compositionTest {
+        var condition by mutableStateOf(false)
+        val states = mutableStateListOf(1)
+        compose {
+            states.forEach { state ->
+                key(state) {
+                    if (condition) {
+                        val lambda: suspend CoroutineScope.() -> Unit = { use(state) }
+                        // This call is load bearing because it doesn't introduce the group
+                        // regardless of OptimizeNonSkippingGroups flag (as opposed to remember)
+                        LaunchedEffect(state, lambda)
+                    }
+                    TwoLambdas(
+                        lambda1 = { use(states); use(state) },
+                        lambda2 = { use(states); use(state) }
+                    )
+                }
+            }
+        }
+
+        condition = true
+        advance()
+    }
+
+    @Test
+    fun inlineWithNoinlineDefault() = compositionTest {
+        compose {
+            inlineWithNoinlineDefault {
+                it?.invoke()
+            }
+            inlineWithNoinlineDefault(
+                default = { Text("Not default") }
+            ) {
+                it?.invoke()
+            }
+        }
+        validate {
+            Text("Default")
+            Text("Not default")
+        }
+    }
 }
 
 @Composable
@@ -379,6 +461,13 @@ class CrossInlineState(content: @Composable () -> Unit = { }) {
     }
 }
 
+public inline fun inlineWithNoinlineDefault(
+    noinline default: @Composable (() -> Unit)? = { Text("Default") },
+    content: (@Composable (() -> Unit)?) -> Unit
+) {
+    content(default)
+}
+
 @JvmInline
 value class Data(val string: String)
 
@@ -412,6 +501,13 @@ fun EnumParameterLambda(enum: () -> TestComposeEnum) {
 }
 
 @Composable
+fun returnKey(key: String, value: String): String {
+    key(key) {
+        return value
+    }
+}
+
+@Composable
 fun MultipleText(vararg strings: String = emptyArray()) {
     strings.forEach { Text(it) }
 }
@@ -437,3 +533,27 @@ class PresenterImpl(
         Text("Hello")
     }
 }
+
+@Composable
+fun StringArray(count: Int) =
+    Array(count) {
+        TwoRemembers()
+    }
+
+@Composable
+fun TwoRemembers(): String {
+    val string = remember { "string" }
+    val string2 by remember { mutableStateOf(string) }
+    return string2
+}
+
+@Composable
+fun TwoLambdas(
+    lambda1: () -> Unit,
+    lambda2: (Int) -> Unit
+) {
+    use(lambda1)
+    use(lambda2)
+}
+
+private fun use(value: Any?) { }

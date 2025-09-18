@@ -36,6 +36,7 @@ googletest {
 
 val targetList = enabledTargets(extensions.getByType<PlatformManager>())
 
+// NOTE: the list of modules is duplicated in `RuntimeModule.kt`
 bitcode {
     allTargets {
         module("main") {
@@ -62,32 +63,6 @@ bitcode {
         module("objcExport") {
             // There must not be any implementation files, only headers.
             sourceSets {}
-        }
-
-        module("mimalloc") {
-            sourceSets {
-                main {
-                    inputFiles.from(srcRoot.dir("c"))
-                    inputFiles.include("**/*.c")
-                    inputFiles.exclude("**/alloc-override*.c", "**/page-queue.c", "**/static.c", "**/bitmap.inc.c")
-                    headersDirs.setFrom(srcRoot.dir("c/include"))
-                }
-            }
-
-            compiler.set("clang")
-            compilerArgs.set(listOfNotNull(
-                    "-std=gnu11",
-                    if (sanitizer == SanitizerKind.THREAD) { "-O1" } else { "-O3" },
-                    "-DKONAN_MI_MALLOC=1",
-                    "-Wno-unknown-pragmas",
-                    "-ftls-model=initial-exec",
-                    "-Wno-unused-function",
-                    "-Wno-error=atomic-alignment",
-                    "-Wno-unused-parameter", /* for windows 32 */
-                    "-DMI_TSAN=1".takeIf { sanitizer == SanitizerKind.THREAD },
-            ))
-
-            onlyIf { it.supportsMimallocAllocator() }
         }
 
         module("libbacktrace") {
@@ -125,6 +100,7 @@ bitcode {
             compilerArgs.set(listOfNotNull(
                     "-std=gnu11",
                     "-funwind-tables",
+                    "-Werror",
                     "-W",
                     "-Wall",
                     "-Wwrite-strings",
@@ -200,16 +176,6 @@ bitcode {
             testSupportModules.addAll("main", "noop_externalCallsChecker", "mm", "common_alloc", "common_gc", "concurrent_ms_gc", "common_gcScheduler", "manual_gcScheduler", "objc")
         }
 
-        module("mimalloc_alloc") {
-            srcRoot.set(layout.projectDirectory.dir("src/alloc/mimalloc"))
-            headersDirs.from(files("src/mimalloc/c/include", "src/alloc/common/cpp", "src/alloc/legacy/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/externalCallsChecker/common/cpp", "src/objcExport/cpp", "src/main/cpp"))
-            sourceSets {
-                main {}
-            }
-
-            compilerArgs.add("-DKONAN_MI_MALLOC=1")
-        }
-
         module("legacy_alloc") {
             srcRoot.set(layout.projectDirectory.dir("src/alloc/legacy"))
             headersDirs.from(files("src/alloc/common/cpp", "src/gcScheduler/common/cpp", "src/gc/common/cpp", "src/mm/cpp", "src/externalCallsChecker/common/cpp", "src/objcExport/cpp", "src/main/cpp"))
@@ -218,11 +184,6 @@ bitcode {
                 test {}
                 testFixtures {}
             }
-        }
-
-        testsGroup("mimalloc_legacy_alloc_test") {
-            testedModules.addAll("legacy_alloc")
-            testSupportModules.addAll("main", "noop_externalCallsChecker", "mm", "common_alloc", "mimalloc_alloc", "common_gc", "noop_gc", "common_gcScheduler", "manual_gcScheduler", "objc", "mimalloc")
         }
 
         testsGroup("std_legacy_alloc_test") {
@@ -533,18 +494,19 @@ val stdlibBuildTask by tasks.registering(KonanCompileTask::class) {
             "-Xallow-kotlin-package",
             "-Xexplicit-api=strict",
             "-Xexpect-actual-classes",
+            "-Xcontext-parameters",
             "-module-name", KOTLIN_NATIVE_STDLIB_NAME,
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=kotlin.contracts.ExperimentalContracts",
             "-opt-in=kotlin.ExperimentalMultiplatform",
             "-opt-in=kotlin.native.internal.InternalForKotlinNative",
             "-language-version",
-            "2.1",
+            "2.2",
             "-api-version",
-            "2.1",
+            "2.2",
             "-Xdont-warn-on-error-suppression",
             "-Xstdlib-compilation",
-            "-Xfragment-refines=nativeMain:nativeWasm,nativeMain:common,nativeWasm:common",
+            "-Xfragment-refines=nativeMain:nativeWasm,nativeMain:common,nativeWasm:common,nativeWasm:commonNonJvm,commonNonJvm:common",
             "-Xmanifest-native-targets=${platformManager.targetValues.joinToString(separator = ",") { it.visibleName }}",
     ))
 
@@ -557,6 +519,10 @@ val stdlibBuildTask by tasks.registering(KonanCompileTask::class) {
         srcDir(project(":kotlin-test").files("common/src/main/kotlin"))
     }
 
+    val commonNonJvm by sourceSets.creating {
+        srcDir(project(":kotlin-stdlib").file("common-non-jvm/src"))
+    }
+
     val nativeWasm by sourceSets.creating {
         srcDir(project(":kotlin-stdlib").file("native-wasm/src/"))
     }
@@ -564,7 +530,6 @@ val stdlibBuildTask by tasks.registering(KonanCompileTask::class) {
     val nativeMain by sourceSets.creating {
         srcDir(project(":kotlin-native:Interop:Runtime").file("src/main/kotlin"))
         srcDir(project(":kotlin-native:Interop:Runtime").file("src/native/kotlin"))
-        srcDir(project(":kotlin-native:Interop:JsRuntime").file("src/main/kotlin"))
         srcDir(project.file("src/main/kotlin"))
     }
 }
@@ -588,7 +553,7 @@ cacheableTargetNames.forEach { targetName ->
         this.klib.fileProvider(nativeStdlib.map { it.destinationDir })
         this.target.set(targetName)
         // This path is used in `:kotlin-native:${targetName}StdlibCache`
-        this.outputDirectory.set(layout.buildDirectory.dir("cache/$targetName/$targetName-gSTATIC/$KOTLIN_NATIVE_STDLIB_NAME-cache"))
+        this.outputDirectory.set(layout.buildDirectory.dir("cache/$targetName/$targetName-gSTATIC-system/$KOTLIN_NATIVE_STDLIB_NAME-cache"))
     }
 }
 

@@ -158,7 +158,7 @@ class DispatchReceiverMemberScopeTowerLevel(
                 typeForSyntheticScope,
                 useSiteForSyntheticScope,
                 bodyResolveComponents.returnTypeCalculator,
-                isSuperCall = info.callSite.isSuperCall(session),
+                isSuperCall = info.callSite.isSuperCall(),
             )
 
             withSynthetic?.processScopeMembers { symbol ->
@@ -418,7 +418,7 @@ internal class ScopeBasedTowerLevel(
         // Pre-check explicit extension receiver for default package top-level members
         if (scope !is FirDefaultStarImportingScope || !areThereExtensionReceiverOptions()) return false
 
-        val declarationReceiverType = candidate.resolvedReceiverTypeRef?.coneType as? ConeClassLikeType ?: return false
+        val declarationReceiverType = candidate.resolvedReceiverType as? ConeClassLikeType ?: return false
         val startProjectedDeclarationReceiverType = declarationReceiverType.lookupTag.constructClassType(
             declarationReceiverType.typeArguments.map { ConeStarProjection }.toTypedArray(),
             isMarkedNullable = true
@@ -443,7 +443,7 @@ internal class ScopeBasedTowerLevel(
         processor: TowerLevelProcessor
     ) {
         candidate.lazyResolveToPhase(FirResolvePhase.TYPES)
-        if (withHideMembersOnly && candidate.getAnnotationByClassId(HidesMembers, session) == null) {
+        if (withHideMembersOnly && !candidate.hasAnnotationWithClassId(HidesMembers, session)) {
             return
         }
 

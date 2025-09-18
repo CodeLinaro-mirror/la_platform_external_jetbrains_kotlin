@@ -8,7 +8,9 @@ package org.jetbrains.kotlin.fir.expressions
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
+import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.fir.declarations.utils.isStatic
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
@@ -18,6 +20,7 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirBlockImpl
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.references.*
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.TransformData
@@ -101,8 +104,8 @@ fun <T : FirStatement> FirBlock.replaceFirstStatement(factory: (T) -> FirStateme
     return existing
 }
 
-fun FirExpression.unwrapErrorExpression(): FirExpression? =
-    if (this is FirErrorExpression) expression?.unwrapErrorExpression() else this
+fun FirExpression.unwrapErrorExpression(): FirExpression =
+    (this as? FirErrorExpression)?.expression?.unwrapErrorExpression() ?: this
 
 fun FirExpression.unwrapArgument(): FirExpression = (this as? FirWrappedArgumentExpression)?.expression ?: this
 
@@ -138,7 +141,6 @@ fun FirVariableAssignment.unwrapLValue(): FirQualifiedAccessExpression? {
 
 fun FirExpression.unwrapExpression(): FirExpression =
     when (this) {
-        is FirWhenSubjectExpression -> whenRef.value.subject?.unwrapExpression() ?: this
         is FirSmartCastExpression -> originalExpression.unwrapExpression()
         is FirCheckedSafeCallSubject -> originalReceiverRef.value.unwrapExpression()
         is FirCheckNotNullCall -> argument.unwrapExpression()
@@ -146,11 +148,26 @@ fun FirExpression.unwrapExpression(): FirExpression =
         else -> this
     }
 
+val FirVariable.isImplicitWhenSubjectVariable: Boolean
+    get() = origin == FirDeclarationOrigin.Synthetic.ImplicitWhenSubject
+
 fun FirExpression.unwrapSmartcastExpression(): FirExpression =
     when (this) {
         is FirSmartCastExpression -> originalExpression
         else -> this
     }
+
+fun FirExpression.unwrapDesugaredAssignmentValueRef(): FirExpression =
+    when (this) {
+        is FirDesugaredAssignmentValueReferenceExpression -> expressionRef.value
+        else -> this
+    }
+
+val FirWhenSubjectExpression.whenSubjectVariable: FirProperty?
+    get() = (calleeReference.symbol as? FirPropertySymbol)?.fir
+
+val FirWhenSubjectExpression.whenSubject: FirExpression?
+    get() = whenSubjectVariable?.initializer
 
 /**
  * A callable reference is bound iff

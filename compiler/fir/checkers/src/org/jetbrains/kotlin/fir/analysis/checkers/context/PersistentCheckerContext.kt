@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers.context
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirInlineDeclarationChecker
@@ -16,11 +17,13 @@ import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
 import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.resolve.SessionHolder
+import org.jetbrains.kotlin.fir.SessionAndScopeSessionHolder
 import org.jetbrains.kotlin.fir.resolve.transformers.ReturnTypeCalculator
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirFileSymbol
 
 class PersistentCheckerContext private constructor(
-    override val containingDeclarations: PersistentList<FirDeclaration>,
+    override val containingDeclarations: PersistentList<FirBasedSymbol<*>>,
     override val callsOrAssignments: PersistentList<FirStatement>,
     override val getClassCalls: PersistentList<FirGetClassCall>,
     override val annotationContainers: PersistentList<FirAnnotationContainer>,
@@ -28,15 +31,15 @@ class PersistentCheckerContext private constructor(
     override val isContractBody: Boolean,
     override val inlineFunctionBodyContext: FirInlineDeclarationChecker.InlineFunctionBodyContext?,
     override val lambdaBodyContext: FirAnonymousUnusedParamChecker.LambdaBodyContext?,
-    sessionHolder: SessionHolder,
+    sessionHolder: SessionAndScopeSessionHolder,
     returnTypeCalculator: ReturnTypeCalculator,
     override val suppressedDiagnostics: PersistentSet<String>,
     allInfosSuppressed: Boolean,
     allWarningsSuppressed: Boolean,
     allErrorsSuppressed: Boolean,
-    override val containingFile: FirFile?,
+    override val containingFileSymbol: FirFileSymbol?,
 ) : CheckerContextForProvider(sessionHolder, returnTypeCalculator, allInfosSuppressed, allWarningsSuppressed, allErrorsSuppressed) {
-    constructor(sessionHolder: SessionHolder, returnTypeCalculator: ReturnTypeCalculator) : this(
+    constructor(sessionHolder: SessionAndScopeSessionHolder, returnTypeCalculator: ReturnTypeCalculator) : this(
         containingDeclarations = persistentListOf(),
         callsOrAssignments = persistentListOf(),
         getClassCalls = persistentListOf(),
@@ -47,15 +50,15 @@ class PersistentCheckerContext private constructor(
         lambdaBodyContext = null,
         sessionHolder,
         returnTypeCalculator,
-        suppressedDiagnostics = getGloballySuppressedDiagnostics(sessionHolder.session),
+        suppressedDiagnostics = persistentSetOf(),
         allInfosSuppressed = false,
         allWarningsSuppressed = false,
         allErrorsSuppressed = false,
-        containingFile = null,
+        containingFileSymbol = null,
     )
 
     override fun addDeclaration(declaration: FirDeclaration): PersistentCheckerContext =
-        copy(containingDeclarations = containingDeclarations.add(declaration))
+        copy(containingDeclarations = containingDeclarations.add(declaration.symbol))
 
     override fun dropDeclaration() {}
 
@@ -102,7 +105,7 @@ class PersistentCheckerContext private constructor(
         getClassCalls: PersistentList<FirGetClassCall> = this.getClassCalls,
         annotationContainers: PersistentList<FirAnnotationContainer> = this.annotationContainers,
         containingElements: PersistentList<FirElement> = this.containingElements,
-        containingDeclarations: PersistentList<FirDeclaration> = this.containingDeclarations,
+        containingDeclarations: PersistentList<FirBasedSymbol<*>> = this.containingDeclarations,
         isContractBody: Boolean = this.isContractBody,
         inlineFunctionBodyContext: FirInlineDeclarationChecker.InlineFunctionBodyContext? = this.inlineFunctionBodyContext,
         lambdaBodyContext: FirAnonymousUnusedParamChecker.LambdaBodyContext? = this.lambdaBodyContext,
@@ -110,7 +113,7 @@ class PersistentCheckerContext private constructor(
         allWarningsSuppressed: Boolean = this.allWarningsSuppressed,
         allErrorsSuppressed: Boolean = this.allErrorsSuppressed,
         suppressedDiagnostics: PersistentSet<String> = this.suppressedDiagnostics,
-        containingFile: FirFile? = this.containingFile,
+        containingFileSymbol: FirFileSymbol? = this.containingFileSymbol,
     ): PersistentCheckerContext {
         return PersistentCheckerContext(
             containingDeclarations,
@@ -124,7 +127,7 @@ class PersistentCheckerContext private constructor(
             sessionHolder,
             returnTypeCalculator,
             suppressedDiagnostics,
-            allInfosSuppressed, allWarningsSuppressed, allErrorsSuppressed, containingFile,
+            allInfosSuppressed, allWarningsSuppressed, allErrorsSuppressed, containingFileSymbol,
         )
     }
 
@@ -148,7 +151,7 @@ class PersistentCheckerContext private constructor(
 
     override fun unsetLambdaBodyContext(): CheckerContextForProvider = copy(lambdaBodyContext = null)
 
-    override fun enterFile(file: FirFile): CheckerContextForProvider = copy(containingFile = file)
+    override fun enterFile(file: FirFile): CheckerContextForProvider = copy(containingFileSymbol = file.symbol)
 
-    override fun exitFile(file: FirFile): CheckerContextForProvider = copy(containingFile = null)
+    override fun exitFile(file: FirFile): CheckerContextForProvider = copy(containingFileSymbol = null)
 }

@@ -37,7 +37,6 @@ import org.jetbrains.kotlin.types.model.TypeVariableMarker
 interface ConstraintStorage {
     val allTypeVariables: Map<TypeConstructorMarker, TypeVariableMarker>
     val notFixedTypeVariables: Map<TypeConstructorMarker, VariableWithConstraints>
-    val missedConstraints: List<Pair<IncorporationConstraintPosition, List<Pair<TypeVariableMarker, Constraint>>>>
     val initialConstraints: List<InitialConstraint>
     val maxTypeDepthFromInitialConstraints: Int
     val errors: List<ConstraintSystemError>
@@ -81,7 +80,6 @@ interface ConstraintStorage {
     object Empty : ConstraintStorage {
         override val allTypeVariables: Map<TypeConstructorMarker, TypeVariableMarker> get() = emptyMap()
         override val notFixedTypeVariables: Map<TypeConstructorMarker, VariableWithConstraints> get() = emptyMap()
-        override val missedConstraints: List<Pair<IncorporationConstraintPosition, List<Pair<TypeVariableMarker, Constraint>>>> get() = emptyList()
         override val initialConstraints: List<InitialConstraint> get() = emptyList()
         override val maxTypeDepthFromInitialConstraints: Int get() = 1
         override val errors: List<ConstraintSystemError> get() = emptyList()
@@ -133,7 +131,9 @@ class Constraint(
     // The main idea behind that parameter is that we don't consider such constraints as proper (signifying that the variable is ready for completion).
     // And also, there is additional logic in K1 that doesn't allow to fix variable into `Nothing?` if we had only that kind of lower constraints
     val isNullabilityConstraint: Boolean,
-    val inputTypePositionBeforeIncorporation: OnlyInputTypeConstraintPosition? = null
+    // Can only be true in K2
+    val isNoInfer: Boolean,
+    val inputTypePositionBeforeIncorporation: OnlyInputTypeConstraintPosition? = null,
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -189,14 +189,12 @@ class InitialConstraint(
 //    return checkConstraint(newB as KotlinTypeMarker, constraintKind, newA as KotlinTypeMarker)
 //}
 
+context(context: TypeCheckerProviderContext)
 fun checkConstraint(
-    context: TypeCheckerProviderContext,
     constraintType: KotlinTypeMarker,
     constraintKind: ConstraintKind,
     resultType: KotlinTypeMarker
 ): Boolean {
-
-
     val typeChecker = AbstractTypeChecker
     return when (constraintKind) {
         ConstraintKind.EQUALITY -> typeChecker.equalTypes(context, constraintType, resultType)
@@ -206,4 +204,4 @@ fun checkConstraint(
 }
 
 fun Constraint.replaceType(newType: KotlinTypeMarker) =
-    Constraint(kind, newType, position, typeHashCode, derivedFrom, isNullabilityConstraint, inputTypePositionBeforeIncorporation)
+    Constraint(kind, newType, position, typeHashCode, derivedFrom, isNullabilityConstraint, isNoInfer, inputTypePositionBeforeIncorporation)

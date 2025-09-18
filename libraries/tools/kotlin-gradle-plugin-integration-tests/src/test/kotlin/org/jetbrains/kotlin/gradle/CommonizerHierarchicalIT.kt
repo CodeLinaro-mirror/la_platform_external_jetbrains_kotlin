@@ -16,10 +16,6 @@ import org.junit.jupiter.api.DisplayName
 @NativeGradlePluginTests
 open class CommonizerHierarchicalIT : KGPBaseTest() {
 
-    override val defaultBuildOptions: BuildOptions
-        get() = super.defaultBuildOptions
-            .disableConfigurationCache_KT70416()
-
     @DisplayName("Commonize hierarchically metadata compilations")
     @GradleTest
     fun testCommonizeHierarchicallyMetadataCompilations(gradleVersion: GradleVersion) {
@@ -89,7 +85,11 @@ open class CommonizerHierarchicalIT : KGPBaseTest() {
     @GradleTest
     fun testCommonizeHierarchicallyMultiModule(gradleVersion: GradleVersion) {
         nativeProject("commonizeHierarchicallyMultiModule", gradleVersion) {
-            build("assemble") {
+            build(
+                "assemble",
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            ) {
                 assertTasksExecuted(":p1:commonizeCInterop")
                 assertTasksExecuted(":p2:commonizeCInterop")
                 assertTasksExecuted(":p3:commonizeCInterop")

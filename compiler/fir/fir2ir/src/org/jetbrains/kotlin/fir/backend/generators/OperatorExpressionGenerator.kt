@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.backend.utils.createSafeCallConstruction
 import org.jetbrains.kotlin.fir.backend.utils.createTemporaryVariableForSafeCallConstruction
 import org.jetbrains.kotlin.fir.backend.utils.unsubstitutedScope
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.providers.getRegularClassSymbolByClassId
 import org.jetbrains.kotlin.fir.scopes.getFunctions
 import org.jetbrains.kotlin.fir.types.ConeDynamicType
@@ -92,7 +93,7 @@ internal class OperatorExpressionGenerator(
             return fallbackToRealCall()
         }
 
-        val comparisonInfo = comparisonExpression.inferPrimitiveNumericComparisonInfo(c) ?: return fallbackToRealCall()
+        val comparisonInfo = comparisonExpression.inferPrimitiveNumericComparisonInfo() ?: return fallbackToRealCall()
         val comparisonType = comparisonInfo.comparisonType
 
         val comparisonIrType = typeConverter.classIdToTypeMap[comparisonType.lookupTag.classId] ?: return fallbackToRealCall()
@@ -183,7 +184,7 @@ internal class OperatorExpressionGenerator(
             FirOperation.NOT_EQ -> IrStatementOrigin.EXCLEQ
             else -> error("Not an equality operation: $operation")
         }
-        val comparisonInfo = inferPrimitiveNumericComparisonInfo(arguments[0], arguments[1], c)
+        val comparisonInfo = inferPrimitiveNumericComparisonInfo(arguments[0], arguments[1])
 
         val convertedLeft = arguments[0].convertToIrExpression(comparisonInfo, isLeftType = true)
         val convertedRight = arguments[1].convertToIrExpression(comparisonInfo, isLeftType = false)
@@ -312,14 +313,14 @@ internal class OperatorExpressionGenerator(
             return eraseImplicitCast()
         }
 
-        if (operandType == null) error("operandType should be non-null if targetType is non-null")
+        if (operandType == null) error("operandType should be non-null if targetType is non-null: ${this.render()}")
 
         val operandClassId = operandType.lookupTag.classId
         val targetClassId = targetType.lookupTag.classId
         if (operandClassId == targetClassId) return eraseImplicitCast()
         val operandFirClass = session.getRegularClassSymbolByClassId(operandClassId)
             ?: error("No symbol for $operandClassId")
-        val conversionFirFunction = operandFirClass.unsubstitutedScope(c)
+        val conversionFirFunction = operandFirClass.unsubstitutedScope()
             .getFunctions(Name.identifier("to${targetType.lookupTag.classId.shortClassName.asString()}"))
             .singleOrNull()
             ?: error("No conversion function for $operandType ~> $targetType")
@@ -327,17 +328,17 @@ internal class OperatorExpressionGenerator(
 
         val unsafeIrCall = IrCallImpl(
             irExpression.startOffset, irExpression.endOffset,
-            conversionFirFunction.resolvedReturnType.toIrType(c),
+            conversionFirFunction.resolvedReturnType.toIrType(),
             conversionFunctionSymbol as IrSimpleFunctionSymbol,
             typeArgumentsCount = 0
         ).also {
-            it.dispatchReceiver = irExpression
+            it.arguments[0] = irExpression
         }
         return if (operandType.isMarkedNullable) {
             val (receiverVariable, receiverVariableSymbol) =
                 conversionScope.createTemporaryVariableForSafeCallConstruction(irExpression)
 
-            unsafeIrCall.dispatchReceiver = IrGetValueImpl(irExpression.startOffset, irExpression.endOffset, receiverVariableSymbol)
+            unsafeIrCall.arguments[0] = IrGetValueImpl(irExpression.startOffset, irExpression.endOffset, receiverVariableSymbol)
 
             c.createSafeCallConstruction(receiverVariable, receiverVariableSymbol, unsafeIrCall)
         } else {

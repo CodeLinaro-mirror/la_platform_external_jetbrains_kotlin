@@ -17,7 +17,6 @@ import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.pointers.KaSymbolPointer
 import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
-import org.jetbrains.kotlin.analysis.api.types.KaTypeNullability
 import org.jetbrains.kotlin.asJava.builder.LightMemberOrigin
 import org.jetbrains.kotlin.asJava.builder.LightMemberOriginForDeclaration
 import org.jetbrains.kotlin.asJava.classes.METHOD_INDEX_FOR_GETTER
@@ -117,16 +116,14 @@ internal class SymbolLightAccessorMethod private constructor(
         }
     }
 
-    override fun hasTypeParameters(): Boolean =
-        hasTypeParameters(ktModule, containingPropertyDeclaration, containingPropertySymbolPointer)
-                || containingClass.isDefaultImplsForInterfaceWithTypeParameters
+    override fun hasTypeParameters(): Boolean {
+        return withPropertySymbol { it.typeParameters.isNotEmpty() } || containingClass.isDefaultImplsForInterfaceWithTypeParameters
+    }
 
     override fun getTypeParameterList(): PsiTypeParameterList? = _typeParameterList
     override fun getTypeParameters(): Array<PsiTypeParameter> = _typeParameterList?.typeParameters ?: PsiTypeParameter.EMPTY_ARRAY
 
     override fun isVarArgs(): Boolean = false
-
-    override val kotlinOrigin: KtDeclaration? get() = containingPropertyDeclaration
 
     //TODO Fix it when SymbolConstructorValueParameter be ready
     private val isParameter: Boolean get() = containingPropertyDeclaration == null || containingPropertyDeclaration is KtParameter
@@ -199,13 +196,12 @@ internal class SymbolLightAccessorMethod private constructor(
                         if (nullabilityApplicable) {
                             withPropertySymbol { propertySymbol ->
                                 when {
-                                    propertySymbol.isLateInit -> KaTypeNullability.NON_NULLABLE
-                                    forceBoxedReturnType(propertySymbol) -> KaTypeNullability.NON_NULLABLE
-                                    else -> getTypeNullability(propertySymbol.returnType)
+                                    propertySymbol.isLateInit || forceBoxedReturnType(propertySymbol) -> NullabilityAnnotation.NON_NULLABLE
+                                    else -> getRequiredNullabilityAnnotation(propertySymbol.returnType)
                                 }
                             }
                         } else {
-                            KaTypeNullability.UNKNOWN
+                            NullabilityAnnotation.NOT_REQUIRED
                         }
                     },
                     MethodAdditionalAnnotationsProvider
@@ -371,7 +367,7 @@ internal class SymbolLightAccessorMethod private constructor(
         return lightMemberOrigin?.auxiliaryOriginalElement?.textOffset ?: super.getTextOffset()
     }
 
-    override fun getTextRange(): TextRange {
+    override fun getTextRange(): TextRange? {
         return lightMemberOrigin?.auxiliaryOriginalElement?.textRange ?: super.getTextRange()
     }
 
@@ -390,7 +386,7 @@ internal class SymbolLightAccessorMethod private constructor(
             if (declaration.name.isSpecial) return
 
             if (declaration is KaKotlinPropertySymbol && declaration.isConst) return
-            if (declaration.getter?.hasBody != true && declaration.setter?.hasBody != true && declaration.visibility == KaSymbolVisibility.PRIVATE) return
+            if (declaration.getter?.isNotDefault != true && declaration.setter?.isNotDefault != true && declaration.visibility == KaSymbolVisibility.PRIVATE) return
 
             if (declaration.isJvmField) return
             val propertyTypeIsValueClass = hasTypeForValueClassInSignature(callableSymbol = declaration, suppressJvmNameCheck = true)
@@ -432,7 +428,7 @@ internal class SymbolLightAccessorMethod private constructor(
 
                 if (isHiddenByDeprecation(declaration)) return false
                 if (isHiddenOrSynthetic(this, siteTarget)) return false
-                if (!hasBody && visibility == KaSymbolVisibility.PRIVATE) return false
+                if (!isNotDefault && visibility == KaSymbolVisibility.PRIVATE) return false
 
                 return true
             }
@@ -461,13 +457,21 @@ internal class SymbolLightAccessorMethod private constructor(
                         propertyPsi.setter
                 }
 
+                fun KaPropertySymbol.sourceMemberGeneratedLightMemberOrigin() =
+                    this.takeIf { it.origin == KaSymbolOrigin.SOURCE_MEMBER_GENERATED }?.psiSafe<KtDeclaration>()?.let {
+                        LightMemberOriginForDeclaration(
+                            originalElement = it,
+                            originKind = JvmDeclarationOriginKind.OTHER
+                        )
+                    }
+
                 val lightMemberOrigin = declaration.sourcePsiSafe<KtDeclaration>()?.let {
                     LightMemberOriginForDeclaration(
                         originalElement = it,
                         originKind = JvmDeclarationOriginKind.OTHER,
                         auxiliaryOriginalElement = accessor.sourcePsiSafe<KtDeclaration>() ?: sourcePsiFromProperty()
                     )
-                }
+                } ?: declaration.sourceMemberGeneratedLightMemberOrigin()
 
                 return SymbolLightAccessorMethod(
                     ktAnalysisSession = this@createPropertyAccessors,

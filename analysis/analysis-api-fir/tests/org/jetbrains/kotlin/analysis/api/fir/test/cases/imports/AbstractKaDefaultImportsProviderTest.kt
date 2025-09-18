@@ -11,13 +11,12 @@ import org.jetbrains.kotlin.analysis.api.imports.KaDefaultImportPriority
 import org.jetbrains.kotlin.analysis.api.imports.getDefaultImports
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ContextCollector
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
-import org.jetbrains.kotlin.fir.resolve.SessionHolderImpl
 import org.jetbrains.kotlin.fir.scopes.impl.DefaultImportPriority
 import org.jetbrains.kotlin.fir.scopes.impl.FirDefaultSimpleImportingScope
 import org.jetbrains.kotlin.fir.scopes.impl.FirDefaultStarImportingScope
@@ -39,13 +38,13 @@ abstract class AbstractKaDefaultImportsProviderTest : AbstractAnalysisApiBasedTe
     private fun checkImportsFromKaDefaultImportProvider(sourceModule: KaSourceModule, testServices: TestServices) {
         val imports = sourceModule.targetPlatform.getDefaultImports(sourceModule.project).defaultImports
         val actual = renderDefaultImports(imports)
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual, extension = ".default.txt")
+        testServices.assertions.assertEqualsToTestOutputFile(actual, extension = ".default.txt")
     }
 
     private fun checkImportsFromResolve(sourceModule: KaSourceModule, mainFile: KtFile, testServices: TestServices) {
         val importsUsedInResolve = getDefaultImportsUsedInResolve(sourceModule, mainFile)
         val actual = renderDefaultImports(importsUsedInResolve)
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual, extension = ".default.txt")
+        testServices.assertions.assertEqualsToTestOutputFile(actual, extension = ".default.txt")
     }
 
     private fun checkExcludedImports(sourceModule: KaSourceModule, testServices: TestServices) {
@@ -58,7 +57,7 @@ abstract class AbstractKaDefaultImportsProviderTest : AbstractAnalysisApiBasedTe
                 append(it.fqName.asString())
             }
         }
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual, extension = ".excluded.txt")
+        testServices.assertions.assertEqualsToTestOutputFile(actual, extension = ".excluded.txt")
     }
 
 
@@ -87,12 +86,9 @@ abstract class AbstractKaDefaultImportsProviderTest : AbstractAnalysisApiBasedTe
     }
 
     private fun getDefaultImportsUsedInResolve(kaModule: KaModule, ktFile: KtFile): List<KaDefaultImport> {
-        val firResolveSession = kaModule.getFirResolveSession(kaModule.project)
-        val context = ContextCollector.process(
-            ktFile.getOrBuildFirFile(firResolveSession),
-            SessionHolderImpl.Companion.createWithEmptyScopeSession(firResolveSession.useSiteFirSession),
-            ktFile,
-        )!!
+        val resolutionFacade = kaModule.getResolutionFacade(kaModule.project)
+        val firFile = ktFile.getOrBuildFirFile(resolutionFacade)
+        val context = ContextCollector.process(resolutionFacade, firFile, ktFile)!!
 
         return context.towerDataContext.towerDataElements
             .flatMap { it.getAvailableScopes() }

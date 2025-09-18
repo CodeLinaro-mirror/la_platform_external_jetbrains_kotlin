@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.scripting.compiler.plugin.impl
 
 import com.intellij.openapi.Disposable
+import org.jetbrains.kotlin.K1Deprecation
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.cli.common.arguments.validateArguments
@@ -81,6 +82,7 @@ fun createIsolatedCompilationContext(
             parentDisposable,
         )
     kotlinCompilerConfiguration.configureCompiler()
+    @OptIn(K1Deprecation::class)
     val environment =
         KotlinCoreEnvironment.createForProduction(
             parentDisposable, kotlinCompilerConfiguration, EnvironmentConfigFiles.JVM_CONFIG_FILES
@@ -271,8 +273,6 @@ private fun createInitialCompilerConfiguration(
         } else {
             configureJdkHome(baseArguments)
         }
-
-        put(JVMConfigurationKeys.RETAIN_OUTPUT_IN_MEMORY, true)
 
         val isModularJava = isModularJava()
 

@@ -24,17 +24,18 @@ import org.jetbrains.kotlin.fir.types.isTypeMismatchDueToNullability
 import org.jetbrains.kotlin.fir.types.typeContext
 
 object FirCatchParameterChecker : FirTryExpressionChecker(MppCheckerKind.Common) {
-    override fun check(expression: FirTryExpression, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(expression: FirTryExpression) {
         for (catchEntry in expression.catches) {
             val catchParameter = catchEntry.parameter
             val source = catchParameter.source ?: continue
 
             if (catchParameter.source?.defaultValueForParameter != null) {
-                reporter.reportOn(source, FirErrors.CATCH_PARAMETER_WITH_DEFAULT_VALUE, context)
+                reporter.reportOn(source, FirErrors.CATCH_PARAMETER_WITH_DEFAULT_VALUE)
             }
 
             source.valOrVarKeyword?.let {
-                reporter.reportOn(source, FirErrors.VAL_OR_VAR_ON_CATCH_PARAMETER, it, context)
+                reporter.reportOn(source, FirErrors.VAL_OR_VAR_ON_CATCH_PARAMETER, it)
             }
 
             val coneType = catchParameter.returnTypeRef.coneType
@@ -44,14 +45,14 @@ object FirCatchParameterChecker : FirTryExpressionChecker(MppCheckerKind.Common)
                 }
 
                 if (isReified) {
-                    reporter.reportOn(source, FirErrors.REIFIED_TYPE_IN_CATCH_CLAUSE, context)
+                    reporter.reportOn(source, FirErrors.REIFIED_TYPE_IN_CATCH_CLAUSE)
                 } else {
-                    reporter.reportOn(source, FirErrors.TYPE_PARAMETER_IN_CATCH_CLAUSE, context)
+                    reporter.reportOn(source, FirErrors.TYPE_PARAMETER_IN_CATCH_CLAUSE)
                 }
             }
 
             val session = context.session
-            if (!coneType.isSubtypeOfThrowable(session) || isProhibitedNothing(context, coneType)) {
+            if (!coneType.isSubtypeOfThrowable(session) || isProhibitedNothing(coneType)) {
                 reporter.reportOn(
                     source,
                     FirErrors.THROWABLE_TYPE_MISMATCH,
@@ -59,14 +60,14 @@ object FirCatchParameterChecker : FirTryExpressionChecker(MppCheckerKind.Common)
                     context.session.typeContext.isTypeMismatchDueToNullability(
                         coneType,
                         session.builtinTypes.throwableType.coneType
-                    ),
-                    context
+                    )
                 )
             }
         }
     }
 
-    private fun isProhibitedNothing(context: CheckerContext, coneType: ConeKotlinType): Boolean {
+    context(context: CheckerContext)
+    private fun isProhibitedNothing(coneType: ConeKotlinType): Boolean {
         return context.languageVersionSettings.supportsFeature(LanguageFeature.ProhibitNothingAsCatchParameter) && coneType.isNothing
     }
 }

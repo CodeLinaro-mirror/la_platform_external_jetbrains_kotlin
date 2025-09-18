@@ -25,10 +25,10 @@ import org.jetbrains.kotlin.fir.declarations.isTrivialIntersection
 import org.jetbrains.kotlin.fir.declarations.utils.classId
 import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
-import org.jetbrains.kotlin.fir.declarations.utils.isSuspend
 import org.jetbrains.kotlin.fir.delegatedWrapperData
 import org.jetbrains.kotlin.fir.isSubstitutionOverride
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
+import org.jetbrains.kotlin.fir.scopes.ScopeFunctionRequiresPrewarm
 import org.jetbrains.kotlin.fir.scopes.FirTypeScope
 import org.jetbrains.kotlin.fir.scopes.MemberWithBaseScope
 import org.jetbrains.kotlin.fir.scopes.getDirectOverriddenFunctions
@@ -43,24 +43,27 @@ import org.jetbrains.kotlin.fir.unwrapSubstitutionOverrides
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.TypeCheckerState
-import org.jetbrains.kotlin.utils.addIfNotNull
 
+@OptIn(ScopeFunctionRequiresPrewarm::class) // we call the process functions in check
 sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClassChecker(mppKind) {
     object Regular : FirImplementationMismatchChecker(MppCheckerKind.Platform) {
-        override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
+        context(context: CheckerContext, reporter: DiagnosticReporter)
+        override fun check(declaration: FirClass) {
             if (declaration.isExpect) return
-            super.check(declaration, context, reporter)
+            super.check(declaration)
         }
     }
 
     object ForExpectClass : FirImplementationMismatchChecker(MppCheckerKind.Common) {
-        override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
+        context(context: CheckerContext, reporter: DiagnosticReporter)
+        override fun check(declaration: FirClass) {
             if (!declaration.isExpect) return
-            super.check(declaration, context, reporter)
+            super.check(declaration)
         }
     }
 
-    override fun check(declaration: FirClass, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(declaration: FirClass) {
         val source = declaration.source ?: return
         val sourceKind = source.kind
         if (sourceKind is KtFakeSourceElementKind && sourceKind != KtFakeSourceElementKind.EnumInitializer) return
@@ -73,26 +76,26 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
             stubTypesEqualToAnything = false,
             dnnTypesEqualToFlexible = context.languageVersionSettings.supportsFeature(LanguageFeature.AllowDnnTypeOverridingFlexibleType)
         )
-        val classScope = declaration.unsubstitutedScope(context)
-        val dedupReporter = reporter.deduplicating()
+        val classScope = declaration.unsubstitutedScope()
 
-        for (name in classScope.getCallableNames()) {
-            classScope.processFunctionsByName(name) {
-                checkInheritanceClash(declaration, context, dedupReporter, typeCheckerState, it, classScope)
-                checkDifferentNamesForTheSameParameterInSupertypes(declaration, context, dedupReporter, it, classScope)
+        with(reporter.deduplicating()) {
+            for (name in classScope.getCallableNames()) {
+                classScope.processFunctionsByName(name) {
+                    checkInheritanceClash(declaration, typeCheckerState, it, classScope)
+                    checkDifferentNamesForTheSameParameterInSupertypes(declaration, it, classScope)
+                }
+                classScope.processPropertiesByName(name) {
+                    checkInheritanceClash(declaration, typeCheckerState, it, classScope)
+                    checkValOverridesVar(declaration, it, classScope)
+                }
+                checkConflictingMembers(declaration, classScope, name)
             }
-            classScope.processPropertiesByName(name) {
-                checkInheritanceClash(declaration, context, dedupReporter, typeCheckerState, it, classScope)
-                checkValOverridesVar(declaration, context, dedupReporter, it, classScope)
-            }
-            checkConflictingMembers(declaration, context, dedupReporter, classScope, name)
         }
     }
 
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun checkInheritanceClash(
         containingClass: FirClass,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
         typeCheckerState: TypeCheckerState,
         symbol: FirCallableSymbol<*>,
         classScope: FirTypeScope
@@ -112,7 +115,7 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
                     else FirErrors.RETURN_TYPE_MISMATCH_ON_INHERITANCE
                 }
             }
-            reporter.reportOn(containingClass.source, error, member1, member2, context)
+            reporter.reportOn(containingClass.source, error, member1, member2)
         }
 
         fun canOverride(
@@ -121,7 +124,7 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
             baseMember: FirCallableSymbol<*>,
             baseType: ConeKotlinType
         ): Boolean {
-            val inheritedTypeSubstituted = inheritedType.substituteTypeParameters(inheritedMember, baseMember, context)
+            val inheritedTypeSubstituted = inheritedType.substituteTypeParameters(inheritedMember, baseMember)
             return if (baseMember is FirPropertySymbol && baseMember.isVar)
                 AbstractTypeChecker.equalTypes(typeCheckerState, inheritedTypeSubstituted, baseType)
             else
@@ -203,10 +206,9 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
         }
     }
 
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun checkValOverridesVar(
         containingClass: FirClass,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
         symbol: FirVariableSymbol<*>,
         classScope: FirTypeScope
     ) {
@@ -218,13 +220,12 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
                 .find { it.isVar }
                 ?: return
 
-        reporter.reportOn(containingClass.source, FirErrors.VAR_OVERRIDDEN_BY_VAL_BY_DELEGATION, symbol, overriddenVar, context)
+        reporter.reportOn(containingClass.source, FirErrors.VAR_OVERRIDDEN_BY_VAL_BY_DELEGATION, symbol, overriddenVar)
     }
 
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun checkDifferentNamesForTheSameParameterInSupertypes(
         containingClass: FirClass,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
         functionSymbol: FirNamedFunctionSymbol,
         classScope: FirTypeScope,
     ) {
@@ -248,18 +249,17 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
                         currentParameter,
                         otherParameter,
                         parameterIndex,
-                        listOf(currentFunctionSymbol, otherFunctionSymbol),
-                        context
+                        listOf(currentFunctionSymbol, otherFunctionSymbol)
                     )
                 }
             }
         }
     }
 
+    context(context: CheckerContext)
     private fun FirTypeScope.collectCallablesNamed(
         name: Name,
         containingClass: FirClass,
-        context: CheckerContext,
     ): List<FirCallableSymbol<*>> {
         val allCallables = mutableListOf<FirCallableSymbol<*>>()
 
@@ -285,27 +285,32 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
         }
     }
 
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun checkConflictingMembers(
         containingClass: FirClass,
-        context: CheckerContext,
-        reporter: DiagnosticReporter,
         scope: FirTypeScope,
         name: Name
     ) {
-        val allCallables = scope.collectCallablesNamed(name, containingClass, context)
+        val allCallables = scope.collectCallablesNamed(name, containingClass)
+
+        data class GroupingKey(
+            val contextParamets: List<ConeKotlinType>,
+            val extensionReceiver: ConeKotlinType?,
+            // null and empty list distinguish between function and property
+            val valueParameters: List<ConeKotlinType>?,
+        )
 
         val sameArgumentGroups = allCallables.groupBy { callable ->
-            buildList {
-                addIfNotNull(callable.resolvedReceiverTypeRef?.coneType)
-                if (callable is FirNamedFunctionSymbol) {
-                    callable.valueParameterSymbols.mapTo(this) { it.resolvedReturnTypeRef.coneType }
-                }
-            } to (callable is FirPropertySymbol) // Needed to split properties and functions into separate groups
+            GroupingKey(
+                contextParamets = callable.contextParameterSymbols.map { it.resolvedReturnType },
+                extensionReceiver = callable.resolvedReceiverType,
+                valueParameters = (callable as? FirNamedFunctionSymbol)?.valueParameterSymbols?.map { it.resolvedReturnTypeRef.coneType },
+            )
         }.values
 
         val clashes = sameArgumentGroups.mapNotNull { fs ->
             fs.zipWithNext().find { (m1, m2) ->
-                m1.isSuspend != m2.isSuspend || m1.typeParameterSymbols.size != m2.typeParameterSymbols.size
+                m1.typeParameterSymbols.size != m2.typeParameterSymbols.size
             }
         }
 
@@ -326,21 +331,21 @@ sealed class FirImplementationMismatchChecker(mppKind: MppCheckerKind) : FirClas
 
             // If one of the declarations is from this class, report CONFLICTING_OVERLOADS, otherwise CONFLICTING_INHERITED_MEMBERS
             if (firstClassLookupTag == thisClassLookupTag && first.source?.kind is KtRealSourceElementKind) {
-                reporter.reportOn(first.source, FirErrors.CONFLICTING_OVERLOADS, clash.toList(), context)
+                reporter.reportOn(first.source, FirErrors.CONFLICTING_OVERLOADS, clash.toList())
             } else if (secondClassLookupTag == thisClassLookupTag && second.source?.kind is KtRealSourceElementKind) {
-                reporter.reportOn(second.source, FirErrors.CONFLICTING_OVERLOADS, clash.toList(), context)
+                reporter.reportOn(second.source, FirErrors.CONFLICTING_OVERLOADS, clash.toList())
             } else {
                 reporter.reportOn(
-                    containingClass.source, FirErrors.CONFLICTING_INHERITED_MEMBERS, containingClass.symbol, clash.toList(), context,
+                    containingClass.source, FirErrors.CONFLICTING_INHERITED_MEMBERS, containingClass.symbol, clash.toList()
                 )
             }
         }
     }
 
+    context(context: CheckerContext)
     private fun ConeKotlinType.substituteTypeParameters(
         fromDeclaration: FirCallableSymbol<*>,
-        toDeclaration: FirCallableSymbol<*>,
-        context: CheckerContext
+        toDeclaration: FirCallableSymbol<*>
     ): ConeKotlinType {
         val fromParams = fromDeclaration.typeParameterSymbols
         val toParams = toDeclaration.typeParameterSymbols

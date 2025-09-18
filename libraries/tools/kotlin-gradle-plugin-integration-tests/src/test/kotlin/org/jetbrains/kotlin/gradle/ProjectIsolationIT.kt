@@ -38,7 +38,6 @@ class ProjectIsolationIT : KGPBaseTest() {
         project(
             projectName = "kt-63990-buildSrcWithKotlinJvmPlugin",
             gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.UNSPECIFIED)
         ) {
             build("tasks")
         }
@@ -88,7 +87,7 @@ class ProjectIsolationIT : KGPBaseTest() {
         project(
             projectName = "kapt2/android-databinding",
             gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
             buildJdk = jdkVersion.location
         ) {
             gradleProperties.appendText(

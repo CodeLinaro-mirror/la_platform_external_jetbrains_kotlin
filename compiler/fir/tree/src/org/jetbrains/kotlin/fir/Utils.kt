@@ -17,18 +17,25 @@ import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusIm
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusWithAlteredDefaults
 import org.jetbrains.kotlin.fir.declarations.utils.isEnumClass
 import org.jetbrains.kotlin.fir.declarations.utils.isStatic
+import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
+import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.builder.buildWhenSubjectExpression
+import org.jetbrains.kotlin.fir.references.builder.buildErrorNamedReference
+import org.jetbrains.kotlin.fir.references.builder.buildResolvedNamedReference
 import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirFileSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirReplSnippetSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.*
 import org.jetbrains.kotlin.fir.types.impl.*
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.util.OperatorNameConventions.STATEMENT_LIKE_OPERATORS
 import org.jetbrains.kotlin.util.wrapIntoFileAnalysisExceptionIfNeeded
@@ -38,14 +45,14 @@ val FirBlock.lastExpression: FirExpression?
     get() = statements.lastOrNull() as? FirExpression
 
 fun <R : FirTypeRef> R.copyWithNewSourceKind(newKind: KtFakeSourceElementKind): R {
-    if (source == null) return this
-    if (source?.kind == newKind) return this
-    return copyWithNewSource(source?.fakeElement(newKind))
+    val source = source ?: return this
+    if (source.kind == newKind) return this
+    return copyWithNewSource(source.fakeElement(newKind))
 }
 
 // do we need a deep copy here ?
-fun <R : FirTypeRef> R.copyWithNewSource(newSource: KtSourceElement?): R {
-    if (source?.kind == newSource?.kind) return this
+fun <R : FirTypeRef> R.copyWithNewSource(newSource: KtSourceElement): R {
+    if (source?.kind == newSource.kind) return this
 
     @Suppress("UNCHECKED_CAST")
     return when (val typeRef = this) {
@@ -54,6 +61,7 @@ fun <R : FirTypeRef> R.copyWithNewSource(newSource: KtSourceElement?): R {
         }
         is FirErrorTypeRef -> buildErrorTypeRefCopy(typeRef) {
             source = newSource
+            partiallyResolvedTypeRef = typeRef.partiallyResolvedTypeRef?.copyWithNewSource(newSource)
         }
         is FirUserTypeRefImpl -> buildUserTypeRef {
             source = newSource
@@ -82,6 +90,9 @@ fun <R : FirTypeRef> R.copyWithNewSource(newSource: KtSourceElement?): R {
 
 val FirFile.packageFqName: FqName
     get() = packageDirective.packageFqName
+
+val FirFileSymbol.packageFqName: FqName
+    get() = fir.packageFqName
 
 val FirElement.psi: PsiElement? get() = (source as? KtPsiSourceElement)?.psi
 val FirElement.realPsi: PsiElement? get() = (source as? KtRealPsiSourceElement)?.psi
@@ -333,7 +344,7 @@ fun <T> List<T>.smartPlus(other: List<T>): List<T> = when {
 }
 
 // Source element may be missing if the class came from a library
-fun FirVariable.isEnumEntries(containingClass: FirClass) = isStatic && name == StandardNames.ENUM_ENTRIES && containingClass.isEnumClass
+fun FirVariable.isEnumEntries(containingClass: FirClass): Boolean = isStatic && name == StandardNames.ENUM_ENTRIES && containingClass.isEnumClass
 fun FirVariable.isEnumEntries(containingClassSymbol: FirClassSymbol<*>): Boolean {
     return isStatic && name == StandardNames.ENUM_ENTRIES && containingClassSymbol.isEnumClass
 }
@@ -363,7 +374,7 @@ fun FirBasedSymbol<*>.packageFqName(): FqName {
     }
 }
 
-fun FirOperation.toAugmentedAssignSourceKind() = when (this) {
+fun FirOperation.toAugmentedAssignSourceKind(): KtFakeSourceElementKind.DesugaredAugmentedAssign = when (this) {
     FirOperation.PLUS_ASSIGN -> KtFakeSourceElementKind.DesugaredPlusAssign
     FirOperation.MINUS_ASSIGN -> KtFakeSourceElementKind.DesugaredMinusAssign
     FirOperation.TIMES_ASSIGN -> KtFakeSourceElementKind.DesugaredTimesAssign
@@ -372,21 +383,38 @@ fun FirOperation.toAugmentedAssignSourceKind() = when (this) {
     else -> error("Unexpected operator: $name")
 }
 
+fun buildWhenSubjectAccess(conditionSource: KtSourceElement, subjectVariable: FirVariable?): FirPropertyAccessExpression {
+    return buildWhenSubjectExpression {
+        source = conditionSource
+        calleeReference = when (subjectVariable) {
+            null -> buildErrorNamedReference {
+                source = conditionSource.fakeElement(KtFakeSourceElementKind.UnresolvedWhenConditionSubject)
+                name = SpecialNames.WHEN_SUBJECT
+                diagnostic = ConeSimpleDiagnostic("No subject in when", DiagnosticKind.Other)
+            }
+            else -> buildResolvedNamedReference {
+                source = conditionSource.fakeElement(KtFakeSourceElementKind.WhenCondition)
+                resolvedSymbol = subjectVariable.symbol
+                name = subjectVariable.name
+            }
+        }
+    }
+}
+
 fun ConeKotlinType.toFirResolvedTypeRef(
     source: KtSourceElement? = null,
     delegatedTypeRef: FirTypeRef? = null
 ): FirResolvedTypeRef {
-    return if (this is ConeErrorType) {
-        buildErrorTypeRef {
+    return when (val lowerBoundIfFlexible = lowerBoundIfFlexible()) {
+        is ConeErrorType -> buildErrorTypeRef {
             this.source = source
-            diagnostic = this@toFirResolvedTypeRef.diagnostic
-            coneType = this@toFirResolvedTypeRef
+            this.diagnostic = lowerBoundIfFlexible.diagnostic
+            this.coneType = this@toFirResolvedTypeRef
             this.delegatedTypeRef = delegatedTypeRef
         }
-    } else {
-        buildResolvedTypeRef {
+        else -> buildResolvedTypeRef {
             this.source = source
-            coneType = this@toFirResolvedTypeRef
+            this.coneType = this@toFirResolvedTypeRef
             this.delegatedTypeRef = delegatedTypeRef
         }
     }

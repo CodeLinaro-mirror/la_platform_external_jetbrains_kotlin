@@ -5,10 +5,10 @@
 
 package org.jetbrains.kotlin.backend.common.linkage.partial
 
+import org.jetbrains.kotlin.backend.common.linkage.partial.ClassifierPartialLinkageStatus.Unusable
+import org.jetbrains.kotlin.backend.common.linkage.partial.ClassifierPartialLinkageStatus.Unusable.*
+import org.jetbrains.kotlin.backend.common.linkage.partial.ClassifierPartialLinkageStatus.Usable
 import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageUtils.isEffectivelyMissingLazyIrDeclaration
-import org.jetbrains.kotlin.builtins.PrimitiveType
-import org.jetbrains.kotlin.builtins.StandardNames.BUILT_INS_PACKAGE_FQ_NAME
-import org.jetbrains.kotlin.builtins.UnsignedType
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.NotFoundClasses
@@ -16,11 +16,8 @@ import org.jetbrains.kotlin.ir.InternalSymbolFinderAPI
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyClass
-import org.jetbrains.kotlin.ir.linkage.partial.ExploredClassifier
-import org.jetbrains.kotlin.ir.linkage.partial.ExploredClassifier.Unusable
-import org.jetbrains.kotlin.ir.linkage.partial.ExploredClassifier.Unusable.*
-import org.jetbrains.kotlin.ir.linkage.partial.ExploredClassifier.Usable
+import org.jetbrains.kotlin.ir.declarations.lazy.IrLazyClassBase
+import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.types.*
@@ -28,14 +25,12 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrTypeVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.utils.addIfNotNull
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageUtils.Module as PLModule
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageSources.Module as PLModule
 
 internal class ClassifierExplorer(
     private val builtIns: IrBuiltIns,
     private val stubGenerator: MissingDeclarationStubGenerator,
 ) {
-    private val exploredSymbols = ExploredClassifiers()
-
     private val permittedAnnotationArrayParameterSymbols: Set<IrClassSymbol> by lazy {
         setOf(
             builtIns.stringClass, // kotlin.String
@@ -80,7 +75,7 @@ internal class ClassifierExplorer(
     }
 
     /** Explore the IR type to find the first cause why this type should be considered as unusable. */
-    private fun IrType.exploreType(visitedSymbols: MutableSet<IrClassifierSymbol>): ExploredClassifier {
+    private fun IrType.exploreType(visitedSymbols: MutableSet<IrClassifierSymbol>): ClassifierPartialLinkageStatus {
         return when (this) {
             is IrSimpleType -> classifier.exploreSymbol(visitedSymbols).asUnusable()
                 ?: arguments.firstUnusable { it.typeOrNull?.exploreType(visitedSymbols) }
@@ -91,18 +86,18 @@ internal class ClassifierExplorer(
     }
 
     /** Explore the IR classifier symbol to find the first cause why this symbol should be considered as unusable. */
-    private fun IrClassifierSymbol.exploreSymbol(visitedSymbols: MutableSet<IrClassifierSymbol>): ExploredClassifier {
-        exploredSymbols[this]?.let { result ->
+    private fun IrClassifierSymbol.exploreSymbol(visitedSymbols: MutableSet<IrClassifierSymbol>): ClassifierPartialLinkageStatus {
+        if (!isBound) {
+            stubGenerator.getDeclaration(this) // Generate a stub and bind the symbol immediately.
+            return registerUnusable(MissingClassifier(this))
+        }
+
+        owner.classifierLinkageStatusCache?.let { result ->
             // Already explored and registered symbol.
             return result
         }
 
-        if (!isBound) {
-            stubGenerator.getDeclaration(this) // Generate a stub and bind the symbol immediately.
-            return exploredSymbols.registerUnusable(this, MissingClassifier(this))
-        }
-
-        (owner as? IrLazyClass)?.let { lazyIrClass ->
+        (owner as? IrLazyClassBase)?.takeUnless { it.isK2 }?.let { lazyIrClass ->
             val isEffectivelyMissingClassifier =
                 /* Lazy IR declaration is present but wraps a special "not found" class descriptor. */
                 lazyIrClass.descriptor is NotFoundClasses.MockClassDescriptor
@@ -110,8 +105,7 @@ internal class ClassifierExplorer(
                          * because the declaration is exported from the module. */
                         || lazyIrClass.isEffectivelyMissingLazyIrDeclaration()
 
-            if (isEffectivelyMissingClassifier)
-                return exploredSymbols.registerUnusable(this, MissingClassifier(this))
+            if (isEffectivelyMissingClassifier) return registerUnusable(MissingClassifier(this))
         }
 
         if (!visitedSymbols.add(this)) {
@@ -120,7 +114,7 @@ internal class ClassifierExplorer(
 
         val cause: Unusable? = when (val classifier = owner) {
             is IrClass -> when (PLModule.determineModuleFor(owner as IrClass)) {
-                is PLModule.MissingDeclarations -> return exploredSymbols.registerUnusable(this, MissingClassifier(this))
+                is PLModule.MissingDeclarations -> return registerUnusable(MissingClassifier(this))
                 stdlibModule, PLModule.SyntheticBuiltInFunctions -> {
                     // Don't run any additional checks if the class is from stdlib.
                     null
@@ -146,15 +140,25 @@ internal class ClassifierExplorer(
         }
 
         val rootCause = when {
-            cause == null -> return exploredSymbols.registerUsable(this)
-            cause.symbol == this -> return exploredSymbols.registerUnusable(this, cause)
+            cause == null -> return registerUsable()
+            cause.symbol == this -> return registerUnusable(cause)
             else -> when (cause) {
                 is DueToOtherClassifier -> cause.rootCause
                 is CanBeRootCause -> cause
             }
         }
 
-        return exploredSymbols.registerUnusable(this, DueToOtherClassifier(this, rootCause))
+        return registerUnusable(DueToOtherClassifier(this, rootCause))
+    }
+
+    private fun IrClassifierSymbol.registerUnusable(exploredClassifier: Unusable): Unusable {
+        owner.classifierLinkageStatusCache = exploredClassifier
+        return exploredClassifier
+    }
+
+    private fun IrClassifierSymbol.registerUsable(): Usable {
+        owner.classifierLinkageStatusCache = Usable
+        return Usable
     }
 
     private fun IrConstructor.exploreAnnotationConstructor(visitedSymbols: MutableSet<IrClassifierSymbol>): Unusable? {
@@ -267,15 +271,17 @@ internal class ClassifierExplorer(
         private val IrTypeArgument.typeOrNull: IrType?
             get() = (this as? IrTypeProjection)?.type
 
+        internal var IrSymbolOwner.classifierLinkageStatusCache: ClassifierPartialLinkageStatus? by irAttribute(copyByDefault = true)
+
         private fun IrType.asSimpleType() = this as? IrSimpleType
 
-        private fun ExploredClassifier?.asUnusable() = this as? Unusable
+        private fun ClassifierPartialLinkageStatus?.asUnusable() = this as? Unusable
 
         /** Iterate the collection and find the first unusable classifier. */
-        private inline fun <T> Iterable<T>.firstUnusable(transform: (T) -> ExploredClassifier?): Unusable? =
+        private inline fun <T> Iterable<T>.firstUnusable(transform: (T) -> ClassifierPartialLinkageStatus?): Unusable? =
             firstNotNullOfOrNull { transform(it).asUnusable() }
 
-        private inline fun <T> Sequence<T>.firstUnusable(transform: (T) -> ExploredClassifier?): Unusable? =
+        private inline fun <T> Sequence<T>.firstUnusable(transform: (T) -> ClassifierPartialLinkageStatus?): Unusable? =
             firstNotNullOfOrNull { transform(it).asUnusable() }
     }
 }

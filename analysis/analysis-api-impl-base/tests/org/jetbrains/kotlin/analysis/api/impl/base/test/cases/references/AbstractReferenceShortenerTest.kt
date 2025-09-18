@@ -27,7 +27,7 @@ abstract class AbstractReferenceShortenerTest : AbstractAnalysisApiBasedTest() {
         val element = testServices.expressionMarkerProvider.getTopmostSelectedElementOfType<KtElement>(mainFile)
 
         val shortenings = executeOnPooledThreadInReadAction {
-            analyseForTest(element) {
+            analyzeForTest(element) {
                 buildMap {
                     this += "default settings" to collectPossibleReferenceShorteningsInElement(element)
 
@@ -53,6 +53,6 @@ abstract class AbstractReferenceShortenerTest : AbstractAnalysisApiBasedTest() {
                 renderShorteningResults(shortening)
             }
         }
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+        testServices.assertions.assertEqualsToTestOutputFile(actual)
     }
 }

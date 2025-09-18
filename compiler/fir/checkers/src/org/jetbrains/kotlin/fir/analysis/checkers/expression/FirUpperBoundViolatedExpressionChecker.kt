@@ -21,7 +21,8 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 
 object FirUpperBoundViolatedExpressionChecker : FirQualifiedAccessExpressionChecker(MppCheckerKind.Common) {
-    override fun check(expression: FirQualifiedAccessExpression, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(expression: FirQualifiedAccessExpression) {
         // something that contains the type parameters
         // declarations with their declared bounds.
         // it may be the called function declaration
@@ -41,7 +42,7 @@ object FirUpperBoundViolatedExpressionChecker : FirQualifiedAccessExpressionChec
         val typeParameters: List<FirTypeParameterSymbol>
 
         if (calleeSymbol is FirConstructorSymbol && calleeSymbol.typeAliasConstructorInfo?.originalConstructor != null) {
-            val constructedType = expression.resolvedType.fullyExpandedType(context.session)
+            val constructedType = expression.resolvedType.fullyExpandedType()
             // Updating arguments with source information after expanding the type seems extremely brittle as it relies on identity equality
             // of the expression type arguments and the expanded type arguments. This cannot be applied before expanding the type because it
             // seems like the type is already expended.
@@ -70,11 +71,10 @@ object FirUpperBoundViolatedExpressionChecker : FirQualifiedAccessExpressionChec
         )
 
         checkUpperBoundViolated(
-            context,
-            reporter,
             typeParameters,
             typeArguments,
             substitutor,
+            fallbackSource = expression.source,
         )
     }
 

@@ -4,16 +4,18 @@ import KotlinRuntime
 import KotlinRuntimeSupport
 
 public extension ExportedKotlinPackages.dependency.four {
-    public final class AnotherBar: KotlinRuntime.KotlinBase {
-        public override init() {
+    public final class AnotherBar: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBridged {
+        public init() {
+            if Self.self != ExportedKotlinPackages.dependency.four.AnotherBar.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from ExportedKotlinPackages.dependency.four.AnotherBar ") }
             let __kt = dependency_four_AnotherBar_init_allocate()
-            super.init(__externalRCRef: __kt)
-            dependency_four_AnotherBar_init_initialize__TypesOfArguments__Swift_UInt__(__kt)
+            super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+            dependency_four_AnotherBar_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
         }
         package override init(
-            __externalRCRef: Swift.UInt
+            __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+            options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRef: __externalRCRef)
+            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
         }
     }
 }

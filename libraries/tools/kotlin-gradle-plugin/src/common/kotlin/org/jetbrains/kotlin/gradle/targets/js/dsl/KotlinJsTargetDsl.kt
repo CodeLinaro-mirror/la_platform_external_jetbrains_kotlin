@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.HasConfigurableKotlinCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptions
 import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
+import org.jetbrains.kotlin.gradle.plugin.KotlinTargetWithTests.Companion.DEFAULT_TEST_RUN_NAME
 import org.jetbrains.kotlin.gradle.plugin.mpp.HasBinaries
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsPlatformTestRun
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsReportAggregatingTestRun
@@ -50,14 +51,31 @@ interface KotlinJsSubTargetContainerDsl : KotlinTarget {
     }
 }
 
+
+/**
+ * Base configuration options for the compilation of Kotlin JS and WasmJS targets.
+ *
+ * ```
+ * kotlin {
+ *     js { // Creates js target
+ *         // Configure js target specifics here
+ *     }
+ *     wasmJs { // Creates WasmJS target
+ *         // Configure WasmJS target specifics here
+ *     }
+ * }
+ * ```
+ *
+ * To learn more see:
+ * - [Set up a Kotlin/JS project](https://kotl.in/kotlin-js-setup).
+ * - [Get started with Kotlin/Wasm and Compose Multiplatform](https://kotl.in/kotlin-wasm-js-setup).
+ */
+// NOTE: Consider splitting this so JS and WasmJS are configured separately KT-76473
 interface KotlinJsTargetDsl :
     KotlinTarget,
     KotlinTargetWithNodeJsDsl,
     HasBinaries<KotlinJsBinaryContainer>,
     HasConfigurableKotlinCompilerOptions<KotlinJsCompilerOptions> {
-
-    @Deprecated("Use outputModuleName with Provider API instead")
-    var moduleName: String?
 
     /**
      * Represents the name of the output module for a Kotlin/JS and Kotlin/Wasm target.
@@ -65,24 +83,137 @@ interface KotlinJsTargetDsl :
      */
     val outputModuleName: Property<String>
 
+    /**
+     * Enable 'browsers' as the execution environment for this target,
+     * so the project can be used for client-side scripting in browsers.
+     *
+     * When enabled, Kotlin Gradle plugin will download and install
+     * the required environment and dependencies for running and testing
+     * in a browser.
+     *
+     * For more information, see https://kotl.in/kotlin-js-execution-environments
+     *
+     * @see KotlinJsBrowserDsl
+     */
     fun browser() = browser { }
+
+    /**
+     * Enable 'browsers' as the execution environment for this target,
+     * so the project can be used for client-side scripting in browsers.
+     *
+     * When enabled, Kotlin Gradle plugin will download and install
+     * the required environment and dependencies for running and testing
+     * in a browser.
+     *
+     * The target can be configured using [body].
+     *
+     * For more information, see https://kotl.in/kotlin-js-execution-environments
+     *
+     * @see KotlinJsBrowserDsl
+     */
     fun browser(body: KotlinJsBrowserDsl.() -> Unit)
+
+    /**
+     * Enable 'browsers' as the execution environment for this target,
+     * so the project can be used for client-side scripting in browsers.
+     *
+     * When enabled, Kotlin Gradle plugin will download and install
+     * the required environment and dependencies for running and testing
+     * in a browser.
+     *
+     * The target can be configured using [fn].
+     *
+     * For more information, see https://kotl.in/kotlin-js-execution-environments
+     *
+     * @see KotlinJsBrowserDsl
+     */
     fun browser(fn: Action<KotlinJsBrowserDsl>) {
         browser {
             fn.execute(this)
         }
     }
 
+    /**
+     * _This option is only relevant for JS targets._
+     * _Do not use in WasmJS targets._
+     *
+     * Use **CommonJS** as the JS module system used by the compiled JS code.
+     *
+     * This is a convenience method, to simplify configuring the Kotlin JS compiler options directly.
+     *
+     * Only one module system should be configured.
+     * If no module system is configured it will default to
+     * UMD (Universal Module Definition).
+     * Do not configure two modules (e.g. [useEsModules]) in the same target, because the behaviour is undefined.
+     */
     fun useCommonJs()
+
+    /**
+     * _This option is only relevant for JS targets._
+     * _Do not use in WasmJS targets._
+     *
+     * Use **ES modules** as the JS module system used by the compiled JS code.
+     *
+     * This is a convenience method, to simplify configuring the Kotlin JS compiler options directly.
+     *
+     * Only one module system should be configured.
+     * If no module system is configured it will default to
+     * UMD (Universal Module Definition).
+     * Do not configure two modules (e.g. [useCommonJs]) in the same target, because the behaviour is undefined.
+     */
     fun useEsModules()
 
     /**
-     * The function accepts [jsExpression] and puts this expression as the "args: Array<String>" argument in place of main-function call
+     * _This option is only relevant for JS targets._
+     * _Do not use in WasmJS targets._
+     *
+     * > Note: Passing arguments to the main function is Experimental.
+     * > It may be dropped or changed at any time.
+     *
+     * Specify a source of arguments for the `main()` function.
+     *
+     * [jsExpression] must be a JavaScript function that returns an array of Strings.
+     * The array will be set as in the application's main argument, `args: Array<String>`, in place of main-function call.
+     *
+     * See https://kotl.in/kotlin-js-pass-arguments-to-main-function
+     *
+     * @see KotlinJsNodeDsl.passProcessArgvToMainFunction
      */
     @ExperimentalMainFunctionArgumentsDsl
     fun passAsArgumentToMainFunction(jsExpression: String)
 
+    /**
+     * > Note: Generating TypeScript declaration files is Experimental.
+     * > It may be dropped or changed at any time.
+     *
+     * Enable generating TypeScript definitions from your Kotlin code.
+     *
+     * These definitions can be used by JavaScript tools and IDEs when working on hybrid apps to provide autocompletion,
+     * support static analyzers, and make it easier to include Kotlin code in JavaScript and TypeScript projects.
+     *
+     * This is a convenience method, to simplify configuring the Kotlin JS compiler options directly.
+     *
+     * For more information about generating TypeScript definitions, see https://kotl.in/kotlin-js-generate-typescript-defs
+     */
     fun generateTypeScriptDefinitions()
+
+    /**
+     * The container that holds test run executions for the current target.
+     *
+     * A test run by the name [DEFAULT_TEST_RUN_NAME] is automatically created and configured.
+     *
+     * @see org.jetbrains.kotlin.gradle.plugin.KotlinTargetWithTests.testRuns
+     */
+    val testRuns: NamedDomainObjectContainer<KotlinJsReportAggregatingTestRun>
+
+    // Need to compatibility when users use KotlinJsCompilation specific in build script
+    override val compilations: NamedDomainObjectContainer<KotlinJsIrCompilation>
+
+    override val binaries: KotlinJsBinaryContainer
+
+    //region Deprecated Properties
+    @Deprecated("Use outputModuleName with Provider API instead. Scheduled for removal in Kotlin 2.3.", level = DeprecationLevel.ERROR)
+    var moduleName: String?
 
     @Deprecated(
         message = "produceExecutable() was changed on binaries.executable()",
@@ -92,13 +223,7 @@ interface KotlinJsTargetDsl :
     fun produceExecutable() {
         throw GradleException("Please change produceExecutable() on binaries.executable()")
     }
-
-    val testRuns: NamedDomainObjectContainer<KotlinJsReportAggregatingTestRun>
-
-    // Need to compatibility when users use KotlinJsCompilation specific in build script
-    override val compilations: NamedDomainObjectContainer<KotlinJsIrCompilation>
-
-    override val binaries: KotlinJsBinaryContainer
+    //endregion
 }
 
 interface KotlinTargetWithNodeJsDsl {
@@ -132,6 +257,36 @@ interface KotlinJsBrowserDsl : KotlinJsSubTargetDsl {
 interface KotlinJsNodeDsl : KotlinJsSubTargetDsl {
     fun runTask(body: Action<NodeJsExec>)
 
+    /**
+     * _This option is only relevant for JS targets._
+     * _Do not use in WasmJS targets._
+     *
+     * > Note: Passing arguments to the main function is Experimental.
+     * > It may be dropped or changed at any time.
+     *
+     * Enable passing `process.argv` to the main function's `args` parameter.
+     *
+     * See https://kotl.in/kotlin-js-pass-arguments-to-main-function
+     *
+     * @see KotlinJsTargetDsl.passAsArgumentToMainFunction
+     */
     @ExperimentalMainFunctionArgumentsDsl
     fun passProcessArgvToMainFunction()
+
+
+    /**
+     * _This option is only relevant for JS targets._
+     * _Do not use in WasmJS targets._
+     *
+     * > Note: Passing arguments to the main function is Experimental.
+     * > It may be dropped or changed at any time.
+     *
+     * Enable passing `process.argv.slice(2)` to the main function's `args` parameter.
+     *
+     * See https://kotl.in/kotlin-js-pass-arguments-to-main-function
+     *
+     * @see KotlinJsTargetDsl.passAsArgumentToMainFunction
+     */
+    @ExperimentalMainFunctionArgumentsDsl
+    fun passCliArgumentsToMainFunction()
 }

@@ -89,23 +89,19 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun KotlinTypeMarker.asFlexibleType(): FlexibleTypeMarker? {
-        assert(this is ConeKotlinType)
         return this as? ConeFlexibleType
     }
 
     override fun KotlinTypeMarker.isError(): Boolean {
-        assert(this is ConeKotlinType)
         return this is ConeErrorType || this is ConeErrorType || this.typeConstructor().isError() ||
                 (this is ConeClassLikeType && this.lookupTag is ConeClassLikeErrorLookupTag)
     }
 
     override fun KotlinTypeMarker.isUninferredParameter(): Boolean {
-        assert(this is ConeKotlinType)
         return this is ConeErrorType && this.isUninferredParameter
     }
 
     override fun FlexibleTypeMarker.asDynamicType(): ConeDynamicType? {
-        assert(this is ConeKotlinType)
         return this as? ConeDynamicType
     }
 
@@ -129,7 +125,6 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun RigidTypeMarker.asDefinitelyNotNullType(): DefinitelyNotNullTypeMarker? {
-        require(this is ConeKotlinType)
         return this as? ConeDefinitelyNotNullType
     }
 
@@ -192,7 +187,6 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     }
 
     override fun TypeArgumentMarker.isStarProjection(): Boolean {
-        require(this is ConeTypeProjection)
         return this is ConeStarProjection
     }
 
@@ -338,7 +332,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
     override fun TypeConstructorMarker.isDenotable(): Boolean {
         require(this is ConeTypeConstructorMarker)
         return when (this) {
-            is ConeClassifierLookupTag -> true
+            is ConeClassifierLookupTag -> this !is ConeClassLikeErrorLookupTag
 
             is ConeStubTypeConstructor,
             is ConeCapturedTypeConstructor,
@@ -563,11 +557,6 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return unsubstitutedUnderlyingTypeForInlineClass(session)
     }
 
-    override fun KotlinTypeMarker.getSubstitutedUnderlyingType(): KotlinTypeMarker? {
-        require(this is ConeKotlinType)
-        return substitutedUnderlyingTypeForInlineClass(session, this@ConeTypeContext)
-    }
-
     override fun TypeConstructorMarker.getPrimitiveType(): PrimitiveType? =
         getClassFqNameUnsafe()?.let(StandardNames.FqNames.fqNameToPrimitiveType::get)
 
@@ -582,7 +571,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return classId.asSingleFqName().toUnsafe()
     }
 
-    override fun TypeParameterMarker.getName() = (this as ConeTypeParameterLookupTag).name
+    override fun TypeParameterMarker.getName(): Name = (this as ConeTypeParameterLookupTag).name
 
     override fun TypeParameterMarker.isReified(): Boolean {
         require(this is ConeTypeParameterLookupTag)

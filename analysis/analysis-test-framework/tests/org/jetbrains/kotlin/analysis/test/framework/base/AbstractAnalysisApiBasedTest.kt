@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.analysis.test.framework.services.ExpressionMarkersSo
 import org.jetbrains.kotlin.analysis.test.framework.services.environmentManager
 import org.jetbrains.kotlin.analysis.test.framework.services.expressionMarkerProvider
 import org.jetbrains.kotlin.analysis.test.framework.services.libraries.TestModuleCompiler
+import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiMode
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.FrontendKind
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.registerAllServices
@@ -285,37 +286,31 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
     /**
      * Checks whether the [actual] string matches the content of the test output file.
      *
-     * Check the [assertEqualsToTestDataFileSibling] overload accepting a prefix list for more information.
-     */
-    protected fun AssertionsService.assertEqualsToTestDataFileSibling(
-        actual: String,
-        extension: String = ".txt",
-        testPrefix: String? = configurator.testPrefix,
-    ) {
-        assertEqualsToTestDataFileSibling(actual, extension, listOfNotNull(testPrefix))
-    }
-
-    /**
-     * Checks whether the [actual] string matches the content of the test output file.
-     *
-     * If a non-empty list of [testPrefixes] is specified, the function will firstly check whether test output file with any of the
+     * If a non-empty list of [testPrefixes] is specified, the function will firstly check whether test output files with any of the
      * specified prefixes exist. If so, it will check the [actual] content against that file (the first prefix has the highest priority).
-     * Also, if files with latter prefixes, or if the non-prefixed file contains the same output, an assertion error is raised.
+     * Also, if files with latter prefixes or the non-prefixed file contain the same output, an assertion error is raised.
      *
      * If no prefixes are specified, or if no prefixed files exist, the function compares [actual] against the non-prefixed (default)
      * test output file.
      *
      * If none of the test output files exist, the function creates an output file, writes the content of [actual] to it, and throws
      * an exception.
+     *
+     * If a [subdirectoryName] is specified, the test output file will be resolved in the given subdirectory, instead of as a sibling of the
+     * test data. The purpose of this setting is to allow tests to define multiple sets of output files, e.g. for tests that share the same
+     * test data but have different test output. This is in contrast to [testPrefixes]: Each test prefix defines a specialized version of a
+     * test output file that is used when a specific test configuration (e.g. Standalone) deviates from the default (non-prefixed) test
+     * output.
      */
-    protected fun AssertionsService.assertEqualsToTestDataFileSibling(
+    protected fun AssertionsService.assertEqualsToTestOutputFile(
         actual: String,
         extension: String = ".txt",
-        testPrefixes: List<String>,
+        subdirectoryName: String? = null,
+        testPrefixes: List<String> = configurator.testPrefixes,
     ) {
         val expectedFiles = buildList {
-            testPrefixes.mapNotNullTo(this) { findPrefixedTestDataSibling(extension, it) }
-            add(getDefaultTestDataSibling(extension))
+            testPrefixes.mapNotNullTo(this) { findPrefixedTestOutputFile(extension, subdirectoryName, testPrefix = it) }
+            add(getDefaultTestOutputFile(extension, subdirectoryName))
         }
 
         val mainExpectedFile = expectedFiles.first()
@@ -331,34 +326,49 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
     }
 
     /**
-     * Returns the test output file with a [testPrefix] if it exists, of the non-prefixed (default) test output file.
+     * Returns the test output file with any of the [testPrefixes] if it exists, of the non-prefixed (default) test output file.
+     *
+     * If a [subdirectoryName] is specified, the test output file will be resolved in the given subdirectory, instead of as a sibling of the
+     * test data.
+     *
+     * @see assertEqualsToTestOutputFile
      */
-    protected fun getTestDataSibling(extension: String = "txt", testPrefix: String? = configurator.testPrefix): Path {
-        if (testPrefix != null) {
-            findPrefixedTestDataSibling(extension, testPrefix)?.let { return it }
+    protected fun getTestOutputFile(
+        extension: String = "txt",
+        subdirectoryName: String? = null,
+        testPrefixes: List<String> = configurator.testPrefixes,
+    ): Path {
+        for (testPrefix in testPrefixes) {
+            findPrefixedTestOutputFile(extension, subdirectoryName, testPrefix)?.let { return it }
         }
-
-        return getDefaultTestDataSibling(extension)
+        return getDefaultTestOutputFile(extension, subdirectoryName)
     }
 
     /**
-     * Returns the test output file with a [testPrefix] if it exists, or `null` otherwise.
+     * Returns the default test output file without a test prefix. The file is resolved in the given [subdirectoryName] directory, or as a
+     * sibling of the test data file if no [subdirectoryName] is provided.
      */
-    private fun findPrefixedTestDataSibling(extension: String = "txt", testPrefix: String): Path? {
-        val extensionWithDot = "." + extension.removePrefix(".")
-        val baseName = testDataPath.nameWithoutExtension
-
-        val prefixedFile = testDataPath.resolveSibling("$baseName.$testPrefix$extensionWithDot")
-        return prefixedFile.takeIf { it.exists() }
-    }
+    private fun getDefaultTestOutputFile(extension: String, subdirectoryName: String?): Path =
+        buildTestOutputFilePath(extension, subdirectoryName, testPrefix = null)
 
     /**
-     * Returns the non-prefixed the test output file, even if it does not exist.
+     * Returns the test output file with the given [testPrefix] if it exists. The file is resolved in the given [subdirectoryName]
+     * directory, or as a sibling of the test data file if no [subdirectoryName] is provided.
      */
-    private fun getDefaultTestDataSibling(extension: String = "txt"): Path {
+    private fun findPrefixedTestOutputFile(extension: String, subdirectoryName: String?, testPrefix: String): Path? =
+        buildTestOutputFilePath(extension, subdirectoryName, testPrefix).takeIf { it.exists() }
+
+    private fun buildTestOutputFilePath(extension: String, subdirectoryName: String?, testPrefix: String?): Path {
         val extensionWithDot = "." + extension.removePrefix(".")
         val baseName = testDataPath.nameWithoutExtension
-        return testDataPath.resolveSibling(baseName + extensionWithDot)
+        val directoryPath = subdirectoryName?.let { testDataPath.resolveSibling(it) } ?: testDataPath.parent
+
+        val relativePath = if (testPrefix != null) {
+            "$baseName.$testPrefix$extensionWithDot"
+        } else {
+            baseName + extensionWithDot
+        }
+        return directoryPath.resolve(relativePath)
     }
 
     @OptIn(TestInfrastructureInternals::class)
@@ -390,6 +400,10 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
     }
 
     protected fun runTest(@TestDataFile path: String) {
+        runTest(path) { doTest(it) }
+    }
+
+    protected fun runTest(@TestDataFile path: String, block: (TestServices) -> Unit) {
         testDataPath = configurator.computeTestDataPath(Paths.get(path))
         val testConfiguration = createTestConfiguration()
         testServices = testConfiguration.testServices
@@ -400,7 +414,8 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
         }
 
         if (configurator.frontendKind == FrontendKind.Fe10 && isFe10DisabledForTheTest() ||
-            configurator.frontendKind == FrontendKind.Fir && isFirDisabledForTheTest()
+            configurator.frontendKind == FrontendKind.Fir && isFirDisabledForTheTest() ||
+            configurator.analysisApiMode == AnalysisApiMode.Standalone && isStandaloneDisabledForTheTest()
         ) {
             return
         }
@@ -411,7 +426,7 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
             return
         }
 
-        doTest(testServices)
+        block(testServices)
     }
 
     @AfterEach
@@ -460,6 +475,9 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
     private fun isFirDisabledForTheTest(): Boolean =
         AnalysisApiTestDirectives.IGNORE_FIR in testServices.moduleStructure.allDirectives
 
+    private fun isStandaloneDisabledForTheTest(): Boolean =
+        AnalysisApiTestDirectives.IGNORE_STANDALONE in testServices.moduleStructure.allDirectives
+
     protected fun <T : Directive> RegisteredDirectives.findSpecificDirective(
         commonDirective: T,
         k1Directive: T,
@@ -468,17 +486,64 @@ abstract class AbstractAnalysisApiBasedTest : TestWithDisposable() {
         ?: k1Directive.takeIf { configurator.frontendKind == FrontendKind.Fe10 && it in this }
         ?: k2Directive.takeIf { configurator.frontendKind == FrontendKind.Fir && it in this }
 
-    protected fun <R> analyseForTest(contextElement: KtElement, action: KaSession.(KtElement) -> R): R {
+    /**
+     * Analyzes [contextElement] either directly, or a copy of it when the test is in dependent analysis mode.
+     *
+     * The [action] receives the possibly *copied element* as a lambda parameter. The test **must** work with the copied element instead of
+     * [contextElement], since in dependent analysis mode, the copied file is supposed to replace the original file.
+     *
+     * [copyAwareAnalyzeForTest] only needs to be used when the test is executed in the *dependent analysis* mode (see
+     * [AnalysisSessionMode.Dependent][org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisSessionMode.Dependent]).
+     * Otherwise, [analyzeForTest] can be used.
+     */
+    protected fun <E : KtElement, R> copyAwareAnalyzeForTest(
+        contextElement: E,
+        danglingFileResolutionMode: KaDanglingFileResolutionMode = KaDanglingFileResolutionMode.IGNORE_SELF,
+        action: KaSession.(E) -> R,
+    ): R {
         return if (configurator.analyseInDependentSession) {
             val originalContainingFile = contextElement.containingKtFile
             val fileCopy = originalContainingFile.copy() as KtFile
 
-            analyzeCopy(fileCopy, KaDanglingFileResolutionMode.IGNORE_SELF) {
-                action(PsiTreeUtil.findSameElementInCopy<KtElement>(contextElement, fileCopy))
+            analyzeCopy(fileCopy, danglingFileResolutionMode) {
+                check(fileCopy.originalFile == originalContainingFile) {
+                    "The copied file should have the same original file as the original file" +
+                            " (original file: '$originalContainingFile', copied file: '$fileCopy')."
+                }
+                action(getDependentElementFromFile(contextElement, fileCopy))
             }
         } else {
             analyze(contextElement, action = { action(contextElement) })
         }
+    }
+
+    /**
+     * Returns the element that matches the given [originalElement] in the possibly copied file [contextFile]. [contextFile] should be the
+     * possibly copied file provided by [copyAwareAnalyzeForTest] (whether it's actually copied depends on whether the current test is
+     * running in dependent analysis). The function is intended to be used when multiple elements need to be grabbed from the copied file,
+     * as [copyAwareAnalyzeForTest] only provides a single element to the action.
+     *
+     * If [originalElement] is from another file than the copied original file, returns [originalElement] as-is, since elements outside the
+     * copied file only exist in their original form during dependent analysis.
+     */
+    protected fun <E : KtElement> getDependentElementFromFile(originalElement: E, contextFile: KtFile): E {
+        if (!configurator.analyseInDependentSession || originalElement.containingFile != contextFile.originalFile) {
+            return originalElement
+        }
+        return PsiTreeUtil.findSameElementInCopy<E>(originalElement, contextFile)
+    }
+
+    /**
+     * Analyzes [contextElement] directly. This function should be preferred over [analyze] in tests because it performs additional checks.
+     *
+     * If the test supports dependent analysis, [copyAwareAnalyzeForTest] should be used instead.
+     */
+    protected fun <R> analyzeForTest(contextElement: KtElement, action: KaSession.() -> R): R {
+        check(!configurator.analyseInDependentSession) {
+            "The `analyzeForTest` function should not be used in tests which support dependent analysis mode." +
+                    " Use `copyAwareAnalyzeForTest` instead."
+        }
+        return analyze(contextElement, action)
     }
 
     @BeforeEach

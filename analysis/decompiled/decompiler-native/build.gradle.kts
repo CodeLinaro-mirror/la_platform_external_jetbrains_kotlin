@@ -5,7 +5,10 @@ plugins {
 
 sourceSets {
     "main" { projectDefault() }
-    "test" { projectDefault() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
 }
 
 projectTest {
@@ -32,5 +35,7 @@ dependencies {
     testImplementation(projectTests(":compiler:tests-common-new"))
     testImplementation(projectTests(":analysis:decompiled:decompiler-to-file-stubs"))
 }
+
+optInToK1Deprecation()
 
 testsJar()

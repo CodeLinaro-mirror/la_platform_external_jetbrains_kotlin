@@ -13,7 +13,7 @@ fun text() {
     bar2 <!ARGUMENT_TYPE_MISMATCH!>{}<!>
     bar2 {1}
     bar2 {<!UNRESOLVED_REFERENCE!>it<!>}
-    bar2 <!ARGUMENT_TYPE_MISMATCH!>{<!CANNOT_INFER_PARAMETER_TYPE!>it<!> -> it}<!>
+    bar2 <!ARGUMENT_TYPE_MISMATCH!>{<!CANNOT_INFER_VALUE_PARAMETER_TYPE!>it<!> -> it}<!>
 }
 
 fun bar(f :  (Int, Int) -> Int) {}
@@ -31,3 +31,7 @@ infix fun String.on(predicate :  (s : URI) -> Boolean) : URI {
 class URI(val body : Any) {
     infix fun to(dest : String) {}
 }
+
+/* GENERATED_FIR_TAGS: additiveExpression, classDeclaration, equalityExpression, funWithExtensionReceiver,
+functionDeclaration, functionalType, infix, integerLiteral, lambdaLiteral, primaryConstructor, propertyDeclaration,
+stringLiteral, thisExpression */

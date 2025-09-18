@@ -182,7 +182,6 @@ enum class GCScheduler(val compilerFlag: String?) {
 enum class Allocator(val compilerFlag: String?) {
     UNSPECIFIED(null),
     STD("-Xallocator=std"),
-    MIMALLOC("-Xallocator=mimalloc"),
     CUSTOM("-Xallocator=custom");
 
     override fun toString() = compilerFlag?.let { "($it)" }.orEmpty()
@@ -262,8 +261,9 @@ sealed class CacheMode {
             testTarget: KonanTarget,
             cacheKind: String,
             debuggable: Boolean,
-            partialLinkageEnabled: Boolean
-        ) = "$testTarget${if (debuggable) "-g" else ""}$cacheKind${if (partialLinkageEnabled) "-pl" else ""}"
+            partialLinkageEnabled: Boolean,
+            checkStateAtExternalCalls: Boolean,
+        ) = "$testTarget${if (debuggable) "-g" else ""}${cacheKind}${if (checkStateAtExternalCalls) "-check_state_at_external_calls" else ""}-user${if (partialLinkageEnabled) "-pl" else ""}"
     }
 }
 
@@ -349,11 +349,13 @@ internal class XCTestRunner(val isEnabled: Boolean, private val nativeTargets: K
     }
 }
 
+val Settings.systemFrameworksPath: String get() = get<XCTestRunner>().frameworksPath
+
 internal class ReleasedCompiler(private val lazyNativeHome: Lazy<KotlinNativeHome>) {
     val nativeHome: KotlinNativeHome get() = lazyNativeHome.value
     val lazyClassloader: Lazy<URLClassLoader> = lazy {
         val nativeClassPath = setOf(
-            nativeHome.dir.resolve("konan/lib/trove4j.jar"),
+            nativeHome.dir.resolve("konan/lib/trove4j.jar"), // to be removed after bumping `kotlin.internal.native.test.latestReleasedCompilerVersion` to 2.2.0+
             nativeHome.dir.resolve("konan/lib/kotlin-native-compiler-embeddable.jar")
         )
             .map { it.toURI().toURL() }

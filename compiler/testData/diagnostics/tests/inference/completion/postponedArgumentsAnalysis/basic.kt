@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 // DIAGNOSTICS: -UNUSED_VARIABLE -UNUSED_EXPRESSION -UNUSED_PARAMETER -UNUSED_ANONYMOUS_PARAMETER -UNCHECKED_CAST
 
 import kotlin.reflect.KFunction1
@@ -235,3 +234,9 @@ fun main() {
     select(id<Int.(String) -> Unit>(fun Int.(y) {}), { x: Int, y: String -> x })
     <!DEBUG_INFO_EXPRESSION_TYPE("(kotlin.Number) -> java.io.Serializable")!>select(A3(), fun (x) = "", { a -> <!DEBUG_INFO_EXPRESSION_TYPE("kotlin.Number")!>a<!> })<!>
 }
+
+/* GENERATED_FIR_TAGS: additiveExpression, anonymousFunction, asExpression, callableReference, capturedType,
+classDeclaration, companionObject, functionDeclaration, functionalType, integerLiteral, interfaceDeclaration,
+intersectionType, lambdaLiteral, localProperty, nullableType, objectDeclaration, operator, outProjection, override,
+primaryConstructor, propertyDeclaration, starProjection, stringLiteral, thisExpression, typeConstraint, typeParameter,
+typeWithExtension, vararg */

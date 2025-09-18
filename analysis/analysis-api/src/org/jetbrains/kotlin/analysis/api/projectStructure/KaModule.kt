@@ -76,7 +76,20 @@ public interface KaModule {
     public val directFriendDependencies: List<KaModule>
 
     /**
-     * A [GlobalSearchScope] which determines all the files that are contained in the module.
+     * A base content scope of the module, which is not yet refined by extension and restriction scopes provided by
+     * `KotlinContentScopeRefiner`.
+     *
+     * Note that [baseContentScope] doesn't represent the actual content scope of the current module. To get a content scope of the module,
+     * [contentScope] should be used instead.
+     */
+    @KaPlatformInterface
+    public val baseContentScope: GlobalSearchScope
+
+    /**
+     * Represents the content scope of a current module, i.e., a [GlobalSearchScope] which determines all the files that are contained in
+     * the module.
+     *
+     * This scope should be lazily built from [baseContentScope] using `KotlinContentScopeRefiner` extension points.
      */
     public val contentScope: GlobalSearchScope
 
@@ -110,6 +123,17 @@ public interface KaModule {
     public val stableModuleName: String?
         get() = null
 }
+
+/**
+ * Whether the given [KaModule] can be the use-site module of an [analyze][org.jetbrains.kotlin.analysis.api.analyze] call. A module which
+ * is not resolvable will be rejected by [analyze][org.jetbrains.kotlin.analysis.api.analyze] with an exception.
+ *
+ * All modules returned by [KaModuleProvider.getModule] are guaranteed to be resolvable. By extension, all possible use-site [PsiElement][com.intellij.psi.PsiElement]s
+ * are also part of resolvable modules. As such, module resolvability is normally not a concern of an Analysis API user.
+ */
+@KaPlatformInterface
+public val KaModule.isResolvable: Boolean
+    get() = this !is KaLibraryFallbackDependenciesModule
 
 /**
  * A [KaModule] representing a set of source declarations.
@@ -147,6 +171,26 @@ public interface KaSourceModule : KaModule {
 
 /**
  * A module which represents a binary library, such as a JAR or KLIB.
+ *
+ * ### Dependencies
+ *
+ * [KaLibraryModule]s can have their own dependencies (e.g. [directRegularDependencies]). These dependencies are only relevant when the
+ * library is analyzed as a use-site module (e.g. its decompiled sources are viewed in the IDE). When the library module is used as a
+ * dependency of another module, its own dependencies are irrelevant.
+ *
+ * The library module should either have the exact dependencies it was compiled with or, if unknown, a single
+ * [KaLibraryFallbackDependenciesModule].
+ *
+ * ### Platform-specific content scope restriction
+ *
+ * In the K2 implementation of the Analysis API, the [contentScope] of the library module is restricted to file types that are relevant for
+ * the [targetPlatform]. For example, a JVM library module filters out any files that are not `.class` and `.kotlin_builtins` files. This
+ * allows the Analysis API to exclude content which isn't relevant for the target platform, such as `.knm` files in a JVM library.
+ *
+ * While most proper library module setups don't need such filtering, there are both pathological as well as legitimate use cases in the
+ * wild. For example, certain Kotlin stdlib setups required both the `kotlin-stdlib` and `kotlin-stdlib-common` JARs to be part of the same
+ * [KaLibraryModule] (this has been fixed with 2.x stdlibs). Such a library module has the JVM target platform, and we need to exclude
+ * `.kotlin_metadata` files from the content scope.
  */
 public interface KaLibraryModule : KaModule {
     /**
@@ -200,6 +244,9 @@ public interface KaLibraryModule : KaModule {
  *
  * For example, when viewing a library file in an IDE, the library sources are usually preferred over the library's binary files (if
  * available). The [KaLibrarySourceModule] represents exactly such sources.
+ *
+ * The library source module's dependencies must be the same as its [binaryLibrary]'s dependencies. In particular, the library source module
+ * must also depend on a single [KaLibraryFallbackDependenciesModule] if its exact dependencies are unknown.
  */
 public interface KaLibrarySourceModule : KaModule {
     /**
@@ -220,6 +267,37 @@ public interface KaLibrarySourceModule : KaModule {
     @KaExperimentalApi
     override val moduleDescription: String
         get() = "Library sources of $libraryName"
+}
+
+/**
+ * A module which stands in for the *unknown* dependencies of a [KaLibraryModule] and [KaLibrarySourceModule].
+ *
+ * Files in library (source) modules can be resolved with the Analysis API. From such a resolvable point of view, the Analysis API needs to
+ * find symbols which are defined in the library's dependencies. However, the dependencies with which a library was originally compiled are
+ * often not known.
+ *
+ * As a replacement for precise dependencies, *fallback dependencies* cover all libraries in the project except for the specific
+ * [dependentLibrary]. This allows resolving symbols defined in the dependencies of the library. In most cases, while not perfectly precise,
+ * this approach resolves the correct symbols.
+ *
+ * The fallback dependencies module's [baseContentScope] should be the scope of all libraries excluding [dependentLibrary]. It should have
+ * the same [targetPlatform] as [dependentLibrary].
+ *
+ * [KaLibraryFallbackDependenciesModule] is not [resolvable][isResolvable] and thus cannot be a use-site module of an [analyze][org.jetbrains.kotlin.analysis.api.analyze]
+ * call. It should not be returned by [KaModuleProvider.getModule].
+ *
+ * The content of the fallback dependencies module is filtered by the target platform in exactly the same way as [KaLibraryModule]s. Please
+ * see the KDoc of [KaLibraryModule] for more information.
+ */
+@KaPlatformInterface
+public interface KaLibraryFallbackDependenciesModule : KaModule {
+    /**
+     * The [KaLibraryModule] which relies on these fallback dependencies.
+     *
+     * Both the [dependentLibrary] and its [KaLibrarySourceModule] may depend on this same fallback dependencies module. There is no
+     * separate fallback dependencies module for the library source module.
+     */
+    public val dependentLibrary: KaLibraryModule
 }
 
 /**
@@ -263,6 +341,8 @@ public interface KaScriptModule : KaModule {
 
 /**
  * A module for Kotlin script dependencies. Must either be a [KaLibraryModule] or [KaLibrarySourceModule].
+ *
+ * Script dependencies are self-contained and should not depend on other libraries, not even [KaLibraryFallbackDependenciesModule].
  */
 @KaPlatformInterface
 public interface KaScriptDependencyModule : KaModule {

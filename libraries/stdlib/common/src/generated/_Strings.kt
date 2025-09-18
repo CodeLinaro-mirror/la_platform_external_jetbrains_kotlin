@@ -2226,8 +2226,6 @@ public inline fun CharSequence.sumOf(selector: (Char) -> Double): Double {
  * Returns the sum of all values produced by [selector] function applied to each character in the char sequence.
  */
 @SinceKotlin("1.4")
-@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
-@OverloadResolutionByLambdaReturnType
 @kotlin.jvm.JvmName("sumOfInt")
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.sumOf(selector: (Char) -> Int): Int {
@@ -2258,10 +2256,7 @@ public inline fun CharSequence.sumOf(selector: (Char) -> Long): Long {
  * Returns the sum of all values produced by [selector] function applied to each character in the char sequence.
  */
 @SinceKotlin("1.5")
-@OptIn(kotlin.experimental.ExperimentalTypeInference::class)
-@OverloadResolutionByLambdaReturnType
 @kotlin.jvm.JvmName("sumOfUInt")
-@WasExperimental(ExperimentalUnsignedTypes::class)
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.sumOf(selector: (Char) -> UInt): UInt {
     var sum: UInt = 0.toUInt()
@@ -2278,7 +2273,6 @@ public inline fun CharSequence.sumOf(selector: (Char) -> UInt): UInt {
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
 @OverloadResolutionByLambdaReturnType
 @kotlin.jvm.JvmName("sumOfULong")
-@WasExperimental(ExperimentalUnsignedTypes::class)
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.sumOf(selector: (Char) -> ULong): ULong {
     var sum: ULong = 0.toULong()

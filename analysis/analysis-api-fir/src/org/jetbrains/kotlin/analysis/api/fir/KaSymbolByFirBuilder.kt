@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.types.KaSubstitutor
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeProjection
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -74,9 +74,9 @@ internal class KaSymbolByFirBuilder(
     val analysisSession: KaFirSession,
     val token: KaLifetimeToken,
 ) {
-    private val firResolveSession: LLFirResolveSession get() = analysisSession.firResolveSession
+    private val resolutionFacade: LLResolutionFacade get() = analysisSession.resolutionFacade
     private val firProvider: FirSymbolProvider get() = rootSession.symbolProvider
-    val rootSession: LLFirSession get() = firResolveSession.useSiteFirSession
+    val rootSession: LLFirSession get() = resolutionFacade.useSiteFirSession
 
     val classifierBuilder = ClassifierSymbolBuilder()
     val functionBuilder = FunctionSymbolBuilder()
@@ -258,6 +258,7 @@ internal class KaSymbolByFirBuilder(
 
     inner class VariableSymbolBuilder {
         fun buildVariableSymbol(firSymbol: FirVariableSymbol<*>): KaVariableSymbol = when (firSymbol) {
+            is FirErrorPropertySymbol -> buildErrorVariableSymbol(firSymbol)
             is FirPropertySymbol -> when {
                 firSymbol.isLocal -> buildLocalVariableSymbol(firSymbol)
                 firSymbol is FirSyntheticPropertySymbol -> buildSyntheticJavaPropertySymbol(firSymbol)
@@ -267,8 +268,6 @@ internal class KaSymbolByFirBuilder(
             is FirFieldSymbol -> buildFieldSymbol(firSymbol)
             is FirEnumEntrySymbol -> buildEnumEntrySymbol(firSymbol) // TODO enum entry should not be callable
             is FirBackingFieldSymbol -> buildBackingFieldSymbol(firSymbol)
-            is FirErrorPropertySymbol -> buildErrorVariableSymbol(firSymbol)
-
             is FirDelegateFieldSymbol -> throwUnexpectedElementError(firSymbol)
         }
 
@@ -385,7 +384,10 @@ internal class KaSymbolByFirBuilder(
             firSymbol.unwrapImportedFromObjectOrStatic(::buildFieldSymbol)?.let { return it }
             firSymbol.fir.unwrapSubstitutionOverrideIfNeeded()?.let { return buildFieldSymbol(it.symbol) }
 
-            checkRequirementForBuildingSymbol<KaFirJavaFieldSymbol>(firSymbol, firSymbol.fir.isJavaFieldOrSubstitutionOverrideOfJavaField())
+            checkRequirementForBuildingSymbol<KaFirJavaFieldSymbol>(
+                firSymbol,
+                firSymbol.fir.isJavaFieldOrFakeOverrideOfJavaField()
+            )
             return KaFirJavaFieldSymbol(firSymbol, analysisSession)
         }
 
@@ -411,9 +413,12 @@ internal class KaSymbolByFirBuilder(
             return backingFieldSymbol
         }
 
-        private fun FirField.isJavaFieldOrSubstitutionOverrideOfJavaField(): Boolean = when (this) {
+        private fun FirField.isJavaFieldOrFakeOverrideOfJavaField(): Boolean = when (this) {
             is FirJavaField -> true
-            is FirFieldImpl -> (this as FirField).originalForSubstitutionOverride?.isJavaFieldOrSubstitutionOverrideOfJavaField() == true
+            is FirFieldImpl -> {
+                // KT-75894: not just type substitution, but intersection is possible too.
+                (this as FirField).originalIfFakeOverride()?.isJavaFieldOrFakeOverrideOfJavaField() == true
+            }
             else -> throwUnexpectedElementError(this)
         }
     }
@@ -492,7 +497,7 @@ internal class KaSymbolByFirBuilder(
             //
             // If we have such a type alias pointing to a function type, it is most likely the abbreviation of an expanded function type. An
             // abbreviation shouldn't be expanded, and so there shouldn't be any implicit expansion here.
-            return coneType.functionTypeKind(analysisSession.firResolveSession.useSiteFirSession, expandTypeAliases = false) != null
+            return coneType.functionTypeKind(analysisSession.resolutionFacade.useSiteFirSession, expandTypeAliases = false) != null
         }
 
         fun buildKtType(coneType: FirTypeRef): KaType = buildKtType(coneType.coneType)

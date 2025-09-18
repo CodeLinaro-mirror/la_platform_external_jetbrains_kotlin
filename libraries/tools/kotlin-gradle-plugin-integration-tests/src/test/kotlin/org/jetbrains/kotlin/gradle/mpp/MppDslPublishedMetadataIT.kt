@@ -21,6 +21,10 @@ import kotlin.test.assertTrue
 @MppGradlePluginTests
 class MppDslPublishedMetadataIT : KGPBaseTest() {
 
+    override val defaultBuildOptions: BuildOptions
+        // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+        get() = super.defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
+
     @GradleTest
     @TestMetadata("new-mpp-lib-and-app/sample-lib")
     fun testPublishingOnlySupportedNativeTargets(gradleVersion: GradleVersion) {
@@ -126,8 +130,6 @@ class MppDslPublishedMetadataIT : KGPBaseTest() {
                 "clean",
                 "publish",
                 "-Pkotlin.internal.suppressGradlePluginErrors=KotlinTargetAlreadyDeclaredError",
-                buildOptions = defaultBuildOptions
-                    .copy(configurationCache = enableConfigurationCacheSinceGradle("8.0", gradleVersion))
             ) {
                 assertFileContains(
                     localRepoDir.resolve("com/exampleapp/sample-app-nodejs/1.0/sample-app-nodejs-1.0.pom"),

@@ -5,17 +5,18 @@
 
 package org.jetbrains.kotlin.gradle.android
 
+import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.gradle.BrokenOnMacosTest
+import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
+import org.jetbrains.kotlin.gradle.tasks.AbstractKotlinCompile
+import org.jetbrains.kotlin.gradle.tasks.CompilerPluginOptions
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.testbase.TestVersions.AgpCompatibilityMatrix
 import org.jetbrains.kotlin.gradle.tooling.BuildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.testResolveAllConfigurations
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -23,7 +24,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.ZipFile
 import kotlin.io.path.*
-import kotlin.streams.toList
 import kotlin.test.*
 
 @DisplayName("kotlin-android with mpp")
@@ -43,7 +43,7 @@ class KotlinAndroidMppIT : KGPBaseTest() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build("assembleDebug") {
+            build("assembleDebug", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 assertTasksAreNotInTaskGraph(":${BuildKotlinToolingMetadataTask.defaultTaskName}")
 
                 val debugApk = projectPath.resolve("build/outputs/apk/debug/project-debug.apk")
@@ -53,7 +53,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
                 }
             }
 
-            build("assembleRelease") {
+            build(
+                "clean", "assembleRelease",
+                buildOptions = buildOptions.suppressAgpWarningSinceGradle814(gradleVersion, WarningMode.None)
+            ) {
                 assertTasksExecuted(":${BuildKotlinToolingMetadataTask.defaultTaskName}")
                 val releaseApk = projectPath.resolve("build/outputs/apk/release/project-release-unsigned.apk")
 
@@ -67,7 +70,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("mpp source sets are registered in AGP")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testAndroidMppSourceSets(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -76,10 +78,15 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android-source-sets",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions.copy(
+                androidVersion = agpVersion,
+                // AGP's SourceSetsTask is not CC compatible
+                // see https://issuetracker.google.com/issues/242872035
+                configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED,
+            ),
             buildJdk = jdkVersion.location
         ) {
-            build("sourceSets") {
+            build("sourceSets", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 fun assertOutputContainsOsIndependent(expectedString: String) {
                     assertOutputContains(expectedString.replace("/", File.separator))
                 }
@@ -125,7 +132,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("android mpp lib flavors publication can be configured")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testMppAndroidLibFlavorsPublication(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -148,11 +154,14 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             val groupDir = subProject("lib").projectPath.resolve("build/repo/com/example")
-            build("publish") {
+            build("publish", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 assertDirectoryExists(groupDir.resolve("lib-jvmlib"))
                 assertDirectoryExists(groupDir.resolve("lib-jslib"))
                 assertDirectoryExists(groupDir.resolve("lib-androidlib"))
@@ -347,7 +356,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("Sources publication can be disabled")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testDisableSourcesPublication(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -356,7 +364,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             subProject("lib").buildGradleKts.appendText(
@@ -392,8 +403,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion)
-                .disableConfigurationCache_KT70416(),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             // Convert the 'app' project to a library, publish two flavors without metadata,
@@ -448,7 +461,7 @@ class KotlinAndroidMppIT : KGPBaseTest() {
                         }                        
                         """.trimIndent()
             }
-            build("publish") {
+            build("publish", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 listOf("foobar", "foobaz").forEach { flavor ->
                     listOf("-debug", "").forEach { buildType ->
                         assertFileExists(appGroupDir.resolve("app-androidapp-$flavor$buildType/1.0/app-androidapp-$flavor$buildType-1.0.aar"))
@@ -506,7 +519,8 @@ class KotlinAndroidMppIT : KGPBaseTest() {
             "new-mpp-android",
             gradleVersion,
             buildOptions = defaultBuildOptions
-                .copy(androidVersion = agpVersion),
+                .copy(androidVersion = agpVersion)
+                .suppressWarningFromAgpWithGradle813(gradleVersion),
             buildJdk = jdkVersion.location
         ) {
             settingsGradle.replaceText("include ':app', ':lib'", "include ':lib'")
@@ -537,23 +551,58 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("android app can depend on mpp lib")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testAndroidWithNewMppApp(
         gradleVersion: GradleVersion,
         agpVersion: String,
         jdkVersion: JdkVersions.ProvidedJdk,
     ) {
+        val printOptionsTaskName = "printCompilerPluginOptions"
+
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                .suppressWarningFromAgpWithGradle813(gradleVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
-            build("assemble", "compileDebugUnitTestJavaWithJavac", "printCompilerPluginOptions") {
+            subProject("app").buildScriptInjection {
+                project.tasks.register(printOptionsTaskName) { task ->
+                    val compilations = project.provider {
+                        kotlinMultiplatform.targets
+                            .flatMap { it.compilations }
+                            .mapNotNull { compilation ->
+                                val sourceSetName = compilation.defaultSourceSet.name
+                                val compileTask = compilation.compileTaskProvider.get()
+                                when (compileTask) {
+                                    is AbstractKotlinCompile<*> -> sourceSetName to compileTask
+                                    else -> null
+                                }
+                            }
+                            .associate { (sourceSetName, compileTask) ->
+                                val args = compileTask
+                                    .pluginOptions
+                                    .get()
+                                    .fold(CompilerPluginOptions()) { options, option -> options.plus(option) }
+                                    .arguments
+                                val cp = compileTask.pluginClasspath.files
+                                sourceSetName to (args to cp)
+                            }
+                    }
+                    task.doFirst {
+                        compilations.get().forEach { sourceSetName, (args, cp) ->
+                            println("$sourceSetName=args=>$args")
+                            println("$sourceSetName=cp=>$cp")
+                        }
+                    }
+                }
+            }
+
+            build("assemble", "compileDebugUnitTestJavaWithJavac", printOptionsTaskName) {
                 // KT-30784
                 assertOutputDoesNotContain("API 'variant.getPackageLibrary()' is obsolete and has been replaced")
-
-                assertOutputContains("KT-29964 OK") // Output from lib/build.gradle
 
                 assertTasksExecuted(
                     ":lib:compileDebugKotlinAndroidLib",
@@ -592,7 +641,11 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                .suppressWarningFromAgpWithGradle813(gradleVersion)
+                // `resolveAllConfigurations` task is not compatible with CC and isolated projects
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             // Test the fix for KT-29343
@@ -640,7 +693,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("KT-27714: custom attributes are copied to android compilation configurations")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testCustomAttributesInAndroidTargets(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -649,7 +701,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             val libBuildScript = subProject("lib").buildGradleKts
@@ -760,7 +815,11 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "AndroidProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                .suppressWarningFromAgpWithGradle813(gradleVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             includeOtherProjectAsSubmodule(pathPrefix = "new-mpp-lib-and-app", otherProjectName = "sample-lib")
@@ -780,7 +839,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("MPP allTests task depending on Android unit tests")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testMppAllTests(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -789,7 +847,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             build(":lib:allTests", "--dry-run") {
@@ -805,7 +866,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
      */
     @DisplayName("KT-49798: com.android.build.api.attributes.AgpVersionAttr is not published")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testKT49798AgpVersionAttrNotPublished(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -814,7 +874,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
         project(
             "new-mpp-android",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             build("publish") {
@@ -853,7 +916,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
             localRepoDir = tempDir
         ) {
             /* Publish a producer library with the current version of AGP */
-            build(":producer:publishAllPublicationsToBuildDirRepository") {
+            build(
+                ":producer:publishAllPublicationsToBuildDirRepository",
+                buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)
+            ) {
                 /* Check expected publication layout */
                 assertDirectoryExists(tempDir.resolve("com/example/producer-android"))
                 assertDirectoryExists(tempDir.resolve("com/example/producer-android-debug"))
@@ -910,7 +976,11 @@ class KotlinAndroidMppIT : KGPBaseTest() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build(":compileDebugUnitTestKotlinAndroid", ":compileReleaseUnitTestKotlinAndroid") {
+            build(
+                ":compileDebugUnitTestKotlinAndroid",
+                ":compileReleaseUnitTestKotlinAndroid",
+                buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)
+            ) {
                 assertTasksExecuted(
                     ":compileDebugKotlinAndroid",
                     ":compileReleaseKotlinAndroid",
@@ -930,7 +1000,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     // https://youtrack.jetbrains.com/issue/KT-48436
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun testUnusedSourceSetsReportAndroid(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -938,7 +1007,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
     ) {
         project(
             "new-mpp-android", gradleVersion,
-            defaultBuildOptions.copy(androidVersion = agpVersion),
+            defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             build("assembleDebug") {
@@ -949,7 +1021,6 @@ class KotlinAndroidMppIT : KGPBaseTest() {
 
     @DisplayName("KT-63753: K2 File \"does not belong to any module\" when it is generated by `registerJavaGeneratingTask` in AGP")
     @GradleAndroidTest
-    @BrokenOnMacosTest
     fun sourceGenerationTaskAddedToAndroidVariant(
         gradleVersion: GradleVersion,
         agpVersion: String,
@@ -957,7 +1028,10 @@ class KotlinAndroidMppIT : KGPBaseTest() {
     ) {
         project(
             "new-mpp-android", gradleVersion,
-            defaultBuildOptions.copy(androidVersion = agpVersion),
+            defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+                .disableIsolatedProjects(),
             buildJdk = jdkVersion.location
         ) {
             // Code copied from the reproducer from KT-63753
@@ -1021,7 +1095,7 @@ class KotlinAndroidMppIT : KGPBaseTest() {
                 }
             }
 
-            build("publish") {
+            build("publish", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
                 if (agpVersion == TestVersions.AGP.AGP_73) {
                     // AGP 7.3 configures Publication automatically, so no diagnostic should be reported
                     assertNoDiagnostic(KotlinToolingDiagnostics.AndroidPublicationNotConfigured)

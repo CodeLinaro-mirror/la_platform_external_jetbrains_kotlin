@@ -38,15 +38,13 @@ import org.jetbrains.kotlin.types.SmartcastStability
  */
 sealed class ImplicitValue<S>(
     type: ConeKotlinType,
+    val originalType: ConeKotlinType,
     protected val mutable: Boolean,
 ) where S : FirThisOwnerSymbol<*>, S : FirBasedSymbol<*> {
     abstract val boundSymbol: S
 
     var type: ConeKotlinType = type
         private set
-
-    // Type before smart cast
-    val originalType: ConeKotlinType = type
 
     protected abstract fun computeOriginalExpression(): FirExpression
 
@@ -59,24 +57,19 @@ sealed class ImplicitValue<S>(
      */
     protected val originalExpression: FirExpression by lazy(LazyThreadSafetyMode.PUBLICATION, ::computeOriginalExpression)
 
-    private var isSmartCasted: Boolean = false
-    private var cachedCurrentExpression: FirExpression? = null
+    private var isSmartCasted: Boolean = type != originalType
 
     /**
      * The idea of expression for implicit values is the following:
      *   - Implicit values are mutable because of smartcasts
      *   - The expression of the implicit value may be used during call resolution and then stored for later.
      *     This implies the necessity to keep value expressions independent of the state of the corresponding implicit value.
-     *   - At the same time we don't want to create new expressions for each access for the sake of performance
      * All those statements lead to the current implementation:
      *   - original expression (without smartcast) is always stored inside [originalExpression] and cannot be changed
      *   - we keep track if there is a smartcast in [isSmartCasted]
-     *   - we cache computed expression in [cachedCurrentExpression]
-     *   - if the type of the implicit value changes, this cache is dropped
+     *   - if the type of the implicit value changes, [isSmartCasted] is reset
      */
     fun computeExpression(): FirExpression {
-        cachedCurrentExpression?.let { return it }
-
         return if (isSmartCasted) {
             buildSmartCastExpression {
                 this.originalExpression = this@ImplicitValue.originalExpression
@@ -84,14 +77,13 @@ sealed class ImplicitValue<S>(
                     source = this@ImplicitValue.originalExpression.source?.fakeElement(KtFakeSourceElementKind.SmartCastedTypeRef)
                     coneType = this@ImplicitValue.type
                 }
-                typesFromSmartCast = listOf(this@ImplicitValue.type)
+                upperTypesFromSmartCast = listOf(this@ImplicitValue.type)
                 smartcastStability = SmartcastStability.STABLE_VALUE
                 coneTypeOrNull = this@ImplicitValue.type
+                lowerTypesFromSmartCast = emptyList()
             }
         } else {
             originalExpression
-        }.also {
-            cachedCurrentExpression = it
         }
     }
 
@@ -119,17 +111,20 @@ sealed class ImplicitValue<S>(
         if (!mutable) error("Cannot mutate an immutable ImplicitReceiverValue")
         this.type = type
         isSmartCasted = type != this.originalType
-        cachedCurrentExpression = null
     }
 
     abstract fun createSnapshot(keepMutable: Boolean): ImplicitValue<S>
 }
 
-class ImplicitContextParameterValue(
+class ImplicitContextParameterValue private constructor(
     override val boundSymbol: FirValueParameterSymbol,
     type: ConeKotlinType,
-    mutable: Boolean = true,
-) : ImplicitValue<FirValueParameterSymbol>(type, mutable) {
+    originalType: ConeKotlinType,
+    mutable: Boolean,
+) : ImplicitValue<FirValueParameterSymbol>(type, originalType, mutable) {
+    constructor(boundSymbol: FirValueParameterSymbol, type: ConeKotlinType)
+            : this(boundSymbol, type, originalType = type, mutable = true)
+
     override fun computeOriginalExpression(): FirExpression = buildPropertyAccessExpression {
         source = boundSymbol.source?.fakeElement(KtFakeSourceElementKind.ImplicitContextParameterArgument)
         calleeReference = buildResolvedNamedReference {
@@ -140,6 +135,6 @@ class ImplicitContextParameterValue(
     }
 
     override fun createSnapshot(keepMutable: Boolean): ImplicitContextParameterValue {
-        return ImplicitContextParameterValue(boundSymbol, type, keepMutable)
+        return ImplicitContextParameterValue(boundSymbol, type, originalType, keepMutable)
     }
 }

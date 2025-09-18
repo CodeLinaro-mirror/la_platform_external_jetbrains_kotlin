@@ -53,7 +53,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
     @Test
     public void testAllFilesPresentInResolve() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
     }
 
     @Test
@@ -156,6 +156,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     @TestMetadata("covariantArrayAsReceiver.kt")
     public void testCovariantArrayAsReceiver() {
       runTest("compiler/fir/analysis-tests/testData/resolve/covariantArrayAsReceiver.kt");
+    }
+
+    @Test
+    @TestMetadata("dataClassWithInheritedComponent.kt")
+    public void testDataClassWithInheritedComponent() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/dataClassWithInheritedComponent.kt");
     }
 
     @Test
@@ -417,6 +423,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     }
 
     @Test
+    @TestMetadata("javaNullability.kt.can-freeze-ide")
+    public void testJavaNullability() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/javaNullability.kt.can-freeze-ide");
+    }
+
+    @Test
     @TestMetadata("javaStaticScopeInheritance.kt")
     public void testJavaStaticScopeInheritance() {
       runTest("compiler/fir/analysis-tests/testData/resolve/javaStaticScopeInheritance.kt");
@@ -492,6 +504,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     @TestMetadata("localObject.kt")
     public void testLocalObject() {
       runTest("compiler/fir/analysis-tests/testData/resolve/localObject.kt");
+    }
+
+    @Test
+    @TestMetadata("multipleDefaultsAnonymousObject.kt")
+    public void testMultipleDefaultsAnonymousObject() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/multipleDefaultsAnonymousObject.kt");
     }
 
     @Test
@@ -824,7 +842,25 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Annotations {
       @Test
       public void testAllFilesPresentInAnnotations() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/annotations"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/annotations"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("annotatedLocalContextParameterWithAnnotatedType.kt")
+      public void testAnnotatedLocalContextParameterWithAnnotatedType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/annotatedLocalContextParameterWithAnnotatedType.kt");
+      }
+
+      @Test
+      @TestMetadata("danglingModifierInsideEnumEntry.kt")
+      public void testDanglingModifierInsideEnumEntry() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/danglingModifierInsideEnumEntry.kt");
+      }
+
+      @Test
+      @TestMetadata("functionInsideFileAnnotation.kt")
+      public void testFunctionInsideFileAnnotation() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/functionInsideFileAnnotation.kt");
       }
 
       @Test
@@ -850,6 +886,114 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public void testKt55286() {
         runTest("compiler/fir/analysis-tests/testData/resolve/annotations/kt55286.kt");
       }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithFakeOverrideAsImportedArgument.kt")
+      public void testRequiredAnnotationWithFakeOverrideAsImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithFakeOverrideAsImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedArgument.kt")
+      public void testRequiredAnnotationWithImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedExplicitJavaArgument.kt")
+      public void testRequiredAnnotationWithImportedExplicitJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedExplicitJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedJavaArgument.kt")
+      public void testRequiredAnnotationWithImportedJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithImportedStarJavaArgument.kt")
+      public void testRequiredAnnotationWithImportedStarJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithImportedStarJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectExplicitJavaArgument.kt")
+      public void testRequiredAnnotationWithIncorrectExplicitJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectExplicitJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectImportedArgument.kt")
+      public void testRequiredAnnotationWithIncorrectImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectImportedJavaArgument.kt")
+      public void testRequiredAnnotationWithIncorrectImportedJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectImportedJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithIncorrectImportedObjectArgument.kt")
+      public void testRequiredAnnotationWithIncorrectImportedObjectArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithIncorrectImportedObjectArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarFakeOverrideAsImportedArgument.kt")
+      public void testRequiredAnnotationWithStarFakeOverrideAsImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarFakeOverrideAsImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarImportedArgument.kt")
+      public void testRequiredAnnotationWithStarImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarIncorrectImportedArgument.kt")
+      public void testRequiredAnnotationWithStarIncorrectImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarIncorrectImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarIncorrectImportedJavaArgument.kt")
+      public void testRequiredAnnotationWithStarIncorrectImportedJavaArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarIncorrectImportedJavaArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarIncorrectImportedObjectArgument.kt")
+      public void testRequiredAnnotationWithStarIncorrectImportedObjectArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarIncorrectImportedObjectArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithStarTypealiasedImportedArgument.kt")
+      public void testRequiredAnnotationWithStarTypealiasedImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithStarTypealiasedImportedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithTypealiasedArgument.kt")
+      public void testRequiredAnnotationWithTypealiasedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithTypealiasedArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithTypealiasedArgumentAsMetaAnnotation.kt")
+      public void testRequiredAnnotationWithTypealiasedArgumentAsMetaAnnotation() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithTypealiasedArgumentAsMetaAnnotation.kt");
+      }
+
+      @Test
+      @TestMetadata("requiredAnnotationWithTypealiasedImportedArgument.kt")
+      public void testRequiredAnnotationWithTypealiasedImportedArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/annotations/requiredAnnotationWithTypealiasedImportedArgument.kt");
+      }
     }
 
     @Nested
@@ -858,7 +1002,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Arguments {
       @Test
       public void testAllFilesPresentInArguments() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/arguments"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/arguments"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1096,7 +1240,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Arrays {
       @Test
       public void testAllFilesPresentInArrays() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/arrays"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/arrays"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1118,7 +1262,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Builtins {
       @Test
       public void testAllFilesPresentInBuiltins() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/builtins"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/builtins"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1134,7 +1278,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class CallResolution {
       @Test
       public void testAllFilesPresentInCallResolution() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/callResolution"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/callResolution"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1294,7 +1438,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Cfa {
       @Test
       public void testAllFilesPresentInCfa() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/cfa"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/cfa"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1334,7 +1478,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Cfg {
       @Test
       public void testAllFilesPresentInCfg() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/cfg"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/cfg"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1413,6 +1557,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("initBlockAndInPlaceLambda.kt")
       public void testInitBlockAndInPlaceLambda() {
         runTest("compiler/fir/analysis-tests/testData/resolve/cfg/initBlockAndInPlaceLambda.kt");
+      }
+
+      @Test
+      @TestMetadata("initializationInAnonymous.kt")
+      public void testInitializationInAnonymous() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/cfg/initializationInAnonymous.kt");
+      }
+
+      @Test
+      @TestMetadata("initializationInAnonymousForbidden.kt")
+      public void testInitializationInAnonymousForbidden() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/cfg/initializationInAnonymousForbidden.kt");
       }
 
       @Test
@@ -1548,7 +1704,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Checkers {
       @Test
       public void testAllFilesPresentInCheckers() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/checkers"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/checkers"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1561,6 +1717,42 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("contextReceiversSubtyping.kt")
       public void testContextReceiversSubtyping() {
         runTest("compiler/fir/analysis-tests/testData/resolve/checkers/contextReceiversSubtyping.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself.kt")
+      public void testDelegationToItself() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself2.kt")
+      public void testDelegationToItself2() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself2.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself3.kt")
+      public void testDelegationToItself3() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself3.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself4.kt")
+      public void testDelegationToItself4() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself4.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItself5.kt")
+      public void testDelegationToItself5() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItself5.kt");
+      }
+
+      @Test
+      @TestMetadata("delegationToItselfEnabled.kt")
+      public void testDelegationToItselfEnabled() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/delegationToItselfEnabled.kt");
       }
 
       @Test
@@ -1591,6 +1783,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("invalidLhsOfClassLiteral.kt")
       public void testInvalidLhsOfClassLiteral() {
         runTest("compiler/fir/analysis-tests/testData/resolve/checkers/invalidLhsOfClassLiteral.kt");
+      }
+
+      @Test
+      @TestMetadata("notImplementedEqualsWithContextParameters.kt")
+      public void testNotImplementedEqualsWithContextParameters() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/notImplementedEqualsWithContextParameters.kt");
       }
 
       @Test
@@ -1630,6 +1828,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("uselessCast.kt")
+      public void testUselessCast() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/checkers/uselessCast.kt");
+      }
+
+      @Test
       @TestMetadata("uselessCastLeadsToRecursiveProblem.kt")
       public void testUselessCastLeadsToRecursiveProblem() {
         runTest("compiler/fir/analysis-tests/testData/resolve/checkers/uselessCastLeadsToRecursiveProblem.kt");
@@ -1642,7 +1846,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class ClasspathSubstitution {
       @Test
       public void testAllFilesPresentInClasspathSubstitution() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1662,6 +1866,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public void testCyclicSupertypeBetweenModules() {
         runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/cyclicSupertypeBetweenModules.kt");
       }
+
+      @Test
+      @TestMetadata("localClasspathSubstitution.kt")
+      public void testLocalClasspathSubstitution() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/classpathSubstitution/localClasspathSubstitution.kt");
+      }
     }
 
     @Nested
@@ -1670,7 +1880,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class ConstVal {
       @Test
       public void testAllFilesPresentInConstVal() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/constVal"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/constVal"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1704,7 +1914,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Constructors {
       @Test
       public void testAllFilesPresentInConstructors() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/constructors"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/constructors"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1726,7 +1936,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class ContextParameters {
       @Test
       public void testAllFilesPresentInContextParameters() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -1748,6 +1958,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("contextualFunctionTypeInSignatureWithoutLF.kt")
+      public void testContextualFunctionTypeInSignatureWithoutLF() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualFunctionTypeInSignatureWithoutLF.kt");
+      }
+
+      @Test
+      @TestMetadata("contextualLambdaWithExplicitParameterType.kt")
+      public void testContextualLambdaWithExplicitParameterType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualLambdaWithExplicitParameterType.kt");
+      }
+
+      @Test
       @TestMetadata("contextualLateinit.kt")
       public void testContextualLateinit() {
         runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/contextualLateinit.kt");
@@ -1766,6 +1988,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("inferringContextOfType.kt")
+      public void testInferringContextOfType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inferringContextOfType.kt");
+      }
+
+      @Test
+      @TestMetadata("localContextReceiver.kt")
+      public void testLocalContextReceiver() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/localContextReceiver.kt");
+      }
+
+      @Test
       @TestMetadata("smoke.kt")
       public void testSmoke() {
         runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/smoke.kt");
@@ -1777,7 +2011,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class DeclarationAndUsages {
         @Test
         public void testAllFilesPresentInDeclarationAndUsages() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -1865,12 +2099,6 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
-        @TestMetadata("dslMarkerOnContextType.kt")
-        public void testDslMarkerOnContextType() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/dslMarkerOnContextType.kt");
-        }
-
-        @Test
         @TestMetadata("emptyContextName.kt")
         public void testEmptyContextName() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/emptyContextName.kt");
@@ -1880,6 +2108,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         @TestMetadata("emptyListOfContextParameters.kt")
         public void testEmptyListOfContextParameters() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/emptyListOfContextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("funWithContextWithTypeParameter.kt")
+        public void testFunWithContextWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/funWithContextWithTypeParameter.kt");
         }
 
         @Test
@@ -1937,12 +2171,6 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
-        @TestMetadata("multipleDslMarkers.kt")
-        public void testMultipleDslMarkers() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/multipleDslMarkers.kt");
-        }
-
-        @Test
         @TestMetadata("nameClashes.kt")
         public void testNameClashes() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/nameClashes.kt");
@@ -1991,9 +2219,27 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
+        @TestMetadata("propertyWithContextWithTypeParameter.kt")
+        public void testPropertyWithContextWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/propertyWithContextWithTypeParameter.kt");
+        }
+
+        @Test
         @TestMetadata("theSameContextAndDispatchReceiver.kt")
         public void testTheSameContextAndDispatchReceiver() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/theSameContextAndDispatchReceiver.kt");
+        }
+
+        @Test
+        @TestMetadata("typeWithContextWithTypeParameter.kt")
+        public void testTypeWithContextWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/typeWithContextWithTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("typealiasToContextFunctionType.kt")
+        public void testTypealiasToContextFunctionType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/declarationAndUsages/typealiasToContextFunctionType.kt");
         }
 
         @Test
@@ -2045,13 +2291,37 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Diagnostics {
         @Test
         public void testAllFilesPresentInDiagnostics() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("ambigousContext.kt")
+        public void testAmbigousContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/ambigousContext.kt");
         }
 
         @Test
         @TestMetadata("anonymousFunctionsWithModifiers.kt")
         public void testAnonymousFunctionsWithModifiers() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/anonymousFunctionsWithModifiers.kt");
+        }
+
+        @Test
+        @TestMetadata("conflictingOverloads.kt")
+        public void testConflictingOverloads() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/conflictingOverloads.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterNameChanged.kt")
+        public void testContextParameterNameChanged() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/contextParameterNameChanged.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameterOnPackage.kt")
+        public void testContextParameterOnPackage() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/contextParameterOnPackage.kt");
         }
 
         @Test
@@ -2067,9 +2337,33 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
+        @TestMetadata("danglingContextParameter.kt")
+        public void testDanglingContextParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/danglingContextParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("danglingContextParameterAndAnnotations.kt")
+        public void testDanglingContextParameterAndAnnotations() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/danglingContextParameterAndAnnotations.kt");
+        }
+
+        @Test
+        @TestMetadata("extensionShadowedWithContextParameters.kt")
+        public void testExtensionShadowedWithContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/extensionShadowedWithContextParameters.kt");
+        }
+
+        @Test
         @TestMetadata("multipleContextParameterLists.kt")
         public void testMultipleContextParameterLists() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/multipleContextParameterLists.kt");
+        }
+
+        @Test
+        @TestMetadata("noContextArgument.kt")
+        public void testNoContextArgument() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/noContextArgument.kt");
         }
 
         @Test
@@ -2083,6 +2377,72 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         public void testUnsupportedContextParameters() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/unsupportedContextParameters.kt");
         }
+
+        @Test
+        @TestMetadata("varianceConflict.kt")
+        public void testVarianceConflict() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/diagnostics/varianceConflict.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker")
+      @TestDataPath("$PROJECT_ROOT")
+      public class DslMarker {
+        @Test
+        public void testAllFilesPresentInDslMarker() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("dslMarkerOnContextType.kt")
+        public void testDslMarkerOnContextType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker/dslMarkerOnContextType.kt");
+        }
+
+        @Test
+        @TestMetadata("dslMarkerOnFunctionType.kt")
+        public void testDslMarkerOnFunctionType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker/dslMarkerOnFunctionType.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleDslMarkers.kt")
+        public void testMultipleDslMarkers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/dslMarker/multipleDslMarkers.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Inference {
+        @Test
+        public void testAllFilesPresentInInference() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Nested
+        @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer")
+        @TestDataPath("$PROJECT_ROOT")
+        public class NoInfer {
+          @Test
+          public void testAllFilesPresentInNoInfer() {
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+          }
+
+          @Test
+          @TestMetadata("MismatchingClosestImplicitValue.kt")
+          public void testMismatchingClosestImplicitValue() {
+            runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer/MismatchingClosestImplicitValue.kt");
+          }
+
+          @Test
+          @TestMetadata("MultipleClosestImplicitValues.kt")
+          public void testMultipleClosestImplicitValues() {
+            runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inference/noInfer/MultipleClosestImplicitValues.kt");
+          }
+        }
       }
 
       @Nested
@@ -2091,7 +2451,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Multiplatform {
         @Test
         public void testAllFilesPresentInMultiplatform() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/multiplatform"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2149,7 +2509,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Operators {
         @Test
         public void testAllFilesPresentInOperators() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/operators"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2183,7 +2543,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Overrides {
         @Test
         public void testAllFilesPresentInOverrides() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2202,6 +2562,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         @TestMetadata("baseOverride.kt")
         public void testBaseOverride() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/baseOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("genericPropertyOverride.kt")
+        public void testGenericPropertyOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/genericPropertyOverride.kt");
         }
 
         @Test
@@ -2241,6 +2607,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
+        @TestMetadata("kjkContextParameterOverridesValueParameter.kt")
+        public void testKjkContextParameterOverridesValueParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/kjkContextParameterOverridesValueParameter.kt");
+        }
+
+        @Test
         @TestMetadata("nameCanBeChangedInOverride.kt")
         public void testNameCanBeChangedInOverride() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/nameCanBeChangedInOverride.kt");
@@ -2265,6 +2637,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
+        @TestMetadata("varPropertyOverride.kt")
+        public void testVarPropertyOverride() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/varPropertyOverride.kt");
+        }
+
+        @Test
         @TestMetadata("withContextInType.kt")
         public void testWithContextInType() {
           runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/overrides/withContextInType.kt");
@@ -2277,7 +2655,13 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Parsing {
         @Test
         public void testAllFilesPresentInParsing() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("propertyInContext.kt.can-freeze-ide")
+        public void testPropertyInContext() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/parsing/propertyInContext.kt.can-freeze-ide");
         }
       }
 
@@ -2287,7 +2671,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Smartcast {
         @Test
         public void testAllFilesPresentInSmartcast() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextParameters/smartcast"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2323,12 +2707,496 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     }
 
     @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType")
+    @TestDataPath("$PROJECT_ROOT")
+    public class ContextSensitiveResolutionUsingExpectedType {
+      @Test
+      public void testAllFilesPresentInContextSensitiveResolutionUsingExpectedType() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition")
+      @TestDataPath("$PROJECT_ROOT")
+      public class CallArgumentPosition {
+        @Test
+        public void testAllFilesPresentInCallArgumentPosition() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("ambiguouslyImported.kt")
+        public void testAmbiguouslyImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/ambiguouslyImported.kt");
+        }
+
+        @Test
+        @TestMetadata("ambiguouslyImportedInvisible.kt")
+        public void testAmbiguouslyImportedInvisible() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/ambiguouslyImportedInvisible.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationArguments.kt")
+        public void testAnnotationArguments() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/annotationArguments.kt");
+        }
+
+        @Test
+        @TestMetadata("anonymousFun.kt")
+        public void testAnonymousFun() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/anonymousFun.kt");
+        }
+
+        @Test
+        @TestMetadata("bound.kt")
+        public void testBound() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/bound.kt");
+        }
+
+        @Test
+        @TestMetadata("contextParameters.kt")
+        public void testContextParameters() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/contextParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("defaultArg.kt")
+        public void testDefaultArg() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/defaultArg.kt");
+        }
+
+        @Test
+        @TestMetadata("expectedType.kt")
+        public void testExpectedType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/expectedType.kt");
+        }
+
+        @Test
+        @TestMetadata("expectedTypeEnum.kt")
+        public void testExpectedTypeEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/expectedTypeEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("generic.kt")
+        public void testGeneric() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/generic.kt");
+        }
+
+        @Test
+        @TestMetadata("infixFun.kt")
+        public void testInfixFun() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/infixFun.kt");
+        }
+
+        @Test
+        @TestMetadata("invisibleImported.kt")
+        public void testInvisibleImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/invisibleImported.kt");
+        }
+
+        @Test
+        @TestMetadata("lambda.kt")
+        public void testLambda() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambda.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaEnum.kt")
+        public void testLambdaEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambdaEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaReceiver.kt")
+        public void testLambdaReceiver() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambdaReceiver.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdaReceiverParametrized.kt")
+        public void testLambdaReceiverParametrized() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/lambdaReceiverParametrized.kt");
+        }
+
+        @Test
+        @TestMetadata("multipleOverloads.kt")
+        public void testMultipleOverloads() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/multipleOverloads.kt");
+        }
+
+        @Test
+        @TestMetadata("namedArg.kt")
+        public void testNamedArg() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/namedArg.kt");
+        }
+
+        @Test
+        @TestMetadata("noContextSensitiveResolutionShouldHappen.kt")
+        public void testNoContextSensitiveResolutionShouldHappen() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/noContextSensitiveResolutionShouldHappen.kt");
+        }
+
+        @Test
+        @TestMetadata("nonEnums.kt")
+        public void testNonEnums() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/nonEnums.kt");
+        }
+
+        @Test
+        @TestMetadata("operatorOverload.kt")
+        public void testOperatorOverload() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/operatorOverload.kt");
+        }
+
+        @Test
+        @TestMetadata("overload.kt")
+        public void testOverload() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/overload.kt");
+        }
+
+        @Test
+        @TestMetadata("pcla.kt")
+        public void testPcla() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/pcla.kt");
+        }
+
+        @Test
+        @TestMetadata("regularArg.kt")
+        public void testRegularArg() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/regularArg.kt");
+        }
+
+        @Test
+        @TestMetadata("regularArgEnum.kt")
+        public void testRegularArgEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/regularArgEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simple.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleDisabledFeature.kt")
+        public void testSimpleDisabledFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simpleDisabledFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleGeneric.kt")
+        public void testSimpleGeneric() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simpleGeneric.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleVarargs.kt")
+        public void testSimpleVarargs() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/simpleVarargs.kt");
+        }
+
+        @Test
+        @TestMetadata("varargs.kt")
+        public void testVarargs() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/callArgumentPosition/varargs.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions")
+      @TestDataPath("$PROJECT_ROOT")
+      public class OtherExpectedTypePositions {
+        @Test
+        public void testAllFilesPresentInOtherExpectedTypePositions() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("basicExampleWithEnumAndWhens.kt")
+        public void testBasicExampleWithEnumAndWhens() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/basicExampleWithEnumAndWhens.kt");
+        }
+
+        @Test
+        @TestMetadata("differentTrivialExpectedTypeMismatch.kt")
+        public void testDifferentTrivialExpectedTypeMismatch() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/differentTrivialExpectedTypeMismatch.kt");
+        }
+
+        @Test
+        @TestMetadata("differentTrivialExpectedTypePositions.kt")
+        public void testDifferentTrivialExpectedTypePositions() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/differentTrivialExpectedTypePositions.kt");
+        }
+
+        @Test
+        @TestMetadata("elvisOperator.kt")
+        public void testElvisOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/elvisOperator.kt");
+        }
+
+        @Test
+        @TestMetadata("elvisOperatorEnum.kt")
+        public void testElvisOperatorEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/elvisOperatorEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("equalityOperator.kt")
+        public void testEqualityOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/equalityOperator.kt");
+        }
+
+        @Test
+        @TestMetadata("equalityOperatorOnBoundedEnumTypeParameter.kt")
+        public void testEqualityOperatorOnBoundedEnumTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/equalityOperatorOnBoundedEnumTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("equalityOperatorOnBoundedSealedTypeParameter.kt")
+        public void testEqualityOperatorOnBoundedSealedTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/equalityOperatorOnBoundedSealedTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitReturnTypes.kt")
+        public void testExplicitReturnTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/explicitReturnTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("extensions.kt")
+        public void testExtensions() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/extensions.kt");
+        }
+
+        @Test
+        @TestMetadata("functionalTypes.kt")
+        public void testFunctionalTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/functionalTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdasReturnStatements.kt")
+        public void testLambdasReturnStatements() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/lambdasReturnStatements.kt");
+        }
+
+        @Test
+        @TestMetadata("lambdasReturnStatementsWithResolvedQualifiers.kt")
+        public void testLambdasReturnStatementsWithResolvedQualifiers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/lambdasReturnStatementsWithResolvedQualifiers.kt");
+        }
+
+        @Test
+        @TestMetadata("notNullAssertion.kt")
+        public void testNotNullAssertion() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/notNullAssertion.kt");
+        }
+
+        @Test
+        @TestMetadata("notNullAssertionEnum.kt")
+        public void testNotNullAssertionEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/notNullAssertionEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("propInitializers.kt")
+        public void testPropInitializers() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/propInitializers.kt");
+        }
+
+        @Test
+        @TestMetadata("sameNamedEnumEntry.kt")
+        public void testSameNamedEnumEntry() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/sameNamedEnumEntry.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/simple.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleDisabledFeature.kt")
+        public void testSimpleDisabledFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/simpleDisabledFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("tryCatchStatements.kt")
+        public void testTryCatchStatements() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/tryCatchStatements.kt");
+        }
+
+        @Test
+        @TestMetadata("tryCatchStatementsEnum.kt")
+        public void testTryCatchStatementsEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/tryCatchStatementsEnum.kt");
+        }
+
+        @Test
+        @TestMetadata("whenIfLastStatement.kt")
+        public void testWhenIfLastStatement() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/whenIfLastStatement.kt");
+        }
+
+        @Test
+        @TestMetadata("whenIfLastStatementEnum.kt")
+        public void testWhenIfLastStatementEnum() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/otherExpectedTypePositions/whenIfLastStatementEnum.kt");
+        }
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition")
+      @TestDataPath("$PROJECT_ROOT")
+      public class TypePosition {
+        @Test
+        public void testAllFilesPresentInTypePosition() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("ambiguouslyImported.kt")
+        public void testAmbiguouslyImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/ambiguouslyImported.kt");
+        }
+
+        @Test
+        @TestMetadata("ambiguouslyImportedInvisible.kt")
+        public void testAmbiguouslyImportedInvisible() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/ambiguouslyImportedInvisible.kt");
+        }
+
+        @Test
+        @TestMetadata("either.kt")
+        public void testEither() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/either.kt");
+        }
+
+        @Test
+        @TestMetadata("eitherInDifferentPositions.kt")
+        public void testEitherInDifferentPositions() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/eitherInDifferentPositions.kt");
+        }
+
+        @Test
+        @TestMetadata("innerClassInGeneric.kt")
+        public void testInnerClassInGeneric() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/innerClassInGeneric.kt");
+        }
+
+        @Test
+        @TestMetadata("invisibleImported.kt")
+        public void testInvisibleImported() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/invisibleImported.kt");
+        }
+
+        @Test
+        @TestMetadata("isInIf.kt")
+        public void testIsInIf() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/isInIf.kt");
+        }
+
+        @Test
+        @TestMetadata("isInWhen.kt")
+        public void testIsInWhen() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/isInWhen.kt");
+        }
+
+        @Test
+        @TestMetadata("javaInterop.kt")
+        public void testJavaInterop() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/javaInterop.kt");
+        }
+
+        @Test
+        @TestMetadata("nonSealed.kt")
+        public void testNonSealed() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/nonSealed.kt");
+        }
+
+        @Test
+        @TestMetadata("nonTrivialTypes.kt")
+        public void testNonTrivialTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/nonTrivialTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("regularlyResolved.kt")
+        public void testRegularlyResolved() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/regularlyResolved.kt");
+        }
+
+        @Test
+        @TestMetadata("regularlyResolvedNoGenericArgument.kt")
+        public void testRegularlyResolvedNoGenericArgument() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/regularlyResolvedNoGenericArgument.kt");
+        }
+
+        @Test
+        @TestMetadata("sealedWithNonSealedSubclass.kt")
+        public void testSealedWithNonSealedSubclass() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/sealedWithNonSealedSubclass.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/simple.kt");
+        }
+
+        @Test
+        @TestMetadata("simpleDisabledFeature.kt")
+        public void testSimpleDisabledFeature() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/simpleDisabledFeature.kt");
+        }
+
+        @Test
+        @TestMetadata("singleDefiniteExpectedType.kt")
+        public void testSingleDefiniteExpectedType() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/singleDefiniteExpectedType.kt");
+        }
+
+        @Test
+        @TestMetadata("typeCast.kt")
+        public void testTypeCast() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/typeCast.kt");
+        }
+
+        @Test
+        @TestMetadata("typeParameter.kt")
+        public void testTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/typeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("typeParametersComplex.kt")
+        public void testTypeParametersComplex() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/typeParametersComplex.kt");
+        }
+
+        @Test
+        @TestMetadata("unsupportedTypePosition.kt")
+        public void testUnsupportedTypePosition() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/contextSensitiveResolutionUsingExpectedType/typePosition/unsupportedTypePosition.kt");
+        }
+      }
+    }
+
+    @Nested
     @TestMetadata("compiler/fir/analysis-tests/testData/resolve/contracts")
     @TestDataPath("$PROJECT_ROOT")
     public class Contracts {
       @Test
       public void testAllFilesPresentInContracts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contracts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/contracts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -2380,7 +3248,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Delegates {
       @Test
       public void testAllFilesPresentInDelegates() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/delegates"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/delegates"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -2456,7 +3324,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
       @Test
       public void testAllFilesPresentInDiagnostics() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -2481,6 +3349,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("annotationArgumentMustBeKClassLiteral.kt")
       public void testAnnotationArgumentMustBeKClassLiteral() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/annotationArgumentMustBeKClassLiteral.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationArgumentRegex.kt")
+      public void testAnnotationArgumentRegex() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/annotationArgumentRegex.kt");
       }
 
       @Test
@@ -2523,6 +3397,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("constructorInInterface.kt")
       public void testConstructorInInterface() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/constructorInInterface.kt");
+      }
+
+      @Test
+      @TestMetadata("contextParameterOnPrimaryConstructor.kt")
+      public void testContextParameterOnPrimaryConstructor() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/contextParameterOnPrimaryConstructor.kt");
       }
 
       @Test
@@ -2676,12 +3556,6 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
-      @TestMetadata("qualifiedSupertypeExtendedByOtherSupertype.kt")
-      public void testQualifiedSupertypeExtendedByOtherSupertype() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/qualifiedSupertypeExtendedByOtherSupertype.kt");
-      }
-
-      @Test
       @TestMetadata("recursiveProblemWithSyntaxError.kt")
       public void testRecursiveProblemWithSyntaxError() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/recursiveProblemWithSyntaxError.kt");
@@ -2813,13 +3687,19 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/valOnAnnotationParameter.kt");
       }
 
+      @Test
+      @TestMetadata("VirtualMemberHiddenOnMemberFromMappedJavaScope.kt")
+      public void testVirtualMemberHiddenOnMemberFromMappedJavaScope() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/VirtualMemberHiddenOnMemberFromMappedJavaScope.kt");
+      }
+
       @Nested
       @TestMetadata("compiler/fir/analysis-tests/testData/resolve/diagnostics/functionAsExpression")
       @TestDataPath("$PROJECT_ROOT")
       public class FunctionAsExpression {
         @Test
         public void testAllFilesPresentInFunctionAsExpression() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/functionAsExpression"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/functionAsExpression"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2836,7 +3716,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Exhaustiveness {
       @Test
       public void testAllFilesPresentInExhaustiveness() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/exhaustiveness"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/exhaustiveness"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Nested
@@ -2845,7 +3725,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Negative {
         @Test
         public void testAllFilesPresentInNegative() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/exhaustiveness/negative"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/exhaustiveness/negative"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2885,7 +3765,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Positive {
         @Test
         public void testAllFilesPresentInPositive() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/exhaustiveness/positive"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/exhaustiveness/positive"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -2986,7 +3866,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
       @Test
       public void testAllFilesPresentInExpresssions() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -3373,7 +4253,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Inference {
         @Test
         public void testAllFilesPresentInInference() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions/inference"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions/inference"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -3401,7 +4281,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Invoke {
         @Test
         public void testAllFilesPresentInInvoke() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions/invoke"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions/invoke"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -3507,7 +4387,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Operators {
         @Test
         public void testAllFilesPresentInOperators() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions/operators"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/expresssions/operators"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -3548,7 +4428,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class ExtraCheckers {
       @Test
       public void testAllFilesPresentInExtraCheckers() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -3579,12 +4459,6 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("kt72537.kt")
       public void testKt72537() {
         runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/kt72537.kt");
-      }
-
-      @Test
-      @TestMetadata("RedundantExplicitTypeChecker.kt")
-      public void testRedundantExplicitTypeChecker() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/RedundantExplicitTypeChecker.kt");
       }
 
       @Test
@@ -3636,136 +4510,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Nested
-      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment")
-      @TestDataPath("$PROJECT_ROOT")
-      public class CanBeReplacedWithOperatorAssignment {
-        @Test
-        public void testAllFilesPresentInCanBeReplacedWithOperatorAssignment() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
-        }
-
-        @Test
-        @TestMetadata("BasicTest.kt")
-        public void testBasicTest() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/BasicTest.kt");
-        }
-
-        @Test
-        @TestMetadata("ComplexExpression.kt")
-        public void testComplexExpression() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/ComplexExpression.kt");
-        }
-
-        @Test
-        @TestMetadata("flexibleTypeBug.kt")
-        public void testFlexibleTypeBug() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/flexibleTypeBug.kt");
-        }
-
-        @Test
-        @TestMetadata("illegalMultipleOperators.kt")
-        public void testIllegalMultipleOperators() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/illegalMultipleOperators.kt");
-        }
-
-        @Test
-        @TestMetadata("illegalMultipleOperatorsMiddle.kt")
-        public void testIllegalMultipleOperatorsMiddle() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/illegalMultipleOperatorsMiddle.kt");
-        }
-
-        @Test
-        @TestMetadata("invalidSubtraction.kt")
-        public void testInvalidSubtraction() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/invalidSubtraction.kt");
-        }
-
-        @Test
-        @TestMetadata("list.kt")
-        public void testList() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/list.kt");
-        }
-
-        @Test
-        @TestMetadata("logicOperators.kt")
-        public void testLogicOperators() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/logicOperators.kt");
-        }
-
-        @Test
-        @TestMetadata("multipleOperators.kt")
-        public void testMultipleOperators() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/multipleOperators.kt");
-        }
-
-        @Test
-        @TestMetadata("multipleOperatorsRightSideRepeat.kt")
-        public void testMultipleOperatorsRightSideRepeat() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/multipleOperatorsRightSideRepeat.kt");
-        }
-
-        @Test
-        @TestMetadata("mutableList.kt")
-        public void testMutableList() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/mutableList.kt");
-        }
-
-        @Test
-        @TestMetadata("nonCommutativeRepeat.kt")
-        public void testNonCommutativeRepeat() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/nonCommutativeRepeat.kt");
-        }
-
-        @Test
-        @TestMetadata("nonRepeatingAssignment.kt")
-        public void testNonRepeatingAssignment() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/nonRepeatingAssignment.kt");
-        }
-
-        @Test
-        @TestMetadata("OperatorAssignment.kt")
-        public void testOperatorAssignment() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/OperatorAssignment.kt");
-        }
-
-        @Test
-        @TestMetadata("plusAssignConflict.kt")
-        public void testPlusAssignConflict() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/plusAssignConflict.kt");
-        }
-
-        @Test
-        @TestMetadata("rightSideRepeat.kt")
-        public void testRightSideRepeat() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/rightSideRepeat.kt");
-        }
-
-        @Test
-        @TestMetadata("simpleAssign.kt")
-        public void testSimpleAssign() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/simpleAssign.kt");
-        }
-
-        @Test
-        @TestMetadata("validAddition.kt")
-        public void testValidAddition() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/validAddition.kt");
-        }
-
-        @Test
-        @TestMetadata("validSubtraction.kt")
-        public void testValidSubtraction() {
-          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/canBeReplacedWithOperatorAssignment/validSubtraction.kt");
-        }
-      }
-
-      @Nested
       @TestMetadata("compiler/fir/analysis-tests/testData/resolve/extraCheckers/emptyRangeChecker")
       @TestDataPath("$PROJECT_ROOT")
       public class EmptyRangeChecker {
         @Test
         public void testAllFilesPresentInEmptyRangeChecker() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/emptyRangeChecker"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/emptyRangeChecker"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -3787,7 +4537,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class RedundantCallOfConversionMethod {
         @Test
         public void testAllFilesPresentInRedundantCallOfConversionMethod() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/RedundantCallOfConversionMethod"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/RedundantCallOfConversionMethod"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -3917,7 +4667,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Unused {
         @Test
         public void testAllFilesPresentInUnused() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -3993,6 +4743,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         }
 
         @Test
+        @TestMetadata("LocalFunction.kt")
+        public void testLocalFunction() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/LocalFunction.kt");
+        }
+
+        @Test
         @TestMetadata("localVariable.kt")
         public void testLocalVariable() {
           runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/localVariable.kt");
@@ -4008,6 +4764,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         @TestMetadata("manyLocalVariables.kt")
         public void testManyLocalVariables() {
           runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/manyLocalVariables.kt");
+        }
+
+        @Test
+        @TestMetadata("UnaryOperator.kt")
+        public void testUnaryOperator() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/extraCheckers/unused/UnaryOperator.kt");
         }
 
         @Test
@@ -4029,7 +4791,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class UselessCallOnNotNullChecker {
         @Test
         public void testAllFilesPresentInUselessCallOnNotNullChecker() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/UselessCallOnNotNullChecker"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/extraCheckers/UselessCallOnNotNullChecker"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -4112,7 +4874,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class FromBuilder {
       @Test
       public void testAllFilesPresentInFromBuilder() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/fromBuilder"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/fromBuilder"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4152,7 +4914,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Inference {
       @Test
       public void testAllFilesPresentInInference() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4183,6 +4945,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("coercionToUnitWithEarlyReturn.kt")
       public void testCoercionToUnitWithEarlyReturn() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/coercionToUnitWithEarlyReturn.kt");
+      }
+
+      @Test
+      @TestMetadata("conflictedExpectedType.kt")
+      public void testConflictedExpectedType() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/conflictedExpectedType.kt");
       }
 
       @Test
@@ -4390,9 +5158,31 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("uninferredTypeVariableTypeInInferenceFromSelfUpperBound.kt.can-freeze-ide")
+      public void testUninferredTypeVariableTypeInInferenceFromSelfUpperBound() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/inference/uninferredTypeVariableTypeInInferenceFromSelfUpperBound.kt.can-freeze-ide");
+      }
+
+      @Test
       @TestMetadata("unitUpperBound.kt")
       public void testUnitUpperBound() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inference/unitUpperBound.kt");
+      }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/inference/forks")
+      @TestDataPath("$PROJECT_ROOT")
+      public class Forks {
+        @Test
+        public void testAllFilesPresentInForks() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference/forks"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("failForkPointWhenNoneOfThemSuccessfulFeatureDisabled.kt")
+        public void testFailForkPointWhenNoneOfThemSuccessfulFeatureDisabled() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/forks/failForkPointWhenNoneOfThemSuccessfulFeatureDisabled.kt");
+        }
       }
 
       @Nested
@@ -4401,7 +5191,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Incorporation {
         @Test
         public void testAllFilesPresentInIncorporation() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference/incorporation"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference/incorporation"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -4423,7 +5213,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Pcla {
         @Test
         public void testAllFilesPresentInPcla() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference/pcla"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inference/pcla"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -4437,6 +5227,24 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         public void testIfInBuildMap() {
           runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/ifInBuildMap.kt");
         }
+
+        @Test
+        @TestMetadata("kt73771Original.kt.can-freeze-ide")
+        public void testKt73771Original() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/kt73771Original.kt.can-freeze-ide");
+        }
+
+        @Test
+        @TestMetadata("kt73771Simple.kt.can-freeze-ide")
+        public void testKt73771Simple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/kt73771Simple.kt.can-freeze-ide");
+        }
+
+        @Test
+        @TestMetadata("manyDelegateInsidePCLA.kt.can-freeze-ide")
+        public void testManyDelegateInsidePCLA() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/manyDelegateInsidePCLA.kt.can-freeze-ide");
+        }
       }
     }
 
@@ -4446,7 +5254,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class InlineClasses {
       @Test
       public void testAllFilesPresentInInlineClasses() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inlineClasses"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inlineClasses"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4472,6 +5280,28 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public void testReservedMethodsInInterfaces() {
         runTest("compiler/fir/analysis-tests/testData/resolve/inlineClasses/reservedMethodsInInterfaces.kt");
       }
+
+      @Nested
+      @TestMetadata("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed")
+      @TestDataPath("$PROJECT_ROOT")
+      public class JvmExposeBoxed {
+        @Test
+        public void testAllFilesPresentInJvmExposeBoxed() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("jvmName.kt")
+        public void testJvmName() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed/jvmName.kt");
+        }
+
+        @Test
+        @TestMetadata("simple.kt")
+        public void testSimple() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inlineClasses/jvmExposeBoxed/simple.kt");
+        }
+      }
     }
 
     @Nested
@@ -4480,7 +5310,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class InnerClasses {
       @Test
       public void testAllFilesPresentInInnerClasses() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/innerClasses"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/innerClasses"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4520,7 +5350,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class LocalClasses {
       @Test
       public void testAllFilesPresentInLocalClasses() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/localClasses"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/localClasses"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4572,7 +5402,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Multifile {
       @Test
       public void testAllFilesPresentInMultifile() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/multifile"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/multifile"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4648,7 +5478,25 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class NestedTypeAliases {
       @Test
       public void testAllFilesPresentInNestedTypeAliases() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("annotations.kt")
+      public void testAnnotations() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/annotations.kt");
+      }
+
+      @Test
+      @TestMetadata("companion.kt")
+      public void testCompanion() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/companion.kt");
+      }
+
+      @Test
+      @TestMetadata("declarationNegatives.kt")
+      public void testDeclarationNegatives() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/declarationNegatives.kt");
       }
 
       @Test
@@ -4658,15 +5506,27 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("forFun.kt")
+      public void testForFun() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/forFun.kt");
+      }
+
+      @Test
       @TestMetadata("innerRHS.kt")
       public void testInnerRHS() {
         runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHS.kt");
       }
 
       @Test
-      @TestMetadata("innerRHSandTypeArguments.kt")
-      public void testInnerRHSandTypeArguments() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHSandTypeArguments.kt");
+      @TestMetadata("innerRHSInGeneric.kt")
+      public void testInnerRHSInGeneric() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/innerRHSInGeneric.kt");
+      }
+
+      @Test
+      @TestMetadata("KJInterop.kt")
+      public void testKJInterop() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/KJInterop.kt");
       }
 
       @Test
@@ -4676,9 +5536,9 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
-      @TestMetadata("local.kt")
-      public void testLocal() {
-        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/local.kt");
+      @TestMetadata("overrides.kt")
+      public void testOverrides() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/overrides.kt");
       }
 
       @Test
@@ -4706,7 +5566,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Overrides {
       @Test
       public void testAllFilesPresentInOverrides() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/overrides"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/overrides"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4758,6 +5618,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("suspendMismatchOnOverride.kt")
+      public void testSuspendMismatchOnOverride() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/overrides/suspendMismatchOnOverride.kt");
+      }
+
+      @Test
       @TestMetadata("three.kt")
       public void testThree() {
         runTest("compiler/fir/analysis-tests/testData/resolve/overrides/three.kt");
@@ -4770,7 +5636,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Problems {
       @Test
       public void testAllFilesPresentInProblems() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/problems"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/problems"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -4972,7 +5838,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Properties {
       @Test
       public void testAllFilesPresentInProperties() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/properties"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/properties"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5036,7 +5902,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class PropertyVsField {
       @Test
       public void testAllFilesPresentInPropertyVsField() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/propertyVsField"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/propertyVsField"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5070,7 +5936,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class References {
       @Test
       public void testAllFilesPresentInReferences() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/references"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/references"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5152,7 +6018,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class SamConstructors {
       @Test
       public void testAllFilesPresentInSamConstructors() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/samConstructors"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/samConstructors"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5204,7 +6070,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class SamConversions {
       @Test
       public void testAllFilesPresentInSamConversions() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/samConversions"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/samConversions"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5280,7 +6146,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Scopes {
       @Test
       public void testAllFilesPresentInScopes() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/scopes"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/scopes"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5392,7 +6258,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Scripts {
       @Test
       public void testAllFilesPresentInScripts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/scripts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/scripts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
     }
 
@@ -5408,7 +6274,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
       @Test
       public void testAllFilesPresentInSmartcasts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -5585,7 +6451,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Booleans {
         @Test
         public void testAllFilesPresentInBooleans() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/booleans"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/booleans"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5619,7 +6485,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class BoundSmartcasts {
         @Test
         public void testAllFilesPresentInBoundSmartcasts() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/boundSmartcasts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/boundSmartcasts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5665,7 +6531,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class ControlStructures {
         @Test
         public void testAllFilesPresentInControlStructures() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/controlStructures"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/controlStructures"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5723,7 +6589,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Lambdas {
         @Test
         public void testAllFilesPresentInLambdas() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/lambdas"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/lambdas"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5751,7 +6617,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Loops {
         @Test
         public void testAllFilesPresentInLoops() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/loops"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/loops"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5779,7 +6645,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Problems {
         @Test
         public void testAllFilesPresentInProblems() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/problems"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/problems"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5807,7 +6673,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Receivers {
         @Test
         public void testAllFilesPresentInReceivers() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/receivers"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/receivers"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5847,7 +6713,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class SafeCalls {
         @Test
         public void testAllFilesPresentInSafeCalls() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/safeCalls"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/safeCalls"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5893,7 +6759,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Stability {
         @Test
         public void testAllFilesPresentInStability() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/stability"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/stability"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5909,7 +6775,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Variables {
         @Test
         public void testAllFilesPresentInVariables() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/variables"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/smartcasts/variables"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5938,7 +6804,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Stdlib {
       @Test
       public void testAllFilesPresentInStdlib() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/stdlib"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/stdlib"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Nested
@@ -5947,7 +6813,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class J_k {
         @Test
         public void testAllFilesPresentInJ_k() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/stdlib/j+k"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/stdlib/j+k"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -5970,7 +6836,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Suppress {
       @Test
       public void testAllFilesPresentInSuppress() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/suppress"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/suppress"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6016,7 +6882,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class TypeParameters {
       @Test
       public void testAllFilesPresentInTypeParameters() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/typeParameters"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/typeParameters"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6038,6 +6904,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("kt69995.kt.can-freeze-ide")
+      public void testKt69995() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/kt69995.kt.can-freeze-ide");
+      }
+
+      @Test
+      @TestMetadata("manyCapturedTypes.kt.can-freeze-ide")
+      public void testManyCapturedTypes() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/manyCapturedTypes.kt.can-freeze-ide");
+      }
+
+      @Test
       @TestMetadata("starProjectionForMultipleBounds.kt")
       public void testStarProjectionForMultipleBounds() {
         runTest("compiler/fir/analysis-tests/testData/resolve/typeParameters/starProjectionForMultipleBounds.kt");
@@ -6050,7 +6928,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Types {
       @Test
       public void testAllFilesPresentInTypes() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/types"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/types"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6096,7 +6974,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class UnqualifiedEnum {
       @Test
       public void testAllFilesPresentInUnqualifiedEnum() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/unqualifiedEnum"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/unqualifiedEnum"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6154,7 +7032,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Vfir {
       @Test
       public void testAllFilesPresentInVfir() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/vfir"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/vfir"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Nested
@@ -6163,7 +7041,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Expressions {
         @Test
         public void testAllFilesPresentInExpressions() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/vfir/expressions"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/vfir/expressions"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -6180,7 +7058,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Visibility {
       @Test
       public void testAllFilesPresentInVisibility() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/visibility"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/visibility"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6274,7 +7152,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class WithAllowedKotlinPackage {
       @Test
       public void testAllFilesPresentInWithAllowedKotlinPackage() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/withAllowedKotlinPackage"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/withAllowedKotlinPackage"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6297,7 +7175,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
     @Test
     public void testAllFilesPresentInResolveWithStdlib() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
     }
 
     @Test
@@ -6382,6 +7260,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     @TestMetadata("concurrentMapOfAliases.kt")
     public void testConcurrentMapOfAliases() {
       runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/concurrentMapOfAliases.kt");
+    }
+
+    @Test
+    @TestMetadata("contextParametersFunctions.kt")
+    public void testContextParametersFunctions() {
+      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contextParametersFunctions.kt");
+    }
+
+    @Test
+    @TestMetadata("delegationTypeMismatchAnonymous.kt")
+    public void testDelegationTypeMismatchAnonymous() {
+      runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/delegationTypeMismatchAnonymous.kt");
     }
 
     @Test
@@ -6714,13 +7604,19 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Annotations {
       @Test
       public void testAllFilesPresentInAnnotations() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
       @TestMetadata("annotationAllUseSiteTarget.kt")
       public void testAnnotationAllUseSiteTarget() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationAllUseSiteTarget.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationAllUseSiteTargetCompilable.kt")
+      public void testAnnotationAllUseSiteTargetCompilable() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/annotationAllUseSiteTargetCompilable.kt");
       }
 
       @Test
@@ -6754,9 +7650,33 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("combinationOfAllNotAllAndDefaultTarget.kt")
+      public void testCombinationOfAllNotAllAndDefaultTarget() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/combinationOfAllNotAllAndDefaultTarget.kt");
+      }
+
+      @Test
       @TestMetadata("multipleAnnotationsWithAllUseSiteTarget.kt")
       public void testMultipleAnnotationsWithAllUseSiteTarget() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/multipleAnnotationsWithAllUseSiteTarget.kt");
+      }
+
+      @Test
+      @TestMetadata("multipleAnnotationsWithDefaultTarget.kt")
+      public void testMultipleAnnotationsWithDefaultTarget() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/multipleAnnotationsWithDefaultTarget.kt");
+      }
+
+      @Test
+      @TestMetadata("useSiteTargetOnExpression.kt")
+      public void testUseSiteTargetOnExpression() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/useSiteTargetOnExpression.kt");
+      }
+
+      @Test
+      @TestMetadata("useSiteTargetOnExpressionForbidden.kt")
+      public void testUseSiteTargetOnExpressionForbidden() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/annotations/useSiteTargetOnExpressionForbidden.kt");
       }
     }
 
@@ -6766,7 +7686,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class CallableReferences {
       @Test
       public void testAllFilesPresentInCallableReferences() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/callableReferences"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/callableReferences"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -6919,7 +7839,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class FromBasicDiagnosticTests {
         @Test
         public void testAllFilesPresentInFromBasicDiagnosticTests() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/callableReferences/fromBasicDiagnosticTests"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/callableReferences/fromBasicDiagnosticTests"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -7008,7 +7928,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Contracts {
       @Test
       public void testAllFilesPresentInContracts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Nested
@@ -7017,7 +7937,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class FromLibrary {
         @Test
         public void testAllFilesPresentInFromLibrary() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromLibrary"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromLibrary"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -7051,7 +7971,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class FromSource {
         @Test
         public void testAllFilesPresentInFromSource() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Nested
@@ -7060,7 +7980,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         public class Bad {
           @Test
           public void testAllFilesPresentInBad() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
           }
 
           @Test
@@ -7075,7 +7995,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
           public class CallsInPlace {
             @Test
             public void testAllFilesPresentInCallsInPlace() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/callsInPlace"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/callsInPlace"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
             }
 
             @Test
@@ -7127,13 +8047,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
           public class ReturnsImplies {
             @Test
             public void testAllFilesPresentInReturnsImplies() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/returnsImplies"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
-            }
-
-            @Test
-            @TestMetadata("notNull.kt")
-            public void testNotNull() {
-              runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/returnsImplies/notNull.kt");
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/bad/returnsImplies"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
             }
 
             @Test
@@ -7156,7 +8070,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
         public class Good {
           @Test
           public void testAllFilesPresentInGood() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
           }
 
           @Nested
@@ -7165,7 +8079,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
           public class CallsInPlace {
             @Test
             public void testAllFilesPresentInCallsInPlace() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/callsInPlace"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/callsInPlace"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
             }
 
             @Test
@@ -7241,7 +8155,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
           public class ReturnsImplies {
             @Test
             public void testAllFilesPresentInReturnsImplies() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/returnsImplies"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/returnsImplies"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
             }
 
             @Test
@@ -7317,7 +8231,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
           public class VariousContracts {
             @Test
             public void testAllFilesPresentInVariousContracts() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/variousContracts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/variousContracts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
             }
 
             @Nested
@@ -7326,7 +8240,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
             public class NewSyntax {
               @Test
               public void testAllFilesPresentInNewSyntax() {
-                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/variousContracts/newSyntax"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/contracts/fromSource/good/variousContracts/newSyntax"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
               }
 
               @Test
@@ -7346,7 +8260,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Delegates {
       @Test
       public void testAllFilesPresentInDelegates() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/delegates"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/delegates"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -7428,7 +8342,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Diagnostics {
       @Test
       public void testAllFilesPresentInDiagnostics() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/diagnostics"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/diagnostics"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -7443,7 +8357,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class FunctionReturnTypeMismatchChecker {
         @Test
         public void testAllFilesPresentInFunctionReturnTypeMismatchChecker() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/diagnostics/functionReturnTypeMismatchChecker"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/diagnostics/functionReturnTypeMismatchChecker"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -7459,7 +8373,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class InitializerTypeMismatchChecker {
         @Test
         public void testAllFilesPresentInInitializerTypeMismatchChecker() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/diagnostics/initializerTypeMismatchChecker"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/diagnostics/initializerTypeMismatchChecker"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -7476,7 +8390,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Inference {
       @Test
       public void testAllFilesPresentInInference() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -7501,6 +8415,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("complexConstraintSystem.kt")
       public void testComplexConstraintSystem() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/complexConstraintSystem.kt");
+      }
+
+      @Test
+      @TestMetadata("dnnTypeWithNullable.kt")
+      public void testDnnTypeWithNullable() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/dnnTypeWithNullable.kt");
       }
 
       @Test
@@ -7539,7 +8459,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class Problems {
         @Test
         public void testAllFilesPresentInProblems() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/problems"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/inference/problems"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -7574,7 +8494,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Initialization {
       @Test
       public void testAllFilesPresentInInitialization() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/initialization"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/initialization"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -7596,7 +8516,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
       @Test
       public void testAllFilesPresentInIntellij() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -7654,6 +8574,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("javaFunctionParamNullability.kt")
+      public void testJavaFunctionParamNullability() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/javaFunctionParamNullability.kt");
+      }
+
+      @Test
       @TestMetadata("lambdaForKfunction.kt")
       public void testLambdaForKfunction() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/intellij/lambdaForKfunction.kt");
@@ -7696,7 +8622,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class J_k {
       @Test
       public void testAllFilesPresentInJ_k() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -8017,7 +8943,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class CommonAtomicTypes {
         @Test
         public void testAllFilesPresentInCommonAtomicTypes() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/commonAtomicTypes"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -8052,7 +8978,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class MultiModule {
       @Test
       public void testAllFilesPresentInMultiModule() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/multiModule"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/multiModule"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -8098,7 +9024,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
 
       @Test
       public void testAllFilesPresentInProblems() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -8132,9 +9058,21 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("dynamicVsNothingInIf.kt")
+      public void testDynamicVsNothingInIf() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/dynamicVsNothingInIf.kt");
+      }
+
+      @Test
       @TestMetadata("EnumMapGet.kt")
       public void testEnumMapGet() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/EnumMapGet.kt");
+      }
+
+      @Test
+      @TestMetadata("enumMapWithPair.kt.can-freeze-ide")
+      public void testEnumMapWithPair() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/enumMapWithPair.kt.can-freeze-ide");
       }
 
       @Test
@@ -8246,6 +9184,12 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       }
 
       @Test
+      @TestMetadata("reifiedToNothing.kt")
+      public void testReifiedToNothing() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/reifiedToNothing.kt");
+      }
+
+      @Test
       @TestMetadata("resolveToLocalFromCallSite.kt")
       public void testResolveToLocalFromCallSite() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/resolveToLocalFromCallSite.kt");
@@ -8267,6 +9211,18 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("stringConstructors.kt")
       public void testStringConstructors() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/stringConstructors.kt");
+      }
+
+      @Test
+      @TestMetadata("typeAnnotationArgument.kt")
+      public void testTypeAnnotationArgument() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/typeAnnotationArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("typeAnnotationArgument2.kt")
+      public void testTypeAnnotationArgument2() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/problems/typeAnnotationArgument2.kt");
       }
 
       @Test
@@ -8306,7 +9262,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Properties {
       @Test
       public void testAllFilesPresentInProperties() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -8321,7 +9277,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       public class BackingField {
         @Test
         public void testAllFilesPresentInBackingField() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
         }
 
         @Test
@@ -8416,7 +9372,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Reinitializations {
       @Test
       public void testAllFilesPresentInReinitializations() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/reinitializations"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/reinitializations"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -8432,7 +9388,7 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
     public class Smartcasts {
       @Test
       public void testAllFilesPresentInSmartcasts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/smartcasts"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveWithStdlib/smartcasts"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
       }
 
       @Test
@@ -8445,66 +9401,6 @@ public class FirLightTreeDiagnosticsWithLatestLanguageVersionTestGenerated exten
       @TestMetadata("tryWithLambdaInside.kt")
       public void testTryWithLambdaInside() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/smartcasts/tryWithLambdaInside.kt");
-      }
-    }
-  }
-
-  @Nested
-  @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE")
-  @TestDataPath("$PROJECT_ROOT")
-  public class ResolveFreezesIDE {
-    @Test
-    public void testAllFilesPresentInResolveFreezesIDE() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveFreezesIDE"), Pattern.compile("^(.+)\\.(nkt)$"), null, true);
-    }
-
-    @Test
-    @TestMetadata("kt69995.nkt")
-    public void testKt69995() {
-      runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/kt69995.nkt");
-    }
-
-    @Test
-    @TestMetadata("manyCapturedTypes.nkt")
-    public void testManyCapturedTypes() {
-      runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/manyCapturedTypes.nkt");
-    }
-
-    @Nested
-    @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla")
-    @TestDataPath("$PROJECT_ROOT")
-    public class Pcla {
-      @Test
-      public void testAllFilesPresentInPcla() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla"), Pattern.compile("^(.+)\\.(nkt)$"), null, true);
-      }
-
-      @Nested
-      @TestMetadata("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues")
-      @TestDataPath("$PROJECT_ROOT")
-      public class Issues {
-        @Test
-        public void testAllFilesPresentInIssues() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues"), Pattern.compile("^(.+)\\.(nkt)$"), null, true);
-        }
-
-        @Test
-        @TestMetadata("kt73771Original.nkt")
-        public void testKt73771Original() {
-          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/kt73771Original.nkt");
-        }
-
-        @Test
-        @TestMetadata("kt73771Simple.nkt")
-        public void testKt73771Simple() {
-          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/kt73771Simple.nkt");
-        }
-
-        @Test
-        @TestMetadata("manyDelegateInsidePCLA.nkt")
-        public void testManyDelegateInsidePCLA() {
-          runTest("compiler/fir/analysis-tests/testData/resolveFreezesIDE/pcla/issues/manyDelegateInsidePCLA.nkt");
-        }
       }
     }
   }

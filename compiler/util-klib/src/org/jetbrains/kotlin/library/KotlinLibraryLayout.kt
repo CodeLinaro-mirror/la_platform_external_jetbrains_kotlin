@@ -59,6 +59,8 @@ interface IrKotlinLibraryLayout : KotlinLibraryLayout {
         get() = File(componentDir, KLIB_IR_FOLDER_NAME)
     val irDeclarations
         get() = File(irDir, IR_DECLARATIONS_FILE_NAME)
+    val irInlineDeclarations
+        get() = File(irDir, IR_INLINE_DECLARATIONS_FILE_NAME)
     val irTypes
         get() = File(irDir, IR_TYPES_FILE_NAME)
     val irSignatures
@@ -76,17 +78,9 @@ interface IrKotlinLibraryLayout : KotlinLibraryLayout {
     val irFileEntries
         get() = File(irDir, IR_FILE_ENTRIES_FILE_NAME)
 
-    fun irDeclarations(file: File): File = File(file, IR_DECLARATIONS_FILE_NAME)
-    fun irTypes(file: File): File = File(file, IR_TYPES_FILE_NAME)
-    fun irSignatures(file: File): File = File(file, IR_SIGNATURES_FILE_NAME)
-    fun irStrings(file: File): File = File(file, IR_STRINGS_FILE_NAME)
-    fun irBodies(file: File): File = File(file, IR_BODIES_FILE_NAME)
-    fun irFile(file: File): File = File(file, IR_FILES_FILE_NAME)
-    fun irDebugInfo(file: File): File = File(file, IR_DEBUG_INFO_FILE_NAME)
-    fun irFileEntries(file: File): File = File(file, IR_FILE_ENTRIES_FILE_NAME)
-
     companion object {
         const val IR_DECLARATIONS_FILE_NAME = "irDeclarations.knd"
+        const val IR_INLINE_DECLARATIONS_FILE_NAME = "irInlineDeclarations.knd"
         const val IR_TYPES_FILE_NAME = "types.knt"
         const val IR_SIGNATURES_FILE_NAME = "signatures.knt"
         const val IR_STRINGS_FILE_NAME = "strings.knt"

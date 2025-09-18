@@ -24,6 +24,7 @@ fun Test_M3_M1_Return_M3(condition: Boolean) {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = -175123188, startOffset = 105, endOffset = 444)
 fun Test_M3_M1_Return_M3(condition: Boolean, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Test_M3_M1_Return_M3)<A()>,<M3>,<A()>:Test.kt")
@@ -31,7 +32,7 @@ fun Test_M3_M1_Return_M3(condition: Boolean, %composer: Composer?, %changed: Int
   if (%changed and 0b0110 == 0) {
     %dirty = %dirty or if (%composer.changed(condition)) 0b0100 else 0b0010
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }

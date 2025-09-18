@@ -129,6 +129,12 @@ public class AtomicfuJsFirTestGenerated extends AbstractAtomicfuJsFirTest {
     }
 
     @Test
+    @TestMetadata("inliningAndSMAP.kt")
+    public void testInliningAndSMAP() {
+      runTest("plugins/atomicfu/atomicfu-compiler/testData/box/atomics_basic/inliningAndSMAP.kt");
+    }
+
+    @Test
     @TestMetadata("LateinitPropertiesTest.kt")
     public void testLateinitPropertiesTest() {
       runTest("plugins/atomicfu/atomicfu-compiler/testData/box/atomics_basic/LateinitPropertiesTest.kt");
@@ -186,6 +192,22 @@ public class AtomicfuJsFirTestGenerated extends AbstractAtomicfuJsFirTest {
     @TestMetadata("UncheckedCastTest.kt")
     public void testUncheckedCastTest() {
       runTest("plugins/atomicfu/atomicfu-compiler/testData/box/atomics_basic/UncheckedCastTest.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("plugins/atomicfu/atomicfu-compiler/testData/box/context_parameters")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Context_parameters {
+    @Test
+    public void testAllFilesPresentInContext_parameters() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/atomicfu/atomicfu-compiler/testData/box/context_parameters"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    }
+
+    @Test
+    @TestMetadata("ContextReceiverParametersTest.kt")
+    public void testContextReceiverParametersTest() {
+      runTest("plugins/atomicfu/atomicfu-compiler/testData/box/context_parameters/ContextReceiverParametersTest.kt");
     }
   }
 

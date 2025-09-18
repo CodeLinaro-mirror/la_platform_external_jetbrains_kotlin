@@ -88,7 +88,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -149,7 +149,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -210,7 +210,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -329,7 +329,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -415,7 +415,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -465,14 +465,13 @@ scopes:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: false
           hasStableParameterNames: true
           isActual: false
-          isDefault: true
           isExpect: false
           isExtension: false
           isInline: false
-          isOverride: false
+          isNotDefault: false
+          isOverride: true
           location: PROPERTY
           modality: OPEN
           origin: LIBRARY
@@ -495,7 +494,7 @@ scopes:
         isExternal: false
         isFromPrimaryConstructor: false
         isLateInit: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isVal: true
         location: CLASS
@@ -948,7 +947,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -1590,7 +1589,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: true
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -3861,7 +3860,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -3896,7 +3895,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -3931,7 +3930,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -3966,7 +3965,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -4001,7 +4000,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -4036,7 +4035,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -4071,7 +4070,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -4106,7 +4105,7 @@ scopes:
         isInfix: false
         isInline: false
         isOperator: false
-        isOverride: false
+        isOverride: true
         isStatic: false
         isSuspend: false
         isTailRec: false
@@ -4462,13 +4461,12 @@ scopes:
           callableId: null
           compilerVisibility: Public
           contextReceivers: []
-          hasBody: true
           hasStableParameterNames: true
           isActual: false
-          isDefault: false
           isExpect: false
           isExtension: false
           isInline: false
+          isNotDefault: true
           isOverride: false
           location: PROPERTY
           modality: FINAL

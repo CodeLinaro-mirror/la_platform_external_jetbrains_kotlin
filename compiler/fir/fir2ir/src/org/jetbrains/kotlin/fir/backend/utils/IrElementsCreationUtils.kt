@@ -41,8 +41,8 @@ import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.name.*
 
+context(c: Fir2IrComponents)
 internal fun IrDeclarationParent.declareThisReceiverParameter(
-    c: Fir2IrComponents,
     thisType: IrType,
     thisOrigin: IrDeclarationOrigin,
     kind: IrParameterKind,
@@ -71,13 +71,13 @@ internal fun IrDeclarationParent.declareThisReceiverParameter(
     }
 }
 
-internal fun IrClass.setThisReceiver(c: Fir2IrComponents, typeParameters: List<FirTypeParameterRef>) {
+context(c: Fir2IrComponents)
+internal fun IrClass.setThisReceiver(typeParameters: List<FirTypeParameterRef>) {
     val typeArguments = typeParameters.map {
         val typeParameter = c.classifierStorage.getIrTypeParameterSymbol(it.symbol, ConversionTypeOrigin.DEFAULT)
         IrSimpleTypeImpl(typeParameter, hasQuestionMark = false, emptyList(), emptyList())
     }
     thisReceiver = declareThisReceiverParameter(
-        c,
         kind = IrParameterKind.DispatchReceiver,
         thisType = IrSimpleTypeImpl(symbol, false, typeArguments, emptyList()),
         thisOrigin = IrDeclarationOrigin.INSTANCE_RECEIVER
@@ -140,7 +140,7 @@ fun Fir2IrComponents.computeValueClassRepresentation(klass: FirRegularClass): Va
         "Value class has no representation: ${klass.render()}"
     }
     return klass.valueClassRepresentation?.mapUnderlyingType {
-        it.toIrType(this) as? IrSimpleType ?: error("Value class underlying type is not a simple type: ${klass.render()}")
+        it.toIrType() as? IrSimpleType ?: error("Value class underlying type is not a simple type: ${klass.render()}")
     }
 }
 

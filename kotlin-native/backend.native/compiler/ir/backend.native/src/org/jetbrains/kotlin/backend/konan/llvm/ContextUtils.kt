@@ -56,7 +56,7 @@ internal sealed class Lifetime(val slotType: SlotType) {
     }
 
     // If reference is frame-local (only obtained from some call and never leaves).
-    object LOCAL : Lifetime(SlotType.ANONYMOUS) {
+    object LOCAL : Lifetime(SlotType.ARENA) {
         override fun toString(): String {
             return "LOCAL"
         }
@@ -170,7 +170,7 @@ internal interface ContextUtils : RuntimeAware {
             return LLVMLinkage.LLVMExternalLinkage
         if (context.config.producePerFileCache) {
             val originalFunction = irFunction.originalConstructor ?: irFunction
-            if (originalFunction in generationState.calledFromExportedInlineFunctions)
+            if (originalFunction.isCalledFromExportedInlineFunction)
                 return LLVMLinkage.LLVMExternalLinkage
         }
 
@@ -448,10 +448,11 @@ internal class CodegenLlvmHelpers(private val generationState: NativeGenerationS
     val initRuntimeIfNeeded = importRtFunction("Kotlin_initRuntimeIfNeeded", false)
     val Kotlin_getExceptionObject = importRtFunction("Kotlin_getExceptionObject", true)
 
-    val kRefSharedHolderInitLocal = importRtFunction("KRefSharedHolder_initLocal", false)
-    val kRefSharedHolderInit = importRtFunction("KRefSharedHolder_init", false)
-    val kRefSharedHolderDispose = importRtFunction("KRefSharedHolder_dispose", false)
-    val kRefSharedHolderRef = importRtFunction("KRefSharedHolder_ref", false)
+    // These cannot be `Kotlin_native_internal_ref_`, because when compiling module with stdlib, these functions
+    // are already present.
+    val Kotlin_mm_createRetainedExternalRCRef by lazy { importRtFunction("Kotlin_mm_createRetainedExternalRCRef", false) }
+    val Kotlin_mm_releaseExternalRCRef by lazy { importRtFunction("Kotlin_mm_releaseExternalRCRef", false) }
+    val Kotlin_mm_disposeExternalRCRef by lazy { importRtFunction("Kotlin_mm_disposeExternalRCRef", false) }
 
     val createKotlinObjCClass by lazy { importRtFunction("CreateKotlinObjCClass", false) }
     val getObjCKotlinTypeInfo by lazy { importRtFunction("GetObjCKotlinTypeInfo", false) }
@@ -529,6 +530,10 @@ internal class CodegenLlvmHelpers(private val generationState: NativeGenerationS
     val voidType = LLVMVoidTypeInContext(llvmContext)!!
     val int8PtrType = pointerType(int8Type)
     val int8PtrPtrType = pointerType(int8PtrType)
+    val int32PtrType = pointerType(int32Type)
+    val int32PtrPtrType = pointerType(int32PtrType)
+    val voidPtrType = pointerType(voidType)
+    val voidPtrPtrType = pointerType(voidPtrType)
 
     fun structType(vararg types: LLVMTypeRef): LLVMTypeRef = structType(types.toList())
 
@@ -582,11 +587,10 @@ internal class CodegenLlvmHelpers(private val generationState: NativeGenerationS
     )
 
     val llvmEhTypeidFor = llvmIntrinsic(
-            "llvm.eh.typeid.for",
+            "llvm.eh.typeid.for.p0",
             functionType(int32Type, false, int8PtrType),
             *listOfNotNull(
                     "nounwind",
-                    "readnone".takeIf { HostManager.hostIsMac } // See https://youtrack.jetbrains.com/issue/KT-69002
             ).toTypedArray()
     )
 

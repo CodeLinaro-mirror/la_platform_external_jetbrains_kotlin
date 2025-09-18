@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.analysis.api.descriptors.symbols.descriptorBased.bas
 import org.jetbrains.kotlin.analysis.api.descriptors.types.base.KaFe10Type
 import org.jetbrains.kotlin.analysis.api.descriptors.utils.KaFe10JvmTypeMapperContext
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
+import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.types.KaType
@@ -55,7 +56,7 @@ internal class KaFe10JavaInteroperabilityComponent(
         suppressWildcards: Boolean?,
         preserveAnnotations: Boolean,
         allowNonJvmPlatforms: Boolean,
-    ): PsiType? = withValidityAssertion {
+    ): PsiType? = withPsiValidityAssertion(useSitePosition) {
         val kotlinType = (this as KaFe10Type).fe10Type
 
         with(typeMapper.typeContext) {
@@ -88,7 +89,7 @@ internal class KaFe10JavaInteroperabilityComponent(
             KaTypeMappingMode.DEFAULT -> TypeMappingMode.DEFAULT
             KaTypeMappingMode.DEFAULT_UAST -> TypeMappingMode.DEFAULT_UAST
             KaTypeMappingMode.GENERIC_ARGUMENT -> TypeMappingMode.GENERIC_ARGUMENT
-            KaTypeMappingMode.SUPER_TYPE -> TypeMappingMode.SUPER_TYPE
+            KaTypeMappingMode.SUPER_TYPE -> TypeMappingMode.SUPER_TYPE_AS_IS
             KaTypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS -> TypeMappingMode.SUPER_TYPE_KOTLIN_COLLECTIONS_AS_IS
             KaTypeMappingMode.RETURN_TYPE_BOXED -> TypeMappingMode.RETURN_TYPE_BOXED
             KaTypeMappingMode.RETURN_TYPE ->
@@ -141,7 +142,7 @@ internal class KaFe10JavaInteroperabilityComponent(
         return SyntheticTypeElement(useSitePosition, typeText)
     }
 
-    override fun PsiType.asKaType(useSitePosition: PsiElement): KaType? = withValidityAssertion {
+    override fun PsiType.asKaType(useSitePosition: PsiElement): KaType? = withPsiValidityAssertion(useSitePosition) {
         throw UnsupportedOperationException("Conversion to KtType is not supported in K1 implementation")
     }
 
@@ -157,12 +158,12 @@ internal class KaFe10JavaInteroperabilityComponent(
         }
 
     override val PsiClass.namedClassSymbol: KaNamedClassSymbol?
-        get() = withValidityAssertion {
+        get() = withPsiValidityAssertion {
             return null /*TODO*/
         }
 
     override val PsiMember.callableSymbol: KaCallableSymbol?
-        get() = withValidityAssertion {
+        get() = withPsiValidityAssertion {
             return null /*TODO*/
         }
 

@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.compilationException
-
+import org.jetbrains.kotlin.backend.common.lower.WebCallableReferenceLowering
 import org.jetbrains.kotlin.backend.common.reflectedNameAccessor
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
@@ -25,16 +25,18 @@ import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrNull
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.isUnit
+import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.name.JsStandardClassIds
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 import org.jetbrains.kotlin.utils.addToStdlib.cast
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
-import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 
 /**
  * Interop layer for function references and lambdas.
@@ -300,7 +302,7 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
         }
 
         private fun IrDeclaration.asCallableReference(): IrClass? {
-            if (origin == CallableReferenceLowering.FUNCTION_REFERENCE_IMPL || origin == CallableReferenceLowering.LAMBDA_IMPL)
+            if (origin == WebCallableReferenceLowering.FUNCTION_REFERENCE_IMPL || origin == WebCallableReferenceLowering.LAMBDA_IMPL)
                 return this as? IrClass
             return null
         }
@@ -314,8 +316,8 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
         private fun replaceWithFactory(lambdaClass: IrClass): List<IrDeclaration> {
             val lambdaInfo = LambdaInfo(lambdaClass)
 
-            return if (lambdaClass.origin == CallableReferenceLowering.LAMBDA_IMPL && !lambdaInfo.isSuspendLambda) {
-                if (lambdaClass.fields.none()) {
+            return if (lambdaClass.origin == WebCallableReferenceLowering.LAMBDA_IMPL && !lambdaInfo.isSuspendLambda) {
+                if (lambdaClass.fields.none() && !lambdaInfo.invokeFun.hasAnnotation(JsStandardClassIds.Annotations.JsNoLifting)) {
                     // Optimization:
                     // If the lambda has no context, we lift it, i.e. instead of generating an anonymous function,
                     // we generate a named free function. The usage of the lambda is then replaced with a reference to the free function.
@@ -470,8 +472,8 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
             )
         return statements
             .asSequence()
+            .flatMap { if (it is IrBlock) it.statements.asSequence() else sequenceOf(it) }
             .filterIsInstance<IrSetField>()
-            .filter { it.origin == IrStatementOrigin.STATEMENT_ORIGIN_INITIALIZER_OF_FIELD_FOR_CAPTURED_VALUE }
             .mapNotNull { irSetField ->
                 remapVP(irSetField.value.cast<IrGetValue>().symbol.cast())?.let {
                     irSetField.symbol to it
@@ -641,21 +643,23 @@ class InteropCallableReferenceLowering(val context: JsIrBackendContext) : BodyLo
                 startOffset = lambdaInfo.lambdaClass.startOffset
                 endOffset = lambdaInfo.lambdaClass.endOffset
                 visibility = lambdaInfo.lambdaClass.visibility
-                returnType = lambdaInfo.lambdaClass.defaultType
                 name = lambdaInfo.lambdaClass.name
                 origin = JsStatementOrigins.FACTORY_ORIGIN
             }
         }
-
-        factoryDeclaration.parameters = constructor.parameters.memoryOptimizedMap { it.copyTo(factoryDeclaration) }
-        factoryDeclaration.typeParameters = constructor.typeParameters.memoryOptimizedMap {
-            it.copyToWithoutSuperTypes(factoryDeclaration).also { tp ->
-                // TODO: make sure it is done well
-                tp.superTypes = tp.superTypes memoryOptimizedPlus it.superTypes
-            }
+        val factoryTypeParameters = factoryDeclaration.copyTypeParametersFrom(lambdaInfo.lambdaClass)
+        val oldToNewTypeParameterMapping = lambdaInfo.lambdaClass.typeParameters.zip(factoryTypeParameters).toMap()
+        val typeRemapper = IrTypeParameterRemapper(oldToNewTypeParameterMapping)
+        factoryDeclaration.parameters = constructor.parameters.memoryOptimizedMap {
+            it.copyTo(factoryDeclaration, remapTypeMap = oldToNewTypeParameterMapping)
         }
+        factoryDeclaration.returnType = lambdaInfo.lambdaClass.typeWith(factoryTypeParameters.map { it.defaultType })
 
         factoryDeclaration.body = buildFactoryBody(factoryDeclaration, newDeclarations, lambdaInfo)
+
+        if (oldToNewTypeParameterMapping.isNotEmpty()) {
+            factoryDeclaration.body?.remapTypes(typeRemapper)
+        }
 
         newDeclarations.add(factoryDeclaration)
         ctorToFactoryMap[constructor.symbol] = factoryDeclaration.symbol

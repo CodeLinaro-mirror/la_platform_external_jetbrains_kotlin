@@ -99,7 +99,7 @@ object IrTree : AbstractTreeBuilder() {
         needTransformMethod()
         transformByChildren = true
 
-        fun offsetField(prefix: String) = field(prefix + "Offset", int, mutable = false) {
+        fun offsetField(prefix: String) = field(prefix + "Offset", int, mutable = true) {
             kDoc = """
             The $prefix offset of the syntax node from which this IR node was generated,
             in number of characters from the start of the source file. If there is no source information for this IR node,
@@ -108,6 +108,7 @@ object IrTree : AbstractTreeBuilder() {
             
             @see IrFileEntry.getSourceRangeInfo
             """.trimIndent()
+            deepCopyExcludeFromApply = true
         }
 
         +offsetField("start")
@@ -207,11 +208,6 @@ object IrTree : AbstractTreeBuilder() {
         val s = +param("S", IrSymbolTree.rootElement)
 
         parent(overridableMember)
-
-        // These fields are made mutable here to allow converting fake overrides to non-fake overrides
-        // (for example, to delegated members) and replacing their debug info without performing a full copy.
-        +field("startOffset", int, mutable = true)
-        +field("endOffset", int, mutable = true)
 
         +declaredSymbol(s)
         +field("isFakeOverride", boolean)
@@ -349,8 +345,6 @@ object IrTree : AbstractTreeBuilder() {
         +field("body", blockBody)
     }
     val declarationContainer: Element by element(Declaration) {
-        ownsChildren = false
-
         parent(declarationParent)
 
         +listField("declarations", declaration, mutability = MutableList) {
@@ -364,8 +358,6 @@ object IrTree : AbstractTreeBuilder() {
         }
     }
     val typeParametersContainer: Element by element(Declaration) {
-        ownsChildren = false
-
         parent(declaration)
         parent(declarationParent)
 
@@ -465,12 +457,25 @@ object IrTree : AbstractTreeBuilder() {
     val moduleFragment: Element by element(Declaration) {
         needTransformMethod()
         transformByChildren = true
-        
+
         +descriptor("ModuleDescriptor").apply {
             optInAnnotation = null
         }
         +field("name", type<Name>(), mutable = false)
         +listField("files", file, mutability = MutableList)
+
+        generationCallback = {
+            printlnMultiLine(
+                """
+ 
+                @Deprecated("", level = DeprecationLevel.HIDDEN) // See KT-75353
+                fun <D> transform(
+                    transformer: @Suppress("DEPRECATION_ERROR") org.jetbrains.kotlin.ir.visitors.IrElementTransformer<D>,
+                    data: D
+                ): IrModuleFragment = transform(transformer as IrTransformer<D>, data)
+                """
+            )
+        }
     }
     val property: Element by element(Declaration) {
         parent(declarationBase)
@@ -509,12 +514,23 @@ object IrTree : AbstractTreeBuilder() {
         +field("baseClass", irTypeType, nullable = true) {
             deepCopyExcludeFromApply = true
         } // K1
-        +listField("explicitCallParameters", variable, mutability = Var)
+        +listField("explicitCallParameters", variable, mutability = Var) {
+            kDoc = """
+                Stores explicit call parameters configured for the script. In K2 includes the provided properties as well.
+            """.trimIndent()
+        }
         +listField("implicitReceiversParameters", valueParameter, mutability = Var)
         +referencedSymbolList("providedProperties", propertySymbol) {
+            kDoc = """
+                K1 only!! Stores provided properties configured for the script.
+            """.trimIndent()
             deepCopyExcludeFromApply = true
         }
-        +listField("providedPropertiesParameters", valueParameter, mutability = Var)
+        +listField("providedPropertiesParameters", valueParameter, mutability = Var) {
+            kDoc = """
+                K1 only!! Stores provided properties parameters configured for the script.
+            """.trimIndent()
+        }
         +referencedSymbol("resultProperty", propertySymbol, nullable = true)
         +field("earlierScriptsParameter", valueParameter, nullable = true)
         +referencedSymbolList("importedScripts", scriptSymbol, nullable = true)
@@ -592,8 +608,6 @@ object IrTree : AbstractTreeBuilder() {
         +field("initializer", expression, nullable = true)
     }
     val packageFragment: Element by element(Declaration) {
-        ownsChildren = false
-
         parent(declarationContainer)
         parent(symbolOwner)
 
@@ -650,8 +664,6 @@ object IrTree : AbstractTreeBuilder() {
         +field("type", irTypeType)
     }
     val statementContainer: Element by element(Expression) {
-        ownsChildren = false
-
         +listField("statements", statement, mutability = MutableList)
     }
     val body: Element by sealedElement(Expression) {
@@ -843,16 +855,20 @@ object IrTree : AbstractTreeBuilder() {
         +referencedSymbol("getter", simpleFunctionSymbol)
         +referencedSymbol("setter", simpleFunctionSymbol, nullable = true)
     }
+    val richCallableReference: Element by sealedElement(Expression) {
+        val s = +param("S", IrSymbolTree.rootElement)
 
-    // TODO: extract common part of function/property reference to common supertype - KT-73206
-    val richFunctionReference: Element by element(Expression) {
         parent(expression)
 
-        +referencedSymbol("reflectionTargetSymbol", functionSymbol, nullable = true)
-        +referencedSymbol("overriddenFunctionSymbol", simpleFunctionSymbol, nullable)
+        +referencedSymbol("reflectionTargetSymbol", s, nullable = true)
         +listField("boundValues", expression, nullable = false, mutability = ListField.Mutability.MutableList)
-        +field("invokeFunction", simpleFunction)
         +field("origin", statementOriginType, nullable = true)
+    }
+    val richFunctionReference: Element by element(Expression) {
+        parent(richCallableReference.withArgs("S" to functionSymbol))
+
+        +referencedSymbol("overriddenFunctionSymbol", simpleFunctionSymbol, nullable)
+        +field("invokeFunction", simpleFunction)
         +field("hasUnitConversion", boolean)
         +field("hasSuspendConversion", boolean)
         +field("hasVarargConversion", boolean)
@@ -967,13 +983,10 @@ object IrTree : AbstractTreeBuilder() {
         """.trimIndent()
     }
     val richPropertyReference: Element by element(Expression) {
-        parent(expression)
+        parent(richCallableReference.withArgs("S" to declarationWithAccessorsSymbol))
 
-        +referencedSymbol("reflectionTargetSymbol", declarationWithAccessorsSymbol, nullable = true)
-        +listField("boundValues", expression, nullable = false, mutability = ListField.Mutability.MutableList)
         +field("getterFunction", simpleFunction)
         +field("setterFunction", simpleFunction, nullable = true)
-        +field("origin", statementOriginType, nullable = true)
 
         kDoc = """
             This node is intended to unify different ways of handling property reference-like objects in IR.
@@ -1070,7 +1083,6 @@ object IrTree : AbstractTreeBuilder() {
     }
     val fieldAccessExpression: Element by element(Expression) {
         nameInVisitorMethod = "FieldAccess"
-        ownsChildren = false
 
         parent(declarationReference)
 
@@ -1107,7 +1119,6 @@ object IrTree : AbstractTreeBuilder() {
     }
     val loop: Element by element(Expression) {
         visitorParameterName = "loop"
-        ownsChildren = false
 
         parent(expression)
 

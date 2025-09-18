@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.scripting.compiler.plugin.services
 
-import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.KtSourceFile
@@ -53,7 +52,7 @@ class FirReplSnippetConfiguratorExtensionImpl(
     override fun FirReplSnippetBuilder.configureContainingFile(fileBuilder: FirFileBuilder) {
     }
 
-    override fun FirReplSnippetBuilder.configure(sourceFile: KtSourceFile?, context: Context<PsiElement>) {
+    override fun FirReplSnippetBuilder.configure(sourceFile: KtSourceFile?, context: Context<*>) {
         val configuration = getOrLoadConfiguration(session, sourceFile!!) ?: run {
             // TODO: add error or log, if necessary (see implementation for scripts) (KT-74742)
             return
@@ -76,7 +75,7 @@ class FirReplSnippetConfiguratorExtensionImpl(
     // TODO: deduplicate with the very similar code in the script configurator (KT-74741)
     private fun FirReplSnippetBuilder.tryResolveOrBuildParameterTypeRefFromKotlinType(
         kotlinType: KotlinType,
-        sourceElement: KtSourceElement? = source?.fakeElement(KtFakeSourceElementKind.ScriptParameter),
+        sourceElement: KtSourceElement = source.fakeElement(KtFakeSourceElementKind.ScriptParameter),
     ): FirTypeRef {
         // TODO: check/support generics and other cases (KT-72638)
         // such a conversion by simple splitting by a '.', is overly simple and does not support all cases, e.g. generics or backticks

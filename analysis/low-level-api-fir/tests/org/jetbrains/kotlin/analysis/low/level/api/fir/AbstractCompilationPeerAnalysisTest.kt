@@ -5,10 +5,12 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir
 
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getOrBuildFirFile
 import org.jetbrains.kotlin.analysis.low.level.api.fir.compile.CompilationPeerCollector
 import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirSourceTestConfigurator
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.ImplementationPlatformKind
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.LLKindBasedPlatformActualizer
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.psi.KtFile
@@ -21,10 +23,12 @@ abstract class AbstractCompilationPeerAnalysisTest : AbstractAnalysisApiBasedTes
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val project = mainFile.project
 
-        val resolveSession = mainModule.ktModule.getFirResolveSession(project)
-        val firFile = mainFile.getOrBuildFirFile(resolveSession)
+        val resolutionFacade = mainModule.ktModule.getResolutionFacade(project)
+        val firFile = mainFile.getOrBuildFirFile(resolutionFacade)
 
-        val compilationPeerData = CompilationPeerCollector.process(firFile)
+        val platformKind = ImplementationPlatformKind.fromTargetPlatform(firFile.moduleData.platform)
+        val actualizer = platformKind?.let(::LLKindBasedPlatformActualizer)
+        val compilationPeerData = CompilationPeerCollector.process(firFile, actualizer)
 
         val filesToCompile = compilationPeerData.peers.values
             .flatten()
@@ -38,6 +42,6 @@ abstract class AbstractCompilationPeerAnalysisTest : AbstractAnalysisApiBasedTes
         val actualItems = filesToCompile + inlineClassesToCompile
         val actualText = actualItems.joinToString(separator = "\n")
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual = actualText)
+        testServices.assertions.assertEqualsToTestOutputFile(actual = actualText)
     }
 }

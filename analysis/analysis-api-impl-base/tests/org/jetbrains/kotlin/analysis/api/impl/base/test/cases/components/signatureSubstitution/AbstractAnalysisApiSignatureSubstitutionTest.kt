@@ -22,7 +22,7 @@ import org.jetbrains.kotlin.test.services.assertions
 abstract class AbstractAnalysisApiSignatureSubstitutionTest : AbstractAnalysisApiBasedTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val declaration = testServices.expressionMarkerProvider.getBottommostElementOfTypeAtCaret<KtCallableDeclaration>(mainFile)
-        val actual = analyseForTest(declaration) {
+        val actual = analyzeForTest(declaration) {
             val symbol = declaration.symbol as KaCallableSymbol
 
             val substitutor = SubstitutionParser.parseSubstitutor(useSiteSession, mainFile, declaration)
@@ -46,6 +46,6 @@ abstract class AbstractAnalysisApiSignatureSubstitutionTest : AbstractAnalysisAp
                 appendLine(stringRepresentation(signatureAfterSubstitution))
             }
         }
-        testServices.assertions.assertEqualsToTestDataFileSibling(actual)
+        testServices.assertions.assertEqualsToTestOutputFile(actual)
     }
 }

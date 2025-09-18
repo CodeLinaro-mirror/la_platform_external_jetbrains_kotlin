@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 // CHECK_TYPE
 // DIAGNOSTICS: -UNUSED_PARAMETER -UNUSED_ANONYMOUS_PARAMETER -UNUSED_VARIABLE
 
@@ -26,3 +25,7 @@ fun test2(a: (Int) -> Unit) {
 fun test3(a: (Int, String) -> Unit) {
     test3(<!ARGUMENT_TYPE_MISMATCH!>fun (x: String) {}<!>)
 }
+
+/* GENERATED_FIR_TAGS: additiveExpression, anonymousFunction, classDeclaration, funWithExtensionReceiver,
+functionDeclaration, functionalType, infix, integerLiteral, nullableType, propertyDeclaration, typeParameter,
+typeWithExtension */

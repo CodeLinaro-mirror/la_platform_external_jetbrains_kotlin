@@ -28,7 +28,6 @@ public expect fun String.toUpperCase(): String
  * @sample samples.text.Strings.uppercase
  */
 @SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun String.uppercase(): String
 
 /**
@@ -47,7 +46,6 @@ public expect fun String.toLowerCase(): String
  * @sample samples.text.Strings.lowercase
  */
 @SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
 public expect fun String.lowercase(): String
 
 /**
@@ -810,7 +808,6 @@ public inline fun CharSequence.replaceFirst(regex: Regex, replacement: String): 
  * @sample samples.text.Strings.replaceFirstChar
  */
 @SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
 @OverloadResolutionByLambdaReturnType
 @JvmName("replaceFirstCharWithChar")
@@ -828,7 +825,6 @@ public inline fun String.replaceFirstChar(transform: (Char) -> Char): String {
  * @sample samples.text.Strings.replaceFirstChar
  */
 @SinceKotlin("1.5")
-@WasExperimental(ExperimentalStdlibApi::class)
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
 @OverloadResolutionByLambdaReturnType
 @JvmName("replaceFirstCharWithCharSequence")
@@ -1158,6 +1154,7 @@ public fun CharSequence.lastIndexOf(char: Char, startIndex: Int = lastIndex, ign
  * @param startIndex The index of character to start searching at. The search proceeds backward toward the beginning of the string.
  * @param ignoreCase `true` to ignore character case when matching a string. By default `false`.
  * @return An index of the last occurrence of [string] or -1 if none is found.
+ * @sample samples.text.Strings.lastIndexOf
  */
 public fun CharSequence.lastIndexOf(string: String, startIndex: Int = lastIndex, ignoreCase: Boolean = false): Int {
     return if (ignoreCase || this !is String)
@@ -1170,6 +1167,7 @@ public fun CharSequence.lastIndexOf(string: String, startIndex: Int = lastIndex,
  * Returns `true` if this char sequence contains the specified [other] sequence of characters as a substring.
  *
  * @param ignoreCase `true` to ignore character case when comparing strings. By default `false`.
+ * @sample samples.text.Strings.contains
  */
 @Suppress("INAPPLICABLE_OPERATOR_MODIFIER")
 public operator fun CharSequence.contains(other: CharSequence, ignoreCase: Boolean = false): Boolean =
@@ -1389,6 +1387,8 @@ public fun CharSequence.splitToSequence(vararg delimiters: String, ignoreCase: B
  * To avoid ambiguous results when strings in [delimiters] have characters in common, this method proceeds from
  * the beginning to the end of this string, and matches at each position the first element in [delimiters]
  * that is equal to a delimiter in this instance at that position.
+ *
+ * @sample samples.text.Strings.splitWithStringDelimiters
  */
 public fun CharSequence.split(vararg delimiters: String, ignoreCase: Boolean = false, limit: Int = 0): List<String> {
     if (delimiters.size == 1) {
@@ -1417,6 +1417,7 @@ public fun CharSequence.splitToSequence(vararg delimiters: Char, ignoreCase: Boo
  * @param delimiters One or more characters to be used as delimiters.
  * @param ignoreCase `true` to ignore character case when matching a delimiter. By default `false`.
  * @param limit The maximum number of substrings to return.
+ * @sample samples.text.Strings.splitWithCharDelimiters
  */
 public fun CharSequence.split(vararg delimiters: Char, ignoreCase: Boolean = false, limit: Int = 0): List<String> {
     if (delimiters.size == 1) {
@@ -1462,6 +1463,7 @@ private fun CharSequence.split(delimiter: String, ignoreCase: Boolean, limit: In
  *
  * @param limit Non-negative value specifying the maximum number of substrings to return.
  * Zero by default means no limit is set.
+ * @sample samples.text.Strings.splitWithRegex
  */
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.split(regex: Regex, limit: Int = 0): List<String> = regex.split(this, limit)
@@ -1474,7 +1476,6 @@ public inline fun CharSequence.split(regex: Regex, limit: Int = 0): List<String>
  * @sample samples.text.Strings.splitToSequence
  */
 @SinceKotlin("1.6")
-@WasExperimental(ExperimentalStdlibApi::class)
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.splitToSequence(regex: Regex, limit: Int = 0): Sequence<String> = regex.splitToSequence(this, limit)
 

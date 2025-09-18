@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.analysis.api.fir
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.psi.util.parentOfType
 import org.jetbrains.kotlin.KtFakePsiSourceElement
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtRealPsiSourceElement
@@ -29,11 +28,10 @@ import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.unwrapFakeOverridesOrDelegated
 import org.jetbrains.kotlin.lexer.KtTokens
-import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.*
-import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfTypes2
 import org.jetbrains.kotlin.resolve.calls.util.isSingleUnderscore
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
 import org.jetbrains.kotlin.utils.exceptions.withPsiEntry
@@ -46,6 +44,7 @@ private val allowedFakeElementKinds = setOf(
     KtFakeSourceElementKind.DataClassGeneratedMembers,
     KtFakeSourceElementKind.ImplicitConstructor,
     KtFakeSourceElementKind.ImplicitJavaAnnotationConstructor,
+    KtFakeSourceElementKind.SamConstructor,
 )
 
 @OptIn(SuspiciousFakeSourceCheck::class)
@@ -90,29 +89,6 @@ internal fun FirDeclaration.findReferencePsi(scope: GlobalSearchScope): PsiEleme
     } else {
         psi
     } ?: FirSyntheticFunctionInterfaceSourceProvider.findPsi(this, scope)
-}
-
-/**
- * Not null [CallableId] for functions which are not local and are not a member of a local class.
- */
-internal val KtNamedFunction.callableId: CallableId?
-    get() = if (isLocal) null else callableIdForName(nameAsSafeName)
-
-internal val KtEnumEntry.callableId: CallableId?
-    get() = callableIdForName(nameAsSafeName)
-
-internal val KtProperty.callableId: CallableId?
-    get() = if (isLocal) null else callableIdForName(nameAsSafeName)
-
-internal fun KtDeclaration.callableIdForName(callableName: Name): CallableId? {
-    val containingClassOrObject = containingClassOrObject
-    if (containingClassOrObject != null) {
-        return containingClassOrObject.getClassId()?.let { classId ->
-            CallableId(classId = classId, callableName = callableName)
-        }
-    }
-
-    return CallableId(packageName = containingKtFile.packageFqName, callableName = callableName)
 }
 
 internal val KtNamedFunction.kaSymbolModality: KaSymbolModality?
@@ -193,18 +169,19 @@ internal val KtDeclaration.visibilityByModifiers: Visibility?
 
 internal val KtDeclaration.location: KaSymbolLocation
     get() {
-        val parentDeclaration = parentOfType<KtDeclaration>()
+        // Note: a declaration can be nested inside a modifier list (for example, in the case of dangling annotations or context parameters)
+        val parent = getParentOfTypes2<KtDeclaration, KtModifierList>()
+
         if (this is KtTypeParameter) {
-            return if (parentDeclaration is KtClassOrObject) KaSymbolLocation.CLASS else KaSymbolLocation.LOCAL
+            return if (parent is KtClassOrObject) KaSymbolLocation.CLASS else KaSymbolLocation.LOCAL
         }
 
-        return when (parentDeclaration) {
+        return when (parent) {
             null, is KtScript -> KaSymbolLocation.TOP_LEVEL
             is KtClassOrObject -> KaSymbolLocation.CLASS
-            is KtProperty -> KaSymbolLocation.PROPERTY
-            is KtDeclarationWithBody, is KtDeclarationWithInitializer, is KtAnonymousInitializer -> KaSymbolLocation.LOCAL
-            else -> errorWithAttachment("Unexpected parent declaration: ${parentDeclaration::class.simpleName}") {
-                withPsiEntry("parentDeclaration", parentDeclaration)
+            is KtDeclarationWithBody, is KtDeclarationWithInitializer, is KtAnonymousInitializer, is KtModifierList -> KaSymbolLocation.LOCAL
+            else -> errorWithAttachment("Unexpected parent declaration: ${parent::class.simpleName}") {
+                withPsiEntry("parentDeclaration", parent)
                 withPsiEntry("psi", this@location)
             }
         }
@@ -221,7 +198,7 @@ internal fun KtAnnotated.hasAnnotation(useSiteTarget: AnnotationUseSiteTarget): 
  * The implementation is aligned with [PsiRawFirBuilder][org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.toFirPropertyAccessor]
  */
 internal val KtProperty.hasRegularSetter: Boolean
-    get() = isVar && hasDelegate() || setter?.isRegularAccessor == true
+    get() = isVar && hasDelegate() || setter?.hasBody() == true
 
 /**
  * **true** if for [this] property should be created [KaFirPropertyGetterSymbol][org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirPropertyGetterSymbol]
@@ -230,15 +207,4 @@ internal val KtProperty.hasRegularSetter: Boolean
  * The implementation is aligned with [PsiRawFirBuilder][org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder.Visitor.toFirPropertyAccessor]
  */
 internal val KtProperty.hasRegularGetter: Boolean
-    get() = hasDelegate() || getter?.isRegularAccessor == true
-
-/**
- * Only [KtPropertyAccessor.hasBody] check should be enough, but we need [KtFile.isCompiled] check
- * to work around the case with [loadProperty][org.jetbrains.kotlin.analysis.low.level.api.fir.stubBased.deserialization.StubBasedFirMemberDeserializer.loadProperty]
- * as all deserialized properties should have regular accessors, but they don't have bodies.
- *
- * @see hasRegularGetter
- * @see hasRegularSetter
- */
-private val KtPropertyAccessor.isRegularAccessor: Boolean
-    get() = hasBody() || containingKtFile.isCompiled
+    get() = hasDelegate() || getter?.hasBody() == true

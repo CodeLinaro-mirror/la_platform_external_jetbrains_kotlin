@@ -379,8 +379,10 @@ open class IrFactory(
 
     /**
      * Please use [createValueParameter] overload that takes [IrParameterKind] parameter.
+     *
+     * See docs/backend/IR_parameter_api_migration.md
      */
-    @DeprecatedCompilerApi(CompilerVersionOfApiDeprecation._2_1_20)
+    @DeprecatedForRemovalCompilerApi(CompilerVersionOfApiDeprecation._2_1_20)
     fun createValueParameter(
         startOffset: Int,
         endOffset: Int,
@@ -413,7 +415,7 @@ open class IrFactory(
         startOffset: Int,
         endOffset: Int,
         origin: IrDeclarationOrigin,
-        kind: IrParameterKind?,
+        kind: IrParameterKind,
         name: Name,
         type: IrType,
         isAssignable: Boolean,
@@ -437,7 +439,7 @@ open class IrFactory(
             isAssignable = isAssignable,
             factory = this
         ).apply {
-            _kind = kind
+            this.kind = kind
         }.declarationCreated()
 
     /**

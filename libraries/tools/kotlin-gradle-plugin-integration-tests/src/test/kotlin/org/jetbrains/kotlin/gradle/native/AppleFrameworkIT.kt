@@ -5,11 +5,9 @@
 
 package org.jetbrains.kotlin.gradle.native
 
-import org.gradle.api.JavaVersion
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
-import org.jetbrains.kotlin.gradle.testbase.BuildOptions.NativeOptions
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
@@ -212,13 +210,7 @@ class AppleFrameworkIT : KGPBaseTest() {
     fun shouldFailWithExecutingEmbedAndSignAppleFrameworkForXcode(
         gradleVersion: GradleVersion
     ) {
-        nativeProject(
-            "sharedAppleFramework",
-            gradleVersion,
-            buildOptions = defaultBuildOptions.copy(
-                configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED
-            )
-        ) {
+        nativeProject("sharedAppleFramework", gradleVersion) {
             buildAndFail(":shared:embedAndSignAppleFrameworkForXcode") {
                 assertOutputContains("Please run the embedAndSignAppleFrameworkForXcode task from Xcode")
                 assertOutputDoesNotContain("ConfigurationCacheProblemsException: Configuration cache problems found in this build")
@@ -414,6 +406,9 @@ class AppleFrameworkIT : KGPBaseTest() {
         nativeProject(
             "sharedAppleFramework",
             gradleVersion,
+            buildOptions = defaultBuildOptions
+                // on Gradle 7 with CC enabled field `libraries` of task `:shared:compileKotlinIosArm64` can't be cached
+                .disableConfigurationCacheForGradle7(gradleVersion),
         ) {
             val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
@@ -449,6 +444,8 @@ class AppleFrameworkIT : KGPBaseTest() {
         nativeProject(
             "sharedAppleFramework",
             gradleVersion,
+            buildOptions = defaultBuildOptions
+                .disableConfigurationCacheForGradle7(gradleVersion),
         ) {
             val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
@@ -507,6 +504,8 @@ class AppleFrameworkIT : KGPBaseTest() {
         nativeProject(
             "sharedAppleFramework",
             gradleVersion,
+            buildOptions = defaultBuildOptions
+                .disableConfigurationCacheForGradle7(gradleVersion),
         ) {
             val environmentVariables = EnvironmentalVariables(
                 "CONFIGURATION" to "debug",
@@ -575,20 +574,19 @@ class AppleFrameworkIT : KGPBaseTest() {
     }
 
     @DisplayName("Smoke test with apple gradle plugin")
-    @GradleWithJdkTest
-    @JdkVersions(versions = [JavaVersion.VERSION_11])
-    fun smokeTestWithAppleGradlePlugin(
-        gradleVersion: GradleVersion,
-        providedJdk: JdkVersions.ProvidedJdk,
-    ) {
-
+    @GradleTest
+    fun smokeTestWithAppleGradlePlugin(gradleVersion: GradleVersion) {
         nativeProject(
             "appleGradlePluginConsumesAppleFrameworks",
             gradleVersion,
-            buildJdk = providedJdk.location,
+            buildJdk = jdk11Info.javaHome,
             buildOptions = defaultBuildOptions.copy(
                 // Apple plugin doesn't support configuration cache
                 configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED,
+            ).suppressDeprecationWarningsSinceGradleVersion(
+                TestVersions.Gradle.G_8_0,
+                gradleVersion,
+                "ApplePlugin produces Gradle deprecations"
             )
         ) {
             fun dependencyInsight(configuration: String) = arrayOf(
@@ -620,12 +618,7 @@ class AppleFrameworkIT : KGPBaseTest() {
     @DisplayName("Xcode version too high diagnostic isn't emitted")
     @GradleTest
     fun testXcodeVersionTooHighDiagnosticNotEmitted(gradleVersion: GradleVersion) {
-        nativeProject(
-            "sharedAppleFramework",
-            gradleVersion,
-            // enable CC to make sure that external process isn't run during configuration
-            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED),
-        ) {
+        nativeProject("sharedAppleFramework", gradleVersion) {
             build(":shared:linkReleaseFrameworkIosSimulatorArm64") {
                 assertNoDiagnostic(KotlinToolingDiagnostics.XcodeVersionTooHighWarning)
             }

@@ -44,6 +44,10 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
         return state.scriptByFilePathMap[path]
     }
 
+    override fun getFirReplSnippetContainerFile(symbol: FirReplSnippetSymbol): FirFile? {
+        return state.snippetContainerMap[symbol]
+    }
+
     override fun getFirClassifierContainerFile(fqName: ClassId): FirFile {
         return state.classifierContainerFileMap[fqName] ?: error("Couldn't find container for $fqName")
     }
@@ -206,6 +210,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
             replSnippet: FirReplSnippet,
             data: FirRecorderData,
         ) {
+            data.state.snippetContainerMap[replSnippet.symbol] = data.file
             replSnippet.body.acceptChildren(this, data)
             super.visitReplSnippet(replSnippet, data)
         }
@@ -214,18 +219,19 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
     private val state = State()
 
     private class State {
-        val fileMap: MutableMap<FqName, List<FirFile>> = mutableMapOf<FqName, List<FirFile>>()
+        val fileMap: MutableMap<FqName, List<FirFile>> = hashMapOf()
         val allSubPackages = mutableSetOf<FqName>()
-        val classifierMap = mutableMapOf<ClassId, FirClassLikeDeclaration>()
-        val classifierContainerFileMap = mutableMapOf<ClassId, FirFile>()
-        val classifierInPackage = mutableMapOf<FqName, MutableSet<Name>>()
-        val classesInPackage = mutableMapOf<FqName, MutableSet<Name>>()
+        val classifierMap = hashMapOf<ClassId, FirClassLikeDeclaration>()
+        val classifierContainerFileMap = hashMapOf<ClassId, FirFile>()
+        val classifierInPackage = hashMapOf<FqName, MutableSet<Name>>()
+        val classesInPackage = hashMapOf<FqName, MutableSet<Name>>()
         val functionMap = mutableMapOf<CallableId, List<FirNamedFunctionSymbol>>()
         val propertyMap = mutableMapOf<CallableId, List<FirPropertySymbol>>()
-        val constructorMap = mutableMapOf<CallableId, List<FirConstructorSymbol>>()
-        val callableContainerMap = mutableMapOf<FirCallableSymbol<*>, FirFile>()
-        val scriptContainerMap = mutableMapOf<FirScriptSymbol, FirFile>()
-        val scriptByFilePathMap = mutableMapOf<String, FirScriptSymbol>()
+        val constructorMap = hashMapOf<CallableId, List<FirConstructorSymbol>>()
+        val callableContainerMap = hashMapOf<FirCallableSymbol<*>, FirFile>()
+        val scriptContainerMap = hashMapOf<FirScriptSymbol, FirFile>()
+        val scriptByFilePathMap = hashMapOf<String, FirScriptSymbol>()
+        val snippetContainerMap = hashMapOf<FirReplSnippetSymbol, FirFile>()
 
         fun setFrom(other: State) {
             fileMap.clear()
@@ -238,6 +244,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
             callableContainerMap.clear()
             scriptContainerMap.clear()
             scriptByFilePathMap.clear()
+            snippetContainerMap.clear()
 
             fileMap.putAll(other.fileMap)
             allSubPackages.addAll(other.allSubPackages)
@@ -249,6 +256,7 @@ class FirProviderImpl(val session: FirSession, val kotlinScopeProvider: FirKotli
             callableContainerMap.putAll(other.callableContainerMap)
             scriptContainerMap.putAll(other.scriptContainerMap)
             scriptByFilePathMap.putAll(other.scriptByFilePathMap)
+            snippetContainerMap.putAll(other.snippetContainerMap)
             classesInPackage.putAll(other.classesInPackage)
             classifierInPackage.putAll(other.classifierInPackage)
         }

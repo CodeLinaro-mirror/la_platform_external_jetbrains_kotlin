@@ -282,14 +282,13 @@ class ModuleStructureExtractorImpl(
         private fun finishModule(lineNumber: Int) {
             finishFile(lineNumber)
             val isImplicitModule = currentModuleName == null
-            val moduleDirectives = moduleDirectivesBuilder.build() + testServices.defaultDirectives + globalDirectives
+            val moduleDirectives = testServices.defaultDirectives + globalDirectives + moduleDirectivesBuilder.build()
             moduleDirectives.forEach { it.checkDirectiveApplicability(contextIsGlobal = isImplicitModule, contextIsModule = true) }
 
-            val targetBackend = defaultsProvider.targetBackend
             val frontendKind = defaultsProvider.frontendKind
 
             currentModuleLanguageVersionSettingsBuilder.configureUsingDirectives(
-                moduleDirectives, environmentConfigurators, targetBackend, useK2 = frontendKind == FrontendKinds.FIR
+                moduleDirectives, environmentConfigurators, useK2 = frontendKind == FrontendKinds.FIR
             )
             val moduleName = currentModuleName
                 ?: testServices.defaultDirectives[ModuleStructureDirectives.MODULE].firstOrNull()

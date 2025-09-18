@@ -49,7 +49,8 @@ object CLIConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.cli.c
     val PATH_TO_KOTLIN_COMPILER_JAR by key<File>("jar of Kotlin compiler in Kotlin plugin", comment = "used in FIR IDE uast tests")
 
     val PRINT_VERSION by key<Boolean>("Print compiler version")
-    val SCRIPT_MODE by key<Boolean>("Compile and evaluate kotlin script")
+    val SCRIPT_MODE by key<Boolean>("Compile and evaluate Kotlin script")
+    val REPL_MODE by key<Boolean>("Run Kotlin REPL (deprecated)")
     val KOTLIN_PATHS by key<KotlinPaths>("Kotlin paths")
 
     val ALLOW_NO_SOURCE_FILES by key<Boolean>("allow no source files compilation")
@@ -57,4 +58,6 @@ object CLIConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.cli.c
     val BUILD_FILE by key<File>("Build file")
     val FREE_ARGS_FOR_SCRIPT by key<List<String>>("Free args from arguments. Used only for scripts execution")
     val DEFAULT_EXTENSION_FOR_SCRIPTS by key<String>("Default extension for scripts", throwOnNull = false)
+
+    val TEST_ENVIRONMENT by key<Boolean>("test environment", comment = "Defines what kind of application environment should be created. Should be set to `true` only in tests")
 }

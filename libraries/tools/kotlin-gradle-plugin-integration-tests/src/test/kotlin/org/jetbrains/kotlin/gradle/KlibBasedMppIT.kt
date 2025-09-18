@@ -29,14 +29,13 @@ import kotlin.test.assertTrue
 @MppGradlePluginTests
 open class KlibBasedMppIT : KGPBaseTest() {
 
-    override val defaultBuildOptions: BuildOptions = super
-        .defaultBuildOptions
+    override val defaultBuildOptions: BuildOptions = super.defaultBuildOptions
         .copyEnsuringK1()
-        .disableConfigurationCache_KT70416()
+        // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+        .copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
 
     @DisplayName("Could be compiled with project dependency")
     @GradleTest
-    @BrokenOnMacosTest(expectedToFailOnlyAfterGradle8 = false)
     fun testBuildWithProjectDependency(
         gradleVersion: GradleVersion,
         @TempDir localRepo: Path,
@@ -55,7 +54,6 @@ open class KlibBasedMppIT : KGPBaseTest() {
 
     @DisplayName("KT-36674: Could be compiled with empty source set")
     @GradleTest
-    @BrokenOnMacosTest(expectedToFailOnlyAfterGradle8 = false)
     fun testPublishingAndConsumptionWithEmptySourceSet(
         gradleVersion: GradleVersion,
         @TempDir localRepo: Path,
@@ -74,7 +72,6 @@ open class KlibBasedMppIT : KGPBaseTest() {
 
     @DisplayName("Compiles with common sources in transitive dependencies")
     @GradleTest
-    @BrokenOnMacosTest(expectedToFailOnlyAfterGradle8 = false)
     fun testCommonSourceSetsInTransitiveDependencies(
         gradleVersion: GradleVersion,
         @TempDir localRepo: Path,
@@ -184,7 +181,6 @@ open class KlibBasedMppIT : KGPBaseTest() {
     )
     @DisplayName("Works with host specific dependencies")
     @GradleTest
-    @BrokenOnMacosTest(expectedToFailOnlyAfterGradle8 = false)
     fun testHostSpecificBuildWithPublishedDependency(
         gradleVersion: GradleVersion,
         @TempDir localRepo: Path,

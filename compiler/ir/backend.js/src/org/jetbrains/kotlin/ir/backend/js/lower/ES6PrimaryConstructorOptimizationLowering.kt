@@ -14,10 +14,12 @@ import org.jetbrains.kotlin.ir.backend.js.defaultConstructorForReflection
 import org.jetbrains.kotlin.ir.backend.js.export.isExported
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.needsBoxParameter
+import org.jetbrains.kotlin.ir.backend.js.originalConstructor
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.copyTypeArgumentsFrom
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.util.*
@@ -29,7 +31,7 @@ import org.jetbrains.kotlin.utils.newHashMapWithExpectedSize
 
 const val CREATE_EXTERNAL_THIS_CONSTRUCTOR_PARAMETERS = 2
 
-private var IrClass.possibilityToOptimizeForEsClass: MutableReference<Boolean>? by irAttribute(followAttributeOwner = false)
+private var IrClass.possibilityToOptimizeForEsClass: MutableReference<Boolean>? by irAttribute(copyByDefault = false)
 
 /**
  * Optimization: replaces synthetically generated static factory method with a plain old ES6 constructor whenever it's possible.
@@ -68,7 +70,9 @@ class ES6PrimaryConstructorOptimizationLowering(private val context: JsIrBackend
             origin = IrDeclarationOrigin.DEFINED
         }.also { constructor ->
             constructor.copyAnnotationsFrom(original)
-            constructor.copyValueAndTypeParametersFrom(original)
+            constructor.copyTypeParametersFrom(original)
+            val substitutionMap = makeTypeParameterSubstitutionMap(original, constructor)
+            constructor.copyParameters(original.nonDispatchParameters, substitutionMap)
             constructor.parent = irClass
 
             if (irClass.isExported(context)) {
@@ -76,8 +80,7 @@ class ES6PrimaryConstructorOptimizationLowering(private val context: JsIrBackend
             }
 
             val boxParameter = constructor.boxParameter
-            val body = (original.body?.deepCopyWithSymbols(constructor) as IrBlockBody)
-                .also { constructor.body = it }
+            val body = (original.body as IrBlockBody).also { constructor.body = it }
 
             body.transformChildrenVoid(object : ValueRemapper(emptyMap()) {
                 override val map = original.nonDispatchParameters.zip(constructor.nonDispatchParameters)
@@ -123,8 +126,8 @@ class ES6PrimaryConstructorOptimizationLowering(private val context: JsIrBackend
                             initializer.symbol == context.intrinsics.jsCreateExternalThisSymbol -> {
                                 map[declaration.symbol] = classThisSymbol
 
-                                val externalConstructor =
-                                    superClass?.primaryConstructor?.symbol ?: irError("Expect to have external constructor here") {
+                                val externalConstructor = (initializer.originalConstructor ?: superClass?.primaryConstructor)?.symbol
+                                    ?: irError("Expect to have external constructor here") {
                                         superClass?.let { withIrEntry("superClass", it) }
                                     }
                                 val parameters = initializer.arguments[CREATE_EXTERNAL_THIS_CONSTRUCTOR_PARAMETERS] as? IrVararg
@@ -172,19 +175,31 @@ class ES6PrimaryConstructorUsageOptimizationLowering(private val context: JsIrBa
         irBody.transformChildrenVoid(object : IrElementTransformerVoid() {
             override fun visitCall(expression: IrCall): IrExpression {
                 val callee = expression.symbol.owner
-                return when {
-                    !callee.shouldBeConvertedToPlainConstructor -> super.visitCall(expression)
-                    expression.isSyntheticDelegatingReplacement -> {
-                        super.visitDelegatingConstructorCall(JsIrBuilder.buildDelegatingConstructorCall(callee.parentAsClass.primaryConstructor!!.symbol)
-                                                                 .apply { copyTypeAndValueArgumentsFrom(expression) })
-                    }
-                    else -> {
-                        super.visitConstructorCall(JsIrBuilder.buildConstructorCall(callee.parentAsClass.primaryConstructor!!.symbol)
-                                                       .apply { copyTypeAndValueArgumentsFrom(expression) })
-                    }
+                if (!callee.shouldBeConvertedToPlainConstructor) return super.visitCall(expression)
+                val primaryConstructorSymbol = callee.parentAsClass.primaryConstructor?.symbol ?: return super.visitCall(expression)
+                return if (expression.isSyntheticDelegatingReplacement) {
+                    super.visitDelegatingConstructorCall(
+                        JsIrBuilder.buildDelegatingConstructorCall(primaryConstructorSymbol)
+                            .copyTypeAndValueArgumentsFromConstructorReplacement(expression)
+                    )
+                } else {
+                    super.visitConstructorCall(
+                        JsIrBuilder.buildConstructorCall(primaryConstructorSymbol)
+                            .copyTypeAndValueArgumentsFromConstructorReplacement(expression)
+                    )
                 }
             }
         })
+    }
+
+    private fun <E : IrMemberAccessExpression<*>> E.copyTypeAndValueArgumentsFromConstructorReplacement(expression: IrCall): E {
+        copyTypeArgumentsFrom(expression)
+        // Skip the first argument of the replacement function call because it's always jsClassIntrinsic(),
+        // which is not needed when calling a constructor
+        for (i in arguments.indices) {
+            arguments[i] = expression.arguments[i + 1]
+        }
+        return this
     }
 }
 
@@ -195,7 +210,6 @@ class ES6PrimaryConstructorUsageOptimizationLowering(private val context: JsIrBa
  * 1. Has primary constructor which delegates to a secondary
  * 2. Has secondary constructor which delegates to a primary
  * 3. Has a constructor with a box parameter, and it has an external superclass
- * 4. Is a subtype for Throwable, because we replace the super call inside constructors with `setPropertiesToThrowableInstance` call
  * Otherwise, we can generate a simple ES-class constructor in each class of the hierarchy
  */
 class ES6CollectPrimaryConstructorsWhichCouldBeOptimizedLowering(private val context: JsIrBackendContext) : DeclarationTransformer {
@@ -245,8 +259,7 @@ class ES6CollectPrimaryConstructorsWhichCouldBeOptimizedLowering(private val con
     }
 
     private fun IrClass.canBeOptimized(): Boolean {
-        return superClass?.symbol != context.throwableClass &&
-                !isSubclassOfExternalClassWithRequiredBoxParameter() &&
+        return !isSubclassOfExternalClassWithRequiredBoxParameter() &&
                 !hasPrimaryDelegatedToSecondaryOrSecondaryToPrimary()
     }
 

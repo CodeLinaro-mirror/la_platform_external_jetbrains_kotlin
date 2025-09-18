@@ -36,11 +36,16 @@ import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
+import org.jetbrains.kotlin.platform.TargetPlatform
+import org.jetbrains.kotlin.platform.isCommon
 import org.jetbrains.kotlin.progress.CompilationCanceledException
 import org.jetbrains.kotlin.progress.CompilationCanceledStatus
 import org.jetbrains.kotlin.progress.IncrementalNextRoundException
 import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus
+import org.jetbrains.kotlin.util.CompilerType
 import org.jetbrains.kotlin.util.PerformanceManager
+import org.jetbrains.kotlin.util.PerformanceManagerImpl
+import org.jetbrains.kotlin.util.forEachStringMeasurement
 import org.jetbrains.kotlin.utils.KotlinPaths
 import org.jetbrains.kotlin.utils.PathUtil
 import java.io.File
@@ -51,8 +56,11 @@ import java.util.function.Predicate
 import kotlin.system.exitProcess
 
 abstract class CLICompiler<A : CommonCompilerArguments> {
+    abstract val platform: TargetPlatform
 
-    abstract val defaultPerformanceManager: PerformanceManager
+    open val defaultPerformanceManager: PerformanceManager by lazy {
+        PerformanceManagerImpl(platform, "Kotlin to ${if (platform.isCommon()) "Metadata" else platform.first().platformName} compiler")
+    }
 
     var isReadingSettingsFromEnvironmentAllowed: Boolean =
         this::class.java.classLoader.getResource(LanguageVersionSettings.RESOURCE_NAME_TO_ALLOW_READING_FROM_ENVIRONMENT) != null
@@ -83,9 +91,9 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
             if (code != null) return code
         }
 
-        val performanceManager = createPerformanceManager(arguments, services)
+        val performanceManager = createPerformanceManager(arguments, services).apply { compilerType = if (shouldRunK2) CompilerType.K2 else CompilerType.K1 }
         if (arguments.reportPerf || arguments.dumpPerf != null) {
-            performanceManager.enableCollectingPerformanceStatistics(isK2 = shouldRunK2)
+            performanceManager.enableExtendedStats()
         }
 
         val configuration = CompilerConfiguration()
@@ -117,8 +125,8 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
                 performanceManager.notifyCompilationFinished()
                 if (arguments.reportPerf) {
                     collector.report(LOGGING, "PERF: " + performanceManager.getTargetInfo())
-                    for (measurement in performanceManager.getMeasurementResults()) {
-                        collector.report(LOGGING, "PERF: " + measurement.render(), null)
+                    performanceManager.unitStats.forEachStringMeasurement {
+                        collector.report(LOGGING, "PERF: $it", null)
                     }
                 }
 

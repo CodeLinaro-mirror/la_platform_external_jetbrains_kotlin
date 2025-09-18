@@ -25,10 +25,11 @@ import androidx.compose.runtime.*
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = -607362160, startOffset = 47, endOffset = 71)
 fun Foo(%composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Foo)<Box>:Test.kt")
-  if (%changed != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -44,10 +45,11 @@ fun Foo(%composer: Composer?, %changed: Int) {
   }
 }
 @Composable
+@FunctionKeyMeta(key = -643616831, startOffset = 85, endOffset = 115)
 fun Foo(x: Int, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Foo)<Box>:Test.kt")
-  if (%changed and 0b0001 != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed and 0b0001 != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -63,10 +65,11 @@ fun Foo(x: Int, %composer: Composer?, %changed: Int) {
   }
 }
 @Composable
+@FunctionKeyMeta(key = 1823679537, startOffset = 129, endOffset = 157)
 fun Int.Foo(%composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Foo)<Box>:Test.kt")
-  if (%changed and 0b0001 != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed and 0b0001 != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -82,10 +85,11 @@ fun Int.Foo(%composer: Composer?, %changed: Int) {
   }
 }
 @Composable
+@FunctionKeyMeta(key = -710341377, startOffset = 171, endOffset = 204)
 fun Foo(x: String, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Foo)<Box>:Test.kt")
-  if (%changed and 0b0001 != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed and 0b0001 != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }
@@ -103,7 +107,7 @@ fun Foo(x: String, %composer: Composer?, %changed: Int) {
 internal object ComposableSingletons%TestKt {
   val lambda%-255600592: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }
@@ -117,7 +121,7 @@ internal object ComposableSingletons%TestKt {
   }
   val lambda%-1034946783: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }
@@ -131,7 +135,7 @@ internal object ComposableSingletons%TestKt {
   }
   val lambda%-1717614383: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }
@@ -145,7 +149,7 @@ internal object ComposableSingletons%TestKt {
   }
   val lambda%2015267231: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }

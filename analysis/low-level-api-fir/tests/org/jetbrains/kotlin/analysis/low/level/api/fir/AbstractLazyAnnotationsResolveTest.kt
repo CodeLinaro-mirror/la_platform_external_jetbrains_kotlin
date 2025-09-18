@@ -48,24 +48,22 @@ abstract class AbstractLazyAnnotationsResolveTest : AbstractFirLazyDeclarationRe
         get() = super.additionalDirectives + listOf(Directives)
 
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
-        withResolveSession(mainFile) { firResolveSession ->
-            val (firElement, _) = findFirDeclarationToResolve(mainFile, testServices, firResolveSession)
+        withResolutionFacade(mainFile) { resolutionFacade ->
+            val (firElement, _) = findFirDeclarationToResolve(mainFile, testServices, resolutionFacade)
             val psiElement = firElement.realPsi as? KtAnnotated
 
             // Dump FIR before any potential resolution
             testServices.assertions.assertFirDump(firElement, phase = "before")
 
-            analyseForTest(mainFile) {
-                val symbol = when {
-                    psiElement == null && firElement is FirBackingField -> {
+            analyzeForTest(mainFile) {
+                val symbol = when (psiElement) {
+                    null if firElement is FirBackingField -> {
                         val ktProperty = firElement.psi as KtProperty
                         val propertySymbol = ktProperty.symbol as KaPropertySymbol
                         propertySymbol.backingFieldSymbol!!
                     }
-
-                    psiElement is KtFile -> psiElement.symbol
-                    psiElement is KtDeclaration -> psiElement.symbol
-
+                    is KtFile -> psiElement.symbol
+                    is KtDeclaration -> psiElement.symbol
                     else -> getSingleTestTargetSymbolOfType<KaAnnotatedSymbol>(testDataPath, mainFile)
                 }
 
@@ -76,7 +74,7 @@ abstract class AbstractLazyAnnotationsResolveTest : AbstractFirLazyDeclarationRe
                         testServices.assertions.assertFirDump(firElement, phase = "intermediate")
                     }
 
-                    testServices.assertions.assertEqualsToTestDataFileSibling(output, extension = ".out.txt")
+                    testServices.assertions.assertEqualsToTestOutputFile(output, extension = ".out.txt")
                 }
 
                 // Dump FIR after output render as it also may trigger additional resolution
@@ -101,7 +99,7 @@ abstract class AbstractLazyAnnotationsResolveTest : AbstractFirLazyDeclarationRe
         )
 
         val firDumpAfter = renderer.renderElementAsString(element)
-        assertEqualsToTestDataFileSibling(firDumpAfter, extension = "fir.$phase.txt")
+        assertEqualsToTestOutputFile(firDumpAfter, extension = "fir.$phase.txt")
     }
 
     private object Directives : SimpleDirectivesContainer() {

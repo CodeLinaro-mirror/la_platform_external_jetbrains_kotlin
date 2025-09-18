@@ -398,8 +398,8 @@ class ComposeCommandLineProcessor : CommandLineProcessor {
 enum class FeatureFlag(val featureName: String, val default: Boolean) {
     StrongSkipping("StrongSkipping", default = true),
     IntrinsicRemember("IntrinsicRemember", default = true),
-    OptimizeNonSkippingGroups("OptimizeNonSkippingGroups", default = false),
-    PausableComposition("PausableComposition", default = false),
+    OptimizeNonSkippingGroups("OptimizeNonSkippingGroups", default = true),
+    PausableComposition("PausableComposition", default = true),
     ;
 
     val disabledName get() = "-$featureName"
@@ -655,7 +655,7 @@ class ComposePluginRegistrar : CompilerPluginRegistrar() {
             val liveLiteralsV2Enabled = configuration.getBoolean(
                 ComposeConfiguration.LIVE_LITERALS_V2_ENABLED_KEY,
             )
-            val generateFunctionKeyMetaAnnotations = configuration.getBoolean(
+            val generateFunctionKeyMetaAnnotations = configuration.get(
                 ComposeConfiguration.GENERATE_FUNCTION_KEY_META_ANNOTATION_KEY,
             )
             val sourceInformationEnabled = configuration.getBoolean(
@@ -677,7 +677,6 @@ class ComposePluginRegistrar : CompilerPluginRegistrar() {
                 ComposeConfiguration.REPORTS_DESTINATION_KEY,
                 ""
             ).ifBlank { null }
-            val irVerificationMode = configuration.get(CommonConfigurationKeys.VERIFY_IR, IrVerificationMode.NONE)
 
             val useK2 = configuration.languageVersionSettings.languageVersion.usesK2
 
@@ -740,6 +739,13 @@ class ComposePluginRegistrar : CompilerPluginRegistrar() {
                 ?: emptySet()
             stableTypeMatchers.addAll(testingMatchers)
 
+            val jvmLambdaScheme = configuration.get(JVMConfigurationKeys.LAMBDAS)
+                ?: if (configuration.languageVersionSettings.supportsFeature(LanguageFeature.LightweightLambdas)) {
+                    JvmClosureGenerationScheme.INDY
+                } else {
+                    JvmClosureGenerationScheme.CLASS
+                }
+
             return ComposeIrGenerationExtension(
                 liveLiteralsEnabled = liveLiteralsEnabled,
                 liveLiteralsV2Enabled = liveLiteralsV2Enabled,
@@ -748,7 +754,6 @@ class ComposePluginRegistrar : CompilerPluginRegistrar() {
                 traceMarkersEnabled = traceMarkersEnabled,
                 metricsDestination = metricsDestination,
                 reportsDestination = reportsDestination,
-                irVerificationMode = irVerificationMode,
                 useK2 = useK2,
                 stableTypeMatchers = stableTypeMatchers,
                 moduleMetricsFactory = moduleMetricsFactory,
@@ -756,6 +761,7 @@ class ComposePluginRegistrar : CompilerPluginRegistrar() {
                 featureFlags = featureFlags,
                 skipIfRuntimeNotFound = skipIrLoweringIfRuntimeNotFound,
                 messageCollector = configuration.messageCollector,
+                indyJvmLambdasEnabled = jvmLambdaScheme == JvmClosureGenerationScheme.INDY,
             )
         }
     }

@@ -29,6 +29,7 @@ fun interface Decoration {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 2083614743, startOffset = 92, endOffset = 317)
 private fun Decorated(boolean: Boolean, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Decorated)<Decora...>:Test.kt")
@@ -36,7 +37,7 @@ private fun Decorated(boolean: Boolean, %composer: Composer?, %changed: Int) {
   if (%changed and 0b0110 == 0) {
     %dirty = %dirty or if (%composer.changed(boolean)) 0b0100 else 0b0010
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }
@@ -45,6 +46,7 @@ private fun Decorated(boolean: Boolean, %composer: Composer?, %changed: Int) {
       class <no name provided> : Decoration {
         @Composable
         @ComposableInferredTarget(scheme = "[0[0]]")
+        @FunctionKeyMeta(key = -874628406, startOffset = 206, endOffset = 302)
         override fun Decoration(content: Function2<Composer, Int, Unit>, %composer: Composer?, %changed: Int) {
           %composer = %composer.startRestartGroup(<>)
           sourceInformation(%composer, "C(Decoration)<conten...>:Test.kt")
@@ -55,7 +57,7 @@ private fun Decorated(boolean: Boolean, %composer: Composer?, %changed: Int) {
           if (%changed and 0b00110000 == 0) {
             %dirty = %dirty or if (%composer.changed(<this>)) 0b00100000 else 0b00010000
           }
-          if (%dirty and 0b00010011 != 0b00010010 || !%composer.skipping) {
+          if (%composer.shouldExecute(%dirty and 0b00010011 != 0b00010010, %dirty and 0b0001)) {
             if (isTraceInProgress()) {
               traceEventStart(<>, %dirty, -1, <>)
             }
@@ -87,6 +89,7 @@ private fun Decorated(boolean: Boolean, %composer: Composer?, %changed: Int) {
 }
 @Composable
 @ComposableInferredTarget(scheme = "[0[0]]")
+@FunctionKeyMeta(key = 487175084, startOffset = 363, endOffset = 475)
 private fun Decoratable(decorator: Decoration, %composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Decoratable)<Decora...>:Test.kt")
@@ -99,7 +102,7 @@ private fun Decoratable(decorator: Decoration, %composer: Composer?, %changed: I
     }
     ) 0b0100 else 0b0010
   }
-  if (%dirty and 0b0011 != 0b0010 || !%composer.skipping) {
+  if (%composer.shouldExecute(%dirty and 0b0011 != 0b0010, %dirty and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %dirty, -1, <>)
     }
@@ -116,12 +119,13 @@ private fun Decoratable(decorator: Decoration, %composer: Composer?, %changed: I
 }
 interface Decoration {
   @Composable
+  @FunctionKeyMeta(key = -1554132280, startOffset = 544, endOffset = 591)
   abstract fun Decoration(content: Function2<Composer, Int, Unit>, %composer: Composer?, %changed: Int)
 }
 internal object ComposableSingletons%TestKt {
   val lambda%1716229609: Function2<Composer, Int, Unit> = composableLambdaInstance(<>, false) { %composer: Composer?, %changed: Int ->
     sourceInformation(%composer, "C:Test.kt")
-    if (%changed and 0b0011 != 0b0010 || !%composer.skipping) {
+    if (%composer.shouldExecute(%changed and 0b0011 != 0b0010, %changed and 0b0001)) {
       if (isTraceInProgress()) {
         traceEventStart(<>, %changed, -1, <>)
       }

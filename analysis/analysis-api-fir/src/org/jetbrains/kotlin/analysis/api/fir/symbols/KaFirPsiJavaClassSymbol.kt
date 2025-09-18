@@ -109,7 +109,6 @@ internal class KaFirPsiJavaClassSymbol(
 
     override val isData: Boolean get() = withValidityAssertion { false }
     override val isInline: Boolean get() = withValidityAssertion { false }
-    override val isFun: Boolean get() = withValidityAssertion { false }
     override val isExternal: Boolean get() = withValidityAssertion { false }
     override val isActual: Boolean get() = withValidityAssertion { false }
     override val isExpect: Boolean get() = withValidityAssertion { false }
@@ -123,7 +122,7 @@ internal class KaFirPsiJavaClassSymbol(
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     override val lazyFirSymbol: Lazy<FirRegularClassSymbol> = lazyPub {
         val module = analysisSession.getModule(backingPsi)
-        val provider = analysisSession.firResolveSession.getSessionFor(module).firClassByPsiClassProvider
+        val provider = analysisSession.resolutionFacade.getSessionFor(module).firClassByPsiClassProvider
         provider.getFirClass(backingPsi)
     }
 

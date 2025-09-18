@@ -40,7 +40,8 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
-    override fun check(expression: FirBlock, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(expression: FirBlock) {
         if (expression.source?.kind != KtFakeSourceElementKind.DesugaredForLoop) return
 
         val statements = expression.statements
@@ -51,9 +52,7 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
         val source = iteratorCall.explicitReceiver?.source ?: iteratorCall.source
         if (checkSpecialFunctionCall(
                 iteratorCall,
-                reporter,
                 source,
-                context,
                 ITERATOR_AMBIGUITY,
                 ITERATOR_MISSING,
                 nullableReceiverFactory = ITERATOR_ON_NULLABLE
@@ -65,9 +64,7 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
         val hasNextCall = whileLoop.condition as FirFunctionCall
         checkSpecialFunctionCall(
             hasNextCall,
-            reporter,
             source,
-            context,
             HAS_NEXT_FUNCTION_AMBIGUITY,
             HAS_NEXT_MISSING,
             noneApplicableFactory = HAS_NEXT_FUNCTION_NONE_APPLICABLE
@@ -78,9 +75,7 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
         val nextCall = loopParameter.initializer as FirFunctionCall
         checkSpecialFunctionCall(
             nextCall,
-            reporter,
             source,
-            context,
             NEXT_AMBIGUITY,
             NEXT_MISSING,
             noneApplicableFactory = NEXT_NONE_APPLICABLE
@@ -88,15 +83,14 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
 
         val loopParameterSource = loopParameter.source
         loopParameterSource.valOrVarKeyword?.let {
-            reporter.reportOn(loopParameterSource, FirErrors.VAL_OR_VAR_ON_LOOP_PARAMETER, it, context)
+            reporter.reportOn(loopParameterSource, FirErrors.VAL_OR_VAR_ON_LOOP_PARAMETER, it)
         }
     }
 
+    context(reporter: DiagnosticReporter, context: CheckerContext)
     private fun checkSpecialFunctionCall(
         call: FirFunctionCall,
-        reporter: DiagnosticReporter,
         reportSource: KtSourceElement?,
-        context: CheckerContext,
         ambiguityFactory: KtDiagnosticFactory1<Collection<FirBasedSymbol<*>>>,
         missingFactory: KtDiagnosticFactory0,
         noneApplicableFactory: KtDiagnosticFactory1<Collection<FirBasedSymbol<*>>>? = null,
@@ -110,19 +104,17 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
                         reporter.reportOn(
                             reportSource,
                             noneApplicableFactory ?: ambiguityFactory,
-                            diagnostic.candidates.map { it.symbol },
-                            context
-                        )
+                            diagnostic.candidates.map { it.symbol })
                     }
                     is ConeUnresolvedNameError -> {
-                        reporter.reportOn(reportSource, missingFactory, context)
+                        reporter.reportOn(reportSource, missingFactory)
                     }
                     is ConeInapplicableWrongReceiver -> when {
                         noneApplicableFactory != null -> {
-                            reporter.reportOn(reportSource, noneApplicableFactory, diagnostic.candidateSymbols, context)
+                            reporter.reportOn(reportSource, noneApplicableFactory, diagnostic.candidateSymbols)
                         }
                         calleeReference.name == OperatorNameConventions.ITERATOR -> {
-                            reporter.reportOn(reportSource, missingFactory, context)
+                            reporter.reportOn(reportSource, missingFactory)
                         }
                         else -> {
                             error("ConeInapplicableWrongReceiver, but no diagnostic reported")
@@ -130,7 +122,7 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
                     }
                     is ConeConstraintSystemHasContradiction -> {
                         if (calleeReference.name == OperatorNameConventions.ITERATOR)
-                            reporter.reportOn(reportSource, missingFactory, context)
+                            reporter.reportOn(reportSource, missingFactory)
                     }
                     is ConeInapplicableCandidateError -> {
                         if (nullableReceiverFactory != null || noneApplicableFactory != null) {
@@ -139,11 +131,11 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
                                     is InapplicableNullableReceiver -> {
                                         if (nullableReceiverFactory != null) {
                                             reporter.reportOn(
-                                                reportSource, nullableReceiverFactory, context
+                                                reportSource, nullableReceiverFactory
                                             )
                                         } else {
                                             reporter.reportOn(
-                                                reportSource, noneApplicableFactory!!, listOf(diagnostic.candidate.symbol), context
+                                                reportSource, noneApplicableFactory!!, listOf(diagnostic.candidate.symbol)
                                             )
                                         }
                                         return true
@@ -151,7 +143,7 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
                                     is OperatorCallOfNonOperatorFunction -> {
                                         val symbol = it.function
                                         reporter.reportOn(
-                                            reportSource, OPERATOR_MODIFIER_REQUIRED, symbol, symbol.name.asString(), context
+                                            reportSource, OPERATOR_MODIFIER_REQUIRED, symbol, symbol.name.asString()
                                         )
                                     }
                                 }
@@ -165,7 +157,7 @@ object FirForLoopChecker : FirBlockChecker(MppCheckerKind.Common) {
                 val symbol = calleeReference.resolvedSymbol
                 if (symbol is FirNamedFunctionSymbol) {
                     if (!symbol.isOperator) {
-                        reporter.reportOn(reportSource, OPERATOR_MODIFIER_REQUIRED, symbol, symbol.name.asString(), context)
+                        reporter.reportOn(reportSource, OPERATOR_MODIFIER_REQUIRED, symbol, symbol.name.asString())
                         // Don't return true as we want to report other errors
                     }
                 }

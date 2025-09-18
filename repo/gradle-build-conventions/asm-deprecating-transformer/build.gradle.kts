@@ -4,7 +4,7 @@ plugins {
 }
 
 repositories {
-    mavenCentral()
+    mavenCentral { setUrl("https://cache-redirector.jetbrains.com/maven-central") }
     gradlePluginPortal()
     maven("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies") {
         content {
@@ -26,7 +26,7 @@ kotlin {
 dependencies {
     compileOnly(kotlin("stdlib", embeddedKotlinVersion))
     implementation(libs.intellij.asm)
-    implementation(libs.kotlinx.metadataJvm)
+    implementation("org.jetbrains.kotlin:kotlin-metadata-jvm:${project.bootstrapKotlinVersion}")
     implementation(libs.diff.utils)
     compileOnly(libs.shadow.gradlePlugin)
 }

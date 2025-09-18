@@ -22,14 +22,14 @@ abstract class AbstractScopeContextForPositionTest : AbstractAnalysisApiBasedTes
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         val element = testServices.expressionMarkerProvider.getTopmostSelectedElementOfType<KtElement>(mainFile)
 
-        analyseForTest(element) { elementToAnalyze ->
-            val scopeContext = mainFile.scopeContext(elementToAnalyze)
+        copyAwareAnalyzeForTest(element) { contextElement ->
+            val scopeContext = mainFile.scopeContext(contextElement)
 
-            val scopeContextStringRepresentation = renderForTests(elementToAnalyze, scopeContext)
-            val scopeContextStringRepresentationPretty = renderForTests(elementToAnalyze, scopeContext, printPretty = true)
+            val scopeContextStringRepresentation = renderForTests(contextElement, scopeContext)
+            val scopeContextStringRepresentationPretty = renderForTests(contextElement, scopeContext, printPretty = true)
 
-            testServices.assertions.assertEqualsToTestDataFileSibling(scopeContextStringRepresentation)
-            testServices.assertions.assertEqualsToTestDataFileSibling(scopeContextStringRepresentationPretty, extension = ".pretty.txt")
+            testServices.assertions.assertEqualsToTestOutputFile(scopeContextStringRepresentation)
+            testServices.assertions.assertEqualsToTestOutputFile(scopeContextStringRepresentationPretty, extension = ".pretty.txt")
         }
     }
 

@@ -5,18 +5,23 @@
 
 package org.jetbrains.kotlin.js.test.utils
 
+import com.intellij.openapi.util.io.FileUtilRt
+import org.jetbrains.kotlin.cli.pipeline.web.JsSerializedKlibPipelineArtifact
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.ir.backend.js.WholeWorldStageController
-import org.jetbrains.kotlin.ir.backend.js.ic.*
-import org.jetbrains.kotlin.ir.backend.js.moduleName
+import org.jetbrains.kotlin.ir.backend.js.ic.JsModuleArtifact
+import org.jetbrains.kotlin.ir.backend.js.ic.JsSrcFileArtifact
+import org.jetbrains.kotlin.ir.backend.js.ic.rebuildCacheForDirtyFiles
+import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInTestPipeline
 import org.jetbrains.kotlin.ir.backend.js.utils.serialization.deserializeJsIrProgramFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImplForJsIC
 import org.jetbrains.kotlin.js.test.handlers.JsBoxRunner
-import org.jetbrains.kotlin.konan.properties.propertyList
-import org.jetbrains.kotlin.library.KLIB_PROPERTY_DEPENDS
 import org.jetbrains.kotlin.library.KotlinLibrary
+import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
+import org.jetbrains.kotlin.test.frontend.fir.getAllJsDependenciesPaths
+import org.jetbrains.kotlin.test.model.TestFile
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
@@ -64,14 +69,24 @@ class JsIrIncrementalDataProvider(private val testServices: TestServices) : Test
 
         for (testFile in module.files) {
             if (JsEnvironmentConfigurationDirectives.RECOMPILE in testFile.directives) {
-                val fileName = "/${testFile.name}"
-                oldBinaryAsts[fileName] = moduleCache.binaryAsts[fileName] ?: error("No AST found for $fileName")
-                moduleCache.binaryAsts.remove(fileName)
+                val filePath = if (testServices.cliBasedFacadesEnabled) {
+                    testFile.realFilePath
+                } else {
+                    "/${testFile.name}"
+                }
+                oldBinaryAsts[filePath] = moduleCache.binaryAsts[filePath] ?: error("No AST found for ${testFile}")
+                moduleCache.binaryAsts.remove(filePath)
             }
         }
 
         return oldBinaryAsts
     }
+
+    private val TestFile.realFilePath: String
+        get() {
+            val realFile = testServices.sourceFileProvider.getOrCreateRealFileForSourceFile(this)
+            return FileUtilRt.toSystemIndependentName(realFile.canonicalPath)
+        }
 
     private fun recordIncrementalDataForRuntimeKlib(module: TestModule) {
         val runtimeKlibPath = JsEnvironmentConfigurator.getRuntimePathsForModule(module, testServices)
@@ -97,7 +112,8 @@ class JsIrIncrementalDataProvider(private val testServices: TestServices) : Test
 
         val mainArguments = JsEnvironmentConfigurator.getMainCallParametersForModule(module)
 
-        val allDependencies = JsEnvironmentConfigurator.getAllRecursiveLibrariesFor(module, testServices).keys.toList()
+        val allDependencies = JsEnvironmentConfigurator.getDependencyLibrariesFor(module, testServices)
+            .filterNot { it.libraryFile == library.libraryFile } // Avoid including the library twice.
 
         recordIncrementalData(
             path,
@@ -108,10 +124,39 @@ class JsIrIncrementalDataProvider(private val testServices: TestServices) : Test
         )
     }
 
+    fun recordIncrementalData(module: TestModule, artifact: JsSerializedKlibPipelineArtifact) {
+        val klibs = loadWebKlibsInTestPipeline(
+            configuration = artifact.configuration,
+            libraryPaths = getAllJsDependenciesPaths(module, testServices) + listOf(artifact.outputKlibPath),
+            includedPath = artifact.outputKlibPath,
+            platformChecker = KlibPlatformChecker.JS,
+        )
+
+        val resolvedLibraries = klibs.all
+        val mainArguments = JsEnvironmentConfigurator.getMainCallParametersForModule(module)
+        for (runtimePath in JsEnvironmentConfigurator.getRuntimePathsForModule(module, testServices)) {
+            recordIncrementalData(
+                path = runtimePath,
+                dirtyFiles = null,
+                orderedLibraries = resolvedLibraries,
+                configuration = artifact.configuration,
+                mainArguments = mainArguments,
+            )
+        }
+
+        recordIncrementalData(
+            path = artifact.outputKlibPath,
+            dirtyFiles = module.files.map { it.realFilePath },
+            orderedLibraries = resolvedLibraries,
+            configuration = artifact.configuration,
+            mainArguments = mainArguments
+        )
+    }
+
     private fun recordIncrementalData(
         path: String,
         dirtyFiles: List<String>?,
-        allDependencies: List<KotlinLibrary>,
+        orderedLibraries: List<KotlinLibrary>,
         configuration: CompilerConfiguration,
         mainArguments: List<String>?,
     ) {
@@ -122,24 +167,16 @@ class JsIrIncrementalDataProvider(private val testServices: TestServices) : Test
             return
         }
 
-        val libs = allDependencies.associateBy { File(it.libraryFile.path).canonicalPath }
-
-        val nameToKotlinLibrary: Map<String, KotlinLibrary> = libs.values.associateBy { it.moduleName }
-
-        val dependencyGraph = libs.values.associateWith {
-            it.manifestProperties.propertyList(KLIB_PROPERTY_DEPENDS, escapeInQuotes = true).map { depName ->
-                nameToKotlinLibrary[depName] ?: error("No Library found for $depName")
-            }
-        }
-
-        val currentLib = libs[File(canonicalPath).canonicalPath] ?: error("Expected library at $canonicalPath")
+        val currentLib = orderedLibraries.firstOrNull {
+            File(it.libraryFile.path).canonicalPath == canonicalPath
+        } ?: error("Expected library at $canonicalPath")
 
         val testPackage = extractTestPackage(testServices)
 
         val (mainModuleIr, rebuiltFiles) = rebuildCacheForDirtyFiles(
             currentLib,
             configuration,
-            dependencyGraph,
+            orderedLibraries,
             dirtyFiles,
             IrFactoryImplForJsIC(WholeWorldStageController()),
             setOf(FqName.fromSegments(listOfNotNull(testPackage, JsBoxRunner.TEST_FUNCTION))),

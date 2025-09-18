@@ -19,9 +19,10 @@ private fun Test() {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = -1794342280, startOffset = 209, endOffset = 237)
 private fun Test(%composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
-  if (%changed != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed != 0, %changed and 0b0001)) {
     A(a, %composer, 0)
     A(b, %composer, 0)
   } else {

@@ -1,17 +1,20 @@
 #include <Foundation/Foundation.h>
 #include <stdint.h>
 
-uintptr_t Outer_Inner_InnerInner_init_allocate();
+NS_ASSUME_NONNULL_BEGIN
 
-void Outer_Inner_InnerInner_init_initialize__TypesOfArguments__Swift_UInt_main_Outer_Inner__(uintptr_t __kt, uintptr_t outer__);
+void * Outer_Inner_InnerInner_init_allocate();
 
-int32_t Outer_Inner_foo(uintptr_t self);
+void Outer_Inner_InnerInner_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_main_Outer_Inner__(void * __kt, void * outer__);
 
-uintptr_t Outer_Inner_init_allocate();
+int32_t Outer_Inner_foo(void * self);
 
-void Outer_Inner_init_initialize__TypesOfArguments__Swift_UInt_main_Outer__(uintptr_t __kt, uintptr_t outer__);
+void * Outer_Inner_init_allocate();
 
-uintptr_t __root___Outer_init_allocate();
+void Outer_Inner_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_main_Outer__(void * __kt, void * outer__);
 
-void __root___Outer_init_initialize__TypesOfArguments__Swift_UInt__(uintptr_t __kt);
+void * __root___Outer_init_allocate();
 
+void __root___Outer_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
+
+NS_ASSUME_NONNULL_END

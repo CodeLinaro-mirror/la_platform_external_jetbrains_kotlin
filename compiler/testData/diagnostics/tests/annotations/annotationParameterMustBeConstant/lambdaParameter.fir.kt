@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 // ISSUE: KT-59565
 // IGNORE_PHASE_VERIFICATION: invalid code inside annotations
 
@@ -19,3 +18,7 @@ fun f(x: @Ann(<!ANNOTATION_ARGUMENT_MUST_BE_CONST, ARGUMENT_TYPE_MISMATCH!>{
     result += 1
     result
 }<!>) Int) = x
+
+/* GENERATED_FIR_TAGS: additiveExpression, annotationDeclaration, assignment, classDeclaration, functionDeclaration,
+integerLiteral, lambdaLiteral, localFunction, localProperty, primaryConstructor, propertyDeclaration, typeConstraint,
+typeParameter */

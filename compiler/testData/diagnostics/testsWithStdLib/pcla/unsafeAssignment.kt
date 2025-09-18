@@ -1,4 +1,5 @@
 // RUN_PIPELINE_TILL: FRONTEND
+// LATEST_LV_DIFFERENCE
 
 class Foo<T : Any> {
     fun doSmthng(arg: T) {}
@@ -24,3 +25,7 @@ fun main(arg: Any) {
     }
     println(value.a?.count { it in 'l' .. 'q' })
 }
+
+/* GENERATED_FIR_TAGS: assignment, classDeclaration, functionDeclaration, functionalType, ifExpression, integerLiteral,
+intersectionType, isExpression, lambdaLiteral, localProperty, nullableType, outProjection, propertyDeclaration,
+rangeExpression, safeCall, smartcast, stringLiteral, thisExpression, typeConstraint, typeParameter, typeWithExtension */

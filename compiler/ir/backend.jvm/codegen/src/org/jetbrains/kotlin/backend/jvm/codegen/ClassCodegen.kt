@@ -44,6 +44,7 @@ import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.load.kotlin.header.KotlinClassHeader
 import org.jetbrains.kotlin.load.kotlin.internalName
 import org.jetbrains.kotlin.metadata.jvm.deserialization.BitEncoding
+import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMemberSignature
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_RECORD_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_SYNTHETIC_ANNOTATION_FQ_NAME
@@ -52,9 +53,7 @@ import org.jetbrains.kotlin.name.JvmStandardClassIds.VOLATILE_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.resolve.jvm.checkers.JvmSimpleNameBacktickChecker
-import org.jetbrains.kotlin.resolve.jvm.diagnostics.MemberKind
-import org.jetbrains.kotlin.resolve.jvm.diagnostics.RawSignature
+import org.jetbrains.kotlin.resolve.jvm.JvmConstants
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmClassSignature
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.org.objectweb.asm.*
@@ -65,11 +64,12 @@ class ClassCodegen private constructor(
     val irClass: IrClass,
     val context: JvmBackendContext,
     private val parentFunction: IrFunction?,
+    val intrinsicExtensions: List<JvmIrIntrinsicExtension>,
 ) {
     // We need to avoid recursive calls to getOrCreate() from within the constructor to prevent lockups
     // in ConcurrentHashMap context.classCodegens.
     private val parentClassCodegen by lazy {
-        (parentFunction?.parentAsClass ?: irClass.parent as? IrClass)?.let { getOrCreate(it, context) }
+        (parentFunction?.parentAsClass ?: irClass.parent as? IrClass)?.let { getOrCreate(it, context, intrinsicExtensions) }
     }
     private val metadataSerializer: MetadataSerializer by lazy {
         context.backendExtension.createSerializer(
@@ -174,7 +174,7 @@ class ClassCodegen private constructor(
         //    everything moved to the outer class has already been recorded in `globalSerializationBindings`.
         for (declaration in irClass.declarations) {
             if (declaration is IrClass) {
-                getOrCreate(declaration, context).generate()
+                getOrCreate(declaration, context, intrinsicExtensions).generate()
             }
         }
 
@@ -369,7 +369,7 @@ class ClassCodegen private constructor(
             fieldSignature, (field.initializer?.expression as? IrConst)?.value
         )
 
-        jvmFieldSignatureClashDetector.trackDeclaration(field, RawSignature(fieldName, fieldType.descriptor, MemberKind.FIELD))
+        jvmFieldSignatureClashDetector.trackDeclaration(field, JvmMemberSignature.Field(fieldName, fieldType.descriptor))
 
         if (field.origin != JvmLoweredDeclarationOrigin.CONTINUATION_CLASS_RESULT_FIELD) {
             val annotationCodegen = object : AnnotationCodegen(this@ClassCodegen) {
@@ -448,7 +448,8 @@ class ClassCodegen private constructor(
             // Generate a state machine within this method. The continuation class for it should be generated
             // lazily so that if tail call optimization kicks in, the unused class will not be written to the output.
             val continuationClass = method.continuationClass() // null if `SuspendLambda.invokeSuspend` - `this` is continuation itself
-            val continuationClassCodegen = lazy { if (continuationClass != null) getOrCreate(continuationClass, context, method) else this }
+            val continuationClassCodegen =
+                lazy { if (continuationClass != null) getOrCreate(continuationClass, context, intrinsicExtensions, method) else this }
 
             // For suspend lambdas continuation class is null, and we need to use containing class to put L$ fields
             val spilledFieldsOwner = continuationClass ?: irClass
@@ -468,7 +469,7 @@ class ClassCodegen private constructor(
         } else {
             node.accept(smapCopyingVisitor)
         }
-        jvmMethodSignatureClashDetector.trackDeclaration(method, RawSignature(node.name, node.desc, MemberKind.METHOD))
+        jvmMethodSignatureClashDetector.trackDeclaration(method, JvmMemberSignature.Method(node.name, node.desc))
 
         when (val metadata = method.metadata) {
             is MetadataSource.Property -> metadataSerializer.bindPropertyMetadata(metadata, Method(node.name, node.desc), method.origin)
@@ -564,11 +565,12 @@ class ClassCodegen private constructor(
     }
 
     companion object {
-        private var IrClass.classCodegen: ClassCodegen? by irAttribute(followAttributeOwner = false)
+        private var IrClass.classCodegen: ClassCodegen? by irAttribute(copyByDefault = false)
 
         fun getOrCreate(
             irClass: IrClass,
             context: JvmBackendContext,
+            intrinsicExtensions: List<JvmIrIntrinsicExtension>,
             // The `parentFunction` is only set for classes nested inside of functions. This is usually safe, since there is no
             // way to refer to (inline) members of such a class from outside of the function unless the function in question is
             // itself declared as inline. In that case, the function will be compiled before we can refer to the nested class.
@@ -580,7 +582,7 @@ class ClassCodegen private constructor(
                 it.origin == JvmLoweredDeclarationOrigin.CLASS_STATIC_INITIALIZER
             },
         ): ClassCodegen =
-            irClass.classCodegen ?: ClassCodegen(irClass, context, parentFunction).also {
+            irClass.classCodegen ?: ClassCodegen(irClass, context, parentFunction, intrinsicExtensions).also {
                 assert(parentFunction == null || it.parentFunction == parentFunction) {
                     "inconsistent parent function for ${irClass.render()}:\n" +
                             "New: ${parentFunction!!.render()}\n" +
@@ -590,7 +592,7 @@ class ClassCodegen private constructor(
             }
 
         private fun JvmClassSignature.hasInvalidName() =
-            name.splitToSequence('/').any { identifier -> identifier.any { it in JvmSimpleNameBacktickChecker.INVALID_CHARS } }
+            name.splitToSequence('/').any { identifier -> identifier.any { it in JvmConstants.INVALID_CHARS } }
     }
 }
 

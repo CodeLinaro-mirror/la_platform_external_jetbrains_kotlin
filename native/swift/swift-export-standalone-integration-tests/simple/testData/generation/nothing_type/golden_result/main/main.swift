@@ -4,21 +4,22 @@ import KotlinRuntimeSupport
 
 public typealias Foo = Swift.Never
 public typealias OptionalNothing = Swift.Never?
-public final class Bar: KotlinRuntime.KotlinBase {
+public final class Bar: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBridged {
     public var p: Swift.Never {
         get {
             return Bar_p_get(self.__externalRCRef())
         }
     }
-    package override init(
-        __externalRCRef: Swift.UInt
-    ) {
-        super.init(__externalRCRef: __externalRCRef)
-    }
     public init(
         p: Swift.Never
     ) {
         fatalError()
+    }
+    package override init(
+        __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        options: KotlinRuntime.KotlinBaseConstructionOptions
+    ) {
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
     }
 }
 public var nullableNothingVariable: Swift.Never? {

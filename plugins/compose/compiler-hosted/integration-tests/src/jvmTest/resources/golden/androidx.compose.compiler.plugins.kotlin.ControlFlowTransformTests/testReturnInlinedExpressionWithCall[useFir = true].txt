@@ -25,8 +25,9 @@ fun Test(x: Int): Int {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 1615091328, startOffset = 328, endOffset = 402)
 fun Test(x: Int, %composer: Composer?, %changed: Int): Int {
-  sourceInformationMarkerStart(%composer, <>, "C(Test):Test.kt")
+  sourceInformationMarkerStart(%composer, <>, "C(Test)N(x):Test.kt")
   if (isTraceInProgress()) {
     traceEventStart(<>, %changed, -1, <>)
   }

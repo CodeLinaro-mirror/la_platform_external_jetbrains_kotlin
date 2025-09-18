@@ -38,8 +38,8 @@ import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
 
-private var IrClass.enumValueGetter: IrSimpleFunction? by irAttribute(followAttributeOwner = false)
-private var IrClass.enumEntriesMap: Map<Name, LoweredEnumEntryDescription>? by irAttribute(followAttributeOwner = false)
+private var IrClass.enumValueGetter: IrSimpleFunction? by irAttribute(copyByDefault = false)
+private var IrClass.enumEntriesMap: Map<Name, LoweredEnumEntryDescription>? by irAttribute(copyByDefault = false)
 
 internal data class LoweredEnumEntryDescription(val ordinal: Int, val getterId: Int)
 
@@ -119,9 +119,9 @@ internal class EnumUsageLowering(val context: Context) : IrTransformer<IrBuilder
 
         val irClassSymbol = expression.typeArguments[0]!!.classifierOrNull as? IrClassSymbol
 
-        if (irClassSymbol == null || irClassSymbol == context.ir.symbols.enum) {
+        if (irClassSymbol == null || irClassSymbol == context.symbols.enum) {
             // Either a type parameter or a type parameter erased to 'Enum'.
-            return data.irCall(context.ir.symbols.throwIllegalStateException)
+            return data.irCall(context.symbols.throwIllegalStateException)
         }
 
         val irClass = irClassSymbol.owner
@@ -152,7 +152,7 @@ internal class EnumUsageLowering(val context: Context) : IrTransformer<IrBuilder
                 } else {
                     // fallback for enums from old klibs
                     val valuesFunction = irClass.findStaticMethod(Name.identifier("values"))
-                    data.irCallWithSubstitutedType(context.ir.symbols.createEnumEntries, listOf(irClass.defaultType)).apply {
+                    data.irCallWithSubstitutedType(context.symbols.createEnumEntries, listOf(irClass.defaultType)).apply {
                         arguments[0] = data.irCall(valuesFunction)
                     }
                 }
@@ -171,7 +171,7 @@ internal class EnumUsageLowering(val context: Context) : IrTransformer<IrBuilder
 
 internal class EnumClassLowering(val context: Context) : FileLoweringPass {
     private val enumsSupport = context.enumsSupport
-    private val symbols = context.ir.symbols
+    private val symbols = context.symbols
     private val createUninitializedInstance = symbols.createUninitializedInstance
     private val createEnumEntries = symbols.createEnumEntries
     private val initInstance = symbols.initInstance

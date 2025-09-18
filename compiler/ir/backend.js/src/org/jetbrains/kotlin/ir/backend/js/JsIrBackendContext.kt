@@ -6,11 +6,13 @@
 package org.jetbrains.kotlin.ir.backend.js
 
 import org.jetbrains.kotlin.backend.common.compilationException
-import org.jetbrains.kotlin.backend.common.ir.Ir
+import org.jetbrains.kotlin.backend.common.ir.KlibSharedVariablesManager
 import org.jetbrains.kotlin.backend.common.linkage.partial.createPartialLinkageSupportForLowerings
+import org.jetbrains.kotlin.backend.common.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.backend.common.lower.InnerClassesSupport
 import org.jetbrains.kotlin.backend.common.reportWarning
 import org.jetbrains.kotlin.backend.common.serialization.IrInterningService
+import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.isFunctionType
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -25,16 +27,20 @@ import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.lower.JsInnerClassesSupport
-import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.JsPolyfills
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.translateJsCodeIntoStatementList
-import org.jetbrains.kotlin.ir.backend.js.utils.*
+import org.jetbrains.kotlin.ir.backend.js.utils.JsInlineClassesUtils
+import org.jetbrains.kotlin.ir.backend.js.utils.Keeper
+import org.jetbrains.kotlin.ir.backend.js.utils.MinimizedNameGenerator
+import org.jetbrains.kotlin.ir.backend.js.utils.OperatorNames
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
-import org.jetbrains.kotlin.ir.linkage.partial.partialLinkageConfig
-import org.jetbrains.kotlin.ir.symbols.*
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.ir.symbols.IrFileSymbol
+import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.DescriptorlessExternalPackageFragmentSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrDynamicTypeImpl
@@ -44,11 +50,7 @@ import org.jetbrains.kotlin.js.backend.ast.JsFunction
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.RuntimeDiagnostic
 import org.jetbrains.kotlin.js.parser.sourcemaps.*
-import org.jetbrains.kotlin.name.ClassId
-import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.JsStandardClassIds
-import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
@@ -67,7 +69,6 @@ class JsIrBackendContext(
     val dceRuntimeDiagnostic: RuntimeDiagnostic? = null,
     val safeExternalBoolean: Boolean = false,
     val safeExternalBooleanDiagnostic: RuntimeDiagnostic? = null,
-    override val mapping: JsMapping = JsMapping(),
     val granularity: JsGenerationGranularity = JsGenerationGranularity.WHOLE_PROGRAM,
     val incrementalCacheEnabled: Boolean = false,
 ) : JsCommonBackendContext {
@@ -116,7 +117,7 @@ class JsIrBackendContext(
 
     override val inlineClassesUtils = JsInlineClassesUtils(this)
 
-    override val innerClassesSupport: InnerClassesSupport = JsInnerClassesSupport(mapping, irFactory)
+    override val innerClassesSupport: InnerClassesSupport = JsInnerClassesSupport(irFactory)
 
     private val internalPackage = module.getPackage(JsStandardClassIds.BASE_JS_PACKAGE)
 
@@ -134,8 +135,6 @@ class JsIrBackendContext(
         get() = dynamicType
 
     override val internalPackageFqn = JsStandardClassIds.BASE_JS_PACKAGE
-
-    override val sharedVariablesManager = JsSharedVariablesManager(this.irBuiltIns, this.dynamicType, this.intrinsics)
 
     private val operatorMap = referenceOperators()
 
@@ -166,10 +165,11 @@ class JsIrBackendContext(
         .let { symbolTable.descriptorExtension.referenceSimpleFunction(it!!) }
 
     override val symbols = JsSymbols(irBuiltIns, irFactory.stageController, intrinsics)
-    override val ir = object : Ir() {
-        override val symbols = this@JsIrBackendContext.symbols
-        override fun shouldGenerateHandlerParameterForDefaultBodyFun() = true
-    }
+
+    override val sharedVariablesManager = KlibSharedVariablesManager(symbols)
+
+    override val shouldGenerateHandlerParameterForDefaultBodyFun: Boolean
+        get() = true
 
     // classes forced to be loaded
 
@@ -197,11 +197,6 @@ class JsIrBackendContext(
     )
 
 
-    val newThrowableSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("newThrowable"))
-    val extendThrowableSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("extendThrowable"))
-    val setPropertiesToThrowableInstanceSymbol =
-        symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("setPropertiesToThrowableInstance"))
-
     override val suiteFun = getFunctions(FqName("kotlin.test.suite")).singleOrNull()?.let {
         symbolTable.descriptorExtension.referenceSimpleFunction(it)
     }
@@ -209,11 +204,22 @@ class JsIrBackendContext(
         symbolTable.descriptorExtension.referenceSimpleFunction(it)
     }
 
+    val newThrowableSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("newThrowable"))
+    val extendThrowableSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("extendThrowable"))
+    val setupCauseParameterSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("setupCauseParameter"))
+    val setPropertiesToThrowableInstanceSymbol = symbolTable.descriptorExtension.referenceSimpleFunction(getJsInternalFunction("setPropertiesToThrowableInstance"))
+
     val throwableConstructors by lazy(LazyThreadSafetyMode.NONE) {
         throwableClass.owner.declarations.filterIsInstance<IrConstructor>().map { it.symbol }
     }
     val defaultThrowableCtor by lazy(LazyThreadSafetyMode.NONE) {
         throwableConstructors.single { !it.owner.isPrimary && it.owner.parameters.isEmpty() }
+    }
+    val throwableConstructorWithMessageOnly by lazy(LazyThreadSafetyMode.NONE) {
+        throwableConstructors.single { it.owner.parameters.size == 1 && it.owner.parameters[0].type.isNullableString() }
+    }
+    val throwableConstructorWithBothMessageAndCause by lazy(LazyThreadSafetyMode.NONE) {
+        throwableConstructors.single { it.owner.parameters.size == 2 }
     }
 
     val kpropertyBuilder = getFunctions(FqName("kotlin.js.getPropertyCallableRef")).single().let {

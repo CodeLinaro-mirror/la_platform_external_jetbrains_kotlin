@@ -27,6 +27,36 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   }
 
   @Test
+  @TestMetadata("annotatedConstructor.kt")
+  public void testAnnotatedConstructor() {
+    runTest("compiler/testData/debug/stepping/annotatedConstructor.kt");
+  }
+
+  @Test
+  @TestMetadata("annotatedFunction.kt")
+  public void testAnnotatedFunction() {
+    runTest("compiler/testData/debug/stepping/annotatedFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("annotatedInlineFunctionWithDefault.kt")
+  public void testAnnotatedInlineFunctionWithDefault() {
+    runTest("compiler/testData/debug/stepping/annotatedInlineFunctionWithDefault.kt");
+  }
+
+  @Test
+  @TestMetadata("annotatedLocalVariable.kt")
+  public void testAnnotatedLocalVariable() {
+    runTest("compiler/testData/debug/stepping/annotatedLocalVariable.kt");
+  }
+
+  @Test
+  @TestMetadata("annotatedProperty.kt")
+  public void testAnnotatedProperty() {
+    runTest("compiler/testData/debug/stepping/annotatedProperty.kt");
+  }
+
+  @Test
   @TestMetadata("anonymousFunction.kt")
   public void testAnonymousFunction() {
     runTest("compiler/testData/debug/stepping/anonymousFunction.kt");
@@ -174,6 +204,18 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("defaultParameter.kt")
   public void testDefaultParameter() {
     runTest("compiler/testData/debug/stepping/defaultParameter.kt");
+  }
+
+  @Test
+  @TestMetadata("delegateMemberVal.kt")
+  public void testDelegateMemberVal() {
+    runTest("compiler/testData/debug/stepping/delegateMemberVal.kt");
+  }
+
+  @Test
+  @TestMetadata("delegatedProperty.kt")
+  public void testDelegatedProperty() {
+    runTest("compiler/testData/debug/stepping/delegatedProperty.kt");
   }
 
   @Test
@@ -348,6 +390,12 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("kt42208c.kt")
   public void testKt42208c() {
     runTest("compiler/testData/debug/stepping/kt42208c.kt");
+  }
+
+  @Test
+  @TestMetadata("kt63267_smartCastOnExtensionReceiver.kt")
+  public void testKt63267_smartCastOnExtensionReceiver() {
+    runTest("compiler/testData/debug/stepping/kt63267_smartCastOnExtensionReceiver.kt");
   }
 
   @Test

@@ -2442,6 +2442,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
       }
 
       @Test
+      @TestMetadata("allTheExportedEntitiesAreEnumerable.kt")
+      public void testAllTheExportedEntitiesAreEnumerable() {
+        runTest("js/js.translator/testData/box/esModules/export/allTheExportedEntitiesAreEnumerable.kt");
+      }
+
+      @Test
       @TestMetadata("bridgeSavingAfterExport.kt")
       public void testBridgeSavingAfterExport() {
         runTest("js/js.translator/testData/box/esModules/export/bridgeSavingAfterExport.kt");
@@ -2712,6 +2718,18 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
       @TestMetadata("perFileExportedApi.kt")
       public void testPerFileExportedApi() {
         runTest("js/js.translator/testData/box/esModules/jsExport/perFileExportedApi.kt");
+      }
+
+      @Test
+      @TestMetadata("privateDataClass.kt")
+      public void testPrivateDataClass() {
+        runTest("js/js.translator/testData/box/esModules/jsExport/privateDataClass.kt");
+      }
+
+      @Test
+      @TestMetadata("privateDataClassInFile.kt")
+      public void testPrivateDataClassInFile() {
+        runTest("js/js.translator/testData/box/esModules/jsExport/privateDataClassInFile.kt");
       }
 
       @Test
@@ -3140,6 +3158,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     }
 
     @Test
+    @TestMetadata("allTheExportedEntitiesAreEnumerable.kt")
+    public void testAllTheExportedEntitiesAreEnumerable() {
+      runTest("js/js.translator/testData/box/export/allTheExportedEntitiesAreEnumerable.kt");
+    }
+
+    @Test
     @TestMetadata("bridgeSavingAfterExport.kt")
     public void testBridgeSavingAfterExport() {
       runTest("js/js.translator/testData/box/export/bridgeSavingAfterExport.kt");
@@ -3365,6 +3389,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @TestMetadata("overridenMethod.kt")
     public void testOverridenMethod() {
       runTest("js/js.translator/testData/box/export/overridenMethod.kt");
+    }
+
+    @Test
+    @TestMetadata("overridenMethodDoesNotClashWithMethod.kt")
+    public void testOverridenMethodDoesNotClashWithMethod() {
+      runTest("js/js.translator/testData/box/export/overridenMethodDoesNotClashWithMethod.kt");
     }
 
     @Test
@@ -5874,9 +5904,21 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     }
 
     @Test
+    @TestMetadata("callableReferenceOfLocalFunWithInlinedFunInKlib.kt")
+    public void testCallableReferenceOfLocalFunWithInlinedFunInKlib() {
+      runTest("js/js.translator/testData/box/inline/callableReferenceOfLocalFunWithInlinedFunInKlib.kt");
+    }
+
+    @Test
     @TestMetadata("callableReferenceOfLocalInline.kt")
     public void testCallableReferenceOfLocalInline() {
       runTest("js/js.translator/testData/box/inline/callableReferenceOfLocalInline.kt");
+    }
+
+    @Test
+    @TestMetadata("callableReferenceOfLocalKT77102.kt")
+    public void testCallableReferenceOfLocalKT77102() {
+      runTest("js/js.translator/testData/box/inline/callableReferenceOfLocalKT77102.kt");
     }
 
     @Test
@@ -7501,6 +7543,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     }
 
     @Test
+    @TestMetadata("contextParameters.kt")
+    public void testContextParameters() {
+      runTest("js/js.translator/testData/box/jsCode/contextParameters.kt");
+    }
+
+    @Test
     @TestMetadata("continue.kt")
     public void testContinue() {
       runTest("js/js.translator/testData/box/jsCode/continue.kt");
@@ -7731,6 +7779,18 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @TestMetadata("jsExportInClass.kt")
     public void testJsExportInClass() {
       runTest("js/js.translator/testData/box/jsExport/jsExportInClass.kt");
+    }
+
+    @Test
+    @TestMetadata("privateDataClass.kt")
+    public void testPrivateDataClass() {
+      runTest("js/js.translator/testData/box/jsExport/privateDataClass.kt");
+    }
+
+    @Test
+    @TestMetadata("privateDataClassInFile.kt")
+    public void testPrivateDataClassInFile() {
+      runTest("js/js.translator/testData/box/jsExport/privateDataClassInFile.kt");
     }
 
     @Test
@@ -8417,12 +8477,6 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @Test
     public void testAllFilesPresentInMultiModule() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("js/js.translator/testData/box/multiModule"), Pattern.compile("^([^_](.+))\\.kt$"), null, TargetBackend.JS_IR_ES6, true);
-    }
-
-    @Test
-    @TestMetadata("clashedDeclLinkage.kt")
-    public void testClashedDeclLinkage() {
-      runTest("js/js.translator/testData/box/multiModule/clashedDeclLinkage.kt");
     }
 
     @Test
@@ -10445,6 +10499,12 @@ public class FirJsES6BoxTestGenerated extends AbstractFirJsES6BoxTest {
     @TestMetadata("overrideNotDirectlySuper.kt")
     public void testOverrideNotDirectlySuper() {
       runTest("js/js.translator/testData/box/propertyOverride/overrideNotDirectlySuper.kt");
+    }
+
+    @Test
+    @TestMetadata("overrideStableNameProperties.kt")
+    public void testOverrideStableNameProperties() {
+      runTest("js/js.translator/testData/box/propertyOverride/overrideStableNameProperties.kt");
     }
 
     @Test

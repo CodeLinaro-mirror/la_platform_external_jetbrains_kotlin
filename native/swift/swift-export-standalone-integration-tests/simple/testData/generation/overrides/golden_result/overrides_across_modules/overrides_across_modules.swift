@@ -1,4 +1,5 @@
 @_implementationOnly import KotlinBridges_overrides_across_modules
+import KotlinRuntime
 import KotlinRuntimeSupport
 import overrides
 
@@ -8,17 +9,19 @@ open class Cousin: overrides.Parent {
             return Cousin_primitiveTypeVar_get(self.__externalRCRef())
         }
     }
-    package override init(
-        __externalRCRef: Swift.UInt
-    ) {
-        super.init(__externalRCRef: __externalRCRef)
-    }
     public override init(
         value: Swift.String
     ) {
+        if Self.self != overrides_across_modules.Cousin.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from overrides_across_modules.Cousin ") }
         let __kt = __root___Cousin_init_allocate()
-        super.init(__externalRCRef: __kt)
-        __root___Cousin_init_initialize__TypesOfArguments__Swift_UInt_Swift_String__(__kt, value)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+        __root___Cousin_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_String__(__kt, value)
+    }
+    package override init(
+        __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        options: KotlinRuntime.KotlinBaseConstructionOptions
+    ) {
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
     }
     public final override func finalOverrideFunc() -> Swift.Void {
         return Cousin_finalOverrideFunc(self.__externalRCRef())
@@ -31,21 +34,24 @@ open class Cousin: overrides.Parent {
 }
 public final class FinalDerived3: overrides.AbstractDerived2 {
     public override init() {
+        if Self.self != overrides_across_modules.FinalDerived3.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from overrides_across_modules.FinalDerived3 ") }
         let __kt = __root___FinalDerived3_init_allocate()
-        super.init(__externalRCRef: __kt)
-        __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UInt__(__kt)
-    }
-    package override init(
-        __externalRCRef: Swift.UInt
-    ) {
-        super.init(__externalRCRef: __externalRCRef)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+        __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
     }
     public override init(
         x: Swift.Int32
     ) {
+        if Self.self != overrides_across_modules.FinalDerived3.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from overrides_across_modules.FinalDerived3 ") }
         let __kt = __root___FinalDerived3_init_allocate()
-        super.init(__externalRCRef: __kt)
-        __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UInt_Swift_Int32__(__kt, x)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+        __root___FinalDerived3_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_Swift_Int32__(__kt, x)
+    }
+    package override init(
+        __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        options: KotlinRuntime.KotlinBaseConstructionOptions
+    ) {
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
     }
     public override func abstractFun1() -> Swift.Void {
         return FinalDerived3_abstractFun1(self.__externalRCRef())

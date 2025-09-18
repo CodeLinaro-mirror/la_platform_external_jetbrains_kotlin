@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.config.phaser.PhaseSet
 import org.jetbrains.kotlin.ir.backend.js.MainModule
 import org.jetbrains.kotlin.ir.backend.js.dce.DceDumpNameCache
 import org.jetbrains.kotlin.ir.backend.js.dce.dumpDeclarationIrSizesIfNeed
+import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.test.DebugMode
@@ -27,6 +28,7 @@ import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectiv
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
+import org.jetbrains.kotlin.util.PhaseType
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.test.handlers.getWasmTestOutputDirectory
@@ -67,9 +69,14 @@ class WasmLoweringFacade(
 
         val testPackage = extractTestPackage(testServices)
         val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
+        performanceManager?.let {
+            it.notifyPhaseFinished(PhaseType.Initialization)
+            it.notifyPhaseStarted(PhaseType.TranslationToIr)
+        }
         val generateDwarf = WasmEnvironmentConfigurationDirectives.GENERATE_DWARF in testServices.moduleStructure.allDirectives
         val generateSourceMaps = WasmEnvironmentConfigurationDirectives.GENERATE_SOURCE_MAP in testServices.moduleStructure.allDirectives
         val generateDts = WasmEnvironmentConfigurationDirectives.CHECK_TYPESCRIPT_DECLARATIONS in testServices.moduleStructure.allDirectives
+        val useDebuggerCustomFormatters = debugMode >= DebugMode.DEBUG || configuration.getBoolean(JSConfigurationKeys.USE_DEBUGGER_CUSTOM_FORMATTERS)
         val (allModules, backendContext, typeScriptFragment) = compileToLoweredIr(
             moduleInfo,
             mainModule,
@@ -101,7 +108,8 @@ class WasmLoweringFacade(
             emitNameSection = true,
             generateWat = generateWat,
             generateSourceMaps = generateSourceMaps,
-            generateDwarf = generateDwarf
+            generateDwarf = generateDwarf,
+            useDebuggerCustomFormatters = useDebuggerCustomFormatters
         )
 
         val dceDumpNameCache = DceDumpNameCache()
@@ -128,7 +136,8 @@ class WasmLoweringFacade(
             emitNameSection = true,
             generateWat = generateWat,
             generateSourceMaps = generateSourceMaps,
-            generateDwarf = generateDwarf
+            generateDwarf = generateDwarf,
+            useDebuggerCustomFormatters = useDebuggerCustomFormatters
         )
 
         return BinaryArtifacts.Wasm(
@@ -148,7 +157,8 @@ class WasmLoweringFacade(
             jsWrapper = jsWrapper,
             wasm = newWasm,
             debugInformation = null,
-            dts = dts
+            dts = dts,
+            useDebuggerCustomFormatters = useDebuggerCustomFormatters
         )
     }
 }

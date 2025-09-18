@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.gradle.mpp
 
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.gradle.BrokenOnMacosTest
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.test.TestMetadata
@@ -27,7 +26,13 @@ class MppDiagnosticsIt : KGPBaseTest() {
     fun testDiagnosticsRenderingSmoke(gradleVersion: GradleVersion) {
         project("diagnosticsRenderingSmoke", gradleVersion) {
             build {
-                assertEqualsToFile(expectedOutputFile(), extractProjectsAndTheirDiagnostics())
+                // with isolated projects enabled, the order of diagnostics blocks is non-deterministic
+                // and depends on the subproject evaluation order, so the easiest way to assert that all diagnostics blocks are present
+                // is to compare blocks ignoring the order
+                assertBlocksEqual(
+                    expectedOutputFile().extractBlocksFromExpectedOutput(),
+                    extractProjectsAndTheirDiagnosticsInBlocks(),
+                )
             }
         }
     }
@@ -82,13 +87,13 @@ class MppDiagnosticsIt : KGPBaseTest() {
     @TestMetadata("errorDiagnosticBuildFails")
     fun testErrorDiagnosticBuildFailsWithConfigurationCache(gradleVersion: GradleVersion) {
         project("errorDiagnosticBuildFails", gradleVersion) {
-            buildAndFail("assemble", buildOptions = buildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)) {
+            buildAndFail("assemble") {
                 assertConfigurationCacheStored()
                 assertEqualsToFile(expectedOutputFile("assemble"), extractProjectsAndTheirDiagnostics())
             }
 
             // fails again
-            buildAndFail("assemble", buildOptions = buildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.ENABLED)) {
+            buildAndFail("assemble") {
                 assertConfigurationCacheReused()
                 assertEqualsToFile(expectedOutputFile("assemble-cache-reused"), extractProjectsAndTheirDiagnostics())
             }
@@ -119,7 +124,12 @@ class MppDiagnosticsIt : KGPBaseTest() {
 
     @GradleTest
     fun testKt64121(gradleVersion: GradleVersion) {
-        project("kt64121", gradleVersion) {
+        project(
+            "kt64121",
+            gradleVersion,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.disableIsolatedProjects(),
+        ) {
             build("assemble")
         }
     }
@@ -143,9 +153,13 @@ class MppDiagnosticsIt : KGPBaseTest() {
     }
 
     @GradleTest
-    @BrokenOnMacosTest
     fun testErrorsFailOnlyRelevantProjects(gradleVersion: GradleVersion) {
-        project("errorsFailOnlyRelevantProjects", gradleVersion) {
+        project(
+            "errorsFailOnlyRelevantProjects",
+            gradleVersion,
+            // CC should be explicitly disabled because it hides the warning on subsequent builds: KT-75750
+            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED),
+        ) {
             buildAndFail("brokenProjectA:assemble") {
                 assertEqualsToFile(expectedOutputFile("brokenA"), extractProjectsAndTheirDiagnostics())
             }
@@ -179,9 +193,13 @@ class MppDiagnosticsIt : KGPBaseTest() {
     }
 
     @GradleTest
-    @BrokenOnMacosTest
     fun testDiagnosticsRenderingWithStacktraceOption(gradleVersion: GradleVersion) {
-        project("diagnosticsRenderingWithStacktraceOption", gradleVersion) {
+        project(
+            "diagnosticsRenderingWithStacktraceOption",
+            gradleVersion,
+            // CC should be explicitly disabled because it hides the warning on subsequent builds: KT-75750
+            buildOptions = defaultBuildOptions.copy(configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED),
+        ) {
             // KGP sets showDiagnosticsStacktrace=false and --full-stacktrace by default in tests,
             // need to override that to mimic real-life scenarios
             val options = buildOptions.copy(showDiagnosticsStacktrace = null, stacktraceMode = null)

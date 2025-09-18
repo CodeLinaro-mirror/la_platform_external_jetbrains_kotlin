@@ -1,35 +1,33 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir
 
 import com.intellij.openapi.project.Project
-import org.jetbrains.kotlin.analysis.api.platform.analysisMessageBus
-import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationTopics
+import org.jetbrains.kotlin.analysis.api.platform.modification.publishGlobalModuleStateModificationEvent
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinProjectStructureProvider
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibrarySourceModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
-import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLFirResolveSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.services.environmentManager
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousInitializerSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirFileSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.services.MetaTestConfigurator
 import org.jetbrains.kotlin.test.services.PreAnalysisHandler
 import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
-
+import org.jetbrains.kotlin.test.testFramework.runWriteAction
+import java.io.File
 
 internal fun FirElement.renderWithClassName(): String =
     "${this::class.simpleName} `${render()}`"
@@ -40,29 +38,30 @@ internal fun FirBasedSymbol<*>.name(): String = when (this) {
     is FirClassLikeSymbol<*> -> classId.shortClassName.asString()
     is FirAnonymousInitializerSymbol -> "<init>"
     is FirFileSymbol -> "<FILE>"
+    is FirScriptSymbol -> this.fqName.toString()
     else -> error("unknown symbol ${this::class.simpleName}")
 }
 
 internal fun FirDeclaration.name(): String = symbol.name()
 
-internal inline fun <R> withResolveSession(context: KtElement, action: (LLFirResolveSession) -> R): R {
+internal inline fun <R> withResolutionFacade(context: KtElement, action: (LLResolutionFacade) -> R): R {
     val module = KotlinProjectStructureProvider.getModule(context.project, context, useSiteModule = null)
-    return withResolveSession(module, action)
+    return withResolutionFacade(module, action)
 }
 
-internal inline fun <R> withResolveSession(module: KaModule, action: (LLFirResolveSession) -> R): R {
-    val resolveSession = LLFirResolveSessionService.getInstance(module.project).getFirResolveSession(module)
-    return action(resolveSession)
+internal inline fun <R> withResolutionFacade(module: KaModule, action: (LLResolutionFacade) -> R): R {
+    val resolutionFacade = LLResolutionFacadeService.getInstance(module.project).getResolutionFacade(module)
+    return action(resolutionFacade)
 }
 
 internal fun clearCaches(project: Project) {
-    project.analysisMessageBus
-        .syncPublisher(KotlinModificationTopics.GLOBAL_MODULE_STATE_MODIFICATION)
-        .onModification()
+    runWriteAction {
+        project.publishGlobalModuleStateModificationEvent()
+    }
 }
 
-internal val LLFirResolveSession.isSourceSession: Boolean
-    get() = when (useSiteKtModule) {
+internal val LLResolutionFacade.isSourceSession: Boolean
+    get() = when (useSiteModule) {
         is KaLibraryModule, is KaLibrarySourceModule -> false
         else -> true
     }
@@ -116,3 +115,21 @@ private val FirDeclaration.canBeResolved: Boolean
         is FirBackingField -> propertySymbol.fir.canBeResolved
         else -> true
     }
+
+/**
+ * Configures the test data output file by replacing existing suffixes with the passed [testSuffix].
+ */
+internal class CustomOutputDiagnosticsConfigurator(
+    val testSuffix: String,
+    testServices: TestServices
+) : MetaTestConfigurator(testServices) {
+    override fun transformTestDataPath(testDataFileName: String): String {
+        val separatorIndex = testDataFileName.lastIndexOf(File.separatorChar).takeIf { it != -1 } ?: 0
+        val dotSeparator = "."
+        val dotIndex = testDataFileName.indexOf(dotSeparator, separatorIndex)
+        if (dotIndex == -1) return testDataFileName
+
+        val reversedTestDataFileName = testDataFileName.replaceRange(dotIndex, dotIndex + dotSeparator.length, testSuffix)
+        return if (File(reversedTestDataFileName).exists()) reversedTestDataFileName else testDataFileName
+    }
+}

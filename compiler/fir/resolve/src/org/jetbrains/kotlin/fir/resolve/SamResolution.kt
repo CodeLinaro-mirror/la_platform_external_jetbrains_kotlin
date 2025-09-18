@@ -5,17 +5,20 @@
 
 package org.jetbrains.kotlin.fir.resolve
 
+import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.fakeElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.FirSessionComponent
+import org.jetbrains.kotlin.fir.SessionAndScopeSessionHolder
 import org.jetbrains.kotlin.fir.caches.FirCache
 import org.jetbrains.kotlin.fir.caches.NullableMap
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.caches.getOrPut
 import org.jetbrains.kotlin.fir.containingClassForStaticMemberAttr
+import org.jetbrains.kotlin.fir.copy
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirTypeParameterBuilder
 import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunction
@@ -25,9 +28,8 @@ import org.jetbrains.kotlin.fir.declarations.utils.isAbstract
 import org.jetbrains.kotlin.fir.declarations.utils.isActual
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
+import org.jetbrains.kotlin.fir.diagnostics.ConeCannotInferTypeParameterType
 import org.jetbrains.kotlin.fir.diagnostics.ConeIntermediateDiagnostic
-import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
-import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.resolve.calls.FirSyntheticFunctionSymbol
@@ -55,17 +57,17 @@ private val SAM_PARAMETER_NAME = Name.identifier("function")
 data class SAMInfo<out C : ConeKotlinType>(internal val symbol: FirNamedFunctionSymbol, val type: C)
 
 class FirSamResolver(
-    private val session: FirSession,
-    private val scopeSession: ScopeSession,
+    override val session: FirSession,
+    override val scopeSession: ScopeSession,
     private val outerClassManager: FirOuterClassManager? = null,
-) {
+) : SessionAndScopeSessionHolder {
     private val resolvedFunctionType: NullableMap<FirRegularClass, SAMInfo<ConeLookupTagBasedType>?> = NullableMap()
     private val samConstructorsCache = session.samConstructorStorage.samConstructors
     private val samConversionTransformers = session.extensionService.samConversionTransformers
 
     fun isSamType(type: ConeKotlinType): Boolean = when (type) {
         is ConeClassLikeType -> {
-            val symbol = type.fullyExpandedType(session).lookupTag.toSymbol(session)
+            val symbol = type.fullyExpandedType().lookupTag.toSymbol(session)
             symbol is FirRegularClassSymbol && resolveFunctionTypeIfSamInterface(symbol.fir) != null
         }
 
@@ -86,16 +88,28 @@ class FirSamResolver(
     fun getSamInfoForPossibleSamType(type: ConeKotlinType): SamConversionInfo? {
         return when (type) {
             is ConeClassLikeType -> SamConversionInfo(
-                functionalType = getFunctionTypeForPossibleSamType(type.fullyExpandedType(session)) ?: return null,
+                functionalType = getFunctionTypeForPossibleSamType(type.fullyExpandedType()) ?: return null,
                 samType = type
             )
             is ConeFlexibleType -> {
                 val lowerType = getSamInfoForPossibleSamType(type.lowerBound)?.functionalType ?: return null
-                val upperType = getSamInfoForPossibleSamType(type.upperBound)?.functionalType ?: return null
-                SamConversionInfo(
-                    functionalType = ConeFlexibleType(lowerType.lowerBoundIfFlexible(), upperType.upperBoundIfFlexible()),
-                    samType = type
-                )
+
+                if (type.isTrivial) {
+                    SamConversionInfo(
+                        functionalType = lowerType.lowerBoundIfFlexible().toTrivialFlexibleType(session.typeContext),
+                        samType = type
+                    )
+                } else {
+                    val upperType = getSamInfoForPossibleSamType(type.upperBound)?.functionalType ?: return null
+                    SamConversionInfo(
+                        functionalType = ConeFlexibleType(
+                            lowerType.lowerBoundIfFlexible(),
+                            upperType.upperBoundIfFlexible(),
+                            isTrivial = false,
+                        ),
+                        samType = type
+                    )
+                }
             }
 
             is ConeStubType, is ConeTypeParameterType, is ConeTypeVariableType,
@@ -126,7 +140,7 @@ class FirSamResolver(
         if (firClassOrTypeAlias is FirTypeAlias) {
             // Precompute the constructor for the base type to avoid deadlocks in the IDE.
             firClassOrTypeAlias.symbol.resolvedExpandedTypeRef.coneTypeSafe<ConeClassLikeType>()
-                ?.fullyExpandedType(session)?.lookupTag?.toSymbol(session)
+                ?.fullyExpandedType()?.lookupTag?.toSymbol(session)
                 ?.let { samConstructorsCache.getValue(it, this) }
         }
 
@@ -142,7 +156,7 @@ class FirSamResolver(
         val newTypeParameters = firRegularClass.typeParameters.map { typeParameter ->
             val declaredTypeParameter = typeParameter.symbol.fir
             FirTypeParameterBuilder().apply {
-                source = declaredTypeParameter.source
+                source = declaredTypeParameter.source?.fakeElement(KtFakeSourceElementKind.SamConstructor)
                 moduleData = session.moduleData
                 origin = FirDeclarationOrigin.SamConstructor
                 resolvePhase = FirResolvePhase.DECLARATIONS
@@ -170,26 +184,20 @@ class FirSamResolver(
             val declared = oldTypeParameter.symbol.fir
             newTypeParameter.bounds += declared.symbol.resolvedBounds.map { typeRef ->
                 buildResolvedTypeRef {
-                    source = typeRef.source
+                    source = typeRef.source?.fakeElement(KtFakeSourceElementKind.SamConstructor)
                     coneType = substitutor.substituteOrSelf(typeRef.coneType)
                 }
             }
         }
 
+        val fakeSource = firRegularClass.source?.fakeElement(KtFakeSourceElementKind.SamConstructor)
+
         return buildSimpleFunction {
             moduleData = session.moduleData
-            source = firRegularClass.source
+            source = fakeSource
             name = syntheticFunctionSymbol.name
             origin = FirDeclarationOrigin.SamConstructor
-            val visibility = firRegularClass.visibility
-            status = FirResolvedDeclarationStatusImpl(
-                visibility,
-                Modality.FINAL,
-                EffectiveVisibility.Local
-            ).apply {
-                isExpect = firRegularClass.isExpect
-                isActual = firRegularClass.isActual
-            }
+            status = firRegularClass.status.copy(modality = Modality.FINAL)
             this.symbol = syntheticFunctionSymbol
             typeParameters += newTypeParameters.map { it.build() }
 
@@ -200,7 +208,7 @@ class FirSamResolver(
                 )
 
             returnTypeRef = buildResolvedTypeRef {
-                source = null
+                source = fakeSource
                 coneType = substitutedReturnType
             }
 
@@ -209,7 +217,7 @@ class FirSamResolver(
                 containingDeclarationSymbol = syntheticFunctionSymbol
                 origin = FirDeclarationOrigin.SamConstructor
                 returnTypeRef = buildResolvedTypeRef {
-                    source = firRegularClass.source
+                    source = fakeSource
                     coneType = substitutedFunctionType
                 }
                 name = SAM_PARAMETER_NAME
@@ -230,7 +238,7 @@ class FirSamResolver(
 
     fun buildSamConstructorForTypeAlias(typeAliasSymbol: FirTypeAliasSymbol): FirNamedFunctionSymbol? {
         val type =
-            typeAliasSymbol.fir.expandedTypeRef.coneTypeUnsafe<ConeClassLikeType>().fullyExpandedType(session)
+            typeAliasSymbol.fir.expandedTypeRef.coneTypeUnsafe<ConeClassLikeType>().fullyExpandedType()
 
         val expansionRegularClass = type.lookupTag.toRegularClassSymbol(session)?.fir ?: return null
         val samConstructorForClass = getSamConstructor(expansionRegularClass) ?: return null
@@ -369,9 +377,9 @@ private fun FirTypeParameterRefsOwner.buildSubstitutorWithUpperBounds(session: F
      */
     if (containsNonSubstitutedArguments) {
         val errorSubstitution = typeParameters.associate {
-            val diagnostic = ConeSimpleDiagnostic(
+            val diagnostic = ConeCannotInferTypeParameterType(
+                it.symbol,
                 reason = "Parameter ${it.symbol.name} has a cycle in its upper bounds",
-                DiagnosticKind.CannotInferParameterType
             )
             it.symbol to ConeErrorType(diagnostic)
         }

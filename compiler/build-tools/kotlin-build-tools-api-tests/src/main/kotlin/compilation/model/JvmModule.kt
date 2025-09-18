@@ -21,6 +21,7 @@ class JvmModule(
     moduleDirectory: Path,
     dependencies: List<Dependency>,
     defaultStrategyConfig: CompilerExecutionStrategyConfiguration,
+    private val snapshotConfig: SnapshotConfig,
     additionalCompilationArguments: List<String> = emptyList(),
 ) : AbstractModule(
     project,
@@ -62,9 +63,10 @@ class JvmModule(
             project.projectId,
             strategyConfig,
             compilationConfig,
-            sourcesDirectory.listDirectoryEntries()
+            sourcesDirectory.walk()
                 .filter { path -> path.pathString.run { allowedExtensions.any { endsWith(".$it") } } }
-                .map { it.toFile() },
+                .map { it.toFile() }
+                .toList(),
             defaultCompilationArguments + additionalCompilationArguments,
         )
     }
@@ -72,7 +74,8 @@ class JvmModule(
     private fun generateClasspathSnapshot(dependency: Dependency): Path {
         val snapshot = BaseTest.compilationService.calculateClasspathSnapshot(
             dependency.location.toFile(),
-            ClassSnapshotGranularity.CLASS_MEMBER_LEVEL
+            snapshotConfig.granularity,
+            snapshotConfig.useInlineLambdaSnapshotting,
         )
         val hash = snapshot.classSnapshots.values
             .filterIsInstance<AccessibleClassSnapshot>()
@@ -107,11 +110,6 @@ class JvmModule(
             val options = compilationConfig.makeClasspathSnapshotBasedIncrementalCompilationConfiguration()
             options.setBuildDir(buildDirectory.toFile())
             options.setRootProjectDir(project.projectDirectory.toFile())
-
-            if (BaseTest.compilerVersion < KotlinToolingVersion(2, 0, 0, "Beta2")) {
-                // workaround for the incorrect default value
-                options.useOutputDirs(setOf(icCachesDir.toFile(), outputDirectory.toFile()))
-            }
 
             if (forceNonIncrementalCompilation) {
                 options.forceNonIncrementalMode()

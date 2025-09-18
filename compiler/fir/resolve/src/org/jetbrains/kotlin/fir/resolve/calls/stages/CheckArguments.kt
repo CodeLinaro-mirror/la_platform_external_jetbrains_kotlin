@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls.stages
 
-import org.jetbrains.kotlin.builtins.functions.isBasicFunctionOrKFunction
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
@@ -25,27 +24,26 @@ import org.jetbrains.kotlin.resolve.calls.inference.isSubtypeConstraintCompatibl
 import org.jetbrains.kotlin.types.model.typeConstructor
 
 internal object CheckArguments : ResolutionStage() {
-    override suspend fun check(candidate: Candidate, callInfo: CallInfo, sink: CheckerSink, context: ResolutionContext) {
+    context(sink: CheckerSink, context: ResolutionContext)
+    override suspend fun check(candidate: Candidate) {
         candidate.symbol.lazyResolveToPhase(FirResolvePhase.STATUS)
         val argumentMapping = candidate.argumentMapping
         val isInvokeFromExtensionFunctionType = candidate.isInvokeFromExtensionFunctionType
 
-        val contextArgumentsOfInvoke = candidate.expectedContextParameterTypesForInvoke?.size ?: 0
+        val contextArgumentsOfInvoke = candidate.expectedContextParameterCountForInvoke ?: 0
         for ((index, argument) in candidate.arguments.withIndex()) {
             if (index < contextArgumentsOfInvoke) continue
             val parameter = argumentMapping[argument]
             candidate.resolveArgument(
-                callInfo,
+                candidate.callInfo,
                 argument,
                 parameter,
-                isReceiver = index == 0 && isInvokeFromExtensionFunctionType,
-                sink = sink,
-                context = context
+                isReceiver = index == 0 && isInvokeFromExtensionFunctionType
             )
         }
 
         when {
-            candidate.system.hasContradiction && callInfo.arguments.isNotEmpty() -> {
+            candidate.system.hasContradiction && candidate.callInfo.arguments.isNotEmpty() -> {
                 sink.yieldDiagnostic(InapplicableCandidate)
             }
 
@@ -58,26 +56,25 @@ internal object CheckArguments : ResolutionStage() {
                                 coneType.toRegularClassSymbol(context.session)?.isJavaOrEnhancement == true
                     }
                 ) {
-                    sink.markCandidateForCompatibilityResolve(context)
+                    sink.markCandidateForCompatibilityResolve()
                 }
             }
         }
     }
 
+    context(sink: CheckerSink, context: ResolutionContext)
     private fun Candidate.resolveArgument(
         callInfo: CallInfo,
         atom: ConeResolutionAtom,
         parameter: FirValueParameter?,
         isReceiver: Boolean,
-        sink: CheckerSink,
-        context: ResolutionContext
     ) {
         // Lambdas and callable references can be unresolved at this point
         val argument = atom.expression
         @OptIn(UnresolvedExpressionTypeAccess::class)
         argument.coneTypeOrNull.ensureResolvedTypeDeclaration(context.session)
         val expectedType =
-            prepareExpectedType(context.session, callInfo, argument, parameter, context)
+            prepareExpectedType(context.session, callInfo, argument, parameter)
         ArgumentCheckingProcessor.resolveArgumentExpression(
             this,
             atom,
@@ -92,18 +89,18 @@ internal object CheckArguments : ResolutionStage() {
 
 private val SAM_LOOKUP_NAME: Name = Name.special("<SAM-CONSTRUCTOR>")
 
+context(context: ResolutionContext)
 private fun Candidate.prepareExpectedType(
     session: FirSession,
     callInfo: CallInfo,
     argument: FirExpression,
     parameter: FirValueParameter?,
-    context: ResolutionContext
 ): ConeKotlinType? {
     if (parameter == null) return null
     val basicExpectedType = argument.getExpectedType(session, parameter/*, LanguageVersionSettings*/)
 
     val expectedType =
-        getExpectedTypeWithSAMConversion(session, argument, basicExpectedType, context)?.also {
+        getExpectedTypeWithSAMConversion(session, argument, basicExpectedType)?.also {
             session.lookupTracker?.let { lookupTracker ->
                 parameter.returnTypeRef.coneType.lowerBoundIfFlexible().classId?.takeIf { !it.isLocal }?.let { classId ->
                     lookupTracker.recordClassMemberLookup(
@@ -121,11 +118,11 @@ private fun Candidate.prepareExpectedType(
     return this.substitutor.substituteOrSelf(expectedType)
 }
 
+context(context: ResolutionContext)
 private fun Candidate.getExpectedTypeWithSAMConversion(
     session: FirSession,
     argument: FirExpression,
     candidateExpectedType: ConeKotlinType,
-    context: ResolutionContext,
 ): ConeKotlinType? {
     if (candidateExpectedType.isSomeFunctionType(session)) return null
 
@@ -250,7 +247,8 @@ private fun FirExpression.namedReferenceWithCandidate(): FirNamedReferenceWithCa
         else -> null
     }
 
-private fun CheckerSink.markCandidateForCompatibilityResolve(context: ResolutionContext) {
+context(context: ResolutionContext)
+private fun CheckerSink.markCandidateForCompatibilityResolve() {
     if (context.session.languageVersionSettings.supportsFeature(LanguageFeature.DisableCompatibilityModeForNewInference)) return
     reportDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
 }

@@ -24,10 +24,10 @@ abstract class AbstractScopeTestBase : AbstractSymbolByFqNameTest() {
     override fun doTestByMainFile(mainFile: KtFile, mainModule: KtTestModule, testServices: TestServices) {
         super.doTestByMainFile(mainFile, mainModule, testServices)
 
-        analyseForTest(mainFile) {
+        analyzeForTest(mainFile) {
             val scope = getScope(mainFile, testServices)
             val actualNames = prettyPrint { renderNamesContainedInScope(scope) }
-            testServices.assertions.assertEqualsToTestDataFileSibling(actualNames, extension = ".names.txt")
+            testServices.assertions.assertEqualsToTestOutputFile(actualNames, extension = ".names.txt")
         }
     }
 

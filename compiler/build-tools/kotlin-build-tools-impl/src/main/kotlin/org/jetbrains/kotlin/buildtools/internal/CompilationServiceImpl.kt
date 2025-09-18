@@ -7,14 +7,19 @@ package org.jetbrains.kotlin.buildtools.internal
 
 import com.intellij.openapi.vfs.impl.ZipHandler
 import com.intellij.openapi.vfs.impl.jar.CoreJarFileSystem
+import org.jetbrains.kotlin.K1Deprecation
 import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.build.report.BuildReporter
 import org.jetbrains.kotlin.build.report.metrics.DoNothingBuildMetricsReporter
 import org.jetbrains.kotlin.buildtools.api.*
 import org.jetbrains.kotlin.buildtools.api.jvm.ClassSnapshotGranularity
+import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathEntrySnapshot
 import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalCompilationApproachParameters
+import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration
 import org.jetbrains.kotlin.buildtools.api.jvm.JvmCompilationConfiguration
 import org.jetbrains.kotlin.cli.common.ExitCode
+import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.parseCommandLineArguments
 import org.jetbrains.kotlin.cli.common.arguments.validateArguments
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
@@ -22,19 +27,23 @@ import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
 import org.jetbrains.kotlin.cli.common.messages.PrintingMessageCollector
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.jvm.compiler.setupIdeaStandaloneExecution
 import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.compilerRunner.KotlinCompilerRunnerUtils
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
+import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.config.Services
 import org.jetbrains.kotlin.daemon.client.BasicCompilerServicesWithResultsFacadeServer
 import org.jetbrains.kotlin.daemon.common.CompilerId
+import org.jetbrains.kotlin.daemon.common.IncrementalCompilationOptions
 import org.jetbrains.kotlin.daemon.common.configureDaemonJVMOptions
 import org.jetbrains.kotlin.daemon.common.filterExtractProps
+import org.jetbrains.kotlin.incremental.IncrementalFirJvmCompilerRunner
 import org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner
 import org.jetbrains.kotlin.incremental.classpathDiff.ClasspathEntrySnapshotter
 import org.jetbrains.kotlin.incremental.disablePreciseJavaTrackingIfK2
 import org.jetbrains.kotlin.incremental.extractKotlinSourcesFromFreeCompilerArguments
-import org.jetbrains.kotlin.incremental.multiproject.EmptyModulesApiHistory
+import org.jetbrains.kotlin.incremental.isKotlinFile
 import org.jetbrains.kotlin.incremental.storage.FileLocations
 import org.jetbrains.kotlin.scripting.compiler.plugin.impl.reporter
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinitionsFromClasspathDiscoverySource
@@ -67,8 +76,26 @@ private fun transformUrlToFile(url: URL) = url.toURI().toPath().toFile()
 internal object CompilationServiceImpl : CompilationService {
     private val buildIdToSessionFlagFile: MutableMap<ProjectId, File> = ConcurrentHashMap()
 
-    override fun calculateClasspathSnapshot(classpathEntry: File, granularity: ClassSnapshotGranularity) =
-        ClasspathEntrySnapshotImpl(ClasspathEntrySnapshotter.snapshot(classpathEntry, granularity, DoNothingBuildMetricsReporter))
+    override fun calculateClasspathSnapshot(
+        classpathEntry: File,
+        granularity: ClassSnapshotGranularity,
+        parseInlinedLocalClasses: Boolean
+    ): ClasspathEntrySnapshot {
+        return ClasspathEntrySnapshotImpl(
+            ClasspathEntrySnapshotter.snapshot(
+                classpathEntry,
+                ClasspathEntrySnapshotter.Settings(granularity, parseInlinedLocalClasses),
+                DoNothingBuildMetricsReporter
+            )
+        )
+    }
+
+    override fun calculateClasspathSnapshot(
+        classpathEntry: File,
+        granularity: ClassSnapshotGranularity
+    ): ClasspathEntrySnapshot {
+        return calculateClasspathSnapshot(classpathEntry, granularity, parseInlinedLocalClasses = true)
+    }
 
     override fun makeCompilerExecutionStrategyConfiguration() = CompilerExecutionStrategyConfigurationImpl()
 
@@ -109,6 +136,7 @@ internal object CompilationServiceImpl : CompilationService {
 
     private fun clearJarCaches() {
         ZipHandler.clearFileAccessorCache()
+        @OptIn(K1Deprecation::class)
         KotlinCoreEnvironment.applicationEnvironment?.apply {
             (jarFileSystem as? CoreJarFileSystem)?.clearHandlersCache()
             (jrtFileSystem as? CoreJrtFileSystem)?.clearRoots()
@@ -133,19 +161,17 @@ internal object CompilationServiceImpl : CompilationService {
         arguments: List<String>,
     ): CompilationResult {
         loggerAdapter.kotlinLogger.debug("Compiling using the in-process strategy")
+        setupIdeaStandaloneExecution()
         val compiler = K2JVMCompiler()
         val parsedArguments = compiler.createArguments()
         parseCommandLineArguments(arguments, parsedArguments)
         validateArguments(parsedArguments.errors)?.let {
             throw CompilerArgumentsParseException(it)
         }
-        loggerAdapter.report(CompilerMessageSeverity.INFO, arguments.toString())
+        val kotlinFilenameExtensions = (DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS + compilationConfiguration.kotlinScriptFilenameExtensions)
         val aggregatedIcConfiguration = compilationConfiguration.aggregatedIcConfiguration
         return when (val options = aggregatedIcConfiguration?.options) {
-            is ClasspathSnapshotBasedIncrementalJvmCompilationConfigurationImpl -> {
-                val kotlinFilenameExtensions =
-                    (DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS + compilationConfiguration.kotlinScriptFilenameExtensions)
-
+            is ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration -> {
                 @Suppress("DEPRECATION") // TODO: get rid of that parsing KT-62759
                 val kotlinSources = extractKotlinSourcesFromFreeCompilerArguments(parsedArguments, kotlinFilenameExtensions) + sources
 
@@ -157,19 +183,29 @@ internal object CompilationServiceImpl : CompilationService {
                     buildMetricsReporter = DoNothingBuildMetricsReporter
                 )
                 val verifiedPreciseJavaTracking = parsedArguments.disablePreciseJavaTrackingIfK2(usePreciseJavaTrackingByDefault = options.preciseJavaTrackingEnabled)
-
-                val incrementalCompiler = IncrementalJvmCompilerRunner(
-                    aggregatedIcConfiguration.workingDir,
-                    buildReporter,
-                    buildHistoryFile = null,
-                    modulesApiHistory = EmptyModulesApiHistory,
-                    outputDirs = options.outputDirs,
-                    kotlinSourceFilesExtensions = kotlinFilenameExtensions,
-                    classpathChanges = classpathChanges,
-                    icFeatures = options.extractIncrementalCompilationFeatures().copy(
-                        usePreciseJavaTracking = verifiedPreciseJavaTracking
-                    ),
+                val icFeatures = options.extractIncrementalCompilationFeatures().copy(
+                    usePreciseJavaTracking = verifiedPreciseJavaTracking
                 )
+                val incrementalCompiler = if (options.isUsingFirRunner && checkJvmFirRequirements(arguments)) {
+                    IncrementalFirJvmCompilerRunner(
+                        aggregatedIcConfiguration.workingDir,
+                        buildReporter,
+                        outputDirs = options.outputDirs,
+                        classpathChanges = classpathChanges,
+                        kotlinSourceFilesExtensions = kotlinFilenameExtensions,
+                        icFeatures = icFeatures
+                    )
+                } else {
+                    IncrementalJvmCompilerRunner(
+                        aggregatedIcConfiguration.workingDir,
+                        buildReporter,
+                        outputDirs = options.outputDirs,
+                        classpathChanges = classpathChanges,
+                        kotlinSourceFilesExtensions = kotlinFilenameExtensions,
+                        icFeatures = icFeatures
+                    )
+                }
+
                 val rootProjectDir = options.rootProjectDir
                 val buildDir = options.buildDir
                 parsedArguments.incrementalCompilation = true
@@ -180,11 +216,35 @@ internal object CompilationServiceImpl : CompilationService {
                     } else null
                 ).asCompilationResult
             }
-            else -> {
-                parsedArguments.freeArgs += sources.map { it.absolutePath }
+            null -> { // no IC configuration -> non-incremental compilation
+                parsedArguments.freeArgs += sources.filter { it.isKotlinFile(kotlinFilenameExtensions) }.map { it.absolutePath }
                 compiler.exec(loggerAdapter, Services.EMPTY, parsedArguments).asCompilationResult
             }
+            else -> error(
+                "Unexpected incremental compilation configuration: $options. " +
+                        "In this version, it must be an instance of ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration " +
+                        "for incremental compilation, or null for non-incremental compilation."
+            )
         }
+    }
+
+    private fun checkJvmFirRequirements(
+        arguments: List<String>,
+    ): Boolean {
+        val languageVersion: LanguageVersion = arguments.find { it.startsWith("-language-version") }
+            ?.let {
+                LanguageVersion.fromVersionString(it.substringAfter("="))
+            }
+            ?: LanguageVersion.LATEST_STABLE
+
+        check(languageVersion >= LanguageVersion.KOTLIN_2_0) {
+            "FIR incremental compiler runner is only compatible with Kotlin Language Version 2.0"
+        }
+        check(arguments.contains("-Xuse-fir-ic")) {
+            "FIR incremental compiler runner requires '-Xuse-fir-ic' to be present in arguments"
+        }
+
+        return true
     }
 
     private fun compileWithinDaemon(
@@ -222,9 +282,30 @@ internal object CompilationServiceImpl : CompilationService {
             daemonJVMOptions = jvmOptions
         ) ?: return ExitCode.INTERNAL_ERROR.asCompilationResult
         val daemonCompileOptions = compilationConfiguration.asDaemonCompilationOptions
+        val isIncrementalCompilation = daemonCompileOptions is IncrementalCompilationOptions
+
+        if (isIncrementalCompilation && daemonCompileOptions.useJvmFirRunner) {
+            checkJvmFirRequirements(arguments)
+        }
+
+        /* TODO: fix together with KT-62759
+         * To avoid parsing sources from freeArgs and filtering them in the daemon,
+         * work around the issue by removing .java files in non-incremental mode.
+         * Preferably, this should be done in the daemon.
+         * In incremental mode, incremental compiler filters them out, but should be aware of them for tracking changes.
+         * Kotlin compiler itself knows about the .java sources via -Xjava-source-roots
+         */
+        val effectiveSources = if (isIncrementalCompilation) {
+            sources
+        } else {
+            val kotlinFilenameExtensions =
+                (DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS + compilationConfiguration.kotlinScriptFilenameExtensions)
+            sources.filter { it.isKotlinFile(kotlinFilenameExtensions) }
+        }
+
         val exitCode = daemon.compile(
             sessionId,
-            arguments.toTypedArray() + sources.map { it.absolutePath }, // TODO: pass the sources explicitly KT-62759
+            arguments.toTypedArray() + effectiveSources.map { it.absolutePath }, // TODO: pass the sources explicitly KT-62759
             daemonCompileOptions,
             BasicCompilerServicesWithResultsFacadeServer(loggerAdapter),
             DaemonCompilationResults(

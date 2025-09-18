@@ -19,10 +19,11 @@ import org.gradle.tooling.events.task.TaskFailureResult
 import org.gradle.tooling.events.task.TaskFinishEvent
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.fus.BuildUidService
+import org.jetbrains.kotlin.gradle.internal.isInIdeaSync
 import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.plugin.BuildEventsListenerRegistryHolder
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.internal.isConfigurationCacheEnabled
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.internal.isConfigurationCacheRequested
 import org.jetbrains.kotlin.gradle.plugin.internal.isProjectIsolationEnabled
 import org.jetbrains.kotlin.gradle.plugin.internal.isProjectIsolationRequested
@@ -30,7 +31,6 @@ import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskExecutionResults
 import org.jetbrains.kotlin.gradle.report.reportingSettings
 import org.jetbrains.kotlin.gradle.tasks.withType
 import org.jetbrains.kotlin.gradle.utils.SingleActionPerProject
-import org.jetbrains.kotlin.gradle.utils.currentBuildId
 import org.jetbrains.kotlin.statistics.metrics.BooleanMetrics
 import org.jetbrains.kotlin.statistics.metrics.NumericalMetrics
 import org.jetbrains.kotlin.statistics.metrics.StatisticsValuesConsumer
@@ -56,6 +56,7 @@ abstract class BuildFusService<T : BuildFusService.Parameters> :
     }
 
     interface Parameters : BuildServiceParameters {
+        val generalMetricsFinalized: Property<Boolean>
         val generalConfigurationMetrics: Property<MetricContainer>
         val buildStatisticsConfiguration: Property<KotlinBuildStatsConfiguration>
         val buildId: Property<String>
@@ -81,14 +82,30 @@ abstract class BuildFusService<T : BuildFusService.Parameters> :
         internal val serviceName = "${BuildFusService::class.simpleName}_${BuildFusService::class.java.classLoader.hashCode()}"
         private var buildStartTime: Long = System.currentTimeMillis()
 
-        fun registerIfAbsent(project: Project, pluginVersion: String, buildUidService: Provider<BuildUidService>) =
-            registerIfAbsentImpl(project, pluginVersion, buildUidService).also { serviceProvider ->
-                SingleActionPerProject.run(project, UsesBuildFusService::class.java.name) {
-                    project.tasks.withType<UsesBuildFusService>().configureEach { task ->
-                        task.buildFusService.value(serviceProvider).disallowChanges()
-                        task.usesService(serviceProvider)
+        internal fun getBuildFusService(project: Project) =
+            if (project.buildServiceShouldBeCreated) {
+                project.gradle.sharedServices.registrations.findByName(serviceName).also {
+                    if (it == null) {
+                        project.logger.info("BuildFusService was not registered")
                     }
                 }
+            } else {
+                null
+            }
+
+
+        fun registerIfAbsent(project: Project, pluginVersion: String, buildUidService: Provider<BuildUidService>) =
+            if (project.buildServiceShouldBeCreated) {
+                registerIfAbsentImpl(project, pluginVersion, buildUidService).also { serviceProvider ->
+                    SingleActionPerProject.run(project, UsesBuildFusService::class.java.name) {
+                        project.tasks.withType<UsesBuildFusService>().configureEach { task ->
+                            task.buildFusService.value(serviceProvider).disallowChanges()
+                            task.usesService(serviceProvider)
+                        }
+                    }
+                }
+            } else {
+                null
             }
 
         private fun registerIfAbsentImpl(
@@ -110,7 +127,6 @@ abstract class BuildFusService<T : BuildFusService.Parameters> :
             KotlinBuildStatsBeanService.initStatsService(project)
 
             val buildReportOutputs = reportingSettings(project).buildReportOutputs
-            val useClasspathSnapshot = PropertiesProvider(project).useClasspathSnapshot.get()
             val gradle = project.gradle
             val generalConfigurationMetricsProvider = project.provider {
                 //isProjectIsolationEnabled isConfigurationCacheRequested and isProjectIsolationRequested should be calculated beforehand
@@ -120,7 +136,6 @@ abstract class BuildFusService<T : BuildFusService.Parameters> :
                     project,
                     gradle,
                     buildReportOutputs,
-                    useClasspathSnapshot,
                     pluginVersion,
                     isProjectIsolationEnabled,
                     isProjectIsolationRequested,
@@ -145,14 +160,7 @@ abstract class BuildFusService<T : BuildFusService.Parameters> :
             //DO NOT call buildService.get() before all parameters.configurationMetrics are set.
             // buildService.get() call will cause parameters calculation and configuration cache storage.
 
-            //Gradle throws an exception when Gradle version less than 7.4 with configuration cache enabled and buildSrc,
-            @Suppress("DEPRECATION")
-            if (GradleVersion.current().baseVersion >= GradleVersion.version("7.4")
-                || !project.isConfigurationCacheEnabled
-                || project.currentBuildId().name != "buildSrc"
-            ) {
-                BuildEventsListenerRegistryHolder.getInstance(project).listenerRegistry.onTaskCompletion(fusService)
-            }
+            BuildEventsListenerRegistryHolder.getInstance(project).listenerRegistry.onTaskCompletion(fusService)
 
             return fusService
         }
@@ -215,4 +223,16 @@ class MetricContainer : Serializable {
     fun put(metric: StringMetrics, value: String) = stringMetrics.put(metric, value)
     fun put(metric: BooleanMetrics, value: Boolean) = booleanMetrics.put(metric, value)
     fun put(metric: NumericalMetrics, value: Long) = numericalMetrics.put(metric, value)
+}
+
+private val Project.buildServiceShouldBeCreated
+    get() = !isInIdeaSync.get() && kotlinPropertiesProvider.enableFusMetricsCollection
+
+internal fun BuildFusService.Parameters.finalizeGeneralConfigurationMetrics() {
+    if (generalMetricsFinalized.get()) return
+    synchronized(this) {
+        if (generalMetricsFinalized.get()) return
+        generalMetricsFinalized.set(true)
+        generalConfigurationMetrics.finalizeValue()
+    }
 }

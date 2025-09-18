@@ -1,5 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -DEBUG_INFO_SMARTCAST
+// LATEST_LV_DIFFERENCE
 
 class Foo {
     fun foo(a: Foo): Foo = a
@@ -33,11 +34,14 @@ fun main() {
 
     val w: Foo? = null
     w<!UNSAFE_CALL!>.<!>f = z
-    <!WRAPPED_LHS_IN_ASSIGNMENT_ERROR!>(w<!UNSAFE_CALL!>.<!>f)<!> = z
-    <!WRAPPED_LHS_IN_ASSIGNMENT_ERROR!>(label@ w<!UNSAFE_CALL!>.<!>f)<!> = z
+    <!WRAPPED_LHS_IN_ASSIGNMENT_WARNING!>(w<!UNSAFE_CALL!>.<!>f)<!> = z
+    <!WRAPPED_LHS_IN_ASSIGNMENT_WARNING!>(label@ w<!UNSAFE_CALL!>.<!>f)<!> = z
     w!!.f = z
     w.f = z
     w<!UNNECESSARY_NOT_NULL_ASSERTION!>!!<!>.f = z
     w.f<!UNSAFE_CALL!>.<!>f = z
     w.f!!.f = z
 }
+
+/* GENERATED_FIR_TAGS: assignment, checkNotNullCall, classDeclaration, functionDeclaration, localProperty, nullableType,
+propertyDeclaration, smartcast */

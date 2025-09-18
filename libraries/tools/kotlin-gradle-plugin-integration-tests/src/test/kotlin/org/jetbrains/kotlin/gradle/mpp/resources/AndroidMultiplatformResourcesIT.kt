@@ -20,6 +20,12 @@ import java.nio.file.Path
 @DisplayName("Test multiplatform resources consumption and publication in androidTarget()")
 class AndroidMultiplatformResourcesIT : KGPBaseTest() {
 
+    override val defaultBuildOptions: BuildOptions
+        get() = super.defaultBuildOptions.copy(
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED,
+        )
+
     @DisplayName("Multiplatform resources consumption from self, published and project dependencies for Android target")
     @GradleAndroidTest
     fun testConsumption(
@@ -31,7 +37,10 @@ class AndroidMultiplatformResourcesIT : KGPBaseTest() {
             gradleVersion,
             providedJdk,
             androidVersion
-        ).publish(PublisherConfiguration())
+        ).publish(
+            publisherConfiguration = PublisherConfiguration(),
+            deriveBuildOptions = { buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion) }
+        )
 
         val projectDependency = project(
             "multiplatformResources/android/projectDependency",
@@ -52,7 +61,7 @@ class AndroidMultiplatformResourcesIT : KGPBaseTest() {
             "multiplatformResources/android",
             gradleVersion,
             buildJdk = providedJdk.location,
-            buildOptions = defaultBuildOptions.copy(androidVersion = androidVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = androidVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
         ) {
             include(projectDependency, subprojectDependencyName)
             addPublishedProjectToRepositories(publishedResourcesProducer)

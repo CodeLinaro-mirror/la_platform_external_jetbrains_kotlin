@@ -207,7 +207,6 @@ class MppCompositeBuildIT : KGPBaseTest() {
             gradleVersion,
             buildOptions = defaultBuildOptions
                 .disableKmpIsolatedProjectSupport() // a very old Kotlin is involved in this test
-                .disableConfigurationCache_KT70416()
                 .suppressDeprecationWarningsOn(
                     reason = "KGP 1.7.21 produces deprecation warnings with Gradle 8.4"
                 ) { gradleVersion >= GradleVersion.version(TestVersions.Gradle.G_8_4) }
@@ -415,7 +414,10 @@ class MppCompositeBuildIT : KGPBaseTest() {
             settingsGradleKts.toFile().replaceText("<consumerA_path>", consumerA.projectPath.toUri().path)
             settingsGradleKts.toFile().replaceText("<consumerB_path>", consumerB.projectPath.toUri().path)
 
-            build(":consumerA:compileCommonMainKotlinMetadata") {
+            build(
+                ":consumerA:compileCommonMainKotlinMetadata",
+                buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)
+            ) {
                 assertTasksExecuted(":consumerA:compileCommonMainKotlinMetadata")
             }
 
@@ -482,7 +484,9 @@ class MppCompositeBuildIT : KGPBaseTest() {
         project(
             "mpp-composite-build/kt65315_with_resources_in_metadata_klib/consumer",
             gradleVersion,
-            buildOptions = buildOptions.disableKmpIsolatedProjectSupport(), // old version of kotlin is involved in this test
+            buildOptions = buildOptions
+                .disableKmpIsolatedProjectSupport() // old version of kotlin is involved in this test
+                .suppressWarningForOldKotlinVersion(gradleVersion),
         ) {
             settingsGradleKts.toFile().replaceText("<producer_path>", producer.projectPath.toUri().path)
             defaultKotlinNativeVersion?.let { gradleProperties.appendText("\nkotlin.native.version=$it") }
@@ -552,7 +556,7 @@ class MppCompositeBuildIT : KGPBaseTest() {
         project(
             "mpp-composite-build/sample0/consumerBuild",
             gradleVersion,
-            buildOptions = buildOptions,
+            buildOptions = buildOptions.suppressWarningForOldKotlinVersion(gradleVersion),
         ) {
             settingsGradleKts.toFile().replaceText("<producer_path>", producer.projectPath.toUri().path)
             defaultKotlinNativeVersion?.let { gradleProperties.appendText("\nkotlin.native.version=$it") }

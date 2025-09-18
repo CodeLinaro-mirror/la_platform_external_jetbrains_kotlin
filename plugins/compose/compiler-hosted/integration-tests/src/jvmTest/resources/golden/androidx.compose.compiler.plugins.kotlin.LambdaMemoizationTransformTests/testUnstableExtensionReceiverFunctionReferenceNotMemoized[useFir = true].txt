@@ -14,10 +14,11 @@ fun Something() {
 // ------------------------------------------
 
 @Composable
+@FunctionKeyMeta(key = 2053756612, startOffset = 93, endOffset = 165)
 fun Something(%composer: Composer?, %changed: Int) {
   %composer = %composer.startRestartGroup(<>)
   sourceInformation(%composer, "C(Something)<unstab...>:Test.kt")
-  if (%changed != 0 || !%composer.skipping) {
+  if (%composer.shouldExecute(%changed != 0, %changed and 0b0001)) {
     if (isTraceInProgress()) {
       traceEventStart(<>, %changed, -1, <>)
     }

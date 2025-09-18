@@ -5,20 +5,22 @@
 
 package org.jetbrains.kotlin.incremental
 
-import org.jetbrains.kotlin.backend.common.serialization.sortDependencies
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageConfig
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageLogLevel
+import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageMode
+import org.jetbrains.kotlin.backend.common.linkage.partial.setupPartialLinkageConfig
+import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.js.klib.generateIrForKlibSerialization
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.ir.backend.js.*
-import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageConfig
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageLogLevel
-import org.jetbrains.kotlin.ir.linkage.partial.PartialLinkageMode
-import org.jetbrains.kotlin.ir.linkage.partial.setupPartialLinkageConfig
+import org.jetbrains.kotlin.js.config.friendLibraries
 import org.jetbrains.kotlin.js.config.incrementalDataProvider
+import org.jetbrains.kotlin.js.config.libraries
+import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.test.TargetBackend
 import java.io.File
@@ -62,8 +64,22 @@ abstract class AbstractJsIrInvalidationWithPLTest(granularity: JsGenerationGranu
         granularity,
         workingDirPath
     ) {
-    override fun createConfiguration(moduleName: String, language: List<String>, moduleKind: ModuleKind): CompilerConfiguration {
-        val config = super.createConfiguration(moduleName, language, moduleKind)
+    override fun createConfiguration(
+        moduleName: String,
+        moduleKind: ModuleKind,
+        languageFeatures: List<String>,
+        allLibraries: List<String>,
+        friendLibraries: List<String>,
+        includedLibrary: String?,
+    ): CompilerConfiguration {
+        val config = super.createConfiguration(
+            moduleName = moduleName,
+            moduleKind = moduleKind,
+            languageFeatures = languageFeatures,
+            allLibraries = allLibraries,
+            friendLibraries = friendLibraries,
+            includedLibrary = includedLibrary,
+        )
         config.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.WARNING))
         return config
     }
@@ -78,33 +94,38 @@ abstract class IrAbstractInvalidationTest(
         configuration: CompilerConfiguration,
         moduleName: String,
         sourceDir: File,
-        dependencies: Collection<File>,
-        friends: Collection<File>,
         outputKlibFile: File
     ) {
         val projectJs = environment.project
 
         val sourceFiles = configuration.addSourcesFromDir(sourceDir)
 
+        val klibs = loadWebKlibsInTestPipeline(
+            configuration,
+            libraryPaths = configuration.libraries,
+            friendPaths = configuration.friendLibraries,
+            platformChecker = KlibPlatformChecker.JS
+        )
+
+        @Suppress("DEPRECATION")
         val sourceModule = prepareAnalyzedSourceModule(
             project = projectJs,
             files = sourceFiles,
             configuration = configuration,
-            dependencies = dependencies.map { it.canonicalPath },
-            friendDependencies = friends.map { it.canonicalPath },
+            klibs = klibs,
             analyzer = AnalyzerWithCompilerReport(configuration)
         )
 
         val moduleSourceFiles = (sourceModule.mainModule as MainModule.SourceFiles).files
         val icData = sourceModule.compilerConfiguration.incrementalDataProvider?.getSerializedData(moduleSourceFiles) ?: emptyList()
         val (moduleFragment, irPluginContext) = generateIrForKlibSerialization(
-            environment.project,
-            moduleSourceFiles,
-            configuration,
-            sourceModule.jsFrontEndResult.jsAnalysisResult,
-            sortDependencies(sourceModule.moduleDependencies),
-            icData,
-            IrFactoryImpl,
+            project = environment.project,
+            files = moduleSourceFiles,
+            configuration = configuration,
+            analysisResult = sourceModule.jsFrontEndResult.jsAnalysisResult,
+            klibs = sourceModule.klibs,
+            icData = icData,
+            irFactory = IrFactoryImpl,
         ) {
             sourceModule.getModuleDescriptor(it)
         }

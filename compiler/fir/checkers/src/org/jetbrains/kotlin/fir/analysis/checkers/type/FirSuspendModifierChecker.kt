@@ -15,19 +15,20 @@ import org.jetbrains.kotlin.fir.analysis.forEachChildOfType
 import org.jetbrains.kotlin.fir.analysis.getChild
 import org.jetbrains.kotlin.fir.types.FirFunctionTypeRef
 import org.jetbrains.kotlin.fir.types.FirTypeRef
-import org.jetbrains.kotlin.fir.types.FirTypeRefWithNullability
+import org.jetbrains.kotlin.fir.types.FirUnresolvedTypeRef
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 
 object FirSuspendModifierChecker : FirTypeRefChecker(MppCheckerKind.Common) {
     private val suspendTokenElementSet = setOf(KtTokens.SUSPEND_KEYWORD)
 
-    override fun check(typeRef: FirTypeRef, context: CheckerContext, reporter: DiagnosticReporter) {
+    context(context: CheckerContext, reporter: DiagnosticReporter)
+    override fun check(typeRef: FirTypeRef) {
         // We are only interested in source type refs (i.e., Fir(Dynamic|User|Function)TypeRef).
-        if (typeRef !is FirTypeRefWithNullability) return
+        if (typeRef !is FirUnresolvedTypeRef) return
 
         val suspendModifierSources = mutableListOf<KtSourceElement>()
-        typeRef.source?.getChild(KtStubElementTypes.MODIFIER_LIST, depth = 1)?.forEachChildOfType(suspendTokenElementSet, depth = 1) {
+        typeRef.source.getChild(KtStubElementTypes.MODIFIER_LIST, depth = 1)?.forEachChildOfType(suspendTokenElementSet, depth = 1) {
             suspendModifierSources += it
         }
         if (suspendModifierSources.isEmpty()) return
@@ -49,15 +50,13 @@ object FirSuspendModifierChecker : FirTypeRefChecker(MppCheckerKind.Common) {
                 suspendModifierSources.first(),
                 FirErrors.WRONG_MODIFIER_TARGET,
                 KtTokens.SUSPEND_KEYWORD,
-                "non-functional type",
-                context
+                "non-functional type"
             )
         } else if (suspendModifierSources.size > 1) {
             reporter.reportOn(
                 suspendModifierSources.first(),
                 FirErrors.REPEATED_MODIFIER,
-                KtTokens.SUSPEND_KEYWORD,
-                context,
+                KtTokens.SUSPEND_KEYWORD
             )
         }
     }

@@ -1,15 +1,20 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.cases.session
 
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
+import org.jetbrains.kotlin.analysis.api.analyze
 import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinModificationEventKind
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryFallbackDependenciesModule
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.directives.publishWildcardModificationEventsByDirective
+import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.ktTestModuleStructure
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
 
@@ -19,9 +24,11 @@ import org.jetbrains.kotlin.test.services.assertions
  * test data.
  *
  * [AbstractSessionInvalidationTest] is a base class for invalidation tests of `KaSession` and `LLFirSession`, which share the test
- * data but not necessarily the result data (see also [resultFileSuffix]).
+ * data but not the output data (see also [testOutputSubdirectoryName]).
+ *
+ * @param S The type of the session, either an LL FIR or an analysis session.
  */
-abstract class AbstractSessionInvalidationTest<SESSION> : AbstractAnalysisApiBasedTest() {
+abstract class AbstractSessionInvalidationTest<S> : AbstractAnalysisApiBasedTest() {
     /**
      * The kind of modification event to be published for the invalidation. Each modification event is tested separately and has its own
      * associated result file.
@@ -29,30 +36,28 @@ abstract class AbstractSessionInvalidationTest<SESSION> : AbstractAnalysisApiBas
     protected abstract val modificationEventKind: KotlinModificationEventKind
 
     /**
-     * A suffix for the result file to distinguish it from the results of other session invalidation tests if the results are different.
+     * A directory name for the test output files to distinguish them from the output files of other session invalidation tests. The
+     * specified directory is a subdirectory of the test directory path.
      */
-    protected abstract val resultFileSuffix: String?
+    protected abstract val testOutputSubdirectoryName: String
 
-    protected abstract fun getSession(ktModule: KaModule): SESSION
-
-    protected abstract fun getSessionKtModule(session: SESSION): KaModule
-
-    protected abstract fun isSessionValid(session: SESSION): Boolean
+    protected abstract fun getSessions(ktTestModule: KtTestModule): List<TestSession<S>>
 
     /**
      * In some cases, it might be legal for a session cache to evict sessions which are still valid. Such sessions would fail the validity
      * check (see [checkSessionsMarkedInvalid]) and should be skipped.
      */
-    protected open fun shouldSkipValidityCheck(session: SESSION): Boolean = false
+    protected open fun shouldSkipValidityCheck(session: TestSession<S>): Boolean = false
 
     override fun doTest(testServices: TestServices) {
-        val ktModules = testServices.ktTestModuleStructure.mainModules.map { it.ktModule }
+        val ktTestModules = testServices.ktTestModuleStructure.mainModules
 
-        val sessionsBeforeModification = getSessions(ktModules)
+        val sessionsBeforeModification = getAllSessions(ktTestModules)
+        ensureLibraryFallbackDependenciesSessionsExist(ktTestModules)
         checkSessionValidityBeforeModification(sessionsBeforeModification, testServices)
 
         testServices.ktTestModuleStructure.publishWildcardModificationEventsByDirective(modificationEventKind)
-        val sessionsAfterModification = getSessions(ktModules)
+        val sessionsAfterModification = getAllSessions(ktTestModules)
 
         val invalidatedSessions = buildSet {
             addAll(sessionsBeforeModification)
@@ -66,66 +71,87 @@ abstract class AbstractSessionInvalidationTest<SESSION> : AbstractAnalysisApiBas
         checkUntouchedSessionValidity(untouchedSessions, testServices)
     }
 
-    private fun getSessions(modules: List<KaModule>): List<SESSION> = modules.map(::getSession)
+    private fun getAllSessions(modules: List<KtTestModule>): List<TestSession<S>> = modules.flatMap(::getSessions)
+
+    /**
+     * We have to ensure manually that fallback dependencies sessions exist so that they can be properly tested for invalidation. This is
+     * because [KaLibraryFallbackDependenciesModule]s aren't materialized as test modules (see [AnalysisApiTestDirectives.FALLBACK_DEPENDENCIES][org.jetbrains.kotlin.analysis.test.framework.AnalysisApiTestDirectives.FALLBACK_DEPENDENCIES]),
+     * and [getAllSessions] only creates sessions for test modules. So unless we grab the session explicitly, it might not be created on its
+     * own.
+     *
+     * This is also relevant for analysis session invalidation because it depends on LL FIR session invalidation.
+     */
+    private fun ensureLibraryFallbackDependenciesSessionsExist(ktTestModules: List<KtTestModule>) {
+        ktTestModules.forEach { ktTestModule ->
+            val kaModule = ktTestModule.ktModule
+            if (kaModule.directRegularDependencies.none { it is KaLibraryFallbackDependenciesModule }) {
+                return@forEach
+            }
+
+            // This triggers dependency session creation through symbol providers without depending on `low-level-api-fir`.
+            analyze(kaModule) {
+                findClass(ClassId(FqName.ROOT, Name.identifier("IDontExistAtAll")))
+            }
+        }
+    }
 
     private fun checkInvalidatedModules(
-        invalidatedSessions: Set<SESSION>,
+        invalidatedSessions: Set<TestSession<S>>,
         testServices: TestServices,
     ) {
-        val invalidatedModuleDescriptions = invalidatedSessions
-            .map { getSessionKtModule(it).toString() }
+        val invalidatedSessionDescriptions = invalidatedSessions
+            .map { it.description }
             .distinct()
             .sorted()
 
         val actualText = buildString {
-            appendLine("Module names of invalidated sessions:")
-            invalidatedModuleDescriptions.forEach { appendLine(it) }
+            appendLine("Invalidated sessions:")
+            invalidatedSessionDescriptions.forEach { appendLine(it) }
         }
 
-        testServices.assertions.assertEqualsToTestDataFileSibling(
+        testServices.assertions.assertEqualsToTestOutputFile(
             actualText,
             extension = ".${modificationEventKind.name.lowercase()}.txt",
-
-            // Support differing result data. Using `testPrefix` takes away the ability for different kinds of tests (such as IDE vs.
-            // Standalone modes) to have different test results (since `testPrefix` normally supports this functionality), but (1) we are
-            // currently only testing the IDE mode and (2) the test results between different modes should not differ for session
-            // invalidation in the first place.
-            testPrefix = resultFileSuffix,
+            subdirectoryName = testOutputSubdirectoryName,
         )
     }
 
     private fun checkSessionValidityBeforeModification(
-        sessions: List<SESSION>,
+        sessions: List<TestSession<S>>,
         testServices: TestServices,
     ) {
         sessions.forEach { session ->
-            testServices.assertions.assertTrue(isSessionValid(session)) {
+            testServices.assertions.assertTrue(session.isValid) {
                 "The session `$session` should be valid before invalidation is triggered."
             }
         }
     }
 
     private fun checkSessionsMarkedInvalid(
-        invalidatedSessions: Set<SESSION>,
+        invalidatedSessions: Set<TestSession<S>>,
         testServices: TestServices,
     ) {
         invalidatedSessions.forEach { session ->
             if (shouldSkipValidityCheck(session)) return@forEach
 
-            testServices.assertions.assertFalse(isSessionValid(session)) {
+            testServices.assertions.assertFalse(session.isValid) {
                 "The invalidated session `${session}` should have been marked invalid."
             }
         }
     }
 
     private fun checkUntouchedSessionValidity(
-        sessions: Set<SESSION>,
+        sessions: Set<TestSession<S>>,
         testServices: TestServices,
     ) {
         sessions.forEach { session ->
-            testServices.assertions.assertTrue(isSessionValid(session)) {
+            testServices.assertions.assertTrue(session.isValid) {
                 "The session `$session` has not been evicted from the session cache and should still be valid."
             }
         }
+    }
+
+    companion object {
+        val TEST_OUTPUT_DIRECTORY_NAMES = listOf("firSession", "analysisSession")
     }
 }

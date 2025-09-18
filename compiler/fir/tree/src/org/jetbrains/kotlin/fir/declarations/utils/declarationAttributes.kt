@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.descriptors.SourceElement
 import org.jetbrains.kotlin.descriptors.SourceFile
 import org.jetbrains.kotlin.fir.FirEvaluatorResult
+import org.jetbrains.kotlin.fir.FirImplementationDetail
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyBackingField
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
@@ -31,6 +32,10 @@ private object KlibSourceFile : FirDeclarationDataKey()
 private object EvaluatedValue : FirDeclarationDataKey()
 private object CompilerPluginMetadata : FirDeclarationDataKey()
 private object OriginalReplSnippet : FirDeclarationDataKey()
+private object ReplSnippetTopLevelDeclaration : FirDeclarationDataKey()
+private object HasBackingFieldKey : FirDeclarationDataKey()
+private object IsDeserializedPropertyFromAnnotation : FirDeclarationDataKey()
+private object IsDelegatedProperty : FirDeclarationDataKey()
 
 var FirProperty.isFromVararg: Boolean? by FirDeclarationDataRegistry.data(IsFromVarargKey)
 var FirProperty.isReferredViaField: Boolean? by FirDeclarationDataRegistry.data(IsReferredViaField)
@@ -40,6 +45,45 @@ var FirClassLikeDeclaration.sourceElement: SourceElement? by FirDeclarationDataR
 var FirRegularClass.moduleName: String? by FirDeclarationDataRegistry.data(ModuleNameKey)
 var FirDeclaration.compilerPluginMetadata: Map<String, ByteArray>? by FirDeclarationDataRegistry.data(CompilerPluginMetadata)
 var FirDeclaration.originalReplSnippetSymbol: FirReplSnippetSymbol? by FirDeclarationDataRegistry.data(OriginalReplSnippet)
+
+/**
+ * Denotes a declaration on the REPL snippet level - top-level and all nested ones, but not the ones declared inside bodies.
+ * Required to distinguish these declarations from "real" local ones, declared in bodies.
+ * TODO: Revisit along with KT-75301
+ */
+var FirDeclaration.isReplSnippetDeclaration: Boolean? by FirDeclarationDataRegistry.data(ReplSnippetTopLevelDeclaration)
+val FirBasedSymbol<*>.isReplSnippetDeclaration: Boolean?
+    get() = fir.isReplSnippetDeclaration
+
+/**
+ * This is an implementation detail attribute to provide proper [hasBackingField]
+ * flag for deserialized properties.
+ *
+ * This attribute mustn't be used directly.
+ *
+ * @see hasBackingField
+ */
+@FirImplementationDetail
+var FirProperty.hasBackingFieldAttr: Boolean? by FirDeclarationDataRegistry.data(HasBackingFieldKey)
+
+
+/**
+ * This is an implementation detail attribute to provide proper [isDelegatedProperty]
+ * flag for deserialized properties.
+ *
+ * This attribute mustn't be used directly.
+ *
+ * It is either *true* or *null*, because *false* is a default value for deserialized properties.
+ *
+ * @see isDelegatedProperty
+ */
+@FirImplementationDetail
+var FirProperty.isDelegatedPropertyAttr: Boolean? by FirDeclarationDataRegistry.data(IsDelegatedProperty)
+
+/**
+ * Whether this property was deserialized from metadata and the containing class is annotation class.
+ */
+var FirProperty.isDeserializedPropertyFromAnnotation: Boolean? by FirDeclarationDataRegistry.data(IsDeserializedPropertyFromAnnotation)
 
 /**
  * @see [FirBasedSymbol.klibSourceFile]
@@ -98,9 +142,19 @@ val FirProperty.canNarrowDownGetterType: Boolean
 val FirPropertySymbol.canNarrowDownGetterType: Boolean
     get() = fir.canNarrowDownGetterType
 
+val FirProperty.isDelegatedProperty: Boolean
+    @OptIn(FirImplementationDetail::class)
+    get() = isDelegatedPropertyAttr ?: (delegate != null)
+
+val FirPropertySymbol.isDelegatedProperty: Boolean
+    get() = fir.isDelegatedProperty
+
 // See [BindingContext.BACKING_FIELD_REQUIRED]
 val FirProperty.hasBackingField: Boolean
     get() {
+        @OptIn(FirImplementationDetail::class)
+        hasBackingFieldAttr?.let { return it }
+
         if (isAbstract || isExpect) return false
         if (delegate != null) return false
         if (hasExplicitBackingField) return true

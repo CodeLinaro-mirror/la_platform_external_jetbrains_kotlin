@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class AtomicfuJvmIrTestGenerated extends AbstractAtomicfuJvmIrTest {
   @Test
   public void testAllFilesPresentInBox() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/atomicfu/atomicfu-compiler/testData/box"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("plugins/atomicfu/atomicfu-compiler/testData/box"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JVM_IR, true, "context_parameters");
   }
 
   @Nested
@@ -126,6 +126,12 @@ public class AtomicfuJvmIrTestGenerated extends AbstractAtomicfuJvmIrTest {
     @TestMetadata("InitializationOrderTest.kt")
     public void testInitializationOrderTest() {
       runTest("plugins/atomicfu/atomicfu-compiler/testData/box/atomics_basic/InitializationOrderTest.kt");
+    }
+
+    @Test
+    @TestMetadata("inliningAndSMAP.kt")
+    public void testInliningAndSMAP() {
+      runTest("plugins/atomicfu/atomicfu-compiler/testData/box/atomics_basic/inliningAndSMAP.kt");
     }
 
     @Test

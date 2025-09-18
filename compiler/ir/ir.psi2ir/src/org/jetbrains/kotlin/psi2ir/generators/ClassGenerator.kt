@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.psi2ir.generators
 
 import org.jetbrains.kotlin.backend.common.CodegenUtil
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
@@ -17,7 +18,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrCallImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
-import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolDescriptor
+import org.jetbrains.kotlin.psi2ir.descriptors.fromSymbolDescriptor
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrSimpleType
@@ -428,7 +429,12 @@ internal class ClassGenerator(
     }
 
     private fun generateAdditionalMembersForEnumClass(irClass: IrClass) {
-        EnumClassMembersGenerator(declarationGenerator).generateSpecialMembers(irClass)
+        EnumClassMembersGenerator(declarationGenerator).generateSpecialMembers(
+            irClass,
+            context.languageVersionSettings.supportsFeature(
+                LanguageFeature.EnumEntries
+            )
+        )
     }
 
     private fun generateFieldsForContextReceivers(irClass: IrClass, classDescriptor: ClassDescriptor) {
@@ -538,9 +544,9 @@ fun IrClass.setThisReceiverParameter(context: GeneratorContext) {
         startOffset, endOffset,
         IrDeclarationOrigin.INSTANCE_RECEIVER,
         symbol.descriptor.thisAsReceiverParameter,
+        IrParameterKind.DispatchReceiver,
         context.typeTranslator.translateType(symbol.descriptor.thisAsReceiverParameter.type),
     ).also {
-        it.kind = IrParameterKind.DispatchReceiver
         it.parent = this
     }
 }

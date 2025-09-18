@@ -40,7 +40,7 @@ internal abstract class SymbolLightMethod<FType : KaFunctionSymbol> private cons
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: SymbolLightClassBase,
     methodIndex: Int,
-    private val argumentsSkipMask: BitSet?,
+    protected val argumentsSkipMask: BitSet?,
     protected val functionDeclaration: KtCallableDeclaration?,
     override val kotlinOrigin: KtDeclaration?,
 ) : SymbolLightMethodBase(
@@ -70,14 +70,6 @@ internal abstract class SymbolLightMethod<FType : KaFunctionSymbol> private cons
 
     protected inline fun <T> withFunctionSymbol(crossinline action: KaSession.(FType) -> T): T =
         functionSymbolPointer.withSymbol(ktModule, action)
-
-    private val _isVarArgs: Boolean by lazyPub {
-        functionDeclaration?.valueParameters?.any { it.isVarArg } ?: withFunctionSymbol { functionSymbol ->
-            functionSymbol.valueParameters.any { it.isVararg }
-        }
-    }
-
-    override fun isVarArgs(): Boolean = _isVarArgs
 
     private val _parametersList by lazyPub {
         SymbolLightParameterList(
