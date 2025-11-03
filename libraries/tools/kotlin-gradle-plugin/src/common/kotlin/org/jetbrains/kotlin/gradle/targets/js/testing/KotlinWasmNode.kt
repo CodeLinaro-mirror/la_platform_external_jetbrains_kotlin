@@ -81,6 +81,7 @@ internal class KotlinWasmNode(
 
         val args = mutableListOf<String>()
         with(args) {
+//            add("--experimental-wasm-exnref")
             addAll(nodeJsArgs)
             add(testRunnerFile.absolutePath)
             addAll(cliArgs.toList())
@@ -99,7 +100,11 @@ internal class KotlinWasmNode(
 
     override fun getPath(): String = "$testPath:kotlinTestFrameworkStub"
 
-    @Deprecated(message = CREATE_TEST_EXEC_SPEC_DEPRECATION_MSG)
+    @Deprecated(
+        CREATE_TEST_EXEC_SPEC_DEPRECATION_MSG,
+        ReplaceWith("createTestExecutionSpec(task, launchOpts, nodeJsArgs, debug)"),
+        DeprecationLevel.ERROR
+    )
     override fun createTestExecutionSpec(
         task: KotlinJsTest,
         forkOptions: ProcessForkOptions,

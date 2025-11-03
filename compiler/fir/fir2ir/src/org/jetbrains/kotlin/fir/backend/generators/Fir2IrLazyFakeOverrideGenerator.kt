@@ -22,10 +22,7 @@ import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.FirFakeOverrideGenerator
-import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirFieldSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.typeContext
 import org.jetbrains.kotlin.fir.util.setMultimapOf
@@ -165,7 +162,7 @@ class Fir2IrLazyFakeOverrideGenerator(private val c: Fir2IrComponents) : Fir2IrC
         val typeContext = session.typeContext
         val overriddenPerSupertype = setMultimapOf<ConeClassLikeLookupTag, S>()
         val supertypes =
-            if (configuration.skipBodies) klass.superConeTypes.filter { it.lookupTag.toClassSymbol(session) != null }
+            if (configuration.skipBodies) klass.superConeTypes.filter { it.lookupTag.toClassSymbol() != null }
             else klass.superConeTypes
         with(typeContext) {
             for (symbol in overriddenFirSymbols) {
@@ -225,7 +222,7 @@ class Fir2IrLazyFakeOverrideGenerator(private val c: Fir2IrComponents) : Fir2IrC
         overridden: Collection<S>,
         processOverridden: FirTypeScope.(S, (S) -> ProcessorAction) -> ProcessorAction
     ): S {
-        val scope = containingClassLookupTag.toRegularClassSymbol(session)?.unsubstitutedScope() ?: return overridden.first()
+        val scope = containingClassLookupTag.toRegularClassSymbol()?.unsubstitutedScope() ?: return overridden.first()
 
         val result = overridden.firstOrNull { s1 ->
             overridden.all { s2 ->
@@ -252,7 +249,7 @@ class Fir2IrLazyFakeOverrideGenerator(private val c: Fir2IrComponents) : Fir2IrC
         return createFirFakeOverrideIfNeeded(
             dispatchReceiverLookupTag, originalSymbol
         ) { firFunction ->
-            val containingClass = dispatchReceiverLookupTag.toRegularClassSymbol(session)!!
+            val containingClass = dispatchReceiverLookupTag.toRegularClassSymbol()!!
             FirFakeOverrideGenerator.createSubstitutionOverrideFunction(
                 session,
                 FirNamedFunctionSymbol(CallableId(containingClass.classId, originalSymbol.callableId.callableName)),
@@ -278,10 +275,10 @@ class Fir2IrLazyFakeOverrideGenerator(private val c: Fir2IrComponents) : Fir2IrC
         return createFirFakeOverrideIfNeeded(
             dispatchReceiverLookupTag, originalSymbol
         ) { firProperty ->
-            val containingClass = dispatchReceiverLookupTag.toRegularClassSymbol(session)!!
+            val containingClass = dispatchReceiverLookupTag.toRegularClassSymbol()!!
             FirFakeOverrideGenerator.createSubstitutionOverrideProperty(
                 session,
-                FirPropertySymbol(CallableId(containingClass.classId, originalSymbol.callableId.callableName)),
+                FirRegularPropertySymbol(CallableId(containingClass.classId, originalSymbol.name)),
                 firProperty,
                 derivedClassLookupTag = dispatchReceiverLookupTag,
                 newDispatchReceiverType = containingClass.defaultType(),
@@ -304,7 +301,7 @@ class Fir2IrLazyFakeOverrideGenerator(private val c: Fir2IrComponents) : Fir2IrC
         return createFirFakeOverrideIfNeeded(
             dispatchReceiverLookupTag, originalSymbol
         ) { firField ->
-            val containingClass = dispatchReceiverLookupTag.toRegularClassSymbol(session)!!
+            val containingClass = dispatchReceiverLookupTag.toRegularClassSymbol()!!
             FirFakeOverrideGenerator.createSubstitutionOverrideField(
                 session,
                 firField,

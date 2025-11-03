@@ -14,13 +14,15 @@ import org.jetbrains.kotlin.gradle.targets.js.MultiplePluginDeclarationDetector
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmPlatformDisambiguator
 import org.jetbrains.kotlin.gradle.targets.web.HasPlatformDisambiguator
 import org.jetbrains.kotlin.gradle.tasks.CleanDataTask
+import org.jetbrains.kotlin.gradle.tasks.CleanDataTask.Companion.deprecationMessage
+import org.jetbrains.kotlin.gradle.tasks.internal.CleanableStore
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.castIsolatedKotlinPluginClassLoaderAware
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 
 @ExperimentalWasmDsl
 abstract class BinaryenPlugin internal constructor() :
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION_ERROR")
     org.jetbrains.kotlin.gradle.targets.js.binaryen.BinaryenRootPlugin() {
     override fun apply(project: Project) {
         MultiplePluginDeclarationDetector.detect(project)
@@ -60,7 +62,13 @@ abstract class BinaryenPlugin internal constructor() :
                 prefix = null,
             )
         ) {
-            it.cleanableStoreProvider = project.provider { settings.requireConfigured().cleanableStore }
+            it.doFirst {
+                it.logger.warn(deprecationMessage(it.path))
+            }
+
+            it.cleanableStoreProvider = spec
+                .installationDirectory
+                .map { CleanableStore.Companion[it.asFile.path] }
             it.group = TASKS_GROUP_NAME
             it.description = "Clean unused local binaryen version"
         }

@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
-import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.modality
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
@@ -127,6 +127,7 @@ internal val FirBasedSymbol<*>.isLocalMember: Boolean
         is FirNamedFunctionSymbol -> this.isLocal
         // Anonymous functions and lambdas use DEFAULT_STATUS_FOR_STATUSLESS_DECLARATIONS which has visibility public.
         is FirAnonymousFunctionSymbol -> true
+        is FirBackingFieldSymbol -> this.propertySymbol.isLocal
         else -> false
     }
 

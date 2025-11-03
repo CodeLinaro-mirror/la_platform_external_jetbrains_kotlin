@@ -5,6 +5,7 @@
 
 package kotlin.wasm.internal
 
+import kotlin.internal.UsedFromCompilerGeneratedCode
 import kotlin.reflect.KClass
 
 internal fun THROW_CCE(): Nothing {
@@ -12,6 +13,7 @@ internal fun THROW_CCE(): Nothing {
 }
 
 internal fun THROW_CCE_WITH_INFO(obj: Any?, klass: KClass<*>, isNullable: Boolean): Nothing {
+    @Suppress("UNSUPPORTED_REFLECTION_API")
     val targetType = klass.qualifiedName ?: klass.simpleName ?: "<unknown>"
 
     if (!isNullable && obj == null) {
@@ -21,6 +23,7 @@ internal fun THROW_CCE_WITH_INFO(obj: Any?, klass: KClass<*>, isNullable: Boolea
     val targetTypeWithNullability = if (isNullable) "$targetType?" else targetType
 
     val message = if (obj != null) {
+        @Suppress("UNSUPPORTED_REFLECTION_API")
         val valueType = (obj::class).let { it.qualifiedName ?: it.simpleName } ?: "<unknown>"
         if (klass == Nothing::class && isNullable) {
             "Expected null (Nothing?), got an instance of $valueType"
@@ -52,14 +55,4 @@ internal fun throwNoBranchMatchedException(): Nothing {
 
 internal fun rangeCheck(index: Int, size: Int) {
   if (index < 0 || index >= size) throw IndexOutOfBoundsException()
-}
-
-@PublishedApi
-internal fun throwUninitializedPropertyAccessException(name: String): Nothing {
-    throw UninitializedPropertyAccessException("lateinit property $name has not been initialized")
-}
-
-@PublishedApi
-internal fun throwUnsupportedOperationException(message: String): Nothing {
-    throw UnsupportedOperationException(message)
 }

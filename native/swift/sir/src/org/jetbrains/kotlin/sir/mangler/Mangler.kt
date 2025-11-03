@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.sir.util.SirSwiftModule
 @JvmInline
 private value class Identifier(val name: String)
 
-private val SirNamed.identifier: Identifier
+private val SirScopeDefiningElement.identifier: Identifier
     get() = Identifier(name)
 
 // TODO(KT-71023): support unicode in identifiers
@@ -59,12 +59,13 @@ public val SirDeclarationParent.mangledNameOrNull: String?
         is SirExtension -> mangledNameOrNull
         is SirVariable -> TODO()
         is SirProtocol -> mangledNameOrNull
+        is SirSubscript -> error("subscripts are unnamed")
     }
 
 /**
  * See [spec](https://github.com/swiftlang/swift/blob/main/docs/ABI/Mangling.rst#entities) for `entity`
  */
-public val SirNamedDeclaration.mangledNameOrNull: String?
+public val SirScopeDefiningDeclaration.mangledNameOrNull: String?
     get() = when (this) {
         is SirClass -> mangledNameOrNull
         is SirEnum -> mangledNameOrNull

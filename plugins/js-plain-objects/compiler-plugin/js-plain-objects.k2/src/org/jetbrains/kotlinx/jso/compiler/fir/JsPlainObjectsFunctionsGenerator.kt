@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.fir.*
-import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.builder.FirAnnotationContainerBuilder
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
@@ -23,6 +23,8 @@ import org.jetbrains.kotlin.fir.declarations.origin
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotation
+import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationArgumentMapping
+import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirEmptyAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -41,6 +43,7 @@ import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.name.*
+import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlinx.jspo.compiler.fir.services.ClassProperty
@@ -291,7 +294,7 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
                     origin = JsPlainObjectsPluginKey.origin
                     returnTypeRef = replacedJsPlainObjectType
                     name = sourceVariableName
-                    symbol = FirValueParameterSymbol(sourceVariableName)
+                    symbol = FirValueParameterSymbol()
                     isCrossinline = false
                     isNoinline = true
                     isVararg = false
@@ -302,6 +305,8 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
 
             jsPlainObjectProperties.mapTo(valueParameters) {
                 val typeRef = it.resolvedTypeRef
+                val jsName = it.jsName
+
                 buildValueParameter {
                     moduleData = session.moduleData
                     origin = JsPlainObjectsPluginKey.origin
@@ -309,25 +314,41 @@ class JsPlainObjectsFunctionsGenerator(session: FirSession) : FirDeclarationGene
                         typeRef.withReplacedConeType(subst.substituteOrNull(typeRef.coneType))
                     } ?: typeRef
                     name = it.name
-                    symbol = FirValueParameterSymbol(it.name)
+                    symbol = FirValueParameterSymbol()
                     isCrossinline = false
                     isNoinline = true
                     isVararg = false
                     resolvePhase = FirResolvePhase.BODY_RESOLVE
                     containingDeclarationSymbol = this@buildSimpleFunction.symbol
                     defaultValue = it.getParameterDefaultValueFromProperty()
+
+                    jsName?.let { name ->
+                        annotateWith(JsStandardClassIds.Annotations.JsName) {
+                            this[StandardNames.NAME] =
+                                buildLiteralExpression(null, ConstantValueKind.String, name, setType = true)
+                        }
+                    }
                 }
             }
         }.also(functionTarget::bind)
     }
 
-    private fun FirAnnotationContainerBuilder.annotateWith(classId: ClassId) {
+    private fun FirAnnotationContainerBuilder.annotateWith(
+        classId: ClassId,
+        fillArguments: (MutableMap<Name, FirExpression>.() -> Unit)? = null
+    ) {
         annotations += buildAnnotation {
             annotationTypeRef = buildResolvedTypeRef {
                 coneType = classId.toLookupTag()
                     .constructClassType(typeArguments = ConeTypeProjection.EMPTY_ARRAY, isMarkedNullable = false)
             }
-            argumentMapping = FirEmptyAnnotationArgumentMapping
+            argumentMapping = when (fillArguments) {
+                null -> FirEmptyAnnotationArgumentMapping
+                else -> buildAnnotationArgumentMapping {
+                    mapping.fillArguments()
+                }
+            }
+
         }
     }
 }

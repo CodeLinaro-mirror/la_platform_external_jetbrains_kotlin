@@ -10,11 +10,12 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 @Deprecated(
-    "Use 'org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin' instead",
+    "Use 'org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin' instead. Scheduled for removal in Kotlin 2.4.",
     ReplaceWith(
         "BinaryenPlugin",
         "org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin"
-    )
+    ),
+    level = DeprecationLevel.ERROR
 )
 @ExperimentalWasmDsl
 abstract class BinaryenPlugin internal constructor() : Plugin<Project> {

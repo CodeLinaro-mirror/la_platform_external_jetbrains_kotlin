@@ -85,12 +85,32 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveCandidatesTestGenerate
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/builtins")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Builtins {
+    @Test
+    public void testAllFilesPresentInBuiltins() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/builtins"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences")
   @TestDataPath("$PROJECT_ROOT")
   public class CallableReferences {
     @Test
     public void testAllFilesPresentInCallableReferences() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/callableReferences"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/cloneable")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Cloneable {
+    @Test
+    public void testAllFilesPresentInCloneable() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/cloneable"), Pattern.compile("^(.+)\\.kts$"), null, true);
     }
   }
 
@@ -315,12 +335,12 @@ public class FirIdeNormalAnalysisScriptSourceModuleResolveCandidatesTestGenerate
   }
 
   @Nested
-  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/invokeOnObjects")
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/singleByPsi/isImplicitReferenceToCompanion")
   @TestDataPath("$PROJECT_ROOT")
-  public class InvokeOnObjects {
+  public class IsImplicitReferenceToCompanion {
     @Test
-    public void testAllFilesPresentInInvokeOnObjects() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/invokeOnObjects"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    public void testAllFilesPresentInIsImplicitReferenceToCompanion() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/singleByPsi/isImplicitReferenceToCompanion"), Pattern.compile("^(.+)\\.kts$"), null, true);
     }
   }
 

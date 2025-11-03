@@ -10,6 +10,7 @@ import kotlin.jvm.internal.*;
 import kotlin.reflect.*;
 import kotlin.reflect.full.KClassifiers;
 import kotlin.reflect.jvm.ReflectLambdaKt;
+import kotlin.reflect.jvm.internal.types.TypeOfImplKt;
 
 import java.lang.annotation.Annotation;
 import java.util.Collections;
@@ -55,10 +56,7 @@ public class ReflectionFactoryImpl extends ReflectionFactory {
     public String renderLambdaToString(FunctionBase lambda) {
         KFunction kFunction = ReflectLambdaKt.reflect(lambda);
         if (kFunction != null) {
-            KFunctionImpl impl = UtilKt.asKFunctionImpl(kFunction);
-            if (impl != null) {
-                return ReflectionObjectRenderer.INSTANCE.renderLambda(impl.getDescriptor());
-            }
+            return ReflectionObjectRenderer.INSTANCE.renderLambda(kFunction);
         }
         return super.renderLambdaToString(lambda);
     }
@@ -67,39 +65,39 @@ public class ReflectionFactoryImpl extends ReflectionFactory {
 
     @Override
     public KFunction function(FunctionReference f) {
-        return new KFunctionImpl(getOwner(f), f.getName(), f.getSignature(), f.getBoundReceiver());
+        return new DescriptorKFunction(getOwner(f), f.getName(), f.getSignature(), f.getBoundReceiver());
     }
 
     // Properties
 
     @Override
     public KProperty0 property0(PropertyReference0 p) {
-        return new KProperty0Impl(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
+        return new DescriptorKProperty0(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
     }
 
     @Override
     public KMutableProperty0 mutableProperty0(MutablePropertyReference0 p) {
-        return new KMutableProperty0Impl(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
+        return new DescriptorKMutableProperty0(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
     }
 
     @Override
     public KProperty1 property1(PropertyReference1 p) {
-        return new KProperty1Impl(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
+        return new DescriptorKProperty1(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
     }
 
     @Override
     public KMutableProperty1 mutableProperty1(MutablePropertyReference1 p) {
-        return new KMutableProperty1Impl(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
+        return new DescriptorKMutableProperty1(getOwner(p), p.getName(), p.getSignature(), p.getBoundReceiver());
     }
 
     @Override
     public KProperty2 property2(PropertyReference2 p) {
-        return new KProperty2Impl(getOwner(p), p.getName(), p.getSignature());
+        return new DescriptorKProperty2(getOwner(p), p.getName(), p.getSignature());
     }
 
     @Override
     public KMutableProperty2 mutableProperty2(MutablePropertyReference2 p) {
-        return new KMutableProperty2Impl(getOwner(p), p.getName(), p.getSignature());
+        return new DescriptorKMutableProperty2(getOwner(p), p.getName(), p.getSignature());
     }
 
     private static KDeclarationContainerImpl getOwner(CallableReference reference) {

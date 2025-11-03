@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -83,3 +83,50 @@ public annotation class KaExperimentalApi
 )
 @RequiresOptIn("An API intended for Analysis API implementations & platforms. The API is neither stable nor intended for user consumption.")
 public annotation class KaPlatformInterface
+
+/**
+ * Marks an API that uses context parameters, an experimental language feature.
+ * The API is intended for user consumption, but it's based on a non-stable language feature that may change or be removed in the future.
+ */
+@Target(
+    AnnotationTarget.PROPERTY,
+    AnnotationTarget.FUNCTION,
+)
+@RequiresOptIn("An API using the experimental 'context parameters' language feature.")
+public annotation class KaContextParameterApi
+
+/**
+ * Marks an API as only available in the K2 implementation of the Analysis API.
+ * In the K1 implementation, the behavior is undefined.
+ */
+@Target(
+    AnnotationTarget.CLASS,
+    AnnotationTarget.PROPERTY,
+    AnnotationTarget.CONSTRUCTOR,
+    AnnotationTarget.FUNCTION,
+    AnnotationTarget.TYPEALIAS,
+)
+public annotation class KaK1Unsupported
+
+/**
+ * Marks an API not supposed to provide a context parameter bridge.
+ *
+ * @see KaContextParameterApi
+ */
+@Target(
+    AnnotationTarget.PROPERTY,
+    AnnotationTarget.FUNCTION,
+)
+internal annotation class KaNoContextParameterBridgeRequired
+
+/**
+ * Marks a context parameter bridge that wasn't auto-generated.
+ *
+ * @see KaContextParameterApi
+ */
+@Target(
+    AnnotationTarget.PROPERTY,
+    AnnotationTarget.FUNCTION,
+)
+@OptIn(KaContextParameterApi::class)
+internal annotation class KaCustomContextParameterBridge

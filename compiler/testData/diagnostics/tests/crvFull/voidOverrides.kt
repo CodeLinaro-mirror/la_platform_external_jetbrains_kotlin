@@ -21,12 +21,14 @@ public interface VoidProcessor extends Processor<Void> {
 
 // FILE: Lib.kt
 
+@MustUseReturnValues
 class KotlinNullableProcessorImpl: VoidProcessor {
     override fun process(t: Void?): Void? {
         TODO("Not yet implemented")
     }
 }
 
+@MustUseReturnValues
 class KotlinVoidProcessorImpl: VoidProcessor {
     override fun process(t: Void): Void {
         TODO("Not yet implemented")

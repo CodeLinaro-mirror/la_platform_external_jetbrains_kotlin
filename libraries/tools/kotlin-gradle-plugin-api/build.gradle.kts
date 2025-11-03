@@ -1,4 +1,5 @@
 import gradle.GradlePluginVariant
+import org.jetbrains.dokka.gradle.DokkaTask
 
 plugins {
     id("gradle-plugin-dependency-configuration")
@@ -8,13 +9,15 @@ plugins {
 }
 
 pluginApiReference {
-    enableForGradlePluginVariants(GradlePluginVariant.values().toSet())
+    enableForAllGradlePluginVariants()
     enableKotlinlangDocumentation()
 
     failOnWarning = true
+    moduleName("The Kotlin Gradle plugins API")
 
     additionalDokkaConfiguration {
         reportUndocumented.set(true)
+        includes.from("api-reference-description.md")
     }
 }
 
@@ -39,5 +42,19 @@ apiValidation {
 tasks {
     apiBuild {
         inputJar.value(jar.flatMap { it.archiveFile })
+    }
+}
+
+registerKotlinSourceForVersionRange(
+    GradlePluginVariant.GRADLE_MIN,
+    GradlePluginVariant.GRADLE_88,
+)
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.apache.commons" && requested.name == "commons-lang3") {
+            useVersion(libs.versions.commons.lang.get())
+            because("CVE-2025-48924")
+        }
     }
 }

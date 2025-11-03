@@ -272,6 +272,81 @@ public final class ProtoBuf {
     // @@protoc_insertion_point(enum_scope:org.jetbrains.kotlin.metadata.MemberKind)
   }
 
+  /**
+   * Protobuf enum {@code org.jetbrains.kotlin.metadata.ReturnValueStatus}
+   */
+  public enum ReturnValueStatus
+      implements org.jetbrains.kotlin.protobuf.Internal.EnumLite {
+    /**
+     * <code>UNSPECIFIED = 0;</code>
+     */
+    UNSPECIFIED(0, 0),
+    /**
+     * <code>MUST_USE = 1;</code>
+     */
+    MUST_USE(1, 1),
+    /**
+     * <code>EXPLICITLY_IGNORABLE = 2;</code>
+     *
+     * <pre>
+     *3 represents &#64;MustUse AND &#64;Ignorable state, which is semantically incorrect.
+     *We can reserve this state for future potential extensions.
+     * </pre>
+     */
+    EXPLICITLY_IGNORABLE(2, 2),
+    ;
+
+    /**
+     * <code>UNSPECIFIED = 0;</code>
+     */
+    public static final int UNSPECIFIED_VALUE = 0;
+    /**
+     * <code>MUST_USE = 1;</code>
+     */
+    public static final int MUST_USE_VALUE = 1;
+    /**
+     * <code>EXPLICITLY_IGNORABLE = 2;</code>
+     *
+     * <pre>
+     *3 represents &#64;MustUse AND &#64;Ignorable state, which is semantically incorrect.
+     *We can reserve this state for future potential extensions.
+     * </pre>
+     */
+    public static final int EXPLICITLY_IGNORABLE_VALUE = 2;
+
+
+    public final int getNumber() { return value; }
+
+    public static ReturnValueStatus valueOf(int value) {
+      switch (value) {
+        case 0: return UNSPECIFIED;
+        case 1: return MUST_USE;
+        case 2: return EXPLICITLY_IGNORABLE;
+        default: return null;
+      }
+    }
+
+    public static org.jetbrains.kotlin.protobuf.Internal.EnumLiteMap<ReturnValueStatus>
+        internalGetValueMap() {
+      return internalValueMap;
+    }
+    private static org.jetbrains.kotlin.protobuf.Internal.EnumLiteMap<ReturnValueStatus>
+        internalValueMap =
+          new org.jetbrains.kotlin.protobuf.Internal.EnumLiteMap<ReturnValueStatus>() {
+            public ReturnValueStatus findValueByNumber(int number) {
+              return ReturnValueStatus.valueOf(number);
+            }
+          };
+
+    private final int value;
+
+    private ReturnValueStatus(int index, int value) {
+      this.value = value;
+    }
+
+    // @@protoc_insertion_point(enum_scope:org.jetbrains.kotlin.metadata.ReturnValueStatus)
+  }
+
   public interface StringTableOrBuilder extends
       // @@protoc_insertion_point(interface_extends:org.jetbrains.kotlin.metadata.StringTable)
       org.jetbrains.kotlin.protobuf.MessageLiteOrBuilder {
@@ -4800,6 +4875,20 @@ public final class ProtoBuf {
      * </pre>
      */
     int getFlags();
+
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> 
+        getAnnotationList();
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getAnnotation(int index);
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    int getAnnotationCount();
   }
   /**
    * Protobuf type {@code org.jetbrains.kotlin.metadata.Type}
@@ -4949,6 +5038,14 @@ public final class ProtoBuf {
               abbreviatedTypeId_ = input.readInt32();
               break;
             }
+            case 802: {
+              if (!((mutable_bitField0_ & 0x00004000) == 0x00004000)) {
+                annotation_ = new java.util.ArrayList<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>();
+                mutable_bitField0_ |= 0x00004000;
+              }
+              annotation_.add(input.readMessage(org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.PARSER, extensionRegistry));
+              break;
+            }
           }
         }
       } catch (org.jetbrains.kotlin.protobuf.InvalidProtocolBufferException e) {
@@ -4959,6 +5056,9 @@ public final class ProtoBuf {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
           argument_ = java.util.Collections.unmodifiableList(argument_);
+        }
+        if (((mutable_bitField0_ & 0x00004000) == 0x00004000)) {
+          annotation_ = java.util.Collections.unmodifiableList(annotation_);
         }
         try {
           unknownFieldsCodedOutput.flush();
@@ -5950,6 +6050,41 @@ public final class ProtoBuf {
       return flags_;
     }
 
+    public static final int ANNOTATION_FIELD_NUMBER = 100;
+    private java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> annotation_;
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> getAnnotationList() {
+      return annotation_;
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public java.util.List<? extends org.jetbrains.kotlin.metadata.ProtoBuf.AnnotationOrBuilder> 
+        getAnnotationOrBuilderList() {
+      return annotation_;
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public int getAnnotationCount() {
+      return annotation_.size();
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getAnnotation(int index) {
+      return annotation_.get(index);
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.AnnotationOrBuilder getAnnotationOrBuilder(
+        int index) {
+      return annotation_.get(index);
+    }
+
     private void initFields() {
       argument_ = java.util.Collections.emptyList();
       nullable_ = false;
@@ -5965,6 +6100,7 @@ public final class ProtoBuf {
       abbreviatedType_ = org.jetbrains.kotlin.metadata.ProtoBuf.Type.getDefaultInstance();
       abbreviatedTypeId_ = 0;
       flags_ = 0;
+      annotation_ = java.util.Collections.emptyList();
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -5992,6 +6128,12 @@ public final class ProtoBuf {
       }
       if (hasAbbreviatedType()) {
         if (!getAbbreviatedType().isInitialized()) {
+          memoizedIsInitialized = 0;
+          return false;
+        }
+      }
+      for (int i = 0; i < getAnnotationCount(); i++) {
+        if (!getAnnotation(i).isInitialized()) {
           memoizedIsInitialized = 0;
           return false;
         }
@@ -6051,6 +6193,9 @@ public final class ProtoBuf {
       }
       if (((bitField0_ & 0x00000800) == 0x00000800)) {
         output.writeInt32(14, abbreviatedTypeId_);
+      }
+      for (int i = 0; i < annotation_.size(); i++) {
+        output.writeMessage(100, annotation_.get(i));
       }
       extensionWriter.writeUntil(200, output);
       output.writeRawBytes(unknownFields);
@@ -6117,6 +6262,10 @@ public final class ProtoBuf {
       if (((bitField0_ & 0x00000800) == 0x00000800)) {
         size += org.jetbrains.kotlin.protobuf.CodedOutputStream
           .computeInt32Size(14, abbreviatedTypeId_);
+      }
+      for (int i = 0; i < annotation_.size(); i++) {
+        size += org.jetbrains.kotlin.protobuf.CodedOutputStream
+          .computeMessageSize(100, annotation_.get(i));
       }
       size += extensionsSerializedSize();
       size += unknownFields.size();
@@ -6240,6 +6389,8 @@ public final class ProtoBuf {
         bitField0_ = (bitField0_ & ~0x00001000);
         flags_ = 0;
         bitField0_ = (bitField0_ & ~0x00002000);
+        annotation_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00004000);
         return this;
       }
 
@@ -6320,6 +6471,11 @@ public final class ProtoBuf {
           to_bitField0_ |= 0x00001000;
         }
         result.flags_ = flags_;
+        if (((bitField0_ & 0x00004000) == 0x00004000)) {
+          annotation_ = java.util.Collections.unmodifiableList(annotation_);
+          bitField0_ = (bitField0_ & ~0x00004000);
+        }
+        result.annotation_ = annotation_;
         result.bitField0_ = to_bitField0_;
         return result;
       }
@@ -6375,6 +6531,16 @@ public final class ProtoBuf {
         if (other.hasFlags()) {
           setFlags(other.getFlags());
         }
+        if (!other.annotation_.isEmpty()) {
+          if (annotation_.isEmpty()) {
+            annotation_ = other.annotation_;
+            bitField0_ = (bitField0_ & ~0x00004000);
+          } else {
+            ensureAnnotationIsMutable();
+            annotation_.addAll(other.annotation_);
+          }
+          
+        }
         this.mergeExtensionFields(other);
         setUnknownFields(
             getUnknownFields().concat(other.unknownFields));
@@ -6402,6 +6568,12 @@ public final class ProtoBuf {
         }
         if (hasAbbreviatedType()) {
           if (!getAbbreviatedType().isInitialized()) {
+            
+            return false;
+          }
+        }
+        for (int i = 0; i < getAnnotationCount(); i++) {
+          if (!getAnnotation(i).isInitialized()) {
             
             return false;
           }
@@ -7173,6 +7345,131 @@ public final class ProtoBuf {
         return this;
       }
 
+      private java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> annotation_ =
+        java.util.Collections.emptyList();
+      private void ensureAnnotationIsMutable() {
+        if (!((bitField0_ & 0x00004000) == 0x00004000)) {
+          annotation_ = new java.util.ArrayList<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>(annotation_);
+          bitField0_ |= 0x00004000;
+         }
+      }
+
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> getAnnotationList() {
+        return java.util.Collections.unmodifiableList(annotation_);
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public int getAnnotationCount() {
+        return annotation_.size();
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getAnnotation(int index) {
+        return annotation_.get(index);
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder setAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAnnotationIsMutable();
+        annotation_.set(index, value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder setAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureAnnotationIsMutable();
+        annotation_.set(index, builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAnnotationIsMutable();
+        annotation_.add(value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAnnotationIsMutable();
+        annotation_.add(index, value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(
+          org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureAnnotationIsMutable();
+        annotation_.add(builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureAnnotationIsMutable();
+        annotation_.add(index, builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAllAnnotation(
+          java.lang.Iterable<? extends org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> values) {
+        ensureAnnotationIsMutable();
+        org.jetbrains.kotlin.protobuf.AbstractMessageLite.Builder.addAll(
+            values, annotation_);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder clearAnnotation() {
+        annotation_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00004000);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder removeAnnotation(int index) {
+        ensureAnnotationIsMutable();
+        annotation_.remove(index);
+
+        return this;
+      }
+
       // @@protoc_insertion_point(builder_scope:org.jetbrains.kotlin.metadata.Type)
     }
 
@@ -7251,6 +7548,20 @@ public final class ProtoBuf {
      * <code>repeated int32 upper_bound_id = 6 [packed = true];</code>
      */
     int getUpperBoundId(int index);
+
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> 
+        getAnnotationList();
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getAnnotation(int index);
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    int getAnnotationCount();
   }
   /**
    * Protobuf type {@code org.jetbrains.kotlin.metadata.TypeParameter}
@@ -7359,6 +7670,14 @@ public final class ProtoBuf {
               input.popLimit(limit);
               break;
             }
+            case 802: {
+              if (!((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
+                annotation_ = new java.util.ArrayList<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>();
+                mutable_bitField0_ |= 0x00000040;
+              }
+              annotation_.add(input.readMessage(org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.PARSER, extensionRegistry));
+              break;
+            }
           }
         }
       } catch (org.jetbrains.kotlin.protobuf.InvalidProtocolBufferException e) {
@@ -7372,6 +7691,9 @@ public final class ProtoBuf {
         }
         if (((mutable_bitField0_ & 0x00000020) == 0x00000020)) {
           upperBoundId_ = java.util.Collections.unmodifiableList(upperBoundId_);
+        }
+        if (((mutable_bitField0_ & 0x00000040) == 0x00000040)) {
+          annotation_ = java.util.Collections.unmodifiableList(annotation_);
         }
         try {
           unknownFieldsCodedOutput.flush();
@@ -7582,6 +7904,41 @@ public final class ProtoBuf {
     }
     private int upperBoundIdMemoizedSerializedSize = -1;
 
+    public static final int ANNOTATION_FIELD_NUMBER = 100;
+    private java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> annotation_;
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> getAnnotationList() {
+      return annotation_;
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public java.util.List<? extends org.jetbrains.kotlin.metadata.ProtoBuf.AnnotationOrBuilder> 
+        getAnnotationOrBuilderList() {
+      return annotation_;
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public int getAnnotationCount() {
+      return annotation_.size();
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getAnnotation(int index) {
+      return annotation_.get(index);
+    }
+    /**
+     * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.AnnotationOrBuilder getAnnotationOrBuilder(
+        int index) {
+      return annotation_.get(index);
+    }
+
     private void initFields() {
       id_ = 0;
       name_ = 0;
@@ -7589,6 +7946,7 @@ public final class ProtoBuf {
       variance_ = org.jetbrains.kotlin.metadata.ProtoBuf.TypeParameter.Variance.INV;
       upperBound_ = java.util.Collections.emptyList();
       upperBoundId_ = java.util.Collections.emptyList();
+      annotation_ = java.util.Collections.emptyList();
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -7606,6 +7964,12 @@ public final class ProtoBuf {
       }
       for (int i = 0; i < getUpperBoundCount(); i++) {
         if (!getUpperBound(i).isInitialized()) {
+          memoizedIsInitialized = 0;
+          return false;
+        }
+      }
+      for (int i = 0; i < getAnnotationCount(); i++) {
+        if (!getAnnotation(i).isInitialized()) {
           memoizedIsInitialized = 0;
           return false;
         }
@@ -7645,6 +8009,9 @@ public final class ProtoBuf {
       }
       for (int i = 0; i < upperBoundId_.size(); i++) {
         output.writeInt32NoTag(upperBoundId_.get(i));
+      }
+      for (int i = 0; i < annotation_.size(); i++) {
+        output.writeMessage(100, annotation_.get(i));
       }
       extensionWriter.writeUntil(1000, output);
       output.writeRawBytes(unknownFields);
@@ -7689,6 +8056,10 @@ public final class ProtoBuf {
               .computeInt32SizeNoTag(dataSize);
         }
         upperBoundIdMemoizedSerializedSize = dataSize;
+      }
+      for (int i = 0; i < annotation_.size(); i++) {
+        size += org.jetbrains.kotlin.protobuf.CodedOutputStream
+          .computeMessageSize(100, annotation_.get(i));
       }
       size += extensionsSerializedSize();
       size += unknownFields.size();
@@ -7796,6 +8167,8 @@ public final class ProtoBuf {
         bitField0_ = (bitField0_ & ~0x00000010);
         upperBoundId_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000020);
+        annotation_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
 
@@ -7845,6 +8218,11 @@ public final class ProtoBuf {
           bitField0_ = (bitField0_ & ~0x00000020);
         }
         result.upperBoundId_ = upperBoundId_;
+        if (((bitField0_ & 0x00000040) == 0x00000040)) {
+          annotation_ = java.util.Collections.unmodifiableList(annotation_);
+          bitField0_ = (bitField0_ & ~0x00000040);
+        }
+        result.annotation_ = annotation_;
         result.bitField0_ = to_bitField0_;
         return result;
       }
@@ -7883,6 +8261,16 @@ public final class ProtoBuf {
           }
           
         }
+        if (!other.annotation_.isEmpty()) {
+          if (annotation_.isEmpty()) {
+            annotation_ = other.annotation_;
+            bitField0_ = (bitField0_ & ~0x00000040);
+          } else {
+            ensureAnnotationIsMutable();
+            annotation_.addAll(other.annotation_);
+          }
+          
+        }
         this.mergeExtensionFields(other);
         setUnknownFields(
             getUnknownFields().concat(other.unknownFields));
@@ -7900,6 +8288,12 @@ public final class ProtoBuf {
         }
         for (int i = 0; i < getUpperBoundCount(); i++) {
           if (!getUpperBound(i).isInitialized()) {
+            
+            return false;
+          }
+        }
+        for (int i = 0; i < getAnnotationCount(); i++) {
+          if (!getAnnotation(i).isInitialized()) {
             
             return false;
           }
@@ -8249,6 +8643,131 @@ public final class ProtoBuf {
         upperBoundId_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000020);
         
+        return this;
+      }
+
+      private java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> annotation_ =
+        java.util.Collections.emptyList();
+      private void ensureAnnotationIsMutable() {
+        if (!((bitField0_ & 0x00000040) == 0x00000040)) {
+          annotation_ = new java.util.ArrayList<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation>(annotation_);
+          bitField0_ |= 0x00000040;
+         }
+      }
+
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public java.util.List<org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> getAnnotationList() {
+        return java.util.Collections.unmodifiableList(annotation_);
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public int getAnnotationCount() {
+        return annotation_.size();
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public org.jetbrains.kotlin.metadata.ProtoBuf.Annotation getAnnotation(int index) {
+        return annotation_.get(index);
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder setAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAnnotationIsMutable();
+        annotation_.set(index, value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder setAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureAnnotationIsMutable();
+        annotation_.set(index, builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAnnotationIsMutable();
+        annotation_.add(value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureAnnotationIsMutable();
+        annotation_.add(index, value);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(
+          org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureAnnotationIsMutable();
+        annotation_.add(builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAnnotation(
+          int index, org.jetbrains.kotlin.metadata.ProtoBuf.Annotation.Builder builderForValue) {
+        ensureAnnotationIsMutable();
+        annotation_.add(index, builderForValue.build());
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder addAllAnnotation(
+          java.lang.Iterable<? extends org.jetbrains.kotlin.metadata.ProtoBuf.Annotation> values) {
+        ensureAnnotationIsMutable();
+        org.jetbrains.kotlin.protobuf.AbstractMessageLite.Builder.addAll(
+            values, annotation_);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder clearAnnotation() {
+        annotation_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000040);
+
+        return this;
+      }
+      /**
+       * <code>repeated .org.jetbrains.kotlin.metadata.Annotation annotation = 100;</code>
+       */
+      public Builder removeAnnotation(int index) {
+        ensureAnnotationIsMutable();
+        annotation_.remove(index);
+
         return this;
       }
 
@@ -29639,7 +30158,7 @@ public final class ProtoBuf {
      * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
      *
      * <pre>
-     * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+     * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
      * is given by other fields in this message, and 'Expression' is stored in this field.
      * </pre>
      */
@@ -29648,7 +30167,7 @@ public final class ProtoBuf {
      * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
      *
      * <pre>
-     * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+     * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
      * is given by other fields in this message, and 'Expression' is stored in this field.
      * </pre>
      */
@@ -29662,6 +30181,15 @@ public final class ProtoBuf {
      * <code>optional .org.jetbrains.kotlin.metadata.Effect.InvocationKind kind = 4;</code>
      */
     org.jetbrains.kotlin.metadata.ProtoBuf.Effect.InvocationKind getKind();
+
+    /**
+     * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+     */
+    boolean hasConditionKind();
+    /**
+     * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+     */
+    org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind getConditionKind();
   }
   /**
    * Protobuf type {@code org.jetbrains.kotlin.metadata.Effect}
@@ -29755,6 +30283,18 @@ public final class ProtoBuf {
               } else {
                 bitField0_ |= 0x00000004;
                 kind_ = value;
+              }
+              break;
+            }
+            case 40: {
+              int rawValue = input.readEnum();
+              org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind value = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind.valueOf(rawValue);
+              if (value == null) {
+                unknownFieldsCodedOutput.writeRawVarint32(tag);
+                unknownFieldsCodedOutput.writeRawVarint32(rawValue);
+              } else {
+                bitField0_ |= 0x00000008;
+                conditionKind_ = value;
               }
               break;
             }
@@ -29958,6 +30498,97 @@ public final class ProtoBuf {
       // @@protoc_insertion_point(enum_scope:org.jetbrains.kotlin.metadata.Effect.InvocationKind)
     }
 
+    /**
+     * Protobuf enum {@code org.jetbrains.kotlin.metadata.Effect.EffectConditionKind}
+     */
+    public enum EffectConditionKind
+        implements org.jetbrains.kotlin.protobuf.Internal.EnumLite {
+      /**
+       * <code>CONCLUSION_CONDITION = 0;</code>
+       *
+       * <pre>
+       * also default
+       * </pre>
+       */
+      CONCLUSION_CONDITION(0, 0),
+      /**
+       * <code>RETURNS_CONDITION = 1;</code>
+       *
+       * <pre>
+       * "implies returns" condition. If condition_kind set to it, then then whole message is clause of form
+       * </pre>
+       */
+      RETURNS_CONDITION(1, 1),
+      /**
+       * <code>HOLDSIN_CONDITION = 2;</code>
+       *
+       * <pre>
+       * 'Expression -&gt; ReturnsEffect', where 'ReturnsEffect' is given by other fields
+       * and 'Expression' is stored in the conclusion_of_conditional_effect
+       * </pre>
+       */
+      HOLDSIN_CONDITION(2, 2),
+      ;
+
+      /**
+       * <code>CONCLUSION_CONDITION = 0;</code>
+       *
+       * <pre>
+       * also default
+       * </pre>
+       */
+      public static final int CONCLUSION_CONDITION_VALUE = 0;
+      /**
+       * <code>RETURNS_CONDITION = 1;</code>
+       *
+       * <pre>
+       * "implies returns" condition. If condition_kind set to it, then then whole message is clause of form
+       * </pre>
+       */
+      public static final int RETURNS_CONDITION_VALUE = 1;
+      /**
+       * <code>HOLDSIN_CONDITION = 2;</code>
+       *
+       * <pre>
+       * 'Expression -&gt; ReturnsEffect', where 'ReturnsEffect' is given by other fields
+       * and 'Expression' is stored in the conclusion_of_conditional_effect
+       * </pre>
+       */
+      public static final int HOLDSIN_CONDITION_VALUE = 2;
+
+
+      public final int getNumber() { return value; }
+
+      public static EffectConditionKind valueOf(int value) {
+        switch (value) {
+          case 0: return CONCLUSION_CONDITION;
+          case 1: return RETURNS_CONDITION;
+          case 2: return HOLDSIN_CONDITION;
+          default: return null;
+        }
+      }
+
+      public static org.jetbrains.kotlin.protobuf.Internal.EnumLiteMap<EffectConditionKind>
+          internalGetValueMap() {
+        return internalValueMap;
+      }
+      private static org.jetbrains.kotlin.protobuf.Internal.EnumLiteMap<EffectConditionKind>
+          internalValueMap =
+            new org.jetbrains.kotlin.protobuf.Internal.EnumLiteMap<EffectConditionKind>() {
+              public EffectConditionKind findValueByNumber(int number) {
+                return EffectConditionKind.valueOf(number);
+              }
+            };
+
+      private final int value;
+
+      private EffectConditionKind(int index, int value) {
+        this.value = value;
+      }
+
+      // @@protoc_insertion_point(enum_scope:org.jetbrains.kotlin.metadata.Effect.EffectConditionKind)
+    }
+
     private int bitField0_;
     public static final int EFFECT_TYPE_FIELD_NUMBER = 1;
     private org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectType effectType_;
@@ -30015,7 +30646,7 @@ public final class ProtoBuf {
      * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
      *
      * <pre>
-     * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+     * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
      * is given by other fields in this message, and 'Expression' is stored in this field.
      * </pre>
      */
@@ -30026,7 +30657,7 @@ public final class ProtoBuf {
      * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
      *
      * <pre>
-     * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+     * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
      * is given by other fields in this message, and 'Expression' is stored in this field.
      * </pre>
      */
@@ -30049,11 +30680,27 @@ public final class ProtoBuf {
       return kind_;
     }
 
+    public static final int CONDITION_KIND_FIELD_NUMBER = 5;
+    private org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind conditionKind_;
+    /**
+     * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+     */
+    public boolean hasConditionKind() {
+      return ((bitField0_ & 0x00000008) == 0x00000008);
+    }
+    /**
+     * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+     */
+    public org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind getConditionKind() {
+      return conditionKind_;
+    }
+
     private void initFields() {
       effectType_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectType.RETURNS_CONSTANT;
       effectConstructorArgument_ = java.util.Collections.emptyList();
       conclusionOfConditionalEffect_ = org.jetbrains.kotlin.metadata.ProtoBuf.Expression.getDefaultInstance();
       kind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.InvocationKind.AT_MOST_ONCE;
+      conditionKind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind.CONCLUSION_CONDITION;
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -30092,6 +30739,9 @@ public final class ProtoBuf {
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         output.writeEnum(4, kind_.getNumber());
       }
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        output.writeEnum(5, conditionKind_.getNumber());
+      }
       output.writeRawBytes(unknownFields);
     }
 
@@ -30116,6 +30766,10 @@ public final class ProtoBuf {
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += org.jetbrains.kotlin.protobuf.CodedOutputStream
           .computeEnumSize(4, kind_.getNumber());
+      }
+      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        size += org.jetbrains.kotlin.protobuf.CodedOutputStream
+          .computeEnumSize(5, conditionKind_.getNumber());
       }
       size += unknownFields.size();
       memoizedSerializedSize = size;
@@ -30219,6 +30873,8 @@ public final class ProtoBuf {
         bitField0_ = (bitField0_ & ~0x00000004);
         kind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.InvocationKind.AT_MOST_ONCE;
         bitField0_ = (bitField0_ & ~0x00000008);
+        conditionKind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind.CONCLUSION_CONDITION;
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -30259,6 +30915,10 @@ public final class ProtoBuf {
           to_bitField0_ |= 0x00000004;
         }
         result.kind_ = kind_;
+        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.conditionKind_ = conditionKind_;
         result.bitField0_ = to_bitField0_;
         return result;
       }
@@ -30283,6 +30943,9 @@ public final class ProtoBuf {
         }
         if (other.hasKind()) {
           setKind(other.getKind());
+        }
+        if (other.hasConditionKind()) {
+          setConditionKind(other.getConditionKind());
         }
         setUnknownFields(
             getUnknownFields().concat(other.unknownFields));
@@ -30489,7 +31152,7 @@ public final class ProtoBuf {
        * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
        *
        * <pre>
-       * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+       * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
        * is given by other fields in this message, and 'Expression' is stored in this field.
        * </pre>
        */
@@ -30500,7 +31163,7 @@ public final class ProtoBuf {
        * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
        *
        * <pre>
-       * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+       * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
        * is given by other fields in this message, and 'Expression' is stored in this field.
        * </pre>
        */
@@ -30511,7 +31174,7 @@ public final class ProtoBuf {
        * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
        *
        * <pre>
-       * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+       * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
        * is given by other fields in this message, and 'Expression' is stored in this field.
        * </pre>
        */
@@ -30528,7 +31191,7 @@ public final class ProtoBuf {
        * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
        *
        * <pre>
-       * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+       * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
        * is given by other fields in this message, and 'Expression' is stored in this field.
        * </pre>
        */
@@ -30543,7 +31206,7 @@ public final class ProtoBuf {
        * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
        *
        * <pre>
-       * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+       * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
        * is given by other fields in this message, and 'Expression' is stored in this field.
        * </pre>
        */
@@ -30563,7 +31226,7 @@ public final class ProtoBuf {
        * <code>optional .org.jetbrains.kotlin.metadata.Expression conclusion_of_conditional_effect = 3;</code>
        *
        * <pre>
-       * If present, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
+       * If present and condition_kind is 0 or absent, then whole message is clause of form 'Effect -&gt; Expression', where 'Effect'
        * is given by other fields in this message, and 'Expression' is stored in this field.
        * </pre>
        */
@@ -30605,6 +31268,41 @@ public final class ProtoBuf {
       public Builder clearKind() {
         bitField0_ = (bitField0_ & ~0x00000008);
         kind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.InvocationKind.AT_MOST_ONCE;
+        
+        return this;
+      }
+
+      private org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind conditionKind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind.CONCLUSION_CONDITION;
+      /**
+       * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+       */
+      public boolean hasConditionKind() {
+        return ((bitField0_ & 0x00000010) == 0x00000010);
+      }
+      /**
+       * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+       */
+      public org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind getConditionKind() {
+        return conditionKind_;
+      }
+      /**
+       * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+       */
+      public Builder setConditionKind(org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        bitField0_ |= 0x00000010;
+        conditionKind_ = value;
+        
+        return this;
+      }
+      /**
+       * <code>optional .org.jetbrains.kotlin.metadata.Effect.EffectConditionKind condition_kind = 5;</code>
+       */
+      public Builder clearConditionKind() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        conditionKind_ = org.jetbrains.kotlin.metadata.ProtoBuf.Effect.EffectConditionKind.CONCLUSION_CONDITION;
         
         return this;
       }

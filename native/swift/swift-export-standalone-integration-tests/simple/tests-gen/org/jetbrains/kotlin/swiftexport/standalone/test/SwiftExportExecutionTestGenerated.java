@@ -44,6 +44,12 @@ public class SwiftExportExecutionTestGenerated extends AbstractSwiftExportExecut
   }
 
   @Test
+  @TestMetadata("enums")
+  public void testEnums() {
+    runTest("native/swift/swift-export-standalone-integration-tests/simple/testData/execution/enums/");
+  }
+
+  @Test
   @TestMetadata("exceptions")
   public void testExceptions() {
     runTest("native/swift/swift-export-standalone-integration-tests/simple/testData/execution/exceptions/");
@@ -107,6 +113,12 @@ public class SwiftExportExecutionTestGenerated extends AbstractSwiftExportExecut
   @TestMetadata("nullable_never_type")
   public void testNullable_never_type() {
     runTest("native/swift/swift-export-standalone-integration-tests/simple/testData/execution/nullable_never_type/");
+  }
+
+  @Test
+  @TestMetadata("operators")
+  public void testOperators() {
+    runTest("native/swift/swift-export-standalone-integration-tests/simple/testData/execution/operators/");
   }
 
   @Test

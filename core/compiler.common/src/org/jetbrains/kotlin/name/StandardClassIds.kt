@@ -193,6 +193,7 @@ object StandardClassIds {
         val Deprecated = "Deprecated".baseId()
         val DeprecatedSinceKotlin = "DeprecatedSinceKotlin".baseId()
         val RequireKotlin = "RequireKotlin".internalId()
+        val DslMarker = "DslMarker".baseId()
 
         val ConsistentCopyVisibility = "ConsistentCopyVisibility".baseId()
         val ExposedCopyVisibility = "ExposedCopyVisibility".baseId()
@@ -228,7 +229,7 @@ object StandardClassIds {
 
         val WasExperimental = "WasExperimental".baseId()
 
-        val MustUseReturnValue = "MustUseReturnValue".baseId()
+        val MustUseReturnValues = "MustUseReturnValues".baseId()
         val IgnorableReturnValue = "IgnorableReturnValue".baseId()
 
         val AccessibleLateinitPropertyLiteral = "AccessibleLateinitPropertyLiteral".internalId()
@@ -249,8 +250,6 @@ object StandardClassIds {
         val ExperimentalAssociatedObjects = "ExperimentalAssociatedObjects".reflectId()
 
         val associatedObjectAnnotations = hashSetOf(AssociatedObjectKey, ExperimentalAssociatedObjects)
-
-        val ActualizeByJvmBuiltinProvider = "ActualizeByJvmBuiltinProvider".internalId()
 
         val JvmBuiltin = "JvmBuiltin".internalId()
         val SuppressBytecodeGeneration = "SuppressBytecodeGeneration".internalId()

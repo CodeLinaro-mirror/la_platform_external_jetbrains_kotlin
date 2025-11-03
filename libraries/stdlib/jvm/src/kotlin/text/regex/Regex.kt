@@ -145,14 +145,12 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
     public actual fun matchEntire(input: CharSequence): MatchResult? = nativePattern.matcher(input).matchEntire(input)
 
     @SinceKotlin("1.7")
-    @WasExperimental(ExperimentalStdlibApi::class)
     public actual fun matchAt(input: CharSequence, index: Int): MatchResult? =
         nativePattern.matcher(input).useAnchoringBounds(false).useTransparentBounds(true).region(index, input.length).run {
             if (lookingAt()) MatcherMatchResult(this, input) else null
         }
 
     @SinceKotlin("1.7")
-    @WasExperimental(ExperimentalStdlibApi::class)
     public actual fun matchesAt(input: CharSequence, index: Int): Boolean =
         nativePattern.matcher(input).useAnchoringBounds(false).useTransparentBounds(true).region(index, input.length).lookingAt()
 
@@ -237,8 +235,18 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
     /**
      * Splits the [input] CharSequence to a list of strings around matches of this regular expression.
      *
+     * The last element of the resulting list corresponds to an [input] subsequence starting right
+     * after the last match (or at the beginning of [input] char sequence if there were no matches)
+     * and ending at the end of [input]. That implies that if [input] does not contain subsequences
+     * matching [this] regular expression, the resulting list will contain a single element
+     * corresponding to the whole [input] sequence.
+     * It also implies that for char sequences ending with a [this] regular expression match,
+     * the resulting list will end with an empty string.
+     *
      * @param limit Non-negative value specifying the maximum number of substrings the string can be split to.
      * Zero by default means no limit is set.
+     *
+     * @sample samples.text.Regexps.split
      */
     @Suppress("ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS")
     public actual fun split(input: CharSequence, limit: Int = 0): List<String> {
@@ -264,6 +272,14 @@ internal constructor(private val nativePattern: Pattern) : Serializable {
 
     /**
      * Splits the [input] CharSequence to a sequence of strings around matches of this regular expression.
+     *
+     * The last element of the resulting sequence corresponds to an [input] subsequence starting right
+     * after the last match (or at the beginning of [input] char sequence if there were no matches)
+     * and ending at the end of [input]. That implies that if [input] does not contain subsequences
+     * matching [this] regular expression, the resulting sequence will contain a single element
+     * corresponding to the whole [input] sequence.
+     * It also implies that for char sequences ending with a [this] regular expression match,
+     * the resulting sequence will end with an empty string.
      *
      * @param limit Non-negative value specifying the maximum number of substrings the string can be split to.
      * Zero by default means no limit is set.

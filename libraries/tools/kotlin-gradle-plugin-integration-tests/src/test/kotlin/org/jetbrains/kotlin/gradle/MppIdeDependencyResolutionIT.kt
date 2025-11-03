@@ -10,6 +10,7 @@ import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
 import org.jetbrains.kotlin.commonizer.identityString
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinBinaryDependency
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinDependency
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinResolvedBinaryDependency
@@ -17,13 +18,18 @@ import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinSourceDependency.Type.Regu
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinUnresolvedBinaryDependency
 import org.jetbrains.kotlin.gradle.idea.tcs.extras.*
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.*
+import org.jetbrains.kotlin.gradle.idea.testFixtures.utils.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_KMP_STRICT_RESOLVE_IDE_DEPENDENCIES
 import org.jetbrains.kotlin.gradle.plugin.ide.IdeDependencyResolver
 import org.jetbrains.kotlin.gradle.plugin.ide.IdeMultiplatformImport
 import org.jetbrains.kotlin.gradle.plugin.ide.IdeMultiplatformImportImpl
 import org.jetbrains.kotlin.gradle.plugin.ide.kotlinIdeMultiplatformImport
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.uklibs.PublisherConfiguration
+import org.jetbrains.kotlin.gradle.uklibs.addPublishedProjectToRepositories
+import org.jetbrains.kotlin.gradle.uklibs.applyMultiplatform
 import org.jetbrains.kotlin.gradle.uklibs.include
+import org.jetbrains.kotlin.gradle.uklibs.publish
 import org.jetbrains.kotlin.gradle.util.*
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.KonanTarget.*
@@ -42,9 +48,67 @@ import kotlin.test.fail
 @MppGradlePluginTests
 @DisplayName("Multiplatform IDE dependency resolution")
 class MppIdeDependencyResolutionIT : KGPBaseTest() {
-    override val defaultBuildOptions: BuildOptions
-        get() = super.defaultBuildOptions
-            .disableConfigurationCache_KT70416()
+    @GradleTest
+    fun `import of modular dependencies in platform source sets - passes only platform artifacts to IDE and doesn't leak artifacts to source sets where the dependency is not declared`(gradleVersion: GradleVersion) {
+        val targets: KotlinMultiplatformExtension.() -> Unit = {
+            jvm()
+            linuxX64()
+            linuxArm64()
+        }
+        val producer = project("empty", gradleVersion) {
+            plugins {
+                kotlin("multiplatform")
+            }
+            buildScriptInjection {
+                project.applyMultiplatform {
+                    targets()
+                    sourceSets.commonMain.get().compileSource("fun common() {}")
+                }
+            }
+        }.publish(publisherConfiguration = PublisherConfiguration(
+            group = "producer",
+        ))
+
+        project("empty", gradleVersion) {
+            addPublishedProjectToRepositories(producer)
+            plugins {
+                kotlin("multiplatform")
+            }
+            buildScriptInjection {
+                project.applyMultiplatform {
+                    targets()
+                    listOf(
+                        sourceSets.jvmMain.get(),
+                        sourceSets.linuxArm64Main.get(),
+                        sourceSets.linuxX64Main.get(),
+                    ).forEach {
+                        it.dependencies {
+                            implementation(producer.rootCoordinate)
+                        }
+                    }
+                }
+            }
+        }.resolveIdeDependencies {
+            it["commonMain"].assertMatches(
+                kotlinStdlibDependencies,
+            )
+            it["linuxMain"].assertMatches(
+                kotlinNativeDistributionDependencies,
+                anyDependsOnDependency(),
+            )
+            it["jvmMain"].assertMatches(
+                kotlinStdlibDependencies,
+                jetbrainsAnnotationDependencies,
+                binaryCoordinates("producer:empty-jvm:1.0"),
+                anyDependsOnDependency(),
+            )
+            it["linuxArm64Main"].assertMatches(
+                kotlinNativeDistributionDependencies,
+                binaryCoordinates("producer:empty-linuxarm64:1.0"),
+                anyDependsOnDependency(),
+            )
+        }
+    }
 
     @GradleTest
     fun testCommonizedPlatformDependencyResolution(gradleVersion: GradleVersion) {
@@ -62,6 +126,7 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
                 val nativeTestDependencies = dependencies["nativeTest"].filterNativePlatformDependencies()
                 val linuxMainDependencies = dependencies["linuxMain"].filterNativePlatformDependencies()
                 val linuxTestDependencies = dependencies["linuxTest"].filterNativePlatformDependencies()
+                val linuxArm64MainDependencies = dependencies["linuxArm64Main"].filterNativePlatformDependencies()
 
                 /* Check test and main receive the same dependencies */
                 run {
@@ -73,6 +138,9 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
                 run {
                     nativeMainDependencies.plus(linuxMainDependencies).forEach { dependency ->
                         if (!dependency.isCommonized) fail("$dependency is not marked as 'isCommonized'")
+                    }
+                    linuxArm64MainDependencies.forEach { dependency ->
+                        if (dependency.isCommonized) fail("$dependency is marked as 'isCommonized'")
                     }
 
                     val nativeMainTarget = CommonizerTarget(
@@ -110,7 +178,8 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
         project(
             projectName = "cinteropImport",
             gradleVersion = gradleVersion,
-            localRepoDir = defaultLocalRepo(gradleVersion)
+            localRepoDir = defaultLocalRepo(gradleVersion),
+            buildOptions = defaultBuildOptions.disableIsolatedProjects()
         ) {
             build(":dep-with-cinterop:publishAllPublicationsToBuildRepository")
 
@@ -394,10 +463,12 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
             resolveIdeDependencies(":consumer") { dependencies ->
                 dependencies["commonMain"].assertMatches(
                     kotlinNativeDistributionDependencies,
+                    unresolvedDependenciesDiagnosticMatcher("project :producer"),
                 )
 
                 dependencies["linuxMain"].assertMatches(
                     kotlinNativeDistributionDependencies,
+                    unresolvedDependenciesDiagnosticMatcher("project :producer"),
                     dependsOnDependency(":consumer/commonMain"),
                     dependsOnDependency(":consumer/nativeMain")
                 )
@@ -410,7 +481,7 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
                     binaryCoordinates("this:does:not-exist"),
                     IdeaKotlinDependencyMatcher("Project Dependency: producer") { dependency ->
                         dependency is IdeaKotlinUnresolvedBinaryDependency && ":producer" in dependency.cause.orEmpty()
-                    }
+                    },
                 )
             }
         }
@@ -705,7 +776,7 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
             "base-kotlin-multiplatform-android-library",
             gradleVersion,
             buildJdk = jdkVersion.location,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
         ) {
             buildScriptInjection {
                 applyDefaultAndroidLibraryConfiguration()
@@ -726,6 +797,23 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
         }
     }
 
+    @GradleTest
+    fun `resolveIdeDependencies doesn't fail with CC serialization errors`(version: GradleVersion) {
+        project("empty", version) {
+            plugins {
+                kotlin("multiplatform")
+            }
+            buildScriptInjection {
+                project.applyMultiplatform {
+                    jvm()
+                    linuxArm64()
+                }
+            }
+
+            resolveIdeDependencies {}
+        }
+    }
+
     private fun Iterable<IdeaKotlinDependency>.cinteropDependencies() =
         this.filterIsInstance<IdeaKotlinBinaryDependency>().filter {
             it.klibExtra?.isInterop == true && !it.isNativeStdlib && !it.isNativeDistribution
@@ -742,7 +830,7 @@ class MppIdeDependencyResolutionIT : KGPBaseTest() {
     }
 }
 
-private fun BuildResult.assertNoCompileTasksGotExecuted() {
+internal fun BuildResult.assertNoCompileTasksGotExecuted() {
     val compileTaskRegex = Regex(".*[cC]ompile.*")
     val compileTasks = tasks.filter { task -> task.path.matches(compileTaskRegex) }
     if (compileTasks.isNotEmpty()) {

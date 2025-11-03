@@ -57,12 +57,15 @@ import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.visitors.FirTransformer
 import org.jetbrains.kotlin.fir.visitors.TransformData
 import org.jetbrains.kotlin.fir.visitors.transformSingle
+import org.jetbrains.kotlin.resolve.calls.NewCommonSuperTypeCalculator
 import org.jetbrains.kotlin.resolve.calls.inference.model.InferredEmptyIntersection
 import org.jetbrains.kotlin.resolve.calls.tower.ApplicabilityDetail
 import org.jetbrains.kotlin.resolve.calls.tower.isSuccess
+import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
+import org.jetbrains.kotlin.types.model.isError
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.addToStdlib.runUnless
@@ -424,8 +427,7 @@ class FirCallCompletionResultsWriterTransformer(
      *
      * See K1 counterpart at [org.jetbrains.kotlin.resolve.calls.tower.NewAbstractResolvedCall.getSubstitutorWithoutFlexibleTypes].
      *
-     * TODO: Get rid of this function once KT-59138 is fixed and the relevant feature for disabling it will be removed
-     * Also we should get rid of it once [LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible] is removed
+     * TODO: Get rid of this function once [LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible] is removed
      *
      * @return `null` for all other cases where [finalSubstitutor] should be used
      */
@@ -612,7 +614,7 @@ class FirCallCompletionResultsWriterTransformer(
             val varargParameterTypeRef = varargParameter.returnTypeRef
             val resolvedArrayType = varargParameterTypeRef.substitute(this)
             val argumentMappingWithAllArgs =
-                remapArgumentsWithVararg(varargParameter, resolvedArrayType, argumentMapping, argumentList)
+                remapArgumentsWithVararg(session, varargParameter, resolvedArrayType, argumentMapping, argumentList)
             ResultingArgumentsMapping(
                 argumentMappingWithAllArgs.filterValuesNotNull(),
                 argumentMappingWithAllArgs
@@ -904,8 +906,7 @@ class FirCallCompletionResultsWriterTransformer(
 
     /**
      * @see ExplicitTypeArgumentIfMadeFlexibleSyntheticallyTypeAttribute
-     * TODO: Get rid of this function once KT-59138 is fixed and the relevant feature for disabling it will be removed
-     * Also we should get rid of it once [LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible] is removed
+     * TODO: Get rid of this function once [LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible] is removed
      */
     private fun ConeKotlinType.storeNonFlexibleCounterpartInAttributeIfNecessary(
         argument: FirTypeProjection?,
@@ -918,7 +919,6 @@ class FirCallCompletionResultsWriterTransformer(
             attributes.add(
                 ExplicitTypeArgumentIfMadeFlexibleSyntheticallyTypeAttribute(
                     argument.typeRef.coneType.fullyExpandedType(),
-                    LanguageFeature.JavaTypeParameterDefaultRepresentationWithDNN
                 )
             )
         )
@@ -1134,7 +1134,14 @@ class FirCallCompletionResultsWriterTransformer(
         whenExpression: FirWhenExpression,
         data: ExpectedArgumentType?,
     ): FirStatement {
-        return transformSyntheticCall(whenExpression, data).apply {
+        return transformSyntheticCallWithDataFlowTypeRefining(
+            whenExpression, data
+        ) {
+            when {
+                isProperlyExhaustive -> branches.map { it.result.resultType }
+                else -> null
+            }
+        }.apply {
             replaceReturnTypeIfNotExhaustive(session)
         }
     }
@@ -1143,20 +1150,81 @@ class FirCallCompletionResultsWriterTransformer(
         tryExpression: FirTryExpression,
         data: ExpectedArgumentType?,
     ): FirStatement {
-        return transformSyntheticCall(tryExpression, data)
+        return transformSyntheticCallWithDataFlowTypeRefining(
+            tryExpression, data
+        ) {
+            buildList {
+                add(tryBlock.resultType)
+                catches.mapTo(this) { it.block.resultType }
+            }
+        }
     }
 
     override fun transformCheckNotNullCall(
         checkNotNullCall: FirCheckNotNullCall,
         data: ExpectedArgumentType?,
     ): FirStatement {
-        return transformSyntheticCall(checkNotNullCall, data)
+        return transformSyntheticCallWithDataFlowTypeRefining(
+            checkNotNullCall,
+            data
+        ) {
+            listOf(argumentList.arguments[0].resultType.makeConeTypeDefinitelyNotNullOrNotNull(session.typeContext))
+        }
+    }
+
+    /**
+     * Transforms synthetic call as usual plus adding RefinedTypeForDataFlowTypeAttribute if branches have more precise types
+     * than the inferred expression type.
+     *
+     * It might happen because we add equality constraint with the expected type to preserve K1 semantics.
+     * See [org.jetbrains.kotlin.fir.resolve.inference.FirCallCompleter.isSyntheticFunctionCallThatShouldUseEqualityConstraint]
+     */
+    private inline fun <reified D> transformSyntheticCallWithDataFlowTypeRefining(
+        syntheticCall: D,
+        data: ExpectedArgumentType?,
+        computeBranchTypes: D.() -> List<ConeKotlinType>?,
+    ): D where D : FirResolvable, D : FirExpression {
+        // Having this variable before `transformSyntheticCall` is crucial because after there would be no candidate left
+        val wasExpectedTypeAddedAsEqualityForSyntheticCall = syntheticCall.wasExpectedTypeAddedAsEqualityForSyntheticCall()
+        return transformSyntheticCall(syntheticCall, data).apply {
+            if (wasExpectedTypeAddedAsEqualityForSyntheticCall &&
+                LanguageFeature.EqualityConstraintForOperatorsUnderAssignments.isEnabled()
+            ) {
+                computeBranchTypes()?.let { branchTypes -> addRefinedTypeForDataFlow(branchTypes) }
+            }
+        }
+    }
+
+    private fun FirResolvable.wasExpectedTypeAddedAsEqualityForSyntheticCall(): Boolean =
+        candidate()?.wasExpectedTypeAddedAsEqualityForSyntheticCall == true
+
+    /**
+     * Adds RefinedTypeForDataFlowTypeAttribute if CST of the branch types differs from the current type.
+     */
+    private fun FirExpression.addRefinedTypeForDataFlow(branchTypes: List<ConeKotlinType>): Unit = context(session.typeContext) {
+        val currentType = resultType
+        if (currentType.isUnitOrFlexibleUnit) return
+        if (branchTypes.any { type -> type.contains { it.isError() } }) return
+
+        val refinedTypeForDataFlow = NewCommonSuperTypeCalculator.commonSuperType(branchTypes) as ConeKotlinType
+
+        if (!refinedTypeForDataFlow.isUnitOrFlexibleUnit &&
+            currentType != refinedTypeForDataFlow &&
+            // the refined type doesn't contradict the expression type
+            AbstractTypeChecker.isSubtypeOf(session.typeContext, refinedTypeForDataFlow, currentType)
+        ) {
+            resultType = currentType.withAttributes(
+                currentType.attributes.add(RefinedTypeForDataFlowTypeAttribute(refinedTypeForDataFlow))
+            )
+        }
     }
 
     override fun transformElvisExpression(
         elvisExpression: FirElvisExpression,
         data: ExpectedArgumentType?,
     ): FirStatement {
+        // We don't call transformSyntheticCallWithDataFlowTypeRefining for elvis because currently they're being
+        // treated very specially at FirControlFlowStatementsResolveTransformer.transformElvisExpression
         return transformSyntheticCall(elvisExpression, data)
     }
 
@@ -1294,10 +1362,13 @@ class FirCallCompletionResultsWriterTransformer(
         }
 
         return when (errorDiagnostic) {
-            null -> buildResolvedNamedReference {
-                source = this@toResolvedReference.source
-                name = this@toResolvedReference.name
-                resolvedSymbol = this@toResolvedReference.candidateSymbol
+            null -> when {
+                candidate.isExplicitBackingFieldAccess -> buildExplicitBackingFieldReference(source, name, candidate)
+                else -> buildResolvedNamedReference {
+                    source = this@toResolvedReference.source
+                    name = this@toResolvedReference.name
+                    resolvedSymbol = this@toResolvedReference.candidateSymbol
+                }
             }
 
             else -> toErrorReference(errorDiagnostic)

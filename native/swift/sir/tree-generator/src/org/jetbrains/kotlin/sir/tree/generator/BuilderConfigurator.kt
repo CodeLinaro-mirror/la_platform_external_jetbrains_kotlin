@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.sir.tree.generator
 
 import org.jetbrains.kotlin.sir.tree.generator.config.AbstractSwiftIrTreeBuilderConfigurator
-import org.jetbrains.kotlin.sir.tree.generator.model.Element
 
 class BuilderConfigurator(model: Model) : AbstractSwiftIrTreeBuilderConfigurator(model) {
 
@@ -45,6 +44,14 @@ class BuilderConfigurator(model: Model) : AbstractSwiftIrTreeBuilderConfigurator
 
         configureFieldInAllLeafBuilders("errorType") {
             default(it, "SirType.never")
+        }
+
+        configureFieldInAllLeafBuilders("isAsync") {
+            default(it, "false")
+        }
+
+        configureFieldInAllLeafBuilders("bridges") {
+            default(it, "emptyList()")
         }
 
         builder(setter) {

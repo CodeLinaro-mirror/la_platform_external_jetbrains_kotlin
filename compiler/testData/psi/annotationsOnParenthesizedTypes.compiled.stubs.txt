@@ -1,10 +1,11 @@
 A.class:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/A, fqName=A, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=A, superNames=[Annotation]]
+    CLASS[classId=/A, fqName=A, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=A, superNames=[Annotation]]
       MODIFIER_LIST[public final annotation]
         ANNOTATION_ENTRY[hasValueArguments=false, shortName=Target]
+          valueArguments: [ allowedTargets -> [AnnotationTarget.TYPE, AnnotationTarget.TYPE_PARAMETER] ]
           CONSTRUCTOR_CALLEE
             TYPE_REFERENCE
               USER_TYPE
@@ -13,7 +14,7 @@ A.class:
                     REFERENCE_EXPRESSION[referencedName=kotlin]
                   REFERENCE_EXPRESSION[referencedName=annotation]
                 REFERENCE_EXPRESSION[referencedName=Target]
-      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, name=A]
+      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, hasNoExpressionBody=true, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=A]
         MODIFIER_LIST[public]
         VALUE_PARAMETER_LIST
       SUPER_TYPE_LIST
@@ -27,12 +28,12 @@ A.class:
 
 
 AnnotationsOnParenthesizedTypes.class:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/AnnotationsOnParenthesizedTypes, fqName=AnnotationsOnParenthesizedTypes, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=AnnotationsOnParenthesizedTypes, superNames=[]]
+    CLASS[classId=/AnnotationsOnParenthesizedTypes, fqName=AnnotationsOnParenthesizedTypes, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=AnnotationsOnParenthesizedTypes, superNames=[]]
       MODIFIER_LIST[public final]
-      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, name=AnnotationsOnParenthesizedTypes]
+      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, hasNoExpressionBody=true, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=AnnotationsOnParenthesizedTypes]
         MODIFIER_LIST[public]
         VALUE_PARAMETER_LIST
       CLASS_BODY
@@ -41,6 +42,7 @@ AnnotationsOnParenthesizedTypes.class:
           TYPE_REFERENCE
             MODIFIER_LIST[]
               ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                valueArguments: [ ]
                 CONSTRUCTOR_CALLEE
                   TYPE_REFERENCE
                     USER_TYPE
@@ -59,6 +61,7 @@ AnnotationsOnParenthesizedTypes.class:
                   TYPE_REFERENCE
                     MODIFIER_LIST[]
                       ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                        valueArguments: [ ]
                         CONSTRUCTOR_CALLEE
                           TYPE_REFERENCE
                             USER_TYPE
@@ -76,6 +79,7 @@ AnnotationsOnParenthesizedTypes.class:
               TYPE_REFERENCE
                 MODIFIER_LIST[]
                   ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                    valueArguments: [ ]
                     CONSTRUCTOR_CALLEE
                       TYPE_REFERENCE
                         USER_TYPE
@@ -90,6 +94,7 @@ AnnotationsOnParenthesizedTypes.class:
                 TYPE_REFERENCE
                   MODIFIER_LIST[]
                     ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                      valueArguments: [ ]
                       CONSTRUCTOR_CALLEE
                         TYPE_REFERENCE
                           USER_TYPE
@@ -108,6 +113,7 @@ AnnotationsOnParenthesizedTypes.class:
                 TYPE_REFERENCE
                   MODIFIER_LIST[]
                     ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                      valueArguments: [ ]
                       CONSTRUCTOR_CALLEE
                         TYPE_REFERENCE
                           USER_TYPE
@@ -119,7 +125,7 @@ AnnotationsOnParenthesizedTypes.class:
               TYPE_REFERENCE
                 USER_TYPE
                   REFERENCE_EXPRESSION[referencedName=C]
-        FUN[fqName=AnnotationsOnParenthesizedTypes.receiverArgument, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=true, isTopLevel=false, mayHaveContract=false, name=receiverArgument]
+        FUN[fqName=AnnotationsOnParenthesizedTypes.receiverArgument, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=true, isTopLevel=false, mayHaveContract=false, name=receiverArgument]
           MODIFIER_LIST[public final]
           TYPE_REFERENCE
             USER_TYPE
@@ -129,6 +135,7 @@ AnnotationsOnParenthesizedTypes.class:
                   TYPE_REFERENCE
                     MODIFIER_LIST[]
                       ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                        valueArguments: [ ]
                         CONSTRUCTOR_CALLEE
                           TYPE_REFERENCE
                             USER_TYPE
@@ -141,13 +148,14 @@ AnnotationsOnParenthesizedTypes.class:
               USER_TYPE
                 REFERENCE_EXPRESSION[referencedName=kotlin]
               REFERENCE_EXPRESSION[referencedName=Unit]
-        FUN[fqName=AnnotationsOnParenthesizedTypes.parameter, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=parameter]
+        FUN[fqName=AnnotationsOnParenthesizedTypes.parameter, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=parameter]
           MODIFIER_LIST[public final]
           VALUE_PARAMETER_LIST
             VALUE_PARAMETER[fqName=null, hasDefaultValue=false, hasValOrVar=false, isMutable=false, name=a]
               TYPE_REFERENCE
                 MODIFIER_LIST[]
                   ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                    valueArguments: [ ]
                     CONSTRUCTOR_CALLEE
                       TYPE_REFERENCE
                         USER_TYPE
@@ -159,7 +167,7 @@ AnnotationsOnParenthesizedTypes.class:
               USER_TYPE
                 REFERENCE_EXPRESSION[referencedName=kotlin]
               REFERENCE_EXPRESSION[referencedName=Unit]
-        FUN[fqName=AnnotationsOnParenthesizedTypes.parameterArgument, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=parameterArgument]
+        FUN[fqName=AnnotationsOnParenthesizedTypes.parameterArgument, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=parameterArgument]
           MODIFIER_LIST[public final]
           VALUE_PARAMETER_LIST
             VALUE_PARAMETER[fqName=null, hasDefaultValue=false, hasValOrVar=false, isMutable=false, name=a]
@@ -171,6 +179,7 @@ AnnotationsOnParenthesizedTypes.class:
                       TYPE_REFERENCE
                         MODIFIER_LIST[]
                           ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                            valueArguments: [ ]
                             CONSTRUCTOR_CALLEE
                               TYPE_REFERENCE
                                 USER_TYPE
@@ -182,33 +191,35 @@ AnnotationsOnParenthesizedTypes.class:
               USER_TYPE
                 REFERENCE_EXPRESSION[referencedName=kotlin]
               REFERENCE_EXPRESSION[referencedName=Unit]
-        FUN[fqName=AnnotationsOnParenthesizedTypes.returnValue, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=returnValue]
+        FUN[fqName=AnnotationsOnParenthesizedTypes.returnValue, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=returnValue]
           MODIFIER_LIST[public final]
           VALUE_PARAMETER_LIST
           TYPE_REFERENCE
             MODIFIER_LIST[]
               ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                valueArguments: [ ]
                 CONSTRUCTOR_CALLEE
                   TYPE_REFERENCE
                     USER_TYPE
                       REFERENCE_EXPRESSION[referencedName=A]
             USER_TYPE
               REFERENCE_EXPRESSION[referencedName=C]
-        FUN[fqName=AnnotationsOnParenthesizedTypes.returnTypeParameterValue, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=true, isExtension=false, isTopLevel=false, mayHaveContract=false, name=returnTypeParameterValue]
+        FUN[fqName=AnnotationsOnParenthesizedTypes.returnTypeParameterValue, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=true, isExtension=false, isTopLevel=false, mayHaveContract=false, name=returnTypeParameterValue]
           MODIFIER_LIST[public final]
           TYPE_PARAMETER_LIST
-            TYPE_PARAMETER[fqName=null, isInVariance=false, isOutVariance=false, name=T]
+            TYPE_PARAMETER[fqName=null, name=T]
           VALUE_PARAMETER_LIST
           TYPE_REFERENCE
             MODIFIER_LIST[]
               ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                valueArguments: [ ]
                 CONSTRUCTOR_CALLEE
                   TYPE_REFERENCE
                     USER_TYPE
                       REFERENCE_EXPRESSION[referencedName=A]
             USER_TYPE
               REFERENCE_EXPRESSION[referencedName=T]
-        FUN[fqName=AnnotationsOnParenthesizedTypes.returnArgument, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=returnArgument]
+        FUN[fqName=AnnotationsOnParenthesizedTypes.returnArgument, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=returnArgument]
           MODIFIER_LIST[public final]
           VALUE_PARAMETER_LIST
           TYPE_REFERENCE
@@ -219,6 +230,7 @@ AnnotationsOnParenthesizedTypes.class:
                   TYPE_REFERENCE
                     MODIFIER_LIST[]
                       ANNOTATION_ENTRY[hasValueArguments=false, shortName=A]
+                        valueArguments: [ ]
                         CONSTRUCTOR_CALLEE
                           TYPE_REFERENCE
                             USER_TYPE
@@ -228,20 +240,20 @@ AnnotationsOnParenthesizedTypes.class:
 
 
 B.class:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/B, fqName=B, isClsStubCompiledToJvmDefaultImplementation=true, isEnumEntry=false, isInterface=true, isLocal=false, isTopLevel=true, name=B, superNames=[]]
+    CLASS[classId=/B, fqName=B, isClsStubCompiledToJvmDefaultImplementation=true, isInterface=true, isLocal=false, isTopLevel=true, name=B, superNames=[]]
       MODIFIER_LIST[public]
       TYPE_PARAMETER_LIST
-        TYPE_PARAMETER[fqName=null, isInVariance=false, isOutVariance=false, name=T]
+        TYPE_PARAMETER[fqName=null, name=T]
       CLASS_BODY
 
 
 C.class:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/C, fqName=C, isClsStubCompiledToJvmDefaultImplementation=true, isEnumEntry=false, isInterface=true, isLocal=false, isTopLevel=true, name=C, superNames=[]]
+    CLASS[classId=/C, fqName=C, isClsStubCompiledToJvmDefaultImplementation=true, isInterface=true, isLocal=false, isTopLevel=true, name=C, superNames=[]]
       MODIFIER_LIST[public]
       CLASS_BODY

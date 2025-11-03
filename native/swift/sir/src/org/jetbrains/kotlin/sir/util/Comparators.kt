@@ -12,7 +12,7 @@ import org.jetbrains.kotlin.sir.*
  */
 object Comparators {
     val stableExtensionComparator: Comparator<SirExtension> = compareBy { it.extendedType.swift }
-    val stableNamedComparator: Comparator<SirNamed> = compareBy { it.name }
+    val stableNamedComparator: Comparator<SirScopeDefiningElement> = compareBy { it.name }
     val stableVariableComparator: Comparator<SirVariable> = compareBy { it.name }
     val stableInitComparator: Comparator<SirInit> = compareBy(
         { it.parameters.size },
@@ -20,6 +20,12 @@ object Comparators {
     )
     val stableFunctionComparator: Comparator<SirFunction> = compareBy(
         { it.name },
+        { it.parameters.size },
+        { mangleParameters(it.parameters) },
+    )
+
+    val stableSubscriptComparator: Comparator<SirSubscript> = compareBy(
+        { it.returnType.swift },
         { it.parameters.size },
         { mangleParameters(it.parameters) },
     )
@@ -32,6 +38,23 @@ object Comparators {
         }
     }.thenComparing(stableInitComparator)
         .thenComparing(stableFunctionComparator)
+
+    val stableBridgeComparator: Comparator<SirBridge> = Comparator<SirBridge> { lhs, rhs ->
+        when (lhs) {
+            is SirFunctionBridge -> {
+                when (rhs) {
+                    is SirFunctionBridge -> lhs.name.compareTo(rhs.name)
+                    is SirTypeBindingBridge -> 1
+                }
+            }
+            is SirTypeBindingBridge -> {
+                when (rhs) {
+                    is SirFunctionBridge -> -1
+                    is SirTypeBindingBridge -> lhs.name.compareTo(rhs.name)
+                }
+            }
+        }
+    }
 
     private fun mangleParameters(params: List<SirParameter>): String =
         params.joinToString { "${it.parameterName}-${it.argumentName}:${it.type.swift}" }

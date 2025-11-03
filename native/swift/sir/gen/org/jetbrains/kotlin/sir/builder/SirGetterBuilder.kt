@@ -20,8 +20,10 @@ class SirGetterBuilder {
     var visibility: SirVisibility = SirVisibility.PUBLIC
     var documentation: String? = null
     val attributes: MutableList<SirAttribute> = mutableListOf()
+    val bridges: MutableList<SirBridge> = mutableListOf()
     var body: SirFunctionBody? = null
     var errorType: SirType = SirType.never
+    var isAsync: Boolean = false
 
     fun build(): SirGetter {
         return SirGetterImpl(
@@ -29,8 +31,10 @@ class SirGetterBuilder {
             visibility,
             documentation,
             attributes,
+            bridges,
             body,
             errorType,
+            isAsync,
         )
     }
 
@@ -54,7 +58,9 @@ inline fun buildGetterCopy(original: SirGetter, init: SirGetterBuilder.() -> Uni
     copyBuilder.visibility = original.visibility
     copyBuilder.documentation = original.documentation
     copyBuilder.attributes.addAll(original.attributes)
+    copyBuilder.bridges.addAll(original.bridges)
     copyBuilder.body = original.body
     copyBuilder.errorType = original.errorType
+    copyBuilder.isAsync = original.isAsync
     return copyBuilder.apply(init).build()
 }

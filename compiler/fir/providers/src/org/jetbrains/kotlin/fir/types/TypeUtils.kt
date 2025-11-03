@@ -26,10 +26,12 @@ import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.resolve.substitution.wrapProjection
 import org.jetbrains.kotlin.fir.resolve.toClassSymbol
+import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.resolvedTypeFromPrototype
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.asCone
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFileSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -57,7 +59,7 @@ fun ConeInferenceContext.commonSuperTypeOrNull(types: List<ConeKotlinType>): Con
         0 -> null
         1 -> types.first()
         else -> with(NewCommonSuperTypeCalculator) {
-            commonSuperType(types) as ConeKotlinType
+            commonSuperType(types).asCone()
         }
     }
 }
@@ -144,6 +146,15 @@ fun ConeKotlinType.makeConeTypeDefinitelyNotNullOrNotNull(
         ?: this.withNullability(nullable = false, typeContext, preserveAttributes = preserveAttributes)
 }
 
+@Suppress("NOTHING_TO_INLINE")
+inline fun ConeRigidType.makeConeTypeDefinitelyNotNullOrNotNull(
+    typeContext: ConeTypeContext,
+    avoidComprehensiveCheck: Boolean = false,
+    preserveAttributes: Boolean = false,
+): ConeRigidType = (this as ConeKotlinType).makeConeTypeDefinitelyNotNullOrNotNull(
+    typeContext, avoidComprehensiveCheck, preserveAttributes
+) as ConeRigidType
+
 fun <T : ConeKotlinType> T.withArguments(arguments: Array<out ConeTypeProjection>): T {
     if (this.typeArguments === arguments) {
         /**
@@ -209,6 +220,10 @@ fun <T : ConeKotlinType> T.withAttributes(attributes: ConeAttributes): T {
             withConeTypeEntry("type", this@withAttributes)
         }
     } as T
+}
+
+fun <T : ConeKotlinType> T.removeAnnotations(): T {
+    return withAttributes(attributes.remove(CustomAnnotationTypeAttribute::class))
 }
 
 /**
@@ -526,11 +541,17 @@ fun ConeTypeContext.captureArguments(type: ConeKotlinType, status: CaptureStatus
             null
         }
 
-        ConeCapturedType(status, lowerType, argument, typeConstructor.getParameter(index))
+        ConeCapturedType(
+            constructor = ConeCapturedTypeConstructor(
+                argument, lowerType, status,
+                supertypes = null, // will be initialized below
+                typeConstructor.getParameter(index)
+            )
+        )
     }
 
     val substitution = (0 until argumentsCount).associate { index ->
-        (typeConstructor.getParameter(index) as ConeTypeParameterLookupTag).symbol to (newArguments[index])
+        typeConstructor.getParameter(index).asCone().symbol to (newArguments[index])
     }
     val substitutor = substitutorByMap(substitution, session)
 
@@ -642,7 +663,7 @@ internal fun ConeTypeContext.captureFromExpressionInternal(type: ConeKotlinType)
             capturedArgumentsByComponents = captureArgumentsForIntersectionType(type) ?: return null
             intersectTypes(
                 replaceArgumentsWithCapturedArgumentsByIntersectionComponents(type) ?: return null
-            ).withNullability(type.canBeNull(session)) as ConeKotlinType
+            ).withNullability(type.canBeNull(session)).asCone()
         }
         is ConeSimpleKotlinType -> {
             captureFromArgumentsInternal(type, CaptureStatus.FROM_EXPRESSION)
@@ -670,27 +691,29 @@ internal fun ConeTypeContext.captureFromExpressionInternal(type: ConeKotlinType)
  * otherwise the star projection in `CapturedType(out Foo<*>)` is not properly captured.
  *
  * The method is a version of [org.jetbrains.kotlin.fir.resolve.substitution.substitute] specifically for capturing
- * that doesn't have the issue of KT-64024 where nothing is done when neither [ConeCapturedType.lowerType]
+ * that doesn't have the issue of KT-64024 where nothing is done when neither [ConeCapturedTypeConstructor.lowerType]
  * nor [ConeCapturedTypeConstructor.projection] need capturing.
  */
 private fun ConeTypeContext.captureCapturedType(type: ConeCapturedType): ConeCapturedType? {
-    val capturedProjection = type.constructor.projection.type
+    val constructor = type.constructor
+    val capturedProjection = constructor.projection.type
         ?.let { captureFromExpressionInternal(it) }
-        ?.let { wrapProjection(type.constructor.projection, it) }
-    val capturedSuperTypes = type.constructor.supertypes?.map { captureFromExpressionInternal(it) ?: it }
-    val capturedLowerType = type.lowerType?.let { captureFromExpressionInternal(it) }
+        ?.let { wrapProjection(constructor.projection, it) }
+    val capturedSuperTypes = constructor.supertypes?.map { captureFromExpressionInternal(it) ?: it }
+    val capturedLowerType = constructor.lowerType?.let { captureFromExpressionInternal(it) }
 
-    if (capturedProjection == null && capturedLowerType == null && capturedSuperTypes == type.constructor.supertypes) {
+    if (capturedProjection == null && capturedLowerType == null && capturedSuperTypes == constructor.supertypes) {
         return null
     }
 
     return type.copy(
         constructor = ConeCapturedTypeConstructor(
-            projection = capturedProjection ?: type.constructor.projection,
+            projection = capturedProjection ?: constructor.projection,
             supertypes = capturedSuperTypes,
-            typeParameterMarker = type.constructor.typeParameterMarker
+            lowerType = capturedLowerType ?: constructor.lowerType,
+            captureStatus = constructor.captureStatus,
+            typeParameterMarker = constructor.typeParameterMarker
         ),
-        lowerType = capturedLowerType ?: type.lowerType,
     )
 }
 
@@ -922,7 +945,7 @@ private fun SimpleTypeMarker.eraseArgumentsDeeply(
             erasedType
         else
             erasedType.toTypeProjection(ProjectionKind.OUT)
-    } as ConeKotlinType
+    }.asCone()
 }
 
 private fun ConeKotlinType.eraseAsUpperBound(
@@ -981,24 +1004,27 @@ fun ConeKotlinType.convertToNonRawVersion(): ConeKotlinType {
  * Returns true if this type can be `null`.
  * This function expands typealiases, checks upper bounds of type parameters, the components of intersection types, etc.
  */
-fun ConeKotlinType.canBeNull(session: FirSession): Boolean {
+fun ConeKotlinType.canBeNull(
+    session: FirSession,
+    considerTypeVariableBounds: Boolean = true,
+    visited: MutableSet<ConeKotlinType> = mutableSetOf(),
+): Boolean {
+    if (!visited.add(this)) return false
     return when (this) {
-        is ConeFlexibleType -> upperBound.canBeNull(session)
+        is ConeFlexibleType -> upperBound.canBeNull(session, considerTypeVariableBounds, visited)
         is ConeDefinitelyNotNullType -> false
         is ConeTypeParameterType -> isMarkedNullable || this.lookupTag.typeParameterSymbol.resolvedBounds.all {
-            it.coneType.canBeNull(session)
+            it.coneType.canBeNull(session, considerTypeVariableBounds, visited)
         }
-        is ConeStubType -> {
-            isMarkedNullable ||
-                    (constructor.variable.defaultType.typeConstructor.originalTypeParameter as? ConeTypeParameterLookupTag)?.symbol.let {
-                        it == null || it.allBoundsAreNullableOrUnresolved(session)
-                    }
-        }
-        is ConeIntersectionType -> intersectedTypes.all { it.canBeNull(session) }
-        is ConeCapturedType -> isMarkedNullable || constructor.supertypes?.all { it.canBeNull(session) } == true
+        is ConeStubType -> isMarkedNullable || constructor.variable.defaultType.canBeNull(session, considerTypeVariableBounds, visited)
+        is ConeIntersectionType -> intersectedTypes.all { it.canBeNull(session, considerTypeVariableBounds, visited) }
+        is ConeCapturedType -> isMarkedNullable || constructor.supertypes?.all { it.canBeNull(session, considerTypeVariableBounds, visited) } == true
         is ConeErrorType -> nullable != false
         is ConeLookupTagBasedType -> isMarkedNullable || fullyExpandedType(session).isMarkedNullable
-        is ConeIntegerLiteralType, is ConeTypeVariableType -> isMarkedNullable
+        is ConeIntegerLiteralType -> isMarkedNullable
+        is ConeTypeVariableType -> isMarkedNullable || considerTypeVariableBounds && (typeConstructor.originalTypeParameter as? ConeTypeParameterLookupTag)?.symbol.let {
+            it == null || it.allBoundsAreNullableOrUnresolved(session)
+        }
     }
 }
 
@@ -1028,10 +1054,6 @@ val ConeKotlinType.isUnitOrFlexibleUnit: Boolean
         return classId == StandardClassIds.Unit
     }
 
-fun ConeClassLikeLookupTag.isLocalClass(): Boolean {
-    return classId.isLocal
-}
-
 fun ConeClassLikeLookupTag.isAnonymousClass(): Boolean {
     return name == SpecialNames.ANONYMOUS
 }
@@ -1060,4 +1082,12 @@ inline fun outerType(
     return containingSymbol.constructType(
         fullyExpandedType.typeArguments.drop(currentTypeArgumentsNumber).toTypedArray(),
     )
+}
+
+/**
+ * Returns the FirRegularClass associated with this
+ * or null of something goes wrong.
+ */
+fun FirTypeRef.toRegularClassSymbol(session: FirSession): FirRegularClassSymbol? {
+    return coneType.toRegularClassSymbol(session)
 }

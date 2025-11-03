@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.hasExplicitBackingField
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.buildUnitExpression
+import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.references.toResolvedConstructorSymbol
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.dfa.*
@@ -198,6 +199,9 @@ class ControlFlowGraphBuilder private constructor(
                             }
                     }
                 }
+                // Refer to the comment above. The same reasoning applies here: we don't want to create Nothing-returning stub for
+                // fun() = returnValue. Instead, in this case we will collect returnValue in the `is JumpNode` branch.
+                function.body is FirSingleExpressionBlock -> null
                 // fun() { terminatingExpression } -> nothing (checker will emit an error if return type is not Unit)
                 // fun() { throw } or fun() { returnsNothing() } -> Nothing-returning stub
                 else -> FirStub.takeIf { _ -> previousNodes.all { it is StubNode } }
@@ -223,7 +227,7 @@ class ControlFlowGraphBuilder private constructor(
 
     // ----------------------------------- Utils -----------------------------------
 
-    private inline fun <T, E : T, EnterNode, ExitNode> enterGraph(
+    private inline fun <T : FirElement, E : T?, EnterNode, ExitNode> enterGraph(
         fir: E,
         name: String,
         kind: ControlFlowGraph.Kind,
@@ -276,6 +280,7 @@ class ControlFlowGraphBuilder private constructor(
         }
         if (localFunctionNode != null) {
             addEdge(localFunctionNode, enterNode)
+            addBackEdge(enterNode.owner.exitNode, enterNode) // Local functions can be called repeatedly.
         } else {
             addEdgeIfLocalClassMember(enterNode)
         }
@@ -399,11 +404,17 @@ class ControlFlowGraphBuilder private constructor(
             // skipped. Or if the entry node is dead, because at the time we added the hack-edge we didn't know that.
             CFGNode.killEdge(splitNode, postponedExitNode, propagateDeadness = !isDefinitelyVisited)
         }
-        if (invocationKind?.canBeVisited() == true) {
-            addEdge(exitNode, postponedExitNode, propagateDeadness = isDefinitelyVisited)
-            if (invocationKind.canBeRevisited()) {
-                addBackEdge(postponedExitNode, splitNode)
+
+        if (invocationKind != null) {
+            if (invocationKind.canBeVisited()) {
+                addEdge(exitNode, postponedExitNode, propagateDeadness = isDefinitelyVisited)
+                if (invocationKind.canBeRevisited()) {
+                    addBackEdge(postponedExitNode, splitNode)
+                }
             }
+        } else {
+            // Non-in-place lambdas could be invoked repeatedly.
+            addBackEdge(graph.exitNode, graph.enterNode)
         }
 
         // Lambdas called inline do not capture any variables, so the capture edge needs to be marked as dead.
@@ -1696,9 +1707,6 @@ class ControlFlowGraphBuilder private constructor(
         val exits: MutableList<Pair<CFGNode<*>, EdgeKind>> = mutableListOf(),
     )
 }
-
-fun FirDeclaration?.isLocalClassOrAnonymousObject(): Boolean = ((this as? FirRegularClass)?.isLocal == true) || this is FirAnonymousObject
-fun FirBasedSymbol<*>?.isLocalClassOrAnonymousObject(): Boolean = this?.fir.isLocalClassOrAnonymousObject()
 
 private val FirControlFlowGraphOwner.memberShouldHaveGraph: Boolean
     get() = when (this) {

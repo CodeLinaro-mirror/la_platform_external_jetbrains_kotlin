@@ -31,19 +31,21 @@ public actual abstract class AbstractMutableList<E> protected actual constructor
     protected actual var modCount: Int = 0
 
     abstract override fun add(index: Int, element: E): Unit
-    abstract override fun removeAt(index: Int): E
-    abstract override fun set(index: Int, element: E): E
+    @IgnorableReturnValue abstract override fun removeAt(index: Int): E
+    @IgnorableReturnValue abstract override fun set(index: Int, element: E): E
 
     /**
      * Adds the specified element to the end of this list.
      *
      * @return `true` because the list is always modified as the result of this operation.
      */
+    @IgnorableReturnValue
     override actual fun add(element: E): Boolean {
         add(size, element)
         return true
     }
 
+    @IgnorableReturnValue
     override actual fun addAll(index: Int, elements: Collection<E>): Boolean {
         AbstractList.checkPositionIndex(index, size)
 
@@ -60,7 +62,9 @@ public actual abstract class AbstractMutableList<E> protected actual constructor
         removeRange(0, size)
     }
 
+    @IgnorableReturnValue
     override actual fun removeAll(elements: Collection<E>): Boolean = removeAll { it in elements }
+    @IgnorableReturnValue
     override actual fun retainAll(elements: Collection<E>): Boolean = removeAll { it !in elements }
 
 
@@ -84,7 +88,7 @@ public actual abstract class AbstractMutableList<E> protected actual constructor
     protected actual open fun removeRange(fromIndex: Int, toIndex: Int) {
         val iterator = listIterator(fromIndex)
         repeat(toIndex - fromIndex) {
-            iterator.next()
+            val _ = iterator.next()
             iterator.remove()
         }
     }

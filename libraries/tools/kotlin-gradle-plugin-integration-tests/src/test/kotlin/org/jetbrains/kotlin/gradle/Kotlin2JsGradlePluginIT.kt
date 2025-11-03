@@ -42,7 +42,35 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
             build("build") {
                 assertFileInProjectExists("build/js/packages/kotlin2JsIrDtsGeneration/kotlin/kotlin2JsIrDtsGeneration.js")
                 val dts = projectPath.resolve("build/js/packages/kotlin2JsIrDtsGeneration/kotlin/kotlin2JsIrDtsGeneration.d.ts")
+                val packageJson = projectPath.resolve("build/js/packages/kotlin2JsIrDtsGeneration/")
+                    .resolve(NpmProject.PACKAGE_JSON)
+                    .let { Gson().fromJson(it.readText(), PackageJson::class.java) }
+
                 assertFileExists(dts)
+                assertEquals("kotlin/kotlin2JsIrDtsGeneration.d.ts", packageJson.types)
+                assertFileContains(dts, "function bar(): string")
+            }
+        }
+    }
+
+    @DisplayName("TS type declarations are generated with the right extension for ES modules")
+    @GradleTest
+    fun generateDtsWithEsModules(gradleVersion: GradleVersion) {
+        project("kotlin2JsIrDtsGeneration", gradleVersion) {
+            buildScriptInjection {
+                kotlinMultiplatform.js {
+                    useEsModules()
+                }
+            }
+            build("build") {
+                assertFileInProjectExists("build/js/packages/kotlin2JsIrDtsGeneration/kotlin/kotlin2JsIrDtsGeneration.mjs")
+                val dts = projectPath.resolve("build/js/packages/kotlin2JsIrDtsGeneration/kotlin/kotlin2JsIrDtsGeneration.d.mts")
+                val packageJson = projectPath.resolve("build/js/packages/kotlin2JsIrDtsGeneration/")
+                    .resolve(NpmProject.PACKAGE_JSON)
+                    .let { Gson().fromJson(it.readText(), PackageJson::class.java) }
+
+                assertFileExists(dts)
+                assertEquals("kotlin/kotlin2JsIrDtsGeneration.d.mts", packageJson.types)
                 assertFileContains(dts, "function bar(): string")
             }
         }
@@ -945,9 +973,35 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
         }
     }
 
-    @DisplayName("path in source maps are remapped for custom outputFile")
+    @DisplayName("Test correct sources path with per-file granularity ('KT-72833')")
     @GradleTest
-    fun testKotlinJsSourceMapCustomOutputFile(gradleVersion: GradleVersion) {
+    @TestMetadata("js-per-file")
+    fun testCorrectSourcesPathInPerFile(gradleVersion: GradleVersion) {
+        project("js-per-file", gradleVersion) {
+            build("jsDevelopmentExecutableCompileSync") {
+                val mainSourceMap = projectPath
+                    .resolve("build/compileSync/js/main/developmentExecutable/kotlin/$projectName/org/jetbrains/kotlin/testData/Main.mjs.map")
+
+                assertFileContains(
+                    mainSourceMap,
+                    "\"../../../../../../../../../../../src/jsMain/kotlin/Main.kt\"",
+                    "\"sourcesContent\":[null",
+                )
+
+                val someModuleSourceMap = projectPath
+                    .resolve("build/compileSync/js/main/developmentExecutable/kotlin/$projectName/SomeModule.mjs.map")
+                assertFileContains(
+                    someModuleSourceMap,
+                    "\"../../../../../../../src/jsMain/kotlin/SomeModule.kt\"",
+                    "\"sourcesContent\":[null",
+                )
+            }
+        }
+    }
+
+    @DisplayName("path in source maps are remapped for custom outputFile in executable")
+    @GradleTest
+    fun testKotlinJsSourceMapCustomOutputFileInExecutable(gradleVersion: GradleVersion) {
         project("kotlin2JsProjectWithSourceMap", gradleVersion) {
             val taskSelector = "named<KotlinJsIrLink>(\"compileDevelopmentExecutableKotlinJs\")"
             buildGradleKts.appendText(
@@ -967,6 +1021,66 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                 assertFileContains(mapFilePath, "\"../../src/main/kotlin/main.kt\"")
                 // The IR BE generates correct paths for dependencies
                 assertFileContains(mapFilePath, "\"../../../lib/src/main/kotlin/foo.kt\"")
+            }
+        }
+    }
+
+    @DisplayName("path in source maps are remapped for custom outputFile in library")
+    @GradleTest
+    fun testKotlinJsSourceMapCustomOutputFileInLibrary(gradleVersion: GradleVersion) {
+        // With .js extension
+        project("kotlin-multiplatform-browser-project", gradleVersion) {
+            build(":lib:jsBrowserDevelopmentDistribution") {
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/developmentLibrary/kotlin-js-browser-lib.js")
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/developmentLibrary/kotlin-js-browser-lib.js.map")
+
+                val mapFilePath = projectPath
+                    .resolve("lib/build/${Distribution.DIST}/js/developmentLibrary/kotlin-js-browser-lib.js.map")
+
+                assertFileContains(mapFilePath, "\"../../../../../lib/src/jsMain/kotlin/Lib.kt\"")
+            }
+
+            build(":lib:jsBrowserProductionDistribution") {
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/productionLibrary/kotlin-js-browser-lib.js")
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/productionLibrary/kotlin-js-browser-lib.js.map")
+
+                val mapFilePath = projectPath
+                    .resolve("lib/build/${Distribution.DIST}/js/productionLibrary/kotlin-js-browser-lib.js.map")
+
+                assertFileContains(mapFilePath, "\"../../../../../lib/src/jsMain/kotlin/Lib.kt\"")
+            }
+        }
+    }
+
+
+    @DisplayName("path in source maps are remapped for custom outputFile in library with ES modules")
+    @GradleTest
+    fun testKotlinJsSourceMapCustomOutputFileInLibraryWithESM(gradleVersion: GradleVersion) {
+        project("kotlin-multiplatform-browser-project", gradleVersion) {
+            subProject("lib").buildScriptInjection {
+                kotlinMultiplatform.js {
+                    useEsModules()
+                }
+            }
+
+            build(":lib:jsBrowserDevelopmentDistribution") {
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/developmentLibrary/kotlin-js-browser-lib.mjs")
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/developmentLibrary/kotlin-js-browser-lib.mjs.map")
+
+                val mapFilePath = projectPath
+                    .resolve("lib/build/${Distribution.DIST}/js/developmentLibrary/kotlin-js-browser-lib.mjs.map")
+
+                assertFileContains(mapFilePath, "\"../../../../../lib/src/jsMain/kotlin/Lib.kt\"")
+            }
+
+            build(":lib:jsBrowserProductionDistribution") {
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/productionLibrary/kotlin-js-browser-lib.mjs")
+                assertFileInProjectExists("lib/build/${Distribution.DIST}/js/productionLibrary/kotlin-js-browser-lib.mjs.map")
+
+                val mapFilePath = projectPath
+                    .resolve("lib/build/${Distribution.DIST}/js/productionLibrary/kotlin-js-browser-lib.mjs.map")
+
+                assertFileContains(mapFilePath, "\"../../../../../lib/src/jsMain/kotlin/Lib.kt\"")
             }
         }
     }
@@ -1586,9 +1700,10 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                         |
                         |plugins.withType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin> {
                         |    val nodejs = the<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>()
+                        |    val npmResolutionManager = project.rootProject.kotlinNpmResolutionManager
                         |    tasks.named<org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinNpmInstallTask>("kotlinNpmInstall") {
                         |        doFirst {
-                        |            project.rootProject.kotlinNpmResolutionManager.get().state = 
+                        |            npmResolutionManager.get().state = 
                         |            org.jetbrains.kotlin.gradle.targets.js.npm.KotlinNpmResolutionManager.ResolutionState.Error(GradleException("someSpecialException"))
                         |        }
                         |    }

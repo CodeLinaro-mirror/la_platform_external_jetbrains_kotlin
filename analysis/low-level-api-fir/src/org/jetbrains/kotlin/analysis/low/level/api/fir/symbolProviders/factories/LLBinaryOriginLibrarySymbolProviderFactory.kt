@@ -8,21 +8,24 @@ package org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.factorie
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLFirModuleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.moduleData
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
+import org.jetbrains.kotlin.analysis.low.level.api.fir.symbolProviders.LLJvmClassFileBasedSymbolProvider
 import org.jetbrains.kotlin.fir.FirBinaryDependenciesModuleData
 import org.jetbrains.kotlin.fir.deserialization.SingleModuleDataProvider
 import org.jetbrains.kotlin.fir.java.FirJavaFacade
-import org.jetbrains.kotlin.fir.java.deserialization.JvmClassFileBasedSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirBuiltinSyntheticFunctionInterfaceProvider
+import org.jetbrains.kotlin.fir.resolve.providers.impl.FirDelegatingSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirFallbackBuiltinSymbolProvider
 import org.jetbrains.kotlin.fir.scopes.kotlinScopeProvider
 import org.jetbrains.kotlin.fir.session.JsFlexibleTypeFactory
 import org.jetbrains.kotlin.fir.session.KlibBasedSymbolProvider
 import org.jetbrains.kotlin.fir.session.MetadataSymbolProvider
 import org.jetbrains.kotlin.fir.session.NativeForwardDeclarationsSymbolProvider
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.library.KotlinLibrary
@@ -31,12 +34,19 @@ import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsF
 import org.jetbrains.kotlin.load.kotlin.PackageAndMetadataPartProvider
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinderFactory
-import org.jetbrains.kotlin.util.Logger as KLogger
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.platform.JsPlatform
+import org.jetbrains.kotlin.platform.WasmPlatform
+import org.jetbrains.kotlin.platform.jvm.JvmPlatform
+import org.jetbrains.kotlin.platform.konan.NativePlatform
 import org.jetbrains.kotlin.utils.exceptions.rethrowIntellijPlatformExceptionIfNeeded
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
 import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
+import org.jetbrains.kotlin.util.Logger as KLogger
 
 /**
  * [LLLibrarySymbolProviderFactory] for [KotlinDeserializedDeclarationsOrigin.BINARIES][org.jetbrains.kotlin.analysis.api.platform.KotlinDeserializedDeclarationsOrigin.BINARIES].
@@ -49,14 +59,14 @@ internal object LLBinaryOriginLibrarySymbolProviderFactory : LLLibrarySymbolProv
         scope: GlobalSearchScope,
     ): List<FirSymbolProvider> {
         return listOf(
-            JvmClassFileBasedSymbolProvider(
+            LLJvmClassFileBasedSymbolProvider(
                 session,
                 SingleModuleDataProvider(session.moduleData),
                 session.kotlinScopeProvider,
                 packagePartProvider,
                 VirtualFileFinderFactory.getInstance(session.project).create(scope),
-                firJavaFacade
-            )
+                firJavaFacade,
+            ),
         )
     }
 
@@ -92,7 +102,7 @@ internal object LLBinaryOriginLibrarySymbolProviderFactory : LLLibrarySymbolProv
     ): List<FirSymbolProvider> {
         val moduleData = session.moduleData
         val moduleDataProvider = SingleModuleDataProvider(moduleData)
-        val forwardDeclarationsModuleData = FirBinaryDependenciesModuleData(FORWARD_DECLARATIONS_MODULE_NAME).apply {
+        val forwardDeclarationsModuleData = LLNativeForwardDeclarationsModuleData(moduleData.ktModule).apply {
             bindSession(session)
         }
 
@@ -102,6 +112,16 @@ internal object LLBinaryOriginLibrarySymbolProviderFactory : LLLibrarySymbolProv
             KlibBasedSymbolProvider(session, moduleDataProvider, kotlinScopeProvider, kLibs),
             NativeForwardDeclarationsSymbolProvider(session, forwardDeclarationsModuleData, kotlinScopeProvider, kLibs),
         )
+    }
+
+    /**
+     * The module data specifically for [originalModule]'s associated native forward declarations. In particular, this module data is an
+     * [LLFirModuleData]-compliant replacement for the [FirBinaryDependenciesModuleData] used on the compiler side (see
+     * `FirNativeSessionFactory.createAdditionalDependencyProviders`).
+     */
+    private class LLNativeForwardDeclarationsModuleData(originalModule: KaModule) : LLFirModuleData(originalModule) {
+        override val name: Name
+            get() = FORWARD_DECLARATIONS_MODULE_NAME
     }
 
     override fun createJsLibrarySymbolProvider(
@@ -114,9 +134,12 @@ internal object LLBinaryOriginLibrarySymbolProviderFactory : LLLibrarySymbolProv
 
         return listOf(
             KlibBasedSymbolProvider(
-                session, moduleDataProvider, session.kotlinScopeProvider, kLibs,
+                session,
+                moduleDataProvider,
+                session.kotlinScopeProvider,
+                kLibs,
                 flexibleTypeFactory = JsFlexibleTypeFactory(session),
-            )
+            ),
         )
     }
 
@@ -129,18 +152,15 @@ internal object LLBinaryOriginLibrarySymbolProviderFactory : LLLibrarySymbolProv
         val kLibs = moduleData.getLibraryKLibs()
 
         return listOf(
-            KlibBasedSymbolProvider(session, moduleDataProvider, session.kotlinScopeProvider, kLibs)
+            KlibBasedSymbolProvider(session, moduleDataProvider, session.kotlinScopeProvider, kLibs),
         )
     }
 
-    override fun createBuiltinsSymbolProvider(session: LLFirSession): List<FirSymbolProvider> {
-        val moduleData = session.moduleData
-        val kotlinScopeProvider = session.kotlinScopeProvider
-        return listOf(
-            FirFallbackBuiltinSymbolProvider(session, moduleData, kotlinScopeProvider),
-            FirBuiltinSyntheticFunctionInterfaceProvider(session, moduleData, kotlinScopeProvider)
+    override fun createBuiltinsSymbolProvider(session: LLFirSession): List<FirSymbolProvider> =
+        listOf(
+            createFallbackBuiltinsSymbolProvider(session),
+            FirBuiltinSyntheticFunctionInterfaceProvider(session, session.moduleData, session.kotlinScopeProvider),
         )
-    }
 
     private fun LLFirModuleData.getLibraryKLibs(): List<KotlinLibrary> {
         val ktLibraryModule = ktModule as? KaLibraryModule ?: return emptyList()
@@ -180,5 +200,40 @@ internal object LLBinaryOriginLibrarySymbolProviderFactory : LLLibrarySymbolProv
         override fun fatal(message: String): Nothing {
             throw IllegalStateException(message)
         }
+    }
+}
+
+/**
+ * Creates a fallback builtins symbol provider for the [session], taking into account its specific target platform.
+ *
+ * [FirFallbackBuiltinSymbolProvider] includes `kotlin.Cloneable` regardless of the target platform. But `Cloneable` should not be available
+ * in non-JVM/Common platforms. As such, we specifically exclude the symbol for other platforms.
+ *
+ * This is a workaround for the larger problem of platform-specific fallback builtins. For now, we've sourced fallback builtins from the
+ * tooling's runtime stdlib regardless of the target platform, so fallback builtins for e.g. Native will be sourced from a JAR. `Cloneable`
+ * is a specific visible symptom of this, but might not be the only problem. See KT-79930.
+ */
+private fun createFallbackBuiltinsSymbolProvider(session: LLFirSession): FirSymbolProvider {
+    val targetPlatform = session.moduleData.platform
+    val isCloneableAvailable = when {
+        targetPlatform.all { it is JvmPlatform } -> true
+        targetPlatform.all { it is NativePlatform } -> false
+        targetPlatform.all { it is JsPlatform } -> false
+        targetPlatform.all { it is WasmPlatform } -> false
+        else -> true // Common
+    }
+
+    val baseProvider = FirFallbackBuiltinSymbolProvider(session, session.moduleData, session.kotlinScopeProvider)
+    return if (!isCloneableAvailable) {
+        LLCloneableExcludingSymbolProvider(baseProvider)
+    } else {
+        baseProvider
+    }
+}
+
+private class LLCloneableExcludingSymbolProvider(delegate: FirSymbolProvider) : FirDelegatingSymbolProvider(delegate) {
+    override fun getClassLikeSymbolByClassId(classId: ClassId): FirClassLikeSymbol<*>? {
+        if (classId == StandardClassIds.Cloneable) return null
+        return super.getClassLikeSymbolByClassId(classId)
     }
 }

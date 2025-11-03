@@ -1,6 +1,8 @@
 // IGNORE_FIR_DIAGNOSTICS
-// RUN_PIPELINE_TILL: FIR2IR
+// RUN_PIPELINE_TILL: BACKEND
+// LANGUAGE: -ForbidTypeAliasToCompilerRequiredAnnotation
 // WITH_STDLIB
+// DISABLE_IR_VISIBILITY_CHECKS: ANY
 // MODULE: m1-common
 // FILE: common.kt
 expect annotation class TypealiasToKotlinPkg

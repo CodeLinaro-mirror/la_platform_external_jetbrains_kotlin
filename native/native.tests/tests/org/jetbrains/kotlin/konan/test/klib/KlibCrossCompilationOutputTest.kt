@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,9 +11,8 @@ import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeSimpleTest
 import org.jetbrains.kotlin.konan.test.blackbox.compileLibrary
 import org.jetbrains.kotlin.konan.test.blackbox.support.ClassLevelProperty
 import org.jetbrains.kotlin.konan.test.blackbox.support.EnforcedProperty
-import org.jetbrains.kotlin.konan.test.blackbox.support.group.ClassicPipeline
 import org.jetbrains.kotlin.konan.test.blackbox.toOutput
-import org.jetbrains.kotlin.test.KotlinTestUtils
+import org.jetbrains.kotlin.test.TestDataAssertions
 import org.jetbrains.kotlin.test.TestMetadata
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstance
 import org.junit.jupiter.api.Assumptions
@@ -33,7 +32,9 @@ private const val TEST_DATA_ROOT = "native/native.tests/testData/klib/cross-comp
  */
 @Tag("klib")
 @TestDataPath("\$PROJECT_ROOT/$TEST_DATA_ROOT")
-abstract class KlibCrossCompilationOutputTest : AbstractNativeSimpleTest() {
+@EnforcedProperty(ClassLevelProperty.COMPILER_OUTPUT_INTERCEPTOR, "NONE")
+@EnforcedProperty(ClassLevelProperty.TEST_TARGET, "ios_arm64")
+class KlibCrossCompilationOutputTest : AbstractNativeSimpleTest() {
     @Test
     @TestMetadata("compiler-output")
     fun testKlibCrossCompilation(testInfo: TestInfo) {
@@ -47,7 +48,7 @@ abstract class KlibCrossCompilationOutputTest : AbstractNativeSimpleTest() {
         val compilationResult = compileLibrary(testRunSettings, rootDir.resolve("hello.kt"))
         val expectedOutput = rootDir.resolve("output.txt")
 
-        KotlinTestUtils.assertEqualsToFile(expectedOutput, compilationResult.toOutput().sanitizeCrossCompilationOutput())
+        TestDataAssertions.assertEqualsToFile(expectedOutput, compilationResult.toOutput().sanitizeCrossCompilationOutput())
     }
 
     private fun String.sanitizeCrossCompilationOutput(): String = lines().joinToString(separator = "\n") { line ->
@@ -101,12 +102,3 @@ abstract class KlibCrossCompilationOutputTest : AbstractNativeSimpleTest() {
         private const val KONAN_HOME_STUB = "\$KONAN_HOME"
     }
 }
-
-@ClassicPipeline()
-@EnforcedProperty(ClassLevelProperty.COMPILER_OUTPUT_INTERCEPTOR, "NONE")
-@EnforcedProperty(ClassLevelProperty.TEST_TARGET, "ios_arm64")
-class ClassicFEKlibCrossCompilationOutputTest : KlibCrossCompilationOutputTest()
-
-@EnforcedProperty(ClassLevelProperty.COMPILER_OUTPUT_INTERCEPTOR, "NONE")
-@EnforcedProperty(ClassLevelProperty.TEST_TARGET, "ios_arm64")
-class FirKlibCrossCompilationOutputTest : KlibCrossCompilationOutputTest()

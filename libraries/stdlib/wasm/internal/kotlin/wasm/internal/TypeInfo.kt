@@ -56,26 +56,24 @@ internal fun getQualifiedName(rtti: kotlin.wasm.internal.reftypes.structref): St
     return if (packageName.isEmpty()) typeName else "$packageName.$typeName"
 }
 
-internal fun getPackageName(rtti: kotlin.wasm.internal.reftypes.structref): String = stringLiteral(
-    startAddress = wasmGetRttiIntField(2, rtti),
-    length = wasmGetRttiIntField(3, rtti),
-    poolId = wasmGetRttiIntField(4, rtti),
-)
+internal fun getPackageName(rtti: kotlin.wasm.internal.reftypes.structref): String {
+    val poolId = wasmGetRttiIntField(2, rtti)
+    return wasmGetQualifierImpl(poolId, rtti)
+}
 
-internal fun getSimpleName(rtti: kotlin.wasm.internal.reftypes.structref): String = stringLiteral(
-    startAddress = wasmGetRttiIntField(5, rtti),
-    length = wasmGetRttiIntField(6, rtti),
-    poolId = wasmGetRttiIntField(7, rtti),
-)
+internal fun getSimpleName(rtti: kotlin.wasm.internal.reftypes.structref): String {
+    val poolId = wasmGetRttiIntField(3, rtti)
+    return wasmGetSimpleNameImpl(poolId, rtti)
+}
 
 internal fun getTypeId(rtti: kotlin.wasm.internal.reftypes.structref): Long =
-    wasmGetRttiLongField(8, rtti)
+    wasmGetRttiLongField(4, rtti)
 
 internal fun isAnonymousClass(rtti: kotlin.wasm.internal.reftypes.structref): Boolean =
-    false
+    (wasmGetRttiIntField(5, rtti) and TYPE_INFO_FLAG_ANONYMOUS_CLASS) != 0
 
 internal fun isLocalClass(rtti: kotlin.wasm.internal.reftypes.structref): Boolean =
-    false
+    (wasmGetRttiIntField(5, rtti) and TYPE_INFO_FLAG_LOCAL_CLASS) != 0
 
 @Suppress("UNUSED_PARAMETER")
 @ExcludedFromCodegen
@@ -112,4 +110,14 @@ internal fun wasmGetRttiLongField(intFieldIndex: Int, obj: kotlin.wasm.internal.
 @Suppress("UNUSED_PARAMETER")
 @ExcludedFromCodegen
 internal fun wasmGetRttiSuperClass(rtti: kotlin.wasm.internal.reftypes.structref): kotlin.wasm.internal.reftypes.structref? =
+    implementedAsIntrinsic
+
+@ExcludedFromCodegen
+@Suppress("UNUSED_PARAMETER")
+internal fun wasmGetQualifierImpl(poolId: Int, rtti: kotlin.wasm.internal.reftypes.structref): String =
+    implementedAsIntrinsic
+
+@ExcludedFromCodegen
+@Suppress("UNUSED_PARAMETER")
+internal fun wasmGetSimpleNameImpl(poolId: Int, rtti: kotlin.wasm.internal.reftypes.structref): String =
     implementedAsIntrinsic

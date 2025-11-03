@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.fir.diagnostics.ConeContractMayNotHaveLabel
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
+import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeContractDescriptionError
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.coneType
@@ -43,6 +44,8 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
     private const val INVALID_CONTRACT_BLOCK = "Contract block could not be resolved"
     private const val CALLS_IN_PLACE_ON_CONTEXT_PARAMETER =
         "callsInPlace contract cannot be applied to context parameter because context arguments can never be lambdas."
+    private const val CONDITIONAL_RETURNS_EXPRESSION_NOT_SUPPORTED =
+        "Arbitrary expressions are not supported in this contract, only 'null'` and 'is' checks are supported"
 
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(declaration: FirFunction) {
@@ -63,6 +66,7 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
             is FirResolvedContractDescription -> {
                 checkUnresolvedEffects(contractDescription, declaration)
                 checkDuplicateCallsInPlace(contractDescription)
+                checkComplexArgumentConditions(contractDescription)
                 if (declaration.contextParameters.isNotEmpty()) {
                     checkCallsInPlaceOnContextParameter(contractDescription, declaration.valueParameters.size)
                 }
@@ -111,7 +115,7 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
         declaration: FirFunction,
     ) {
         val erasedCastChecker =
-            if (context.languageVersionSettings.supportsFeature(LanguageFeature.AllowCheckForErasedTypesInContracts)) null
+            if (LanguageFeature.AllowCheckForErasedTypesInContracts.isEnabled()) null
             else ErasedCastChecker(declaration, context)
         // Any statements that [ConeEffectExtractor] cannot extract effects will be in `unresolvedEffects`.
         for (unresolvedEffect in contractDescription.unresolvedEffects) {
@@ -145,24 +149,24 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
 
         fun contractNotAllowed(message: String) = reporter.reportOn(source, FirErrors.CONTRACT_NOT_ALLOWED, message)
 
+        val allowedOnAccessors = LanguageFeature.AllowContractsOnPropertyAccessors.isEnabled()
+        val allowedOnSomeOperators = LanguageFeature.AllowContractsOnSomeOperators.isEnabled()
+
         when {
-            declaration is FirPropertyAccessor || declaration is FirAnonymousFunction -> {
-                if (context.languageVersionSettings.supportsFeature(LanguageFeature.AllowContractsOnPropertyAccessors)) {
-                    if (declaration is FirAnonymousFunction) contractNotAllowed("Contracts are not allowed for anonymous functions.")
-                } else {
-                    contractNotAllowed("Contracts are only allowed for functions.")
-                }
+            !allowedOnAccessors && (declaration is FirPropertyAccessor || declaration is FirAnonymousFunction) -> {
+                contractNotAllowed("Contracts are only allowed for functions.")
+            }
+            allowedOnAccessors && declaration is FirAnonymousFunction -> {
+                contractNotAllowed("Contracts are not allowed for anonymous functions.")
             }
             declaration.isAbstract || declaration.isOpen || declaration.isOverride -> {
                 contractNotAllowed("Contracts are not allowed for open or override functions.")
             }
-            declaration.isOperator -> {
-                if (context.languageVersionSettings.supportsFeature(LanguageFeature.AllowContractsOnSomeOperators)) {
-                    if (declaration.isContractOnOperatorForbidden())
-                        contractNotAllowed("Contracts are not allowed for operator ${declaration.nameOrSpecialName}.")
-                } else {
-                    contractNotAllowed("Contracts are not allowed for operator functions.")
-                }
+            !allowedOnSomeOperators && declaration.isOperator -> {
+                contractNotAllowed("Contracts are not allowed for operator functions.")
+            }
+            allowedOnSomeOperators && declaration.isOperator && declaration.isContractOnOperatorForbidden() -> {
+                contractNotAllowed("Contracts are not allowed for operator ${declaration.nameOrSpecialName}.")
             }
             declaration.symbol.callableId.isLocal || declaration.visibility == Visibilities.Local -> {
                 contractNotAllowed("Contracts are not allowed for local functions.")
@@ -230,6 +234,30 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
     }
 
     context(context: CheckerContext, reporter: DiagnosticReporter)
+    private fun checkComplexArgumentConditions(
+        description: FirResolvedContractDescription,
+    ) {
+        val conditionalReturns = description.effects.mapNotNull { it.effect as? ConeConditionalReturnsDeclaration }
+
+        fun ConeBooleanExpression.containsUnsupportedElements(): Boolean = when (this) {
+            is ConeLogicalNot
+                -> arg.containsUnsupportedElements()
+            is ConeBinaryLogicExpression,
+            is ConeBooleanValueParameterReference,
+            is ConeBooleanConstantReference,
+                -> true
+            else
+                -> false
+        }
+
+        for (conditionalReturn in conditionalReturns) {
+            if (conditionalReturn.argumentsCondition.containsUnsupportedElements()) {
+                reporter.reportOn(description.source, FirErrors.ERROR_IN_CONTRACT_DESCRIPTION, CONDITIONAL_RETURNS_EXPRESSION_NOT_SUPPORTED)
+            }
+        }
+    }
+
+    context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun checkDiagnosticsFromFirBuilder(
         diagnostic: ConeDiagnostic?,
         source: KtSourceElement?,
@@ -253,6 +281,20 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
             data: Nothing?
         ): ConeDiagnostic? {
             return conditionalEffect.effect.accept(this, null) ?: conditionalEffect.condition.accept(this, null)
+        }
+
+        override fun visitConditionalReturnsDeclaration(
+            conditionalEffect: KtConditionalReturnsDeclaration<ConeKotlinType, ConeDiagnostic>,
+            data: Nothing?,
+        ): ConeDiagnostic? {
+            return conditionalEffect.argumentsCondition.accept(this, null) ?: conditionalEffect.returnsEffect.accept(this, null)
+        }
+
+        override fun visitHoldsInEffectDeclaration(
+            holdsInEffect: KtHoldsInEffectDeclaration<ConeKotlinType, ConeDiagnostic>,
+            data: Nothing?,
+        ): ConeDiagnostic? {
+            return holdsInEffect.argumentsCondition.accept(this, null) ?: holdsInEffect.valueParameterReference.accept(this, null)
         }
 
         override fun visitReturnsEffectDeclaration(returnsEffect: ConeReturnsEffectDeclaration, data: Nothing?): ConeDiagnostic? {
@@ -333,6 +375,20 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
             return conditionalEffect.condition.accept(this, data)
         }
 
+        override fun visitConditionalReturnsDeclaration(
+            conditionalEffect: KtConditionalReturnsDeclaration<ConeKotlinType, ConeDiagnostic>,
+            data: Nothing?,
+        ): ConeDiagnostic? {
+            return conditionalEffect.argumentsCondition.accept(this, data)
+        }
+
+        override fun visitHoldsInEffectDeclaration(
+            holdsInEffect: KtHoldsInEffectDeclaration<ConeKotlinType, ConeDiagnostic>,
+            data: Nothing?,
+        ): ConeDiagnostic? {
+            return holdsInEffect.argumentsCondition.accept(this, data)
+        }
+
         override fun visitIsInstancePredicate(
             isInstancePredicate: KtIsInstancePredicate<ConeKotlinType, ConeDiagnostic>,
             data: Nothing?
@@ -356,13 +412,16 @@ object FirContractChecker : FirFunctionChecker(MppCheckerKind.Common) {
             return logicalNot.arg.accept(this, data)
         }
 
-        private fun getParameterType(index: Int): ConeKotlinType =
-            when (index) {
-                -1 -> declaration.symbol.resolvedReceiverType
+        private fun getParameterType(index: Int): ConeKotlinType {
+            val declarationSymbolForReceiverParameter =
+                if (declaration is FirPropertyAccessor) declaration.propertySymbol else declaration.symbol
+            return when (index) {
+                -1 -> declarationSymbolForReceiverParameter.resolvedReceiverType
                     ?: declaration.symbol.dispatchReceiverType
                     ?: error("Contract references non-existent receiver")
                 in declaration.valueParameters.indices -> declaration.valueParameters[index].returnTypeRef.coneType
-                else -> declaration.contextParameters[index - declaration.valueParameters.size].returnTypeRef.coneType
+                else -> declarationSymbolForReceiverParameter.contextParameterSymbols[index - declaration.valueParameters.size].resolvedReturnType
             }
+        }
     }
 }

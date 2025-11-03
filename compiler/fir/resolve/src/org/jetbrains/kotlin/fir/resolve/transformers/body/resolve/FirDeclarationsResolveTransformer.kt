@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.resolve.transformers.body.resolve
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Visibility
@@ -22,12 +23,14 @@ import org.jetbrains.kotlin.fir.declarations.utils.hasExplicitBackingField
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.declarations.utils.isLocal
+import org.jetbrains.kotlin.fir.declarations.utils.isScriptTopLevelDeclaration
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.replSnippetResolveExtensions
+import org.jetbrains.kotlin.fir.extensions.scriptResolutionHacksComponent
 import org.jetbrains.kotlin.fir.references.FirResolvedErrorReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.*
@@ -40,11 +43,12 @@ import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeLocalVariableNoTypeOrIni
 import org.jetbrains.kotlin.fir.resolve.inference.FirDelegatedPropertyInferenceSession
 import org.jetbrains.kotlin.fir.resolve.inference.extractLambdaInfoFromFunctionType
 import org.jetbrains.kotlin.fir.resolve.substitution.ChainedSubstitutor
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.substitution.asCone
 import org.jetbrains.kotlin.fir.resolve.transformers.FirStatusResolver
 import org.jetbrains.kotlin.fir.resolve.transformers.contracts.runContractResolveForFunction
 import org.jetbrains.kotlin.fir.resolve.transformers.transformVarargTypeToArrayType
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildErrorTypeRef
@@ -59,6 +63,7 @@ import org.jetbrains.kotlin.resolve.calls.inference.model.ProvideDelegateFixatio
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.util.PrivateForInline
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.exceptions.requireWithAttachment
 
 open class FirDeclarationsResolveTransformer(
@@ -190,9 +195,14 @@ open class FirDeclarationsResolveTransformer(
                     property.transformReceiverParameter(transformer, ResolutionMode.ContextIndependent)
                     property.transformContextParameters(transformer, ResolutionMode.ContextIndependent)
                     doTransformTypeParameters(property)
+
+                    property.setUnnamedContextParameterNames()
                 }
 
-                context.forPropertyInitializer {
+                // TODO: the [skipCleanup] hack should be reverted on fixing KT-79107
+                val skipCleanup = property.isScriptTopLevelDeclaration == true &&
+                        session.scriptResolutionHacksComponent?.skipTowerDataCleanupForTopLevelInitializers == true
+                context.forPropertyInitializer(skipCleanup) {
                     if (!initializerIsAlreadyResolved) {
                         val resolutionMode = withExpectedType(property.returnTypeRef)
                         property
@@ -370,7 +380,10 @@ open class FirDeclarationsResolveTransformer(
             if (property.isLocal) {
                 transformDelegateExpression(delegateContainer)
             } else {
-                context.forPropertyInitializer {
+                // TODO: the [skipCleanup] hack should be reverted on fixing KT-79107
+                val skipCleanup = property.isScriptTopLevelDeclaration == true &&
+                        session.scriptResolutionHacksComponent?.skipTowerDataCleanupForTopLevelInitializers == true
+                context.forPropertyInitializer(skipCleanup) {
                     transformDelegateExpression(delegateContainer)
                 }
             }
@@ -520,7 +533,7 @@ open class FirDeclarationsResolveTransformer(
                 provideDelegateCandidate.substitutor,
                 (context.inferenceSession as FirDelegatedPropertyInferenceSession).currentConstraintStorage.buildCurrentSubstitutor(
                     session.typeContext, additionalBinding?.let(::mapOf) ?: emptyMap()
-                ) as ConeSubstitutor
+                ).asCone()
             )
 
             val toTypeVariableSubstituted =
@@ -614,7 +627,7 @@ open class FirDeclarationsResolveTransformer(
 
             check(!candidateStorage.hasContradiction) { "We only should try fixing variables on successful provideDelegate candidate" }
             // We don't actually fix it, but add an equality constraint as approximation
-            candidateSystem.addEqualityConstraint(returnTypeBasedOnVariable, resultType!!, ProvideDelegateFixationPosition)
+            candidateSystem.addEqualityConstraint(returnTypeBasedOnVariable, resultType, ProvideDelegateFixationPosition)
 
             check(!candidateStorage.hasContradiction) {
                 "Currently, we see no cases when contradiction might happen after adding equality constraint like that." +
@@ -796,7 +809,7 @@ open class FirDeclarationsResolveTransformer(
         context.withContainingClass(regularClass) {
             val isLocal = regularClass.isLocal
             if (isLocal && regularClass !in context.targetedLocalClasses) {
-                return regularClass.runAllPhasesForLocalClass(components, data)
+                return regularClass.runAllPhasesForLocalClassLikeDeclarations(components, data)
             }
 
             if (isLocal || !implicitTypeOnly) {
@@ -862,7 +875,7 @@ open class FirDeclarationsResolveTransformer(
     override fun transformTypeAlias(typeAlias: FirTypeAlias, data: ResolutionMode): FirTypeAlias = whileAnalysing(session, typeAlias) {
         if (implicitTypeOnly) return typeAlias
         if (typeAlias.isLocal && typeAlias !in context.targetedLocalClasses) {
-            return typeAlias.runAllPhasesForLocalClass(components, data)
+            return typeAlias.runAllPhasesForLocalClassLikeDeclarations(components, data)
         }
 
         @OptIn(PrivateForInline::class)
@@ -933,7 +946,7 @@ open class FirDeclarationsResolveTransformer(
     ): FirAnonymousObject = whileAnalysing(session, anonymousObject) {
         context.withContainingClass(anonymousObject) {
             if (anonymousObject !in context.targetedLocalClasses) {
-                return anonymousObject.runAllPhasesForLocalClass(components, data)
+                return anonymousObject.runAllPhasesForLocalClassLikeDeclarations(components, data)
             }
 
             require(anonymousObject.controlFlowGraphReference == null)
@@ -1052,6 +1065,8 @@ open class FirDeclarationsResolveTransformer(
                 .transformContextParameters(this, ResolutionMode.ContextIndependent)
                 .transformValueParameters(this, ResolutionMode.ContextIndependent)
                 .transformAnnotations(this, ResolutionMode.ContextIndependent)
+
+            function.setUnnamedContextParameterNames()
         }
 
         if (!bodyResolved) {
@@ -1149,7 +1164,7 @@ open class FirDeclarationsResolveTransformer(
     ): FirValueParameter = whileAnalysing(session, valueParameter) {
         dataFlowAnalyzer.enterValueParameter(valueParameter)
         val insideAnnotationConstructorDeclaration =
-            (valueParameter.containingDeclarationSymbol as? FirConstructorSymbol)?.resolvedReturnType?.toClassSymbol(session)?.classKind == ClassKind.ANNOTATION_CLASS
+            (valueParameter.containingDeclarationSymbol as? FirConstructorSymbol)?.resolvedReturnType?.toClassSymbol()?.classKind == ClassKind.ANNOTATION_CLASS
         val result = context.withValueParameter(valueParameter, session) {
             transformDeclarationContent(
                 valueParameter,
@@ -1221,7 +1236,7 @@ open class FirDeclarationsResolveTransformer(
         anonymousFunctionExpression: FirAnonymousFunctionExpression,
         expectedTypeData: ResolutionMode.WithExpectedType?,
     ): FirStatement = when {
-        session.languageVersionSettings.supportsFeature(LanguageFeature.ResolveTopLevelLambdasAsSyntheticCallArgument) ->
+        LanguageFeature.ResolveTopLevelLambdasAsSyntheticCallArgument.isEnabled() ->
             components.syntheticCallGenerator.resolveAnonymousFunctionExpressionWithSyntheticOuterCall(
                 anonymousFunctionExpression, expectedTypeData, resolutionContext
             )
@@ -1284,10 +1299,10 @@ open class FirDeclarationsResolveTransformer(
                         moduleData = session.moduleData
                         origin = FirDeclarationOrigin.Source
                         name = SpecialNames.UNDERSCORE_FOR_UNUSED_VAR
-                        symbol = FirValueParameterSymbol(name)
+                        symbol = FirValueParameterSymbol()
                         returnTypeRef = receiverType
                             .toFirResolvedTypeRef(lambda.source?.fakeElement(KtFakeSourceElementKind.LambdaContextParameter))
-                        valueParameterKind = if (session.languageVersionSettings.supportsFeature(LanguageFeature.ContextParameters)) {
+                        valueParameterKind = if (LanguageFeature.ContextParameters.isEnabled()) {
                             FirValueParameterKind.ContextParameter
                         } else {
                             FirValueParameterKind.LegacyContextReceiver
@@ -1300,6 +1315,7 @@ open class FirDeclarationsResolveTransformer(
 
         lambda = lambda.transformValueParameters(ImplicitToErrorTypeTransformer, null)
         lambda = lambda.transformContextParameters(ImplicitToErrorTypeTransformer, null)
+        lambda.setUnnamedContextParameterNames()
 
         val initialReturnTypeRef = lambda.returnTypeRef as? FirResolvedTypeRef
         val expectedReturnTypeRef = initialReturnTypeRef
@@ -1315,7 +1331,10 @@ open class FirDeclarationsResolveTransformer(
             session.lookupTracker?.recordTypeResolveAsLookup(lambda.returnTypeRef, lambda.source, context.file.source)
         }
 
-        lambda.replaceTypeRef(lambda.constructFunctionTypeRef(session, resolvedLambdaAtom?.expectedFunctionTypeKind))
+        val kind = runIf(lambda.status.isSuspend) { FunctionTypeKind.SuspendFunction }
+            ?: resolvedLambdaAtom?.expectedFunctionTypeKind
+
+        lambda.replaceTypeRef(lambda.constructFunctionTypeRef(session, kind))
         session.lookupTracker?.recordTypeResolveAsLookup(lambda.typeRef, lambda.source, context.file.source)
         lambda.addReturnToLastStatementIfNeeded(session)
         return lambda
@@ -1384,7 +1403,7 @@ open class FirDeclarationsResolveTransformer(
                         source = lambda.source?.fakeElement(KtFakeSourceElementKind.ImplicitReturnTypeOfLambdaValueParameter)
                     )
                     this.name = name
-                    symbol = FirValueParameterSymbol(name)
+                    symbol = FirValueParameterSymbol()
                     isCrossinline = false
                     isNoinline = false
                     isVararg = false
@@ -1573,9 +1592,9 @@ open class FirDeclarationsResolveTransformer(
     }
 
     private val FirVariable.isLocal: Boolean
-        get() = when (this) {
-            is FirProperty -> this.isLocal
-            is FirValueParameter -> true
+        get() = when (val symbol = symbol) {
+            is FirValueParameterSymbol -> true
+            is FirPropertySymbol -> symbol.isLocal
             else -> false
         }
 

@@ -39,7 +39,8 @@ abstract class YarnBasics internal constructor(
 
     @Deprecated(
         "Updated to remove ServiceRegistry. Scheduled for removal in Kotlin 2.4.",
-        ReplaceWith("packageManagerExec(logger, nodeJs, yarn, dir, description, args)")
+        ReplaceWith("packageManagerExec(logger, nodeJs, yarn, dir, description, args)"),
+        level = DeprecationLevel.ERROR
     )
     @Suppress("unused")
     fun yarnExec(
@@ -78,7 +79,17 @@ abstract class YarnBasics internal constructor(
                 )
                 .plus(
                     if (environment.ignoreScripts) "--ignore-scripts" else ""
-                ).filter { it.isNotEmpty() }
+                )
+                .plus(
+                    // It is necessary for different Yarn processes to not interfere with each other
+                    listOf(
+                        "--network-concurrency",
+                        "1",
+                        "--mutex",
+                        "network",
+                    )
+                )
+                .filter { it.isNotEmpty() }
 
             val nodeExecutable = nodeJs.nodeExecutable
             if (!environment.ignoreScripts) {

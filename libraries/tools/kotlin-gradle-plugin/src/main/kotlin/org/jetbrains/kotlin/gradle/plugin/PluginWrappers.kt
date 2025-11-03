@@ -6,17 +6,13 @@
 package org.jetbrains.kotlin.gradle.plugin
 
 import org.gradle.api.Project
-import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ProblemsReporter
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ProblemsReporterG76
 import org.jetbrains.kotlin.gradle.plugin.internal.*
-import javax.inject.Inject
 
 private const val PLUGIN_VARIANT_NAME = "gradle76"
 
-open class KotlinPluginWrapper @Inject constructor(
-    registry: ToolingModelBuilderRegistry
-) : AbstractKotlinPluginWrapper(registry) {
+open class KotlinPluginWrapper : AbstractKotlinPluginWrapper() {
 
     override val pluginVariant: String = PLUGIN_VARIANT_NAME
 
@@ -26,9 +22,7 @@ open class KotlinPluginWrapper @Inject constructor(
     }
 }
 
-open class KotlinAndroidPluginWrapper @Inject constructor(
-    registry: ToolingModelBuilderRegistry
-) : AbstractKotlinAndroidPluginWrapper(registry) {
+open class KotlinAndroidPluginWrapper : AbstractKotlinAndroidPluginWrapper() {
 
     override val pluginVariant: String = PLUGIN_VARIANT_NAME
 
@@ -80,4 +74,7 @@ private fun Project.registerVariantImplementations() {
         JavaExecTaskParametersCompatibilityG76.Factory()
     factories[ProblemsReporter.Factory::class] =
         ProblemsReporterG76.Factory()
+    factories[CopySpecAccessor.Factory::class] = CopySpecAccessorG85.Factory()
+    factories[BuildIdentifierAccessor.Factory::class] = BuildIdentifierAccessorG81.Factory()
+    factories[ProjectDependencyAccessor.Factory::class] = ProjectDependencyAccessorG88.Factory()
 }

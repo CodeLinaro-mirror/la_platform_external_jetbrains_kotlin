@@ -58,11 +58,12 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
     ::JvmReturnableBlockLowering,
     ::SingletonReferencesLowering,
     ::SharedVariablesLowering,
+
+    ::JvmUpgradeCallableReferences,
+    ::JvmInventNamesForLocalFunctions,
     ::JvmLocalDeclarationsLowering,
+    ::JvmLocalDeclarationPopupLowering,
 
-    ::RemoveDuplicatedInlinedLocalClassesLowering,
-
-    ::JvmLocalClassPopupLowering,
     ::StaticCallableReferenceLowering,
 
     ::JvmDefaultConstructorLowering,
@@ -115,7 +116,6 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
 
     ::RenameFieldsLowering,
     ::FakeLocalVariablesForBytecodeInlinerLowering,
-    ::FakeLocalVariablesForIrInlinerLowering,
 
     ::SpecialAccessLowering,
 
@@ -125,7 +125,7 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
 val jvmLoweringPhases = createModulePhases(
     ::ExternalPackageParentPatcherLowering,
     ::FragmentSharedVariablesLowering,
-    ::JvmIrValidationBeforeLoweringPhase,
+    ::JvmK1IrValidationBeforeLoweringPhase,
     ::ProcessOptionalAnnotations,
     ::JvmExpectDeclarationRemover,
     ::ConstEvaluationLowering,
@@ -133,13 +133,6 @@ val jvmLoweringPhases = createModulePhases(
     ::FileClassLowering,
     ::JvmStaticInObjectLowering,
     ::RepeatedAnnotationLowering,
-    ::JvmInlineCallableReferenceToLambdaWithDefaultsPhase,
-    ::JvmIrInliner,
-    ::ApiVersionIsAtLeastEvaluationLowering,
-    ::CreateSeparateCallForInlinedLambdasLowering,
-    ::MarkNecessaryInlinedClassesAsRegeneratedLowering,
-    ::InlinedClassReferencesBoxingLowering,
-    ::RestoreInlineLambda,
 ) + PerformByIrFilePhase(jvmFilePhases) + createModulePhases(
     ::GenerateMultifileFacades,
     ::ResolveInlineCalls,

@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.konan.test.blackbox;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseExtTestCaseGroupProvider;
-import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,7 +23,7 @@ import java.util.regex.Pattern;
 public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBoxTest {
   @Test
   public void testAllFilesPresentInCodegen() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen"), Pattern.compile("^(.+)\\.kt$"), null, true);
   }
 
   @Test
@@ -40,7 +39,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class AssociatedObjects {
     @Test
     public void testAllFilesPresentInAssociatedObjects() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/associatedObjects"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/associatedObjects"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -75,7 +74,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Bridges {
     @Test
     public void testAllFilesPresentInBridges() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/bridges"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/bridges"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -98,7 +97,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Cinterop {
     @Test
     public void testAllFilesPresentInCinterop() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -294,7 +293,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
 
       @Test
       public void testAllFilesPresentInBasics() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/basics"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/basics"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -337,6 +336,18 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
       @TestMetadata("statbuf.kt")
       public void testStatbuf() {
         runTest("native/native.tests/testData/codegen/cinterop/basics/statbuf.kt");
+      }
+
+      @Test
+      @TestMetadata("strings.kt")
+      public void testStrings() {
+        runTest("native/native.tests/testData/codegen/cinterop/basics/strings.kt");
+      }
+
+      @Test
+      @TestMetadata("stringsWithLatin1.kt")
+      public void testStringsWithLatin1() {
+        runTest("native/native.tests/testData/codegen/cinterop/basics/stringsWithLatin1.kt");
       }
 
       @Test
@@ -419,13 +430,131 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     }
 
     @Nested
+    @TestMetadata("native/native.tests/testData/codegen/cinterop/cCallDirect")
+    @TestDataPath("$PROJECT_ROOT")
+    @UseExtTestCaseGroupProvider()
+    public class CCallDirect {
+      @Test
+      public void testAllFilesPresentInCCallDirect() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/cCallDirect"), Pattern.compile("^(.+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("differentFunctions.kt")
+      public void testDifferentFunctions() {
+        runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/differentFunctions.kt");
+      }
+
+      @Test
+      @TestMetadata("functionWithAsmAttribute.kt")
+      public void testFunctionWithAsmAttribute() {
+        runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/functionWithAsmAttribute.kt");
+      }
+
+      @Test
+      @TestMetadata("sameFunctionWithDifferentSignatures.kt")
+      public void testSameFunctionWithDifferentSignatures() {
+        runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/sameFunctionWithDifferentSignatures.kt");
+      }
+
+      @Test
+      @TestMetadata("smoke.kt")
+      public void testSmoke() {
+        runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/smoke.kt");
+      }
+
+      @Nested
+      @TestMetadata("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction")
+      @TestDataPath("$PROJECT_ROOT")
+      @UseExtTestCaseGroupProvider()
+      public class FlagInteraction {
+        @Test
+        public void testAllFilesPresentInFlagInteraction() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("both_direct.kt")
+        public void testBoth_direct() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/both_direct.kt");
+        }
+
+        @Test
+        @TestMetadata("both_directOrIndirect.kt")
+        public void testBoth_directOrIndirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/both_directOrIndirect.kt");
+        }
+
+        @Test
+        @TestMetadata("both_indirect.kt")
+        public void testBoth_indirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/both_indirect.kt");
+        }
+
+        @Test
+        @TestMetadata("both_indirectOrDirect.kt")
+        public void testBoth_indirectOrDirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/both_indirectOrDirect.kt");
+        }
+
+        @Test
+        @TestMetadata("direct_direct.kt")
+        public void testDirect_direct() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/direct_direct.kt");
+        }
+
+        @Test
+        @TestMetadata("direct_directOrIndirect.kt")
+        public void testDirect_directOrIndirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/direct_directOrIndirect.kt");
+        }
+
+        @Test
+        @TestMetadata("direct_indirect.kt")
+        public void testDirect_indirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/direct_indirect.kt");
+        }
+
+        @Test
+        @TestMetadata("direct_indirectOrDirect.kt")
+        public void testDirect_indirectOrDirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/direct_indirectOrDirect.kt");
+        }
+
+        @Test
+        @TestMetadata("indirect_direct.kt")
+        public void testIndirect_direct() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/indirect_direct.kt");
+        }
+
+        @Test
+        @TestMetadata("indirect_directOrIndirect.kt")
+        public void testIndirect_directOrIndirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/indirect_directOrIndirect.kt");
+        }
+
+        @Test
+        @TestMetadata("indirect_indirect.kt")
+        public void testIndirect_indirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/indirect_indirect.kt");
+        }
+
+        @Test
+        @TestMetadata("indirect_indirectOrDirect.kt")
+        public void testIndirect_indirectOrDirect() {
+          runTest("native/native.tests/testData/codegen/cinterop/cCallDirect/flagInteraction/indirect_indirectOrDirect.kt");
+        }
+      }
+    }
+
+    @Nested
     @TestMetadata("native/native.tests/testData/codegen/cinterop/exceptions")
     @TestDataPath("$PROJECT_ROOT")
     @UseExtTestCaseGroupProvider()
     public class Exceptions {
       @Test
       public void testAllFilesPresentInExceptions() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/exceptions"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/exceptions"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -442,7 +571,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class Objc {
       @Test
       public void testAllFilesPresentInObjc() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/objc"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/objc"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -476,15 +605,9 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
       }
 
       @Test
-      @TestMetadata("kt48816_lazy_ir_disable.kt")
-      public void testKt48816_lazy_ir_disable() {
-        runTest("native/native.tests/testData/codegen/cinterop/objc/kt48816_lazy_ir_disable.kt");
-      }
-
-      @Test
-      @TestMetadata("kt48816_lazy_ir_enable.kt")
-      public void testKt48816_lazy_ir_enable() {
-        runTest("native/native.tests/testData/codegen/cinterop/objc/kt48816_lazy_ir_enable.kt");
+      @TestMetadata("kt48816.kt")
+      public void testKt48816() {
+        runTest("native/native.tests/testData/codegen/cinterop/objc/kt48816.kt");
       }
 
       @Test
@@ -549,7 +672,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class Packages {
       @Test
       public void testAllFilesPresentInPackages() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/packages"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/packages"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -596,7 +719,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class ThreadStates {
       @Test
       public void testAllFilesPresentInThreadStates() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/threadStates"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/cinterop/threadStates"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -674,7 +797,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
 
     @Test
     public void testAllFilesPresentInClasses() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/classes"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/classes"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -697,7 +820,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Contracts {
     @Test
     public void testAllFilesPresentInContracts() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/contracts"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/contracts"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -714,7 +837,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Controlflow {
     @Test
     public void testAllFilesPresentInControlflow() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/controlflow"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/controlflow"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -731,7 +854,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Coroutines {
     @Test
     public void testAllFilesPresentInCoroutines() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/coroutines"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/coroutines"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -748,7 +871,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Enum {
     @Test
     public void testAllFilesPresentInEnum() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/enum"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/enum"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -771,7 +894,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class EscapeAnalysis {
     @Test
     public void testAllFilesPresentInEscapeAnalysis() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/escapeAnalysis"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/escapeAnalysis"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -860,7 +983,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Exceptions {
     @Test
     public void testAllFilesPresentInExceptions() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/exceptions"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/exceptions"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -937,7 +1060,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
 
     @Test
     public void testAllFilesPresentInFileCheck() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1235,7 +1358,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class Cinterop {
       @Test
       public void testAllFilesPresentInCinterop() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck/cinterop"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck/cinterop"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1258,7 +1381,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class Kt53261 {
       @Test
       public void testAllFilesPresentInKt53261() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck/kt53261"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck/kt53261"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1329,7 +1452,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class StringConcatenationTypeNarrowing {
       @Test
       public void testAllFilesPresentInStringConcatenationTypeNarrowing() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck/stringConcatenationTypeNarrowing"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/fileCheck/stringConcatenationTypeNarrowing"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1377,7 +1500,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class FunInterface {
     @Test
     public void testAllFilesPresentInFunInterface() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/funInterface"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/funInterface"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1394,7 +1517,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Initializers {
     @Test
     public void testAllFilesPresentInInitializers() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1482,7 +1605,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class Files {
       @Test
       public void testAllFilesPresentInFiles() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers/files"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers/files"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1510,7 +1633,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
       public class EagerInitialization {
         @Test
         public void testAllFilesPresentInEagerInitialization() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers/files/eagerInitialization"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers/files/eagerInitialization"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -1544,7 +1667,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
         public class MultiModule {
           @Test
           public void testAllFilesPresentInMultiModule() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers/files/eagerInitialization/multiModule"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/initializers/files/eagerInitialization/multiModule"), Pattern.compile("^(.+)\\.kt$"), null, true);
           }
 
           @Test
@@ -1582,7 +1705,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Inline {
     @Test
     public void testAllFilesPresentInInline() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/inline"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/inline"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1599,7 +1722,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class InlineClass {
     @Test
     public void testAllFilesPresentInInlineClass() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/inlineClass"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/inlineClass"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1622,7 +1745,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class InterfaceCallsNCasts {
     @Test
     public void testAllFilesPresentInInterfaceCallsNCasts() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/interfaceCallsNCasts"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/interfaceCallsNCasts"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1639,7 +1762,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Interop {
     @Test
     public void testAllFilesPresentInInterop() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/interop"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/interop"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1662,7 +1785,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Intrinsics {
     @Test
     public void testAllFilesPresentInIntrinsics() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/intrinsics"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/intrinsics"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1709,7 +1832,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Kclass {
     @Test
     public void testAllFilesPresentInKclass() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/kclass"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/kclass"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1732,30 +1855,13 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   }
 
   @Nested
-  @TestMetadata("native/native.tests/testData/codegen/ktype")
-  @TestDataPath("$PROJECT_ROOT")
-  @UseExtTestCaseGroupProvider()
-  public class Ktype {
-    @Test
-    public void testAllFilesPresentInKtype() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/ktype"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
-    }
-
-    @Test
-    @TestMetadata("ktype1_anonymousObject.kt")
-    public void testKtype1_anonymousObject() {
-      runTest("native/native.tests/testData/codegen/ktype/ktype1_anonymousObject.kt");
-    }
-  }
-
-  @Nested
   @TestMetadata("native/native.tests/testData/codegen/link")
   @TestDataPath("$PROJECT_ROOT")
   @UseExtTestCaseGroupProvider()
   public class Link {
     @Test
     public void testAllFilesPresentInLink() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/link"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/link"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1808,7 +1914,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Literals {
     @Test
     public void testAllFilesPresentInLiterals() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/literals"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/literals"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1831,7 +1937,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Lower {
     @Test
     public void testAllFilesPresentInLower() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/lower"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/lower"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1872,7 +1978,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Mangling {
     @Test
     public void testAllFilesPresentInMangling() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/mangling"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/mangling"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1895,7 +2001,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Object {
     @Test
     public void testAllFilesPresentInObject() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/object"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/object"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1912,7 +2018,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class ObjectDeclaration {
     @Test
     public void testAllFilesPresentInObjectDeclaration() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/objectDeclaration"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/objectDeclaration"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -1965,7 +2071,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Reflection {
     @Test
     public void testAllFilesPresentInReflection() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Nested
@@ -1975,7 +2081,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class CollectReferenceFieldValues {
       @Test
       public void testAllFilesPresentInCollectReferenceFieldValues() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection/collectReferenceFieldValues"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection/collectReferenceFieldValues"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2028,7 +2134,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
     public class Objc {
       @Test
       public void testAllFilesPresentInObjc() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection/objc"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/reflection/objc"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2058,7 +2164,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Serialization {
     @Test
     public void testAllFilesPresentInSerialization() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/serialization"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/serialization"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -2093,7 +2199,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Variables {
     @Test
     public void testAllFilesPresentInVariables() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/variables"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/variables"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -2128,7 +2234,7 @@ public class FirNativeCodegenLocalTestGenerated extends AbstractNativeCodegenBox
   public class Vector {
     @Test
     public void testAllFilesPresentInVector() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/vector"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.NATIVE, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("native/native.tests/testData/codegen/vector"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test

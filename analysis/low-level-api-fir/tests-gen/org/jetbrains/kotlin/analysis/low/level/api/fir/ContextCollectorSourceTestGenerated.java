@@ -31,6 +31,12 @@ public class ContextCollectorSourceTestGenerated extends AbstractContextCollecto
   }
 
   @Test
+  @TestMetadata("class.kt")
+  public void testClass() {
+    runTest("analysis/low-level-api-fir/testData/contextCollector/class.kt");
+  }
+
+  @Test
   @TestMetadata("classFunction.kt")
   public void testClassFunction() {
     runTest("analysis/low-level-api-fir/testData/contextCollector/classFunction.kt");
@@ -58,6 +64,12 @@ public class ContextCollectorSourceTestGenerated extends AbstractContextCollecto
   @TestMetadata("doWhile.kt")
   public void testDoWhile() {
     runTest("analysis/low-level-api-fir/testData/contextCollector/doWhile.kt");
+  }
+
+  @Test
+  @TestMetadata("enumClass.kt")
+  public void testEnumClass() {
+    runTest("analysis/low-level-api-fir/testData/contextCollector/enumClass.kt");
   }
 
   @Test
@@ -166,6 +178,12 @@ public class ContextCollectorSourceTestGenerated extends AbstractContextCollecto
   @TestMetadata("localFunctionExpression.kt")
   public void testLocalFunctionExpression() {
     runTest("analysis/low-level-api-fir/testData/contextCollector/localFunctionExpression.kt");
+  }
+
+  @Test
+  @TestMetadata("localTypeAlias.kt")
+  public void testLocalTypeAlias() {
+    runTest("analysis/low-level-api-fir/testData/contextCollector/localTypeAlias.kt");
   }
 
   @Test
@@ -1285,6 +1303,24 @@ public class ContextCollectorSourceTestGenerated extends AbstractContextCollecto
     @TestMetadata("onLabel.kt")
     public void testOnLabel() {
       runTest("analysis/low-level-api-fir/testData/contextCollector/smartCasts/onLabel.kt");
+    }
+
+    @Test
+    @TestMetadata("onNullAssignment.kt")
+    public void testOnNullAssignment() {
+      runTest("analysis/low-level-api-fir/testData/contextCollector/smartCasts/onNullAssignment.kt");
+    }
+
+    @Test
+    @TestMetadata("onNullAssignment2.kt")
+    public void testOnNullAssignment2() {
+      runTest("analysis/low-level-api-fir/testData/contextCollector/smartCasts/onNullAssignment2.kt");
+    }
+
+    @Test
+    @TestMetadata("onNullAssignmentClosingBrace.kt")
+    public void testOnNullAssignmentClosingBrace() {
+      runTest("analysis/low-level-api-fir/testData/contextCollector/smartCasts/onNullAssignmentClosingBrace.kt");
     }
 
     @Test

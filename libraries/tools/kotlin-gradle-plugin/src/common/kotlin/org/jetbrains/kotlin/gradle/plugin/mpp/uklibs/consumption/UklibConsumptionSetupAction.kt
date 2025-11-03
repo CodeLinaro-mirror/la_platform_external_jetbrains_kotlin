@@ -9,11 +9,17 @@ import org.gradle.api.NamedDomainObjectCollection
 import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
+import org.gradle.api.attributes.java.TargetJvmEnvironment
+import org.gradle.api.artifacts.VariantMetadata
 import org.gradle.api.attributes.*
 import org.gradle.api.attributes.Usage.*
+import org.jetbrains.kotlin.gradle.utils.named
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.uklibFragmentPlatformAttribute
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.*
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.androidJvm
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.jvm
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType.common
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractExecutable
 import org.jetbrains.kotlin.gradle.plugin.mpp.AbstractNativeLibrary
@@ -25,7 +31,9 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_API
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_METADATA
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_RUNTIME
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_UKLIB_API
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_UKLIB_JAVA_API
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_UKLIB_RUNTIME
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_UKLIB_JAVA_RUNTIME
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_UKLIB_METADATA
 import org.jetbrains.kotlin.gradle.plugin.mpp.resolvableMetadataConfiguration
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.Uklib
@@ -34,6 +42,8 @@ import org.jetbrains.kotlin.gradle.plugin.sources.internal
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.targets.native.resolvableApiConfiguration
 import org.jetbrains.kotlin.gradle.utils.javaSourceSets
+import org.jetbrains.kotlin.gradle.utils.named
+import org.jetbrains.kotlin.gradle.utils.registerTransformForArtifactType
 
 internal val UklibConsumptionSetupAction = KotlinProjectSetupAction {
     when (project.kotlinPropertiesProvider.kmpResolutionStrategy) {
@@ -57,6 +67,8 @@ private fun Project.setupUklibConsumption() {
     allowMetadataConfigurationsToResolveUnzippedUklib(sourceSets)
     allowPSMBasedKMPToResolveLenientlyAndSelectBestMatchingVariant()
     allowPlatformCompilationsToResolvePlatformCompilationArtifactFromUklib(targets)
+    workaroundLegacySkikoResolutionKT77539()
+    workaroundKotlinTestJsResolutionKT81387()
 }
 
 private fun Project.allowPlatformCompilationsToResolvePlatformCompilationArtifactFromUklib(
@@ -77,7 +89,11 @@ private fun Project.allowPlatformCompilationsToResolvePlatformCompilationArtifac
                 -> return@configureEach
         }
 
-        dependencies.registerTransform(UnzippedUklibToPlatformCompilationTransform::class.java) {
+        dependencies.registerTransformForArtifactType(
+            UnzippedUklibToPlatformCompilationTransform::class.java,
+            fromArtifactType = uklibArtifactType,
+            toArtifactType = uklibArtifactType,
+        ) {
             with(it.from) {
                 attribute(uklibStateAttribute, uklibStateDecompressed)
                 attribute(uklibViewAttribute, uklibViewAttributeWholeUklib)
@@ -105,10 +121,18 @@ private fun Project.allowPlatformCompilationsToResolvePlatformCompilationArtifac
              * to 1 using Usage, the disambiguation phase ends which is what we want in [SelectBestMatchingVariantForKmpResolutionUsage].
              */
             compilation as InternalKotlinCompilation
-            listOfNotNull<Pair<Configuration, Usage>>(
-                compilation.internal.configurations.compileDependencyConfiguration to usageByName(KOTLIN_UKLIB_API),
-                compilation.internal.configurations.runtimeDependencyConfiguration?.let { it to usageByName(KOTLIN_UKLIB_RUNTIME)},
-            ).forEach {
+            val resolvableConfigurationToUsage = if (compilation.target.platformType in setOf(jvm, androidJvm)) {
+                listOfNotNull<Pair<Configuration, Usage>>(
+                    compilation.internal.configurations.compileDependencyConfiguration to usageByName(KOTLIN_UKLIB_JAVA_API),
+                    compilation.internal.configurations.runtimeDependencyConfiguration?.let { it to usageByName(KOTLIN_UKLIB_JAVA_RUNTIME) },
+                )
+            } else {
+                listOfNotNull<Pair<Configuration, Usage>>(
+                    compilation.internal.configurations.compileDependencyConfiguration to usageByName(KOTLIN_UKLIB_API),
+                    compilation.internal.configurations.runtimeDependencyConfiguration?.let { it to usageByName(KOTLIN_UKLIB_RUNTIME) },
+                )
+            }
+            resolvableConfigurationToUsage.forEach {
                 it.first.applyUklibAttributes(it.second, uklibFragmentPlatformAttribute)
             }
         }
@@ -142,14 +166,14 @@ private fun Project.allowPlatformCompilationsToResolvePlatformCompilationArtifac
              */
             javaSourceSets.configureEach { sourceSet ->
                 configurations.named(sourceSet.runtimeClasspathConfigurationName).configure {
-                    it.applyUklibAttributes(usageByName(KOTLIN_UKLIB_RUNTIME), uklibFragmentPlatformAttribute)
+                    it.applyUklibAttributes(usageByName(KOTLIN_UKLIB_JAVA_RUNTIME), uklibFragmentPlatformAttribute)
                     it.attributes.attribute<KotlinPlatformType>(
                         KotlinPlatformType.attribute,
                         KotlinPlatformType.jvm,
                     )
                 }
                 configurations.named(sourceSet.compileClasspathConfigurationName).configure {
-                    it.applyUklibAttributes(usageByName(KOTLIN_UKLIB_API), uklibFragmentPlatformAttribute)
+                    it.applyUklibAttributes(usageByName(KOTLIN_UKLIB_JAVA_API), uklibFragmentPlatformAttribute)
                     it.attributes.attribute<KotlinPlatformType>(
                         KotlinPlatformType.attribute,
                         KotlinPlatformType.jvm,
@@ -168,7 +192,6 @@ private fun Configuration.applyUklibAttributes(
         attribute(USAGE_ATTRIBUTE, usage)
         attribute(uklibStateAttribute, uklibStateDecompressed)
         attribute(uklibViewAttribute, uklibFragmentPlatformAttribute)
-        attribute(isMetadataJar, notMetadataJar)
         attribute(isUklib, isUklibTrue)
     }
 }
@@ -181,7 +204,11 @@ private fun Project.registerCompressedUklibArtifact() {
 }
 
 private fun Project.allowUklibsToDecompress() {
-    dependencies.registerTransform(UnzipUklibTransform::class.java) {
+    dependencies.registerTransformForArtifactType(
+        UnzipUklibTransform::class.java,
+        fromArtifactType = uklibArtifactType,
+        toArtifactType = uklibArtifactType,
+    ) {
         it.from.attribute(uklibStateAttribute, uklibStateCompressed)
         it.to.attribute(uklibStateAttribute, uklibStateDecompressed)
     }
@@ -211,22 +238,76 @@ private fun Project.allowPSMBasedKMPToResolveLenientlyAndSelectBestMatchingVaria
         strategy.disambiguationRules.add(SelectBestMatchingVariantForKmpResolutionUsage::class.java)
     }
     dependencies.attributesSchema.attribute(KotlinPlatformType.attribute) { strategy ->
-        strategy.compatibilityRules.add(AllowPlatformConfigurationsToFallBackToMetadataForLenientKmpResolution::class.java)
-    }
-    with(dependencies.artifactTypes.getByName("jar").attributes) {
-        attribute(isMetadataJar, isMetadataJarUnknown)
-    }
-    dependencies.registerTransform(ThrowAwayMetadataJarsTransform::class.java) {
-        it.from.attribute(isMetadataJar, isMetadataJarUnknown)
-        it.to.attribute(isMetadataJar, notMetadataJar)
+        strategy.compatibilityRules.add(AllowPlatformConfigurationsToFallBackToMetadataAndJvmForLenientKmpResolution::class.java)
+        strategy.disambiguationRules.add(SelectBestMatchingKotlinPlatformType::class.java)
     }
 }
 
-private class AllowPlatformConfigurationsToFallBackToMetadataForLenientKmpResolution : AttributeCompatibilityRule<KotlinPlatformType> {
+/**
+ * KT-77539: Skiko used to publish with a hacky Android variant which was actually a jvm("android") target. The artifacts weren't actually
+ * published to Maven central. In the future Skiko should start publishing with proper androidTarget() attributes, and this hack will no
+ * longer be necessary
+ */
+private fun Project.workaroundLegacySkikoResolutionKT77539() {
+    dependencies.components.withModule("org.jetbrains.skiko:skiko") {
+        val configureAndroidEnvironment: (VariantMetadata) -> Unit = {
+            it.attributes.attribute(
+                TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
+                project.objects.named(TargetJvmEnvironment.ANDROID),
+            )
+        }
+        it.withVariant("androidApiElements-published") { configureAndroidEnvironment(it) }
+        it.withVariant("androidRuntimeElements-published") { configureAndroidEnvironment(it) }
+
+        val configureJvmEnvironment: (VariantMetadata) -> Unit = {
+            it.attributes.attribute(
+                TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
+                project.objects.named(TargetJvmEnvironment.STANDARD_JVM),
+            )
+        }
+        it.withVariant("awtApiElements-published") { configureJvmEnvironment(it) }
+        it.withVariant("awtRuntimeElements-published") { configureJvmEnvironment(it) }
+    }
+}
+
+private fun Project.workaroundKotlinTestJsResolutionKT81387() {
+    dependencies.components.withModule("org.jetbrains.kotlin:kotlin-test-js") {
+        it.addVariant("stubKotlinTestJsFallbackFor_KT-81387") {
+            it.attributes.attribute(
+                USAGE_ATTRIBUTE,
+                project.objects.named(KOTLIN_METADATA),
+            )
+            it.attributes.attribute(
+                Category.CATEGORY_ATTRIBUTE,
+                project.categoryByName(Category.LIBRARY),
+            )
+            it.attributes.attribute(
+                KotlinPlatformType.attribute,
+                common,
+            )
+        }
+    }
+}
+
+private class AllowPlatformConfigurationsToFallBackToMetadataAndJvmForLenientKmpResolution : AttributeCompatibilityRule<KotlinPlatformType> {
     override fun execute(details: CompatibilityCheckDetails<KotlinPlatformType>) = with(details) {
         consumerValue?.name ?: return@with
-        val producer = producerValue?.name ?: return@with
-        if (producer == KotlinPlatformType.common.name) compatible()
+        // Fallback to metadata
+        if (producerValue == common)
+            compatible()
+
+        // Fallback to Kotlin JVM
+        if (producerValue == jvm)
+            compatible()
+    }
+}
+
+private class SelectBestMatchingKotlinPlatformType : AttributeDisambiguationRule<KotlinPlatformType> {
+    override fun execute(details: MultipleCandidatesDetails<KotlinPlatformType>) {
+        val matchingValue = details.candidateValues.singleOrNull { it == details.consumerValue }
+        if (matchingValue != null) {
+            details.closestMatch(matchingValue)
+        }
     }
 }
 
@@ -234,52 +315,64 @@ internal class AllowPlatformConfigurationsToFallBackToMetadataForLenientKmpResol
     override fun execute(details: CompatibilityCheckDetails<Usage>) = with(details) {
         val consumerUsage = consumerValue?.name ?: return@with
         val producerUsage = producerValue?.name ?: return@with
+
+        val apiElements = setOf(
+            /**
+             * Allow Uklib consumer to resolve regular KMP platform apiElements. Compile dependency configurations continue
+             * requesting platform-specific KMP attributes, so the exact selection is still controlled with attributes like
+             * KotlinPlatformType and konanTargetAttribute
+             */
+            KOTLIN_API,
+            /**
+             * Allow selecting Maven POM-only and Gradle JVM components as they will have JAVA_API usage. In klib compilations we
+             * already filter out non .klib files.
+             *
+             * FIXME: Do we have to reproduce other Java-specific compatibility rules here? In runtime as well?
+             */
+            JAVA_API,
+            /**
+             * Fallback to metadata variant to inherit dependencies for lenient interlibrary dependencies. Platform configurations
+             * throw away metadata jars in [ThrowAwayMetadataJarsTransform]. GMT now always resolves and special-handles the case
+             * when platform configurations resolved into metadata jar.
+             *
+             * KotlinPlatformType platform -> common compatibility is enabled by [AllowPlatformConfigurationsToFallBackToMetadataAndJvmForLenientKmpResolution]
+             */
+            KOTLIN_METADATA
+        )
+        val runtimeElements = setOf(
+            /**
+             * Same as above, compatibility with current KMP publication
+             */
+            KOTLIN_RUNTIME,
+            /**
+             * Compatibility with all the Maven POM-only and Gradle JVM producers
+             *
+             * FIXME: This compatibility rule is wrong: KT-81349
+             */
+            JAVA_RUNTIME,
+            /**
+             * Same as above. Fallback to metadata variant to resolve and inherit dependencies
+             */
+            KOTLIN_METADATA,
+            /**
+             * Handle pre-HMPP metadata and specifically dom-api-compat
+             *
+             * FIXME: Remove this case in KT-81350
+             */
+            KOTLIN_API,
+        )
         if (
             mapOf(
                 /**
                  * KOTLIN_UKLIB_API is requested in platform compile dependency configurations
                  */
-                KOTLIN_UKLIB_API to setOf(
-                    /**
-                     * Allow Uklib consumer to resolve regular KMP platform apiElements. Compile dependency configurations continue
-                     * requesting platform-specific KMP attributes, so the exact selection is still controlled with attributes like
-                     * KotlinPlatformType and konanTargetAttribute
-                     */
-                    KOTLIN_API,
-                    /**
-                     * Allow selecting Maven POM-only and Gradle JVM components as they will have JAVA_API usage. In klib compilations we
-                     * already filter out non .klib files.
-                     *
-                     * FIXME: Do we have to reproduce other Java-specific compatibility rules here? In runtime as well?
-                     */
-                    JAVA_API,
-                    /**
-                     * Fallback to metadata variant to inherit dependencies for lenient interlibrary dependencies. Platform configurations
-                     * throw away metadata jars in [ThrowAwayMetadataJarsTransform]. GMT now always resolves and special-handles the case
-                     * when platform configurations resolved into metadata jar.
-                     *
-                     * KotlinPlatformType platform -> common compatibility is enabled by [AllowPlatformConfigurationsToFallBackToMetadataForLenientKmpResolution]
-                     *
-                     * FIXME: Not clear what to do with runtime?
-                     */
-                    KOTLIN_METADATA
-                ),
+                KOTLIN_UKLIB_API to apiElements,
+                KOTLIN_UKLIB_JAVA_API to apiElements + setOf(KOTLIN_UKLIB_API),
                 /**
                  * KOTLIN_UKLIB_RUNTIME is requested in platform runtime dependency configurations
                  */
-                KOTLIN_UKLIB_RUNTIME to setOf(
-                    /**
-                     * Same as above, compatibility with current KMP publication
-                     */
-                    KOTLIN_RUNTIME,
-                    /**
-                     * Compatibility with all the Maven POM-only and Gradle JVM producers
-                     */
-                    JAVA_RUNTIME,
-                    JAVA_API,
-                    // FIXME: KOTLIN_API compatibility is incorrect, right?
-                    // KOTLIN_API,
-                ),
+                KOTLIN_UKLIB_RUNTIME to runtimeElements,
+                KOTLIN_UKLIB_JAVA_RUNTIME to runtimeElements + setOf(KOTLIN_UKLIB_RUNTIME),
                 /**
                  * KOTLIN_UKLIB_METADATA is requested in per source set resolvableMetadataConfigurations. This Usage isn't published.
                  * Disambiguation is supposed to work through KotlinPlatformType
@@ -304,7 +397,7 @@ internal class AllowPlatformConfigurationsToFallBackToMetadataForLenientKmpResol
                     /**
                      * Handle pre-HMPP metadata and specifically dom-api-compat
                      *
-                     * FIXME: Test against exact pre-HMPP publication metadata instead of dom-api-compat
+                     * FIXME: Remove this case in KT-81350
                      */
                     KOTLIN_API,
                     /**
@@ -321,8 +414,6 @@ internal class SelectBestMatchingVariantForKmpResolutionUsage : AttributeDisambi
     override fun execute(details: MultipleCandidatesDetails<Usage>) = details.run {
         val consumerUsage = consumerValue?.name ?: return@run
 
-        details.candidateValues
-
         /**
          * FIXME: Right now this disambiguation rule gets registered after [JavaEcosystemSupport.UsageDisambiguationRules] and
          * disambiguation logic when e.g. consumerValue == KOTLIN_UKLIB_API and KOTLIN_UKLIB_API was in the candidate set is not actually
@@ -330,31 +421,30 @@ internal class SelectBestMatchingVariantForKmpResolutionUsage : AttributeDisambi
          *
          * To make sure our rule is in control, we can try to reshuffle rules in [setAttributeDisambiguationPrecedence]
          */
+        val apiElements = listOf(
+            KOTLIN_UKLIB_API,
+            /**
+             * Prefer platform apiElements if it is available when consuming standard KMP publication for compilation
+             *
+             * FIXME: Is this also a compatibility for dom-api-compat
+             */
+            KOTLIN_API,
+        )
+        val runtimeElements = listOf(
+            /**
+             * Prefer UKlib runtime
+             */
+            KOTLIN_UKLIB_RUNTIME,
+            /**
+             * If we are looking at a pre-UKlib component, select the respective runtime
+             */
+            KOTLIN_RUNTIME,
+        )
         mapOf(
-            KOTLIN_UKLIB_API to listOf(
-                KOTLIN_UKLIB_API,
-                /**
-                 * Prefer platform apiElements if it is available when consuming standard KMP publication for compilation
-                 */
-                KOTLIN_API,
-                /**
-                 * Same as above. Means this is jvm compile dependency configuration
-                 *
-                 * FIXME: Maybe just request a different Usage for JVM instead?
-                 */
-                JAVA_API,
-                /**
-                 * Fallback to metadata if the platform is not available
-                 */
-                KOTLIN_METADATA
-            ),
-            KOTLIN_UKLIB_RUNTIME to listOf(
-                KOTLIN_UKLIB_RUNTIME,
-                KOTLIN_RUNTIME,
-                JAVA_RUNTIME,
-                JAVA_API,
-                KOTLIN_METADATA
-            ),
+            KOTLIN_UKLIB_JAVA_API to apiElements,
+            KOTLIN_UKLIB_API to apiElements,
+            KOTLIN_UKLIB_JAVA_RUNTIME to runtimeElements,
+            KOTLIN_UKLIB_RUNTIME to runtimeElements,
             KOTLIN_UKLIB_METADATA to listOf(
                 /**
                  * Prefer metadata from Uklib
@@ -370,7 +460,41 @@ internal class SelectBestMatchingVariantForKmpResolutionUsage : AttributeDisambi
             ),
         )[consumerUsage]?.let {
             closestMatchToFirstAppropriateCandidate(it)
+            return@run
         }
+
+        val isRootKmpComponentWithJvm = details.candidateValues.map { it.name }.containsAll(listOf(JAVA_API, KOTLIN_METADATA))
+        if (isRootKmpComponentWithJvm) {
+            when (consumerUsage) {
+                KOTLIN_UKLIB_API, KOTLIN_UKLIB_RUNTIME -> {
+                    details.closestMatchToFirstAppropriateCandidate(listOf(KOTLIN_METADATA))
+                    return@run
+                }
+                KOTLIN_UKLIB_JAVA_API -> {
+                    details.closestMatchToFirstAppropriateCandidate(listOf(JAVA_API))
+                    return@run
+                }
+                KOTLIN_UKLIB_JAVA_RUNTIME -> {
+                    details.closestMatchToFirstAppropriateCandidate(listOf(JAVA_RUNTIME))
+                    return@run
+                }
+            }
+        }
+
+        val isJvmOnlyComponent = details.candidateValues.map { it.name }.contains(JAVA_API)
+        if (isJvmOnlyComponent) {
+            when (consumerUsage) {
+                KOTLIN_UKLIB_API, KOTLIN_UKLIB_JAVA_API -> {
+                    details.closestMatchToFirstAppropriateCandidate(listOf(JAVA_API, JAVA_RUNTIME))
+                    return@run
+                }
+                KOTLIN_UKLIB_RUNTIME, KOTLIN_UKLIB_JAVA_RUNTIME -> {
+                    details.closestMatchToFirstAppropriateCandidate(listOf(JAVA_RUNTIME))
+                    return@run
+                }
+            }
+        }
+
         return@run
     }
 
@@ -389,7 +513,3 @@ internal class SelectBestMatchingVariantForKmpResolutionUsage : AttributeDisambi
  */
 internal val isUklib = Attribute.of("org.jetbrains.kotlin.uklib", String::class.java)
 internal val isUklibTrue = "true"
-
-private val isMetadataJar = Attribute.of("org.jetbrains.kotlin.isMetadataJar", String::class.java)
-private val isMetadataJarUnknown = "unknown"
-private val notMetadataJar = "not-a-metadata-jar"

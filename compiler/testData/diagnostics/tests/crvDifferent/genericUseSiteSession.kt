@@ -29,6 +29,7 @@ interface D: A<String> {
     }
 }
 
+@MustUseReturnValues
 interface BoxImpl: Box<String> {
     override fun add(t: String): Boolean {
         return true

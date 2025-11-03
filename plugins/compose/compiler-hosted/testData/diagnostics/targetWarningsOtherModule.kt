@@ -53,7 +53,7 @@ import androidx.compose.runtime.Composable
 @Composable fun VecInUi() {
     UiContent {
         <!COMPOSE_APPLIER_CALL_MISMATCH!>VectorContent<!> {
-            <!COMPOSE_APPLIER_CALL_MISMATCH!>Ui<!>()
+            Ui()
         }
     }
 }
@@ -65,3 +65,5 @@ import androidx.compose.runtime.Composable
         }
     }
 }
+
+/* GENERATED_FIR_TAGS: annotationDeclaration, functionDeclaration, functionalType, lambdaLiteral, stringLiteral */

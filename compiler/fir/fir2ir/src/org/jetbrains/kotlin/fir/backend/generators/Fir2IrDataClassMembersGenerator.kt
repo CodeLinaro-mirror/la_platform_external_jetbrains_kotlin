@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.builtins.StandardNames.HASHCODE_NAME
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.fir.backend.Fir2IrCommonMemberStorage
 import org.jetbrains.kotlin.fir.backend.Fir2IrCommonMemberStorage.DataValueClassGeneratedMembersInfo
 import org.jetbrains.kotlin.fir.backend.Fir2IrComponents
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
@@ -61,7 +60,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
  */
 class Fir2IrDataClassMembersGenerator(
     private val c: Fir2IrComponents,
-    private val commonMemberStorage: Fir2IrCommonMemberStorage,
+    private val generatedDataValueClassSyntheticFunctionsStorage: MutableMap<IrClass, DataValueClassGeneratedMembersInfo>,
 ) : Fir2IrComponents by c {
     fun generateSingleFieldValueClassMembers(klass: FirRegularClass, irClass: IrClass): List<FirDeclaration> {
         return MyDataClassMethodsGenerator(irClass, klass, GENERATED_SINGLE_FIELD_VALUE_CLASS_MEMBER).generateHeaders()
@@ -76,7 +75,7 @@ class Fir2IrDataClassMembersGenerator(
     }
 
     fun registerCopyOrComponentFunction(irFunction: IrSimpleFunction) {
-        commonMemberStorage.generatedDataValueClassSyntheticFunctions.getValue(irFunction.parentAsClass).generatedFunctions += irFunction
+        generatedDataValueClassSyntheticFunctionsStorage.getValue(irFunction.parentAsClass).generatedFunctions += irFunction
     }
 
     private inner class MyDataClassMethodsGenerator(val irClass: IrClass, val klass: FirRegularClass, val origin: IrDeclarationOrigin) {
@@ -133,7 +132,7 @@ class Fir2IrDataClassMembersGenerator(
                 generatedIrFunctions += equalsFunction
             }
 
-            commonMemberStorage.generatedDataValueClassSyntheticFunctions[irClass] = DataValueClassGeneratedMembersInfo(
+            generatedDataValueClassSyntheticFunctionsStorage[irClass] = DataValueClassGeneratedMembersInfo(
                 c, klass, origin, generatedIrFunctions
             )
 
@@ -295,7 +294,7 @@ class Fir2IrDataClassGeneratedMemberBodyGenerator(private val irBuiltins: IrBuil
                 requireNotNull(irValueParameter)
                 // `irClass` is a source class and definitely is not a lazy class
                 @OptIn(UnsafeDuringIrConstructionAPI::class)
-                return irClass.properties.single { irProperty ->
+                return irClass.properties.first { irProperty ->
                     irProperty.name == irValueParameter.name && irProperty.backingField?.type == irValueParameter.type
                 }
             }
@@ -312,7 +311,7 @@ class Fir2IrDataClassGeneratedMemberBodyGenerator(private val irBuiltins: IrBuil
             private fun getHashCodeFunction(klass: FirRegularClass): FirNamedFunctionSymbol {
                 if (klass.classId == StandardClassIds.Nothing) {
                     // scope of kotlin.Nothing is empty, so we need to search for `hashCode` in the scope of kotlin.Any
-                    return getHashCodeFunction(session.builtinTypes.anyType.coneType.toRegularClassSymbol(session)!!.fir)
+                    return getHashCodeFunction(session.builtinTypes.anyType.coneType.toRegularClassSymbol()!!.fir)
                 }
                 val scope = klass.symbol.unsubstitutedScope()
                 return scope.getFunctions(HASHCODE_NAME).first { symbol ->
@@ -326,7 +325,7 @@ class Fir2IrDataClassGeneratedMemberBodyGenerator(private val irBuiltins: IrBuil
                 get() {
                     // Pick the (necessarily unique) non-interface upper bound if it exists
                     for (type in bounds) {
-                        val klass = type.coneType.coerceToAny().toRegularClassSymbol(session)?.fir ?: continue
+                        val klass = type.coneType.coerceToAny().toRegularClassSymbol()?.fir ?: continue
                         val kind = klass.classKind
                         if (kind != ClassKind.INTERFACE && kind != ClassKind.ANNOTATION_CLASS) return klass
                     }
@@ -335,7 +334,7 @@ class Fir2IrDataClassGeneratedMemberBodyGenerator(private val irBuiltins: IrBuil
                     // In the first case, all supertypes are interface types and the choice was arbitrary.
                     // In the second case, there is only a single supertype.
                     val firstBoundType = bounds.first().coneType.fullyExpandedType().coerceToAny()
-                    return when (val firstSuper = firstBoundType.toSymbol(session)?.fir) {
+                    return when (val firstSuper = firstBoundType.toSymbol()?.fir) {
                         is FirRegularClass -> firstSuper
                         is FirTypeParameter -> firstSuper.erasedUpperBound
                         else -> error("unknown supertype kind ${firstSuper?.render()}")
@@ -356,7 +355,7 @@ class Fir2IrDataClassGeneratedMemberBodyGenerator(private val irBuiltins: IrBuil
                     type.isArrayOrPrimitiveArray(checkUnsignedArrays = false) -> context.irBuiltIns.dataClassArrayMemberHashCodeSymbol to false
                     else -> {
                         val preparedType = type.unwrapToSimpleTypeUsingLowerBound().coerceToAny()
-                        val classForType = when (val classifier = preparedType.toSymbol(session)?.fir) {
+                        val classForType = when (val classifier = preparedType.toSymbol()?.fir) {
                             is FirRegularClass -> classifier
                             is FirTypeParameter -> classifier.erasedUpperBound
                             else -> error("Unknown classifier kind ${classifier?.render()}")

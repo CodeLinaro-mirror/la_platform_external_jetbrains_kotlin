@@ -20,11 +20,13 @@
 package kotlin.reflect.full
 
 import org.jetbrains.kotlin.descriptors.ConstructorDescriptor
-import org.jetbrains.kotlin.types.TypeSubstitutor
-import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.kotlin.utils.DFS
 import kotlin.reflect.*
-import kotlin.reflect.jvm.internal.*
+import kotlin.reflect.jvm.internal.DescriptorKCallable
+import kotlin.reflect.jvm.internal.DescriptorKFunction
+import kotlin.reflect.jvm.internal.KClassImpl
+import kotlin.reflect.jvm.internal.KotlinReflectionInternalError
+import kotlin.reflect.jvm.internal.types.KTypeSubstitutor
 
 /**
  * Returns the primary constructor of this class, or `null` if this class has no primary constructor.
@@ -34,7 +36,7 @@ import kotlin.reflect.jvm.internal.*
 @SinceKotlin("1.1")
 val <T : Any> KClass<T>.primaryConstructor: KFunction<T>?
     get() = (this as KClassImpl<T>).constructors.firstOrNull {
-        ((it as KFunctionImpl).descriptor as ConstructorDescriptor).isPrimary
+        ((it as DescriptorKFunction).descriptor as ConstructorDescriptor).isPrimary
     }
 
 
@@ -67,7 +69,9 @@ val KClass<*>.companionObjectInstance: Any?
 )
 @SinceKotlin("1.1")
 val KClass<*>.defaultType: KType
-    get() = KTypeImpl((this as KClassImpl<*>).descriptor.defaultType) { jClass }
+    get() = createType(typeParameters.map { typeParameter ->
+        KTypeProjection(KVariance.INVARIANT, typeParameter.createType())
+    })
 
 
 /**
@@ -167,10 +171,10 @@ val <T : Any> KClass<T>.declaredMemberExtensionProperties: Collection<KProperty2
     get() = (this as KClassImpl<T>).data.value.declaredNonStaticMembers.filter { it.isExtension && it is KProperty2<*, *, *> } as Collection<KProperty2<T, *, *>>
 
 
-private val KCallableImpl<*>.isExtension: Boolean
+private val DescriptorKCallable<*>.isExtension: Boolean
     get() = descriptor.extensionReceiverParameter != null
 
-private val KCallableImpl<*>.isNotExtension: Boolean
+private val DescriptorKCallable<*>.isNotExtension: Boolean
     get() = !isExtension
 
 /**
@@ -192,13 +196,12 @@ val KClass<*>.allSupertypes: Collection<KType>
         { current ->
             val klass = current.classifier as? KClass<*> ?: throw KotlinReflectionInternalError("Supertype not a class: $current")
             val supertypes = klass.supertypes
-            val typeArguments = current.arguments
-            if (typeArguments.isEmpty()) supertypes
-            else TypeSubstitutor.create((current as KTypeImpl).type).let { substitutor ->
-                supertypes.map { supertype ->
-                    val substituted = substitutor.substitute((supertype as KTypeImpl).type, Variance.INVARIANT)
-                        ?: throw KotlinReflectionInternalError("Type substitution failed: $supertype ($current)")
-                    KTypeImpl(substituted)
+            if (current.arguments.isEmpty()) {
+                supertypes
+            } else {
+                val substitutor = KTypeSubstitutor.create(klass, current.arguments)
+                supertypes.map {
+                    substitutor.substitute(it).type ?: throw KotlinReflectionInternalError("Incorrect type substitution: $it")
                 }
             }
         },

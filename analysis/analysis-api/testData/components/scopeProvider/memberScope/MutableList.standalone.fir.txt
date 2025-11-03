@@ -1,5 +1,8 @@
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.add
   compilerVisibility: Public
   contextParameters: []
@@ -57,6 +60,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -72,6 +76,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -133,6 +138,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
     KaValueParameterSymbol:
       annotations: []
       callableId: null
@@ -161,6 +167,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -176,9 +183,13 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.remove
   compilerVisibility: Public
   contextParameters: []
@@ -236,6 +247,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -251,9 +263,13 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.addAll
   compilerVisibility: Public
   contextParameters: []
@@ -316,6 +332,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -331,9 +348,13 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.addAll
   compilerVisibility: Public
   contextParameters: []
@@ -392,6 +413,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
     KaValueParameterSymbol:
       annotations: []
       callableId: null
@@ -425,6 +447,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -440,9 +463,13 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.removeAll
   compilerVisibility: Public
   contextParameters: []
@@ -505,6 +532,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -520,9 +548,13 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.retainAll
   compilerVisibility: Public
   contextParameters: []
@@ -585,6 +617,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -600,6 +633,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -646,9 +680,13 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.set
   compilerVisibility: Public
   contextParameters: []
@@ -706,6 +744,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
     KaValueParameterSymbol:
       annotations: []
       callableId: null
@@ -734,6 +773,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -749,9 +789,13 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
-  annotations: []
+  annotations: [
+    kotlin/IgnorableReturnValue()
+      psi: null
+  ]
   callableId: kotlin/collections/MutableList.removeAt
   compilerVisibility: Public
   contextParameters: []
@@ -809,6 +853,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -824,6 +869,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -874,6 +920,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -939,6 +986,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -954,6 +1002,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1019,6 +1068,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
     KaValueParameterSymbol:
       annotations: []
       callableId: null
@@ -1048,6 +1098,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1063,6 +1114,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaKotlinPropertySymbol:
   annotations: []
@@ -1116,6 +1168,7 @@ KaKotlinPropertySymbol:
   javaSetterName: null
   setterDeprecationStatus: null
   isInline: false
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1162,6 +1215,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1222,6 +1276,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1237,6 +1292,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1287,6 +1343,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1352,6 +1409,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1367,6 +1425,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1427,6 +1486,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1442,6 +1502,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1502,6 +1563,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1517,6 +1579,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1577,6 +1640,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.collections.MutableList
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1592,6 +1656,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1653,6 +1718,7 @@ KaNamedFunctionSymbol:
       getContainingJvmClassName: kotlin.Any
       getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
       deprecationStatus: null
+      importableFqName: null
   ]
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -1664,6 +1730,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1706,6 +1773,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1748,6 +1816,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1793,6 +1862,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
@@ -1838,3 +1908,4 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaBuiltinsModule "Builtins for JVM (1.8)"
   deprecationStatus: null
+  importableFqName: null

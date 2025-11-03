@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -61,5 +61,8 @@ public inline fun <R> KaLifetimeOwner.withValidityAssertion(action: () -> R): R 
  *
  * @see KaLifetimeOwner
  * @see KaLifetimeOwnerField
+ * @see withValidityAssertion
  */
+@Suppress("DEPRECATION")
+@Deprecated("Use a backing element + `withValidityAssertion` instead")
 public fun <T> KaLifetimeOwner.validityAsserted(value: T): KaLifetimeOwnerField<T> = KaLifetimeOwnerField(value)

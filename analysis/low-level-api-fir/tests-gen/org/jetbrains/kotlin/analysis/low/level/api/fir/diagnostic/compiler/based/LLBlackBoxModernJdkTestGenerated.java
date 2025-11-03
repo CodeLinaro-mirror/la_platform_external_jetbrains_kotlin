@@ -862,6 +862,12 @@ public class LLBlackBoxModernJdkTestGenerated extends AbstractLLBlackBoxTest {
       }
 
       @Test
+      @TestMetadata("sealedJavaConstructorCall.kt")
+      public void testSealedJavaConstructorCall() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/sealed/sealedJavaConstructorCall.kt");
+      }
+
+      @Test
       @TestMetadata("sealedJavaInterfaceViaKotlinReflection.kt")
       public void testSealedJavaInterfaceViaKotlinReflection() {
         runTest("compiler/testData/codegen/boxModernJdk/testsWithJava17/sealed/sealedJavaInterfaceViaKotlinReflection.kt");
@@ -960,6 +966,24 @@ public class LLBlackBoxModernJdkTestGenerated extends AbstractLLBlackBoxTest {
       }
 
       @Test
+      @TestMetadata("whenByTypeSwitchFunction.kt")
+      public void testWhenByTypeSwitchFunction() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchFunction.kt");
+      }
+
+      @Test
+      @TestMetadata("whenByTypeSwitchGuards.kt")
+      public void testWhenByTypeSwitchGuards() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchGuards.kt");
+      }
+
+      @Test
+      @TestMetadata("whenByTypeSwitchJKJK.kt")
+      public void testWhenByTypeSwitchJKJK() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchJKJK.kt");
+      }
+
+      @Test
       @TestMetadata("whenByTypeSwitchNeg1.kt")
       public void testWhenByTypeSwitchNeg1() {
         runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchNeg1.kt");
@@ -987,6 +1011,24 @@ public class LLBlackBoxModernJdkTestGenerated extends AbstractLLBlackBoxTest {
       @TestMetadata("whenByTypeSwitchNeg5.kt")
       public void testWhenByTypeSwitchNeg5() {
         runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchNeg5.kt");
+      }
+
+      @Test
+      @TestMetadata("whenByTypeSwitchNegGuards.kt")
+      public void testWhenByTypeSwitchNegGuards() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchNegGuards.kt");
+      }
+
+      @Test
+      @TestMetadata("whenByTypeSwitchNullCheck.kt")
+      public void testWhenByTypeSwitchNullCheck() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchNullCheck.kt");
+      }
+
+      @Test
+      @TestMetadata("whenByTypeSwitchUseInJava.kt")
+      public void testWhenByTypeSwitchUseInJava() {
+        runTest("compiler/testData/codegen/boxModernJdk/testsWithJava21/typeSwitch/whenByTypeSwitchUseInJava.kt");
       }
     }
   }

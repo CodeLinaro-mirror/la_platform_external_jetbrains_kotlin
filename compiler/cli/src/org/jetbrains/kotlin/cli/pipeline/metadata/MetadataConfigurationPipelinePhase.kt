@@ -10,7 +10,6 @@ import org.jetbrains.kotlin.cli.common.arguments.K2MetadataCompilerArguments
 import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
-import org.jetbrains.kotlin.cli.common.perfManager
 import org.jetbrains.kotlin.cli.jvm.config.K2MetadataConfigurationKeys
 import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
 import org.jetbrains.kotlin.cli.pipeline.AbstractConfigurationPhase
@@ -19,6 +18,7 @@ import org.jetbrains.kotlin.cli.pipeline.CheckCompilationErrors
 import org.jetbrains.kotlin.cli.pipeline.ConfigurationUpdater
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.perfManager
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
@@ -71,8 +71,8 @@ object MetadataConfigurationUpdater : ConfigurationUpdater<K2MetadataCompilerArg
         configuration.putIfNotNull(K2MetadataConfigurationKeys.REFINES_PATHS, arguments.refinesPaths?.toList())
 
         configuration.perfManager!!.apply {
-            val mode = if (arguments.metadataKlib) "KLib" else "metadata"
-            targetDescription = "$mode mode for $moduleName module"
+            outputKind = if (arguments.metadataKlib) "KLib" else "metadata"
+            targetDescription = moduleName
         }
 
         val destination = arguments.destination
