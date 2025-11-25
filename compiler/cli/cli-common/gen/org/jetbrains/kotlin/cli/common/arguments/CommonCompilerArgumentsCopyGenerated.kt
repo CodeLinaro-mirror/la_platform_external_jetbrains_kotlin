@@ -23,6 +23,7 @@ fun copyCommonCompilerArguments(from: CommonCompilerArguments, to: CommonCompile
     to.contextParameters = from.contextParameters
     to.contextReceivers = from.contextReceivers
     to.contextSensitiveResolution = from.contextSensitiveResolution
+    to.dataFlowBasedExhaustiveness = from.dataFlowBasedExhaustiveness
     to.debugLevelCompilerChecks = from.debugLevelCompilerChecks
     to.directJavaActualization = from.directJavaActualization
     to.disableDefaultScriptingPlugin = from.disableDefaultScriptingPlugin
