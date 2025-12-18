@@ -98,12 +98,18 @@ See the table of property names and values below.
 | `gcType`                | The type of GC: `UNSPECIFIED` (default), `NOOP`, `STWMS`, `PMCS`, `CMS`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `gcScheduler`           | The type of GC scheduler: `UNSPECIFIED` (default), `ADAPTIVE`, `AGGRESSIVE`, `MANUAL`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `alloc`                 | The type of allocator: `UNSPECIFIED` (default), `STD`, `CUSTOM`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `pagedAllocator`        | Controls if allocations should be done in pages or per-object. The default is `true`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `cacheMode`             | * `NO`: no caches <br/>* `STATIC_ONLY_DIST` (default): use only caches for libs from the distribution <br/>* `STATIC_EVERYWHERE`: use caches for libs from the distribution and generate caches for all produced KLIBs<br/>* `STATIC_PER_FILE_EVERYWHERE`: same as `STATIC_EVERYWHERE`, but use per-file caches. <br/>* `STATIC_USE_HEADERS_EVERYWHERE`: same as `STATIC_EVERYWHERE`, but use header caches <br/><br/>Note: Any cache mode that permits using caches can be enabled only when thread state checker is disabled.                                                                     |
 | `executionTimeout`      | Max permitted duration of each individual test execution in milliseconds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `sanitizer`             | Run tests with sanitizer: `NONE` (default), `THREAD`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `sharedTestExecution`   | Controls how to run tests compiled into the same test executable: `false` (default) -- run executable many times, `true` -- run it once, parse the result to distinguish tests.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `eagerGroupCreation`    | Group more tests into an executable: `false` (default), `true`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `xctest`                | Compile and run tests with XCTest: `false` (default), `true`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+ #### Passing arbitrary binary options
+
+It is possible to pass binary options to all tests by using `-Pkn.binaryOptions=<key=value>,<key=value>,<key=value>`.
+A list of available binary options is available in [BinaryOptions.kt](../native/binary-options/src/main/kotlin/org/jetbrains/kotlin/backend/konan/BinaryOptions.kt).
 
  #### Generating JUnit test classes
 
@@ -148,14 +154,12 @@ and they generally do not depend on a particular Kotlin/Native target.
 
 A test can be ignored for certain property values with the help of test directives within
 [test data files](../compiler/testData/codegen):
-- `// IGNORE_NATIVE: <name>=<value>` to ignore test for both K1 and K2 frontends
-- `// IGNORE_NATIVE_K1: <name>=<value>` to ignore test for K1 frontend only
-- `// IGNORE_NATIVE_K2: <name>=<value>` to ignore test for K2 frontend only
+- `// IGNORE_NATIVE: <name>=<value>` to ignore test
 
 Good examples are:
 - `// IGNORE_NATIVE: cacheMode=STATIC_EVERYWHERE`
-- `// IGNORE_NATIVE_K1: mode=ONE_STAGE_MULTI_MODULE`
-- `// IGNORE_NATIVE_K2: optimizationMode=OPT`
+- `// IGNORE_NATIVE: mode=ONE_STAGE_MULTI_MODULE`
+- `// IGNORE_NATIVE: optimizationMode=OPT`
 - `// IGNORE_NATIVE: cacheMode=STATIC_EVERYWHERE && target=linux_x64`
 
 Test will be ignored in case value of any `// IGNORE_NATIVE*` directive would match to an actual test run setting.
@@ -242,7 +246,7 @@ Additionally, even if you build with Gradle, you can extract command-line
 compiler arguments from the detailed Gradle output of your project's build
 process.
 This will allow you to run the command-line compiler instead of Gradle, which might be helpful when debugging.
-To get the detailed Gradle output, run the Gradle command with `-i` flag.
+To get the detailed Gradle output, run the Gradle command with `-Pkotlin.internal.compiler.arguments.log.level=warning` flag.
 See also [degrade](tools/degrade) tool -- it automates extracting Kotlin/Native command-line tools invocations from Gradle builds.
 
 ### Attaching with IntelliJ IDEA

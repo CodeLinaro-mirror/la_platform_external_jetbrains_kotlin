@@ -3,8 +3,8 @@
 import KotlinRuntime
 import KotlinRuntimeSupport
 
-public final class Foo: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBridged {
-    public final class Inner: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBridged {
+public final class Foo: KotlinRuntime.KotlinBase {
+    public final class Inner: KotlinRuntime.KotlinBase {
         public init(
             outer__: main.Foo
         ) {
@@ -20,7 +20,7 @@ public final class Foo: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBr
             super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
         }
     }
-    public final class Nested: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBridged {
+    public final class Nested: KotlinRuntime.KotlinBase {
         public init() {
             if Self.self != main.Foo.Nested.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.Foo.Nested ") }
             let __kt = Foo_Nested_init_allocate()
@@ -32,6 +32,17 @@ public final class Foo: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBr
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
             super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        }
+        public static func +(
+            this: main.Foo.Nested,
+            other: Swift.Int32
+        ) -> main.Foo.Nested {
+            this._plus(other: other)
+        }
+        public func _plus(
+            other: Swift.Int32
+        ) -> main.Foo.Nested {
+            return main.Foo.Nested.__createClassWrapper(externalRCRef: Foo_Nested_plus__TypesOfArguments__Swift_Int32__(self.__externalRCRef(), other))
         }
     }
     public init() {
@@ -47,38 +58,65 @@ public final class Foo: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBr
         super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
     }
 }
-public extension ExportedKotlinPackages.a.b.c {
-    public final class E: KotlinRuntime.KotlinBase, KotlinRuntimeSupport._KotlinBridged, Swift.CaseIterable {
-        public static var A: ExportedKotlinPackages.a.b.c.E {
+extension ExportedKotlinPackages.a.b.c {
+    public enum E: KotlinRuntimeSupport._KotlinBridgeable, Swift.CaseIterable, Swift.LosslessStringConvertible, Swift.RawRepresentable {
+        case A
+        case B
+        case C
+        public var description: Swift.String {
             get {
-                return ExportedKotlinPackages.a.b.c.E.__createClassWrapper(externalRCRef: a_b_c_E_A_get())
+                switch self {
+                case .A: "A"
+                case .B: "B"
+                case .C: "C"
+                default: fatalError()
+                }
             }
         }
-        public static var B: ExportedKotlinPackages.a.b.c.E {
+        public var rawValue: Swift.Int32 {
             get {
-                return ExportedKotlinPackages.a.b.c.E.__createClassWrapper(externalRCRef: a_b_c_E_B_get())
+                switch self {
+                case .A: 0
+                case .B: 1
+                case .C: 2
+                default: fatalError()
+                }
             }
         }
-        public static var C: ExportedKotlinPackages.a.b.c.E {
-            get {
-                return ExportedKotlinPackages.a.b.c.E.__createClassWrapper(externalRCRef: a_b_c_E_C_get())
+        public init?(
+            _ description: Swift.String
+        ) {
+            switch description {
+            case "A": self = .A
+            case "B": self = .B
+            case "C": self = .C
+            default: return nil
             }
         }
-        public static var allCases: [ExportedKotlinPackages.a.b.c.E] {
-            get {
-                return a_b_c_E_entries_get() as! Swift.Array<ExportedKotlinPackages.a.b.c.E>
-            }
+        public init?(
+            rawValue: Swift.Int32
+        ) {
+            guard 0..<3 ~= rawValue else { return nil }
+            self = E.allCases[Int(rawValue)]
         }
-        package override init(
-            __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        public init(
+            __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer!,
             options: KotlinRuntime.KotlinBaseConstructionOptions
         ) {
-            super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+            switch __externalRCRefUnsafe {
+            case a_b_c_E_A(): self = .A
+            case a_b_c_E_B(): self = .B
+            case a_b_c_E_C(): self = .C
+            default: fatalError()
+            }
         }
-        public static func valueOf(
-            value: Swift.String
-        ) -> ExportedKotlinPackages.a.b.c.E {
-            return ExportedKotlinPackages.a.b.c.E.__createClassWrapper(externalRCRef: a_b_c_E_valueOf__TypesOfArguments__Swift_String__(value))
+        public func __externalRCRef() -> Swift.UnsafeMutableRawPointer! {
+            return switch self {
+            case .A: a_b_c_E_A()
+            case .B: a_b_c_E_B()
+            case .C: a_b_c_E_C()
+            default: fatalError()
+            }
         }
     }
 }
@@ -86,5 +124,3 @@ public extension ExportedKotlinPackages.a.b.c {
 // Can't export foo: inline functions are not supported yet.
 // Can't export a.b.c.E.values: static functions are not supported yet.
 // Can't export a.b.c.E.values: static functions are not supported yet.
-// Can't export Foo.Nested.plus: operators are not supported yet.
-// Can't export Foo.Nested.plus: operators are not supported yet.

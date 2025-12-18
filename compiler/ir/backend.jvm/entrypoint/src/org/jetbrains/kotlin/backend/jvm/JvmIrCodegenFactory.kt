@@ -66,12 +66,16 @@ import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.CleanableBindingContext
 import org.jetbrains.kotlin.serialization.StringTableImpl
 import org.jetbrains.kotlin.serialization.deserialization.builtins.BuiltInSerializerProtocol
+import org.jetbrains.kotlin.util.PerformanceManagerImpl
+import org.jetbrains.kotlin.util.PhaseType
+import org.jetbrains.kotlin.util.UnitStats
+import org.jetbrains.kotlin.util.tryMeasurePhaseTime
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class JvmIrCodegenFactory(
-    configuration: CompilerConfiguration,
+    private val configuration: CompilerConfiguration,
     private val externalMangler: JvmDescriptorMangler? = null,
     private val externalSymbolTable: SymbolTable? = null,
     private val jvmGeneratorExtensions: JvmGeneratorExtensionsImpl = JvmGeneratorExtensionsImpl(configuration),
@@ -96,6 +100,7 @@ class JvmIrCodegenFactory(
         val shouldReferenceUndiscoveredExpectSymbols: Boolean = false,
         val shouldDeduplicateBuiltInSymbols: Boolean = false,
         val doNotLoadDependencyModuleHeaders: Boolean = false,
+        val evaluatorData: JvmEvaluatorData? = null,
     ) {
         init {
             if (shouldDeduplicateBuiltInSymbols && !shouldStubAndNotLinkUnboundSymbols) {
@@ -334,30 +339,12 @@ class JvmIrCodegenFactory(
         )
             JvmIrSerializerImpl(state.configuration)
         else null
+
+        val evaluatorData = ideCodegenSettings.evaluatorData ?: computePsiBasedEvaluatorData(irModuleFragment)
         val context = JvmBackendContext(
             state, irBuiltIns, symbolTable, extensions,
-            backendExtension, irSerializer, JvmIrDeserializerImpl(), irProviders, irPluginContext
+            backendExtension, irSerializer, JvmIrDeserializerImpl(), irProviders, irPluginContext, evaluatorData
         )
-        if (evaluatorFragmentInfoForPsi2Ir != null) {
-            // In K1 CodeFragment metadata is attributed to IrClass, but in K2 it is attributed IrFile
-            val generatedClass = if (context.state.configuration.useFir) {
-                irModuleFragment.files.flatMap { it.declarations }
-                    .filterIsInstance<IrClass>()
-                    .single { it.metadata is MetadataSource.CodeFragment }
-            } else {
-                val fragmentFile = irModuleFragment.files.single { it.metadata is MetadataSource.CodeFragment }
-                fragmentFile.declarations.single() as IrClass
-            }
-
-            @OptIn(ObsoleteDescriptorBasedAPI::class)
-            val evaluationEntryPoint = generatedClass.functions.single { it.descriptor == evaluatorFragmentInfoForPsi2Ir.methodDescriptor }
-            context.evaluatorData =
-                JvmEvaluatorData(
-                    JvmBackendContext.SharedLocalDeclarationsData(),
-                    evaluationEntryPoint,
-                    evaluatorFragmentInfoForPsi2Ir.typeArgumentsMap
-                )
-        }
         val generationExtensions = state.project.filteredExtensions
             .mapNotNull { it.getPlatformIntrinsicExtension(context) as? JvmIrIntrinsicExtension }
         val intrinsics by lazy { IrIntrinsicMethods(irBuiltIns, context.symbols) }
@@ -383,6 +370,24 @@ class JvmIrCodegenFactory(
         return CodegenInput(state, context, irModuleFragment, allBuiltins, generationExtensions)
     }
 
+    private fun computePsiBasedEvaluatorData(irModuleFragment: IrModuleFragment): JvmEvaluatorData? {
+        val evaluatorFragmentInfoForPsi2Ir = evaluatorFragmentInfoForPsi2Ir ?: return null
+
+        // In K1 CodeFragment metadata is attributed to IrClass, but in K2 it is attributed IrFile
+        val fragmentFile = irModuleFragment.files.single { it.metadata is MetadataSource.CodeFragment }
+        val generatedClass = fragmentFile.declarations.single() as IrClass
+
+        @OptIn(ObsoleteDescriptorBasedAPI::class)
+        val evaluationEntryPoint = generatedClass.functions
+            .single { it.descriptor == evaluatorFragmentInfoForPsi2Ir.methodDescriptor }
+
+        return JvmEvaluatorData(
+            JvmBackendContext.SharedLocalDeclarationsData(),
+            evaluationEntryPoint,
+            evaluatorFragmentInfoForPsi2Ir.typeArgumentsMap
+        )
+    }
+
     fun invokeCodegen(input: CodegenInput) {
         val (state, context, module, allBuiltins, intrinsicExtensions) = input
 
@@ -391,25 +396,42 @@ class JvmIrCodegenFactory(
         if (hasErrors()) return
 
         val nThreads = context.configuration.get(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS) ?: 1
-        val executor = if (nThreads > 1) Executors.newFixedThreadPool(nThreads) else null
+        val executor = if (nThreads > 1 && module.files.size > 1) Executors.newFixedThreadPool(nThreads) else null
+
+        val perfManager = configuration.perfManager
 
         // Generate multifile facades first, to compute and store JVM signatures of const properties which are later used
         // when serializing metadata in the multifile parts.
         // TODO: consider dividing codegen itself into separate phases (bytecode generation, metadata serialization) to avoid this
         for (generateMultifileFacades in listOf(true, false)) {
             if (executor != null) {
-                val taskPerFile = module.files.map { irFile ->
-                    CompletableFuture.runAsync(
-                        {
-                            generateFile(context, irFile, intrinsicExtensions, generateMultifileFacades)
-                        },
-                        executor
+                val tasks = mutableListOf<CompletableFuture<Void>>()
+                val childrenStats = mutableListOf<UnitStats>()
+
+                for (irFile in module.files) {
+                    tasks.add(
+                        CompletableFuture.runAsync(
+                            {
+                                val childPerfManager = PerformanceManagerImpl.createChildIfNeeded(perfManager, start = false)
+                                childPerfManager.tryMeasurePhaseTime(PhaseType.Backend) {
+                                    generateFile(context, irFile, intrinsicExtensions, generateMultifileFacades)
+                                }
+                                childPerfManager?.let { childrenStats.add(it.unitStats) }
+                            },
+                            executor
+                        )
                     )
                 }
-                CompletableFuture.allOf(*taskPerFile.toTypedArray()).get()
+                CompletableFuture.allOf(*tasks.toTypedArray()).get()
+
+                if (perfManager != null) {
+                    childrenStats.forEach { perfManager.addOtherUnitStats(it) }
+                }
             } else {
-                for (irFile in module.files) {
-                    generateFile(context, irFile, intrinsicExtensions, generateMultifileFacades)
+                perfManager.tryMeasurePhaseTime(PhaseType.Backend) {
+                    for (irFile in module.files) {
+                        generateFile(context, irFile, intrinsicExtensions, generateMultifileFacades)
+                    }
                 }
             }
         }

@@ -6,10 +6,18 @@ plugins {
     id("gradle-plugin-api-reference")
 }
 
+repositories {
+    google()
+}
+
 dependencies {
     commonApi(platform(project(":kotlin-gradle-plugins-bom")))
-    commonApi(project(":kotlin-gradle-plugin-model"))
     commonApi(project(":kotlin-gradle-plugin"))
+    commonCompileOnly(libs.android.gradle.plugin.gradle.api) {
+        overrideTargetJvmVersion(11)
+        isTransitive = false
+    }
+    commonCompileOnly(project(":plugins:compose-compiler-plugin:group-mapping"))
 }
 
 gradlePlugin {
@@ -24,12 +32,15 @@ gradlePlugin {
 }
 
 pluginApiReference {
-    enableForGradlePluginVariants(GradlePluginVariant.values().toSet())
+    enableForAllGradlePluginVariants()
     enableKotlinlangDocumentation()
 
     failOnWarning = true
 
+    moduleName("The Compose compiler Gradle plugin")
+
     additionalDokkaConfiguration {
+        includes.from("api-reference-description.md")
         reportUndocumented.set(true)
         perPackageOption {
             matchingRegex.set("org\\.jetbrains\\.kotlin\\.compose\\.compiler\\.gradle\\.model(\$|\\.).*")
@@ -41,10 +52,12 @@ pluginApiReference {
 if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
     testing {
         suites {
+            val coreDepsVersion = libs.versions.kotlin.`for`.gradle.plugins.compilation.get()
             val test by getting(JvmTestSuite::class) {
                 useJUnitJupiter(libs.versions.junit5)
                 dependencies {
-                    implementation(project(":kotlin-test"))
+                    implementation("org.jetbrains.kotlin:kotlin-stdlib:${coreDepsVersion}")
+                    implementation("org.jetbrains.kotlin:kotlin-test:${coreDepsVersion}")
                 }
             }
 
@@ -52,10 +65,11 @@ if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
                 dependencies {
                     implementation(project())
                     implementation(gradleKotlinDsl())
-                    implementation(project(":compiler:cli-common"))
+                    implementation(project(":compiler:cli-common")) { isTransitive = false }
                     implementation(platform(libs.junit.bom))
                     implementation(libs.junit.jupiter.api)
-                    implementation(project(":kotlin-test"))
+                    implementation("org.jetbrains.kotlin:kotlin-stdlib:$coreDepsVersion")
+                    implementation("org.jetbrains.kotlin:kotlin-test:$coreDepsVersion")
 
                     runtimeOnly(libs.junit.jupiter.engine)
                 }
@@ -68,10 +82,30 @@ if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
                     }
                 }
             }
+
+            val functionalTests = sourceSets.getByName("functionalTest")
+            listOf(
+                functionalTests.compileClasspathConfigurationName,
+                functionalTests.runtimeClasspathConfigurationName,
+            ).forEach {
+                configurations.getByName(it).useDependenciesCompiledForGradle(
+                    GradlePluginVariant.MAXIMUM_SUPPORTED_GRADLE_VARIANT,
+                    objects,
+                )
+            }
         }
     }
 
     tasks.named("check") {
         dependsOn(testing.suites.named("functionalTest"))
+    }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.apache.commons" && requested.name == "commons-lang3") {
+            useVersion(libs.versions.commons.lang.get())
+            because("CVE-2025-48924")
+        }
     }
 }

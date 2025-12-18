@@ -27,7 +27,6 @@ import org.jetbrains.kotlin.cli.common.LegacyK2CliPipeline
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.perfManager
 import org.jetbrains.kotlin.cli.jvm.compiler.*
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment.Companion.configureProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.config.*
@@ -131,7 +130,7 @@ fun generateCodeFromIr(
         diagnosticReporter = environment.diagnosticsReporter,
     )
 
-    val performanceManager = input.configuration[CLIConfigurationKeys.PERF_MANAGER]
+    val performanceManager = input.configuration.perfManager
     @OptIn(PotentiallyIncorrectPhaseTimeMeasurement::class)
     performanceManager?.notifyCurrentPhaseFinishedIfNeeded() // It should be `notifyIRGenerationFinished`, but this phase not always started or already finished
     lateinit var codegenFactory: JvmIrCodegenFactory
@@ -153,9 +152,10 @@ fun generateCodeFromIr(
         codegenFactory.invokeLowerings(generationState, backendInput)
     }
 
-    performanceManager.tryMeasurePhaseTime(PhaseType.Backend) {
-        codegenFactory.invokeCodegen(codegenInput)
+    codegenFactory.invokeCodegen(codegenInput)
 
+    // It's allowed to call `tryMeasurePhaseTime` multiple times on the same phase (`Backend`)
+    performanceManager.tryMeasurePhaseTime(PhaseType.Backend) {
         if (input.configuration.outputDirectory != null) {
             writeOutputsIfNeeded(
                 environment.projectEnvironment.project,
@@ -176,7 +176,17 @@ fun createIncrementalCompilationScope(
     projectEnvironment: VfsBasedProjectEnvironment,
     incrementalExcludesScope: AbstractProjectFileSearchScope?
 ): AbstractProjectFileSearchScope? {
-    if (!needCreateIncrementalCompilationScope(configuration)) return null
+    if (configuration.get(JVMConfigurationKeys.MODULES) == null) {
+        return null
+    }
+
+    val incrementalCompilationComponents = configuration.get(JVMConfigurationKeys.INCREMENTAL_COMPILATION_COMPONENTS)
+    if (incrementalCompilationComponents == null) {
+        return null
+    } else if (incrementalCompilationComponents is ProjectFileSearchScopeProvider) {
+        return incrementalCompilationComponents.createSearchScope(projectEnvironment)
+    }
+
     val dir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY] ?: return null
     return projectEnvironment.getSearchScopeByDirectories(setOf(dir)).let {
         if (incrementalExcludesScope?.isEmpty != false) it
@@ -184,10 +194,8 @@ fun createIncrementalCompilationScope(
     }
 }
 
-private fun needCreateIncrementalCompilationScope(configuration: CompilerConfiguration): Boolean {
-    if (configuration.get(JVMConfigurationKeys.MODULES) == null) return false
-    if (configuration.get(JVMConfigurationKeys.INCREMENTAL_COMPILATION_COMPONENTS) == null) return false
-    return true
+interface ProjectFileSearchScopeProvider {
+    fun createSearchScope(projectEnvironment: VfsBasedProjectEnvironment): AbstractProjectFileSearchScope
 }
 
 fun createContextForIncrementalCompilation(
@@ -333,6 +341,8 @@ private fun contentRootToVirtualFile(
             else localFileSystem.findExistingRoot(root, "Java module root", messageCollector)
         is JavaSourceRoot ->
             localFileSystem.findExistingRoot(root, "Java source root", messageCollector)
+        is VirtualJvmClasspathRoot ->
+            root.file
         else ->
             throw IllegalStateException("Unexpected root: $root")
     }

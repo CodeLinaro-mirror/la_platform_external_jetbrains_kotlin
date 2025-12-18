@@ -24,8 +24,6 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.config.LanguageVersion
 import org.jetbrains.kotlin.gradle.android.Kapt4AndroidExternalIT
 import org.jetbrains.kotlin.gradle.android.Kapt4AndroidIT
-import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.USING_JVM_INCREMENTAL_COMPILATION_MESSAGE
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.addBeforeSubstring
@@ -134,10 +132,6 @@ abstract class Kapt3BaseIT : KGPBaseTest() {
  */
 @DisplayName("Kapt 3 with classloaders cache")
 open class Kapt3ClassLoadersCacheIT : Kapt3IT() {
-    override fun TestProject.customizeProject() {
-        forceK1Kapt()
-    }
-
     override fun kaptOptions(): BuildOptions.KaptOptions = super.kaptOptions().copy(
         classLoadersCacheSize = 10,
         includeCompileClasspath = false
@@ -207,10 +201,6 @@ open class Kapt3ClassLoadersCacheIT : Kapt3IT() {
 @DisplayName("Kapt 3 base checks")
 @OtherGradlePluginTests
 open class Kapt3IT : Kapt3BaseIT() {
-    override fun TestProject.customizeProject() {
-        forceK1Kapt()
-    }
-
     @DisplayName("Kapt is skipped when no annotation processors are added")
     @GradleTest
     fun testKaptSkipped(gradleVersion: GradleVersion) {
@@ -1370,7 +1360,8 @@ open class Kapt3IT : Kapt3BaseIT() {
             javaSourcesDir().resolve("invalid.kt").writeText("TopLevelDeclarationExpected")
 
             buildAndFail(":kaptGenerateStubsKotlin") {
-                assertOutputContains("invalid.kt:1:1 Expecting a top level declaration")
+                assertOutputContains("invalid.kt:1:1")
+                assertOutputContains("Expecting a top level declaration")
             }
         }
     }
@@ -1401,21 +1392,22 @@ open class Kapt3IT : Kapt3BaseIT() {
         }
     }
 
-    @DisplayName("K2 kapt cannot be enabled in K1")
+    @DisplayName("KT-80843 Kapt does not fail on redeclaration in data class")
     @GradleTest
-    open fun testK2KaptCannotBeEnabledInK1(gradleVersion: GradleVersion) {
+    fun testRedeclarationInDataClass(gradleVersion: GradleVersion) {
         project("simple".withPrefix, gradleVersion) {
-            buildScriptInjection {
-                project.tasks.withType(KotlinCompile::class.java).configureEach {
-                    it.compilerOptions {
-                        languageVersion.set(KotlinVersion.KOTLIN_1_9)
-                    }
-                }
-            }
-            build("-Pkapt.use.k2=true", "build") {
-                assertKaptSuccessful()
-                assertTasksExecuted(":kaptGenerateStubsKotlin", ":kaptKotlin", ":compileKotlin")
-                assertOutputContains("K2 kapt cannot be enabled in K1. Update language version to 2.0 or newer.")
+            javaSourcesDir().resolve("invalid.kt").writeText("""
+                data class ClassWithDupProps(
+                    val rock: String,
+                    val paper: String,
+                    val scissors: String,
+                    val rock: String, // This would cause KAPT K2 to crash
+                )
+
+            """.trimIndent())
+
+            build(":kaptGenerateStubsKotlin") {
+                assertFileExists(projectPath.resolve("build/tmp/kapt3/stubs/main/ClassWithDupProps.java"))
             }
         }
     }

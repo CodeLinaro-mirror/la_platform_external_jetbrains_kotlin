@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.backend.common.linkage.partial.partialLinkageConfig
 import org.jetbrains.kotlin.backend.common.lower.InnerClassesSupport
 import org.jetbrains.kotlin.backend.common.reportWarning
 import org.jetbrains.kotlin.backend.common.serialization.IrInterningService
-import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.isFunctionType
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -48,6 +47,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.js.backend.ast.JsExpressionStatement
 import org.jetbrains.kotlin.js.backend.ast.JsFunction
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.js.config.JsGenerationGranularity
 import org.jetbrains.kotlin.js.config.RuntimeDiagnostic
 import org.jetbrains.kotlin.js.parser.sourcemaps.*
 import org.jetbrains.kotlin.name.*
@@ -73,9 +73,6 @@ class JsIrBackendContext(
     val incrementalCacheEnabled: Boolean = false,
 ) : JsCommonBackendContext {
     val phaseConfig = configuration.phaseConfig ?: PhaseConfig()
-
-    override val allowExternalInlining: Boolean
-        get() = true
 
     val polyfills = JsPolyfills()
     val globalIrInterner = IrInterningService()
@@ -122,7 +119,7 @@ class JsIrBackendContext(
     private val internalPackage = module.getPackage(JsStandardClassIds.BASE_JS_PACKAGE)
 
     val dynamicType: IrDynamicType = IrDynamicTypeImpl(emptyList(), Variance.INVARIANT)
-    val intrinsics: JsIntrinsics = JsIntrinsics(irBuiltIns)
+    val intrinsics: JsIntrinsics = JsIntrinsics(irBuiltIns, configuration)
 
     override val reflectionSymbols: ReflectionSymbols get() = intrinsics.reflectionSymbols
 
@@ -229,6 +226,9 @@ class JsIrBackendContext(
         getFunctions(FqName("kotlin.js.getLocalDelegateReference")).single().let {
             symbolTable.descriptorExtension.referenceSimpleFunction(it)
         }
+    val throwLinkageErrorInCallableNameSymbol = getFunctions(FqName("kotlin.js.throwLinkageErrorInCallableName")).single().let {
+        symbolTable.descriptorExtension.referenceSimpleFunction(it)
+    }
 
     private fun referenceOperators(): Map<Name, Map<IrClassSymbol, Collection<IrSimpleFunctionSymbol>>> {
         val primitiveIrSymbols = irBuiltIns.primitiveIrTypes.map { it.classifierOrFail as IrClassSymbol }
@@ -279,25 +279,24 @@ class JsIrBackendContext(
 
     private val outlinedJsCodeFunctions = WeakHashMap<IrFunctionSymbol, JsFunction>()
     fun getJsCodeForFunction(symbol: IrFunctionSymbol): JsFunction? {
-        val originalSymbol = symbol.owner.originalFunction.symbol
-        val jsFunction = outlinedJsCodeFunctions[originalSymbol]
+        val jsFunction = outlinedJsCodeFunctions[symbol]
         if (jsFunction != null) return jsFunction
 
-        parseJsFromAnnotation(originalSymbol.owner, JsStandardClassIds.Annotations.JsOutlinedFunction)
+        parseJsFromAnnotation(symbol.owner, JsStandardClassIds.Annotations.JsOutlinedFunction)
             ?.let { (annotation, parsedJsFunction) ->
                 val sourceMap = (annotation.arguments[1] as? IrConst)?.value as? String
-                val parsedSourceMap = sourceMap?.let { parseSourceMap(it, originalSymbol.owner.fileOrNull, annotation) }
+                val parsedSourceMap = sourceMap?.let { parseSourceMap(it, symbol.owner.fileOrNull, annotation) }
                 if (parsedSourceMap != null) {
                     val remapper = SourceMapLocationRemapper(parsedSourceMap)
                     remapper.remap(parsedJsFunction)
                 }
-                outlinedJsCodeFunctions[originalSymbol] = parsedJsFunction
+                outlinedJsCodeFunctions[symbol] = parsedJsFunction
                 return parsedJsFunction
             }
 
-        parseJsFromAnnotation(originalSymbol.owner, JsStandardClassIds.Annotations.JsFun)
+        parseJsFromAnnotation(symbol.owner, JsStandardClassIds.Annotations.JsFun)
             ?.let { (_, parsedJsFunction) ->
-                outlinedJsCodeFunctions[originalSymbol] = parsedJsFunction
+                outlinedJsCodeFunctions[symbol] = parsedJsFunction
                 return parsedJsFunction
             }
         return null

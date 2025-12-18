@@ -29,6 +29,7 @@ interface D: A<String> {
     }
 }
 
+@MustUseReturnValues
 interface BoxImpl: Box<String> {
     override fun add(t: String): Boolean {
         return true
@@ -41,8 +42,8 @@ fun useBox(box: Box<String>, b: B, c: C, d: D, i: BoxImpl) {
     b.foo()
     // questionable, but let's leave it for now:
     c.foo()
-    <!RETURN_VALUE_NOT_USED!>d.foo()<!>
-    <!RETURN_VALUE_NOT_USED!>i.add("")<!>
+    d.foo()
+    i.<!RETURN_VALUE_NOT_USED!>add<!>("")
 }
 
 /* GENERATED_FIR_TAGS: functionDeclaration, interfaceDeclaration, nullableType, override, stringLiteral, typeParameter */

@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.impl.ConeClassLikeTypeImpl
@@ -50,14 +51,15 @@ fun deserializeClassToSymbol(
     nameResolver: NameResolver,
     session: FirSession,
     moduleData: FirModuleData,
-    defaultAnnotationDeserializer: AbstractAnnotationDeserializer?,
+    defaultAnnotationDeserializer: AnnotationDeserializer?,
     flexibleTypeFactory: FirTypeDeserializer.FlexibleTypeFactory,
     scopeProvider: FirScopeProvider,
     serializerExtensionProtocol: SerializerExtensionProtocol,
     parentContext: FirDeserializationContext? = null,
     containerSource: DeserializedContainerSource? = null,
     origin: FirDeclarationOrigin = FirDeclarationOrigin.Library,
-    deserializeNestedClass: (ClassId, FirDeserializationContext) -> FirRegularClassSymbol?
+    deserializeNestedClass: (ClassId, FirDeserializationContext) -> FirRegularClassSymbol?,
+    deserializeNestedTypeAlias: (ClassId, FirNestedTypeAliasDeserializationContext) -> FirTypeAliasSymbol?,
 ) {
     val flags = classProto.flags
     val kind = Flags.CLASS_KIND.get(flags)
@@ -163,15 +165,23 @@ fun deserializeClassToSymbol(
             }
         )
 
+        fun createNestedClassId(nameId: Int): ClassId {
+            return classId.createNestedClassId(Name.identifier(nameResolver.getString(nameId)))
+        }
+
         addDeclarations(
-            classProto.nestedClassNameList.mapNotNull { nestedNameId ->
-                val nestedClassId = classId.createNestedClassId(Name.identifier(nameResolver.getString(nestedNameId)))
-                deserializeNestedClass(nestedClassId, context)?.fir
+            classProto.nestedClassNameList.mapNotNull {
+                deserializeNestedClass(createNestedClassId(it), context)?.fir
             }
         )
 
         addDeclarations(
-            classProto.typeAliasList.mapNotNull { classDeserializer.loadTypeAlias(it, scopeProvider) }
+            classProto.typeAliasList.mapNotNull {
+                deserializeNestedTypeAlias(
+                    createNestedClassId(it.name),
+                    FirNestedTypeAliasDeserializationContext(classDeserializer, it, scopeProvider)
+                )?.fir
+            }
         )
 
         addDeclarations(

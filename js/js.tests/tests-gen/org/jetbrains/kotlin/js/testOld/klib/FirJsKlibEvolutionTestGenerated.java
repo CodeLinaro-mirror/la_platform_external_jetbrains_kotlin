@@ -92,7 +92,7 @@ public class FirJsKlibEvolutionTestGenerated extends AbstractFirJsKlibEvolutionT
   }
 
   public void testAllFilesPresentInEvolution() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/evolution"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/evolution"), Pattern.compile("^(.+)\\.kt$"), null, true);
   }
 
   @TestMetadata("changeBaseClassOrder.kt")
@@ -153,11 +153,6 @@ public class FirJsKlibEvolutionTestGenerated extends AbstractFirJsKlibEvolutionT
   @TestMetadata("deletePrivateMembers.kt")
   public void testDeletePrivateMembers() {
     runTest("compiler/testData/klib/evolution/deletePrivateMembers.kt");
-  }
-
-  @TestMetadata("inlineBodyChange.kt")
-  public void testInlineBodyChange() {
-    runTest("compiler/testData/klib/evolution/inlineBodyChange.kt");
   }
 
   @TestMetadata("inlineFunction.kt")

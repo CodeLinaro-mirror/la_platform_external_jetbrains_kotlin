@@ -84,8 +84,8 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
         }
 
         impl(localDelegatedProperty) {
-            isLateinit("delegate", "getter")
-            defaultNull("setter")
+            isLateinit( "getter")
+            defaultNull("setter", "delegate")
         }
 
         impl(typeParameter) {
@@ -141,6 +141,7 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
             isLateinit("receiverParameters", "body")
             default("origin", "REPL_SNIPPET_ORIGIN")
             default("declarationsFromOtherSnippets", "ArrayList()")
+            default("variablesFromOtherSnippets", "ArrayList()")
         }
 
         impl(moduleFragment) {
@@ -182,13 +183,6 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
             defaultWithErrorOnSet("endOffset", "fileEntry.maxOffset")
             isMutable("module")
             isLateinit("module")
-            implementation.generationCallback = {
-                println()
-                println("internal val isInsideModule: Boolean")
-                withIndent {
-                    println("get() = ::module.isInitialized")
-                }
-            }
         }
 
         allImplOf(loop) {
@@ -411,6 +405,10 @@ object ImplementationConfigurator : AbstractIrTreeImplementationConfigurator() {
 
         impl(localDelegatedPropertyReference) {
             recordTargetShapeOnSymbolChange()
+        }
+
+        allImplOf(richCallableReference) {
+            default("boundValues", "ArrayList(0)")
         }
     }
 

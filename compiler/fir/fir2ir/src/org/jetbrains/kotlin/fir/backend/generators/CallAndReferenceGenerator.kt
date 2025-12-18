@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.backend.generators
 
 import org.jetbrains.kotlin.KtFakeSourceElementKind
+import org.jetbrains.kotlin.backend.common.implicitInvoke
 import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -40,17 +41,13 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.util.dump
-import org.jetbrains.kotlin.ir.util.parentAsClass
-import org.jetbrains.kotlin.ir.util.primaryConstructor
-import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
-import org.jetbrains.kotlin.ir.util.toIrConst
 
 class CallAndReferenceGenerator(
     private val c: Fir2IrComponents,
@@ -67,7 +64,7 @@ class CallAndReferenceGenerator(
         explicitReceiverExpression: IrExpression?,
         isDelegate: Boolean,
     ): IrExpression {
-        val type = approximateFunctionReferenceType(callableReferenceAccess.resolvedType).toIrType()
+        val type = callableReferenceAccess.resolvedType.approximateFunctionTypeInputs().toIrType()
 
         val firSymbol = callableReferenceAccess.calleeReference.extractDeclarationSiteSymbol()
         if (firSymbol?.origin == FirDeclarationOrigin.SamConstructor) {
@@ -221,23 +218,6 @@ class CallAndReferenceGenerator(
         }
     }
 
-    private fun approximateFunctionReferenceType(kotlinType: ConeKotlinType): ConeKotlinType {
-        // Approximate a function type's input types to their supertypes.
-        // Approximating the outer type will lead to the input types being approximated to their subtypes
-        // because the input type parameters have in variance.
-        if (kotlinType !is ConeClassLikeType) return kotlinType
-
-        val typeArguments = kotlinType.typeArguments
-        return kotlinType.withArguments(Array(typeArguments.size) { i ->
-            val projection = typeArguments[i]
-            if (i < typeArguments.lastIndex) {
-                projection.type?.approximateForIrOrNull()?.toTypeProjection(projection.kind) ?: projection
-            } else {
-                projection
-            }
-        })
-    }
-
     private fun FirQualifiedAccessExpression.tryConvertToSamConstructorCall(type: IrType): IrTypeOperatorCall? {
         val calleeReference = calleeReference as? FirResolvedNamedReference ?: return null
         val fir = calleeReference.resolvedSymbol.fir
@@ -260,7 +240,7 @@ class CallAndReferenceGenerator(
         val dispatchReceiverReference = calleeReference
         val superTypeRef = dispatchReceiverReference.superTypeRef
         val coneSuperType = superTypeRef.coneType
-        val firClassSymbol = coneSuperType.fullyExpandedType().toClassSymbol(session)
+        val firClassSymbol = coneSuperType.fullyExpandedType().toClassSymbol()
         if (firClassSymbol != null) {
             return classifierStorage.getIrClassSymbol(firClassSymbol)
         }
@@ -299,7 +279,7 @@ class CallAndReferenceGenerator(
                         )
                     }
                 }
-                findIntersectionComponent(type)?.toClassSymbol(session)
+                findIntersectionComponent(type)?.toClassSymbol()
             }
         } ?: return null
 
@@ -406,6 +386,12 @@ class CallAndReferenceGenerator(
             }
         }
 
+    private val FirQualifiedAccessExpression.isOperatorCall: Boolean
+        get() = when (this) {
+            is FirFunctionCall -> this.origin == FirFunctionCallOrigin.Operator
+            else -> false
+        }
+
     private fun convertToIrCallForDynamic(
         qualifiedAccess: FirQualifiedAccessExpression,
         explicitReceiverExpression: IrExpression?,
@@ -423,8 +409,7 @@ class CallAndReferenceGenerator(
                     val name = calleeReference.resolved?.name
                         ?: error("Callee reference must have a name: ${qualifiedAccess.render()}")
                     val operator = dynamicOperator
-                        ?: name.dynamicOperator
-                        ?: qualifiedAccess.dynamicOperator
+                        ?: runIf(qualifiedAccess.isOperatorCall) { name.dynamicOperator ?: qualifiedAccess.dynamicOperator }
                         ?: IrDynamicOperator.INVOKE
                     val theType = if (name == OperatorNameConventions.COMPARE_TO) {
                         typeConverter.builtins.booleanType
@@ -465,6 +450,12 @@ class CallAndReferenceGenerator(
         }
     }
 
+    internal fun convertSubstitutedInlineLambda(expression: FirQualifiedAccessExpression): IrExpression? {
+        val valueParam = (expression as? FirPropertyAccessExpression)?.toResolvedCallableSymbol() as? FirValueParameterSymbol ?: return null
+        val argument = extensions.findInjectedInlineLambdaArgument(valueParam) ?: return null
+        return visitor.convertToIrExpression(argument)
+    }
+
     internal fun injectGetValueCall(element: FirElement, calleeReference: FirReference): IrExpression? {
         val injectedValue = findInjectedValue(calleeReference)
         if (injectedValue != null) {
@@ -497,6 +488,10 @@ class CallAndReferenceGenerator(
     ): IrExpression = convertCatching(qualifiedAccess, conversionScope) {
         injectGetValueCall(qualifiedAccess, qualifiedAccess.calleeReference)?.let { return it }
 
+        convertSubstitutedInlineLambda(qualifiedAccess)?.let {
+            return it.patchDeclarationParents(conversionScope.parent())
+        }
+
         val irType = type.toIrType()
         val samConstructorCall = qualifiedAccess.tryConvertToSamConstructorCall(irType)
         if (samConstructorCall != null) return samConstructorCall
@@ -505,7 +500,12 @@ class CallAndReferenceGenerator(
         val calleeReference = qualifiedAccess.calleeReference
 
         if (qualifiedAccess is FirSuperReceiverExpression && dispatchReceiver != null) {
-            return visitor.convertToIrExpression(dispatchReceiver)
+            return qualifiedAccess.convertWithOffsets { startOffset, endOffset ->
+                visitor.convertToIrExpression(dispatchReceiver).apply {
+                    this.startOffset = startOffset
+                    this.endOffset = endOffset
+                }
+            }
         }
 
         val firSymbol = calleeReference.extractDeclarationSiteSymbol()
@@ -592,7 +592,11 @@ class CallAndReferenceGenerator(
                         hasExtensionReceiver = firSymbol.isExtension,
                         origin = callOrigin,
                         superQualifierSymbol = dispatchReceiver?.superQualifierSymbolForFunctionAndPropertyAccess()
-                    )
+                    ).apply {
+                        if (qualifiedAccess is FirImplicitInvokeCall) {
+                            implicitInvoke = true
+                        }
+                    }
                 }
 
                 is IrLocalDelegatedPropertySymbol -> {
@@ -893,12 +897,12 @@ class CallAndReferenceGenerator(
                 )
             }
         }
-        val annotationIsAccessible = coneType.toRegularClassSymbol(session) != null
+        val annotationIsAccessible = coneType.toRegularClassSymbol() != null
         val symbol = type.classifierOrNull
         val firConstructorSymbol = (annotation.toResolvedCallableSymbol(session) as? FirConstructorSymbol)
             ?: run {
                 // Fallback for FirReferencePlaceholderForResolvedAnnotations from jar
-                val fir = coneType.toClassSymbol(session)?.fir
+                val fir = coneType.toClassSymbol()?.fir
                 var constructorSymbol: FirConstructorSymbol? = null
                 fir?.unsubstitutedScope()?.processDeclaredConstructors {
                     if (it.fir.isPrimary && constructorSymbol == null) {
@@ -963,7 +967,7 @@ class CallAndReferenceGenerator(
         return buildAnnotationCall {
             useSiteTarget = this@toAnnotationCall.useSiteTarget
             annotationTypeRef = this@toAnnotationCall.annotationTypeRef
-            val symbol = annotationTypeRef.coneType.fullyExpandedType().toRegularClassSymbol(session) ?: return null
+            val symbol = annotationTypeRef.coneType.fullyExpandedType().toRegularClassSymbol() ?: return null
 
             val constructorSymbol = symbol.unsubstitutedScope().getDeclaredConstructors().firstOrNull() ?: return null
 
@@ -993,7 +997,7 @@ class CallAndReferenceGenerator(
         qualifier: FirResolvedQualifier,
         callableReferenceAccess: FirCallableReferenceAccess?,
     ): IrExpression? {
-        val classSymbol = qualifier.resolvedType.toClassLikeSymbol(session)
+        val classSymbol = qualifier.resolvedType.toClassLikeSymbol()
 
         if (callableReferenceAccess?.isBound == false) {
             return null
@@ -1077,7 +1081,7 @@ class CallAndReferenceGenerator(
         argument: FirExpression,
         parameter: FirValueParameter?,
     ): IrExpression {
-        if (!session.languageVersionSettings.supportsFeature(LanguageFeature.ImplicitSignedToUnsignedIntegerConversion)) return this
+        if (!LanguageFeature.ImplicitSignedToUnsignedIntegerConversion.isEnabled()) return this
 
         if (parameter == null || !parameter.isMarkedWithImplicitIntegerCoercion) return this
         if (!argument.getExpectedType(session, parameter).fullyExpandedType().isUnsignedTypeOrNullableUnsignedType) return this
@@ -1372,7 +1376,7 @@ class CallAndReferenceGenerator(
                         firDispatchReceiver = firDispatchReceiver.dispatchReceiver
                     }
                     val notFromAny = !declarationSiteSymbol.isFunctionFromAny()
-                    val notAnInterface = firDispatchReceiver?.resolvedType?.toRegularClassSymbol(session)?.isInterface != true
+                    val notAnInterface = firDispatchReceiver?.resolvedType?.toRegularClassSymbol()?.isInterface != true
                     arguments[0] =
                         if (notFromAny || notAnInterface) {
                             baseDispatchReceiver

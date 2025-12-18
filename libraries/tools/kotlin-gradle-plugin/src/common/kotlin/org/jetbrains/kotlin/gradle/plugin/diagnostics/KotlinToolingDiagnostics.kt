@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.gradle.plugin.diagnostics
 
 import org.gradle.api.Project
+import org.gradle.api.artifacts.component.ComponentIdentifier
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.Uklib
 import org.jetbrains.kotlin.gradle.dsl.KotlinSourceSetConvention.isAccessedByKotlinSourceSetConventionAt
@@ -19,17 +20,23 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.KOTLIN_SUPPRESS_GRADLE_PLUGIN_WARNINGS_PROPERTY
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_APPLY_DEFAULT_HIERARCHY_TEMPLATE
+import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_NATIVE_ENABLE_KLIBS_CROSSCOMPILATION
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_NATIVE_IGNORE_DISABLED_TARGETS
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_NATIVE_SUPPRESS_EXPERIMENTAL_ARTIFACTS_DSL_WARNING
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.checkers.UnresolvedKmpDependency.*
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity.*
 import org.jetbrains.kotlin.gradle.plugin.sources.android.multiplatformAndroidSourceSetLayoutV1
 import org.jetbrains.kotlin.gradle.plugin.sources.android.multiplatformAndroidSourceSetLayoutV2
 import org.jetbrains.kotlin.gradle.targets.jvm.JAVA_TEST_FIXTURES_PLUGIN_ID
+import org.jetbrains.kotlin.gradle.utils.appendLine
 import org.jetbrains.kotlin.gradle.utils.prettyName
+import org.jetbrains.kotlin.konan.target.Family
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.tooling.core.KotlinToolingVersion
 import org.jetbrains.kotlin.utils.addToStdlib.flatGroupBy
 import java.io.File
 import java.net.URI
+import java.security.MessageDigest
 
 internal object KotlinToolingDiagnostics {
     /**
@@ -57,7 +64,7 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object UklibFragmentFromUnexpectedTarget : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+    object UklibFragmentFromUnexpectedTarget : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(target: String) = build {
             title("Uklib Publication With Unsupported Target")
                 .description("Publication of ${Uklib.UKLIB_NAME} with target '$target' is currently not supported")
@@ -65,28 +72,25 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    data class UklibPublicationWithoutCrossCompilation(val severity: ToolingDiagnostic.Severity) : ToolingDiagnosticFactory(severity, DiagnosticGroup.Kgp.Misconfiguration) {
+    data class UklibPublicationWithoutCrossCompilation(val severity: ToolingDiagnostic.Severity) :
+        ToolingDiagnosticFactory(severity, DiagnosticGroup.Kgp.Misconfiguration) {
         fun get() = build {
             title("Uklib Publication Without Klib Cross-Compilation")
                 .description("Publication of ${Uklib.UKLIB_NAME} without cross compilation will not work on non-macOS hosts")
-                .solution("Please enable cross-compilation by specifying ${PropertiesProvider.PropertyNames.KOTLIN_NATIVE_ENABLE_KLIBS_CROSSCOMPILATION}=true in gradle.properties")
+                .solution("Please enable cross-compilation by specifying ${KOTLIN_NATIVE_ENABLE_KLIBS_CROSSCOMPILATION}=true in gradle.properties")
         }
     }
 
-    object UklibPublicationWithCinterops : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
-        operator fun invoke(target: String, interopName: String) = build {
-            title("Uklib Publication With Cinterops")
-                .description("Publication of ${Uklib.UKLIB_NAME} with cinterops is not yet supported. Target '$target' declares cinterop '$interopName'")
-                .solution("Cinterop publication is not yet supported (https://kotl.in/uklib-with-cinterops). Please disable ${Uklib.UKLIB_NAME} publication in projects with cinterops")
-        }
-    }
-
-    object UklibSourceSetStructureUnderRefinementViolation : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+    object UklibSourceSetStructureUnderRefinementViolation : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(sourceSet: KotlinSourceSet, missingRefinements: List<KotlinSourceSet>) = build {
             title("Uklib Incompatible Source Set Structure")
                 .description(
                     """
-                    Source set '${sourceSet.name}' must refine (declare dependsOn) all more general source sets. Edges to the following source sets are missing: ${missingRefinements.joinToString(", ") { "'${it.name}'" }}.
+                    Source set '${sourceSet.name}' must refine (declare dependsOn) all more general source sets. Edges to the following source sets are missing: ${
+                        missingRefinements.joinToString(
+                            ", "
+                        ) { "'${it.name}'" }
+                    }.
                     
                     For example:
                     
@@ -106,6 +110,189 @@ internal object KotlinToolingDiagnostics {
                     """.trimIndent()
                 )
                 .solution("Make sure '${sourceSet.name}' forms a compliant structure using https://kotl.in/hierarchy-template or by declaring dependsOn edges. Let us know in https://kotl.in/uklib-source-set-structure if this is not possible in your project")
+        }
+    }
+
+    object PartiallyResolvedKmpDependencies : ToolingDiagnosticFactory(STRONG_WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        data class UnresolvedKmpDependency(
+            val displayName: String,
+            var resolvedMetadataComponentIdentifier: ComponentIdentifier?,
+            val unresolvedComponents: List<UnresolvedComponent>,
+            val resolvedVariants: List<ResolvedVariant>,
+        ) {
+            val allTargets: List<String> = (unresolvedComponents.map { it.targetName } + resolvedVariants.map { it.targetName })
+        }
+
+        fun failureMessage(
+            sourceSetName: String,
+            unresolvedDependency: UnresolvedKmpDependency,
+            isInfoLoggingEnabled: Boolean,
+            emitAdditionalInformationInEachFailure: Boolean,
+        ): String = buildString {
+            appendLine("Couldn't resolve dependency '${unresolvedDependency.displayName}' in '${sourceSetName}' for all target platforms.")
+            appendLine("The dependency should target platforms: ${unresolvedDependency.allTargets.sorted()}")
+            appendLine("Unresolved platforms: ${unresolvedDependency.unresolvedComponents.map { it.targetName }.sorted()}")
+            if (emitAdditionalInformationInEachFailure) {
+                appendLine()
+                appendLine(solution)
+            }
+            if (isInfoLoggingEnabled) {
+                appendLine()
+                appendLine("Detailed log:")
+                appendLine("Dependency '${unresolvedDependency.displayName}':")
+                appendLine("Unresolved platforms:".prependIndent(" ".repeat(2)))
+                unresolvedDependency.unresolvedComponents.forEach {
+                    appendLine("Compilation ${it.compilationName} resolved configuration '${it.configurationName}' with resolution failure: ${it.failureDescription}".prependIndent(" ".repeat(4)))
+                }
+                if (unresolvedDependency.resolvedVariants.isNotEmpty()) {
+                    appendLine("Resolved platforms:".prependIndent(" ".repeat(2)))
+                    unresolvedDependency.resolvedVariants.forEach {
+                        appendLine("Compilation ${it.compilationName} resolved configuration '${it.configurationName}' with variant: ${it.variant}".prependIndent(" ".repeat(4)))
+                    }
+                }
+            } else if (emitAdditionalInformationInEachFailure) {
+                appendLine()
+                appendLine(extendedDetailsLogInInfo)
+            }
+        }
+
+        operator fun invoke(
+            sourceSetName: String,
+            unresolvedDependencies: List<UnresolvedKmpDependency>
+        ) =
+            build {
+                title("KMP Dependencies Resolution Failure")
+                    .descriptionBuilder {
+                        buildString {
+                            appendLine("Source set '${sourceSetName}' couldn't resolve dependencies for all target platforms")
+                            unresolvedDependencies.forEach {
+                                appendLine(
+                                    failureMessage(
+                                        sourceSetName = sourceSetName,
+                                        unresolvedDependency = it,
+                                        isInfoLoggingEnabled = isInfoLoggingEnabled,
+                                        emitAdditionalInformationInEachFailure = false,
+                                    )
+                                )
+                                appendLine()
+                            }
+                            if (!isInfoLoggingEnabled) {
+                                appendLine(extendedDetailsLogInInfo)
+                                appendLine()
+                            }
+                        }
+                    }
+                    .solution(solution)
+            }
+
+        private val isInfoLoggingEnabled
+            get() = org.slf4j.LoggerFactory.getLogger(PartiallyResolvedKmpDependencies::class.java).isInfoEnabled
+
+        private val solution: String
+            get() = "Make sure you are using a dependency that targets all required platforms or move your dependency and relevant code to a more applicable source set: https://kotl.in/57b2-source-set-dependencies"
+
+        val extendedDetailsLogInInfo: String
+            get() = "Run the build with '--info' for more details."
+    }
+
+    object CrossCompilationWithCinterops : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(projectName: String, target: String, interops: List<String>, hostname: String) =
+            build {
+                title("Cross Compilation with Cinterop Not Supported in Project '$projectName'")
+                    .description {
+                        """
+                    In project '$projectName', cross compilation to target '$target' has been disabled because it contains cinterops: '${interops.joinToString("', '")}' which cannot be processed on host '$hostname'.
+                    Cinterop libraries require platform-specific native toolchains that aren't available on the current host system.
+                    """.trimIndent()
+                    }
+                    .solutions {
+                        listOf(
+                            "Remove the cinterop dependencies '${interops.joinToString("', '")}' from target '$target'",
+                            "Build on a compatible host platform for this target/cinterop combination",
+                            "To disable klib cross compilation entirely, add '$KOTLIN_NATIVE_ENABLE_KLIBS_CROSSCOMPILATION=false' to your Gradle properties"
+                        )
+                    }
+            }
+    }
+
+    object IncompatibleBinaryConfiguration : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(binaryName: String, debuggable: Boolean, optimized: Boolean) =
+            build {
+                title("Incompatible Binary Configuration")
+                    .description {
+                        when {
+                            debuggable && optimized -> {
+                                """
+                            Binary '$binaryName' has incompatible configuration: debuggable=true and optimized=true.
+                            Debug binaries should not be optimized as this defeats the purpose of fast compilation and debugging.
+                            Optimization significantly increases compile time while making debugging more difficult.
+                            """.trimIndent()
+                            }
+                            else -> { // !debuggable && !optimized
+                                """
+                            Binary '$binaryName' has incompatible configuration: debuggable=false and optimized=false.
+                            Release binaries should be optimized to ensure good runtime performance.
+                            Without optimization, you get slow compilation (no debug build optimizations) and poor runtime performance.
+                            """.trimIndent()
+                            }
+                        }
+                    }
+                    .solutions {
+                        when {
+                            debuggable && optimized -> {
+                                listOf(
+                                    "Set 'optimized = false' for binary '$binaryName' to enable fast debug compilation",
+                                    "Use a release build type if you need optimization",
+                                    "Consider creating separate debug and release configurations"
+                                )
+                            }
+                            else -> { // !debuggable && !optimized
+                                listOf(
+                                    "Set 'optimized = true' for binary '$binaryName' to improve runtime performance",
+                                    "Use a debug build type if you need fast compilation and debugging capabilities",
+                                    "Verify that your build type configuration matches your intended use case"
+                                )
+                            }
+                        }
+                    }
+            }
+    }
+
+    object NoApplicationTargetFoundDiagnostic : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(xcodeProject: File) = buildDiagnostic(
+            title = "No application target found in Xcode project",
+            description = "Could not find any application target in '${xcodeProject.path}'. The Kotlin plugin cannot verify framework integration.",
+            solution = "Please create an application target in your Xcode project to consume the Kotlin framework.",
+            documentationUrl = URI("https://kotl.in/xcode-target-setup"),
+        )
+    }
+
+    object MissingXcodeTargetDiagnostic : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(missingTargets: List<KonanTarget>, xcodeProject: File) = build {
+            title("Kotlin targets not configured in Xcode")
+                .description {
+                    val missingTargetsString = missingTargets.joinToString("\n") { " - '${it.name}'" }
+                    """
+                    |The following Kotlin targets are not linked to any Xcode application target in '${xcodeProject.name}':
+                    |$missingTargetsString
+                    """.trimMargin()
+                }
+                .solutions {
+                    missingTargets.map {
+                        when (it.family) {
+                            Family.WATCHOS -> "'watchOS Application'"
+                            Family.TVOS -> "'tvOS Application'"
+                            Family.OSX -> "'macOS Application'"
+                            Family.IOS -> "'iOS Application'"
+                            else -> null
+                        }
+                    }.distinct().mapNotNull { app ->
+                        "Add the following new application targets to your Xcode project: $app and setup embedAndSign task invocation for it."
+                    }
+                }
+                .documentationLink(URI("https://kotl.in/xcode-target-setup")) { url ->
+                    "Learn how to set up an application target in your Xcode project: $url"
+                }
         }
     }
 
@@ -736,7 +923,8 @@ internal object KotlinToolingDiagnostics {
             }
     }
 
-    object PlatformSourceSetConventionUsedWithoutCorrespondingTarget : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+    object PlatformSourceSetConventionUsedWithoutCorrespondingTarget :
+        ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
         operator fun invoke(sourceSet: KotlinSourceSet, expectedTargetName: String) =
             build(throwable = sourceSet.isAccessedByKotlinSourceSetConventionAt) {
                 title("Source Set Used Without a Corresponding Target")
@@ -1252,7 +1440,7 @@ internal object KotlinToolingDiagnostics {
     }
 
     object ExperimentalFeatureWarning : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Experimental) {
-        operator fun invoke(featureName: String, youtrackUrl: String, extraSolution: String? = null) = build {
+        operator fun invoke(featureName: String, youtrackUrl: String, extraSolution: String? = null) = build(featureName.toIdSuffix()) {
             title("Experimental Feature Notice")
                 .description {
                     "$featureName is an experimental feature and subject to change in any future releases."
@@ -1498,24 +1686,24 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    object DeprecatedLegacyCompilationOutputsBackup : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
-        operator fun invoke() = build {
-            title("Deprecated Legacy Compilation Outputs Backup")
-                .description {
-                    "Backups of compilation outputs using the non-precise method are deprecated and will be phased out soon in favor of a more precise and efficient approach (https://kotl.in/3v7v7)."
-                }
-                .solution {
-                    "Please remove '${PropertiesProvider.PropertyNames.KOTLIN_COMPILER_USE_PRECISE_COMPILATION_RESULTS_BACKUP}=false' and/or '${PropertiesProvider.PropertyNames.KOTLIN_COMPILER_KEEP_INCREMENTAL_COMPILATION_CACHES_IN_MEMORY}=false' from your 'gradle.properties' file."
-                }
+    object KotlinTopLevelDependenciesUsedInIncompatibleGradleVersion : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(
+            currentGradleVersion: GradleVersion,
+            minimumSupportedGradleVersion: GradleVersion,
+        ) = build {
+            title("Kotlin Top Level Dependencies Used With Incompatible Gradle Version")
+                .description("Kotlin top-level dependencies is not available in $currentGradleVersion. Minimum supported version is $minimumSupportedGradleVersion.")
+                .solution("Please upgrade your Gradle version or keep using source set dependencies block (https://kotl.in/source-set-dependencies)")
+                .documentationLink(URI("https://kotl.in/kmp-top-level-dependencies"))
         }
     }
 
     object AndroidExtensionPluginRemoval : ToolingDiagnosticFactory(ERROR, DiagnosticGroup.Kgp.Deprecation) {
         operator fun invoke(): ToolingDiagnostic = build {
-            title("Deprecated 'kotlin-android-extensions' Gradle Plugin")
+            title("Removed 'kotlin-android-extensions' Gradle Plugin")
                 .description {
                     """
-                    The 'kotlin-android-extensions' Gradle plugin is no longer supported and will be removed in future release.
+                    The 'kotlin-android-extensions' Gradle plugin is no longer supported and was removed.
                     Please use this migration guide (https://goo.gle/kotlin-android-extensions-deprecation) to start
                     working with View Binding (https://developer.android.com/topic/libraries/view-binding)
                     and the 'kotlin-parcelize' plugin.
@@ -1647,11 +1835,149 @@ internal object KotlinToolingDiagnostics {
         }
     }
 
-    internal object WarnKaptK1IsDeprecated : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+    internal object PomMisconfigured : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(description: String, solution: String, link: String? = null) = build {
+            title("There was a problem with the Maven POM file configuration.")
+                .description(description)
+                .solution(solution)
+                .apply {
+                    link?.let { documentationLink(URI(it)) }
+                }
+        }
+    }
+
+    internal object SigningMisconfigured : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(description: String, solution: String, link: String? = null) = build {
+            title("There was a problem with the artifact signing configuration.")
+                .description(description)
+                .solution(solution)
+                .apply {
+                    link?.let { documentationLink(URI(it)) }
+                }
+        }
+    }
+
+    object SomePublicationsNotSigned : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(publications: List<String>) = build {
+            title("Signing is not enabled for some publications.")
+                .description("Publishing unsigned publications to Maven Central will fail validation.")
+                .solution("Configure signing for the following publications if you plan to publish them to Maven Central: ${publications.joinToString()}")
+                .documentationLink(URI("https://kotl.in/9l92c3"))
+        }
+    }
+
+    internal object AgpWithBuiltInKotlinIsAlreadyApplied : ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(
+            buildFile: File,
+            trace: Throwable,
+        ) = build(throwable = trace) {
+            title("Failed to apply plugin 'com.jetbrains.kotlin.android'")
+                .description("The 'org.jetbrains.kotlin.android' plugin is no longer required for Kotlin support since AGP 9.0.")
+                .solution("Remove the 'org.jetbrains.kotlin.android' plugin from this project's build file: ${buildFile}.")
+                .documentationLink(URI("https://kotl.in/gradle/agp-built-in-kotlin"))
+        }
+    }
+
+    internal object IncompatibleWithTheNewAgpDsl :
+        ToolingDiagnosticFactory(FATAL, DiagnosticGroup.Kgp.Misconfiguration) {
+        operator fun invoke(
+            trace: Throwable,
+        ) = build(throwable = trace) {
+            title("Failed to apply plugin 'com.jetbrains.kotlin.android'")
+                .description("The 'org.jetbrains.kotlin.android' plugin is not compatible with AGP's new DSL (`android.newDsl=true`).")
+                .solution("Set `android.builtInKotlin=true` in `gradle.properties` and migrate to built-in Kotlin (see https://kotl.in/gradle/agp-built-in-kotlin for guidance), or set `android.newDsl=false` in `gradle.properties` to temporarily bypass this issue.")
+                .documentationLink(URI("https://kotl.in/gradle/agp-new-dsl"))
+        }
+    }
+
+    object DeprecatedKotlinVersionKotlinDsl : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Misconfiguration) {
+        internal class VersionMetadata(
+            val version: KotlinVersion,
+            val type: String,
+            val accessor: String,
+            val languageVersionUnsupportedLevel: ToolingDiagnostic.Severity
+        )
+
+        operator fun invoke(versionMetadata: List<VersionMetadata>, nonDeprecatedVersion: KotlinVersion): ToolingDiagnostic {
+            val level = versionMetadata.maxOfOrNull { it.languageVersionUnsupportedLevel }
+            return build(severity = level) {
+                title("Unsupported Kotlin plugin version")
+                    .description {
+                        val isPlural = versionMetadata.size > 1
+                        val entries = versionMetadata.joinToString("\n") { meta ->
+                            "|- ${meta.type} version: ${meta.version.version}"
+                        }
+
+                        /**
+                         * Before Gradle 8.2, it was impossible to override the values of the API/language version because the kotlin-dsl plugin
+                         * configured them in an afterEvaluate block
+                         */
+                        val shouldUseAfterEvaluate = GradleVersion.current() < GradleVersion.version("8.2")
+
+                        val accessorsSnippet = versionMetadata.joinToString("\n") { meta ->
+                            val nestedLevel = if (shouldUseAfterEvaluate) 12 else 8
+                            "|${" ".repeat(nestedLevel)}${meta.accessor}.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.$nonDeprecatedVersion)"
+                        }
+
+                        val configureSnippet = if (shouldUseAfterEvaluate) {
+                            """
+                            |afterEvaluate { // this code can be unwrapped from afterEvaluate after upgrading to Gradle 8.2 or newer
+                            |    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+                            |        compilerOptions {
+                                         $accessorsSnippet
+                            |        }
+                            |    }
+                            |}
+                            """.trimMargin()
+                        } else {
+                            """
+                            |tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+                            |    compilerOptions {
+                                    $accessorsSnippet
+                            |    }
+                            |}
+                            """.trimMargin()
+                        }
+
+                        """
+                            |The Kotlin Gradle plugin detected incompatible Kotlin ${if (isPlural) "versions" else "version"} in the `kotlin-dsl` plugin. This may lead to a compilation failure.
+                            |
+                            |Detected unsupported Kotlin ${if (isPlural) "versions" else "version"} in `kotlin-dsl`:
+                            $entries
+                            |
+                            |The `kotlin-dsl` plugin relies on the Gradle-embedded Kotlin version. Using `kotlin-dsl` plugin together with a different Kotlin version (for example by using Kotlin Gradle plugin (`kotlin(jvm)`)) in the same module is not recommended.
+                            |
+                            |If you are writing a convention plugin (or a precompiled script plugin in general) it’s recommended to only use the `kotlin-dsl` plugin and use the embedded Kotlin version. If you are writing a binary plugin it’s recommended to not use the `kotlin-dsl` plugin and use the Kotlin Gradle plugin (`kotlin(jvm)`).
+                            |To upgrade the embedded Kotlin Language version a Gradle update is required. Please find the required Gradle version in the following table:
+                            |https://docs.gradle.org/current/userguide/compatibility.html#kotlin
+                            |
+                            |You can configure your module to use ${nonDeprecatedVersion.version} or higher overriding `kotlin-dsl` behavior using a following snippet:
+                            |$configureSnippet
+                            |Note that this may lead to some hard to predict behavior and in general should be avoided, see documentation for more information.
+                            """.trimMargin()
+                    }
+                    .solutions(
+                        "Do not use `kotlin(jvm)` explicitly in this module and allow `kotlin-dsl` to auto-provide a compatible version on its own. If you prefer staying explicit, consider using the `embeddedKotlinVersion` constant.",
+                        "Do not use `kotlin-dsl` in this module.",
+                        "Configure your module to use ${nonDeprecatedVersion.version} or higher overriding `kotlin-dsl` behavior (unrecommended).",
+                    )
+                    .documentationLink(URI("https://kotl.in/gradle/kotlin-dsl-version-compatibility"))
+            }
+        }
+    }
+
+    internal object UsingOutOfProcessDisablesBuildToolsApi : ToolingDiagnosticFactory(WARNING, DiagnosticGroup.Kgp.Deprecation) {
         operator fun invoke() = build {
-            title("Kapt K1 mode is deprecated")
-                .description("Kotlin Kapt compatibility with Kotlin Compiler K1 is deprecated and scheduled to be removed in the next release.")
-                .solution("Please remove 'kapt.use.k2' Gradle property from 'gradle.properties' file.")
+            title("Using out-of-process Kotlin compilation disables Build Tools API.")
+                .description(
+                    """
+                    By default, the Kotlin Gradle Plugin runs the compiler via the Build Tools API (BTA). 
+                    BTA doesn’t support out‑of‑process compilation, so the selected compilation mode disables BTA for this build. 
+                    This warning will become an error in a future release of KGP.
+                """.trimIndent()
+                )
+                .solution("Select the daemon or in-process compilation modes to allow KGP to run compilation through BTA.")
+                .documentationLink(URI("https://kotl.in/build-tools-api"))
         }
     }
 }
@@ -1665,4 +1991,19 @@ private fun String.indentLines(nSpaces: Int = 4, skipFirstLine: Boolean = true):
             if (skipFirstLine && index == 0) return@joinToString line
             if (line.isNotBlank()) "$spaces$line" else line
         }
+}
+
+internal fun String.toIdSuffix(): String {
+    return when {
+        // Use original name if it's short and alphanumeric
+        length <= 20 && matches(Regex("[a-zA-Z0-9_-]+")) -> this
+        // Otherwise use truncated hash
+        else -> md5().take(8)
+    }
+}
+
+private fun String.md5(): String {
+    val digest = MessageDigest.getInstance("MD5")
+    val hashBytes = digest.digest(this.toByteArray())
+    return hashBytes.joinToString("") { "%02x".format(it) }
 }

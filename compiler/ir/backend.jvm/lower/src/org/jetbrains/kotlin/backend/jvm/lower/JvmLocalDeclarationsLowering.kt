@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.ir.util.isAnonymousObject
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.ir.util.parentDeclarationsWithSelf
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
-import org.jetbrains.kotlin.name.NameUtils
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 
 /**
@@ -35,18 +34,17 @@ import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 )
 internal class JvmLocalDeclarationsLowering(override val context: JvmBackendContext) : LocalDeclarationsLowering(
     context,
-    NameUtils::sanitizeAsJavaIdentifier,
     JvmVisibilityPolicy,
-    compatibilityModeForInlinedLocalDelegatedPropertyAccessors = true,
     forceFieldsForInlineCaptures = true,
-    remapTypesInExtractedLocalDeclarations = false,
-    allConstructorsWithCapturedConstructorCreated = context.allConstructorsWithCapturedConstructorCreated,
+    remapCapturedTypesInExtractedLocalDeclarations = false,
     closureBuilders = context.evaluatorData?.localDeclarationsData?.closureBuilders ?: mutableMapOf(),
     transformedDeclarations = context.evaluatorData?.localDeclarationsData?.transformedDeclarations ?: mutableMapOf(),
     newParameterToCaptured = context.evaluatorData?.localDeclarationsData?.newParameterToCaptured ?: mutableMapOf(),
     newParameterToOld = context.evaluatorData?.localDeclarationsData?.newParameterToOld ?: mutableMapOf(),
     oldParameterToNew = context.evaluatorData?.localDeclarationsData?.oldParameterToNew ?: mutableMapOf(),
+    considerRichFunctionReferenceInvokeFunctionsAsLocal = true,
 ) {
+
     override fun getReplacementSymbolForCaptured(container: IrDeclaration, symbol: IrValueSymbol): IrValueSymbol {
         if (context.evaluatorData?.evaluatorGeneratedFunction == container && !symbol.owner.parentDeclarationsWithSelf.contains(container)) {
             val newParameter = (container as IrFunction).addValueParameter {
@@ -78,7 +76,7 @@ internal val IrClass.isGeneratedLambdaClass: Boolean
             origin == JvmLoweredDeclarationOrigin.GENERATED_PROPERTY_REFERENCE
 
 internal object JvmVisibilityPolicy : VisibilityPolicy {
-    // Note: any condition that results in non-`LOCAL` visibility here should be duplicated in `JvmLocalClassPopupLowering`,
+    // Note: any condition that results in non-`LOCAL` visibility here should be duplicated in `JvmLocalDeclarationPopupLowering`,
     // else it won't detect the class as local.
     override fun forClass(declaration: IrClass, inInlineFunctionScope: Boolean): DescriptorVisibility =
         if (declaration.isGeneratedLambdaClass) {

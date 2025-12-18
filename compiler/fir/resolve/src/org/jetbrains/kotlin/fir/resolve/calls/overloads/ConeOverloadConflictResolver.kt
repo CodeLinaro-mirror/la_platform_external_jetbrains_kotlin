@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls.overloads
 
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSession
@@ -32,6 +33,7 @@ import org.jetbrains.kotlin.fir.resolve.substitution.substitutorByMap
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.scopes.impl.overrides
 import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
+import org.jetbrains.kotlin.fir.symbols.asCone
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
@@ -442,8 +444,18 @@ class ConeOverloadConflictResolver(
             }
 
             // double >= float
+            if (specificClassId == Double && generalClassId == Float) {
+                return true
+            }
 
-            return specificClassId == Double && generalClassId == Float
+            if (discriminateSuspend &&
+                specificClassId.functionTypeKind(inferenceComponents.session) == FunctionTypeKind.Function &&
+                generalClassId.functionTypeKind(inferenceComponents.session) == FunctionTypeKind.SuspendFunction
+            ) {
+                return true
+            }
+
+            return false
         }
 
         private val ClassId.isUnsigned: Boolean get() = this in StandardClassIds.unsignedTypes
@@ -457,6 +469,9 @@ class ConeOverloadConflictResolver(
             } else {
                 !isUnsigned
             }
+
+        private val discriminateSuspend: Boolean =
+            inferenceComponents.session.languageVersionSettings.supportsFeature(LanguageFeature.DiscriminateSuspendInOverloadResolution)
     }
 
     private fun createFlatSignature(call: Candidate): FlatSignature<Candidate> {
@@ -585,7 +600,7 @@ class ConeOverloadConflictResolver(
         // on the first one.
         // TODO: Get rid of hacky K1 behavior (KT-67947)
         return candidate.system.buildNotFixedVariablesToStubTypesSubstitutor()
-            .safeSubstitute(session.typeContext, expanded) as ConeKotlinType
+            .safeSubstitute(session.typeContext, expanded).asCone()
     }
 
     private fun FirValueParameter.toFunctionTypeForSamOrNull(call: Candidate): ConeKotlinType? {
@@ -617,7 +632,7 @@ class ConeOverloadConflictResolver(
 class ConeSimpleConstraintSystemImpl(val system: NewConstraintSystemImpl, val session: FirSession) : SimpleConstraintSystem {
     override fun registerTypeVariables(typeParameters: Collection<TypeParameterMarker>): TypeSubstitutorMarker {
         val csBuilder = system.getBuilder()
-        val substitutionMap = typeParameters.associateBy({ (it as ConeTypeParameterLookupTag).typeParameterSymbol }) {
+        val substitutionMap = typeParameters.associateBy({ it.asCone().typeParameterSymbol }) {
             require(it is ConeTypeParameterLookupTag)
             val variable = ConeTypeParameterBasedTypeVariable(it.typeParameterSymbol)
             csBuilder.registerVariable(variable)

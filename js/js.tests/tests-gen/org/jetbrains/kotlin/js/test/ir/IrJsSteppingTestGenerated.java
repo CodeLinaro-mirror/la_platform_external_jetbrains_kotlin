@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @Test
   public void testAllFilesPresentInStepping() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/debug/stepping"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/debug/stepping"), Pattern.compile("^(.+)\\.kt$"), null, true);
   }
 
   @Test
@@ -102,6 +102,18 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("chainCall.kt")
   public void testChainCall() {
     runTest("compiler/testData/debug/stepping/chainCall.kt");
+  }
+
+  @Test
+  @TestMetadata("chainCallOfInlineFunctions.kt")
+  public void testChainCallOfInlineFunctions() {
+    runTest("compiler/testData/debug/stepping/chainCallOfInlineFunctions.kt");
+  }
+
+  @Test
+  @TestMetadata("chainCallOfPrivateInlineFunctions.kt")
+  public void testChainCallOfPrivateInlineFunctions() {
+    runTest("compiler/testData/debug/stepping/chainCallOfPrivateInlineFunctions.kt");
   }
 
   @Test
@@ -237,9 +249,15 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   }
 
   @Test
-  @TestMetadata("functionCallWithDefault.kt")
-  public void testFunctionCallWithDefault() {
-    runTest("compiler/testData/debug/stepping/functionCallWithDefault.kt");
+  @TestMetadata("funCallsInsideInlineableLambda.kt")
+  public void testFunCallsInsideInlineableLambda() {
+    runTest("compiler/testData/debug/stepping/funCallsInsideInlineableLambda.kt");
+  }
+
+  @Test
+  @TestMetadata("funCallsInsideNonInlineableLambda.kt")
+  public void testFunCallsInsideNonInlineableLambda() {
+    runTest("compiler/testData/debug/stepping/funCallsInsideNonInlineableLambda.kt");
   }
 
   @Test
@@ -345,6 +363,36 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   }
 
   @Test
+  @TestMetadata("inlineFunAsDefaultArgument.kt")
+  public void testInlineFunAsDefaultArgument() {
+    runTest("compiler/testData/debug/stepping/inlineFunAsDefaultArgument.kt");
+  }
+
+  @Test
+  @TestMetadata("inlineFunAsMemberOfAnonymousObjectInsideInlineFun.kt")
+  public void testInlineFunAsMemberOfAnonymousObjectInsideInlineFun() {
+    runTest("compiler/testData/debug/stepping/inlineFunAsMemberOfAnonymousObjectInsideInlineFun.kt");
+  }
+
+  @Test
+  @TestMetadata("inlineFunAsMemberOfAnonymousObjectInsideInlineableLambda.kt")
+  public void testInlineFunAsMemberOfAnonymousObjectInsideInlineableLambda() {
+    runTest("compiler/testData/debug/stepping/inlineFunAsMemberOfAnonymousObjectInsideInlineableLambda.kt");
+  }
+
+  @Test
+  @TestMetadata("inlineFunAsMemberOfClassInsideFun.kt")
+  public void testInlineFunAsMemberOfClassInsideFun() {
+    runTest("compiler/testData/debug/stepping/inlineFunAsMemberOfClassInsideFun.kt");
+  }
+
+  @Test
+  @TestMetadata("inlineFunReference.kt")
+  public void testInlineFunReference() {
+    runTest("compiler/testData/debug/stepping/inlineFunReference.kt");
+  }
+
+  @Test
   @TestMetadata("inlineNamedCallableReference.kt")
   public void testInlineNamedCallableReference() {
     runTest("compiler/testData/debug/stepping/inlineNamedCallableReference.kt");
@@ -360,6 +408,12 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("inlineSimpleCall.kt")
   public void testInlineSimpleCall() {
     runTest("compiler/testData/debug/stepping/inlineSimpleCall.kt");
+  }
+
+  @Test
+  @TestMetadata("javaSam.kt")
+  public void testJavaSam() {
+    runTest("compiler/testData/debug/stepping/javaSam.kt");
   }
 
   @Test
@@ -408,6 +462,30 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("lambdaStepInlineWithDefaults.kt")
   public void testLambdaStepInlineWithDefaults() {
     runTest("compiler/testData/debug/stepping/lambdaStepInlineWithDefaults.kt");
+  }
+
+  @Test
+  @TestMetadata("leakingPrivateFunThroughDefaultArgument.kt")
+  public void testLeakingPrivateFunThroughDefaultArgument() {
+    runTest("compiler/testData/debug/stepping/leakingPrivateFunThroughDefaultArgument.kt");
+  }
+
+  @Test
+  @TestMetadata("leakingPrivateFunThroughInternalInlineVal.kt")
+  public void testLeakingPrivateFunThroughInternalInlineVal() {
+    runTest("compiler/testData/debug/stepping/leakingPrivateFunThroughInternalInlineVal.kt");
+  }
+
+  @Test
+  @TestMetadata("leakingPrivateFunThroughReferenceInInternalInlineFun.kt")
+  public void testLeakingPrivateFunThroughReferenceInInternalInlineFun() {
+    runTest("compiler/testData/debug/stepping/leakingPrivateFunThroughReferenceInInternalInlineFun.kt");
+  }
+
+  @Test
+  @TestMetadata("leakingPrivateValThroughInternalInlineFun.kt")
+  public void testLeakingPrivateValThroughInternalInlineFun() {
+    runTest("compiler/testData/debug/stepping/leakingPrivateValThroughInternalInlineFun.kt");
   }
 
   @Test
@@ -477,9 +555,21 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   }
 
   @Test
+  @TestMetadata("noLinenumberInInvokeOfSuspendLambda.kt")
+  public void testNoLinenumberInInvokeOfSuspendLambda() {
+    runTest("compiler/testData/debug/stepping/noLinenumberInInvokeOfSuspendLambda.kt");
+  }
+
+  @Test
   @TestMetadata("noParametersArgumentCallInExpression.kt")
   public void testNoParametersArgumentCallInExpression() {
     runTest("compiler/testData/debug/stepping/noParametersArgumentCallInExpression.kt");
+  }
+
+  @Test
+  @TestMetadata("noinlineParameter.kt")
+  public void testNoinlineParameter() {
+    runTest("compiler/testData/debug/stepping/noinlineParameter.kt");
   }
 
   @Test
@@ -525,6 +615,12 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   }
 
   @Test
+  @TestMetadata("reorder.kt")
+  public void testReorder() {
+    runTest("compiler/testData/debug/stepping/reorder.kt");
+  }
+
+  @Test
   @TestMetadata("simpleDefaultArg.kt")
   public void testSimpleDefaultArg() {
     runTest("compiler/testData/debug/stepping/simpleDefaultArg.kt");
@@ -540,12 +636,6 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("simpleInlineDefaultArg.kt")
   public void testSimpleInlineDefaultArg() {
     runTest("compiler/testData/debug/stepping/simpleInlineDefaultArg.kt");
-  }
-
-  @Test
-  @TestMetadata("simpleSmap.kt")
-  public void testSimpleSmap() {
-    runTest("compiler/testData/debug/stepping/simpleSmap.kt");
   }
 
   @Test
@@ -582,6 +672,18 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("stringSwitchesSmall.kt")
   public void testStringSwitchesSmall() {
     runTest("compiler/testData/debug/stepping/stringSwitchesSmall.kt");
+  }
+
+  @Test
+  @TestMetadata("supercall.kt")
+  public void testSupercall() {
+    runTest("compiler/testData/debug/stepping/supercall.kt");
+  }
+
+  @Test
+  @TestMetadata("suspendClosingBrace.kt")
+  public void testSuspendClosingBrace() {
+    runTest("compiler/testData/debug/stepping/suspendClosingBrace.kt");
   }
 
   @Test
@@ -636,6 +738,18 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("tryFinally.kt")
   public void testTryFinally() {
     runTest("compiler/testData/debug/stepping/tryFinally.kt");
+  }
+
+  @Test
+  @TestMetadata("tryFinallyAndNonLocalReturn.kt")
+  public void testTryFinallyAndNonLocalReturn() {
+    runTest("compiler/testData/debug/stepping/tryFinallyAndNonLocalReturn.kt");
+  }
+
+  @Test
+  @TestMetadata("tryOneLineFinallyAndNonLocalReturn.kt")
+  public void testTryOneLineFinallyAndNonLocalReturn() {
+    runTest("compiler/testData/debug/stepping/tryOneLineFinallyAndNonLocalReturn.kt");
   }
 
   @Test
@@ -720,6 +834,12 @@ public class IrJsSteppingTestGenerated extends AbstractIrJsSteppingTest {
   @TestMetadata("whenIsChecks.kt")
   public void testWhenIsChecks() {
     runTest("compiler/testData/debug/stepping/whenIsChecks.kt");
+  }
+
+  @Test
+  @TestMetadata("whenIsChecksIndy.kt")
+  public void testWhenIsChecksIndy() {
+    runTest("compiler/testData/debug/stepping/whenIsChecksIndy.kt");
   }
 
   @Test

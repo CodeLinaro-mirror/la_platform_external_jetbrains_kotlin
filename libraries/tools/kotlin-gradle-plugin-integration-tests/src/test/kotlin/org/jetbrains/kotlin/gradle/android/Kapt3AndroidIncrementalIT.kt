@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.gradle.android
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.Kapt3BaseIT
-import org.jetbrains.kotlin.gradle.forceK1Kapt
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.util.checkedReplace
 import org.junit.jupiter.api.DisplayName
@@ -20,10 +19,6 @@ import kotlin.io.path.writeText
 @DisplayName("android with kapt3 incremental build tests")
 @AndroidGradlePluginTests
 open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
-    override fun TestProject.customizeProject() {
-        forceK1Kapt()
-    }
-
     @DisplayName("stubs generation is incremental on changes in android variant java sources")
     @GradleAndroidTest
     fun generateStubsTaskShouldRunIncrementallyOnChangesInAndroidVariantJavaSources(
@@ -51,7 +46,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
                 """.trimIndent()
             )
 
-            build(":app:kaptDebugKotlin", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
+            build(":app:kaptDebugKotlin") {
                 assertTasksExecuted(":app:kaptGenerateStubsDebugKotlin")
             }
 
@@ -94,7 +89,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build("assembleDebug", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion))
+            build("assembleDebug")
 
             val androidModuleKt = subProject("app").javaSourcesDir().resolve("com/example/dagger/kotlin/AndroidModule.kt")
             androidModuleKt.modify {
@@ -114,12 +109,8 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
 
                 // Output is combined with previous build, but we are only interested in the compilation
                 // from second build to avoid false positive test failure
-                val filteredOutput = output
-                    .lineSequence()
-                    .filter { it.contains("[KOTLIN] compile iteration:") }
-                    .drop(1)
-                    .joinToString(separator = "/n")
-                assertCompiledKotlinSources(listOf(androidModuleKt).relativizeTo(projectPath), output = filteredOutput)
+                val compilationTaskOutput = getOutputForTask(":app:compileDebugKotlin")
+                assertCompiledKotlinSources(listOf(androidModuleKt).relativizeTo(projectPath), output = compilationTaskOutput)
             }
         }
     }
@@ -148,7 +139,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
                 """.trimMargin()
             }
 
-            build(":app:testDebugUnitTest", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion))
+            build(":app:testDebugUnitTest")
 
             appProject.kotlinSourcesDir().resolve("com/example/KotlinActivity.kt").appendText(
                 //language=kt
@@ -178,7 +169,7 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
             buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
-            build("assembleDebug", buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)) {
+            build("assembleDebug") {
                 assertKaptSuccessful()
             }
 
@@ -209,13 +200,4 @@ open class Kapt3AndroidIncrementalIT : Kapt3BaseIT() {
             modifyAndCheck(libJvmProject.kotlinSourcesDir().resolve("libJvmUtil.kt"), "useLibJvmUtil.kt")
         }
     }
-}
-
-@DisplayName("android with kapt3 incremental build tests with disabled precise compilation outputs backup")
-open class Kapt3AndroidIncrementalWithoutPreciseBackupIT : Kapt3AndroidIncrementalIT() {
-    override fun TestProject.customizeProject() {
-        forceK1Kapt()
-    }
-
-    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }

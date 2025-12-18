@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.gradle.android
 
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.cli.common.arguments.*
+import org.jetbrains.kotlin.gradle.KOTLIN_VERSION
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.assertMatches
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.binaryCoordinates
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.dependsOnDependency
@@ -16,7 +18,9 @@ import org.jetbrains.kotlin.gradle.util.jetbrainsAnnotationDependencies
 import org.jetbrains.kotlin.gradle.util.kotlinStdlibDependencies
 import org.jetbrains.kotlin.gradle.util.resolveIdeDependencies
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import java.nio.file.Path
+import kotlin.collections.orEmpty
 import kotlin.io.path.moveTo
 import kotlin.io.path.readText
 import kotlin.test.fail
@@ -101,7 +105,7 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
         project(
             "externalAndroidTarget-simple",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = androidVersion).disableConfigurationCache_KT70416(),
+            buildOptions = defaultBuildOptions.copy(androidVersion = androidVersion),
             buildJdk = jdkVersion.location,
         ) {
             modifyProjectForAGPVersion(androidVersion)
@@ -138,7 +142,7 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
     fun `test - simple project - pom dependencies rewritten`(
         gradleVersion: GradleVersion, androidVersion: String, jdkVersion: JdkVersions.ProvidedJdk, @TempDir localRepoDir: Path,
     ) {
-        val lowestAGPVersion = AndroidGradlePluginVersion(TestVersions.AGP.AGP_88)
+        val lowestAGPVersion = AndroidGradlePluginVersion(TestVersions.AGP.AGP_810)
         val currentAGPVersion = AndroidGradlePluginVersion(androidVersion)
         val buildOptions = if (currentAGPVersion < lowestAGPVersion) {
             // https://issuetracker.google.com/issues/389951197
@@ -173,6 +177,39 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
 
                 if (expectedDependency.removeWhiteSpaces() !in pomText.removeWhiteSpaces())
                     fail("Expected to find\n$expectedDependency\nIn POM file\n$pomText")
+            }
+        }
+    }
+
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_811)
+    @GradleAndroidTest
+    fun `KT-81249 - works with parcelize`(
+        gradleVersion: GradleVersion, androidVersion: String, jdkVersion: JdkVersions.ProvidedJdk,
+    ) {
+        project(
+            "android-multiplatorm-library-with-parcelize",
+            gradleVersion,
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = androidVersion)
+                .copy(compilerArgumentsLogLevel = "warning"),
+            buildJdk = jdkVersion.location,
+        ) {
+            build("assemble") {
+                val parcelizeJar = "kotlin-parcelize-compiler-$KOTLIN_VERSION.jar"
+
+                assertTasksExecuted(":compileAndroidMain")
+                @Suppress("DEPRECATION")
+                val compileAndroidArguments = extractTaskCompilerArguments<K2JVMCompilerArguments>(":compileAndroidMain")
+                if (compileAndroidArguments.pluginClasspaths.orEmpty().none { File(it).name == parcelizeJar }) {
+                    fail("Expected '$parcelizeJar' to be passed as a plugin classpath to the Kotlin compiler for :compileAndroidMain")
+                }
+
+                assertTasksExecuted(":compileKotlinJvm")
+                @Suppress("DEPRECATION")
+                val compileJvmArguments = extractTaskCompilerArguments<K2JVMCompilerArguments>(":compileKotlinJvm")
+                if (compileJvmArguments.pluginClasspaths.orEmpty().any { File(it).name == parcelizeJar }) {
+                    fail("Expected '$parcelizeJar' to NOT be passed as a plugin classpath to the Kotlin compiler for :compileKotlinJvm")
+                }
             }
         }
     }

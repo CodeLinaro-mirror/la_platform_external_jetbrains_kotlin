@@ -50,7 +50,10 @@ internal constructor(
     private val execOps: ExecOperations,
 ) : DefaultTask(), RequiresNpmDependencies, WebpackRulesDsl, UsesBuildMetricsService {
 
-    @Deprecated("Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.")
+    @Deprecated(
+        "Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.",
+        level = DeprecationLevel.ERROR
+    )
     @Suppress("DEPRECATION")
     constructor(
         compilation: KotlinJsIrCompilation,
@@ -73,8 +76,9 @@ internal constructor(
 
     @get:Internal
     @Deprecated(
-        "ExecHandleFactory is an internal Gradle API and must be removed to support Gradle 9.0. Please remove usages of this property.",
+        "ExecHandleFactory is an internal Gradle API and must be removed to support Gradle 9.0. Please remove usages of this property. Scheduled for removal in Kotlin 2.4.",
         ReplaceWith("TODO(\"ExecHandleFactory is an internal Gradle API and must be removed to support Gradle 9.0. Please remove usages of this property.\")"),
+        level = DeprecationLevel.ERROR
     )
     @Suppress("unused")
     open val execHandleFactory: Nothing
@@ -234,8 +238,9 @@ internal constructor(
 
     @get:Internal
     @Deprecated(
-        "This property is deprecated and will be removed in future. Use devServerProperty instead",
-        replaceWith = ReplaceWith("devServerProperty")
+        "Use devServerProperty instead. Scheduled for removal in Kotlin 2.3.",
+        replaceWith = ReplaceWith("devServerProperty"),
+        level = DeprecationLevel.ERROR,
     )
     var devServer: KotlinWebpackConfig.DevServer
         get() = devServerProperty.get()
@@ -252,7 +257,15 @@ internal constructor(
     @Internal
     var generateConfigOnly: Boolean = false
 
+    private val fakeWebpackConfig: KotlinWebpackConfig = KotlinWebpackConfig(
+        rules = project.objects.webpackRulesContainer()
+    )
+
     fun webpackConfigApplier(body: Action<KotlinWebpackConfig>) {
+        body.execute(fakeWebpackConfig)
+        fakeWebpackConfig.let {
+            it.outputFileName?.let { mainOutputFileName.set(it) }
+        }
         webpackConfigAppliers.add(body)
     }
 
@@ -277,6 +290,7 @@ internal constructor(
         outputFileName = mainOutputFileName.get(),
         configDirectory = configDirectory,
         rules = rules,
+        watchOptions = watchOptions,
         devServer = devServerProperty.orNull,
         devtool = devtool,
         sourceMaps = sourceMaps,

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,7 +7,10 @@ package org.jetbrains.kotlin.analysis.api.components
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import org.jetbrains.kotlin.analysis.api.KaContextParameterApi
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
+import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.compile.CodeFragmentCapturedValue
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnostic
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
@@ -17,6 +20,48 @@ import org.jetbrains.kotlin.psi.KtCodeFragment
 import org.jetbrains.kotlin.psi.KtFile
 import java.io.File
 
+@KaExperimentalApi
+@SubclassOptInRequired(KaImplementationDetail::class)
+public interface KaCompilerFacility : KaSessionComponent {
+    @KaExperimentalApi
+    public companion object {
+        /** Simple class name for the code fragment facade class. */
+        public val CODE_FRAGMENT_CLASS_NAME: CompilerConfigurationKey<String> =
+            CompilerConfigurationKey<String>("code fragment class name")
+
+        /** Entry point method name for the code fragment. */
+        public val CODE_FRAGMENT_METHOD_NAME: CompilerConfigurationKey<String> =
+            CompilerConfigurationKey<String>("code fragment method name")
+    }
+
+    /**
+     * Compiles the given [file] in-memory (without dumping the compiled binaries to the disk).
+     *
+     * The function rethrows exceptions from the compiler, wrapped in [KaCodeCompilationException]. The implementation should wrap the
+     * `compile()` call into a `try`/`catch` block when necessary.
+     *
+     * @param file A file to compile.
+     *  The file must be either a source module file, or a [KtCodeFragment].
+     *  For a [KtCodeFragment], a source module context, a compiled library source context, or an empty context(`null`) are supported.
+     *
+     * @param configuration The compiler configuration.
+     *  It is recommended to submit at least the module name ([CommonConfigurationKeys.MODULE_NAME])
+     *  and language version settings ([CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS]).
+     *
+     * @param target The target platform of the compilation.
+     *
+     * @param allowedErrorFilter A filter for allowed errors. Compilation will be aborted if there are errors that this filter rejects.
+     */
+    @KaExperimentalApi
+    @Throws(KaCodeCompilationException::class)
+    public fun compile(
+        file: KtFile,
+        configuration: CompilerConfiguration,
+        target: KaCompilerTarget,
+        allowedErrorFilter: (KaDiagnostic) -> Boolean,
+    ): KaCompilationResult
+}
+
 /**
  * An in-memory compilation result returned from [KaCompilerFacility].
  *
@@ -25,7 +70,10 @@ import java.io.File
  * [analysis block][org.jetbrains.kotlin.analysis.api.analyze].
  */
 @KaExperimentalApi
-public sealed class KaCompilationResult {
+public sealed class KaCompilationResult(
+    /** A list of exceptions that were thrown during compilation but workaround somehow */
+    public val mutedExceptions: List<Throwable>,
+) {
     /**
      * A successful compilation result.
      *
@@ -51,7 +99,8 @@ public sealed class KaCompilationResult {
         public val output: List<KaCompiledFile>,
         public val capturedValues: List<CodeFragmentCapturedValue>,
         public var canBeCached: Boolean,
-    ) : KaCompilationResult()
+        mutedExceptions: List<Throwable> = emptyList(),
+    ) : KaCompilationResult(mutedExceptions)
 
     /**
      * A failed compilation result.
@@ -59,10 +108,14 @@ public sealed class KaCompilationResult {
      * @property errors Non-recoverable errors which occurred either during code analysis or during code generation.
      */
     @KaExperimentalApi
-    public class Failure(public val errors: List<KaDiagnostic>) : KaCompilationResult()
+    public class Failure(
+        public val errors: List<KaDiagnostic>,
+        mutedExceptions: List<Throwable> = emptyList(),
+    ) : KaCompilationResult(mutedExceptions)
 }
 
 @KaExperimentalApi
+@SubclassOptInRequired(KaImplementationDetail::class)
 public interface KaCompiledFile {
     /**
      * The path of the compiled file relative to the root of the output directory.
@@ -123,47 +176,6 @@ public fun interface KaCompiledClassHandler {
     public fun handleClassDefinition(file: PsiFile?, className: String)
 }
 
-@KaExperimentalApi
-public interface KaCompilerFacility : KaSessionComponent {
-    @KaExperimentalApi
-    public companion object {
-        /** Simple class name for the code fragment facade class. */
-        public val CODE_FRAGMENT_CLASS_NAME: CompilerConfigurationKey<String> =
-            CompilerConfigurationKey<String>("code fragment class name")
-
-        /** Entry point method name for the code fragment. */
-        public val CODE_FRAGMENT_METHOD_NAME: CompilerConfigurationKey<String> =
-            CompilerConfigurationKey<String>("code fragment method name")
-    }
-
-    /**
-     * Compiles the given [file] in-memory (without dumping the compiled binaries to the disk).
-     *
-     * The function rethrows exceptions from the compiler, wrapped in [KaCodeCompilationException]. The implementation should wrap the
-     * `compile()` call into a `try`/`catch` block when necessary.
-     *
-     * @param file A file to compile.
-     *  The file must be either a source module file, or a [KtCodeFragment].
-     *  For a [KtCodeFragment], a source module context, a compiled library source context, or an empty context(`null`) are supported.
-     *
-     * @param configuration The compiler configuration.
-     *  It is recommended to submit at least the module name ([CommonConfigurationKeys.MODULE_NAME])
-     *  and language version settings ([CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS]).
-     *
-     * @param target The target platform of the compilation.
-     *
-     * @param allowedErrorFilter A filter for allowed errors. Compilation will be aborted if there are errors that this filter rejects.
-     */
-    @KaExperimentalApi
-    @Throws(KaCodeCompilationException::class)
-    public fun compile(
-        file: KtFile,
-        configuration: CompilerConfiguration,
-        target: KaCompilerTarget,
-        allowedErrorFilter: (KaDiagnostic) -> Boolean
-    ): KaCompilationResult
-}
-
 /**
  * Thrown when an exception occurred while analyzing the code to be compiled, or during target platform code generation.
  *
@@ -182,3 +194,42 @@ public class KaCodeCompilationException(cause: Throwable) : RuntimeException(cau
  */
 @KaExperimentalApi
 public class DebuggerExtension(public val stack: Sequence<PsiElement?>)
+
+/**
+ * Compiles the given [file] in-memory (without dumping the compiled binaries to the disk).
+ *
+ * The function rethrows exceptions from the compiler, wrapped in [KaCodeCompilationException]. The implementation should wrap the
+ * `compile()` call into a `try`/`catch` block when necessary.
+ *
+ * @param file A file to compile.
+ *  The file must be either a source module file, or a [KtCodeFragment].
+ *  For a [KtCodeFragment], a source module context, a compiled library source context, or an empty context(`null`) are supported.
+ *
+ * @param configuration The compiler configuration.
+ *  It is recommended to submit at least the module name ([CommonConfigurationKeys.MODULE_NAME])
+ *  and language version settings ([CommonConfigurationKeys.LANGUAGE_VERSION_SETTINGS]).
+ *
+ * @param target The target platform of the compilation.
+ *
+ * @param allowedErrorFilter A filter for allowed errors. Compilation will be aborted if there are errors that this filter rejects.
+ */
+// Auto-generated bridge. DO NOT EDIT MANUALLY!
+@KaExperimentalApi
+@Throws(KaCodeCompilationException::class)
+@KaContextParameterApi
+context(s: KaSession)
+public fun compile(
+    file: KtFile,
+    configuration: CompilerConfiguration,
+    target: KaCompilerTarget,
+    allowedErrorFilter: (KaDiagnostic) -> Boolean,
+): KaCompilationResult {
+    return with(s) {
+        compile(
+            file = file,
+            configuration = configuration,
+            target = target,
+            allowedErrorFilter = allowedErrorFilter,
+        )
+    }
+}

@@ -17,10 +17,12 @@ import org.jetbrains.kotlin.config.phaser.PhaseConfig
 import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
+import org.jetbrains.kotlin.incremental.components.ICFileMappingTracker
 import org.jetbrains.kotlin.incremental.components.ImportTracker
 import org.jetbrains.kotlin.incremental.components.InlineConstTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
+import org.jetbrains.kotlin.util.PerformanceManager
 
 object CommonConfigurationKeys {
     @JvmField
@@ -43,6 +45,9 @@ object CommonConfigurationKeys {
 
     @JvmField
     val INLINE_CONST_TRACKER = CompilerConfigurationKey.create<InlineConstTracker>("inline constant tracker")
+
+    @JvmField
+    val FILE_MAPPING_TRACKER = CompilerConfigurationKey.create<ICFileMappingTracker>("file mapping tracker")
 
     @JvmField
     val ENUM_WHEN_TRACKER = CompilerConfigurationKey.create<EnumWhenTracker>("enum when tracker")
@@ -76,6 +81,9 @@ object CommonConfigurationKeys {
 
     @JvmField
     val PARALLEL_BACKEND_THREADS = CompilerConfigurationKey.create<Int>("Run codegen phase in parallel with N threads")
+
+    @JvmField
+    val DUMP_MODEL = CompilerConfigurationKey.create<String>("Dump compilation model")
 
     @JvmField
     val INCREMENTAL_COMPILATION = CompilerConfigurationKey.create<Boolean>("Enable incremental compilation")
@@ -112,6 +120,18 @@ object CommonConfigurationKeys {
     @JvmField
     val DONT_SORT_SOURCE_FILES = CompilerConfigurationKey.create<Boolean>("don't sort source files in FS order")
 
+    // Internal for passing configuration in the scripting pipeline, impossible to set via compiler arguments
+    @JvmField
+    val SCRIPTING_HOST_CONFIGURATION = CompilerConfigurationKey.create<Any>("scripting host configuration")
+
+    // It might be inaccurate if use in multithreading mode
+    @JvmField
+    val PERF_MANAGER = CompilerConfigurationKey.create<PerformanceManager>("A helper that can be used to measure performance (compiler phases, JIT and GC info) or collect stats (e.g. number of lines in a project)")
+
+    // See the description of `-Xdetailed-perf` for more details
+    @JvmField
+    val DETAILED_PERF = CompilerConfigurationKey.create<Boolean>("Enables detailed performance stats that might slow down the general compiler performance")
+
 }
 
 var CompilerConfiguration.languageVersionSettings: LanguageVersionSettings
@@ -141,6 +161,10 @@ var CompilerConfiguration.expectActualTracker: ExpectActualTracker?
 var CompilerConfiguration.inlineConstTracker: InlineConstTracker?
     get() = get(CommonConfigurationKeys.INLINE_CONST_TRACKER)
     set(value) { putIfNotNull(CommonConfigurationKeys.INLINE_CONST_TRACKER, value) }
+
+var CompilerConfiguration.fileMappingTracker: ICFileMappingTracker?
+    get() = get(CommonConfigurationKeys.FILE_MAPPING_TRACKER)
+    set(value) { putIfNotNull(CommonConfigurationKeys.FILE_MAPPING_TRACKER, value) }
 
 var CompilerConfiguration.enumWhenTracker: EnumWhenTracker?
     get() = get(CommonConfigurationKeys.ENUM_WHEN_TRACKER)
@@ -186,6 +210,10 @@ var CompilerConfiguration.parallelBackendThreads: Int?
     get() = get(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS)
     set(value) { put(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS, requireNotNull(value) { "nullable values are not allowed" }) }
 
+var CompilerConfiguration.dumpModel: String?
+    get() = get(CommonConfigurationKeys.DUMP_MODEL)
+    set(value) { put(CommonConfigurationKeys.DUMP_MODEL, requireNotNull(value) { "nullable values are not allowed" }) }
+
 var CompilerConfiguration.incrementalCompilation: Boolean
     get() = getBoolean(CommonConfigurationKeys.INCREMENTAL_COMPILATION)
     set(value) { put(CommonConfigurationKeys.INCREMENTAL_COMPILATION, value) }
@@ -229,4 +257,16 @@ var CompilerConfiguration.dontCreateSeparateSessionForScripts: Boolean
 var CompilerConfiguration.dontSortSourceFiles: Boolean
     get() = getBoolean(CommonConfigurationKeys.DONT_SORT_SOURCE_FILES)
     set(value) { put(CommonConfigurationKeys.DONT_SORT_SOURCE_FILES, value) }
+
+var CompilerConfiguration.scriptingHostConfiguration: Any?
+    get() = get(CommonConfigurationKeys.SCRIPTING_HOST_CONFIGURATION)
+    set(value) { put(CommonConfigurationKeys.SCRIPTING_HOST_CONFIGURATION, requireNotNull(value) { "nullable values are not allowed" }) }
+
+var CompilerConfiguration.perfManager: PerformanceManager?
+    get() = get(CommonConfigurationKeys.PERF_MANAGER)
+    set(value) { put(CommonConfigurationKeys.PERF_MANAGER, requireNotNull(value) { "nullable values are not allowed" }) }
+
+var CompilerConfiguration.detailedPerf: Boolean
+    get() = getBoolean(CommonConfigurationKeys.DETAILED_PERF)
+    set(value) { put(CommonConfigurationKeys.DETAILED_PERF, value) }
 

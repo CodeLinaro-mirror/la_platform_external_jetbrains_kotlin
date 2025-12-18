@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.uklibs
 
 import org.gradle.api.Project
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+import org.gradle.api.initialization.ConfigurableIncludedBuild
 import org.gradle.api.plugins.ExtraPropertiesExtension
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
@@ -25,6 +26,7 @@ import java.io.Serializable
 import java.net.URLClassLoader
 import java.nio.file.Files
 import java.util.*
+import kotlin.text.set
 
 fun Project.applyMultiplatform(
     configure: KotlinMultiplatformExtension.() -> Unit,
@@ -115,6 +117,13 @@ fun TestProject.publishReturn(
     }
 }
 
+/**
+ * Configures and publishes a Kotlin publication to a temporary directory. The returned [PublishedProject][org.jetbrains.kotlin.gradle.uklibs.PublishedProject]
+ * can be added to the repositories list using [addPublishedProjectToRepositories][org.jetbrains.kotlin.gradle.uklibs.addPublishedProjectToRepositories]
+ * and added to dependencies using [PublishedProject.rootCoordinate][org.jetbrains.kotlin.gradle.uklibs.PublishedProject.rootCoordinate]
+ *
+ * See [BuildScriptInjectionIT.publishAndConsumeProject][org.jetbrains.kotlin.gradle.BuildScriptInjectionIT.publishAndConsumeProject] for an example of usage
+ */
 fun TestProject.publish(
     vararg buildArguments: String = emptyArray(),
     publisherConfiguration: PublisherConfiguration = PublisherConfiguration(
@@ -134,6 +143,11 @@ fun TestProject.publish(
     )
 }
 
+/**
+ * Publish a Java publication to a temporary repository
+ *
+ * @see TestProject.publish
+ */
 fun TestProject.publishJava(
     publisherConfiguration: PublisherConfiguration = PublisherConfiguration(
         group = "default_java_${generateIdentifier()}"
@@ -148,6 +162,42 @@ fun TestProject.publishJava(
 
             publishingExtension.publications.create("java", MavenPublication::class.java) {
                 it.from(project.components.getByName("java"))
+            }
+        }
+    }
+    return buildScriptReturn {
+        PublishedProject(
+            project.layout.projectDirectory.dir(publisherConfiguration.repoPath).asFile,
+            publisherConfiguration.group,
+            project.name,
+            publisherConfiguration.version,
+        )
+    }.buildAndReturn(
+        "publishAllPublicationsTo${repositoryIdentifier}Repository",
+        "-P${repositoryIdentifier}",
+        deriveBuildOptions = deriveBuildOptions,
+    )
+}
+
+/**
+ * Publish a Java platform publication to a temporary repository
+ *
+ * @see TestProject.publish
+ */
+fun TestProject.publishJavaPlatform(
+    publisherConfiguration: PublisherConfiguration = PublisherConfiguration(
+        group = "default_javaPlatform_${generateIdentifier()}"
+    ),
+    deriveBuildOptions: TestProject.() -> BuildOptions = { buildOptions },
+): PublishedProject {
+    val repositoryIdentifier = "_JavaPlatformPublication_${generateIdentifier()}_"
+    buildScriptInjection {
+        if (project.hasProperty(repositoryIdentifier)) {
+            project.setupMavenPublication(repositoryIdentifier, publisherConfiguration)
+            val publishingExtension = project.extensions.getByType(PublishingExtension::class.java)
+
+            publishingExtension.publications.create("javaPlatform", MavenPublication::class.java) {
+                it.from(project.components.getByName("javaPlatform"))
             }
         }
     }
@@ -190,11 +240,14 @@ fun TestProject.include(
 
 fun TestProject.includeBuild(
     subproject: TestProject,
+    configure: ConfigurableIncludedBuild.() -> Unit = {},
 ) {
     val includeBuildIdentifier = "included_${generateIdentifier()}"
     Files.createSymbolicLink(projectPath.resolve(includeBuildIdentifier), subproject.projectPath)
     settingsBuildScriptInjection {
-        settings.includeBuild(includeBuildIdentifier)
+        settings.includeBuild(includeBuildIdentifier) {
+            it.configure()
+        }
     }
 }
 
@@ -206,8 +259,7 @@ fun TestProject.dumpKlibMetadataSignatures(klib: File): String {
     buildScriptInjection {
         project.tasks.register(dumpName) {
             val nativeCompilerClasspath = project.objects.nativeCompilerClasspath(
-                project.nativeProperties.actualNativeHomeDirectory,
-                project.nativeProperties.shouldUseEmbeddableCompilerJar,
+                project.nativeProperties.actualNativeHomeDirectory
             )
             it.inputs.files(nativeCompilerClasspath)
             it.doLast {
@@ -256,22 +308,22 @@ internal fun Project.setUklibPublicationStrategy(strategy: KmpPublicationStrateg
         strategy.propertyName,
     )
     when (strategy) {
-        KmpPublicationStrategy.UklibPublicationInASingleComponentWithKMPPublication -> enableCrossCompilation()
+        KmpPublicationStrategy.UklibPublicationInASingleComponentWithKMPPublication -> Unit
         KmpPublicationStrategy.StandardKMPPublication -> Unit
     }
-}
-
-fun Project.enableCrossCompilation(enable: Boolean = true) {
-    propertiesExtension.set(
-        PropertiesProvider.PropertyNames.KOTLIN_NATIVE_ENABLE_KLIBS_CROSSCOMPILATION,
-        enable.toString(),
-    )
 }
 
 internal fun Project.setUklibResolutionStrategy(strategy: KmpResolutionStrategy = KmpResolutionStrategy.InterlibraryUklibAndPSMResolution_PreferUklibs) {
     propertiesExtension.set(
         PropertiesProvider.PropertyNames.KOTLIN_KMP_RESOLUTION_STRATEGY,
         strategy.propertyName,
+    )
+}
+
+internal fun Project.enableCinteropCommonization() {
+    propertiesExtension.set(
+        PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_CINTEROP_COMMONIZATION,
+        true,
     )
 }
 

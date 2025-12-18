@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.metadata.deserialization.*
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.stubs.KotlinUserTypeStub
@@ -90,7 +91,12 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         val leftReference = KotlinPlaceHolderStubImpl<KtTypeReference>(intersectionType, KtStubElementTypes.TYPE_REFERENCE)
         createStubForTypeName(classId, leftReference, upperBoundFun = { upperBoundType })
         val rightReference = KotlinPlaceHolderStubImpl<KtTypeReference>(intersectionType, KtStubElementTypes.TYPE_REFERENCE)
-        val userType = KotlinUserTypeStubImpl(rightReference)
+        val userType = KotlinUserTypeStubImpl(
+            parent = rightReference,
+            upperBound = null,
+            abbreviatedType = null,
+        )
+
         KotlinNameReferenceExpressionStubImpl(userType, StandardNames.FqNames.any.shortName().ref(), true)
     }
 
@@ -210,7 +216,7 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         val typeModifiers = getTypeModifiersAsWritten(type)
         if (annotations.isEmpty() && typeModifiers.isEmpty()) return
         val typeModifiersMask = ModifierMaskUtils.computeMask { it in typeModifiers }
-        val modifiersList = KotlinModifierListStubImpl(parent, typeModifiersMask, KtStubElementTypes.MODIFIER_LIST)
+        val modifiersList = KotlinModifierListStubImpl(parent, typeModifiersMask)
         createTargetedAnnotationStubs(annotations, modifiersList)
     }
 
@@ -239,7 +245,7 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
                 createModifierListStub(
                     typeProjection,
                     listOfNotNull(modifierKeywordToken),
-                    mustUseReturnValue = false,
+                    ProtoBuf.ReturnValueStatus.UNSPECIFIED,
                 )
 
                 createTypeReferenceStub(typeProjection, typeArgumentProto.type(c.typeTable)!!)
@@ -255,7 +261,7 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
     }
 
     private fun createFunctionTypeStub(
-        parent: StubElement<out PsiElement>,
+        parent: StubElement<*>,
         type: Type,
         isExtensionFunctionType: Boolean,
         isSuspend: Boolean,
@@ -263,7 +269,11 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         abbreviatedType: KotlinClassTypeBean?,
     ) {
         val typeArgumentList = type.argumentList
-        val functionType = KotlinFunctionTypeStubImpl(parent, abbreviatedType)
+        val functionType = KotlinFunctionTypeStubImpl(
+            parent = parent,
+            abbreviatedType = abbreviatedType
+        )
+
         var processedTypes = 0
 
         if (numContextReceivers != 0) {
@@ -317,13 +327,14 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
 
             val parameter = KotlinParameterStubImpl(
                 parameterList,
-                fqName = null,
+                fqNameRef = null,
                 name = null,
                 isMutable = false,
                 hasValOrVar = false,
                 hasDefaultValue = false,
-                functionTypeParameterName = getFunctionTypeParameterName(annotations)
+                functionTypeParameterName = getFunctionTypeParameterName(annotations),
             )
+
             createTypeReferenceStub(parameter, parameterType, loadTypeAnnotations = { annotations })
         }
 
@@ -332,8 +343,21 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
             val returnType = typeArgumentList.last().type(c.typeTable)!!
             createTypeReferenceStub(functionType, returnType)
         } else {
-            val continuationArgumentType = suspendParameterType.getArgument(0).type(c.typeTable)!!
-            createTypeReferenceStub(functionType, continuationArgumentType)
+            val returnType = suspendParameterType.getArgument(0)
+
+            // This is possible in the case of a type alias with a star projection as a type argument
+            // typealias MyAlias <T> = suspend () -> T
+            // val usage: MyAlias<*>
+            if (returnType.projection == Projection.STAR) {
+                KotlinPlaceHolderStubImpl<KtTypeReference>(functionType, KtStubElementTypes.TYPE_REFERENCE).apply {
+                    KotlinPlaceHolderStubImpl<KtNullableType>(this, KtStubElementTypes.NULLABLE_TYPE).apply {
+                        createStubForTypeName(StandardClassIds.Any, this)
+                    }
+                }
+            } else {
+                val continuationArgumentType = returnType.type(c.typeTable)!!
+                createTypeReferenceStub(functionType, continuationArgumentType)
+            }
         }
     }
 
@@ -342,20 +366,33 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         callableProto: MessageLite,
         parameters: List<ProtoBuf.ValueParameter>,
         container: ProtoContainer,
-        callableKind: AnnotatedCallableKind = callableProto.annotatedCallableKind
+        callableKind: AnnotatedCallableKind = callableProto.annotatedCallableKind,
     ) {
         val parameterListStub = KotlinPlaceHolderStubImpl<KtParameterList>(parent, KtStubElementTypes.VALUE_PARAMETER_LIST)
+        createValueParameterStubs(parameters, parameterListStub, container, callableProto, callableKind, isContextParameter = false)
+    }
+
+    fun createValueParameterStubs(
+        parameters: List<ProtoBuf.ValueParameter>,
+        parameterParent: StubElement<out PsiElement>,
+        container: ProtoContainer,
+        callableProto: MessageLite,
+        callableKind: AnnotatedCallableKind,
+        isContextParameter: Boolean,
+    ) {
         for ((index, valueParameterProto) in parameters.withIndex()) {
             val parameterName = computeParameterName(c.nameResolver.getName(valueParameterProto.name))
             val hasDefaultValue = Flags.DECLARES_DEFAULT_VALUE.get(valueParameterProto.flags)
             val parameterStub = KotlinParameterStubImpl(
-                parameterListStub,
+                parameterParent,
                 name = parameterName.ref(),
-                fqName = null,
+                fqNameRef = null,
                 hasDefaultValue = hasDefaultValue,
                 hasValOrVar = false,
-                isMutable = false
+                isMutable = false,
+                functionTypeParameterName = null,
             )
+
             val varargElementType = valueParameterProto.varargElementType(c.typeTable)
             val typeProto = varargElementType ?: valueParameterProto.type(c.typeTable)
             val modifiers = arrayListOf<KtModifierKeywordToken>()
@@ -373,13 +410,28 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
             val modifierList = createModifierListStub(
                 parameterStub,
                 modifiers,
-                mustUseReturnValue = false,
+                ProtoBuf.ReturnValueStatus.UNSPECIFIED,
             )
 
             if (Flags.HAS_ANNOTATIONS.get(valueParameterProto.flags)) {
-                val parameterAnnotations = c.components.annotationLoader.loadValueParameterAnnotations(
-                    container, callableProto, callableKind, index, valueParameterProto
-                )
+                val parameterAnnotations = if (isContextParameter) {
+                    c.components.annotationLoader.loadContextParameterAnnotations(
+                        container = container,
+                        callableProto = callableProto,
+                        kind = callableKind,
+                        parameterIndex = index,
+                        proto = valueParameterProto,
+                    )
+                } else {
+                    c.components.annotationLoader.loadValueParameterAnnotations(
+                        container = container,
+                        callableProto = callableProto,
+                        kind = callableKind,
+                        parameterIndex = index,
+                        proto = valueParameterProto,
+                    )
+                }
+
                 if (parameterAnnotations.isNotEmpty()) {
                     createAnnotationStubs(parameterAnnotations, modifierList ?: createEmptyModifierListStub(parameterStub))
                 }
@@ -387,7 +439,11 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
 
             createTypeReferenceStub(parameterStub, typeProto)
             if (hasDefaultValue) {
-                KotlinNameReferenceExpressionStubImpl(parameterStub, StringRef.fromString(COMPILED_DEFAULT_PARAMETER_VALUE))
+                KotlinNameReferenceExpressionStubImpl(
+                    /* parent = */ parameterStub,
+                    /* referencedName = */ StringRef.fromString(COMPILED_DEFAULT_PARAMETER_VALUE),
+                    /* myClassRef = */ false,
+                )
             }
         }
     }
@@ -405,9 +461,8 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
             val typeParameterStub = KotlinTypeParameterStubImpl(
                 typeParameterListStub,
                 name = name.ref(),
-                isInVariance = proto.variance == Variance.IN,
-                isOutVariance = proto.variance == Variance.OUT
             )
+
             createTypeParameterModifierListStub(typeParameterStub, proto)
             val upperBoundProtos = proto.upperBounds(c.typeTable)
             if (upperBoundProtos.isNotEmpty()) {
@@ -431,7 +486,12 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         val typeConstraintListStub = KotlinPlaceHolderStubImpl<KtTypeConstraintList>(parent, KtStubElementTypes.TYPE_CONSTRAINT_LIST)
         for ((name, type) in protosForTypeConstraintList) {
             val typeConstraintStub = KotlinPlaceHolderStubImpl<KtTypeConstraint>(typeConstraintListStub, KtStubElementTypes.TYPE_CONSTRAINT)
-            KotlinNameReferenceExpressionStubImpl(typeConstraintStub, name.ref())
+            KotlinNameReferenceExpressionStubImpl(
+                /* parent = */ typeConstraintStub,
+                /* referencedName = */ name.ref(),
+                /* myClassRef = */ false,
+            )
+
             createTypeReferenceStub(typeConstraintStub, type)
         }
     }
@@ -456,7 +516,7 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         val modifierList = createModifierListStub(
             typeParameterStub,
             modifiers,
-            mustUseReturnValue = false,
+            ProtoBuf.ReturnValueStatus.UNSPECIFIED,
         )
 
         val annotations = c.components.annotationLoader.loadTypeParameterAnnotations(typeParameterProto, c.nameResolver)
@@ -480,7 +540,7 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
             KotlinPlaceHolderStubImpl<KtContextReceiverList>(parent, KtStubElementTypes.CONTEXT_RECEIVER_LIST)
         for (contextReceiverType in contextReceiverTypes) {
             val contextReceiverStub =
-                KotlinContextReceiverStubImpl(contextReceiverListStub, KtStubElementTypes.CONTEXT_RECEIVER, label = null)
+                KotlinContextReceiverStubImpl(contextReceiverListStub, labelRef = null)
             createTypeReferenceStub(contextReceiverStub, contextReceiverType)
         }
     }

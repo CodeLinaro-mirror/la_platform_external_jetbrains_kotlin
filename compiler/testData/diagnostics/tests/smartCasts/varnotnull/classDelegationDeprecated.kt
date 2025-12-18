@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: BACKEND
-// LATEST_LV_DIFFERENCE
 // ISSUE: KT-57417
+// LANGUAGE: -UnstableSmartcastOnDelegatedProperties
 
 interface HasProperty {
     val property: Int?

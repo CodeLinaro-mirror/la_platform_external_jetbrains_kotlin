@@ -173,26 +173,35 @@ class WebpackConfigurator(private val subTarget: KotlinJsIrSubTarget) : SubTarge
 
                     val npmProject = compilation.npmProject
                     val resourcesDir = compilation.output.resourcesDir
+                    val rootDir = project.rootDir
                     task.devServerProperty.convention(
                         npmProject.dist.zip(npmProject.dir) { distDirectory, dir ->
                             KotlinWebpackConfig.DevServer(
                                 open = true,
-                                static = mutableListOf(
-                                    distDirectory.asFile.normalize().relativeOrAbsolute(dir.asFile),
-                                    resourcesDir.relativeOrAbsolute(dir.asFile),
-                                ),
                                 client = KotlinWebpackConfig.DevServer.Client(
                                     KotlinWebpackConfig.DevServer.Client.Overlay(
                                         errors = true,
                                         warnings = false
                                     )
                                 )
-                            )
+                            ).apply {
+                                static(distDirectory.asFile.normalize().relativeTo(dir.asFile).invariantSeparatorsPath)
+                                static(resourcesDir.normalize().relativeTo(dir.asFile).invariantSeparatorsPath)
+
+                                if (mode == KotlinJsBinaryMode.DEVELOPMENT) {
+                                    static(
+                                        rootDir.normalize().relativeTo(dir.asFile).invariantSeparatorsPath
+                                    )
+                                }
+                            }
                         }
                     )
 
                     task.watchOptions = KotlinWebpackConfig.WatchOptions(
-                        ignored = arrayOf("*.kt")
+                        ignored = arrayOf(
+                            "**/node_modules",
+                            "**/*.kt"
+                        )
                     )
 
 

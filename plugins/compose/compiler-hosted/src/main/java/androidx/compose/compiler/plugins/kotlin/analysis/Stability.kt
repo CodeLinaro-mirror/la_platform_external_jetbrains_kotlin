@@ -175,8 +175,10 @@ fun Stability.forEach(callback: (Stability) -> Unit) {
 fun IrAnnotationContainer.hasStableMarker(): Boolean =
     annotations.any { it.isStableMarker() }
 
-private fun IrConstructorCall.isStableMarker(): Boolean =
-    annotationClass?.owner?.hasAnnotation(ComposeFqNames.StableMarker) == true
+private fun IrConstructorCall.isStableMarker(): Boolean {
+    val owner = annotationClass?.owner ?: return false
+    return owner.hasAnnotation(ComposeFqNames.StableMarker) || owner.classId in KnownStableConstructs.stableMarkers
+}
 
 private fun IrClass.hasStableMarkedDescendant(): Boolean {
     if (hasStableMarker()) return true
@@ -408,12 +410,6 @@ class StabilityInferencer(
                     substitutions + type.substitutionMap(),
                     currentlyAnalyzing
                 )
-            }
-
-            type is IrTypeAbbreviation -> {
-                val aliased = type.typeAlias.owner.expandedType
-                // TODO(lmr): figure out how type.arguments plays in here
-                stabilityOf(aliased, substitutions, currentlyAnalyzing)
             }
 
             else -> error("Unexpected IrType: $type")

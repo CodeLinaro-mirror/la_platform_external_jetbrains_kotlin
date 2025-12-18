@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.gradle.experimental
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.gradle.BrokenOnMacosTest
 import org.jetbrains.kotlin.gradle.BrokenOnMacosTestFailureExpectation
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
@@ -118,15 +118,12 @@ class TryNextIT : KGPBaseTest() {
                     """
                     |##### 'kotlin.experimental.tryNext' results #####
                     |:compileCommonMainKotlinMetadata: $nextKotlinLanguageVersion language version
-                    |:compileKotlinLinuxX64: $nextKotlinLanguageVersion language version${
-                        if (HostManager.hostIsMac)
-                            "\n|:compileKotlinMacosArm64: $nextKotlinLanguageVersion language version\n" +
-                                    "|:compileKotlinMacosX64: $nextKotlinLanguageVersion language version"
-                        else ""
-                    }
+                    |:compileKotlinLinuxX64: $nextKotlinLanguageVersion language version
+                    |:compileKotlinMacosArm64: $nextKotlinLanguageVersion language version
+                    |:compileKotlinMacosX64: $nextKotlinLanguageVersion language version
                     |:compileKotlinMingwX64: $nextKotlinLanguageVersion language version
                     |:compileNativeMainKotlinMetadata: $nextKotlinLanguageVersion language version
-                    |##### 100% ${if (HostManager.hostIsMac) "(6/6)" else "(4/4)"} tasks have been compiled with Kotlin $nextKotlinLanguageVersion #####
+                    |##### 100% (6/6) tasks have been compiled with Kotlin $nextKotlinLanguageVersion #####
                     """.trimMargin().normalizeLineEndings()
                 )
             }
@@ -211,6 +208,7 @@ class TryNextIT : KGPBaseTest() {
                 assertTasksExecuted(":compileKotlinLinuxX64")
 
                 val compileTaskOutput = getOutputForTask(":compileKotlinLinuxX64")
+                @Suppress("DEPRECATION")
                 val compilerArgs = parseCompilerArgumentsFromBuildOutput(K2NativeCompilerArguments::class, compileTaskOutput)
                 assert(compilerArgs.languageVersion == nextKotlinLanguageVersion) {
                     ":compileKotlinLinuxX64 'languageVersion' is not '$nextKotlinLanguageVersion': ${compilerArgs.languageVersion}"
@@ -240,6 +238,7 @@ class TryNextIT : KGPBaseTest() {
                 assertCompilerArgument(":p1:compileCommonMainKotlinMetadata", "-language-version $nextKotlinLanguageVersion")
                 assertCompilerArgument(":p1:compileConcurrentMainKotlinMetadata", "-language-version $nextKotlinLanguageVersion")
                 val taskOutput = getOutputForTask(":p1:compileAppleAndLinuxMainKotlinMetadata")
+                @Suppress("DEPRECATION")
                 val appleAndLinuxMetadataArgs = parseCompilerArgumentsFromBuildOutput(K2NativeCompilerArguments::class, taskOutput)
                 assert(appleAndLinuxMetadataArgs.languageVersion == nextKotlinLanguageVersion) {
                     ":compileAppleAndLinuxMainKotlinMetadata 'languageVersion' is not '$nextKotlinLanguageVersion': ${appleAndLinuxMetadataArgs.languageVersion}"
@@ -332,7 +331,10 @@ class TryNextIT : KGPBaseTest() {
     @TestMetadata("native-configuration-cache")
     @BrokenOnMacosTest(failureExpectation = BrokenOnMacosTestFailureExpectation.ALWAYS)
     fun smokeTestForNativeTasks(gradleVersion: GradleVersion) {
-        project("native-configuration-cache", gradleVersion) {
+        project(
+            "native-configuration-cache",
+            gradleVersion,
+        ) {
             enableTryNext()
             build("build") {
                 if (HostManager.hostIsMac) {
@@ -344,10 +346,11 @@ class TryNextIT : KGPBaseTest() {
                             |:lib:compileKotlinIosSimulatorArm64: $nextKotlinLanguageVersion language version
                             |:lib:compileKotlinIosX64: $nextKotlinLanguageVersion language version
                             |:lib:compileKotlinLinuxX64: $nextKotlinLanguageVersion language version
+                            |:lib:compileTestKotlinIosArm64: $nextKotlinLanguageVersion language version
                             |:lib:compileTestKotlinIosSimulatorArm64: $nextKotlinLanguageVersion language version
                             |:lib:compileTestKotlinIosX64: $nextKotlinLanguageVersion language version
                             |:lib:compileTestKotlinLinuxX64: $nextKotlinLanguageVersion language version
-                            |##### 100% (8/8) tasks have been compiled with Kotlin $nextKotlinLanguageVersion #####
+                            |##### 100% (9/9) tasks have been compiled with Kotlin $nextKotlinLanguageVersion #####
                         """.trimMargin().normalizeLineEndings()
                     )
                 } else {

@@ -18,11 +18,13 @@ import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirFunctionCallChecker
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
+import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.getAnnotationByClassId
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.extensions.FirExtensionSessionComponent
 import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.resolve.toClassSymbol
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -156,7 +158,7 @@ fun FirCallableSymbol<*>.parameters(): List<FirValueParameterSymbol> =
 context(session: FirSession)
 private fun FirCallableSymbol<*>.fileScopeTarget(): Item? {
     fun findFileScope(element: FirElement): Item? =
-        (element as? FirAnnotationContainer)?.compositionTarget()?.let { Token(it) } ?: element.parent?.let { findFileScope(it) }
+        (element as? FirFile)?.compositionTarget()?.let { Token(it) } ?: element.parent?.let { findFileScope(it) }
     return findFileScope(fir)
 }
 
@@ -197,9 +199,7 @@ fun FirCallableSymbol<*>.compositionTarget(): String? {
 context(session: FirSession)
 fun ConeKotlinType.targetName(): String? = toClassSymbol(session)?.let { cls ->
     cls.annotationArgument(ComposeClassIds.ComposableTargetMarker, ComposeFqNames.ComposableTargetMarkerDescriptionName)?.let {
-        if (it is String && it != "") {
-            it
-        } else cls.classId.asFqNameString()
+        cls.classId.asFqNameString()
     }
 }
 
@@ -290,7 +290,16 @@ internal class FirApplierInferencer(
             override fun referencedContainerOf(node: FirInferenceNode): FirInferenceNode? = node.referenceContainer
         },
         errorReporter = object : ErrorReporter<FirInferenceNode> {
-            private fun descriptionFrom(token: String): String = token // TODO: find the message if appropriate
+            private fun descriptionFrom(token: String): String =
+                with(session) {
+                    val symbol = symbolProvider.getClassLikeSymbolByClassId(ClassId.fromString(token.replace('.', '/')))
+                    val description = symbol?.annotationArgument(
+                        ComposeClassIds.ComposableTargetMarker,
+                        ComposeFqNames.ComposableTargetMarkerDescriptionName
+                    ) as? String
+                    description ?: token
+                }
+
             override fun reportCallError(node: FirInferenceNode, expected: String, received: String) {
                 if (expected != received) {
                     val expectedDescription = descriptionFrom(expected)

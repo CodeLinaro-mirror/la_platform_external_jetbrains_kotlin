@@ -134,8 +134,7 @@ class KotlinSpecificDependenciesIT : KGPBaseTest() {
             buildOptions = defaultBuildOptions
                 .copy(
                     androidVersion = agpVersion,
-                )
-                .suppressWarningFromAgpWithGradle813(gradleVersion),
+                ),
             buildJdk = jdkVersion.location
         ) {
             removeDependencies(buildGradle)
@@ -458,16 +457,6 @@ class KotlinSpecificDependenciesIT : KGPBaseTest() {
                     "compileTestKotlinJvm" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}.jar", "kotlin-test-junit"),
                     "compileTestKotlinJs" to listOf("kotlin-test-js")
                 ),
-                mapOf(
-                    "commonTestImplementationDependenciesMetadata" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-
-                    /*
-                    implementation, api and compileOnly scoped metadata configurations are deprecated and report the same dependencies.
-                    The IDE does not rely on which exact configuration returned the dependencies.
-                    */
-                    "commonTestApiDependenciesMetadata" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-                    "commonTestCompileOnlyDependenciesMetadata" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-                ),
                 isBuildGradleKts = true
             )
         }
@@ -484,12 +473,6 @@ class KotlinSpecificDependenciesIT : KGPBaseTest() {
                     "compileTestKotlinJvm" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}.jar", "kotlin-test-junit"),
                     "compileTestKotlinJs" to listOf("kotlin-test-js")
                 ),
-                mapOf(
-                    "commonTestApiDependenciesMetadata" to listOf("!kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-                    "commonTestCompileOnlyDependenciesMetadata" to listOf("!kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-                    "jvmAndJsTestApiDependenciesMetadata" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-                    "jvmAndJsTestCompileOnlyDependenciesMetadata" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}-all"),
-                ),
                 isBuildGradleKts = true
             )
         }
@@ -504,9 +487,6 @@ class KotlinSpecificDependenciesIT : KGPBaseTest() {
                 listOf("commonTestImplementation"),
                 mapOf(
                     "compileTestKotlinJvm" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}.jar", "kotlin-test-junit"),
-                ),
-                mapOf(
-                    "commonTestImplementationDependenciesMetadata" to listOf("kotlin-test-${defaultBuildOptions.kotlinVersion}-all")
                 ),
                 isBuildGradleKts = true
             )

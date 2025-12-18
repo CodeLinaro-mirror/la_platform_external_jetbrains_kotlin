@@ -7,9 +7,7 @@ package org.jetbrains.kotlin.compilerRunner
 
 import org.gradle.api.logging.Logger
 import org.jetbrains.kotlin.build.report.metrics.*
-import org.jetbrains.kotlin.build.report.statistics.StatTag
 import org.jetbrains.kotlin.buildtools.api.KotlinLogger
-import org.jetbrains.kotlin.buildtools.api.SourcesChanges
 import org.jetbrains.kotlin.cli.common.ExitCode
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
@@ -22,10 +20,8 @@ import org.jetbrains.kotlin.gradle.plugin.internal.state.getTaskLogger
 import org.jetbrains.kotlin.gradle.report.*
 import org.jetbrains.kotlin.gradle.tasks.*
 import org.jetbrains.kotlin.gradle.utils.stackTraceAsString
-import org.jetbrains.kotlin.incremental.ClasspathChanges
 import org.jetbrains.kotlin.incremental.IncrementalModuleInfo
 import org.jetbrains.kotlin.util.removeSuffixIfPresent
-import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import java.io.*
 import java.net.URLClassLoader
 import java.rmi.RemoteException
@@ -109,9 +105,6 @@ internal class GradleKotlinCompilerWork @Inject constructor(
                 kotlinPluginVersion = config.kotlinPluginVersion
             )
             val (exitCode, executionStrategy) = compileWithDaemonOrFallbackImpl(gradleMessageCollector, config.compilerArgumentsLogLevel)
-            if (config.incrementalCompilationEnvironment?.disableMultiModuleIC == true) {
-                config.incrementalCompilationEnvironment.multiModuleICSettings.buildHistoryFile.delete()
-            }
             config.errorsFiles?.let {
                 gradleMessageCollector.flush(it)
             }
@@ -122,21 +115,12 @@ internal class GradleKotlinCompilerWork @Inject constructor(
                 kotlinLanguageVersion = config.kotlinLanguageVersion,
                 changedFiles = config.incrementalCompilationEnvironment?.changedFiles,
                 compilerArguments = if (config.reportingSettings.includeCompilerArguments) config.compilerArgs else emptyArray(),
-                tags = collectStatTags(),
+                tags = config.incrementalCompilationEnvironment?.collectIcTags().orEmpty(),
             )
             metrics.endMeasure(GradleBuildTime.RUN_COMPILATION_IN_WORKER)
             val result = TaskExecutionResult(buildMetrics = metrics.getMetrics(), icLogLines = icLogLines, taskInfo = taskInfo)
             TaskExecutionResults[config.taskPath] = result
         }
-    }
-
-    private fun collectStatTags(): Set<StatTag> {
-        val statTags = HashSet<StatTag>()
-        config.incrementalCompilationEnvironment?.icFeatures?.withAbiSnapshot?.ifTrue { statTags.add(StatTag.ABI_SNAPSHOT) }
-        if (config.incrementalCompilationEnvironment?.classpathChanges is ClasspathChanges.ClasspathSnapshotEnabled) {
-            statTags.add(StatTag.ARTIFACT_TRANSFORM)
-        }
-        return statTags
     }
 
     private fun compileWithDaemonOrFallbackImpl(

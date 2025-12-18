@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.config.ExplicitApiMode
+import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.descriptors.Visibility
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
@@ -22,12 +23,15 @@ import org.jetbrains.kotlin.fir.analysis.checkers.syntax.FirDeclarationSyntaxChe
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.scopes.ProcessorAction
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
+import org.jetbrains.kotlin.fir.toEffectiveVisibility
+import org.jetbrains.kotlin.fir.types.typeContext
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.psi.KtDeclaration
 
@@ -119,7 +123,7 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
         }
 
         val explicitVisibility = element.source?.explicitVisibility
-        val isHidden = explicitVisibility.isEffectivelyHiddenBy(containingDeclarationSymbol)
+        val isHidden = explicitVisibility.isEffectivelyHiddenBy(implicitVisibility, containingDeclarationSymbol)
         if (isHidden) {
             reportElement(element)
             return
@@ -172,7 +176,8 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
             return theSource.explicitVisibility == null
         }
 
-    private fun Visibility?.isEffectivelyHiddenBy(declaration: FirBasedSymbol<*>?): Boolean {
+    context(context: CheckerContext)
+    private fun Visibility?.isEffectivelyHiddenBy(implicitVisibility: Visibility, declaration: FirBasedSymbol<*>?): Boolean {
         if (this == null || this == Visibilities.Protected) {
             return false
         }
@@ -185,6 +190,22 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
 
         if (containerVisibility == Visibilities.Local && this == Visibilities.Internal) {
             return true
+        }
+
+        if (declaration is FirClassLikeSymbol) {
+            val contextProvider = context.session.typeContext
+            val implicitEffectiveVisibility =
+                implicitVisibility.toEffectiveVisibility(declaration).lowerBound(effectiveVisibility, contextProvider)
+            val explicitEffectiveVisibility =
+                this.toEffectiveVisibility(declaration).lowerBound(effectiveVisibility, contextProvider)
+
+            val relation = explicitEffectiveVisibility.relation(
+                implicitEffectiveVisibility, contextProvider
+            )
+            if (relation == EffectiveVisibility.Permissiveness.MORE || relation == EffectiveVisibility.Permissiveness.UNKNOWN) {
+                // If explicit visibility allows more than implicit one, it's not "effectively hidden by"
+                return false
+            }
         }
 
         val difference = this.compareTo(containerVisibility) ?: return false
@@ -203,11 +224,12 @@ object RedundantVisibilityModifierSyntaxChecker : FirDeclarationSyntaxChecker<Fi
 
             this is FirConstructor -> {
                 val classSymbol = this.getContainingClassSymbol()
-                if (
-                    classSymbol is FirRegularClassSymbol
-                    && (classSymbol.isEnumClass || classSymbol.isSealed)
-                ) {
-                    Visibilities.Private
+                if (classSymbol is FirRegularClassSymbol) {
+                    when {
+                        classSymbol.isSealed -> Visibilities.Protected
+                        classSymbol.isEnumClass -> Visibilities.Private
+                        else -> defaultVisibility
+                    }
                 } else {
                     defaultVisibility
                 }

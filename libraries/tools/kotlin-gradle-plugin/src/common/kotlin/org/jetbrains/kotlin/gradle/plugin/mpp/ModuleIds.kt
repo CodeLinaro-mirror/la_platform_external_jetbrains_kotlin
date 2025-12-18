@@ -13,13 +13,19 @@ import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.artifacts.result.ResolvedComponentResult
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtensionOrNull
+import org.jetbrains.kotlin.gradle.plugin.internal.compatAccessor
 import org.jetbrains.kotlin.gradle.plugin.mpp.publishing.kotlinMultiplatformRootPublication
 import org.jetbrains.kotlin.gradle.utils.currentBuild
 import org.jetbrains.kotlin.gradle.utils.future
 
 internal object ModuleIds {
-    fun fromDependency(dependency: Dependency): ModuleDependencyIdentifier = when (dependency) {
-        is ProjectDependency -> @Suppress("DEPRECATION", "DEPRECATION_ERROR") idOfRootModule(dependency.dependencyProject)
+    fun fromDependency(project: Project, dependency: Dependency): ModuleDependencyIdentifier = when (dependency) {
+        is ProjectDependency -> {
+            val dependencyProject = dependency.compatAccessor(project).dependencyProject()
+
+            @Suppress("DEPRECATION_ERROR")
+            idOfRootModule(dependencyProject)
+        }
         else -> ModuleDependencyIdentifier(dependency.group, dependency.name)
     }
 

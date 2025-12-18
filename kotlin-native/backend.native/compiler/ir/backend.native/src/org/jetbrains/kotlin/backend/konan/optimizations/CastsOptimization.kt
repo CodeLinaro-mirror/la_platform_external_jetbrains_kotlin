@@ -139,6 +139,10 @@ private class Conjunction(val terms: List<Disjunction>) : Predicate() {
     override fun size() = terms.sumOf { it.size }
 }
 
+private const val MaxSize = 10_000
+
+private class DivergingAnalysisError(message: String) : Throwable(message)
+
 @Suppress("ConvertArgumentToSet")
 private object Predicates {
     fun disjunctionOf(vararg terms: LeafIndexWithValue): Predicate =
@@ -236,6 +240,7 @@ private object Predicates {
             val leftTerms = (leftPredicate as Conjunction).terms
             val rightTerms = (rightPredicate as Conjunction).terms
             val resultDisjunctions = ArrayList<Disjunction>((leftTerms.size + rightTerms.size) * 2)
+            var size = 0
             var removedCount = 0
             for (leftTerm in leftTerms) {
                 for (rightTerm in rightTerms) {
@@ -249,17 +254,23 @@ private object Predicates {
                         var disjunction = resultDisjunctions[i]
                         if (disjunction !== removedMarker && disjunction followsFrom currentDisjunction) {
                             resultDisjunctions[i] = removedMarker
+                            size -= disjunction.size
                             disjunction = removedMarker
                             ++removedCount
                         }
                         if (!replacedRemoved && disjunction === removedMarker) {
                             resultDisjunctions[i] = currentDisjunction
+                            size += currentDisjunction.size
                             --removedCount
                             replacedRemoved = true
                         }
                     }
-                    if (!replacedRemoved)
+                    if (!replacedRemoved) {
                         resultDisjunctions.add(currentDisjunction)
+                        size += currentDisjunction.size
+                    }
+                    if (size >= MaxSize)
+                        throw DivergingAnalysisError("Max size exceeded: $size")
                 }
             }
 
@@ -368,6 +379,7 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
             context.irBuiltIns.ieee754equalsFunByOperandType.values.toSet()
     private val throwClassCastException = context.symbols.throwClassCastException
     private val unitType = context.irBuiltIns.unitType
+    private val nothingType = context.irBuiltIns.nothingType
 
     private fun IrExpression.isNullConst() = this is IrConst && this.value == null
 
@@ -488,9 +500,8 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
     }
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {
-        var maxSize = 0
         val typeCheckResults = mutableMapOf<IrTypeOperatorCall, TypeCheckResult>()
-        irBody.accept(object : IrVisitor<VisitorResult, Predicate>() {
+        val visitor = object : IrVisitor<VisitorResult, Predicate>() {
             val leafTerms = mutableListOf<LeafTerm>()
             val simpleTermsMap = mutableMapOf<Pair<IrValueDeclaration, IrClass?>, Int>()
             val complexTermsMap = mutableMapOf<IrElement, Int>()
@@ -631,7 +642,13 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                                     )
                                 }
                                 is VariableValue.NullablePredicate -> variableValue.predicate
-                                is VariableValue.BooleanPredicate -> error("Unexpected boolean predicate for ${variable.render()}")
+                                is VariableValue.BooleanPredicate -> {
+                                    // Happens when a bool? variable aliases to a bool variable.
+                                    NullablePredicate(
+                                            ifNull = Predicate.False, // Never happens.
+                                            ifNotNull = Predicate.Empty
+                                    )
+                                }
                             }
 
             fun buildBooleanPredicate(variable: IrValueDeclaration): BooleanPredicate =
@@ -674,7 +691,18 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                         null
                     } else {
                         NullablePredicate(
-                                ifNull = safeReceiverPredicate.ifNull,
+                                ifNull = if (!safeCallResult.type.isNullable())
+                                    safeReceiverPredicate.ifNull
+                                else {
+                                    val term = buildComplexTerm(safeCallResult)
+                                    Predicates.or(
+                                            safeReceiverPredicate.ifNull,
+                                            Predicates.and(
+                                                    safeReceiverPredicate.ifNotNull,
+                                                    Predicates.disjunctionOf(term setTo true)
+                                            )
+                                    )
+                                },
                                 ifNotNull = usingUpperLevelPredicate(result.predicate) {
                                     safeCallResult.accept(this, safeReceiverPredicate.ifNotNull).predicate
                                 }
@@ -894,7 +922,10 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                 super.visitBlock(expression, data)
                 returnableBlockCFMPInfos.remove(returnableBlock)
 
-                return finishControlFlowMerging(expression, cfmpInfo)
+                val result = finishControlFlowMerging(expression, cfmpInfo)
+                return if (expression.type == nothingType)
+                    VisitorResult.Nothing
+                else result
             }
 
             override fun visitReturn(expression: IrReturn, data: Predicate): VisitorResult {
@@ -1042,9 +1073,8 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                 } while (iter < 10)
                 breaksCFMPInfos.remove(loop)
 
-                @Suppress("ControlFlowWithEmptyBody")
                 if (iter >= 10) {
-                    // TODO: fallback for diverging analysis (KT-77672).
+                    throw DivergingAnalysisError("Failed to analyse a loop: has not converged in 10 iterations")
                 }
 
                 val result = finishControlFlowMerging(loop, breaksCFMPInfo)
@@ -1131,13 +1161,11 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
                         val branchResult = branch.result.accept(this, conditionBooleanPredicate.ifTrue)
                         if (branchResult.predicate != Predicate.False) { // The result is not unreachable.
                             controlFlowMergePoint(cfmpInfo, branchResult)
-                            maxSize = kotlin.math.max(maxSize, cfmpInfo.predicate.size())
                         }
                         variableAliases.clear()
                         for ((variable, alias) in savedVariableAliases)
                             variableAliases[variable] = alias
                         predicate = Predicates.and(predicate, conditionBooleanPredicate.ifFalse)
-                        maxSize = kotlin.math.max(maxSize, predicate.size())
                     }
                 }
                 context.logMultiple {
@@ -1244,13 +1272,19 @@ internal class CastsOptimization(val context: Context) : BodyLoweringPass {
 
                     VisitorResult(receiverResult?.predicate ?: Predicate.Empty, phantomVariable)
                 } else {
-                    super.visitCall(expression, data)
+                    if (expression.type == nothingType)
+                        VisitorResult.Nothing
+                    else super.visitCall(expression, data)
                 }
             }
-        }, Predicate.Empty)
+        }
 
-        if (maxSize > 0) // TODO: fallback if size is too big (KT-77672).
-            context.log { "MAX SIZE = $maxSize" }
+        try {
+            irBody.accept(visitor, Predicate.Empty)
+        } catch (t: DivergingAnalysisError) {
+            context.log { "ERROR: the analysis has diverged for ${container.render()}: ${t.message}\n" }
+            return
+        }
 
         if (typeCheckResults.isEmpty()) return
         val irBuilder = context.createIrBuilder(container.symbol)

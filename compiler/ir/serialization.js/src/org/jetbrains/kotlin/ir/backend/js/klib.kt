@@ -37,6 +37,7 @@ import org.jetbrains.kotlin.ir.IrDiagnosticReporter
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.backend.js.checkers.JsKlibCheckers
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.*
+import org.jetbrains.kotlin.ir.backend.js.wasm.WasmKlibCheckers
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.descriptors.IrDescriptorBasedFunctionFactory
@@ -107,7 +108,6 @@ fun generateKLib(
         irBuiltIns = irBuiltIns,
         cleanFiles = icData,
         nopack = nopack,
-        containsErrorCode = modulesStructure.jsFrontEndResult.hasErrors,
         jsOutputName = jsOutputName,
         builtInsPlatform = builtInsPlatform,
         wasmTarget = wasmTarget,
@@ -231,7 +231,7 @@ fun getIrModuleInfoForKlib(
         partialLinkageSupport = createPartialLinkageSupportForLinker(
             partialLinkageConfig = configuration.partialLinkageConfig,
             builtIns = irBuiltIns,
-            messageCollector = messageCollector
+            messageCollector = messageCollector,
         ),
         icData = null,
         friendModules = friendModules
@@ -289,7 +289,7 @@ fun getIrModuleInfoForSourceFiles(
         partialLinkageSupport = createPartialLinkageSupportForLinker(
             partialLinkageConfig = configuration.partialLinkageConfig,
             builtIns = irBuiltIns,
-            messageCollector = messageCollector
+            messageCollector = messageCollector,
         ),
         icData = null,
         friendModules = friendModules,
@@ -423,7 +423,6 @@ fun serializeModuleIntoKlib(
     irBuiltIns: IrBuiltIns,
     cleanFiles: List<KotlinFileSerializedData>,
     nopack: Boolean,
-    containsErrorCode: Boolean = false,
     jsOutputName: String?,
     builtInsPlatform: BuiltInsPlatform = BuiltInsPlatform.JS,
     wasmTarget: WasmTarget? = null,
@@ -454,14 +453,24 @@ fun serializeModuleIntoKlib(
                     JsKlibCheckers.makeChecker(
                         irDiagnosticReporter,
                         configuration,
-                        // Should IrInlinerBeforeKlibSerialization be set, then calls should have already been checked during pre-serialization,
-                        // and there's no need to raise duplicates of those warnings here.
-                        doCheckCalls = !configuration.languageVersionSettings.supportsFeature(LanguageFeature.IrInlinerBeforeKlibSerialization),
+                        doCheckCalls = true,
                         doModuleLevelChecks = true,
                         cleanFilesIrData,
                         moduleExportedNames,
                     )
-                }.takeIf { builtInsPlatform == BuiltInsPlatform.JS }
+                }.takeIf {
+                    builtInsPlatform == BuiltInsPlatform.JS
+                            && !configuration.useFir // In K2, these checkers are being run within WebFir2IrPipelinePhase
+                },
+                { irDiagnosticReporter: IrDiagnosticReporter ->
+                    val cleanFilesIrData = cleanFiles.map { it.irData ?: error("Metadata-only KLIBs are not supported in Kotlin/Wasm") }
+                    WasmKlibCheckers.makeChecker(
+                        irDiagnosticReporter,
+                        configuration,
+                        cleanFilesIrData,
+                        moduleExportedNames,
+                    )
+                }.takeIf { builtInsPlatform == BuiltInsPlatform.WASM }
             ),
             processCompiledFileData = { ioFile, compiledFile ->
                 incrementalResultsConsumer?.run {
@@ -474,7 +483,6 @@ fun serializeModuleIntoKlib(
                             signatures,
                             strings,
                             declarations,
-                            inlineDeclarations,
                             bodies,
                             fqName.toByteArray(),
                             fileMetadata,
@@ -504,9 +512,6 @@ fun serializeModuleIntoKlib(
         val wasmTargets = listOfNotNull(/* in the future there might be multiple WASM targets */ wasmTarget)
         if (wasmTargets.isNotEmpty()) {
             p.setProperty(KLIB_PROPERTY_WASM_TARGETS, wasmTargets.joinToString(" ") { it.alias })
-        }
-        if (containsErrorCode) {
-            p.setProperty(KLIB_PROPERTY_CONTAINS_ERROR_CODE, "true")
         }
 
         val fingerprints = fullSerializedIr.files.sortedBy { it.path }.map { SerializedIrFileFingerprint(it) }
@@ -581,7 +586,6 @@ fun IncrementalDataProvider.getSerializedData(newSources: List<KtSourceFile>): L
                 strings,
                 bodies,
                 declarations,
-                inlineDeclarations,
                 debugInfo,
                 fileMetadata,
                 fileEntries,

@@ -18,6 +18,7 @@ package kotlin.reflect.jvm.internal
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.PrimitiveType
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotated
@@ -43,13 +44,12 @@ import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.resolve.constants.*
 import org.jetbrains.kotlin.resolve.descriptorUtil.annotationClass
 import org.jetbrains.kotlin.resolve.descriptorUtil.classId
-import org.jetbrains.kotlin.resolve.isInlineClassType
-import org.jetbrains.kotlin.resolve.needsMfvcFlattening
 import org.jetbrains.kotlin.serialization.deserialization.DeserializationContext
 import org.jetbrains.kotlin.serialization.deserialization.MemberDeserializer
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Type
+import kotlin.jvm.internal.CallableReference
 import kotlin.jvm.internal.FunctionReference
 import kotlin.jvm.internal.PropertyReference
 import kotlin.jvm.internal.RepeatableContainer
@@ -77,8 +77,16 @@ internal fun ClassDescriptor.toJavaClass(): Class<*>? {
     }
 }
 
+private val SUSPEND_FUNCTION_PREFIX =
+    FunctionTypeKind.SuspendFunction.packageFqName.asString() + "." + FunctionTypeKind.SuspendFunction.classNamePrefix
+
 internal fun ClassLoader.loadClass(kotlinClassId: ClassId, arrayDimensions: Int = 0): Class<*>? {
-    val javaClassId = JavaToKotlinClassMap.mapKotlinToJava(kotlinClassId.asSingleFqName().toUnsafe()) ?: kotlinClassId
+    val kotlinFqName = kotlinClassId.asSingleFqName().toUnsafe()
+    kotlinFqName.asString().substringAfter(SUSPEND_FUNCTION_PREFIX).toIntOrNull()?.let { suspendFunctionArity ->
+        return loadClass(FunctionTypeKind.Function.numberedClassId(suspendFunctionArity + 1), arrayDimensions)
+    }
+
+    val javaClassId = JavaToKotlinClassMap.mapKotlinToJava(kotlinFqName) ?: kotlinClassId
     // Pseudo-classes like `kotlin/String.Companion` can be accessible from different class loaders. To ensure that we always use the
     // same class, we always load it from the stdlib's class loader.
     val correctClassLoader =
@@ -233,14 +241,23 @@ internal inline fun <R> reflectionCall(block: () -> R): R =
         throw IllegalCallableAccessException(e)
     }
 
-internal fun Any?.asKFunctionImpl(): KFunctionImpl? =
-    this as? KFunctionImpl ?: (this as? FunctionReference)?.compute() as? KFunctionImpl
+internal fun Any?.asReflectFunction(): ReflectKFunction? = when (this) {
+    is ReflectKFunction -> this
+    is FunctionReference -> compute() as? ReflectKFunction
+    else -> null
+}
 
-internal fun Any?.asKPropertyImpl(): KPropertyImpl<*>? =
-    this as? KPropertyImpl<*> ?: (this as? PropertyReference)?.compute() as? KPropertyImpl
+internal fun Any?.asReflectProperty(): ReflectKProperty<*>? = when (this) {
+    is ReflectKProperty<*> -> this
+    is PropertyReference -> compute() as? ReflectKProperty
+    else -> null
+}
 
-internal fun Any?.asKCallableImpl(): KCallableImpl<*>? =
-    this as? KCallableImpl<*> ?: asKFunctionImpl() ?: asKPropertyImpl()
+internal fun Any?.asReflectCallable(): ReflectKCallable<*>? = when (this) {
+    is ReflectKCallable<*> -> this
+    is CallableReference -> compute() as? ReflectKCallable<*>
+    else -> null
+}
 
 internal val CallableDescriptor.instanceReceiverParameter: ReceiverParameterDescriptor?
     get() =
@@ -271,9 +288,10 @@ internal fun <M : MessageLite, D : CallableDescriptor> deserializeToDescriptor(
 }
 
 internal val KType.isInlineClassType: Boolean
-    get() = (this as? KTypeImpl)?.type?.isInlineClassType() == true
+    get() = (classifier as? KClassImpl<*>)?.isInline == true
+
 internal val KType.needsMultiFieldValueClassFlattening: Boolean
-    get() = (this as? KTypeImpl)?.type?.needsMfvcFlattening() == true
+    get() = (classifier as? KClassImpl<*>)?.run { isValue && !isInline } == true
 
 internal fun defaultPrimitiveValue(type: Type): Any? =
     if (type is Class<*> && type.isPrimitive) {
@@ -292,8 +310,8 @@ internal fun defaultPrimitiveValue(type: Type): Any? =
     } else null
 
 internal open class CreateKCallableVisitor(private val container: KDeclarationContainerImpl) :
-    DeclarationDescriptorVisitorEmptyBodies<KCallableImpl<*>, Unit>() {
-    override fun visitPropertyDescriptor(descriptor: PropertyDescriptor, data: Unit): KCallableImpl<*> {
+    DeclarationDescriptorVisitorEmptyBodies<DescriptorKCallable<*>, Unit>() {
+    override fun visitPropertyDescriptor(descriptor: PropertyDescriptor, data: Unit): DescriptorKCallable<*> {
         val receiverCount =
             if (descriptor.contextReceiverParameters.isNotEmpty())
                 -1
@@ -302,24 +320,24 @@ internal open class CreateKCallableVisitor(private val container: KDeclarationCo
 
         when {
             descriptor.isVar -> when (receiverCount) {
-                -1 -> return KMutablePropertyNImpl<Any?>(container, descriptor)
-                0 -> return KMutableProperty0Impl<Any?>(container, descriptor)
-                1 -> return KMutableProperty1Impl<Any?, Any?>(container, descriptor)
-                2 -> return KMutableProperty2Impl<Any?, Any?, Any?>(container, descriptor)
+                -1 -> return DescriptorKMutablePropertyN<Any?>(container, descriptor)
+                0 -> return DescriptorKMutableProperty0<Any?>(container, descriptor)
+                1 -> return DescriptorKMutableProperty1<Any?, Any?>(container, descriptor)
+                2 -> return DescriptorKMutableProperty2<Any?, Any?, Any?>(container, descriptor)
             }
             else -> when (receiverCount) {
-                -1 -> return KPropertyNImpl<Any?>(container, descriptor)
-                0 -> return KProperty0Impl<Any?>(container, descriptor)
-                1 -> return KProperty1Impl<Any?, Any?>(container, descriptor)
-                2 -> return KProperty2Impl<Any?, Any?, Any?>(container, descriptor)
+                -1 -> return DescriptorKPropertyN<Any?>(container, descriptor)
+                0 -> return DescriptorKProperty0<Any?>(container, descriptor)
+                1 -> return DescriptorKProperty1<Any?, Any?>(container, descriptor)
+                2 -> return DescriptorKProperty2<Any?, Any?, Any?>(container, descriptor)
             }
         }
 
         throw KotlinReflectionInternalError("Unsupported property: $descriptor")
     }
 
-    override fun visitFunctionDescriptor(descriptor: FunctionDescriptor, data: Unit): KCallableImpl<*> =
-        KFunctionImpl(container, descriptor)
+    override fun visitFunctionDescriptor(descriptor: FunctionDescriptor, data: Unit): DescriptorKCallable<*> =
+        DescriptorKFunction(container, descriptor)
 }
 
 internal fun Class<*>.getDeclaredMethodOrNull(name: String, vararg parameterTypes: Class<*>): Method? =

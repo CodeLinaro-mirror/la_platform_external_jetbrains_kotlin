@@ -56,22 +56,26 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
         context.irBuiltIns
 ) {
     private val insertSafeCasts = context.config.genericSafeCasts
+    private val anyClass = context.irBuiltIns.anyClass.owner
 
     // TODO: should we handle the cases when expression type
     // is not equal to e.g. called function return type?
 
-    override fun IrExpression.useInTypeOperator(operator: IrTypeOperator, typeOperand: IrType) = when {
+    override fun IrExpression.useInTypeOperator(operator: IrTypeOperator, typeOperand: IrType) =
+            this.useInTypeOperator(operator, typeOperand, forceSkipTypeCheck = false)
+
+    fun IrExpression.useInTypeOperator(operator: IrTypeOperator, typeOperand: IrType, forceSkipTypeCheck: Boolean) = when {
         operator == IrTypeOperator.IMPLICIT_COERCION_TO_UNIT || operator == IrTypeOperator.IMPLICIT_INTEGER_COERCION -> this
         insertSafeCasts && operator == IrTypeOperator.IMPLICIT_CAST -> {
             if (typeOperand.isInlinedNative())
-                this.useAs(context.irBuiltIns.anyNType)
-                        .useAs(typeOperand)
+                this.useAs(context.irBuiltIns.anyNType, forceSkipTypeCheck)
+                        .useAs(typeOperand, forceSkipTypeCheck)
             else
-                this.useAs(typeOperand)
+                this.useAs(typeOperand, forceSkipTypeCheck)
         }
         else -> {
             // Codegen expects the argument of type-checking operator to be an object reference:
-            this.useAs(context.irBuiltIns.anyNType)
+            this.useAs(context.irBuiltIns.anyNType, forceSkipTypeCheck)
         }
     }
 
@@ -86,30 +90,17 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
         check(irTypeOperatorCall.operator == IrTypeOperator.IMPLICIT_CAST) {
             "Expected an implicit cast: ${irTypeOperatorCall.operator}"
         }
-        irTypeOperatorCall.argument = irTypeOperatorCall.argument.transform(this, null)
 
-        val expectedType = irTypeOperatorCall.typeOperand
-        val actualType = irTypeOperatorCall.argument.type
-        val expectedInlineClass = expectedType.getInlinedClassNative()
-        val actualInlineClass = actualType.getInlinedClassNative()
-        return when {
-            expectedInlineClass == actualInlineClass -> {
-                // No cast/box/unbox is needed.
-                if (expectedType == actualType)
-                    irTypeOperatorCall.argument
-                else irBuilders.peek()!!.irCallWithSubstitutedType(symbols.reinterpret.owner, listOf(actualType, expectedType)).apply {
-                    arguments[0] = irTypeOperatorCall.argument
-                }
-            }
-            expectedInlineClass != null && actualInlineClass != null -> {
-                // This will be a ClassCastException at runtime.
-                visitTypeOperator(irTypeOperatorCall)
-            }
-            else -> {
-                // A box/unbox operation is still needed.
-                irTypeOperatorCall.argument.adaptIfNecessary(actualType, expectedType, skipTypeCheck = true)
-            }
-        }
+        irTypeOperatorCall.transformChildrenVoid(this)
+        // Albeit no cast is needed here, it is incorrect to just return the operand because of possible box/unbox operations.
+        irTypeOperatorCall.argument = irTypeOperatorCall.argument.useInTypeOperator(
+                irTypeOperatorCall.operator, irTypeOperatorCall.typeOperand,
+                // Note: IMPLICIT_CAST is considered a noop in codegen, so it can be left here as is with no performance penalty.
+                // But no additional type checks should be added.
+                forceSkipTypeCheck = true
+        )
+
+        return irTypeOperatorCall
     }
 
     private var currentFunction: IrFunction? = null
@@ -147,6 +138,7 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
             is IrGetField -> this.symbol.owner.type
             is IrCall -> when (this.symbol) {
                 symbols.reinterpret -> this.typeArguments[1]!!
+                symbols.createUninitializedInstance -> this.typeArguments[0]!!
                 else -> this.type
             }
             is IrTypeOperatorCall -> when (this.operator) {
@@ -187,7 +179,8 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
             }
 
     private fun IrClass.canBeAssignedTo(expectedClass: IrClass) =
-            this.isNothing() || this.symbol.isSubtypeOfClass(expectedClass.symbol)
+            this.isNothing() || expectedClass == anyClass /* A workaround for plugins emitting classes with empty superTypes */
+                    || this.symbol.isSubtypeOfClass(expectedClass.symbol)
 
     private fun IrExpression.adaptIfNecessary(actualType: IrType, expectedType: IrType, skipTypeCheck: Boolean = false): IrExpression {
         val conversion = context.getTypeConversion(actualType, expectedType)
@@ -233,12 +226,6 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
             irBuilders.peek()!!.at(this)
                     .irCall(conversion).apply { this.arguments[parameter.indexInParameters] = argument }
         }
-    }
-
-    override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
-        expression.transformChildrenVoid()
-        assert(expression.getArgumentsWithIr().isEmpty())
-        return expression
     }
 
     override fun visitCall(expression: IrCall): IrExpression {

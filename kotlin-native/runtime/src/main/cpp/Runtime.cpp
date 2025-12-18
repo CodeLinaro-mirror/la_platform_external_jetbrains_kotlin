@@ -4,7 +4,6 @@
  */
 
 #include "std_support/Atomic.hpp"
-#include "Cleaner.h"
 #include "CompilerConstants.hpp"
 #include "Exceptions.h"
 #include "KAssert.h"
@@ -16,6 +15,7 @@
 #include "RuntimePrivate.hpp"
 #include "Worker.h"
 #include "KString.h"
+#include "CrashHandler.hpp"
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
@@ -62,7 +62,6 @@ void InitOrDeinitGlobalVariables(int initialize, MemoryState* memory) {
 }
 
 KBoolean g_checkLeaks = false;
-KBoolean g_checkLeakedCleaners = false;
 KBoolean g_forceCheckedShutdown = false;
 
 constexpr RuntimeState* kInvalidRuntime = nullptr;
@@ -163,6 +162,7 @@ bool kotlin::initializeGlobalRuntimeIfNeeded() noexcept {
 
     konan::consoleInit();
     logging::OnRuntimeInit();
+    crashHandlerInit();
     initGlobalMemory();
 #if KONAN_OBJC_INTEROP
     Kotlin_ObjCExport_initialize();
@@ -201,7 +201,7 @@ void Kotlin_shutdownRuntime() {
     auto* runtime = ::runtimeState;
     RuntimeAssert(runtime != kInvalidRuntime, "Current thread must have Kotlin runtime initialized on it");
 
-    bool needsFullShutdown = Kotlin_forceCheckedShutdown() || Kotlin_memoryLeakCheckerEnabled() || Kotlin_cleanersLeakCheckerEnabled();
+    bool needsFullShutdown = Kotlin_forceCheckedShutdown() || Kotlin_memoryLeakCheckerEnabled();
     if (!needsFullShutdown) {
         auto lastStatus = std_support::atomic_compare_swap_strong(globalRuntimeStatus, kGlobalRuntimeRunning, kGlobalRuntimeShutdown);
         RuntimeAssert(lastStatus == kGlobalRuntimeRunning, "Invalid runtime status for shutdown");
@@ -214,11 +214,6 @@ void Kotlin_shutdownRuntime() {
     // If we're going to need finalizers for the full shutdown, we need to start the thread before
     // new runtimes are disallowed.
     kotlin::StartFinalizerThreadIfNeeded();
-
-    if (Kotlin_cleanersLeakCheckerEnabled()) {
-        // Make sure to collect any lingering cleaners.
-        PerformFullGC(runtime->memoryState);
-    }
 
     // Cleaners are now done, disallow new runtimes.
     auto lastStatus = std_support::atomic_compare_swap_strong(globalRuntimeStatus, kGlobalRuntimeRunning, kGlobalRuntimeShutdown);
@@ -351,18 +346,6 @@ OBJ_GETTER0(Konan_Platform_getAvailableProcessorsEnv) {
 
 void Konan_Platform_setMemoryLeakChecker(KBoolean value) {
   g_checkLeaks = value;
-}
-
-bool Kotlin_cleanersLeakCheckerEnabled() {
-    return g_checkLeakedCleaners;
-}
-
-KBoolean Konan_Platform_getCleanersLeakChecker() {
-    return g_checkLeakedCleaners;
-}
-
-void Konan_Platform_setCleanersLeakChecker(KBoolean value) {
-    g_checkLeakedCleaners = value;
 }
 
 bool Kotlin_forceCheckedShutdown() {

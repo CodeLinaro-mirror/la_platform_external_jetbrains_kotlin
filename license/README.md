@@ -43,6 +43,10 @@ the Kotlin IntelliJ IDEA plugin:
      - License: BSD ([license/third_party/asm_license.txt][asm])
      - Origin: Derived from ASM: a very small and fast Java bytecode manipulation framework, Copyright (c) 2000-2011 INRIA, France Telecom
 
+ - Path: dependencies/protobuf/protobuf-patches/src/main/java/com/google/protobuf/CodedInputStream.java
+     - License: BSD ([license/third_party/protobuf_license.txt][protobuf])
+     - Origin: Derived from Protocol Buffers, Copyright 2008, Google Inc.
+
  - Path: js/js.ast
      - License: BSD ([license/third_party/dart_LICENSE.txt][dart])
      - Origin: Originally part of the Dart compiler, (c) 2011 the Dart Project Authors,
@@ -85,7 +89,7 @@ the Kotlin IntelliJ IDEA plugin:
       - License: Apache 2 ([license/third_party/gwt_license.txt][gwt])
       - Origin: Derived from GWT, (C) 2007-08 Google Inc.
 
- - Path: libraries/stdlib/js/runtime/longJs.kt
+ - Path: libraries/stdlib/js/runtime/boxedLong.kt
       - License: Apache 2 ([license/third_party/closure-compiler_LICENSE.txt][closure-compiler])
       - Origin: Google Closure Library, Copyright 2009 The Closure Library Authors
 
@@ -262,6 +266,10 @@ any distributions of the tools or libraries:
       - License: Apache License 2.0 ([license/third_party/gradle-node-plugin_LICENSE.txt](third_party/gradle-node-plugin_LICENSE.txt))
       - Origin: Copyright (c) 2013 node-gradle/gradle-node-plugin
 
+ - Path: libraries/tools/gradle/fus-statistics-gradle-plugin/src/common/kotlin/org/jetbrains/kotlin/gradle/fus/internal/ciUtil.kt
+      - License: Apache 2 ([license/third_party/gradle_custom_user_plugin_license.txt](third_party/gradle_custom_user_plugin_license.txt))
+      - Origin: Gradle, Copyright 2002-2025 Gradle, Inc.
+
 ## Example Code
 
 The following code is provided as examples and is not incorporated into
@@ -294,6 +302,7 @@ any distributions of the compiler, libraries or plugin:
 [jspecify]: third_party/testdata/jspecify_license.txt
 [lombok]: third_party/testdata/lombok_license.txt
 [power-assert]: third_party/power_assert_license.txt
+[protobuf]: third_party/protobuf_license.txt
 [rhino]: third_party/rhino_LICENSE.txt
 [rxjava]: third_party/testdata/rxjava_license.txt
 [spring]: third_party/testdata/spring_license.txt

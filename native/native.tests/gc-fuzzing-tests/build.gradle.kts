@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm")
-    id("compiler-tests-convention")
+    id("project-tests-convention")
 }
 
 dependencies {
@@ -8,7 +8,8 @@ dependencies {
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
 
-    testImplementation(projectTests(":native:native.tests"))
+    testImplementation(testFixtures(project(":native:native.tests")))
+    testImplementation(testFixtures(project(":native:native.tests:gc-fuzzing-tests:engine")))
 }
 
 sourceSets {
@@ -19,15 +20,18 @@ sourceSets {
     }
 }
 
-compilerTests {
-    testData(project.isolated, "testData")
-}
+projectTests {
+    nativeTestTask(
+        "test",
+        tag = null,
+        allowParallelExecution = false, // some of the tests may spawn quite a lot of threads
+    ) {
+        // nativeTest sets workingDir to rootDir so here we need to override it
+        workingDir = projectDir
 
-nativeTest(
-    "test",
-    null,
-    allowParallelExecution = false, // some of the tests may spawn quite a lot of threads
-) {
-    // nativeTest sets workingDir to rootDir so here we need to override it
-    workingDir = projectDir
+        project.findProperty("gcfuzzing.id")?.let {
+            systemProperty("gcfuzzing.id", it)
+        }
+        systemProperty("gcfuzzing.timelimit", project.findProperty("gcfuzzing.timelimit") ?: "1h")
+    }
 }

@@ -102,10 +102,27 @@ val commonMainCollectionSources by task<Sync> {
 val commonNonJvmMainSources by task<Sync> {
     dependsOn(commonNonJvmMainFullSources)
     from {
+        exclude(
+            "libraries/stdlib/common-non-jvm/src/kotlin/reflect/KTypeImpl.kt",
+        )
         commonNonJvmMainFullSources.get().outputs.files.singleFile
     }
 
     into(layout.buildDirectory.dir("commonNonJvmMainSources"))
+}
+
+val commonJsAndWasmJsSources by task<Sync> {
+    val jsAndWasmJsDir = file("$rootDir/libraries/stdlib/common-js-wasmjs")
+
+    from("$jsAndWasmJsDir/src") {
+        include(
+            "kotlin/js/annotations.kt",
+            "kotlin/js/ExperimentalWasmJsInterop.kt",
+            "kotlin/js/core.kt",
+        )
+    }
+
+    into(layout.buildDirectory.dir("commonJsAndWasmJsSources"))
 }
 
 val jsMainSources by task<Sync> {
@@ -127,15 +144,15 @@ val jsMainSources by task<Sync> {
             "kotlin/GroupingJs.kt",
             "kotlin/ItemArrayLike.kt",
             "kotlin/io/**",
+            "kotlin/wasmJs/**",
             "kotlin/json.kt",
-            "kotlin/promise.kt",
+            "kotlin/Promise.kt",
             "kotlin/regexp.kt",
             "kotlin/sequenceJs.kt",
             "kotlin/throwableExtensions.kt",
             "kotlin/text/**",
             "kotlin/reflect/KTypeHelpers.kt",
-            "kotlin/reflect/KTypeHelpers.old.kt",
-            "kotlin/reflect/KTypeImpl.kt",
+            "kotlin/reflect/DynamicKType.kt",
             "kotlin/dom/**",
             "kotlin/browser/**",
             "kotlinx/dom/**",
@@ -172,7 +189,12 @@ kotlin {
             dependsOn(commonMain)
             kotlin.srcDir(files(commonNonJvmMainSources.map { it.destinationDir }))
         }
+        val commonJsAndWasmJs by creating {
+            dependsOn(commonMain)
+            kotlin.srcDir(files(commonJsAndWasmJsSources.map { it.destinationDir }))
+        }
         named("jsMain") {
+            dependsOn(commonJsAndWasmJs)
             dependsOn(commonNonJvmMain)
             kotlin.srcDir(files(jsMainSources.map { it.destinationDir }))
             kotlin.srcDir("js-src")
@@ -182,8 +204,8 @@ kotlin {
 
 tasks.withType<KotlinCompilationTask<*>>().configureEach {
     compilerOptions {
-        compilerOptions.languageVersion = KotlinVersion.KOTLIN_2_2
-        compilerOptions.apiVersion = KotlinVersion.KOTLIN_2_2
+        compilerOptions.languageVersion = KotlinVersion.KOTLIN_2_3
+        compilerOptions.apiVersion = KotlinVersion.KOTLIN_2_3
         compilerOptions.freeCompilerArgs.addAll(
             listOf(
                 "-Xallow-kotlin-package",
@@ -193,6 +215,7 @@ tasks.withType<KotlinCompilationTask<*>>().configureEach {
                 "-opt-in=kotlin.ExperimentalMultiplatform",
                 "-opt-in=kotlin.contracts.ExperimentalContracts",
                 "-Xcontext-parameters",
+                "-Xreturn-value-checker=full",
             )
         )
     }

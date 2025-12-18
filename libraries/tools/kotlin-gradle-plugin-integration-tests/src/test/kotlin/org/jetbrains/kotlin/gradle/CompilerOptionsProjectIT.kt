@@ -8,8 +8,7 @@ package org.jetbrains.kotlin.gradle
 import org.gradle.api.logging.LogLevel
 import org.gradle.kotlin.dsl.withType
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
-import org.jetbrains.kotlin.cli.common.arguments.cliArgument
+import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.dsl.kotlinAndroidExtensionOrNull
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -257,7 +256,7 @@ class CompilerOptionsProjectIT : KGPBaseTest() {
             "AndroidSimpleApp",
             gradleVersion,
             buildJdk = jdk.location,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion)
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
         ) {
             buildGradle.appendText(
                 //language=Groovy
@@ -382,7 +381,7 @@ class CompilerOptionsProjectIT : KGPBaseTest() {
         project(
             "multiplatformAndroidSourceSetLayout2",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdk.location
         ) {
             buildGradleKts.appendText(
@@ -495,7 +494,9 @@ class CompilerOptionsProjectIT : KGPBaseTest() {
 
             build(":compileKotlinLinuxX64") {
                 extractNativeTasksCommandLineArgumentsFromOutput(":compileKotlinLinuxX64") {
+                    @Suppress("DEPRECATION")
                     assertCommandLineArgumentsContain(CommonCompilerArguments::languageVersion.cliArgument, firstSupported.version)
+                    @Suppress("DEPRECATION")
                     assertCommandLineArgumentsContain(CommonCompilerArguments::apiVersion.cliArgument, firstSupported.version)
                     assertCommandLineArgumentsContain("-progressive")
                 }
@@ -515,7 +516,7 @@ class CompilerOptionsProjectIT : KGPBaseTest() {
         project(
             projectName = "multiplatformAndroidSourceSetLayout2",
             gradleVersion = gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdk.location
         ) {
             buildGradleKts.appendText(

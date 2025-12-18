@@ -25,10 +25,6 @@ import kotlin.test.assertEquals
 
 @DisplayName("Kapt incremental tests with isolating apt")
 open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
-    override fun TestProject.customizeProject() {
-        forceK1Kapt()
-    }
-
     override val defaultBuildOptions = super.defaultBuildOptions.copy(
         incremental = true,
         kaptOptions = super.defaultBuildOptions.kaptOptions!!.copy(
@@ -323,7 +319,6 @@ open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
             build(
                 "clean",
                 ":mylibrary:assembleDebug",
-                buildOptions = buildOptions.suppressWarningFromAgpWithGradle813(gradleVersion)
             )
 
             subProject("baseLibrary")
@@ -457,11 +452,6 @@ open class KaptIncrementalWithIsolatingApt : KaptIncrementalIT() {
             }
         }
     }
-}
-
-@DisplayName("Kapt incremental tests with isolating apt with disabled precise compilation outputs backup")
-class KaptIncrementalWithIsolatingAptAndWithoutPreciseBackup : KaptIncrementalWithIsolatingApt() {
-    override val defaultBuildOptions = super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }
 
 private const val patternApt = "Processing java sources with annotation processors:"

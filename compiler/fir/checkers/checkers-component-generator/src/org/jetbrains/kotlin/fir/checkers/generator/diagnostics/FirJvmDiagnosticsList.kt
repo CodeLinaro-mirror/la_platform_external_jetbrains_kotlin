@@ -94,6 +94,11 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
             parameter<ConeKotlinType>("expectedType")
             parameter<String>("messageSuffix")
         }
+        val NULLABILITY_MISMATCH_BASED_ON_EXPLICIT_TYPE_ARGUMENTS_FOR_JAVA by warning<PsiElement> {
+            parameter<ConeKotlinType>("actualType")
+            parameter<ConeKotlinType>("expectedType")
+            parameter<String>("messageSuffix")
+        }
 
         val TYPE_MISMATCH_WHEN_FLEXIBILITY_CHANGES by warning<PsiElement> {
             parameter<ConeKotlinType>("actualType")
@@ -180,6 +185,7 @@ object JVM_DIAGNOSTICS_LIST : DiagnosticList("FirJvmErrors") {
             parameter<ConeKotlinType>("superType")
         }
         val ILLEGAL_JAVA_LANG_RECORD_SUPERTYPE by error<PsiElement>()
+        val JVM_RECORDS_ILLEGAL_BYTECODE_TARGET by error<PsiElement>()
     }
 
     val MODULES by object : DiagnosticGroup("JVM Modules") {

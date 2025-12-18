@@ -15,10 +15,10 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.checkTypeRefIsResolved
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.errorWithFirSpecificEntries
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.checkAnalysisReadiness
 import org.jetbrains.kotlin.fir.FirElementWithResolveState
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
@@ -156,7 +156,7 @@ private class LLFirSuperTypeTargetResolver(
         crossinline superTypeUpdater: (List<FirTypeRef>) -> Unit,
     ) {
         // To avoid redundant work, because a publication won't be executed
-        if (declaration.resolvePhase >= resolverPhase) return
+        if (checkAnalysisReadiness(declaration, containingDeclarations, resolverPhase)) return
 
         declaration.lazyResolveToPhase(resolverPhase.previous)
 
@@ -310,8 +310,7 @@ private open class LLFirSupertypeComputationSession(
      */
     private val visited: MutableSet<FirClassLikeDeclaration> = hashSetOf()
     private val looped: MutableSet<FirClassLikeDeclaration> = hashSetOf()
-    private val pathSet: MutableSet<FirClassLikeDeclaration> = hashSetOf()
-    private val path: MutableList<FirClassLikeDeclaration> = mutableListOf()
+    private val pathOrderedSet: LinkedHashSet<FirClassLikeDeclaration> = LinkedHashSet()
     // ---------------
 
     /**
@@ -331,14 +330,11 @@ private open class LLFirSupertypeComputationSession(
             session = declaration.llFirSession,
             visited = visited,
             looped = looped,
-            pathSet = pathSet,
-            path = path,
+            pathOrderedSet = pathOrderedSet,
             // LL resolver only works for non-local declarations
             localClassesNavigationInfo = null,
         )
 
-        require(path.isEmpty()) { "Path should be empty" }
-        require(pathSet.isEmpty()) { "Path set should be empty" }
         visited.clear()
         looped.clear()
         return updatedTypesForDeclarationsWithLoop[declaration]

@@ -1,8 +1,8 @@
 One.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/One, fqName=One, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=One, superNames=[]]
+    CLASS[classId=/One, fqName=One, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=One, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=VarArg]
           CONSTRUCTOR_CALLEE
@@ -15,10 +15,10 @@ One.kt:
 
 
 Spread.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/Spread, fqName=Spread, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=Spread, superNames=[]]
+    CLASS[classId=/Spread, fqName=Spread, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=Spread, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=VarArg]
           CONSTRUCTOR_CALLEE
@@ -37,10 +37,10 @@ Spread.kt:
 
 
 Three.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/Three, fqName=Three, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=Three, superNames=[]]
+    CLASS[classId=/Three, fqName=Three, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=Three, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=VarArg]
           CONSTRUCTOR_CALLEE
@@ -59,10 +59,10 @@ Three.kt:
 
 
 Two.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/Two, fqName=Two, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=Two, superNames=[]]
+    CLASS[classId=/Two, fqName=Two, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=Two, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=VarArg]
           CONSTRUCTOR_CALLEE
@@ -77,12 +77,12 @@ Two.kt:
 
 
 VarArg.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/VarArg, fqName=VarArg, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=VarArg, superNames=[]]
+    CLASS[classId=/VarArg, fqName=VarArg, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=VarArg, superNames=[]]
       MODIFIER_LIST[annotation]
-      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, name=VarArg]
+      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, hasNoExpressionBody=true, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=VarArg]
         VALUE_PARAMETER_LIST
           VALUE_PARAMETER[fqName=VarArg.v, hasDefaultValue=false, hasValOrVar=true, isMutable=false, name=v]
             MODIFIER_LIST[vararg]
@@ -90,7 +90,7 @@ VarArg.kt:
               USER_TYPE
                 REFERENCE_EXPRESSION[referencedName=Int]
       CLASS_BODY
-        OBJECT_DECLARATION[classId=/VarArg.Companion, fqName=VarArg.Companion, isCompanion=true, isLocal=false, isObjectLiteral=false, isTopLevel=false, name=Companion, superNames=[]]
+        OBJECT_DECLARATION[classId=/VarArg.Companion, fqName=VarArg.Companion, isLocal=false, isObjectLiteral=false, isTopLevel=false, name=Companion, superNames=[]]
           MODIFIER_LIST[companion]
           CLASS_BODY
             PROPERTY[fqName=VarArg.Companion.CONSTANT, hasBackingField=null, hasDelegate=false, hasDelegateExpression=false, hasInitializer=true, hasReturnTypeRef=false, isExtension=false, isTopLevel=false, isVar=false, name=CONSTANT]

@@ -13,12 +13,12 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.api.tryCollectDesignation
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.llFirSession
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.checkDeclarationStatusIsResolved
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.checkAnalysisReadiness
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
 import org.jetbrains.kotlin.fir.FirElementWithResolveState
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.classId
-import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.FirStatement
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.toSymbol
@@ -288,7 +288,8 @@ private class LLFirStatusTargetResolver(
         getOverridden: (T) -> List<T>,
         crossinline transform: (T, List<T>) -> Unit,
     ) {
-        if (target.resolvePhase >= resolverPhase) return
+        if (checkAnalysisReadiness(target, containingDeclarations, resolverPhase)) return
+
         val overriddenDeclarations = getOverridden(target)
         performCustomResolveUnderLock(target) {
             transform(target, overriddenDeclarations)

@@ -6,11 +6,11 @@
 package org.jetbrains.kotlin.cli.common
 
 import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.backend.common.loadMetadataKlibs
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.createLibraryListForJvm
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.FrontendContext
 import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFrontendPipelinePhase
-import org.jetbrains.kotlin.cli.pipeline.metadata.MetadataFrontendPipelinePhase
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.CliOnlyLanguageVersionSettingsCheckers
@@ -35,7 +35,6 @@ import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
-import java.io.File
 
 val isCommonSourceForPsi: (KtFile) -> Boolean = { it.isCommonSource == true }
 val fileBelongsToModuleForPsi: (KtFile, String) -> Boolean = { file, moduleName -> file.hmppModuleName == moduleName }
@@ -141,7 +140,8 @@ fun <F> prepareNativeSessions(
     fileBelongsToModule: (F, String) -> Boolean,
 ): List<SessionWithSources<F>> {
     return prepareKlibSessions(
-        FirNativeSessionFactory, NativePlatforms.unspecifiedNativePlatform, files, configuration, rootModuleName, resolvedLibraries,
+        if (metadataCompilationMode) FirNativeSessionFactory.ForMetadata else FirNativeSessionFactory,
+        NativePlatforms.unspecifiedNativePlatform, files, configuration, rootModuleName, resolvedLibraries,
         libraryList, extensionRegistrars, isCommonSource, fileBelongsToModule, metadataCompilationMode, icData = null
     )
 }
@@ -556,20 +556,24 @@ object SessionConstructionUtils {
                 for (dependency in hmppModuleStructure.sourceDependencies[module].orEmpty()) {
                     libPaths -= hmppModuleStructure.moduleDependencies[dependency].orEmpty()
                 }
-                val resolvedLibraries = MetadataFrontendPipelinePhase.computeResolvedKlibs(
-                    libPaths.map { File(it) },
-                    configuration.messageCollector
-                )
+
+                val friendLibPaths = hmppModuleStructure.friendDependencies[module].orEmpty().toMutableSet()
+
+                val klibs: List<KotlinLibrary> = loadMetadataKlibs(
+                    libraryPaths = libPaths.toList() + friendLibPaths,
+                    configuration = configuration
+                ).all
 
                 DependencyListForCliModule.build(moduleName) {
                     dependencies(libPaths)
+                    friendDependencies(friendLibPaths)
                 }.also { libraryList ->
                     FirMetadataSessionFactoryForHmppCompilation.createLibrarySession(
                         sharedLibrarySession,
                         libraryList.moduleDataProvider,
                         extensionRegistrars,
                         jarMetadataProviderComponents = null,
-                        resolvedLibraries,
+                        klibs,
                         configuration.languageVersionSettings,
                     )
                 }
@@ -579,7 +583,7 @@ object SessionConstructionUtils {
                 moduleName,
                 dependencies = libraryList.regularDependencies,
                 dependsOnDependencies = dependencies,
-                friendDependencies = libraryListForLeafModule.friendDependencies,
+                friendDependencies = libraryList.friendDependencies,
                 targetPlatform,
                 isCommon = !isLeaf
             )

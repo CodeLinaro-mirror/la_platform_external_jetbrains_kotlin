@@ -5,12 +5,10 @@
 
 package org.jetbrains.kotlin.arguments.description
 
-import org.jetbrains.kotlin.arguments.dsl.TemporaryCompilerArgumentLifecycle
 import org.jetbrains.kotlin.arguments.dsl.base.*
 import org.jetbrains.kotlin.arguments.dsl.defaultFalse
 import org.jetbrains.kotlin.arguments.dsl.defaultNull
 import org.jetbrains.kotlin.arguments.dsl.defaultTrue
-import org.jetbrains.kotlin.arguments.dsl.stubLifecycle
 import org.jetbrains.kotlin.arguments.dsl.types.*
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.config.LanguageFeature
@@ -25,16 +23,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         )
         valueDescription = "<version>".asReleaseDependent()
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.LANGUAGE_VERSIONS,
-                gradleInputType = GradleInputTypes.INPUT,
-                shouldGenerateDeprecatedKotlinOptions = true,
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_3,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_3,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -45,16 +37,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         )
         valueDescription = "<version>".asReleaseDependent()
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.API_VERSIONS,
-                gradleInputType = GradleInputTypes.INPUT,
-                shouldGenerateDeprecatedKotlinOptions = true,
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_5,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_5,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -63,8 +49,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueType = StringType.defaultNull
         valueDescription = "<path>".asReleaseDependent()
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_50,
+            stabilizedVersion = KotlinReleaseVersion.v1_1_50,
+        )
     }
 
     compilerArgument {
@@ -80,15 +68,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
                 """.trimIndent().asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-                gradleInputType = GradleInputTypes.INPUT
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_50,
+            stabilizedVersion = KotlinReleaseVersion.v1_3_0,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -96,8 +79,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Evaluate the given Kotlin script (*.kts) file.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_70,
+            stabilizedVersion = KotlinReleaseVersion.v1_3_70,
+        )
     }
 
     compilerArgument {
@@ -106,8 +91,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Run Kotlin REPL (deprecated)".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_0,
+        )
     }
 
     compilerArgument {
@@ -118,15 +104,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueType = StringArrayType.defaultNull
         valueDescription = "<fq.name>".asReleaseDependent()
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.EMPTY_STRING_ARRAY_DEFAULT,
-                gradleInputType = GradleInputTypes.INPUT
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_4_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_6_0,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -134,8 +115,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Disable method inlining.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+        )
     }
 
     compilerArgument {
@@ -143,8 +125,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Allow loading classes with bad metadata versions and pre-release classes.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_2,
+        )
     }
 
     compilerArgument {
@@ -152,8 +135,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Allow loading pre-release classes.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_4_0,
+        )
     }
 
     compilerArgument {
@@ -162,8 +146,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
             "Allow compiling code in the 'kotlin' package, and allow not requiring 'kotlin.stdlib' in 'module-info'.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_0,
+        )
     }
 
     compilerArgument {
@@ -171,8 +156,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Enables special features which are relevant only for stdlib compilation.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_20,
+        )
     }
 
     compilerArgument {
@@ -180,8 +166,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Report the source-to-output file mapping.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_3,
+        )
     }
 
     compilerArgument {
@@ -191,8 +178,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueType = StringArrayType.defaultNull
         valueDescription = "<path>".asReleaseDependent()
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+        )
     }
 
     compilerArgument {
@@ -202,8 +190,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueType = StringArrayType.defaultNull
         valueDescription = "plugin:<pluginId>:<optionName>=<value>".asReleaseDependent()
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+        )
     }
 
     compilerArgument {
@@ -214,8 +203,27 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueDescription = "<path1>,<path2>[=<optionName>=<value>,<optionName>=<value>]".asReleaseDependent()
         delimiter = KotlinCompilerArgument.Delimiter.None
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_8_0,
+        )
+    }
+
+    compilerArgument {
+        name = "Xcompiler-plugin-order"
+        compilerName = "pluginOrderConstraints"
+        description = """
+            Specify an execution order constraint for compiler plugins.
+            Order constraint can be specified using the 'pluginId' of compiler plugins.
+            The first specified plugin will be executed before the second plugin.
+            Multiple constraints can be specified by repeating this option. Cycles in constraints will cause an error.
+            """.trimIndent().asReleaseDependent()
+        valueType = StringArrayType.defaultNull
+        valueDescription = "<pluginId1>><pluginId2>".asReleaseDependent()
+        delimiter = KotlinCompilerArgument.Delimiter.None
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_3_0,
+        )
     }
 
     compilerArgument {
@@ -225,8 +233,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
 
         additionalAnnotations(Enables(LanguageFeature.MultiPlatformProjects))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_0,
+        )
     }
 
     compilerArgument {
@@ -234,8 +243,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Do not check for the presence of the 'actual' modifier in multiplatform projects.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_60,
+        )
     }
 
     compilerArgument {
@@ -245,8 +255,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueDescription = "<path>".asReleaseDependent()
         valueType = StringType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_1_3,
+        )
     }
 
     compilerArgument {
@@ -260,8 +271,10 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
             Enables(LanguageFeature.FunctionReferenceWithDefaultValueAsOtherType),
             Enables(LanguageFeature.DisableCompatibilityModeForNewInference),
         )
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_20,
+        )
     }
 
     compilerArgument {
@@ -273,8 +286,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
             Enables(LanguageFeature.InlineClasses)
         )
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_50,
+        )
     }
 
     compilerArgument {
@@ -282,18 +296,47 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Report detailed performance statistics.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_50,
+        )
+    }
+
+    compilerArgument {
+        name = "Xdetailed-perf"
+        description = ("Enable more detailed performance statistics (Experimental).\n" +
+                "For Native, the performance report includes execution time and lines processed per second for every individual lowering.\n" +
+                "For WASM and JS, the performance report includes execution time and lines per second for each lowering of the first stage of compilation.").asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_3_0,
+        )
     }
 
     compilerArgument {
         name = "Xdump-perf"
-        description = "Dump detailed performance statistics to the specified file.".asReleaseDependent()
+        description =
+            ("Dump detailed performance statistics to the specified file in plain text, JSON or markdown format (it's detected by the file's extension).\n" +
+                    "Also, it supports the placeholder `*` and directory for generating file names based on the module being compiled and the current time stamp.\n" +
+                    "Example: `path/to/dir/*.log` creates logs like `path/to/dir/my-module_2025-06-20-12-22-32.log` in plain text format, `path/to/dir/` creates logs like `path/to/dir/my-log_2025-06-20-12-22-32.json`.").asReleaseDependent()
         valueDescription = "<path>".asReleaseDependent()
         valueType = StringType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_50,
+        )
+    }
+
+    compilerArgument {
+        name = "XXdump-model"
+        compilerName = "dumpArgumentsDir"
+        description = "Dump compilation model to specified directory for use in modularized tests.".asReleaseDependent()
+        valueDescription = "<dir>".asReleaseDependent()
+        valueType = StringType.defaultNull
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_0,
+        )
     }
 
 
@@ -302,8 +345,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Change the metadata version of the generated binary files.".asReleaseDependent()
         valueType = StringType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_70,
+        )
     }
 
 
@@ -316,8 +360,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueDescription = "<path>".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_70,
+        )
     }
 
 
@@ -326,8 +371,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "List backend phases.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -336,8 +382,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Disable backend phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -346,8 +393,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Be verbose while performing the given backend phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -356,8 +404,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Dump the backend's state before these phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -366,8 +415,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Dump the backend's state after these phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -376,8 +426,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Dump the backend's state both before and after these phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -386,8 +437,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Dump the backend state into this directory.".asReleaseDependent()
         valueType = StringType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_50,
+        )
     }
 
 
@@ -397,8 +449,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Dump the declaration with the given FqName.".asReleaseDependent()
         valueType = StringType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_50,
+        )
     }
 
 
@@ -407,8 +460,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Validate the backend's state before these phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_40,
+        )
     }
 
 
@@ -417,8 +471,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Validate the backend's state after these phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_40,
+        )
     }
 
 
@@ -427,8 +482,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Validate the backend's state both before and after these phases.".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_40,
+        )
     }
 
 
@@ -438,8 +494,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         valueDescription = "{none|warning|error}".asReleaseDependent()
         valueType = StringType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_20,
+        )
     }
 
 
@@ -449,8 +506,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
             "Check for visibility violations in IR when validating it before running any lowerings. Only has effect if '-Xverify-ir' is not 'none'.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_20,
+        )
     }
 
 
@@ -459,8 +517,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Profile backend phases.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_20,
+        )
     }
 
 
@@ -469,8 +528,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Check pre- and postconditions of IR lowering phases.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_40,
+        )
     }
 
 
@@ -480,21 +540,11 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
             "Compile using the experimental K2 compiler pipeline. No compatibility guarantees are provided yet.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-                gradleInputType = GradleInputTypes.INPUT,
-                shouldGenerateDeprecatedKotlinOptions = false,
-            ),
-            GradleDeprecatedOption(
-                message = "Compiler flag -Xuse-k2 is deprecated; please use language version 2.0 instead",
-                level = DeprecationLevel.HIDDEN,
-                removeAfter = LanguageVersion.KOTLIN_2_2,
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_0,
+            deprecatedVersion = KotlinReleaseVersion.v1_9_0,
+            removedVersion = KotlinReleaseVersion.v2_2_0,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
 
@@ -503,8 +553,12 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Enable experimental frontend IR checkers that are not yet ready for production.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
+        additionalAnnotations(
+            Deprecated("This flag is deprecated")
+        )
+
         lifecycle(
-            introducedVersion = KotlinReleaseVersion.v2_0_0,
+            introducedVersion = KotlinReleaseVersion.v2_1_0,
             deprecatedVersion = KotlinReleaseVersion.v2_2_20,
         )
     }
@@ -517,8 +571,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
             "Compile using frontend IR internal incremental compilation.\nWarning: This feature is not yet production-ready.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_0,
+        )
     }
 
 
@@ -528,8 +583,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Compile using the LightTree parser with the frontend IR.".asReleaseDependent()
         valueType = BooleanType.defaultTrue
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_0,
+        )
     }
 
 
@@ -539,8 +595,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Produce a klib that only contains the metadata of declarations.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_0,
+        )
     }
 
 
@@ -549,8 +606,9 @@ val actualCommonCompilerArguments by compilerArgumentsLevel(CompilerArgumentsLev
         description = "Don't enable the scripting plugin by default.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_3_70,
+        )
     }
 
 
@@ -564,7 +622,7 @@ Use the 'warning' level to issue warnings instead of errors.""".asReleaseDepende
         valueType = KotlinExplicitApiModeType()
 
         lifecycle(
-            introducedVersion = KotlinReleaseVersion.v1_4_0,
+            introducedVersion = KotlinReleaseVersion.v1_3_70,
         )
     }
 
@@ -605,8 +663,9 @@ This flag partially enables functionality of `-Xexplicit-api` flag, so please do
         description = "Suppress warnings about outdated, inconsistent, or experimental language or API versions.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_5_0,
+        )
     }
 
 
@@ -616,8 +675,9 @@ This flag partially enables functionality of `-Xexplicit-api` flag, so please do
             "Suppress error about API version greater than language version.\nWarning: This is temporary solution (see KT-63712) intended to be used only for stdlib build.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_0,
+        )
     }
 
 
@@ -628,8 +688,9 @@ This flag partially enables functionality of `-Xexplicit-api` flag, so please do
 Kotlin reports a warning every time you use one of them. You can use this flag to mute the warning.""".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_9_20,
+        )
     }
 
 
@@ -641,8 +702,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.DataClassCopyRespectsConstructorVisibility))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_20,
+        )
     }
 
 
@@ -654,8 +716,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.UnrestrictedBuilderInference))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_5_30,
+        )
     }
 
 
@@ -666,8 +729,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.ContextReceivers))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_6_20,
+        )
     }
 
 
@@ -678,8 +742,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.ContextParameters))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_20,
+        )
     }
 
 
@@ -690,8 +755,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.ContextSensitiveResolutionUsingExpectedType))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_0,
+        )
     }
 
 
@@ -702,8 +768,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.BreakContinueInInlineLambdas))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_0,
+        )
     }
 
 
@@ -714,8 +781,22 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.DataFlowBasedExhaustiveness))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20,
+        )
+    }
+
+
+    compilerArgument {
+        name = "Xexplicit-backing-fields"
+        description = "Enable experimental language support for explicit backing fields.".asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        additionalAnnotations(Enables(LanguageFeature.ExplicitBackingFields))
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_3_0,
+        )
     }
 
 
@@ -726,8 +807,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.DirectJavaActualization))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_0,
+        )
     }
 
 
@@ -738,8 +820,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
 
         additionalAnnotations(Enables(LanguageFeature.MultiDollarInterpolation))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_20,
+        )
     }
 
 
@@ -749,8 +832,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
         description = "Enable incremental compilation.".asReleaseDependent()
         valueType = BooleanType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_0,
+        )
     }
 
 
@@ -759,8 +843,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
         description = "Render the internal names of warnings and errors.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_0,
+        )
     }
 
 
@@ -773,8 +858,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
             Disables(LanguageFeature.SkipStandaloneScriptsInSourceRoots)
         )
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_7_20,
+        )
     }
 
 
@@ -783,8 +869,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
         description = "Report all warnings even if errors are found.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_0,
+        )
     }
 
 
@@ -794,8 +881,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
         valueDescription = "<fragment name>".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_9_0,
+        )
     }
 
 
@@ -805,8 +893,9 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
         valueDescription = "<fragment name>:<path>".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_9_0,
+        )
     }
 
 
@@ -816,10 +905,10 @@ Kotlin reports a warning every time you use one of them. You can use this flag t
         valueDescription = "<fromModuleName>:<onModuleName>".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_9_0,
+        )
     }
-
 
     compilerArgument {
         name = "Xfragment-dependency"
@@ -832,10 +921,26 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueType = StringArrayType.defaultNull
         delimiter = KotlinCompilerArgument.Delimiter.None
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20,
+        )
     }
 
+    compilerArgument {
+        name = "Xfragment-friend-dependency"
+        compilerName = "fragmentFriendDependencies"
+        valueDescription = "<fragment name>:<path>".asReleaseDependent()
+        description = """Declare common klib friend dependencies for the specific fragment.
+This argument can be specified for any HMPP module except the platform leaf module: it takes dependencies from the platform specific friend module arguments.
+The argument should be used only if the new compilation scheme is enabled with -Xseparate-kmp-compilation
+""".asReleaseDependent()
+        valueType = StringArrayType.defaultNull
+        delimiter = KotlinCompilerArgument.Delimiter.None
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_3_0,
+        )
+    }
 
     compilerArgument {
         name = "Xseparate-kmp-compilation"
@@ -843,8 +948,9 @@ The argument should be used only if the new compilation scheme is enabled with -
         description = "Enables the separated compilation scheme, in which common source sets are analyzed against their own dependencies".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20,
+        )
     }
 
 
@@ -853,8 +959,9 @@ The argument should be used only if the new compilation scheme is enabled with -
         description = "Ignore all compilation exceptions while optimizing some constant expressions.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_9_0,
+        )
     }
 
 
@@ -863,8 +970,9 @@ The argument should be used only if the new compilation scheme is enabled with -
         description = "Don't report warnings when errors are suppressed. This only affects K2.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_0,
+        )
     }
 
 
@@ -877,8 +985,9 @@ The argument should be used only if the new compilation scheme is enabled with -
             Enables(LanguageFeature.WhenGuards)
         )
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_0_20,
+        )
     }
 
 
@@ -891,8 +1000,9 @@ The argument should be used only if the new compilation scheme is enabled with -
             Enables(LanguageFeature.NestedTypeAliases)
         )
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_20,
+        )
     }
 
 
@@ -904,8 +1014,9 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueDescription = "<WARNING_NAME>".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_0,
+        )
     }
 
 
@@ -919,8 +1030,9 @@ The argument should be used only if the new compilation scheme is enabled with -
         valueDescription = "<WARNING_NAME>:(error|warning|disabled)".asReleaseDependent()
         valueType = StringArrayType.defaultNull
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_0,
+        )
     }
 
 
@@ -933,9 +1045,19 @@ The argument should be used only if the new compilation scheme is enabled with -
 default: 'first-only-warn' in language version 2.2+, 'first-only' in version 2.1 and before.""".asReleaseDependent()
         valueDescription = "first-only|first-only-warn|param-property".asReleaseDependent()
         valueType = StringType.defaultNull
+        additionalAnnotations(
+            Disables(LanguageFeature.AnnotationDefaultTargetMigrationWarning, "first-only"),
+            Enables(LanguageFeature.AnnotationDefaultTargetMigrationWarning, "first-only-warn"),
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+            Disables(LanguageFeature.PropertyParamAnnotationDefaultTargetMode, "first-only"),
+            Disables(LanguageFeature.PropertyParamAnnotationDefaultTargetMode, "first-only-warn"),
+
+            Enables(LanguageFeature.PropertyParamAnnotationDefaultTargetMode, "param-property"),
+        )
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_20,
+        )
     }
 
 
@@ -945,8 +1067,9 @@ default: 'first-only-warn' in language version 2.2+, 'first-only' in version 2.1
             "Enable debug level compiler checks. ATTENTION: these checks can slow compiler down or even crash it.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_20,
+        )
     }
 
 
@@ -957,8 +1080,9 @@ default: 'first-only-warn' in language version 2.2+, 'first-only' in version 2.1
 
         additionalAnnotations(Enables(LanguageFeature.AnnotationAllUseSiteTarget))
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_20,
+        )
     }
 
     compilerArgument {
@@ -966,7 +1090,97 @@ default: 'first-only-warn' in language version 2.2+, 'first-only' in version 2.1
         description = "Lenient compiler mode. When actuals are missing, placeholder declarations are generated.".asReleaseDependent()
         valueType = BooleanType.defaultFalse
 
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_0,
+        )
+    }
+
+    compilerArgument {
+        name = "Xallow-reified-type-in-catch"
+        description = "Allow 'catch' parameters to have reified types.".asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        additionalAnnotations(Enables(LanguageFeature.AllowReifiedTypeInCatchClause))
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20
+        )
+    }
+
+    compilerArgument {
+        name = "Xallow-contracts-on-more-functions"
+        description = "Allow contracts on some operators and accessors, and allow checks for erased types.".asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        additionalAnnotations(
+            Enables(LanguageFeature.AllowCheckForErasedTypesInContracts),
+            Enables(LanguageFeature.AllowContractsOnSomeOperators),
+            Enables(LanguageFeature.AllowContractsOnPropertyAccessors),
+        )
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20
+        )
+    }
+
+    compilerArgument {
+        name = "Xallow-condition-implies-returns-contracts"
+        description = "Allow contracts that specify a limited conditional returns postcondition.".asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        additionalAnnotations(Enables(LanguageFeature.ConditionImpliesReturnsContracts))
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20
+        )
+    }
+
+    compilerArgument {
+        name = "Xallow-holdsin-contract"
+        description = "Allow contracts that specify a condition that holds true inside a lambda argument.".asReleaseDependent()
+        valueType = BooleanType.defaultFalse
+
+        additionalAnnotations(Enables(LanguageFeature.HoldsInContracts))
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_2_20
+        )
+    }
+
+    compilerArgument {
+        name = "Xname-based-destructuring"
+        description = """Enables the following destructuring features:
+-Xname-based-destructuring=only-syntax:   Enables syntax for positional destructuring with square brackets and the full form of name-based destructuring with parentheses;
+-Xname-based-destructuring=name-mismatch: Reports warnings when short form positional destructuring of data classes uses names that don't match the property names;
+-Xname-based-destructuring=complete:      Enables short-form name-based destructuring with parentheses;""".asReleaseDependent()
+        valueDescription = "only-syntax|name-mismatch|complete".asReleaseDependent()
+        valueType = StringType.defaultNull
+        additionalAnnotations(
+            Enables(LanguageFeature.NameBasedDestructuring, "only-syntax"),
+            Enables(LanguageFeature.NameBasedDestructuring, "name-mismatch"),
+            Enables(LanguageFeature.NameBasedDestructuring, "complete"),
+            Enables(LanguageFeature.DeprecateNameMismatchInShortDestructuringWithParentheses, "name-mismatch"),
+            Enables(LanguageFeature.DeprecateNameMismatchInShortDestructuringWithParentheses, "complete"),
+            Enables(LanguageFeature.EnableNameBasedDestructuringShortForm, "complete"),
+        )
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_3_0
+        )
+    }
+
+    compilerArgument {
+        name = "XXLanguage"
+        description = """Enables/disables specified language feature.
+Warning: this flag is not intended for production use. If you want to configure the language behaviour use the
+-language-version or corresponding experimental feature flags.
+        """.trimIndent().asReleaseDependent()
+        valueDescription = "[+-]LanguageFeatureName".asReleaseDependent()
+        compilerName = "manuallyConfiguredFeatures"
+        valueType = StringArrayType.defaultNull
+        delimiter = KotlinCompilerArgument.Delimiter.None
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0
+        )
     }
 }

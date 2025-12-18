@@ -1,7 +1,9 @@
-PsiJetFileStubImpl[package=]
+FILE[kind=Facade[packageFqName=<root>, facadeFqName=WithoutFileAnnotationAndPackageDeclarationKt]]
+  facadeFqName: WithoutFileAnnotationAndPackageDeclarationKt
+  partSimpleName: "WithoutFileAnnotationAndPackageDeclarationKt"
   PACKAGE_DIRECTIVE
   IMPORT_LIST
-  FUN[fqName=foo, hasBlockBody=false, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=foo]
+  FUN[fqName=foo, hasBody=true, hasNoExpressionBody=false, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=foo]
     MODIFIER_LIST[]
       ANNOTATION_ENTRY[hasValueArguments=false, shortName=ann]
         CONSTRUCTOR_CALLEE
@@ -13,5 +15,5 @@ PsiJetFileStubImpl[package=]
       NULLABLE_TYPE
         USER_TYPE
           REFERENCE_EXPRESSION[referencedName=String]
-  CLASS[classId=/ann, fqName=ann, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=ann, superNames=[]]
+  CLASS[classId=/ann, fqName=ann, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=ann, superNames=[]]
     MODIFIER_LIST[annotation]
