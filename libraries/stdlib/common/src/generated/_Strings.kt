@@ -5,6 +5,7 @@
 
 @file:kotlin.jvm.JvmMultifileClass
 @file:kotlin.jvm.JvmName("StringsKt")
+@file:Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
 
 package kotlin.text
 
@@ -133,6 +134,8 @@ public inline fun CharSequence.firstOrNull(predicate: (Char) -> Boolean): Char? 
 
 /**
  * Returns a character at the given [index] or the result of calling the [defaultValue] function if the [index] is out of bounds of this char sequence.
+ * 
+ * @sample samples.collections.Collections.Elements.getOrElse
  */
 @kotlin.internal.InlineOnly
 public inline fun CharSequence.getOrElse(index: Int, defaultValue: (Int) -> Char): Char {
@@ -463,6 +466,7 @@ public inline fun String.filterIndexed(predicate: (index: Int, Char) -> Boolean)
  * 
  * @sample samples.collections.Collections.Filtering.filterIndexedTo
  */
+@IgnorableReturnValue
 public inline fun <C : Appendable> CharSequence.filterIndexedTo(destination: C, predicate: (index: Int, Char) -> Boolean): C {
     forEachIndexed { index, element ->
         if (predicate(index, element)) destination.append(element)
@@ -493,6 +497,7 @@ public inline fun String.filterNot(predicate: (Char) -> Boolean): String {
  * 
  * @sample samples.collections.Collections.Filtering.filterTo
  */
+@IgnorableReturnValue
 public inline fun <C : Appendable> CharSequence.filterNotTo(destination: C, predicate: (Char) -> Boolean): C {
     for (element in this) if (!predicate(element)) destination.append(element)
     return destination
@@ -503,6 +508,7 @@ public inline fun <C : Appendable> CharSequence.filterNotTo(destination: C, pred
  * 
  * @sample samples.collections.Collections.Filtering.filterTo
  */
+@IgnorableReturnValue
 public inline fun <C : Appendable> CharSequence.filterTo(destination: C, predicate: (Char) -> Boolean): C {
     for (index in 0 until length) {
         val element = get(index)
@@ -720,6 +726,7 @@ public inline fun <K, V> CharSequence.associateBy(keySelector: (Char) -> K, valu
  * 
  * @sample samples.text.Strings.associateByTo
  */
+@IgnorableReturnValue
 public inline fun <K, M : MutableMap<in K, in Char>> CharSequence.associateByTo(destination: M, keySelector: (Char) -> K): M {
     for (element in this) {
         destination.put(keySelector(element), element)
@@ -736,6 +743,7 @@ public inline fun <K, M : MutableMap<in K, in Char>> CharSequence.associateByTo(
  * 
  * @sample samples.text.Strings.associateByToWithValueTransform
  */
+@IgnorableReturnValue
 public inline fun <K, V, M : MutableMap<in K, in V>> CharSequence.associateByTo(destination: M, keySelector: (Char) -> K, valueTransform: (Char) -> V): M {
     for (element in this) {
         destination.put(keySelector(element), valueTransform(element))
@@ -751,6 +759,7 @@ public inline fun <K, V, M : MutableMap<in K, in V>> CharSequence.associateByTo(
  * 
  * @sample samples.text.Strings.associateTo
  */
+@IgnorableReturnValue
 public inline fun <K, V, M : MutableMap<in K, in V>> CharSequence.associateTo(destination: M, transform: (Char) -> Pair<K, V>): M {
     for (element in this) {
         destination += transform(element)
@@ -783,6 +792,7 @@ public inline fun <V> CharSequence.associateWith(valueSelector: (Char) -> V): Ma
  * @sample samples.text.Strings.associateWithTo
  */
 @SinceKotlin("1.3")
+@IgnorableReturnValue
 public inline fun <V, M : MutableMap<in Char, in V>> CharSequence.associateWithTo(destination: M, valueSelector: (Char) -> V): M {
     for (element in this) {
         destination.put(element, valueSelector(element))
@@ -793,6 +803,7 @@ public inline fun <V, M : MutableMap<in Char, in V>> CharSequence.associateWithT
 /**
  * Appends all characters to the given [destination] collection.
  */
+@IgnorableReturnValue
 public fun <C : MutableCollection<in Char>> CharSequence.toCollection(destination: C): C {
     for (item in this) {
         destination.add(item)
@@ -870,6 +881,7 @@ public inline fun <R> CharSequence.flatMapIndexed(transform: (index: Int, Char) 
 @OptIn(kotlin.experimental.ExperimentalTypeInference::class)
 @OverloadResolutionByLambdaReturnType
 @kotlin.jvm.JvmName("flatMapIndexedIterableTo")
+@IgnorableReturnValue
 @kotlin.internal.InlineOnly
 public inline fun <R, C : MutableCollection<in R>> CharSequence.flatMapIndexedTo(destination: C, transform: (index: Int, Char) -> Iterable<R>): C {
     var index = 0
@@ -883,6 +895,7 @@ public inline fun <R, C : MutableCollection<in R>> CharSequence.flatMapIndexedTo
 /**
  * Appends all elements yielded from results of [transform] function being invoked on each character of original char sequence, to the given [destination].
  */
+@IgnorableReturnValue
 public inline fun <R, C : MutableCollection<in R>> CharSequence.flatMapTo(destination: C, transform: (Char) -> Iterable<R>): C {
     for (element in this) {
         val list = transform(element)
@@ -924,6 +937,7 @@ public inline fun <K, V> CharSequence.groupBy(keySelector: (Char) -> K, valueTra
  * 
  * @sample samples.collections.Collections.Transformations.groupBy
  */
+@IgnorableReturnValue
 public inline fun <K, M : MutableMap<in K, MutableList<Char>>> CharSequence.groupByTo(destination: M, keySelector: (Char) -> K): M {
     for (element in this) {
         val key = keySelector(element)
@@ -942,6 +956,7 @@ public inline fun <K, M : MutableMap<in K, MutableList<Char>>> CharSequence.grou
  * 
  * @sample samples.collections.Collections.Transformations.groupByKeysAndValues
  */
+@IgnorableReturnValue
 public inline fun <K, V, M : MutableMap<in K, MutableList<V>>> CharSequence.groupByTo(destination: M, keySelector: (Char) -> K, valueTransform: (Char) -> V): M {
     for (element in this) {
         val key = keySelector(element)
@@ -1001,6 +1016,7 @@ public inline fun <R : Any> CharSequence.mapIndexedNotNull(transform: (index: In
  * @param [transform] function that takes the index of a character and the character itself
  * and returns the result of the transform applied to the character.
  */
+@IgnorableReturnValue
 public inline fun <R : Any, C : MutableCollection<in R>> CharSequence.mapIndexedNotNullTo(destination: C, transform: (index: Int, Char) -> R?): C {
     forEachIndexed { index, element -> transform(index, element)?.let { destination.add(it) } }
     return destination
@@ -1012,6 +1028,7 @@ public inline fun <R : Any, C : MutableCollection<in R>> CharSequence.mapIndexed
  * @param [transform] function that takes the index of a character and the character itself
  * and returns the result of the transform applied to the character.
  */
+@IgnorableReturnValue
 public inline fun <R, C : MutableCollection<in R>> CharSequence.mapIndexedTo(destination: C, transform: (index: Int, Char) -> R): C {
     var index = 0
     for (item in this)
@@ -1033,6 +1050,7 @@ public inline fun <R : Any> CharSequence.mapNotNull(transform: (Char) -> R?): Li
  * Applies the given [transform] function to each character in the original char sequence
  * and appends only the non-null results to the given [destination].
  */
+@IgnorableReturnValue
 public inline fun <R : Any, C : MutableCollection<in R>> CharSequence.mapNotNullTo(destination: C, transform: (Char) -> R?): C {
     forEach { element -> transform(element)?.let { destination.add(it) } }
     return destination
@@ -1042,6 +1060,7 @@ public inline fun <R : Any, C : MutableCollection<in R>> CharSequence.mapNotNull
  * Applies the given [transform] function to each character of the original char sequence
  * and appends the results to the given [destination].
  */
+@IgnorableReturnValue
 public inline fun <R, C : MutableCollection<in R>> CharSequence.mapTo(destination: C, transform: (Char) -> R): C {
     for (item in this)
         destination.add(transform(item))

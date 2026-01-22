@@ -6,8 +6,11 @@
 package org.jetbrains.kotlin.gradle.android
 
 import org.gradle.api.logging.LogLevel
+import org.gradle.api.logging.configuration.WarningMode
+import org.gradle.kotlin.dsl.kotlin
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.junit.jupiter.api.DisplayName
 import java.nio.file.Files
@@ -84,7 +87,7 @@ class KotlinAndroidIT : KGPBaseTest() {
         project(
             "AndroidProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
             build("assembleAndroidTest")
@@ -101,7 +104,7 @@ class KotlinAndroidIT : KGPBaseTest() {
         project(
             "AndroidIcepickProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location,
             dependencyManagement = DependencyManagement.DefaultDependencyManagement(
                 setOf("https://clojars.org/repo/")
@@ -121,7 +124,7 @@ class KotlinAndroidIT : KGPBaseTest() {
         project(
             "AndroidParcelizeProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
             build("assembleDebug")
@@ -179,7 +182,9 @@ class KotlinAndroidIT : KGPBaseTest() {
         project(
             "AndroidProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+                .suppressAgpWarningSinceGradle814(gradleVersion, WarningMode.None),
             buildJdk = jdkVersion.location
         ) {
             buildGradle.modify {
@@ -244,7 +249,7 @@ class KotlinAndroidIT : KGPBaseTest() {
         project(
             "AndroidProject",
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = jdkVersion.location
         ) {
             subProject("Lib").buildGradle.modify {
@@ -305,7 +310,7 @@ class KotlinAndroidIT : KGPBaseTest() {
             "AndroidSimpleApp",
             gradleVersion,
             buildJdk = jdkVersion.location,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion)
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
         ) {
             val buildSrcDir = projectPath.resolve("buildSrc").also { it.createDirectory() }
             buildSrcDir.resolve("build.gradle.kts").writeText(
@@ -338,13 +343,74 @@ class KotlinAndroidIT : KGPBaseTest() {
                 """.trimMargin()
             )
 
-            gradleProperties.appendText(
-                """
+            if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) {
+                gradleProperties.appendText(
+                    """
                 systemProp.org.gradle.kotlin.dsl.precompiled.accessors.strict=true
                 """.trimIndent()
-            )
+                )
+            }
 
             build("help")
+        }
+    }
+
+    @DisplayName("KT-80785: AGP 9.0 with disabled built-in Kotlin fails with actionable diagnostic because of the new AGP DSL")
+    @GradleAndroidTest
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_90)
+    fun testNewAgpDslDiagnostic(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        jdkVersion: JdkVersions.ProvidedJdk,
+    ) {
+        project(
+            "empty",
+            gradleVersion,
+            buildJdk = jdkVersion.location,
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+        ) {
+            plugins {
+                kotlin("android")
+                id("com.android.library")
+            }
+            gradleProperties.appendText(
+                //language=properties
+                """
+                |
+                |android.builtInKotlin=false
+                """.trimMargin()
+            )
+            buildAndFail("help") {
+                assertHasDiagnostic(KotlinToolingDiagnostics.IncompatibleWithTheNewAgpDsl)
+            }
+        }
+    }
+
+    @DisplayName("KT-80785: usage of new AGP DSL does not hide AgpWithBuiltInKotlinIsAlreadyApplied")
+    @GradleAndroidTest
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_90)
+    fun testNewAgpDslDiagnosticWithBuiltInKotlin(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        jdkVersion: JdkVersions.ProvidedJdk,
+    ) {
+        project(
+            "empty",
+            gradleVersion,
+            buildJdk = jdkVersion.location,
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
+        ) {
+            plugins {
+                /*
+                 * The plugin ordering matters here.
+                 * If the order is reversed, a similar diagnostic is reported by AGP failing the build.
+                 */
+                id("com.android.library")
+                kotlin("android")
+            }
+            buildAndFail("help") {
+                assertHasDiagnostic(KotlinToolingDiagnostics.AgpWithBuiltInKotlinIsAlreadyApplied)
+            }
         }
     }
 }

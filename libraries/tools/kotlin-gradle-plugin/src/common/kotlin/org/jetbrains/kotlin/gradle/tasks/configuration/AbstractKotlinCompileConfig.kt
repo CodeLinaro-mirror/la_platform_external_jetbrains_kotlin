@@ -63,23 +63,10 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
             task.suppressKotlinOptionsFreeArgsModificationWarning
                 .convention(propertiesProvider.kotlinOptionsSuppressFreeArgsModificationWarning)
                 .finalizeValueOnRead()
-
-            task.preciseCompilationResultsBackup
-                .convention(propertiesProvider.preciseCompilationResultsBackup)
-                .finalizeValueOnRead()
-            task.taskOutputsBackupExcludes.addAll(task.preciseCompilationResultsBackup.map {
-                if (it) listOf(task.destinationDirectory.get().asFile, task.taskBuildLocalStateDirectory.get().asFile) else emptyList()
-            })
-            task.keepIncrementalCompilationCachesInMemory
-                .convention(
-                    task.preciseCompilationResultsBackup.zip(propertiesProvider.keepIncrementalCompilationCachesInMemory) { thisTaskPreciseCompilationResultsBackup, defaultKeepIncrementalCompilationCachesInMemory ->
-                        thisTaskPreciseCompilationResultsBackup && defaultKeepIncrementalCompilationCachesInMemory
-                    }
-                )
-                .finalizeValueOnRead()
-            task.taskOutputsBackupExcludes.addAll(task.keepIncrementalCompilationCachesInMemory.map {
-                if (it) listOf(task.taskBuildCacheableOutputDirectory.get().asFile) else emptyList()
-            })
+            // those are covered by precise outputs backups and in-memory IC caches
+            task.taskOutputsBackupExcludes.add(task.destinationDirectory.asFile)
+            task.taskOutputsBackupExcludes.add(task.taskBuildLocalStateDirectory.asFile)
+            task.taskOutputsBackupExcludes.add(task.taskBuildCacheableOutputDirectory.asFile)
             task.enableUnsafeIncrementalCompilationForMultiplatform
                 .convention(propertiesProvider.enableUnsafeOptimizationsForMultiplatform)
                 .finalizeValueOnRead()
@@ -140,7 +127,8 @@ private fun KotlinCompilationInfo.explicitApiMode(): Provider<ExplicitApiMode> =
 
     val androidCompilation = tcs.compilation as? KotlinJvmAndroidCompilation
     val isMainAndroidCompilation = androidCompilation?.let {
-        getTestedVariantData(it.androidVariant) == null
+        @Suppress("DEPRECATION") val variant = it.androidVariant
+        variant != null && getTestedVariantData(variant) == null
     } == true
 
     if (isMain || isCommonCompilation || isMainAndroidCompilation) {

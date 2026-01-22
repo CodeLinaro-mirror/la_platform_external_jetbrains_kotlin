@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.declarations.utils.isActual
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.isSubstitutionOrIntersectionOverride
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
@@ -123,7 +124,9 @@ fun FirBasedSymbol<*>.isExportedObject(session: FirSession): Boolean {
 
     return when {
         hasAnnotationOrInsideAnnotatedClass(JsStandardClassIds.Annotations.JsExportIgnore, session) -> false
-        hasAnnotationOrInsideAnnotatedClass(JsStandardClassIds.Annotations.JsExport, session) -> true
+        hasAnnotationOrInsideAnnotatedClass(JsStandardClassIds.Annotations.JsExport, session) ||
+                getAnnotationBooleanParameter(JsStandardClassIds.Annotations.JsImplicitExport, session) == true
+            -> true
         else -> getContainingFile()?.symbol?.hasAnnotation(JsStandardClassIds.Annotations.JsExport, session) ?: false
     }
 }

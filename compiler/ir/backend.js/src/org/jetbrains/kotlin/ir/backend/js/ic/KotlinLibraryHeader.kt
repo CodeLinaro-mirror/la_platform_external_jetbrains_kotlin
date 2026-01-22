@@ -50,7 +50,6 @@ internal class KotlinLoadedLibraryHeader(
             val deserializer = IdSignatureDeserializer(IrLibraryFileFromBytes(object : IrLibraryBytesSource() {
                 private fun err(): Nothing = icError("Not supported")
                 override fun irDeclaration(index: Int): ByteArray = err()
-                override fun irInlineDeclaration(index: Int): ByteArray = err()
                 override fun type(index: Int): ByteArray = err()
                 override fun signature(index: Int): ByteArray = library.signature(index, it)
                 override fun string(index: Int): ByteArray = library.string(index, it)
@@ -76,7 +75,9 @@ internal class KotlinLoadedLibraryHeader(
         val extReg = ExtensionRegistryLite.newInstance()
         val sources = (0 until library.fileCount()).map {
             val fileProto = IrFile.parseFrom(library.file(it).codedInputStream, extReg)
-            library.fileEntry(fileProto, it).name
+            val fileReader = IrLibraryFileFromBytes(IrKlibBytesSource(library, it))
+            val fileEntry = fileReader.fileEntry(fileProto)
+            fileReader.deserializeFileEntryName(fileEntry)
         }
         KotlinSourceFile.fromSources(sources)
     }

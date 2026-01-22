@@ -171,18 +171,53 @@ class Uuids {
         assertTrue(uuid1 == uuid2)
         assertPrints(uuid1, "550e8400-e29b-41d4-a716-446655440000")
         assertPrints(uuid2, "550e8400-e29b-41d4-a716-446655440000")
+
+        assertFailsWith<IllegalArgumentException> { Uuid.parse("I'm not a UUID, sorry") }
+    }
+
+    @Sample
+    fun parseOrNull() {
+        // Parsing is case-insensitive
+        val uuid1 = Uuid.parseOrNull("550E8400-e29b-41d4-A716-446655440000") // hex-and-dash
+        val uuid2 = Uuid.parseOrNull("550e8400E29b41D4a716446655440000") // hexadecimal
+
+        assertTrue(uuid1 == uuid2)
+        assertPrints(uuid1, "550e8400-e29b-41d4-a716-446655440000")
+        assertPrints(uuid2, "550e8400-e29b-41d4-a716-446655440000")
+
+        assertNull(Uuid.parseOrNull("I'm not a UUID, sorry"))
     }
 
     @Sample
     fun parseHexDash() {
         val uuid = Uuid.parseHexDash("550E8400-e29b-41d4-A716-446655440000") // case insensitive
         assertPrints(uuid, "550e8400-e29b-41d4-a716-446655440000")
+
+        assertFailsWith<IllegalArgumentException> { Uuid.parseHexDash("550E8400/e29b/41d4/A716/446655440000") }
+    }
+
+    @Sample
+    fun parseHexDashOrNull() {
+        val uuid = Uuid.parseHexDashOrNull("550E8400-e29b-41d4-A716-446655440000") // case insensitive
+        assertPrints(uuid, "550e8400-e29b-41d4-a716-446655440000")
+
+        assertNull(Uuid.parseHexDashOrNull("550E8400/e29b/41d4/A716/446655440000"))
     }
 
     @Sample
     fun parseHex() {
         val uuid = Uuid.parseHex("550E8400e29b41d4A716446655440000") // case insensitive
         assertPrints(uuid, "550e8400-e29b-41d4-a716-446655440000")
+
+        assertFailsWith<IllegalArgumentException> { Uuid.parseHex("~550E8400e29b41d4A716446655440000~") }
+    }
+
+    @Sample
+    fun parseHexOrNull() {
+        val uuid = Uuid.parseHexOrNull("550E8400e29b41d4A716446655440000") // case insensitive
+        assertPrints(uuid, "550e8400-e29b-41d4-a716-446655440000")
+
+        assertNull(Uuid.parseHexOrNull("~550E8400e29b41d4A716446655440000~"))
     }
 
     @Sample
@@ -195,6 +230,30 @@ class Uuids {
         assertPrints(uuid1 == uuid2, "false")
         assertPrints(uuid1 == uuid3, "false")
         assertPrints(uuid2 == uuid3, "false")
+    }
+
+    @Sample
+    fun v4() {
+        // Generates a random and unique uuid each time
+        val uuid1 = Uuid.generateV4()
+        val uuid2 = Uuid.generateV4()
+        val uuid3 = Uuid.generateV4()
+
+        assertPrints(uuid1 == uuid2, "false")
+        assertPrints(uuid1 == uuid3, "false")
+        assertPrints(uuid2 == uuid3, "false")
+    }
+
+    @Sample
+    fun v7() {
+        // Generates a random, unique and strictly ordered uuids each time
+        val uuid1 = Uuid.generateV7()
+        val uuid2 = Uuid.generateV7()
+        val uuid3 = Uuid.generateV7()
+
+        assertPrints(uuid1 < uuid2, "true")
+        assertPrints(uuid1 < uuid3, "true")
+        assertPrints(uuid2 < uuid3, "true")
     }
 
     @Sample

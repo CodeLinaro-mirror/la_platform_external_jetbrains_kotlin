@@ -1,4 +1,4 @@
-// IGNORE_BACKEND_K2: WASM
+// IGNORE_BACKEND_K2: WASM_JS, WASM_WASI
 // FILE: test.kt
 
 data class D(val i: Int, val s: String)
@@ -76,7 +76,6 @@ fun box() {
 // test.kt:1 equals
 // test.kt:1 equals
 // test.kt:1 equals
-// test.kt:1 equals
 // test.kt:16 box
 // test.kt:1 hashCode
 // test.kt:1 hashCode
@@ -128,7 +127,6 @@ fun box() {
 // test.kt:4 <init>
 // test.kt:4 <init>
 // test.kt:15 box
-// test.kt:1 protoOf.equals
 // test.kt:1 protoOf.equals
 // test.kt:1 protoOf.equals
 // test.kt:1 protoOf.equals

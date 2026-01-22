@@ -3,6 +3,9 @@ description = "Kotlin NoArg Compiler Plugin"
 plugins {
     kotlin("jvm")
     id("jps-compatible")
+    id("java-test-fixtures")
+    id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -12,21 +15,23 @@ dependencies {
     embedded(project(":kotlin-noarg-compiler-plugin.backend")) { isTransitive = false }
     embedded(project(":kotlin-noarg-compiler-plugin.cli")) { isTransitive = false }
 
-    testApi(project(":compiler:backend"))
-    testApi(project(":compiler:cli"))
-    testApi(project(":kotlin-noarg-compiler-plugin.cli"))
+    testFixturesApi(project(":compiler:backend"))
+    testFixturesApi(project(":compiler:cli"))
+    testFixturesApi(project(":kotlin-noarg-compiler-plugin.cli"))
 
-    testApi(platform(libs.junit.bom))
-    testImplementation(libs.junit.jupiter.api)
+    testFixturesApi(platform(libs.junit.bom))
+    testFixturesApi(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
-    testApi(projectTests(":compiler:tests-common-new"))
-    testApi(projectTests(":compiler:test-infrastructure"))
-    testApi(projectTests(":compiler:test-infrastructure-utils"))
+    testFixturesApi(testFixtures(project(":compiler:tests-common-new")))
+    testFixturesApi(testFixtures(project(":compiler:test-infrastructure")))
+    testFixturesApi(testFixtures(project(":compiler:test-infrastructure-utils")))
+    testFixturesImplementation(testFixtures(project(":generators:test-generator")))
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(project(":compiler:fir:fir-serialization"))
+    testRuntimeOnly(project(":compiler:fir:plugin-utils"))
 
-    testApi(intellijCore())
+    testFixturesApi(intellijCore())
     testRuntimeOnly(commonDependency("org.codehaus.woodstox:stax2-api"))
     testRuntimeOnly(commonDependency("com.fasterxml:aalto-xml"))
     testRuntimeOnly(toolsJar())
@@ -36,10 +41,7 @@ optInToExperimentalCompilerApi()
 
 sourceSets {
     "main" { none() }
-    "test" {
-        projectDefault()
-        generatedTestDir()
-    }
+    "testFixtures" { projectDefault() }
 }
 
 optInToExperimentalCompilerApi()
@@ -51,8 +53,16 @@ sourcesJar()
 javadocJar()
 testsJar()
 
-projectTest(parallel = true) {
-    dependsOn(":dist")
-    workingDir = rootDir
-    useJUnitPlatform()
+projectTests {
+    testTask(jUnitMode = JUnitMode.JUnit5)
+
+    testGenerator("org.jetbrains.kotlin.noarg.TestGeneratorKt", generateTestsInBuildDirectory = true)
+
+    withJvmStdlibAndReflect()
+    withScriptRuntime()
+    withTestJar()
+    withMockJdkAnnotationsJar()
+    withMockJdkRuntime()
+
+    testData(project.isolated, "testData")
 }

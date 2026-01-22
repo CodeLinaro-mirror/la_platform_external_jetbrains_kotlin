@@ -283,6 +283,12 @@ public class FirOutOfContentRootLazyDeclarationResolveTestGenerated extends Abst
   }
 
   @Test
+  @TestMetadata("delegatedConstructorCallWithFalseTypeParameterRecursion.kt")
+  public void testDelegatedConstructorCallWithFalseTypeParameterRecursion() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/delegatedConstructorCallWithFalseTypeParameterRecursion.kt");
+  }
+
+  @Test
   @TestMetadata("delegatedField.kt")
   public void testDelegatedField() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/delegatedField.kt");
@@ -472,12 +478,6 @@ public class FirOutOfContentRootLazyDeclarationResolveTestGenerated extends Abst
   @TestMetadata("initWithAnnotation.kt")
   public void testInitWithAnnotation() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/initWithAnnotation.kt");
-  }
-
-  @Test
-  @TestMetadata("jvmBuiltinsInHierarchy.kt")
-  public void testJvmBuiltinsInHierarchy() {
-    runTest("analysis/low-level-api-fir/testData/lazyResolve/jvmBuiltinsInHierarchy.kt");
   }
 
   @Test
@@ -1700,12 +1700,6 @@ public class FirOutOfContentRootLazyDeclarationResolveTestGenerated extends Abst
     }
 
     @Test
-    @TestMetadata("jvmBuiltinAnnotation.kt")
-    public void testJvmBuiltinAnnotation() {
-      runTest("analysis/low-level-api-fir/testData/lazyResolve/noRuntime/jvmBuiltinAnnotation.kt");
-    }
-
-    @Test
     @TestMetadata("jvmRecordTypealias.kt")
     public void testJvmRecordTypealias() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/noRuntime/jvmRecordTypealias.kt");
@@ -1715,6 +1709,12 @@ public class FirOutOfContentRootLazyDeclarationResolveTestGenerated extends Abst
     @TestMetadata("mappedTypeResolution.kt")
     public void testMappedTypeResolution() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/noRuntime/mappedTypeResolution.kt");
+    }
+
+    @Test
+    @TestMetadata("sourceAnnotationInsideLibrary.kt")
+    public void testSourceAnnotationInsideLibrary() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/noRuntime/sourceAnnotationInsideLibrary.kt");
     }
   }
 

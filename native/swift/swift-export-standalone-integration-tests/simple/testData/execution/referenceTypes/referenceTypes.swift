@@ -207,14 +207,14 @@ func typealiasPreservesIdentity() throws {
 
 @Test
 func objectsTravelBridgeAsAny() throws {
-    let obj: KotlinBase = mainObject
+    let obj: KotlinBase = mainObject as! KotlinBase
     try #require((obj as Any) is KotlinBase)
     try #require(isMainObject(obj: obj))
 }
 
 @Test
 func permanentObjectsTravelBridgeAsAny() throws {
-    let obj: KotlinBase = getMainPermanentObject()
+    let obj: KotlinBase = getMainPermanentObject() as! KotlinBase
     try #require(isMainPermanentObject(obj: obj))
     try #require(!isMainPermanentObject(obj: mainObject))
 
@@ -228,14 +228,14 @@ func anyPersistsAsProperty() throws {
     let baz = SomeBaz()
     let foo = SomeFoo(storage: bar)
 
-    try #require(foo.storage === bar)
+    try #require(foo.storage as! KotlinBase === bar)
     foo.storage = baz
-    try #require(foo.storage === baz)
+    try #require(foo.storage as! KotlinBase === baz)
 }
 
 @Test
 func depsObjectsTravelBridgeAsAny() throws {
-    let obj: KotlinBase = deps_instance
+    let obj: KotlinBase = deps_instance as! KotlinBase
     try #require((obj as Any) is KotlinBase)
     try #require(isDepsObject(obj: obj))
     try #require(isSavedDepsObject(obj: obj))
@@ -243,7 +243,7 @@ func depsObjectsTravelBridgeAsAny() throws {
 
 @Test
 func depsObjectsTravelBridgeAsAny2() throws {
-    let obj: KotlinBase = deps_instance_2
+    let obj: KotlinBase = deps_instance_2 as! KotlinBase
     try #require((obj as Any) is KotlinBase)
     try #require(isDepsObject_2(obj: obj))
     try #require(isSavedDepsObject_2(obj: obj))
@@ -257,9 +257,9 @@ func classWithFactory() throws {
 
 @Test
 func objectsHashProperly() throws {
-    let one: KotlinBase = getHashableObject(value: 1)
-    let ein: KotlinBase = getHashableObject(value: 1)
-    let two: KotlinBase = getHashableObject(value: 2)
+    let one: KotlinBase = getHashableObject(value: 1) as! KotlinBase
+    let ein: KotlinBase = getHashableObject(value: 1) as! KotlinBase
+    let two: KotlinBase = getHashableObject(value: 2) as! KotlinBase
 
     try #require(one !== ein)
     try #require(one == ein)
@@ -449,23 +449,4 @@ func dataClassesShouldWork() throws {
 
     try #require("\(one)" == "DataClass(i=1, s=a)")
     try #require(one.hashValue == 128)
-}
-
-@Test
-func testEnums() throws {
-    let en = Enum.a
-    try #require(en.print() == "1 - str")
-    en.i = 3
-    try #require(en.print() == "3 - str")
-    try #require(Enum.a.print() == "3 - str")
-
-    try #require(Enum.b.print() == "rts - 5")
-    try #require(Enum.valueOf(value: "b").print() == "rts - 5")
-
-    switch en {
-    case .a: break;
-    default: try #require(Bool(false), "switch over kotlin enum class should work")
-    }
-
-    try #require(Enum.allCases == [Enum.a, Enum.b])
 }

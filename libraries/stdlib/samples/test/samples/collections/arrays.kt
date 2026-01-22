@@ -60,6 +60,36 @@ class Arrays {
             val sameArray = nonEmptyArray.ifEmpty { arrayOf(2) }
             assertTrue(nonEmptyArray === sameArray)
         }
+
+        @Sample
+        fun getOrElse() {
+            val emptyArray: Array<Any> = emptyArray()
+            assertPrints(emptyArray.getOrElse(0) { "default" }, "default")
+
+            val array = arrayOf(1)
+            assertPrints(array.getOrElse(0) { 0 }, "1")
+            assertPrints(array.getOrElse(-1) { 0 }, "0")
+            assertPrints(array.getOrElse(0) { "default" }, "1")
+            assertPrints(array.getOrElse(-1) { "default" }, "default")
+
+            // arrays of primitive types
+            val intArray = intArrayOf(1, 2, 3)
+            assertPrints(intArray.getOrElse(0) { 0 }, "1")
+            assertPrints(intArray.getOrElse(-1) { 0 }, "0")
+
+            val booleanArray = booleanArrayOf(true, false)
+            assertPrints(booleanArray.getOrElse(0) { false }, "true")
+            assertPrints(booleanArray.getOrElse(-1) { false }, "false")
+
+            val charArray = charArrayOf('a', 'b', 'c')
+            assertPrints(charArray.getOrElse(0) { 'z' }, "a")
+            assertPrints(charArray.getOrElse(-1) { 'z' }, "z")
+
+            // arrays of unsigned types
+            val uIntArray = uintArrayOf(1u, 2u, 3u)
+            assertPrints(uIntArray.getOrElse(0) { 10u }, "1")
+            assertPrints(uIntArray.getOrElse(-1) { 10u }, "10")
+        }
     }
 
     class Transformations {
@@ -293,6 +323,139 @@ class Arrays {
             assertPrints(arrayCopyPadded.contentToString(), "[1, 2, 3, 0, 0]")
             val arrayCopyTruncated = array.copyOf(2)
             assertPrints(arrayCopyTruncated.contentToString(), "[1, 2]")
+        }
+
+        @Sample
+        fun copyOfBooleanArrayWithInitializer() {
+            val array = booleanArrayOf(true, false, true)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[true, false]")
+            val paddedCopy = array.copyOf(5) { it % 2 == 0 }
+            assertPrints(paddedCopy.contentToString(), "[true, false, true, false, true]")
+        }
+
+        @Sample
+        fun copyOfCharArrayWithInitializer() {
+            val array = charArrayOf('a', 'b', 'c')
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[a, b]")
+            val paddedCopy = array.copyOf(5) { '?' }
+            assertPrints(paddedCopy.contentToString(), "[a, b, c, ?, ?]")
+        }
+
+        @Sample
+        fun copyOfByteArrayWithInitializer() {
+            val array = byteArrayOf(1, 2, 3)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { -1 }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, -1, -1]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toByte() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfShortArrayWithInitializer() {
+            val array = shortArrayOf(1, 2, 3)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { -1 }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, -1, -1]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toShort() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfIntArrayWithInitializer() {
+            val array = intArrayOf(1, 2, 3)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { -1 }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, -1, -1]")
+            val paddedCopyWithIndex = array.copyOf(6) { it }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfLongArrayWithInitializer() {
+            val array = longArrayOf(1, 2, 3)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { -1 }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, -1, -1]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toLong() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfFloatArrayWithInitializer() {
+            val array = floatArrayOf(1.0f, 2.0f, 3.0f)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1.0, 2.0]")
+            val paddedCopy = array.copyOf(5) { -1.0f }
+            assertPrints(paddedCopy.contentToString(), "[1.0, 2.0, 3.0, -1.0, -1.0]")
+        }
+
+        @Sample
+        fun copyOfDoubleArrayWithInitializer() {
+            val array = doubleArrayOf(1.0, 2.0, 3.0)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1.0, 2.0]")
+            val paddedCopy = array.copyOf(5) { -1.0 }
+            assertPrints(paddedCopy.contentToString(), "[1.0, 2.0, 3.0, -1.0, -1.0]")
+        }
+
+        @Sample
+        fun copyOfArrayWithInitializer() {
+            val array = arrayOf("foo", "bar", "baz")
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[foo, bar]")
+            val paddedCopy = array.copyOf(5) { "qux" }
+            assertPrints(paddedCopy.contentToString(), "[foo, bar, baz, qux, qux]")
+        }
+
+        @Sample
+        fun copyOfUByteArrayWithInitializer() {
+            val array = ubyteArrayOf(1u, 2u, 3u)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { 0xffu }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, 255, 255]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toUByte() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfUShortArrayWithInitializer() {
+            val array = ushortArrayOf(1u, 2u, 3u)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { 0xffu }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, 255, 255]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toUShort() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfUIntArrayWithInitializer() {
+            val array = uintArrayOf(1u, 2u, 3u)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { 0xffu }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, 255, 255]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toUInt() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
+        }
+
+        @Sample
+        fun copyOfULongArrayWithInitializer() {
+            val array = ulongArrayOf(1u, 2u, 3u)
+            val truncatedCopy = array.copyOf(2)
+            assertPrints(truncatedCopy.contentToString(), "[1, 2]")
+            val paddedCopy = array.copyOf(5) { 0xffu }
+            assertPrints(paddedCopy.contentToString(), "[1, 2, 3, 255, 255]")
+            val paddedCopyWithIndex = array.copyOf(6) { it.toULong() }
+            assertPrints(paddedCopyWithIndex.contentToString(), "[1, 2, 3, 3, 4, 5]")
         }
     }
 

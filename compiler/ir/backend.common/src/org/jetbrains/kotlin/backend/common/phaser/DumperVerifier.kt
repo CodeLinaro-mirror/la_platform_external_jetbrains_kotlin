@@ -6,9 +6,7 @@
 package org.jetbrains.kotlin.backend.common.phaser
 
 import org.jetbrains.kotlin.backend.common.ErrorReportingContext
-import org.jetbrains.kotlin.backend.common.IrValidatorConfig
 import org.jetbrains.kotlin.backend.common.LoweringContext
-import org.jetbrains.kotlin.backend.common.validateIr
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.config.IrVerificationMode
 import org.jetbrains.kotlin.config.phaser.Action
@@ -19,11 +17,16 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.util.dump
 import org.jetbrains.kotlin.ir.util.dumpKotlinLike
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.validation.IrValidatorConfig
+import org.jetbrains.kotlin.ir.validation.validateIr
+import org.jetbrains.kotlin.ir.validation.withBasicChecks
+import org.jetbrains.kotlin.ir.validation.withTypeChecks
 import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
+import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import java.io.File
 
 private val IrElement.elementName: String
@@ -110,14 +113,16 @@ fun <Context : ErrorReportingContext, Data> getIrValidator(checkTypes: Boolean):
             )
             return
         }
-        validateIr(messageCollector, IrVerificationMode.ERROR) {
-            performBasicIrValidation(
-                element,
-                context.heldBackendContext.irBuiltIns,
-                phaseName = "${state.beforeOrAfter.name.toLowerCaseAsciiOnly()} ${state.phase}",
-                config = IrValidatorConfig(checkTypes = checkTypes),
-            )
-        }
+        validateIr(
+            element,
+            context.heldBackendContext.irBuiltIns,
+            IrValidatorConfig(checkTreeConsistency = true)
+                .withBasicChecks()
+                .applyIf(checkTypes) { withTypeChecks() },
+            messageCollector,
+            IrVerificationMode.ERROR,
+            phaseName = "${state.beforeOrAfter.name.toLowerCaseAsciiOnly()} ${state.phase}",
+        )
     }
 
 fun <Data, Context : ErrorReportingContext> getIrDumper(): Action<Data, Context> =

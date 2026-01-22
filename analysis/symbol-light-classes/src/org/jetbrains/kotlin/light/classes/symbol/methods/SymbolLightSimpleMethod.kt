@@ -31,28 +31,30 @@ import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import java.util.*
 
 internal class SymbolLightSimpleMethod private constructor(
-    ktAnalysisSession: KaSession,
     functionSymbol: KaNamedFunctionSymbol,
     lightMemberOrigin: LightMemberOrigin?,
     containingClass: SymbolLightClassBase,
     methodIndex: Int,
     private val isTopLevel: Boolean,
-    argumentsSkipMask: BitSet?,
+    valueParameterPickMask: BitSet?,
     private val suppressStatic: Boolean,
+    isJvmExposedBoxed: Boolean,
 ) : SymbolLightMethod<KaNamedFunctionSymbol>(
-    ktAnalysisSession = ktAnalysisSession,
     functionSymbol = functionSymbol,
     lightMemberOrigin = lightMemberOrigin,
     containingClass = containingClass,
     methodIndex = methodIndex,
-    argumentsSkipMask = argumentsSkipMask,
+    valueParameterPickMask = valueParameterPickMask,
+    isJvmExposedBoxed = isJvmExposedBoxed,
 ) {
     private val _name: String by lazyPub {
         withFunctionSymbol { functionSymbol ->
-            computeJvmMethodName(
-                symbol = functionSymbol,
-                defaultName = functionSymbol.name.asString(),
-            )
+            val defaultName = functionSymbol.name.asString()
+            if (isJvmExposedBoxed) {
+                computeJvmExposeBoxedMethodName(functionSymbol, defaultName)
+            } else {
+                computeJvmMethodName(functionSymbol, defaultName)
+            }
         }
     }
 
@@ -143,7 +145,7 @@ internal class SymbolLightSimpleMethod private constructor(
 
     private val hasInlineOnlyAnnotation: Boolean by lazyPub { withFunctionSymbol { it.hasInlineOnlyAnnotation() } }
 
-    private val _modifierList: PsiModifierList by lazyPub {
+    override fun getModifierList(): PsiModifierList = cachedValue {
         SymbolLightMemberModifierList(
             containingDeclaration = this,
             modifiersBox = GranularModifiersBox(computer = ::computeModifiers),
@@ -152,6 +154,7 @@ internal class SymbolLightSimpleMethod private constructor(
                     ktModule = ktModule,
                     annotatedSymbolPointer = functionSymbolPointer,
                 ),
+                annotationFilter = jvmExposeBoxedAwareAnnotationFilter,
                 additionalAnnotationsProvider = CompositeAdditionalAnnotationsProvider(
                     NullabilityAnnotationsProvider {
                         if (modifierList.hasModifierProperty(PsiModifier.PRIVATE)) {
@@ -162,7 +165,7 @@ internal class SymbolLightSimpleMethod private constructor(
                                     functionSymbol.isSuspend -> { // Any?
                                         NullabilityAnnotation.NULLABLE
                                     }
-                                    forceBoxedReturnType(functionSymbol) -> {
+                                    shouldEnforceBoxedReturnType(functionSymbol) -> {
                                         NullabilityAnnotation.NON_NULLABLE
                                     }
                                     else -> {
@@ -174,12 +177,11 @@ internal class SymbolLightSimpleMethod private constructor(
                         }
                     },
                     MethodAdditionalAnnotationsProvider,
+                    JvmExposeBoxedAdditionalAnnotationsProvider,
                 ),
             )
         )
     }
-
-    override fun getModifierList(): PsiModifierList = _modifierList
 
     override fun isConstructor(): Boolean = false
 
@@ -190,14 +192,15 @@ internal class SymbolLightSimpleMethod private constructor(
     }
 
     // Inspired by KotlinTypeMapper#forceBoxedReturnType
-    private fun KaSession.forceBoxedReturnType(functionSymbol: KaNamedFunctionSymbol): Boolean {
+    private fun KaSession.shouldEnforceBoxedReturnType(functionSymbol: KaNamedFunctionSymbol): Boolean {
         val returnType = functionSymbol.returnType
         // 'invoke' methods for lambdas, function literals, and callable references
         // implicitly override generic 'invoke' from a corresponding base class.
         if (functionSymbol.isBuiltinFunctionInvoke && isInlineClassType(returnType))
             return true
 
-        return returnType.isPrimitiveBacked &&
+        return isJvmExposedBoxed && typeForValueClass(returnType) ||
+                returnType.isPrimitiveBacked &&
                 functionSymbol.allOverriddenSymbols.any { overriddenSymbol ->
                     !overriddenSymbol.returnType.isPrimitiveBacked
                 }
@@ -221,7 +224,7 @@ internal class SymbolLightSimpleMethod private constructor(
                 functionSymbol.returnType.takeUnless { isVoidType(it) } ?: return@withFunctionSymbol PsiTypes.voidType()
             }
 
-            val typeMappingMode = if (forceBoxedReturnType(functionSymbol))
+            val typeMappingMode = if (shouldEnforceBoxedReturnType(functionSymbol))
                 KaTypeMappingMode.RETURN_TYPE_BOXED
             else
                 KaTypeMappingMode.RETURN_TYPE
@@ -240,6 +243,9 @@ internal class SymbolLightSimpleMethod private constructor(
     override fun getReturnType(): PsiType = _returnedType
 
     companion object {
+        /**
+         * @param suppressValueClass whether suppress the [containingClass] check for [isValueClass]
+         */
         internal fun KaSession.createSimpleMethods(
             containingClass: SymbolLightClassBase,
             result: MutableList<PsiMethod>,
@@ -248,28 +254,68 @@ internal class SymbolLightSimpleMethod private constructor(
             methodIndex: Int,
             isTopLevel: Boolean,
             suppressStatic: Boolean = false,
+            suppressValueClass: Boolean = false,
         ) {
             ProgressManager.checkCanceled()
 
             if (functionSymbol.name.isSpecial || functionSymbol.hasReifiedParameters || isHiddenOrSynthetic(functionSymbol)) return
-            if (hasTypeForValueClassInSignature(functionSymbol, ignoreReturnType = isTopLevel, ignoreValueParameters = true)) return
 
+            val hasJvmNameAnnotation = functionSymbol.hasJvmNameAnnotation()
+            val exposeBoxedMode = jvmExposeBoxedMode(functionSymbol)
+            val hasValueClassInReturnType = hasValueClassInReturnType(functionSymbol)
+
+            val isNonMaterializableValueClassFunction = !suppressValueClass &&
+                    containingClass.isValueClass &&
+                    // Overrides are materialized by default
+                    !functionSymbol.isOverride
+
+            val isSuspend = functionSymbol.isSuspend
+            val isOverridable = functionSymbol.isOverridable()
             createMethodsJvmOverloadsAware(
                 declaration = functionSymbol,
-                result = result,
-                skipValueClassParameters = true,
                 methodIndexBase = methodIndex,
-            ) { methodIndex, argumentSkipMask ->
-                SymbolLightSimpleMethod(
-                    ktAnalysisSession = this,
-                    functionSymbol = functionSymbol,
-                    lightMemberOrigin = lightMemberOrigin,
-                    containingClass = containingClass,
-                    methodIndex = methodIndex,
+            ) { methodIndex, valueParameterPickMask, hasValueClassInParameterType ->
+                val hasMangledNameDueValueClassesInSignature = hasMangledNameDueValueClassesInSignature(
+                    hasValueClassInParameterType = hasValueClassInParameterType,
+                    hasValueClassInReturnType = hasValueClassInReturnType,
                     isTopLevel = isTopLevel,
-                    argumentsSkipMask = argumentSkipMask,
-                    suppressStatic = suppressStatic,
                 )
+
+                val generationResult = methodGeneration(
+                    exposeBoxedMode = exposeBoxedMode,
+                    hasValueClassInParameterType = hasValueClassInParameterType,
+                    hasValueClassInReturnType = hasValueClassInReturnType,
+                    isAffectedByValueClass = hasMangledNameDueValueClassesInSignature || isNonMaterializableValueClassFunction,
+                    hasJvmNameAnnotation = hasJvmNameAnnotation,
+                    isSuspend = isSuspend,
+                    isOverridable = isOverridable
+                )
+
+                if (generationResult.isBoxedMethodRequired) {
+                    result += SymbolLightSimpleMethod(
+                        functionSymbol = functionSymbol,
+                        lightMemberOrigin = lightMemberOrigin,
+                        containingClass = containingClass,
+                        methodIndex = methodIndex,
+                        isTopLevel = isTopLevel,
+                        valueParameterPickMask = valueParameterPickMask,
+                        suppressStatic = suppressStatic,
+                        isJvmExposedBoxed = true,
+                    )
+                }
+
+                if (generationResult.isRegularMethodRequired) {
+                    result += SymbolLightSimpleMethod(
+                        functionSymbol = functionSymbol,
+                        lightMemberOrigin = lightMemberOrigin,
+                        containingClass = containingClass,
+                        methodIndex = methodIndex,
+                        isTopLevel = isTopLevel,
+                        valueParameterPickMask = valueParameterPickMask,
+                        suppressStatic = suppressStatic,
+                        isJvmExposedBoxed = false,
+                    )
+                }
             }
         }
     }

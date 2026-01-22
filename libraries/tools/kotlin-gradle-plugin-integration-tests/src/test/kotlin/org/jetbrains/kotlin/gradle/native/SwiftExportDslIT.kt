@@ -33,7 +33,10 @@ class SwiftExportDslIT : KGPBaseTest() {
         gradleVersion: GradleVersion,
         @TempDir testBuildDir: Path,
     ) {
-        project("empty", gradleVersion) {
+        project(
+            "empty",
+            gradleVersion
+        ) {
             plugins {
                 kotlin("multiplatform")
             }
@@ -121,7 +124,10 @@ class SwiftExportDslIT : KGPBaseTest() {
         gradleVersion: GradleVersion,
         @TempDir testBuildDir: Path,
     ) {
-        project("empty", gradleVersion) {
+        project(
+            "empty",
+            gradleVersion
+        ) {
             plugins {
                 kotlin("multiplatform")
             }
@@ -196,7 +202,10 @@ class SwiftExportDslIT : KGPBaseTest() {
         gradleVersion: GradleVersion,
         @TempDir testBuildDir: Path,
     ) {
-        project("empty", gradleVersion) {
+        project(
+            "empty",
+            gradleVersion
+        ) {
             plugins {
                 kotlin("multiplatform")
             }
@@ -300,8 +309,8 @@ class SwiftExportDslIT : KGPBaseTest() {
                 val buildProductsDir = this@project.gradleRunner.environment?.get("BUILT_PRODUCTS_DIR")?.let { File(it) }
                 assertNotNull(buildProductsDir)
 
-                val multiplatformLibrarySwiftModule = buildProductsDir.resolve("MultiplatformLibrary.swiftmodule")
-                assertDirectoryExists(multiplatformLibrarySwiftModule.toPath(), "MultiplatformLibrary.swiftmodule doesn't exist")
+                val multiplatformLibrarySwiftModule = buildProductsDir.resolve("FooMultiplatformLibrary.swiftmodule")
+                assertDirectoryExists(multiplatformLibrarySwiftModule.toPath(), "FooMultiplatformLibrary.swiftmodule doesn't exist")
             }
         }
     }
@@ -312,7 +321,10 @@ class SwiftExportDslIT : KGPBaseTest() {
         gradleVersion: GradleVersion,
         @TempDir testBuildDir: Path,
     ) {
-        project("empty", gradleVersion) {
+        project(
+            "empty",
+            gradleVersion
+        ) {
             plugins {
                 kotlin("multiplatform")
             }

@@ -35,7 +35,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(declaration: FirDeclaration) {
         if (declaration !is FirMemberDeclaration) return
-        if (!context.session.languageVersionSettings.supportsFeature(LanguageFeature.MultiPlatformProjects)) {
+        if (!LanguageFeature.MultiPlatformProjects.isEnabled()) {
             if ((declaration.isExpect || declaration.isActual) && containsExpectOrActualModifier(declaration) &&
                 declaration.source?.kind?.shouldSkipErrorTypeReporting == false
             ) {
@@ -81,7 +81,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
         if (declaration is FirProperty) {
             checkExpectPropertyAccessorsModifiers(declaration)
         }
-        if (context.languageVersionSettings.supportsFeature(LanguageFeature.MultiplatformRestrictions) &&
+        if (LanguageFeature.MultiplatformRestrictions.isEnabled() &&
             declaration is FirFunction && declaration.isTailRec
         ) {
             reporter.reportOn(declaration.source, FirErrors.EXPECTED_TAILREC_FUNCTION)
@@ -116,7 +116,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
     private fun checkExpectDeclarationHasNoExternalModifier(
         declaration: FirMemberDeclaration,
     ) {
-        if (context.languageVersionSettings.supportsFeature(LanguageFeature.MultiplatformRestrictions) &&
+        if (LanguageFeature.MultiplatformRestrictions.isEnabled() &&
             declaration.isExternal
         ) {
             reporter.reportOn(declaration.source, FirErrors.EXPECTED_EXTERNAL_DECLARATION)
@@ -186,6 +186,8 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
             // A nicer diagnostic for functions with default params
             if (declaration is FirFunction && incompatibility == ExpectActualIncompatibility.ActualFunctionWithOptionalParameters) {
                 reporter.reportOn(declaration.source, FirErrors.ACTUAL_FUNCTION_WITH_DEFAULT_ARGUMENTS)
+            } else if (incompatibility == ExpectActualIncompatibility.IgnorabilityIsDifferent) {
+                reportIgnorabilityIncompatibleMembers(expectedSingleCandidate, symbol, source)
             } else {
                 reporter.reportOn(
                     source,
@@ -227,22 +229,20 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
         val nonTrivialIncompatibleMembers = checkingCompatibility.incompatibleMembers.filterNot(::hasSingleActualSuspect)
 
         if (nonTrivialIncompatibleMembers.isNotEmpty()) {
-            val (defaultArgsIncompatibleMembers, otherIncompatibleMembers) =
-                nonTrivialIncompatibleMembers.partition { it.incompatibility == ExpectActualIncompatibility.ParametersWithDefaultValuesInExpectActualizedByFakeOverride }
+            reportDefaultArgsIncompatibleMembers(
+                nonTrivialIncompatibleMembers.filter { it.incompatibility == ExpectActualIncompatibility.ParametersWithDefaultValuesInExpectActualizedByFakeOverride },
+                source,
+                expectedSingleCandidate
+            )
 
-            if (defaultArgsIncompatibleMembers.isNotEmpty()) { // report a nicer diagnostic for DefaultArgumentsInExpectActualizedByFakeOverride
-                val problematicExpectMembers = defaultArgsIncompatibleMembers
-                    .map {
-                        it.expect as? FirNamedFunctionSymbol
-                            ?: error("${ExpectActualIncompatibility.ParametersWithDefaultValuesInExpectActualizedByFakeOverride} can be reported only for ${FirNamedFunctionSymbol::class}")
-                    }
-                reporter.reportOn(
-                    source,
-                    FirErrors.DEFAULT_ARGUMENTS_IN_EXPECT_ACTUALIZED_BY_FAKE_OVERRIDE,
-                    expectedSingleCandidate,
-                    problematicExpectMembers
-                )
-            }
+            reportIgnorabilityIncompatibleMembers(
+                nonTrivialIncompatibleMembers.filter { it.incompatibility == ExpectActualIncompatibility.IgnorabilityIsDifferent },
+                source,
+            )
+
+            val otherIncompatibleMembers =
+                nonTrivialIncompatibleMembers.filterNot { it.incompatibility == ExpectActualIncompatibility.IgnorabilityIsDifferent || it.incompatibility == ExpectActualIncompatibility.ParametersWithDefaultValuesInExpectActualizedByFakeOverride }
+
             if (otherIncompatibleMembers.isNotEmpty()) {
                 for (member in otherIncompatibleMembers) {
                     reporter.reportOn(
@@ -263,6 +263,57 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
                 symbol,
                 checkingCompatibility.mismatchedMembers
             )
+        }
+    }
+
+    context(reporter: DiagnosticReporter, context: CheckerContext)
+    private fun reportDefaultArgsIncompatibleMembers(
+        defaultArgsIncompatibleMembers: List<MemberIncompatibility<FirBasedSymbol<*>>>,
+        source: KtSourceElement?,
+        expectClass: FirRegularClassSymbol,
+    ) {
+        if (defaultArgsIncompatibleMembers.isNotEmpty()) { // report a nicer diagnostic for DefaultArgumentsInExpectActualizedByFakeOverride
+            val problematicExpectMembers = defaultArgsIncompatibleMembers
+                .map {
+                    it.expect as? FirNamedFunctionSymbol
+                        ?: error("${ExpectActualIncompatibility.ParametersWithDefaultValuesInExpectActualizedByFakeOverride} can be reported only for ${FirNamedFunctionSymbol::class}")
+                }
+            reporter.reportOn(
+                source,
+                FirErrors.DEFAULT_ARGUMENTS_IN_EXPECT_ACTUALIZED_BY_FAKE_OVERRIDE,
+                expectClass,
+                problematicExpectMembers
+            )
+        }
+    }
+
+    context(reporter: DiagnosticReporter, context: CheckerContext)
+    private fun reportIgnorabilityIncompatibleMembers(
+        expect: FirBasedSymbol<*>,
+        actual: FirBasedSymbol<*>,
+        source: KtSourceElement?,
+    ) {
+        val expectMember =
+            expect as? FirCallableSymbol<*> ?: error("Ignorability incompatibility can be reported only for callables")
+        val actualMember =
+            actual as? FirCallableSymbol<*> ?: error("Ignorability incompatibility can be reported only for callables")
+        reporter.reportOn(
+            source,
+            FirErrors.ACTUAL_IGNORABILITY_NOT_MATCH_EXPECT,
+            expectMember,
+            expectMember.resolvedStatus.returnValueStatus,
+            actualMember,
+            actualMember.resolvedStatus.returnValueStatus
+        )
+    }
+
+    context(reporter: DiagnosticReporter, context: CheckerContext)
+    private fun reportIgnorabilityIncompatibleMembers(
+        ignorabilityIncompatibleMembers: List<MemberIncompatibility<FirBasedSymbol<*>>>,
+        source: KtSourceElement?,
+    ) {
+        for (member in ignorabilityIncompatibleMembers) {
+            reportIgnorabilityIncompatibleMembers(member.expect, member.actual, source)
         }
     }
 
@@ -368,6 +419,7 @@ object FirExpectActualDeclarationChecker : FirBasicDeclarationChecker(MppChecker
 private fun ExpectActualIncompatibility<*>.toDiagnostic() = when (this) {
     ExpectActualIncompatibility.ActualFunctionWithOptionalParameters -> error("unreachable")
     is ExpectActualIncompatibility.ClassScopes<*> -> error("unreachable")
+    ExpectActualIncompatibility.IgnorabilityIsDifferent -> error("Should be handled before")
 
     ExpectActualIncompatibility.ClassKind -> FirErrors.EXPECT_ACTUAL_INCOMPATIBLE_CLASS_KIND
     ExpectActualIncompatibility.ClassModifiers -> FirErrors.EXPECT_ACTUAL_INCOMPATIBLE_CLASS_MODIFIERS

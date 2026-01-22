@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+
 plugins {
     `kotlin-dsl`
     kotlin("jvm")
@@ -16,9 +19,28 @@ dependencies {
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
     testRuntimeOnly(libs.junit.jupiter.engine)
+
+    constraints {
+        api(libs.apache.commons.lang)
+    }
 }
 
-kotlin.jvmToolchain(8)
+kotlin {
+    @OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalBuildToolsApi::class)
+    compilerVersion = libs.versions.kotlin.`for`.gradle.plugins.compilation
+    jvmToolchain(11)
+}
+
+configurations {
+    "kotlinCompilerPluginClasspathMain" {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "org.jetbrains.kotlin" && requested.name == "kotlin-serialization-compiler-plugin-embeddable") {
+                useTarget("org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable:${libs.versions.kotlin.`for`.gradle.plugins.compilation.get()}")
+                because("Compatible with Kotlin compiler ${libs.versions.kotlin.`for`.gradle.plugins.compilation.get()} version")
+            }
+        }
+    }
+}
 
 tasks {
     test {

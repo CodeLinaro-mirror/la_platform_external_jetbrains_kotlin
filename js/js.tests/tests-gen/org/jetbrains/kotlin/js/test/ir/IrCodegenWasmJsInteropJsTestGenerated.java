@@ -24,13 +24,157 @@ import java.util.regex.Pattern;
 public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasmJsInteropJsTest {
   @Test
   public void testAllFilesPresentInBoxWasmJsInterop() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmJsInterop"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmJsInterop"), Pattern.compile("^(.+)\\.kt$"), null, true);
+  }
+
+  @Test
+  @TestMetadata("associatedExternalObject.kt")
+  public void testAssociatedExternalObject() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/associatedExternalObject.kt");
+  }
+
+  @Test
+  @TestMetadata("callingWasmDirectly.kt")
+  public void testCallingWasmDirectly() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/callingWasmDirectly.kt");
+  }
+
+  @Test
+  @TestMetadata("closureAdapterCaching.kt")
+  public void testClosureAdapterCaching() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/closureAdapterCaching.kt");
   }
 
   @Test
   @TestMetadata("defaultValues.kt")
   public void testDefaultValues() {
     runTest("compiler/testData/codegen/boxWasmJsInterop/defaultValues.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromGlobalInitializer.kt")
+  public void testExceptionFromGlobalInitializer() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromGlobalInitializer.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromGlobalInitializerNewProposal.kt")
+  public void testExceptionFromGlobalInitializerNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromGlobalInitializerNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromGlobalInitializerNoJsTag.kt")
+  public void testExceptionFromGlobalInitializerNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromGlobalInitializerNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMain.kt")
+  public void testExceptionFromMain() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMain.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainJsCustomName.kt")
+  public void testExceptionFromMainJsCustomName() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainJsCustomName.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainJsNull.kt")
+  public void testExceptionFromMainJsNull() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainJsNull.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainJsNumber.kt")
+  public void testExceptionFromMainJsNumber() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainJsNumber.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainJsString.kt")
+  public void testExceptionFromMainJsString() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainJsString.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainJsTypeError.kt")
+  public void testExceptionFromMainJsTypeError() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainJsTypeError.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNewProposal.kt")
+  public void testExceptionFromMainNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNewProposalJsCustomName.kt")
+  public void testExceptionFromMainNewProposalJsCustomName() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNewProposalJsCustomName.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNewProposalJsNull.kt")
+  public void testExceptionFromMainNewProposalJsNull() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNewProposalJsNull.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNewProposalJsNumber.kt")
+  public void testExceptionFromMainNewProposalJsNumber() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNewProposalJsNumber.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNewProposalJsString.kt")
+  public void testExceptionFromMainNewProposalJsString() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNewProposalJsString.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNewProposalJsTypeError.kt")
+  public void testExceptionFromMainNewProposalJsTypeError() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNewProposalJsTypeError.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNoJsTag.kt")
+  public void testExceptionFromMainNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNoJsTagJsCustomName.kt")
+  public void testExceptionFromMainNoJsTagJsCustomName() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNoJsTagJsCustomName.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNoJsTagJsNull.kt")
+  public void testExceptionFromMainNoJsTagJsNull() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNoJsTagJsNull.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNoJsTagJsNumber.kt")
+  public void testExceptionFromMainNoJsTagJsNumber() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNoJsTagJsNumber.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNoJsTagJsString.kt")
+  public void testExceptionFromMainNoJsTagJsString() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNoJsTagJsString.kt");
+  }
+
+  @Test
+  @TestMetadata("exceptionFromMainNoJsTagJsTypeError.kt")
+  public void testExceptionFromMainNoJsTagJsTypeError() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/exceptionFromMainNoJsTagJsTypeError.kt");
   }
 
   @Test
@@ -46,15 +190,177 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
   }
 
   @Test
+  @TestMetadata("externalsWithUnsigned.kt")
+  public void testExternalsWithUnsigned() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/externalsWithUnsigned.kt");
+  }
+
+  @Test
   @TestMetadata("functionTypes.kt")
   public void testFunctionTypes() {
     runTest("compiler/testData/codegen/boxWasmJsInterop/functionTypes.kt");
   }
 
   @Test
+  @TestMetadata("genericReturnsExternal.kt")
+  public void testGenericReturnsExternal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/genericReturnsExternal.kt");
+  }
+
+  @Test
+  @TestMetadata("imperativeWrapperInitialised.kt")
+  public void testImperativeWrapperInitialised() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/imperativeWrapperInitialised.kt");
+  }
+
+  @Test
+  @TestMetadata("imperativeWrapperUninitialised.kt")
+  public void testImperativeWrapperUninitialised() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/imperativeWrapperUninitialised.kt");
+  }
+
+  @Test
+  @TestMetadata("invariantLambdaAdapters.kt")
+  public void testInvariantLambdaAdapters() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/invariantLambdaAdapters.kt");
+  }
+
+  @Test
   @TestMetadata("jsCode.kt")
   public void testJsCode() {
     runTest("compiler/testData/codegen/boxWasmJsInterop/jsCode.kt");
+  }
+
+  @Test
+  @TestMetadata("jsCustomException.kt")
+  public void testJsCustomException() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsCustomException.kt");
+  }
+
+  @Test
+  @TestMetadata("jsCustomExceptionNoJsTag.kt")
+  public void testJsCustomExceptionNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsCustomExceptionNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("jsDelayedRuntimeQualifier.kt")
+  public void testJsDelayedRuntimeQualifier() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsDelayedRuntimeQualifier.kt");
+  }
+
+  @Test
+  @TestMetadata("jsException.kt")
+  public void testJsException() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsException.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionInSuspendFunction.kt")
+  public void testJsExceptionInSuspendFunction() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionInSuspendFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionInSuspendFunctionNewProposal.kt")
+  public void testJsExceptionInSuspendFunctionNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionInSuspendFunctionNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionInSuspendFunctionNoJsTag.kt")
+  public void testJsExceptionInSuspendFunctionNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionInSuspendFunctionNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionJsKJsK.kt")
+  public void testJsExceptionJsKJsK() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionJsKJsK.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionJsKJsKNewProposal.kt")
+  public void testJsExceptionJsKJsKNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionJsKJsKNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionNewProposal.kt")
+  public void testJsExceptionNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionNewProposalNoJsTag.kt")
+  public void testJsExceptionNewProposalNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionNewProposalNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionNoJsTag.kt")
+  public void testJsExceptionNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionPromise.kt")
+  public void testJsExceptionPromise() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionPromise.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionThroughKotlin.kt")
+  public void testJsExceptionThroughKotlin() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionThroughKotlin.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionThroughKotlinNewProposal.kt")
+  public void testJsExceptionThroughKotlinNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionThroughKotlinNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionThroughKotlinNoJsTag.kt")
+  public void testJsExceptionThroughKotlinNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionThroughKotlinNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionWithRunCatching.kt")
+  public void testJsExceptionWithRunCatching() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionWithRunCatching.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionWithRunCatchingNewProposal.kt")
+  public void testJsExceptionWithRunCatchingNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionWithRunCatchingNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExceptionWithRunCatchingNoJsTag.kt")
+  public void testJsExceptionWithRunCatchingNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExceptionWithRunCatchingNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExport.kt")
+  public void testJsExport() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExport.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExportParameterWithDefaultValue.kt")
+  public void testJsExportParameterWithDefaultValue() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExportParameterWithDefaultValue.kt");
+  }
+
+  @Test
+  @TestMetadata("jsExternalLibrariesImport.kt")
+  public void testJsExternalLibrariesImport() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsExternalLibrariesImport.kt");
   }
 
   @Test
@@ -82,9 +388,33 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
   }
 
   @Test
+  @TestMetadata("jsTypes.kt")
+  public void testJsTypes() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/jsTypes.kt");
+  }
+
+  @Test
   @TestMetadata("kotlinToJsAdapters.kt")
   public void testKotlinToJsAdapters() {
     runTest("compiler/testData/codegen/boxWasmJsInterop/kotlinToJsAdapters.kt");
+  }
+
+  @Test
+  @TestMetadata("kt59082.kt")
+  public void testKt59082() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/kt59082.kt");
+  }
+
+  @Test
+  @TestMetadata("kt59084.kt")
+  public void testKt59084() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/kt59084.kt");
+  }
+
+  @Test
+  @TestMetadata("lambdaAdapterNameClash.kt")
+  public void testLambdaAdapterNameClash() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/lambdaAdapterNameClash.kt");
   }
 
   @Test
@@ -100,6 +430,30 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
   }
 
   @Test
+  @TestMetadata("noExceptions.kt")
+  public void testNoExceptions() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/noExceptions.kt");
+  }
+
+  @Test
+  @TestMetadata("noKotlinCastForUnsafeCast.kt")
+  public void testNoKotlinCastForUnsafeCast() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/noKotlinCastForUnsafeCast.kt");
+  }
+
+  @Test
+  @TestMetadata("nullableExternRefs.kt")
+  public void testNullableExternRefs() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/nullableExternRefs.kt");
+  }
+
+  @Test
+  @TestMetadata("reflectionOnExternals.kt")
+  public void testReflectionOnExternals() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/reflectionOnExternals.kt");
+  }
+
+  @Test
   @TestMetadata("types.kt")
   public void testTypes() {
     runTest("compiler/testData/codegen/boxWasmJsInterop/types.kt");
@@ -111,6 +465,72 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
     runTest("compiler/testData/codegen/boxWasmJsInterop/vararg.kt");
   }
 
+  @Test
+  @TestMetadata("wasmExport.kt")
+  public void testWasmExport() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExport.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithChainExceptions.kt")
+  public void testWasmExportWithChainExceptions() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithChainExceptions.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithChainExceptionsNewProposal.kt")
+  public void testWasmExportWithChainExceptionsNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithChainExceptionsNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithChainExceptionsNoJsTag.kt")
+  public void testWasmExportWithChainExceptionsNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithChainExceptionsNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithExceptions.kt")
+  public void testWasmExportWithExceptions() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithExceptions.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithExceptionsJsCustom.kt")
+  public void testWasmExportWithExceptionsJsCustom() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithExceptionsJsCustom.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithExceptionsNewProposal.kt")
+  public void testWasmExportWithExceptionsNewProposal() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithExceptionsNewProposal.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithExceptionsNewProposalJsCustom.kt")
+  public void testWasmExportWithExceptionsNewProposalJsCustom() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithExceptionsNewProposalJsCustom.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithExceptionsNoJsTag.kt")
+  public void testWasmExportWithExceptionsNoJsTag() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithExceptionsNoJsTag.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmExportWithExceptionsNoJsTagJsCustom.kt")
+  public void testWasmExportWithExceptionsNoJsTagJsCustom() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmExportWithExceptionsNoJsTagJsCustom.kt");
+  }
+
+  @Test
+  @TestMetadata("wasmImport.kt")
+  public void testWasmImport() {
+    runTest("compiler/testData/codegen/boxWasmJsInterop/wasmImport.kt");
+  }
+
   @Nested
   @TestMetadata("compiler/testData/codegen/boxWasmJsInterop/escapedIdentifiers")
   @TestDataPath("$PROJECT_ROOT")
@@ -118,7 +538,7 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
   public class EscapedIdentifiers {
     @Test
     public void testAllFilesPresentInEscapedIdentifiers() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmJsInterop/escapedIdentifiers"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxWasmJsInterop/escapedIdentifiers"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Test
@@ -131,6 +551,12 @@ public class IrCodegenWasmJsInteropJsTestGenerated extends AbstractIrCodegenWasm
     @TestMetadata("externalEscapedTopLevel.kt")
     public void testExternalEscapedTopLevel() {
       runTest("compiler/testData/codegen/boxWasmJsInterop/escapedIdentifiers/externalEscapedTopLevel.kt");
+    }
+
+    @Test
+    @TestMetadata("topLevelExportedFunction.kt")
+    public void testTopLevelExportedFunction() {
+      runTest("compiler/testData/codegen/boxWasmJsInterop/escapedIdentifiers/topLevelExportedFunction.kt");
     }
 
     @Test

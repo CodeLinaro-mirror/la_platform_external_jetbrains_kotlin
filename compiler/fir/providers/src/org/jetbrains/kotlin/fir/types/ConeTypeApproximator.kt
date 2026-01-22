@@ -7,24 +7,30 @@ package org.jetbrains.kotlin.fir.types
 
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
+import org.jetbrains.kotlin.fir.renderer.ConeTypeRendererForDebugInfo
 import org.jetbrains.kotlin.types.AbstractTypeApproximator
 import org.jetbrains.kotlin.types.TypeApproximatorConfiguration
+import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 
 class ConeTypeApproximator(inferenceContext: ConeInferenceContext, languageVersionSettings: LanguageVersionSettings) :
     AbstractTypeApproximator(inferenceContext, languageVersionSettings) {
     fun approximateToSuperType(type: ConeKotlinType, conf: TypeApproximatorConfiguration): ConeKotlinType? {
         if (type.fastPathSkipApproximation(conf)) return null
-        return super.approximateToSuperType(type, conf) as ConeKotlinType?
+        return super.approximateToSuperType(type, conf, caches = null)?.asCone()
     }
 
     fun approximateToSubType(type: ConeKotlinType, conf: TypeApproximatorConfiguration): ConeKotlinType? {
         if (type.fastPathSkipApproximation(conf)) return null
-        return super.approximateToSubType(type, conf) as ConeKotlinType?
+        return super.approximateToSubType(type, conf, caches = null)?.asCone()
+    }
+
+    override fun KotlinTypeMarker.renderForDebugInfo(): String = buildString {
+        ConeTypeRendererForDebugInfo(this, renderCapturedDetails = true).render(this@renderForDebugInfo.asCone())
     }
 
     private fun ConeKotlinType.fastPathSkipApproximation(conf: TypeApproximatorConfiguration): Boolean {
         if (this is ConeClassLikeType && this.typeArguments.isEmpty() &&
-            this.lookupTag.let { !it.isLocalClass() && !it.isAnonymousClass() }
+            this.lookupTag.let { !it.isLocalType() && !it.isAnonymous() }
         ) {
             return true
         }
@@ -51,7 +57,7 @@ class ConeTypeApproximator(inferenceContext: ConeInferenceContext, languageVersi
         // If the approximation configuration is designed to approximate something beside ILT/captured types, let it doing that.
         if (conf !is TypeApproximatorConfiguration.AbstractCapturedTypesAndILTApproximation) return false
 
-        return !contains { mightNeedApproximation(it as ConeKotlinType, conf) }
+        return !contains { mightNeedApproximation(it.asCone(), conf) }
     }
 
     private fun mightNeedApproximation(
@@ -59,7 +65,7 @@ class ConeTypeApproximator(inferenceContext: ConeInferenceContext, languageVersi
         conf: TypeApproximatorConfiguration
     ): Boolean = when (type) {
         is ConeIntegerLiteralType -> true
-        is ConeCapturedType -> conf.shouldApproximateCapturedType(ctx, type)
+        is ConeCapturedType -> conf.shouldApproximateCapturedType(type)
         else -> false
     }
 }

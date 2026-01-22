@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootPlugin.Companion.
 import org.jetbrains.kotlin.gradle.targets.js.npm.tasks.KotlinPackageJsonTask
 import org.jetbrains.kotlin.gradle.targets.js.webTargetVariant
 import org.jetbrains.kotlin.gradle.utils.getFile
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import java.io.Serializable
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin.Companion.kotlinNodeJsEnvSpec as wasmKotlinNodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin.Companion.kotlinNodeJsRootExtension as wasmKotlinNodeJsRootExtension
@@ -91,10 +92,20 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
         "${DIST_FOLDER}/$name.$ext"
     }
 
-    val typesFileName: Provider<String> = name
-        .zip(compilation.target.shouldGenerateTypeScriptDefinitions) { name, shouldGenerateTypeScriptDefinitions ->
-            if (shouldGenerateTypeScriptDefinitions) "$name.d.ts" else null
+    private val typesFileExtension = extension
+        .zip(compilation.target.shouldGenerateTypeScriptDefinitions) { extension, shouldGenerateTypeScriptDefinitions ->
+            runIf(shouldGenerateTypeScriptDefinitions) {
+                when (extension) {
+                    "mjs" -> "d.mts"
+                    "js" -> "d.ts"
+                    else -> error("Illegal JS-file extension provided: $extension")
+                }
+            }
         }
+
+    val typesFileName: Provider<String> = name.zip(typesFileExtension) { name, extension ->
+        "$name.$extension"
+    }
 
     val typesFilePath: Provider<String> = typesFileName.map { "$DIST_FOLDER/$it" }
 
@@ -109,7 +120,10 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
         nodeJs.executable.get()
     }
 
-    @Deprecated("Internal KGP utility. Scheduled for removal in Kotlin 2.4.")
+    @Deprecated(
+        "Internal KGP utility. Scheduled for removal in Kotlin 2.4.",
+        level = DeprecationLevel.ERROR
+    )
     fun useTool(
         exec: ExecSpec,
         tool: String,
@@ -118,14 +132,17 @@ open class NpmProject(@Transient val compilation: KotlinJsIrCompilation) : Seria
     ) {
         exec.workingDir(dir)
         exec.executable(nodeExecutable)
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION_ERROR")
         exec.args = nodeArgs + require(tool) + args
     }
 
     /**
      * Require [request] nodejs module and return canonical path to it's main js file.
      */
-    @Deprecated("Internal KGP utility. Scheduled for removal in Kotlin 2.4.")
+    @Deprecated(
+        "Internal KGP utility. Scheduled for removal in Kotlin 2.4.",
+        level = DeprecationLevel.ERROR
+    )
     fun require(request: String): String {
 //        nodeJs.npmResolutionManager.requireAlreadyInstalled(project)
         return modules.require(request)

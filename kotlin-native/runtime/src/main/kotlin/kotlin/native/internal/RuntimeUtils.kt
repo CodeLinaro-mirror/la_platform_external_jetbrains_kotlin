@@ -14,7 +14,12 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.cinterop.*
 import kotlinx.cinterop.NativePtr
+import kotlin.internal.UsedFromCompilerGeneratedCode
 import kotlin.native.internal.escapeAnalysis.Escapes
+import kotlin.native.internal.ref.ExternalRCRef
+import kotlin.native.internal.ref.dereferenceExternalRCRef
+import kotlin.native.internal.ref.disposeExternalRCRef
+import kotlin.native.internal.ref.releaseExternalRCRef
 
 @ExportForCppRuntime
 @PublishedApi
@@ -78,16 +83,6 @@ internal fun ThrowNoWhenBranchMatchedException(): Nothing {
     throw NoWhenBranchMatchedException()
 }
 
-@PublishedApi
-internal fun ThrowUninitializedPropertyAccessException(propertyName: String): Nothing {
-    throw UninitializedPropertyAccessException("lateinit property $propertyName has not been initialized")
-}
-
-@PublishedApi
-internal fun ThrowUnsupportedOperationException(message: String): Nothing {
-    throw UnsupportedOperationException(message)
-}
-
 @ExportForCppRuntime
 internal fun ThrowIllegalArgumentException() : Nothing {
     throw IllegalArgumentException()
@@ -135,11 +130,9 @@ internal fun ThrowFileFailedToInitializeException(reason: Throwable?) {
     }
 }
 
-internal class IrLinkageError(message: String?) : Error(message)
-
-@PublishedApi
-internal fun ThrowIrLinkageError(message: String?): Nothing {
-    throw IrLinkageError(message)
+@ExportForCppRuntime
+internal fun ThrowRuntimeException(message: String?): Nothing {
+    throw RuntimeException(message)
 }
 
 @ExportForCppRuntime
@@ -279,3 +272,12 @@ internal fun KonanObjectToUtf8Array(value: Any?): ByteArray {
 @TypedIntrinsic(IntrinsicType.IMMUTABLE_BLOB)
 @Escapes.Nothing
 internal external fun immutableBlobOfImpl(data: String): ImmutableBlob
+
+@ExportForCppRuntime("Kotlin_internal_executeAndRelease")
+internal fun executeAndRelease(actionRef: ExternalRCRef) {
+    @Suppress("UNCHECKED_CAST")
+    val action = dereferenceExternalRCRef(actionRef) as () -> Unit
+    releaseExternalRCRef(actionRef)
+    disposeExternalRCRef(actionRef)
+    action()
+}

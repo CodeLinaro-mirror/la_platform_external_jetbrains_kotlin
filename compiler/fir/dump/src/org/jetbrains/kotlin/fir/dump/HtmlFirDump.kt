@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.fir.dump
 
 import kotlinx.html.*
 import kotlinx.html.stream.appendHTML
-import org.apache.commons.lang.StringEscapeUtils
+import org.apache.commons.text.StringEscapeUtils
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -665,6 +665,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
 
         val type = typeAlias.expandedConeType
         if (type != null) {
+            // The upcast is safe here
             generate(type as ConeKotlinType)
         } else {
             +"<error expanded type>"
@@ -1127,7 +1128,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
             +")."
         }
         symbolRef(symbol) {
-            +symbol.callableId.toString()
+            +symbol.callableIdAsString()
         }
         +"("
         generateList(fir.valueParameters) {
@@ -1251,12 +1252,12 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                         is NewConstraintError -> {
                             ident()
 
-                            generate(callDiagnostic.lowerType as ConeKotlinType)
+                            generate(callDiagnostic.lowerType.asCone())
 
                             ws
                             span(classes = "subtype-error") { +"<:" }
                             ws
-                            generate(callDiagnostic.upperType as ConeKotlinType)
+                            generate(callDiagnostic.upperType.asCone())
                         }
                         else -> {
                             ident()

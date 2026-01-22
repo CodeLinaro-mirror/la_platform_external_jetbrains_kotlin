@@ -22,13 +22,18 @@ import org.jetbrains.kotlin.protobuf.ExtensionRegistryLite
 
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFile as ProtoFile
 
+/**
+ * @property allowErrorNodes Whether error nodes are allowed during IR deserialization and initialization.
+ *   Caution: This setting is not safe to use, as it can lead to crashes in the frontend or backend.
+ *   The only legal case for using this setting is the `dump-ir` command of the `klib` command-line tool.
+ */
 abstract class BasicIrModuleDeserializer(
     val linker: KotlinIrLinker,
     moduleDescriptor: ModuleDescriptor,
     override val klib: IrLibrary,
     override val strategyResolver: (String) -> DeserializationStrategy,
     libraryAbiVersion: KotlinAbiVersion,
-    private val containsErrorCode: Boolean = false,
+    private val allowErrorNodes: Boolean = false,
 ) : IrModuleDeserializer(moduleDescriptor, libraryAbiVersion) {
 
     private val fileToDeserializerMap = mutableMapOf<IrFile, IrFileDeserializer>()
@@ -57,9 +62,10 @@ abstract class BasicIrModuleDeserializer(
                 val fileStream = klib.file(i).codedInputStream
                 val fileProto = ProtoFile.parseFrom(fileStream, ExtensionRegistryLite.newInstance())
                 val fileReader = IrLibraryFileFromBytes(IrKlibBytesSource(klib, i))
-                val file = fileReader.createFile(moduleFragment, fileProto)
+                val file = fileReader.
+                createFile(moduleFragment, fileProto, linker.irInterner)
 
-                this += deserializeIrFile(fileProto, file, fileReader, i, delegate, containsErrorCode)
+                this += deserializeIrFile(fileProto, file, fileReader, i, delegate, allowErrorNodes)
 
                 if (!strategyResolver(file.fileEntry.name).onDemand)
                     moduleFragment.files.add(file)

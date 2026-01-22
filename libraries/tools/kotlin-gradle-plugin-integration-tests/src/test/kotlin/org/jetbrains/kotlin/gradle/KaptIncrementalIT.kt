@@ -27,14 +27,10 @@ open class KaptIncrementalIT : KGPBaseTest() {
     private val annotatedElements =
         arrayOf("A", "funA", "valA", "funUtil", "valUtil", "B", "funB", "valB", "useB", "funGetsInputParams")
 
-    override fun TestProject.customizeProject() {
-        forceK1Kapt()
-    }
-
     override val defaultBuildOptions = super.defaultBuildOptions.copy(
         incremental = true,
         kaptOptions = BuildOptions.KaptOptions(incrementalKapt = true)
-    )
+    ).copyEnsuringK1()
 
     protected open fun KGPBaseTest.kaptProject(
         gradleVersion: GradleVersion,
@@ -474,10 +470,4 @@ open class KaptIncrementalIT : KGPBaseTest() {
             }
 
     val TestProject.kaptGeneratedToPath get() = projectPath.resolve("build/generated/source/kapt")
-}
-
-@DisplayName("Kapt incremental compilation with disabled precise compilation outputs backup")
-class KaptIncrementalWithoutPreciseBackupIT : KaptIncrementalIT() {
-    override val defaultBuildOptions =
-        super.defaultBuildOptions.copy(usePreciseOutputsBackup = false, keepIncrementalCompilationCachesInMemory = false)
 }

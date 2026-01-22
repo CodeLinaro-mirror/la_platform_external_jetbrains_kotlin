@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.js.test.ir;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
 import org.junit.jupiter.api.Tag;
-import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +34,13 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
 
   @Test
   public void testAllFilesPresentInPartial_linkage() {
-    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/partial-linkage"), Pattern.compile("^([^_](.+))$"), null, TargetBackend.JS_IR, false);
+    KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/klib/partial-linkage"), Pattern.compile("^([^_](.+))$"), null, false);
+  }
+
+  @Test
+  @TestMetadata("callableReferenceTypeTransformations")
+  public void testCallableReferenceTypeTransformations() {
+    runTest("compiler/testData/klib/partial-linkage/callableReferenceTypeTransformations/");
   }
 
   @Test
@@ -63,6 +68,18 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
   }
 
   @Test
+  @TestMetadata("crossModuleInlining")
+  public void testCrossModuleInlining() {
+    runTest("compiler/testData/klib/partial-linkage/crossModuleInlining/");
+  }
+
+  @Test
+  @TestMetadata("crossModuleInliningInPreprocessedFunctions")
+  public void testCrossModuleInliningInPreprocessedFunctions() {
+    runTest("compiler/testData/klib/partial-linkage/crossModuleInliningInPreprocessedFunctions/");
+  }
+
+  @Test
   @TestMetadata("externalDeclarations")
   public void testExternalDeclarations() {
     runTest("compiler/testData/klib/partial-linkage/externalDeclarations/");
@@ -78,6 +95,12 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
   @TestMetadata("fakeOverridesUnboundClassifiers")
   public void testFakeOverridesUnboundClassifiers() {
     runTest("compiler/testData/klib/partial-linkage/fakeOverridesUnboundClassifiers/");
+  }
+
+  @Test
+  @TestMetadata("functionExcludedFromFirstStageInlining")
+  public void testFunctionExcludedFromFirstStageInlining() {
+    runTest("compiler/testData/klib/partial-linkage/functionExcludedFromFirstStageInlining/");
   }
 
   @Test
@@ -105,6 +128,42 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
   }
 
   @Test
+  @TestMetadata("inlineFunctions-withInliningInKlibsNative")
+  public void testInlineFunctions_withInliningInKlibsNative() {
+    runTest("compiler/testData/klib/partial-linkage/inlineFunctions-withInliningInKlibsNative/");
+  }
+
+  @Test
+  @TestMetadata("interop-changedFunction")
+  public void testInterop_changedFunction() {
+    runTest("compiler/testData/klib/partial-linkage/interop-changedFunction/");
+  }
+
+  @Test
+  @TestMetadata("intraModuleInlining")
+  public void testIntraModuleInlining() {
+    runTest("compiler/testData/klib/partial-linkage/intraModuleInlining/");
+  }
+
+  @Test
+  @TestMetadata("modifyInlineFunction")
+  public void testModifyInlineFunction() {
+    runTest("compiler/testData/klib/partial-linkage/modifyInlineFunction/");
+  }
+
+  @Test
+  @TestMetadata("modifyInlinePropertyGetter")
+  public void testModifyInlinePropertyGetter() {
+    runTest("compiler/testData/klib/partial-linkage/modifyInlinePropertyGetter/");
+  }
+
+  @Test
+  @TestMetadata("modifyInlinePropertySetter")
+  public void testModifyInlinePropertySetter() {
+    runTest("compiler/testData/klib/partial-linkage/modifyInlinePropertySetter/");
+  }
+
+  @Test
   @TestMetadata("noNonImplementedCallableFalsePositives")
   public void testNoNonImplementedCallableFalsePositives() {
     runTest("compiler/testData/klib/partial-linkage/noNonImplementedCallableFalsePositives/");
@@ -123,15 +182,27 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
   }
 
   @Test
+  @TestMetadata("referenceOperations")
+  public void testReferenceOperations() {
+    runTest("compiler/testData/klib/partial-linkage/referenceOperations/");
+  }
+
+  @Test
+  @TestMetadata("referenceOperationsNative")
+  public void testReferenceOperationsNative() {
+    runTest("compiler/testData/klib/partial-linkage/referenceOperationsNative/");
+  }
+
+  @Test
   @TestMetadata("referencingUnusableDeclarations")
   public void testReferencingUnusableDeclarations() {
     runTest("compiler/testData/klib/partial-linkage/referencingUnusableDeclarations/");
   }
 
   @Test
-  @TestMetadata("referencingUnusableDeclarationsWithRichReferences")
-  public void testReferencingUnusableDeclarationsWithRichReferences() {
-    runTest("compiler/testData/klib/partial-linkage/referencingUnusableDeclarationsWithRichReferences/");
+  @TestMetadata("referencingUnusableDeclarationsWithOldReferences")
+  public void testReferencingUnusableDeclarationsWithOldReferences() {
+    runTest("compiler/testData/klib/partial-linkage/referencingUnusableDeclarationsWithOldReferences/");
   }
 
   @Test
@@ -159,6 +230,18 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
   }
 
   @Test
+  @TestMetadata("removeInlineFunction")
+  public void testRemoveInlineFunction() {
+    runTest("compiler/testData/klib/partial-linkage/removeInlineFunction/");
+  }
+
+  @Test
+  @TestMetadata("removeInlineProperty")
+  public void testRemoveInlineProperty() {
+    runTest("compiler/testData/klib/partial-linkage/removeInlineProperty/");
+  }
+
+  @Test
   @TestMetadata("removeSealedSubclass")
   public void testRemoveSealedSubclass() {
     runTest("compiler/testData/klib/partial-linkage/removeSealedSubclass/");
@@ -168,12 +251,6 @@ public class JsPartialLinkageWithICTestCaseGenerated extends AbstractJsPartialLi
   @TestMetadata("replaceCallableReturnType")
   public void testReplaceCallableReturnType() {
     runTest("compiler/testData/klib/partial-linkage/replaceCallableReturnType/");
-  }
-
-  @Test
-  @TestMetadata("richReferencesOperations")
-  public void testRichReferencesOperations() {
-    runTest("compiler/testData/klib/partial-linkage/richReferencesOperations/");
   }
 
   @Test

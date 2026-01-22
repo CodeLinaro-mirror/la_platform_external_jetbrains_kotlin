@@ -6,13 +6,17 @@
 package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 
 import org.jetbrains.kotlin.backend.common.serialization.checkIsFunctionInterface
-import org.jetbrains.kotlin.backend.js.JsGenerationGranularity
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.ir.backend.js.*
-import org.jetbrains.kotlin.ir.backend.js.export.*
+import org.jetbrains.kotlin.ir.backend.js.jsexport.ExportModelToJsStatements
+import org.jetbrains.kotlin.ir.backend.js.jsexport.ExportedDeclaration
+import org.jetbrains.kotlin.ir.backend.js.jsexport.ExportedModule
 import org.jetbrains.kotlin.ir.backend.js.lower.JsCodeOutliningLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.StaticMembersLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.isBuiltInClass
+import org.jetbrains.kotlin.ir.backend.js.tsexport.TypeScriptFragment
+import org.jetbrains.kotlin.ir.backend.js.tsexport.joinTypeScriptFragments
+import org.jetbrains.kotlin.ir.backend.js.tsexport.toTypeScriptFragment
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.util.IdSignatureRenderer
@@ -22,19 +26,24 @@ import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.js.backend.JsToStringGenerationVisitor
 import org.jetbrains.kotlin.js.backend.NoOpSourceLocationConsumer
 import org.jetbrains.kotlin.js.backend.SourceLocationConsumer
-import org.jetbrains.kotlin.js.backend.ast.*
+import org.jetbrains.kotlin.js.backend.ast.JsCompositeBlock
+import org.jetbrains.kotlin.js.backend.ast.JsSingleLineComment
+import org.jetbrains.kotlin.js.common.makeValidES5Identifier
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
+import org.jetbrains.kotlin.js.config.JsGenerationGranularity
+import org.jetbrains.kotlin.js.config.ModuleKind
 import org.jetbrains.kotlin.js.config.SourceMapSourceEmbedding
 import org.jetbrains.kotlin.js.sourceMap.SourceFilePathResolver
 import org.jetbrains.kotlin.js.sourceMap.SourceMap3Builder
 import org.jetbrains.kotlin.js.sourceMap.SourceMapBuilderConsumer
 import org.jetbrains.kotlin.js.util.TextOutputImpl
-import org.jetbrains.kotlin.serialization.js.ModuleKind
-import org.jetbrains.kotlin.utils.memoryOptimizedMap
-import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import org.jetbrains.kotlin.utils.memoryOptimizedMap
 import java.io.File
 import java.util.*
+import org.jetbrains.kotlin.ir.backend.js.jsexport.ExportModelGenerator as JsExportModelGenerator
+import org.jetbrains.kotlin.ir.backend.js.tsexport.ExportModelGenerator as TsExportModelGenerator
 
 val String.safeModuleName: String
     get() {
@@ -43,7 +52,7 @@ val String.safeModuleName: String
         if (result.startsWith('<')) result = result.substring(1)
         if (result.endsWith('>')) result = result.substring(0, result.length - 1)
 
-        return sanitizeName("kotlin_$result", false)
+        return makeValidES5Identifier("kotlin_$result", false)
     }
 
 val IrModuleFragment.safeName: String
@@ -179,10 +188,12 @@ class IrModuleToJsTransformer(
     private class IrAndExportedDeclarations(val fragment: IrModuleFragment, val files: List<IrFileExports>)
 
     private fun associateIrAndExport(modules: Iterable<IrModuleFragment>): List<IrAndExportedDeclarations> {
-        val exportModelGenerator = ExportModelGenerator(backendContext, generateNamespacesForPackages = !isEsModules)
+        val tsExportModelGenerator = runIf(shouldGenerateTypeScriptDefinitions) {
+            TsExportModelGenerator(backendContext, generateNamespacesForPackages = !isEsModules)
+        }
 
         return modules.map { module ->
-            val files = exportModelGenerator.generateExportWithExternals(module.files)
+            val files = generateExportWithExternals(module.files, tsExportModelGenerator)
             IrAndExportedDeclarations(module, files)
         }
     }
@@ -237,8 +248,15 @@ class IrModuleToJsTransformer(
         dirtyFiles: Collection<IrFile>,
         allModules: Collection<IrModuleFragment>
     ): List<() -> JsIrProgramFragments> {
-        val exportModelGenerator = ExportModelGenerator(backendContext, generateNamespacesForPackages = !isEsModules)
-        val exportData = exportModelGenerator.generateExportWithExternals(dirtyFiles)
+        val exportData = generateExportWithExternals(
+            dirtyFiles,
+            runIf(shouldGenerateTypeScriptDefinitions) {
+                TsExportModelGenerator(
+                    backendContext,
+                    generateNamespacesForPackages = !isEsModules
+                )
+            },
+        )
         val mode = TranslationMode.fromFlags(production = false, backendContext.granularity, minimizedMemberNames = false)
 
         doStaticMembersLowering(allModules)
@@ -246,13 +264,26 @@ class IrModuleToJsTransformer(
         return exportData.map { { generateProgramFragment(it, mode) } }
     }
 
-    private fun ExportModelGenerator.generateExportWithExternals(irFiles: Collection<IrFile>): List<IrFileExports> {
+    private fun <E> generateExportWithExternals(rootFile: IrFile, generate: (IrPackageFragment) -> List<E>): List<E> {
+        val exports = generate(rootFile)
+        val additionalExports = backendContext.externalPackageFragment[rootFile.symbol]?.let(generate) ?: emptyList()
+        return additionalExports + exports
+    }
+
+    private fun generateExportWithExternals(
+        irFiles: Collection<IrFile>,
+        tsExportModelGenerator: TsExportModelGenerator?,
+    ): List<IrFileExports> {
+        val jsExportModelGenerator = JsExportModelGenerator(backendContext, generateNamespacesForPackages = !isEsModules)
         return irFiles.map { irFile ->
-            val exports = generateExport(irFile)
-            val additionalExports = backendContext.externalPackageFragment[irFile.symbol]?.let { generateExport(it) } ?: emptyList()
-            val allExports = additionalExports + exports
-            val tsDeclarations = runIf(shouldGenerateTypeScriptDefinitions) {
-                allExports.ifNotEmpty { toTypeScriptFragment(moduleKind) }
+            val allExports = generateExportWithExternals(irFile, jsExportModelGenerator::generateExport)
+            val tsDeclarations = if (tsExportModelGenerator != null) {
+                generateExportWithExternals(
+                    irFile,
+                    tsExportModelGenerator::generateExport
+                ).ifNotEmpty { toTypeScriptFragment(moduleKind) }
+            } else {
+                null
             }
             IrFileExports(irFile, allExports, tsDeclarations)
         }
@@ -396,7 +427,7 @@ class IrModuleToJsTransformer(
             .also {
                 it.dts = tsDeclarations
                 it.exports.statements += ExportModelToJsStatements(staticContext, backendContext.es6mode, { globalNames.declareFreshName(it, it) })
-                    .generateModuleExport(ExportedModule(mainModuleName, moduleKind, exports), internalModuleName, isEsModules)
+                    .generateModuleExport(ExportedModule(mainModuleName, exports), internalModuleName, isEsModules)
                 it.computeAndSaveNameBindings(emptySet(), nameGenerator)
             }
     }
@@ -658,9 +689,11 @@ fun generateSingleWrappedModuleBody(
     val sourceMapBuilderConsumer: SourceLocationConsumer
     if (sourceMapsInfo != null) {
         val sourceMapPrefix = sourceMapsInfo.sourceMapPrefix
+        val outputDir = sourceMapsInfo.outputDir?.resolve(moduleName.substringBeforeLast("/", ""))
+
         sourceMapBuilder = SourceMap3Builder(null, jsCode::getColumn, sourceMapPrefix)
 
-        val pathResolver = SourceFilePathResolver.create(sourceMapsInfo.sourceRoots, sourceMapPrefix, sourceMapsInfo.outputDir)
+        val pathResolver = SourceFilePathResolver.create(sourceMapsInfo.sourceRoots, sourceMapPrefix, outputDir)
 
         val sourceMapContentEmbedding =
             sourceMapsInfo.sourceMapContentEmbedding

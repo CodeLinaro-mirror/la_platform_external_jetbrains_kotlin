@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.gradle.utils.domainObjectSet
 import org.jetbrains.kotlin.gradle.utils.getExecOperations
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 import org.jetbrains.kotlin.gradle.utils.processes.ProcessLaunchOptions.Companion.processLaunchOptions
+import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import javax.inject.Inject
 
 @DisableCachingByDefault
@@ -40,7 +41,10 @@ internal constructor(
 ) : KotlinTest(execOps),
     RequiresNpmDependencies {
 
-    @Deprecated("Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.")
+    @Deprecated(
+        "Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.",
+        level = DeprecationLevel.ERROR
+    )
     @Suppress("DEPRECATION")
     constructor(
         compilation: KotlinJsIrCompilation,
@@ -110,7 +114,7 @@ internal constructor(
 
     @Input
     val nodeJsArgs: MutableList<String> =
-        mutableListOf()
+        if (compilation.wasmTarget == WasmTarget.WASI) mutableListOf("--experimental-wasm-exnref") else mutableListOf()
 
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         @Internal get() = testFramework!!.requiredNpmDependencies

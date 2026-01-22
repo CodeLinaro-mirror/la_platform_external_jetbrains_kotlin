@@ -8,13 +8,14 @@ package org.jetbrains.kotlin.fir.resolve.calls.overloads
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOverloadabilityHelper
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOverloadabilityHelper.ContextParameterShadowing
 import org.jetbrains.kotlin.fir.declarations.typeSpecificityComparatorProvider
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.resolve.inference.inferenceLogger
 import org.jetbrains.kotlin.fir.resolve.inference.inferenceComponents
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.resolve.calls.inference.runTransaction
 import org.jetbrains.kotlin.resolve.calls.results.*
 import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 
@@ -22,9 +23,9 @@ import org.jetbrains.kotlin.types.model.KotlinTypeMarker
 private const val MAX_COMPLEXITY_FOR_CONTEXT_PARAMETERS = 16
 
 class FirDeclarationOverloadabilityHelperImpl(val session: FirSession) : FirDeclarationOverloadabilityHelper {
-    override fun isConflicting(a: FirCallableSymbol<*>, b: FirCallableSymbol<*>, ignoreContextParameters: Boolean): Boolean {
-        val sigA = createSignature(a, ignoreContextParameters)
-        val sigB = createSignature(b, ignoreContextParameters)
+    override fun isConflicting(a: FirCallableSymbol<*>, b: FirCallableSymbol<*>): Boolean {
+        val sigA = createSignature(a, ignoreContextParameters = false)
+        val sigB = createSignature(b, ignoreContextParameters = false)
 
         return isEquallyOrMoreSpecific(sigA, sigB) && isEquallyOrMoreSpecific(sigB, sigA)
     }
@@ -32,74 +33,84 @@ class FirDeclarationOverloadabilityHelperImpl(val session: FirSession) : FirDecl
     override fun getContextParameterShadowing(
         a: FirCallableSymbol<*>,
         b: FirCallableSymbol<*>,
-    ): FirDeclarationOverloadabilityHelper.ContextParameterShadowing {
+    ): ContextParameterShadowing {
+        // Fast-path when either symbol has no context parameters.
+        if (a.contextParameterSymbols.none() || b.contextParameterSymbols.none()) {
+            return if (isConflicting(a, b)) ContextParameterShadowing.BothWays else ContextParameterShadowing.None
+        }
+
+        val sigA = createSignature(a, ignoreContextParameters = true)
+        val sigB = createSignature(b, ignoreContextParameters = true)
+
+        val csB = createEmptyConstraintSystem()
+        val stateB = csB.signatureComparisonStateIfEquallyOrMoreSpecific(sigA, sigB) ?: return ContextParameterShadowing.None
+
+        val csA = createEmptyConstraintSystem()
+        val stateA = csA.signatureComparisonStateIfEquallyOrMoreSpecific(sigB, sigA) ?: return ContextParameterShadowing.None
+
+        // The complexity of this check is O(a.contextParameterSymbols.size * b.contextParameterSymbols.size),
+        // to limit quadratic explosion, we only check below a certain threshold.
+        if (a.contextParameterSymbols.size * b.contextParameterSymbols.size > MAX_COMPLEXITY_FOR_CONTEXT_PARAMETERS) {
+            return ContextParameterShadowing.None
+        }
+
         // bShadowsA && aShadowsB => BothWays
         // bShadowsA && !aShadowsB => Shadowing
         // else                   => None
 
-        val bShadowsA = isShadowingContextParameters(b, a)
+        val bShadowsA = isShadowingContextParameters(b, a, csB, stateB)
         // Early return to skip needless computation of aShadowsB
-        if (!bShadowsA) return FirDeclarationOverloadabilityHelper.ContextParameterShadowing.None
+        if (!bShadowsA) return ContextParameterShadowing.None
 
-        val aShadowsB = isShadowingContextParameters(a, b)
+        val aShadowsB = isShadowingContextParameters(a, b, csA, stateA)
 
         return if (aShadowsB) {
-            FirDeclarationOverloadabilityHelper.ContextParameterShadowing.BothWays
+            ContextParameterShadowing.BothWays
         } else {
-            FirDeclarationOverloadabilityHelper.ContextParameterShadowing.Shadowing
+            ContextParameterShadowing.Shadowing
         }
+    }
+
+    override fun isExtensionShadowedByMember(extension: FirCallableSymbol<*>, member: FirCallableSymbol<*>): Boolean {
+        val sigExtension = createSignatureForPossiblyShadowedExtension(extension)
+        val sigMember = createSignature(member, ignoreContextParameters = true)
+
+        val cs = createEmptyConstraintSystem()
+        val state = cs.signatureComparisonStateIfEquallyOrMoreSpecific(sigExtension, sigMember) ?: return false
+
+        // The complexity of this check is O(a.contextParameterSymbols.size * b.contextParameterSymbols.size),
+        // to limit quadratic explosion, we only check below a certain threshold.
+        if (extension.contextParameterSymbols.size * member.contextParameterSymbols.size > MAX_COMPLEXITY_FOR_CONTEXT_PARAMETERS) {
+            return false
+        }
+
+        return isShadowingContextParameters(member, extension, cs, state)
     }
 
     private fun isShadowingContextParameters(
         a: FirCallableSymbol<*>,
         b: FirCallableSymbol<*>,
+        cs: ConeSimpleConstraintSystemImpl,
+        state: FlatSignatureComparisonState,
     ): Boolean {
-        // The complexity of this check is O(a.contextParameterSymbols.size * b.contextParameterSymbols.size),
-        // to limit quadratic explosion, we only check below a certain threshold.
-        if (a.contextParameterSymbols.size * b.contextParameterSymbols.size > MAX_COMPLEXITY_FOR_CONTEXT_PARAMETERS) {
-            return false
-        }
-
         // A is shadowing B if for every type in A's context parameter list, there is a type in B's context parameter list
         // that is equally or more specific.
 
-        fun singleTypeSignature(type: ConeKotlinType, symbol: FirCallableSymbol<*>): FlatSignature<FirCallableSymbol<*>> {
-            return FlatSignature(
-                origin = symbol,
-                typeParameters = symbol.typeParameterSymbols.map { it.toLookupTag() },
-                valueParameterTypes = listOf(type),
-                hasExtensionReceiver = false,
-                contextReceiverCount = 0,
-                hasVarargs = false,
-                numDefaults = 0,
-                isExpect = false,
-                isSyntheticMember = false
-            )
-        }
-
-        val bSingleTypeSignatures = b.contextParameterSymbols.map { singleTypeSignature(it.resolvedReturnType, b) }
-
-        return a.contextParameterSymbols.all {
-            val aType = singleTypeSignature(it.resolvedReturnType, a)
-            bSingleTypeSignatures.any { bType ->
-                isEquallyOrMoreSpecific(bType, aType)
+        return a.contextParameterSymbols.all { cpA ->
+            b.contextParameterSymbols.any { cpB ->
+                cs.system.runTransaction {
+                    !state.isLessSpecific(cpB.resolvedReturnType, cpA.resolvedReturnType)
+                }
             }
         }
     }
 
-    override fun isEquallyOrMoreSpecific(
+    private fun isEquallyOrMoreSpecific(
         sigA: FlatSignature<FirCallableSymbol<*>>,
         sigB: FlatSignature<FirCallableSymbol<*>>,
-    ): Boolean = createEmptyConstraintSystem().also {
-        session.inferenceLogger?.logStage("Some isEquallyOrMoreSpecific() call", it.constraintSystemMarker)
-    }.isSignatureEquallyOrMoreSpecific(
-        sigA,
-        sigB,
-        OverloadabilitySpecificityCallbacks,
-        session.typeSpecificityComparatorProvider?.typeSpecificityComparator ?: TypeSpecificityComparator.NONE,
-    )
+    ): Boolean = createEmptyConstraintSystem().signatureComparisonStateIfEquallyOrMoreSpecific(sigA, sigB) != null
 
-    override fun createSignature(declaration: FirCallableSymbol<*>, ignoreContextParameters: Boolean): FlatSignature<FirCallableSymbol<*>> {
+    private fun createSignature(declaration: FirCallableSymbol<*>, ignoreContextParameters: Boolean): FlatSignature<FirCallableSymbol<*>> {
         val valueParameters = (declaration as? FirFunctionSymbol<*>)?.valueParameterSymbols.orEmpty()
 
         return FlatSignature(
@@ -124,18 +135,17 @@ class FirDeclarationOverloadabilityHelperImpl(val session: FirSession) : FirDecl
     /**
      * See [org.jetbrains.kotlin.resolve.calls.results.createForPossiblyShadowedExtension]
      */
-    override fun createSignatureForPossiblyShadowedExtension(declaration: FirCallableSymbol<*>): FlatSignature<FirCallableSymbol<*>> {
+    private fun createSignatureForPossiblyShadowedExtension(declaration: FirCallableSymbol<*>): FlatSignature<FirCallableSymbol<*>> {
         val valueParameters = (declaration as? FirFunctionSymbol<*>)?.valueParameterSymbols.orEmpty()
 
         return FlatSignature(
             origin = declaration,
             typeParameters = declaration.typeParameterSymbols.map { it.toLookupTag() },
             valueParameterTypes = buildList<KotlinTypeMarker> {
-                declaration.contextParameterSymbols.mapTo(this) { it.resolvedReturnType }
                 valueParameters.mapTo(this) { it.resolvedReturnType }
             },
             hasExtensionReceiver = false,
-            contextReceiverCount = declaration.contextParameterSymbols.size,
+            contextReceiverCount = 0,
             hasVarargs = valueParameters.any { it.isVararg },
             numDefaults = 0,
             isExpect = declaration.isExpect,
@@ -143,7 +153,21 @@ class FirDeclarationOverloadabilityHelperImpl(val session: FirSession) : FirDecl
         )
     }
 
-    private fun createEmptyConstraintSystem(): SimpleConstraintSystem {
-        return ConeSimpleConstraintSystemImpl(session.inferenceComponents.createConstraintSystem(), session)
+    private fun createEmptyConstraintSystem(): ConeSimpleConstraintSystemImpl {
+        return ConeSimpleConstraintSystemImpl(session.inferenceComponents.createConstraintSystem(), session).also {
+            session.inferenceLogger?.logStage("Some isEquallyOrMoreSpecific() call", it.constraintSystemMarker)
+        }
+    }
+
+    private fun ConeSimpleConstraintSystemImpl.signatureComparisonStateIfEquallyOrMoreSpecific(
+        sigA: FlatSignature<FirCallableSymbol<*>>,
+        sigB: FlatSignature<FirCallableSymbol<*>>,
+    ): FlatSignatureComparisonState? {
+        return signatureComparisonStateIfEquallyOrMoreSpecific(
+            sigA,
+            sigB,
+            OverloadabilitySpecificityCallbacks,
+            session.typeSpecificityComparatorProvider?.typeSpecificityComparator ?: TypeSpecificityComparator.NONE
+        )
     }
 }

@@ -18,6 +18,12 @@ object SwiftIrTree : AbstractSwiftIrTreeBuilder() {
         kDoc = "The root interface of the Swift IR tree."
     }
 
+    val bridged by sealedElement {
+        customParentInVisitor = rootElement
+
+        +listField("bridges", bridgeType)
+    }
+
     val declarationParent by sealedElement()
 
     val declarationContainer by sealedElement {
@@ -38,7 +44,7 @@ object SwiftIrTree : AbstractSwiftIrTreeBuilder() {
     val module by element {
         customParentInVisitor = rootElement
         parent(mutableDeclarationContainer)
-        parent(named)
+        parent(scopeDefiningElement)
         +listField("imports", importType, isMutableList = true)
     }
 
@@ -84,64 +90,79 @@ object SwiftIrTree : AbstractSwiftIrTreeBuilder() {
         +field("extendedType", typeType)
     }
 
-    val named by sealedElement {
+    val scopeDefiningElement by sealedElement {
+        kDoc = "This interface describes elements (module or declaration) that have a name, define a scope and can appear as part of a Swift FQ name"
+
         +field("name", string)
     }
 
-    val namedDeclaration by sealedElement {
+    val scopeDefiningDeclaration by sealedElement {
+        kDoc = "This interface describes declarations that have a name, define a scope and can appear as part of a Swift FQ name"
+
         customParentInVisitor = declaration
         parent(declaration)
-        parent(named)
+        parent(scopeDefiningElement)
 
         visitorParameterName = "declaration"
     }
 
     val enum: Element by element {
-        customParentInVisitor = namedDeclaration
-        parent(namedDeclaration)
-        parent(mutableDeclarationContainer)
+        customParentInVisitor = scopeDefiningDeclaration
+        parent(scopeDefiningDeclaration)
+        parent(declarationContainer)
+        parent(protocolConformingDeclaration)
+    }
 
-        +listField("cases", enumCaseType)
+    val enumCase: Element by element {
+        customParentInVisitor = declaration
+        parent(declaration)
+        parent(bridged)
+
+        +field("name", string)
     }
 
     val struct: Element by element {
-        customParentInVisitor = namedDeclaration
-        parent(namedDeclaration)
+        customParentInVisitor = scopeDefiningDeclaration
+        parent(scopeDefiningDeclaration)
         parent(declarationContainer)
     }
 
     val protocol: Element by element {
-        customParentInVisitor = namedDeclaration
-        parent(namedDeclaration)
+        customParentInVisitor = scopeDefiningDeclaration
+        parent(scopeDefiningDeclaration)
         // FIXME KT-75706: Protocols are only mutable due to the fact that we reorder declarations at some late stage.
         parent(mutableDeclarationContainer)
         parent(classInhertingDeclaration)
         parent(protocolConformingDeclaration)
+        parent(bridged)
     }
 
     val `class`: Element by element {
-        customParentInVisitor = namedDeclaration
-        parent(namedDeclaration)
+        customParentInVisitor = scopeDefiningDeclaration
+        parent(scopeDefiningDeclaration)
         parent(declarationContainer)
         parent(classInhertingDeclaration)
         parent(protocolConformingDeclaration)
+        parent(bridged)
 
         +field("modality", modalityKind)
     }
 
     val `typealias`: Element by element {
-        customParentInVisitor = namedDeclaration
-        parent(namedDeclaration)
+        customParentInVisitor = scopeDefiningDeclaration
+        parent(scopeDefiningDeclaration)
 
         +field("type", typeType)
     }
 
     val callable by sealedElement {
         parent(declaration)
+        parent(bridged)
 
         +field("body", functionBodyType, nullable = true, mutable = true)
 
         +field("errorType", typeType)
+        +field("isAsync", boolean)
     }
 
     val init by element {
@@ -166,6 +187,8 @@ object SwiftIrTree : AbstractSwiftIrTreeBuilder() {
         +field("extensionReceiverParameter", parameterType, nullable = true)
         +listField("parameters", parameterType)
         +field("returnType", typeType)
+        +field("fixity", fixityType, nullable = true)
+
     }
 
     val accessor by sealedElement {
@@ -188,9 +211,23 @@ object SwiftIrTree : AbstractSwiftIrTreeBuilder() {
         parent(declaration)
         parent(declarationParent)
         parent(classMemberDeclaration)
+        parent(bridged)
 
         +field("name", string)
         +field("type", typeType)
+
+        +field("getter", getter)
+        +field("setter", setter, nullable = true)
+    }
+
+    val subscript by element {
+        customParentInVisitor = declaration
+        parent(declaration)
+        parent(declarationParent)
+        parent(classMemberDeclaration)
+
+        +listField("parameters", parameterType)
+        +field("returnType", typeType)
 
         +field("getter", getter)
         +field("setter", setter, nullable = true)

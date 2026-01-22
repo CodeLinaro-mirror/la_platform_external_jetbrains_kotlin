@@ -7,7 +7,6 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.plugin.mpp.GenerateProjectStructureMetadata
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages
-import org.jetbrains.kotlin.gradle.targets.js.d8.D8Plugin
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsTargetDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinTargetWithNodeJsDsl
 import org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinWasmTargetDsl
@@ -21,7 +20,6 @@ import plugins.configureDefaultPublishing
 import plugins.configureKotlinPomAttributes
 import plugins.publishing.configureMultiModuleMavenPublishing
 import plugins.publishing.copyAttributes
-import java.nio.file.Files
 import kotlin.io.path.copyTo
 
 plugins {
@@ -51,12 +49,16 @@ fun outgoingConfiguration(name: String, configure: Action<Configuration> = Actio
     }
 
 fun KotlinCommonCompilerOptions.mainCompilationOptions() {
-    languageVersion = KotlinVersion.KOTLIN_2_2
-    apiVersion = KotlinVersion.KOTLIN_2_2
+    languageVersion = KotlinVersion.KOTLIN_2_3
+    apiVersion = KotlinVersion.KOTLIN_2_3
     freeCompilerArgs.add("-Xstdlib-compilation")
     freeCompilerArgs.add("-Xdont-warn-on-error-suppression")
     freeCompilerArgs.add("-Xcontext-parameters")
     if (!kotlinBuildProperties.disableWerror) allWarningsAsErrors = true
+}
+
+fun KotlinCommonCompilerOptions.addReturnValueCheckerInfo() {
+    freeCompilerArgs.add("-Xreturn-value-checker=full")
 }
 
 val jvmBuiltinsRelativeDir = "libraries/stdlib/jvm/builtins"
@@ -98,6 +100,7 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
+                        addReturnValueCheckerInfo()
                     }
                 }
             }
@@ -122,6 +125,11 @@ kotlin {
 
             val main by getting {
                 compileTaskProvider.configure {
+                    // use os.arch as an input property of the compilation task
+                    // to avoid resuing compilation results from the build cache
+                    // produced on the other CPU architecture due to KT-53258
+                    inputs.property("os.arch", providers.systemProperty("os.arch"))
+
                     this as UsesKotlinJavaToolchain
                     kotlinJavaToolchain.toolchain.use(getToolchainLauncherFor(JdkMajorVersion.JDK_11_0))
                     compilerOptions {
@@ -143,6 +151,7 @@ kotlin {
                             )
                         )
                         mainCompilationOptions()
+                        addReturnValueCheckerInfo()
                     }
                 }
                 defaultSourceSet {
@@ -246,6 +255,7 @@ kotlin {
                 listOf(
                     "-Xallow-kotlin-package",
                     "-Xexpect-actual-classes",
+                    "-Xklib-ir-inliner=intra-module",
                 )
             )
         }
@@ -260,6 +270,7 @@ kotlin {
                             diagnosticNamesArg,
                         )
                     )
+                    compilerOptions.addReturnValueCheckerInfo()
                 }
             }
         }
@@ -272,6 +283,9 @@ kotlin {
                 listOfNotNull(
                     "-Xallow-kotlin-package",
                     "-Xexpect-actual-classes",
+                    "-Xklib-ir-inliner=intra-module",
+                    "-source-map=false",
+                    "-source-map-embed-sources=",
                     diagnosticNamesArg
                 )
             )
@@ -280,6 +294,7 @@ kotlin {
             val main by getting {
                 compileTaskProvider.configure {
                     compilerOptions.mainCompilationOptions()
+                    compilerOptions.addReturnValueCheckerInfo()
                     compilerOptions.freeCompilerArgs.add("-Xir-module-name=$KOTLIN_WASM_STDLIB_NAME")
                 }
             }
@@ -312,6 +327,9 @@ kotlin {
                     "-nostdlib",
                 )
             )
+        }
+        nativeTarget.compilations["main"].compileTaskProvider.configure {
+            compilerOptions.addReturnValueCheckerInfo()
         }
     }
 
@@ -398,7 +416,15 @@ kotlin {
             kotlin.srcDir("common-non-jvm/src")
         }
 
+        val webMain by creating {
+            dependsOn(commonMain.get())
+            kotlin {
+                srcDir("common-js-wasmjs/src")
+            }
+        }
+
         val jsMain by getting {
+            dependsOn(webMain)
             dependsOn(commonNonJvmMain)
             val prepareJsIrMainSources by tasks.registering(Sync::class)
             kotlin {
@@ -498,6 +524,7 @@ kotlin {
         }
 
         val wasmJsMain by getting {
+            dependsOn(webMain)
             dependsOn(wasmCommonMain)
             kotlin {
                 srcDir("wasm/js/builtins")
@@ -790,14 +817,6 @@ tasks {
             enabled = false  // Causes out-of-memory in CI: KTI-2150
         }
     }
-
-    named("compileTestDevelopmentExecutableKotlinWasmJs", KotlinJsIrLink::class) {
-        enabled = false
-    }
-    named("compileTestDevelopmentExecutableKotlinWasmWasi", KotlinJsIrLink::class) {
-        enabled = false
-    }
-
     val wasmWasiNodeTest by existing {
         if (!kotlinBuildProperties.getBoolean("kotlin.stdlib.wasi.tests")) {
             enabled = false

@@ -20,8 +20,8 @@ import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirExpressionStub
+import org.jetbrains.kotlin.fir.generatedContextParameterName
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaField
-import org.jetbrains.kotlin.fir.java.hasJvmFieldAnnotation
 import org.jetbrains.kotlin.fir.lazy.Fir2IrLazyClass
 import org.jetbrains.kotlin.fir.originalForSubstitutionOverride
 import org.jetbrains.kotlin.fir.references.toResolvedBaseSymbol
@@ -507,9 +507,13 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
         get() = when {
             hasExplicitBackingField -> backingField?.visibility ?: status.visibility
             isConst -> status.visibility
-            hasJvmFieldAnnotation(session) -> status.visibility
-            origin == FirDeclarationOrigin.ScriptCustomization.ResultProperty -> status.visibility
-            else -> Visibilities.Private
+            else -> {
+                extensions.specialBackingFieldVisibility(this, session)?.let { return it }
+                when {
+                    origin == FirDeclarationOrigin.ScriptCustomization.ResultProperty -> status.visibility
+                    else -> Visibilities.Private
+                }
+            }
         }
 
     internal fun createIrField(
@@ -747,7 +751,7 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
                 startOffset = startOffset,
                 endOffset = endOffset,
                 origin = origin,
-                name = valueParameter.name,
+                name = valueParameter.generatedContextParameterName ?: valueParameter.name,
                 type = type,
                 isAssignable = valueParameter.containingDeclarationSymbol.fir.let { it is FirCallableDeclaration && it.shouldParametersBeAssignable(c) },
                 symbol = IrValueParameterSymbolImpl(),
@@ -830,8 +834,9 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
                     startOffset, endOffset, IrDeclarationOrigin.PROPERTY_DELEGATE,
                     NameUtils.propertyDelegateName(property.name), property.delegate!!.resolvedType.toIrType(),
                     isVar = false, isConst = false, isLateinit = false
-                )
-                delegate.parent = irParent
+                ).also {
+                    it.parent = irParent
+                }
                 getter = createIrPropertyAccessor(
                     property.getter, property, this, symbols.getterSymbol, type, irParent, false,
                     IrDeclarationOrigin.DELEGATED_PROPERTY_ACCESSOR, startOffset, endOffset
@@ -961,7 +966,7 @@ class Fir2IrCallableDeclarationsGenerator(private val c: Fir2IrComponents) : Fir
                 c.session.typeContext.newTypeCheckerState(errorTypesEqualToAnything = false, stubTypesEqualToAnything = false),
                 containerOfFakeOverride,
                 containerOfOriginalCallable
-            ).firstOrNull() as ConeKotlinType? ?: return defaultType
+            ).firstOrNull()?.asCone() ?: return defaultType
             return correspondingSupertype.toIrType()
         }
 

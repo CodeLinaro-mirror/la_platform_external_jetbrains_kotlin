@@ -8,12 +8,11 @@ package org.jetbrains.kotlin.codegen.inline
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.kotlin.analyzer.ModuleInfo
 import org.jetbrains.kotlin.codegen.*
-import org.jetbrains.kotlin.codegen.SamWrapperCodegen.SAM_WRAPPER_SUFFIX
 import org.jetbrains.kotlin.codegen.optimization.common.intConstant
+import org.jetbrains.kotlin.codegen.optimization.common.isMeaningful
 import org.jetbrains.kotlin.codegen.optimization.common.nodeType
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapperBase
-import org.jetbrains.kotlin.codegen.`when`.WhenByEnumsMapping
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinder
 import org.jetbrains.kotlin.name.ClassId
@@ -81,7 +80,7 @@ internal inline fun getMethodNode(classData: ByteArray, classType: Type, crossin
                 throw AssertionError("Can't find proper '$name' method for inline: ambiguity between '${existing.name + existing.desc}' and '${name + desc}'")
             }
             node = MethodNode(Opcodes.API_VERSION, access, name, desc, signature, exceptions)
-            return node!!
+            return node
         }
     }, ClassReader.SKIP_FRAMES or if (GENERATE_SMAP) 0 else ClassReader.SKIP_DEBUG)
 
@@ -111,6 +110,26 @@ internal fun findVirtualFileImprecise(state: GenerationState, internalClassName:
     return findVirtualFile(state, ClassId(packageFqName, Name.identifier(classNameWithDollars)))
 }
 
+fun classFileContainsMethod(classId: ClassId, state: GenerationState, method: Method): Boolean? {
+    val bytes = findVirtualFile(state, classId)?.contentsToByteArray() ?: return null
+    var found = false
+    ClassReader(bytes).accept(object : ClassVisitor(Opcodes.API_VERSION) {
+        override fun visitMethod(
+            access: Int,
+            name: String?,
+            descriptor: String?,
+            signature: String?,
+            exceptions: Array<out String>?
+        ): MethodVisitor? {
+            if (name == method.name && descriptor == method.descriptor) {
+                found = true
+            }
+            return super.visitMethod(access, name, descriptor, signature, exceptions)
+        }
+    }, ClassReader.SKIP_FRAMES)
+    return found
+}
+
 internal fun isInvokeOnLambda(owner: String, name: String): Boolean {
     return OperatorNameConventions.INVOKE.asString() == name && owner.isNumberedFunctionInternalName()
 }
@@ -124,7 +143,7 @@ internal fun isAnonymousConstructorCall(internalName: String, methodName: String
 private fun isConstructor(methodName: String) = "<init>" == methodName
 
 internal fun isWhenMappingAccess(internalName: String, fieldName: String): Boolean =
-    fieldName.startsWith(WhenByEnumsMapping.MAPPING_ARRAY_FIELD_PREFIX) && internalName.endsWith(WhenByEnumsMapping.MAPPINGS_CLASS_NAME_POSTFIX)
+    fieldName.startsWith("\$EnumSwitchMapping$") && internalName.endsWith("\$WhenMappings")
 
 internal fun isAnonymousSingletonLoad(internalName: String, fieldName: String): Boolean =
     JvmAbi.INSTANCE_FIELD == fieldName && isAnonymousClass(internalName)
@@ -144,7 +163,7 @@ private fun isOldSamWrapper(internalName: String) =
     internalName.contains("\$sam$") && internalName.substringAfter("\$i$", "").run { length == 8 && toLongOrNull(16) != null }
 
 internal fun isSamWrapper(internalName: String) =
-    (internalName.endsWith(SAM_WRAPPER_SUFFIX) && internalName.contains("\$sam\$i\$")) || isOldSamWrapper(internalName)
+    (internalName.endsWith("$0") && internalName.contains("\$sam\$i\$")) || isOldSamWrapper(internalName)
 
 
 internal fun isSamWrapperConstructorCall(internalName: String, methodName: String) =
@@ -220,6 +239,37 @@ fun insertNodeBefore(from: MethodNode, to: MethodNode, beforeNode: AbstractInsnN
         to.instructions.insertBefore(beforeNode, next)
     }
 }
+
+fun getLineNumberOrNull(insn: AbstractInsnNode?): Int? {
+    var cur: AbstractInsnNode? = insn
+    while (cur != null) {
+        if (cur is LineNumberNode) {
+            return cur.line
+        }
+        cur = cur.previous
+    }
+    return null
+}
+
+private fun getFirstFinallyOperationInstructionOrNull(startIns: AbstractInsnNode, endInsExclusive: AbstractInsnNode): AbstractInsnNode? {
+    var cur: AbstractInsnNode? = startIns
+    while (cur != null && cur != endInsExclusive) {
+        cur = when {
+            !cur.isMeaningful -> cur.next
+            isFinallyMarker(cur.next) -> cur.next.next
+            else -> return cur
+        }
+    }
+    return null
+}
+
+/*
+ * Finds the line number specified for the first "operation" instruction (i.e., not label, linenumber, frame or "finally" marker)
+ * of the given instructions of "finally" block, no matter if the line number specified inside or before the block.
+ * Returns `null` if there are no operation instructions in the block, or there is no line number specified for the first one of them.
+ */
+fun getFirstFinallyOperationLineNumberOrNull(startIns: AbstractInsnNode, endInsExclusive: AbstractInsnNode): Int? =
+    getLineNumberOrNull(getFirstFinallyOperationInstructionOrNull(startIns, endInsExclusive))
 
 fun createEmptyMethodNode() = MethodNode(Opcodes.API_VERSION, 0, "fake", "()V", null, null)
 
@@ -631,4 +681,18 @@ fun cloneMethodNode(methodNode: MethodNode): MethodNode {
             methodNode.exceptions.toTypedArray()
         ).also(methodNode::accept)
     }
+}
+
+fun isCatchStoreInstruction(insn: AbstractInsnNode): Boolean = resolveCatchStoreInstruction(insn) != null
+
+fun resolveCatchStoreInstruction(insn: AbstractInsnNode): AbstractInsnNode? {
+    if (insn.opcode == Opcodes.ASTORE) return insn
+
+    val marker = insn.next?.next ?: return null
+    if (!ReifiedTypeInliner.isOperationReifiedMarker(marker)) return null
+
+    val afterMarker = marker.next
+    if (afterMarker.opcode == Opcodes.ASTORE) return afterMarker
+
+    return null
 }

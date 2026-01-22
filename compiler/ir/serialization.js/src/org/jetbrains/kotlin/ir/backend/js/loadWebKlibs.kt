@@ -11,12 +11,12 @@ import org.jetbrains.kotlin.backend.common.loadFriendLibraries
 import org.jetbrains.kotlin.backend.common.reportLoadingProblemsIfAny
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.messageCollector
-import org.jetbrains.kotlin.ir.backend.js.checkers.JsStandardLibrarySpecialCompatibilityChecker
-import org.jetbrains.kotlin.ir.backend.js.checkers.WasmStandardLibrarySpecialCompatibilityChecker
+import org.jetbrains.kotlin.ir.backend.js.checkers.JsLibrarySpecialCompatibilityChecker
+import org.jetbrains.kotlin.ir.backend.js.checkers.WasmLibrarySpecialCompatibilityChecker
 import org.jetbrains.kotlin.js.config.friendLibraries
 import org.jetbrains.kotlin.js.config.includes
 import org.jetbrains.kotlin.js.config.libraries
-import org.jetbrains.kotlin.js.config.zipFileSystemAccessor
+import org.jetbrains.kotlin.config.zipFileSystemAccessor
 import org.jetbrains.kotlin.library.KotlinAbiVersion
 import org.jetbrains.kotlin.library.loader.KlibLoader
 import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
@@ -42,8 +42,8 @@ fun loadWebKlibsInProductionPipeline(
     )
 
     val isWasm = platformChecker is KlibPlatformChecker.Wasm
-    val stdlibChecker = if (isWasm) WasmStandardLibrarySpecialCompatibilityChecker else JsStandardLibrarySpecialCompatibilityChecker
-    stdlibChecker.check(klibs.all, configuration.messageCollector)
+    val checker = if (isWasm) WasmLibrarySpecialCompatibilityChecker else JsLibrarySpecialCompatibilityChecker
+    checker.check(klibs.all, configuration.messageCollector)
 
     return klibs
 }

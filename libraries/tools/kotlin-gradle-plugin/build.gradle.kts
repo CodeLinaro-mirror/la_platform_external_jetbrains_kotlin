@@ -8,6 +8,7 @@ plugins {
     id("kotlin-git.gradle-build-conventions.binary-compatibility-extended")
     id("android-sdk-provisioner")
     id("asm-deprecating-transformer")
+    id("project-tests-convention")
     `java-test-fixtures`
 }
 
@@ -32,23 +33,44 @@ kotlin {
             )
         )
     }
+}
 
-    tasks.named<Test>("test") {
-        useJUnit {
-            exclude("**/*LincheckTest.class")
-        }
+registerKotlinSourceForVersionRange(
+    GradlePluginVariant.GRADLE_MIN,
+    GradlePluginVariant.GRADLE_82,
+)
+
+registerKotlinSourceForVersionRange(
+    GradlePluginVariant.GRADLE_MIN,
+    GradlePluginVariant.GRADLE_86,
+)
+
+registerKotlinSourceForVersionRange(
+    GradlePluginVariant.GRADLE_MIN,
+    GradlePluginVariant.GRADLE_811,
+)
+
+tasks.test {
+    useJUnit {
+        exclude("**/*LincheckTest.class")
     }
-
-    tasks.register<Test>("lincheckTest") {
-        javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_11_0))
-
-        jvmArgs(
-            "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
-            "--add-exports", "java.base/jdk.internal.util=ALL-UNNAMED",
-            "--add-exports", "java.base/sun.security.action=ALL-UNNAMED"
-        )
-        filter { include("**/*LincheckTest.class") }
+    val jdk8Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_1_8)
+    val jdk11Provider = project.getToolchainJdkHomeFor(JdkMajorVersion.JDK_11_0)
+    doFirst {
+        systemProperty("jdk8Home", jdk8Provider.get())
+        systemProperty("jdk11Home", jdk11Provider.get())
     }
+}
+
+tasks.register<Test>("lincheckTest") {
+    javaLauncher.set(project.getToolchainLauncherFor(JdkMajorVersion.JDK_11_0))
+
+    jvmArgs(
+        "--add-opens", "java.base/jdk.internal.misc=ALL-UNNAMED",
+        "--add-exports", "java.base/jdk.internal.util=ALL-UNNAMED",
+        "--add-exports", "java.base/sun.security.action=ALL-UNNAMED"
+    )
+    filter { include("**/*LincheckTest.class") }
 }
 
 binaryCompatibilityValidator {
@@ -85,7 +107,8 @@ binaryCompatibilityValidator {
     }
 }
 
-val unpublishedCompilerRuntimeDependencies = listOf( // TODO: remove in KT-70247
+val unpublishedCompilerRuntimeDependencies = listOf(
+    // TODO: remove in KT-70247
     ":compiler:cli", // for MessageRenderer, related to MessageCollector usage
     ":compiler:cli-common", // for compiler arguments setup, for logging via MessageCollector, CompilerSystemProperties, ExitCode
     ":compiler:compiler.version", // for user projects buildscripts, `loadCompilerVersion`
@@ -101,23 +124,12 @@ val unpublishedCompilerRuntimeDependencies = listOf( // TODO: remove in KT-70247
     ":wasm:wasm.config", // for k/js task
 )
 
+val coreDepsVersion = libs.versions.kotlin.`for`.gradle.plugins.compilation.get()
+
 dependencies {
     commonApi(platform(project(":kotlin-gradle-plugins-bom")))
     commonApi(project(":kotlin-gradle-plugin-api"))
-    commonApi(project(":kotlin-gradle-plugin-model"))
     commonApi(project(":libraries:tools:gradle:fus-statistics-gradle-plugin"))
-
-    // Following two dependencies is a workaround for IDEA import to pick-up them correctly
-    commonCompileOnly(project(":kotlin-gradle-plugin-api")) {
-        capabilities {
-            requireCapability("org.jetbrains.kotlin:kotlin-gradle-plugin-api-common")
-        }
-    }
-    commonCompileOnly(project(":kotlin-gradle-plugin-model")) {
-        capabilities {
-            requireCapability("org.jetbrains.kotlin:kotlin-gradle-plugin-model-common")
-        }
-    }
 
     for (compilerRuntimeDependency in unpublishedCompilerRuntimeDependencies) {
         commonCompileOnly(project(compilerRuntimeDependency)) { isTransitive = false }
@@ -136,11 +148,26 @@ dependencies {
     commonCompileOnly(project(":kotlin-gradle-statistics"))
     commonCompileOnly(project(":kotlin-gradle-build-metrics"))
     commonCompileOnly(project(":compiler:build-tools:kotlin-build-tools-jdk-utils"))
-    commonCompileOnly(libs.android.gradle.plugin.gradle.api) { isTransitive = false }
-    commonCompileOnly(libs.android.gradle.plugin.gradle) { isTransitive = false }
-    commonCompileOnly(libs.android.gradle.plugin.builder) { isTransitive = false }
-    commonCompileOnly(libs.android.gradle.plugin.builder.model) { isTransitive = false }
-    commonCompileOnly(libs.android.tools.common) { isTransitive = false }
+    commonCompileOnly(libs.android.gradle.plugin.gradle.api) {
+        overrideTargetJvmVersion(11)
+        isTransitive = false
+    }
+    commonCompileOnly(libs.android.gradle.plugin.gradle) {
+        overrideTargetJvmVersion(11)
+        isTransitive = false
+    }
+    commonCompileOnly(libs.android.gradle.plugin.builder) {
+        overrideTargetJvmVersion(11)
+        isTransitive = false
+    }
+    commonCompileOnly(libs.android.gradle.plugin.builder.model) {
+        overrideTargetJvmVersion(11)
+        isTransitive = false
+    }
+    commonCompileOnly(libs.android.tools.common) {
+        overrideTargetJvmVersion(11)
+        isTransitive = false
+    }
     commonCompileOnly(commonDependency("org.jetbrains.teamcity:serviceMessages"))
     commonCompileOnly(libs.develocity.gradlePlugin)
     commonCompileOnly(commonDependency("com.google.code.gson:gson"))
@@ -192,12 +219,12 @@ dependencies {
     commonCompileOnly("org.bouncycastle:bcpg-jdk18on:1.80")
 
     testCompileOnly(project(":compiler"))
-    testCompileOnly(project(":kotlin-annotation-processing"))
 
     testImplementation(commonDependency("org.jetbrains.teamcity:serviceMessages"))
-    testImplementation(projectTests(":kotlin-build-common"))
+    testImplementation(testFixtures(project(":kotlin-build-common")))
+    testImplementation(testFixtures(project(":compiler:test-infrastructure-utils")))
     testImplementation(project(":kotlin-compiler-runner"))
-    testImplementation(kotlinTest("junit"))
+    testImplementation(kotlin("test-junit", coreDepsVersion))
     testImplementation(libs.junit.jupiter.api)
 
     testImplementation(project(":kotlin-gradle-statistics"))
@@ -225,10 +252,10 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
  * │   └── protobuf-java-util:3.22.3
  * ├── io.netty
  * │   ├── netty-buffer:*
- * │   ├── netty-codec-http:* → 4.1.118.Final
- * │   ├── netty-codec-http2:* → 4.1.118.Final
- * │   ├── netty-common:* → 4.1.118.Final
- * │   └── netty-handler:* → 4.1.118.Final
+ * │   ├── netty-codec-http:* → 4.1.127.Final
+ * │   ├── netty-codec-http2:* → 4.1.127.Final
+ * │   ├── netty-common:* → 4.1.127.Final
+ * │   └── netty-handler:* → 4.1.127.Final
  * ├── org.apache.commons
  * │   ├── commons-compress:* → 1.27.1
  * │   └── commons-io:* → 2.16.1
@@ -244,6 +271,8 @@ if (kotlinBuildProperties.isInJpsBuildIdeaSync) {
  *    - CVE-2024-29025: Remote code execution risk
  *    - CVE-2023-4586: Information disclosure vulnerability
  *    - CVE-2023-34462: Potential denial of service
+ *    - CVE-2025-58056: Inconsistent Interpretation of HTTP Requests
+ *    - CVE-2025-58057: mproper Handling of Highly Compressed Data
  *
  * 3. Bouncy Castle
  *    - CVE-2024-34447: Cryptographic security issue
@@ -267,8 +296,13 @@ configurations.all {
                 "netty-handler-proxy",
             ).contains(requested.name)
         ) {
-            useVersion("4.1.118.Final")
-            because("CVE-2025-25193, CVE-2024-47535, CVE-2024-29025, CVE-2023-4586, CVE-2023-34462")
+            useVersion("4.1.127.Final")
+            because("CVE-2025-25193, CVE-2024-47535, CVE-2024-29025, CVE-2023-4586, CVE-2023-34462, CVE-2025-55163, CVE-2025-58056, CVE-2025-58057")
+        }
+
+        if (requested.group == "org.apache.commons" && requested.name == "commons-lang3") {
+            useVersion(libs.versions.commons.lang.get())
+            because("CVE-2025-48924")
         }
 
         // Bouncy Castle
@@ -355,7 +389,6 @@ tasks {
         asmDeprecation {
             val exclusions = listOf(
                 "org.jetbrains.kotlin.gradle.**", // part of the plugin
-                "org.jetbrains.kotlin.project.model.**", // part of the plugin
                 "org.jetbrains.kotlin.statistics.**", // part of the plugin
                 "org.jetbrains.kotlin.tooling.**", // part of the plugin
                 "org.jetbrains.kotlin.org.**", // already shadowed dependencies
@@ -411,8 +444,10 @@ tasks.named("validatePlugins") {
     enabled = false
 }
 
-projectTest {
-    workingDir = rootDir
+projectTests {
+    testTask(jUnitMode = JUnitMode.JUnit4) {
+        workingDir = rootDir
+    }
 }
 
 gradlePlugin {
@@ -540,7 +575,7 @@ if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
     }
 
     functionalTestCompilation.configurations.pluginConfiguration.dependencies.add(
-        dependencies.create("org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable")
+        dependencies.create("org.jetbrains.kotlin:kotlin-serialization-compiler-plugin-embeddable:${libs.versions.kotlin.`for`.gradle.plugins.compilation.get()}")
     )
     functionalTestCompilation.associateWith(kotlin.target.compilations.getByName(gradlePluginVariantForFunctionalTests.sourceSetName))
     functionalTestCompilation.associateWith(kotlin.target.compilations.getByName("common"))
@@ -591,6 +626,19 @@ if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
         }
 
         systemProperty("resourcesPath", layout.projectDirectory.dir("src/functionalTest/resources").asFile)
+
+        //region custom Maven Local directory
+        // The Maven Local dir that Gradle uses can be customised via system property `maven.repo.local`.
+        // The functional tests require artifacts are published to Maven Local.
+        // To make sure the tests uses the same `maven.repo.local` as is configured
+        // in the buildscript, forward the value of `maven.repo.local` into the test process.
+        val mavenRepoLocal = providers.systemProperty("maven.repo.local").orNull
+        if (mavenRepoLocal != null) {
+            // Only set `maven.repo.local` if it's present in the buildscript,
+            // to avoid `maven.repo.local` being `null`.
+            systemProperty("maven.repo.local", mavenRepoLocal)
+        }
+        //endregion
     }
 
     dependencies {
@@ -610,6 +658,7 @@ if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
         implementation("org.reflections:reflections:0.10.2")
         implementation(project(":compose-compiler-gradle-plugin"))
         implementation(libs.kotlinx.serialization.json)
+        implementation(intellijPlatformUtil())
     }
 
     tasks.named("check") {

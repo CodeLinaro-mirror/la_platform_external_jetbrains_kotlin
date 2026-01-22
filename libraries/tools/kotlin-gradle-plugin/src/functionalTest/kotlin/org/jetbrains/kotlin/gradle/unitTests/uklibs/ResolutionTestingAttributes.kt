@@ -87,8 +87,7 @@ val kmpIosX64MetadataVariantAttributes = mapOf(
     "org.jetbrains.kotlin.platform.type" to "native"
 )
 
-val kmpJsVariantAttributes = mutableMapOf(
-    "artifactType" to "org.jetbrains.kotlin.klib",
+val kmpJsApiVariantAttributes = mutableMapOf(
     "org.gradle.category" to "library",
     "org.gradle.jvm.environment" to "non-jvm",
     "org.gradle.usage" to "kotlin-api",
@@ -96,8 +95,15 @@ val kmpJsVariantAttributes = mutableMapOf(
     "org.jetbrains.kotlin.js.compiler" to "ir",
     "org.jetbrains.kotlin.platform.type" to "js",
 )
-val kmpWasmJsVariantAttributes = mutableMapOf(
-    "artifactType" to "org.jetbrains.kotlin.klib",
+val kmpJsRuntimeVariantAttributes = mutableMapOf(
+    "org.gradle.category" to "library",
+    "org.gradle.jvm.environment" to "non-jvm",
+    "org.gradle.usage" to "kotlin-runtime",
+    "org.jetbrains.kotlin.cinteropCommonizerArtifactType" to "klib",
+    "org.jetbrains.kotlin.js.compiler" to "ir",
+    "org.jetbrains.kotlin.platform.type" to "js",
+)
+val kmpWasmJsApiVariantAttributes = mutableMapOf(
     "org.gradle.category" to "library",
     "org.gradle.jvm.environment" to "non-jvm",
     "org.gradle.usage" to "kotlin-api",
@@ -105,9 +111,16 @@ val kmpWasmJsVariantAttributes = mutableMapOf(
     "org.jetbrains.kotlin.platform.type" to "wasm",
     "org.jetbrains.kotlin.wasm.target" to "js",
 )
+val kmpWasmJsRuntimeVariantAttributes = mutableMapOf(
+    "org.gradle.category" to "library",
+    "org.gradle.jvm.environment" to "non-jvm",
+    "org.gradle.usage" to "kotlin-runtime",
+    "org.jetbrains.kotlin.cinteropCommonizerArtifactType" to "klib",
+    "org.jetbrains.kotlin.platform.type" to "wasm",
+    "org.jetbrains.kotlin.wasm.target" to "js",
+)
 
 val kmpIosArm64VariantAttributes = mapOf(
-    "artifactType" to "org.jetbrains.kotlin.klib",
     "org.gradle.category" to "library",
     "org.gradle.jvm.environment" to "non-jvm",
     "org.gradle.usage" to "kotlin-api",
@@ -116,7 +129,6 @@ val kmpIosArm64VariantAttributes = mapOf(
     "org.jetbrains.kotlin.platform.type" to "native",
 )
 val kmpIosX64VariantAttributes = mapOf(
-    "artifactType" to "org.jetbrains.kotlin.klib",
     "org.gradle.category" to "library",
     "org.gradle.jvm.environment" to "non-jvm",
     "org.gradle.usage" to "kotlin-api",
@@ -125,6 +137,7 @@ val kmpIosX64VariantAttributes = mapOf(
     "org.jetbrains.kotlin.platform.type" to "native",
 )
 
+// This attribute is injected into "jar" artifact type here: https://github.com/gradle/gradle/blob/6bcd8bf208853950708af3c49e44eb9b974a15f3/platforms/jvm/platform-jvm/src/main/java/org/gradle/api/plugins/JvmEcosystemPlugin.java#L77-L79
 val libraryElementsJar = mapOf(
     "org.gradle.libraryelements" to "jar",
 )
@@ -132,7 +145,7 @@ val libraryElementsJar = mapOf(
 val packed = mapOf(
     "org.jetbrains.kotlin.klib.packaging" to "packed",
 )
-// In most publications we override artifactType as "org.jetbrains.kotlin.klib" at variant-level
+
 val klibArtifact = mapOf(
     "artifactType" to "klib",
 )
@@ -144,11 +157,4 @@ val uklibArtifact = mapOf(
 )
 val klibCinteropCommonizerType = mapOf(
     "org.jetbrains.kotlin.cinteropCommonizerArtifactType" to "klib",
-)
-
-val notAMetadataJar = mapOf(
-    "org.jetbrains.kotlin.isMetadataJar" to "not-a-metadata-jar",
-)
-val maybeAMetadataJar = mapOf(
-    "org.jetbrains.kotlin.isMetadataJar" to "unknown",
 )

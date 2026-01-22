@@ -33,7 +33,6 @@ import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_KMP_ISOLATED_PROJECT_SUPPORT
-import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_INTRANSITIVE_METADATA_CONFIGURATION
 import org.jetbrains.kotlin.gradle.plugin.cocoapods.CocoapodsExtension
 import org.jetbrains.kotlin.gradle.plugin.getExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
@@ -42,6 +41,7 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.consumption.KmpResolutionSt
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.KmpPublicationStrategy
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.KotlinArtifactsExtensionImpl
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.kotlinArtifactsExtension
+import org.jetbrains.kotlin.gradle.util.propertiesExtension
 import org.jetbrains.kotlin.gradle.utils.getFile
 import org.jetbrains.kotlin.konan.target.XcodeVersion
 
@@ -53,8 +53,8 @@ fun buildProject(
     .apply(projectBuilder)
     .build()
     .also {
-        disableDownloadingKonanFromMavenCentral(it)
         it.enableDependencyVerification(false)
+        it.setFunctionalTestMode()
     }
     .apply(configureProject)
     .let { it as ProjectInternal }
@@ -162,10 +162,6 @@ internal fun Project.setUklibResolutionStrategy(strategy: KmpResolutionStrategy)
     propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_KMP_RESOLUTION_STRATEGY, strategy.propertyName)
 }
 
-fun Project.enableIntransitiveMetadataConfiguration(enabled: Boolean = true) {
-    propertiesExtension.set(KOTLIN_MPP_ENABLE_INTRANSITIVE_METADATA_CONFIGURATION, enabled.toString())
-}
-
 fun Project.enableDefaultStdlibDependency(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_STDLIB_DEFAULT_DEPENDENCY, enabled.toString())
 }
@@ -181,6 +177,10 @@ fun Project.setMultiplatformAndroidSourceSetLayoutVersion(version: Int) {
 fun Project.enableDependencyVerification(enabled: Boolean = true) {
     gradle.startParameter.dependencyVerificationMode = if (enabled) DependencyVerificationMode.STRICT
     else DependencyVerificationMode.OFF
+}
+
+fun Project.setFunctionalTestMode() {
+    propertiesExtension.set(PropertiesProvider.PropertyNames.FUNCTIONAL_TEST_MODE_PROPERTY, true)
 }
 
 fun Project.mockXcodeVersion(version: XcodeVersion = XcodeVersion.maxTested) {
@@ -204,4 +204,12 @@ fun Project.enableKmpProjectIsolationSupport(enabled: Boolean = true) {
 
 fun Project.enableNonPackedKlibsUsage(enabled: Boolean = true) {
     project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_USE_NON_PACKED_KLIBS, enabled.toString())
+}
+
+fun Project.enableEagerUnresolvedDependenciesDiagnostic(enabled: Boolean = true) {
+    project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_KMP_EAGER_UNRESOLVED_DEPENDENCIES_DIAGNOSTIC, enabled.toString())
+}
+
+fun Project.enableUnresolvedDependenciesDiagnostic(enabled: Boolean = true) {
+    project.propertiesExtension.set(PropertiesProvider.PropertyNames.KOTLIN_KMP_UNRESOLVED_DEPENDENCIES_DIAGNOSTIC, enabled.toString())
 }

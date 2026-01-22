@@ -5,10 +5,8 @@
 
 package org.jetbrains.kotlin.arguments.description
 
-import org.jetbrains.kotlin.arguments.dsl.TemporaryCompilerArgumentLifecycle
 import org.jetbrains.kotlin.arguments.dsl.base.*
 import org.jetbrains.kotlin.arguments.dsl.defaultFalse
-import org.jetbrains.kotlin.arguments.dsl.stubLifecycle
 import org.jetbrains.kotlin.arguments.dsl.types.BooleanType
 import org.jetbrains.kotlin.cli.common.arguments.DefaultValue
 import org.jetbrains.kotlin.cli.common.arguments.GradleInputTypes
@@ -21,8 +19,11 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         description = "Print a synopsis of standard options.".asReleaseDependent()
 
         valueType = BooleanType.defaultFalse
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_0,
+        )
     }
 
     compilerArgument {
@@ -31,8 +32,11 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         description = "Print a synopsis of advanced options.".asReleaseDependent()
 
         valueType = BooleanType.defaultFalse
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_0,
+        )
     }
 
     compilerArgument {
@@ -40,8 +44,11 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
         description = "Display the compiler version.".asReleaseDependent()
 
         valueType = BooleanType.defaultFalse
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
+
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_0,
+        )
     }
 
     compilerArgument {
@@ -50,15 +57,10 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
 
         valueType = BooleanType.defaultFalse
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-                gradleInputType = GradleInputTypes.INTERNAL,
-                shouldGenerateDeprecatedKotlinOptions = true,
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_0,
         )
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -68,16 +70,10 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
 
         valueType = BooleanType.defaultFalse
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-                gradleInputType = GradleInputTypes.INTERNAL,
-                shouldGenerateDeprecatedKotlinOptions = true,
-            )
-
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_0_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_0_0,
         )
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -87,16 +83,10 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
 
         valueType = BooleanType.defaultFalse
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-                gradleInputType = GradleInputTypes.INPUT,
-                shouldGenerateDeprecatedKotlinOptions = true,
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v1_2_0,
+            stabilizedVersion = KotlinReleaseVersion.v1_2_0,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 
     compilerArgument {
@@ -106,14 +96,9 @@ val actualCommonToolsArguments by compilerArgumentsLevel(CompilerArgumentsLevelN
 
         valueType = BooleanType.defaultFalse
 
-        additionalAnnotations(
-            GradleOption(
-                value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-                gradleInputType = GradleInputTypes.INPUT,
-            )
+        lifecycle(
+            introducedVersion = KotlinReleaseVersion.v2_1_0,
+            stabilizedVersion = KotlinReleaseVersion.v2_1_0,
         )
-
-        @OptIn(TemporaryCompilerArgumentLifecycle::class)
-        stubLifecycle()
     }
 }

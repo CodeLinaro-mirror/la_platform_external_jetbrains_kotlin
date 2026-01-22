@@ -214,6 +214,7 @@ private fun File.toRelativeStringOrNull(base: File): String? {
  * @throws FileAlreadyExistsException if the destination file already exists and [overwrite] argument is set to `false`.
  * @throws IOException if any errors occur while copying.
  */
+@IgnorableReturnValue
 public fun File.copyTo(target: File, overwrite: Boolean = false, bufferSize: Int = DEFAULT_BUFFER_SIZE): File {
     if (!this.exists()) {
         throw NoSuchFileException(file = this, reason = "The source file doesn't exist.")
@@ -234,7 +235,7 @@ public fun File.copyTo(target: File, overwrite: Boolean = false, bufferSize: Int
 
         this.inputStream().use { input ->
             target.outputStream().use { output ->
-                input.copyTo(output, bufferSize)
+                val _ = input.copyTo(output, bufferSize)
             }
         }
     }
@@ -285,6 +286,7 @@ private class TerminateException(file: File) : FileSystemException(file) {}
  * @param overwrite `true` if it is allowed to overwrite existing destination files and directories.
  * @return `false` if the copying was terminated, `true` otherwise.
  */
+@IgnorableReturnValue
 public fun File.copyRecursively(
     target: File,
     overwrite: Boolean = false,
@@ -344,6 +346,7 @@ public fun File.copyRecursively(
  *
  * @return `true` if the file or directory is successfully deleted, `false` otherwise.
  */
+@IgnorableReturnValue
 public fun File.deleteRecursively(): Boolean = walkBottomUp().fold(true, { res, it -> (it.delete() || !it.exists()) && res })
 
 /**

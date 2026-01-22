@@ -474,9 +474,9 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
                 """.trimIndent()
             )
 
-            build("build", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
+            build("build", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG), forwardBuildOutput = true) {
                 val compilerArgs = output.lineSequence()
-                    .filter { it.contains(":compileKotlin Kotlin compiler args:") }
+                    .filter { it.contains("Kotlin compiler args:") }
                     .first()
                 assert(compilerArgs.contains("-jvm-target 11")) {
                     "Kotlin compilation jvm-target argument is ${output.substringAfter("-jvm-target ").substringBefore(" ")}"
@@ -528,7 +528,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
         project(
             "android".fullProjectName,
             gradleVersion,
-            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion).suppressWarningFromAgpWithGradle813(gradleVersion),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion),
             buildJdk = providedJdk.location
         ) {
             useToolchainExtension(11)
@@ -734,8 +734,7 @@ class KotlinJavaToolchainTest : KGPBaseTest() {
             "android".fullProjectName,
             gradleVersion,
             buildOptions = defaultBuildOptions
-                .copy(androidVersion = agpVersion, logLevel = LogLevel.DEBUG)
-                .suppressWarningFromAgpWithGradle813(gradleVersion),
+                .copy(androidVersion = agpVersion, logLevel = LogLevel.DEBUG),
             buildJdk = providedJdk.location
         ) {
             buildGradle.appendText(

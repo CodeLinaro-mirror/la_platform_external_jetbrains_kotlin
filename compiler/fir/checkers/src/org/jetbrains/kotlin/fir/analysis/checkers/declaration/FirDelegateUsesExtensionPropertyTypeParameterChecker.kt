@@ -31,7 +31,7 @@ object FirDelegateUsesExtensionPropertyTypeParameterChecker : FirPropertyChecker
         val usedTypeParameterSymbol = delegate.resolvedType.findUsedTypeParameterSymbol(parameters, delegate)
             ?: return
 
-        reporter.reportOn(declaration.source, FirErrors.DELEGATE_USES_EXTENSION_PROPERTY_TYPE_PARAMETER, usedTypeParameterSymbol)
+        reporter.reportOn(declaration.source, FirErrors.DELEGATE_USES_EXTENSION_PROPERTY_TYPE_PARAMETER_ERROR, usedTypeParameterSymbol)
     }
 
     context(context: CheckerContext)
@@ -42,11 +42,11 @@ object FirDelegateUsesExtensionPropertyTypeParameterChecker : FirPropertyChecker
         val expandedDelegateClassLikeType =
             delegate.resolvedType.unwrapToSimpleTypeUsingLowerBound().fullyExpandedType() as? ConeClassLikeType
                 ?: return null
-        val delegateClassSymbol = expandedDelegateClassLikeType.lookupTag.toClassSymbol(context.session) ?: return null
+        val delegateClassSymbol = expandedDelegateClassLikeType.lookupTag.toClassSymbol() ?: return null
         val delegateClassScope by lazy(LazyThreadSafetyMode.NONE) { delegateClassSymbol.unsubstitutedScope() }
         for (it in typeArguments) {
             val theType = it.type ?: continue
-            val argumentAsTypeParameterSymbol = theType.toTypeParameterSymbol(context.session)
+            val argumentAsTypeParameterSymbol = theType.toTypeParameterSymbol()
 
             if (argumentAsTypeParameterSymbol in typeParameterSymbols) {
                 var propertyWithTypeParameterTypeFound = false

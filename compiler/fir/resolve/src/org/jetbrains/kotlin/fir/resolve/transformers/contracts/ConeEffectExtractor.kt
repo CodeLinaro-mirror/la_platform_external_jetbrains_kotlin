@@ -9,36 +9,42 @@ import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.contracts.description.*
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.SessionHolder
 import org.jetbrains.kotlin.fir.contracts.description.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.expressions.*
-import org.jetbrains.kotlin.fir.languageVersionSettings
+import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.references.FirNamedReference
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeContractDescriptionError
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.getContainingClass
 import org.jetbrains.kotlin.fir.resolve.referencedMemberSymbol
+import org.jetbrains.kotlin.fir.resolve.toTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.resolvedType
-import org.jetbrains.kotlin.fir.resolve.toTypeParameterSymbol
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.resolve.ContractsDslNames
 import org.jetbrains.kotlin.types.ConstantValueKind
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.addToStdlib.shouldNotBeCalled
 
 class ConeEffectExtractor(
-    private val session: FirSession,
+    override val session: FirSession,
     private val owner: FirContractDescriptionOwner,
     private val valueAndContextParameters: List<FirValueParameter>
-) : FirDefaultVisitor<ConeContractDescriptionElement, Nothing?>() {
+) : FirDefaultVisitor<ConeContractDescriptionElement, Nothing?>(), SessionHolder {
     companion object {
-        private val BOOLEAN_AND = FirContractsDslNames.id("kotlin", "Boolean", "and")
-        private val BOOLEAN_OR = FirContractsDslNames.id("kotlin", "Boolean", "or")
-        private val BOOLEAN_NOT = FirContractsDslNames.id("kotlin", "Boolean", "not")
+        private val BOOLEAN_AND = ContractsDslNames.id("kotlin", "Boolean", "and")
+        private val BOOLEAN_OR = ContractsDslNames.id("kotlin", "Boolean", "or")
+        private val BOOLEAN_NOT = ContractsDslNames.id("kotlin", "Boolean", "not")
+
+        private val LAMBDA_ARGUMENT_NAME = Name.identifier("lambda")
+        private val OTHER_ARGUMENT_NAME = Name.identifier("other")
+        private val TARGET_ARGUMENT_NAME = Name.identifier("target")
     }
 
     private fun ConeContractDescriptionError.asElement(): KtErroneousContractElement<ConeKotlinType, ConeDiagnostic> {
@@ -54,13 +60,13 @@ class ConeEffectExtractor(
             ?: return ConeContractDescriptionError.UnresolvedCall(functionCall.calleeReference.name).asElement()
 
         return when (resolvedId) {
-            FirContractsDslNames.IMPLIES -> {
+            ContractsDslNames.IMPLIES -> {
                 val effect = functionCall.explicitReceiver?.asContractElement() as? ConeEffectDeclaration ?: noReceiver(resolvedId)
                 val condition = functionCall.argument.asContractElement() as? ConeBooleanExpression ?: noArgument(resolvedId)
                 ConeConditionalEffectDeclaration(effect, condition)
             }
 
-            FirContractsDslNames.RETURNS -> {
+            ContractsDslNames.RETURNS -> {
                 val argument = functionCall.arguments.firstOrNull()
                 val value = if (argument == null) {
                     ConeContractConstantValues.WILDCARD
@@ -74,18 +80,42 @@ class ConeEffectExtractor(
                 KtReturnsEffectDeclaration(value as ConeConstantReference)
             }
 
-            FirContractsDslNames.RETURNS_NOT_NULL -> {
+            ContractsDslNames.RETURNS_NOT_NULL -> {
                 ConeReturnsEffectDeclaration(ConeContractConstantValues.NOT_NULL)
             }
 
-            FirContractsDslNames.CALLS_IN_PLACE -> {
-                val reference = functionCall.arguments[0].asContractValueExpression()
+            ContractsDslNames.CALLS_IN_PLACE -> {
+                val reference = functionCall.arguments.getOrNull(0).asContractValueExpression(LAMBDA_ARGUMENT_NAME)
                 when (val argument = functionCall.arguments.getOrNull(1)) {
                     null -> ConeCallsEffectDeclaration(reference, EventOccurrencesRange.UNKNOWN)
                     else -> when (val kind = argument.parseInvocationKind()) {
                         null -> KtErroneousCallsEffectDeclaration(reference, ConeContractDescriptionError.UnresolvedInvocationKind(argument))
                         else -> ConeCallsEffectDeclaration(reference, kind)
                     }
+                }
+            }
+
+            ContractsDslNames.IMPLIES_BUILDER -> {
+                if (LanguageFeature.ConditionImpliesReturnsContracts.isEnabled()) {
+                    val condition = functionCall.explicitReceiver?.asContractElement() as? ConeBooleanExpression ?: noReceiver(resolvedId)
+                    when (val argument = functionCall.arguments.getOrNull(0)) {
+                        null -> noArgument(resolvedId)
+                        else -> (argument.asContractElement() as? ConeEffectDeclaration)?.let {
+                            ConeConditionalReturnsDeclaration(condition, it)
+                        } ?: ConeContractDescriptionError.IllegalElement(argument).asElement()
+                    }
+                } else {
+                    ConeContractDescriptionError.NotContractDsl(resolvedId).asElement()
+                }
+            }
+
+            ContractsDslNames.HOLDS_IN -> {
+                if (LanguageFeature.HoldsInContracts.isEnabled()) {
+                    val condition = functionCall.explicitReceiver?.asContractElement() as? ConeBooleanExpression ?: noReceiver(resolvedId)
+                    val reference = functionCall.arguments.getOrNull(0).asContractValueExpression(LAMBDA_ARGUMENT_NAME)
+                    ConeHoldsInEffectDeclaration(condition, reference)
+                } else {
+                    ConeContractDescriptionError.NotContractDsl(resolvedId).asElement()
                 }
             }
 
@@ -127,11 +157,11 @@ class ConeEffectExtractor(
             else -> return ConeContractDescriptionError.IllegalEqualityOperator(operation).asElement()
         }
 
-        val argument = equalityOperatorCall.arguments[1]
+        val argument = equalityOperatorCall.arguments.getOrNull(1)
         val const = argument as? FirLiteralExpression ?: return ConeContractDescriptionError.NotAConstant(argument).asElement()
         if (const.kind != ConstantValueKind.Null) return ConeContractDescriptionError.IllegalConst(const, onlyNullAllowed = true).asElement()
 
-        val arg = equalityOperatorCall.arguments[0].asContractValueExpression()
+        val arg = equalityOperatorCall.arguments.getOrNull(0).asContractValueExpression(OTHER_ARGUMENT_NAME)
         return ConeIsNullPredicate(arg, isNegated)
     }
 
@@ -213,17 +243,17 @@ class ConeEffectExtractor(
     }
 
     override fun visitTypeOperatorCall(typeOperatorCall: FirTypeOperatorCall, data: Nothing?): ConeContractDescriptionElement {
-        val arg = typeOperatorCall.argument.asContractValueExpression()
-        val type = typeOperatorCall.conversionTypeRef.coneType.fullyExpandedType(session)
+        val arg = typeOperatorCall.arguments.getOrNull(0).asContractValueExpression(TARGET_ARGUMENT_NAME)
+        val type = typeOperatorCall.conversionTypeRef.coneType.fullyExpandedType()
         val isNegated = typeOperatorCall.operation == FirOperation.NOT_IS
-        val diagnostic = type.toTypeParameterSymbol(session)?.let { typeParameterSymbol ->
+        val diagnostic = type.toTypeParameterSymbol()?.let { typeParameterSymbol ->
             val typeParametersOfOwner = (owner as? FirTypeParameterRefsOwner)?.typeParameters.orEmpty()
             if (typeParametersOfOwner.none { it is FirTypeParameter && it.symbol == typeParameterSymbol }) {
                 return@let ConeContractDescriptionError.NotSelfTypeParameter(typeParameterSymbol)
             }
             runIf(
                 !typeParameterSymbol.isReified
-                        && !session.languageVersionSettings.supportsFeature(LanguageFeature.AllowCheckForErasedTypesInContracts)
+                        && !LanguageFeature.AllowCheckForErasedTypesInContracts.isEnabled()
             ) {
                 ConeContractDescriptionError.NotReifiedTypeParameter(typeParameterSymbol)
             }
@@ -238,10 +268,10 @@ class ConeEffectExtractor(
         if (this !is FirQualifiedAccessExpression) return null
         val resolvedId = toResolvedCallableSymbol(session)?.callableId ?: return null
         return when (resolvedId) {
-            FirContractsDslNames.EXACTLY_ONCE_KIND -> EventOccurrencesRange.EXACTLY_ONCE
-            FirContractsDslNames.AT_LEAST_ONCE_KIND -> EventOccurrencesRange.AT_LEAST_ONCE
-            FirContractsDslNames.AT_MOST_ONCE_KIND -> EventOccurrencesRange.AT_MOST_ONCE
-            FirContractsDslNames.UNKNOWN_KIND -> EventOccurrencesRange.UNKNOWN
+            ContractsDslNames.EXACTLY_ONCE_KIND -> EventOccurrencesRange.EXACTLY_ONCE
+            ContractsDslNames.AT_LEAST_ONCE_KIND -> EventOccurrencesRange.AT_LEAST_ONCE
+            ContractsDslNames.AT_MOST_ONCE_KIND -> EventOccurrencesRange.AT_MOST_ONCE
+            ContractsDslNames.UNKNOWN_KIND -> EventOccurrencesRange.UNKNOWN
             else -> null
         }
     }
@@ -265,10 +295,15 @@ class ConeEffectExtractor(
         }
     }
 
-    private fun FirExpression.asContractValueExpression(): ConeValueParameterReference {
-        return when (val element = asContractElement()) {
+    private fun FirExpression?.asContractValueExpression(argumentName: Name): ConeValueParameterReference {
+        return when (val element = this?.asContractElement()) {
             is ConeValueParameterReference -> element
-            else -> KtErroneousValueParameterReference(ConeContractDescriptionError.NotAParameterReference(element))
+            else -> KtErroneousValueParameterReference(
+                when (element) {
+                    null -> ConeContractDescriptionError.NoArgument(argumentName)
+                    else -> ConeContractDescriptionError.NotAParameterReference(element)
+                }
+            )
         }
     }
 }

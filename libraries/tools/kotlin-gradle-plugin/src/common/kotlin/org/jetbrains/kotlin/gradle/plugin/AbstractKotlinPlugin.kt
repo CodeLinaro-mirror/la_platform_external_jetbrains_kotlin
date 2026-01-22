@@ -11,10 +11,8 @@ import org.gradle.api.attributes.Category
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 import org.jetbrains.kotlin.gradle.dsl.KotlinSingleJavaTargetExtension
 import org.jetbrains.kotlin.gradle.dsl.kotlinExtension
-import org.jetbrains.kotlin.gradle.model.builder.KotlinModelBuilder
 import org.jetbrains.kotlin.gradle.plugin.internal.compatibilityConventionRegistrar
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.publishing.rewriteKmpDependenciesInPomForTargetPublication
@@ -25,7 +23,9 @@ import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 import org.jetbrains.kotlin.gradle.targets.jvm.configureKotlinConventions
 import org.jetbrains.kotlin.gradle.targets.jvm.kotlinSourceSetDslName
 import org.jetbrains.kotlin.gradle.tasks.KotlinTasksProvider
-import org.jetbrains.kotlin.gradle.utils.*
+import org.jetbrains.kotlin.gradle.utils.addSecondaryOutgoingJvmClassesVariant
+import org.jetbrains.kotlin.gradle.utils.javaSourceSets
+import org.jetbrains.kotlin.gradle.utils.whenEvaluated
 import org.jetbrains.kotlin.tooling.core.extrasKeyOf
 
 const val PLUGIN_CLASSPATH_CONFIGURATION_NAME = "kotlinCompilerPluginClasspath"
@@ -38,7 +38,6 @@ internal const val KOTLIN_BOUNCY_CASTLE_CONFIGURATION_NAME = "kotlinBouncyCastle
 
 internal abstract class AbstractKotlinPlugin(
     val tasksProvider: KotlinTasksProvider,
-    val registry: ToolingModelBuilderRegistry,
 ) : Plugin<Project> {
 
     internal abstract fun buildSourceSetProcessor(
@@ -47,7 +46,6 @@ internal abstract class AbstractKotlinPlugin(
     ): KotlinSourceSetProcessor<*>
 
     override fun apply(project: Project) {
-        val kotlinPluginVersion = project.getKotlinPluginVersion()
         project.plugins.apply(JavaPlugin::class.java)
 
         val target = (project.kotlinExtension as KotlinSingleJavaTargetExtension).target
@@ -58,11 +56,7 @@ internal abstract class AbstractKotlinPlugin(
         )
 
         rewriteMppDependenciesInPom(target)
-
-        registry.register(KotlinModelBuilder(kotlinPluginVersion, null))
-
         project.components.addAll(target.components)
-
     }
 
     private fun rewriteMppDependenciesInPom(target: AbstractKotlinTarget) {
@@ -159,7 +153,7 @@ internal abstract class AbstractKotlinPlugin(
                 project.configurations.apply {
                     val apiElementsConfiguration = getByName(kotlinTarget.apiElementsConfigurationName)
                     val mainCompilation = kotlinTarget.compilations.getByName(KotlinCompilation.MAIN_COMPILATION_NAME)
-                    val compilationApiConfiguration = getByName(mainCompilation.apiConfigurationName)
+                    val compilationApiConfiguration = getByName(mainCompilation.legacyApiConfigurationName)
                     apiElementsConfiguration.extendsFrom(compilationApiConfiguration)
                 }
             }

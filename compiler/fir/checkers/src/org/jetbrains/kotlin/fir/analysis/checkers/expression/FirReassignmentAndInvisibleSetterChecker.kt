@@ -13,7 +13,8 @@ import org.jetbrains.kotlin.fir.analysis.cfa.requiresInitialization
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.context.findClosest
-import org.jetbrains.kotlin.fir.analysis.checkers.getContainingSymbol
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.*
+import org.jetbrains.kotlin.fir.resolve.getContainingSymbol
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirControlFlowGraphOwner
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
@@ -67,7 +68,7 @@ object FirReassignmentAndInvisibleSetterChecker : FirVariableAssignmentChecker(M
                 FirErrors.INVISIBLE_SETTER,
                 callableSymbol,
                 callableSymbol.setterSymbol?.visibility ?: Visibilities.Private,
-                callableSymbol.callableId
+                callableSymbol.callableId!!
             )
         }
     }
@@ -128,21 +129,42 @@ object FirReassignmentAndInvisibleSetterChecker : FirVariableAssignmentChecker(M
 
     context(context: CheckerContext, reporter: DiagnosticReporter)
     private fun checkValReassignment(expression: FirVariableAssignment) {
-        val property = expression.calleeReference?.toResolvedPropertySymbol() ?: return
-        if (property.isVar) return
-        // Assignments of uninitialized `val`s must be checked via CFG, since the first one is OK.
-        // See `FirPropertyInitializationAnalyzer` for locals, `FirMemberPropertiesChecker` for backing fields in initializers,
-        // and `FirTopLevelPropertiesChecker` for top-level properties.
-        if (
-            (property.isLocal || isInFileGraph(property))
-            && property.requiresInitialization(isForInitialization = false)
-        ) return
-        if (
-            property.requiresInitialization(isForInitialization = true)
-            && isInOwnersInitializer(expression.dispatchReceiver?.unwrapSmartcastExpression(), property)
-        ) return
+        val variable = expression.calleeReference?.toResolvedVariableSymbol() ?: return
+        if (variable.isVar) return
+        when (variable) {
+            is FirPropertySymbol -> {
+                /**
+                 * Assignments of uninitialized `val`s must be checked via CFG, since the first one is OK.
+                 *
+                 * See [org.jetbrains.kotlin.fir.analysis.cfa.FirPropertyInitializationAnalyzer] for locals,
+                 * [FirMemberPropertiesChecker] for backing fields in initializers,
+                 * and [FirTopLevelPropertiesChecker] for top-level properties.
+                 */
+                if (
+                    (variable.isLocal || isInFileGraph(variable))
+                    && variable.requiresInitialization(isForInitialization = false)
+                ) return
+                if (
+                    variable.requiresInitialization(isForInitialization = true)
+                    && isInOwnersInitializer(expression.dispatchReceiver?.unwrapSmartcastExpression(), variable)
+                ) return
+            }
+            is FirFieldSymbol -> {
+                // Java fields also must be checked here
+            }
+            /**
+             * [FirBackingFieldSymbol] is reported in [checkValReassignmentViaBackingField],
+             * [FirDelegateFieldSymbol] is not needed at all,
+             * [FirValueParameterSymbol] & [FirEnumEntrySymbol] are reported in [checkValReassignmentOnValueParameterOrEnumEntry].
+             */
+            is FirBackingFieldSymbol,
+            is FirDelegateFieldSymbol,
+            is FirValueParameterSymbol,
+            is FirEnumEntrySymbol,
+                -> return
+        }
 
-        reporter.reportOn(expression.lValue.source, FirErrors.VAL_REASSIGNMENT, property)
+        reporter.reportOn(expression.lValue.source, FirErrors.VAL_REASSIGNMENT, variable)
     }
 
     context(context: CheckerContext)

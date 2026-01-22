@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("DEPRECATION")
+@file:Suppress("DEPRECATION_ERROR")
 
 package org.jetbrains.kotlin.cli.pipeline
 
@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.messageCollector
+import org.jetbrains.kotlin.config.perfManager
 import org.jetbrains.kotlin.config.phaser.Action
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.utils.KotlinPaths
@@ -78,7 +79,8 @@ abstract class AbstractConfigurationPhase<A : CommonCompilerArguments>(
         val arguments = input.arguments
         val pluginClasspaths = arguments.pluginClasspaths.orEmpty().toMutableList()
         val pluginOptions = arguments.pluginOptions.orEmpty().toMutableList()
-        val pluginConfigurations = arguments.pluginConfigurations.orEmpty().toMutableList()
+        val pluginConfigurations = arguments.pluginConfigurations?.asList().orEmpty()
+        val pluginOrderConstraints = arguments.pluginOrderConstraints?.asList().orEmpty()
         val messageCollector = configuration.messageCollector
 
         if (!checkPluginsArguments(messageCollector, useK2 = true, pluginClasspaths, pluginOptions, pluginConfigurations)) {
@@ -117,7 +119,14 @@ abstract class AbstractConfigurationPhase<A : CommonCompilerArguments>(
         pluginClasspaths.addAll(scriptingPluginClasspath)
         pluginOptions.addAll(scriptingPluginOptions)
 
-        PluginCliParser.loadPluginsSafe(pluginClasspaths, pluginOptions, pluginConfigurations, configuration, input.rootDisposable)
+        PluginCliParser.loadPluginsSafe(
+            pluginClasspaths,
+            pluginOptions,
+            pluginConfigurations,
+            pluginOrderConstraints,
+            configuration,
+            input.rootDisposable
+        )
     }
 
     private fun tryLoadScriptingPluginFromCurrentClassLoader(

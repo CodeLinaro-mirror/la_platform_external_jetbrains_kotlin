@@ -11,7 +11,7 @@ import org.gradle.api.logging.Logging
 import org.gradle.api.model.ObjectFactory
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.*
 import org.jetbrains.kotlin.gradle.utils.newInstance
-import org.jetbrains.kotlin.test.KotlinTestUtils
+import org.jetbrains.kotlin.test.TestDataAssertions
 import java.io.File
 import java.nio.file.Path
 import kotlin.test.assertTrue
@@ -75,7 +75,7 @@ internal fun Project.checkDiagnostics(
 
     val sanitizedTest = actualRenderedText.replace(File.separator, "/")
 
-    KotlinTestUtils.assertEqualsToFile(expectedDiagnostics, sanitizedTest)
+    TestDataAssertions.assertEqualsToFile(expectedDiagnostics, sanitizedTest)
 }
 
 // An (KTI-1928) issue prevents us from using a snapshot version of Kotlin Native during testing. This results in a diagnostic warning.
@@ -94,8 +94,8 @@ internal fun Project.assertNoDiagnostics(filterDiagnosticIds: List<ToolingDiagno
  * Checks that diagnostic with [factory.id] is reported. The exact parameters (if any)
  * are ignored. If you need to compare the parameters, refer to the overload accepting [ToolingDiagnostic]
  */
-internal fun Project.assertContainsDiagnostic(factory: ToolingDiagnosticFactory) {
-    kotlinToolingDiagnosticsCollector.getDiagnosticsForProject(this).assertContainsDiagnostic(factory)
+internal fun Project.assertContainsDiagnostic(factory: ToolingDiagnosticFactory, idSuffix: String = "") {
+    kotlinToolingDiagnosticsCollector.getDiagnosticsForProject(this).assertContainsDiagnostic(factory, idSuffix)
 }
 
 internal fun Project.assertContainsDiagnostic(diagnostic: ToolingDiagnostic, ignoreThrowable: Boolean = false) {
@@ -105,8 +105,11 @@ internal fun Project.assertContainsDiagnostic(diagnostic: ToolingDiagnostic, ign
 
 private fun Any.withIndent() = this.toString().prependIndent("    ")
 
-internal fun Collection<ToolingDiagnostic>.assertContainsDiagnostic(factory: ToolingDiagnosticFactory) {
-    if (!any { it.id == factory.id }) failDiagnosticNotFound("diagnostic with id ${factory.id} ", this)
+internal fun Collection<ToolingDiagnostic>.assertContainsDiagnostic(factory: ToolingDiagnosticFactory, idSuffix: String = "") {
+    if (!any { it.id == if (idSuffix.isNotBlank()) "${factory.id}_$idSuffix" else factory.id }) failDiagnosticNotFound(
+        "diagnostic with id ${factory.id} ",
+        this
+    )
 }
 
 internal fun Collection<ToolingDiagnostic>.assertContainsDiagnostic(diagnostic: ToolingDiagnostic, ignoreThrowable: Boolean = false) {

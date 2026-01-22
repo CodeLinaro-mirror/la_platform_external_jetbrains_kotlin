@@ -221,14 +221,14 @@ open class FirJvmSerializerExtension(
 
     override fun serializeTypeAnnotations(annotations: List<FirAnnotation>, proto: ProtoBuf.Type.Builder) {
         for (annotation in annotations) {
-            proto.addExtension(JvmProtoBuf.typeAnnotation, annotationSerializer.serializeAnnotation(annotation))
+            annotationSerializer.serializeAnnotation(annotation)?.let { proto.addAnnotation(it) }
         }
     }
 
 
     override fun serializeTypeParameter(typeParameter: FirTypeParameter, proto: ProtoBuf.TypeParameter.Builder) {
         for (annotation in typeParameter.nonSourceAnnotations(session)) {
-            proto.addExtension(JvmProtoBuf.typeParameterAnnotation, annotationSerializer.serializeAnnotation(annotation))
+            annotationSerializer.serializeAnnotation(annotation)?.let { proto.addAnnotation(it) }
         }
     }
 
@@ -391,7 +391,7 @@ open class FirJvmSerializerExtension(
         ) {
             for (annotation in declaration?.allRequiredAnnotations(session, additionalMetadataProvider).orEmpty()) {
                 if (matchUseSiteTarget == null || matchUseSiteTarget(annotation.useSiteTarget)) {
-                    addAnnotation(annotationSerializer.serializeAnnotation(annotation))
+                    addAnnotation(annotationSerializer.serializeAnnotation(annotation) ?: continue)
                 }
             }
         }
