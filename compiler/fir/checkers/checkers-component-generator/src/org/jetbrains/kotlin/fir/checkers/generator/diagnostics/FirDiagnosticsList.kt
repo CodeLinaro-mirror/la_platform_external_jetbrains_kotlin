@@ -120,6 +120,9 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             LanguageFeature.ForbidParenthesizedLhsInAssignments,
             PositioningStrategy.OUTERMOST_PARENTHESES_IN_ASSIGNMENT_LHS,
         )
+        val UNSUPPORTED_ARRAY_LITERAL_OUTSIDE_OF_ANNOTATION by deprecationError<PsiElement>(
+            LanguageFeature.ForbidArrayLiteralsInNonAnnotationContexts,
+        )
     }
 
     val UNRESOLVED by object : DiagnosticGroup("Unresolved") {
@@ -129,6 +132,9 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         }
         val UNRESOLVED_REFERENCE_WRONG_RECEIVER by error<PsiElement>(PositioningStrategy.REFERENCE_BY_QUALIFIED) {
             parameter<Collection<Symbol>>("candidates")
+        }
+        val INACCESSIBLE_OUTER_CLASS_RECEIVER by error<PsiElement>(PositioningStrategy.REFERENCE_BY_QUALIFIED) {
+            parameter<FirBasedSymbol<*>>("symbol")
         }
         val UNRESOLVED_IMPORT by error<PsiElement>(PositioningStrategy.IMPORT_LAST_NAME) {
             parameter<String>("reference")
@@ -201,6 +207,7 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
     val CALL_RESOLUTION by object : DiagnosticGroup("Call resolution") {
         val CREATING_AN_INSTANCE_OF_ABSTRACT_CLASS by error<KtExpression>()
         val NO_CONSTRUCTOR by error<PsiElement>(PositioningStrategy.VALUE_ARGUMENTS_LIST)
+        val NO_IMPLICIT_DEFAULT_CONSTRUCTOR_ON_EXPECT_CLASS by error<PsiElement>(PositioningStrategy.SUPERTYPES_LIST)
         val FUNCTION_CALL_EXPECTED by error<PsiElement>(PositioningStrategy.REFERENCED_NAME_BY_QUALIFIED) {
             parameter<String>("functionName")
             parameter<Boolean>("hasValueParameters")
@@ -719,8 +726,8 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
             parameter<ConeKotlinType>("expectedArrayType")
         }
         val ASSIGNING_SINGLE_ELEMENT_TO_VARARG_IN_NAMED_FORM_ANNOTATION by deprecationError<KtExpression>(LanguageFeature.ProhibitAssigningSingleElementsToVarargsInNamedForm)
-        val REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_FUNCTION by warning<KtExpression>()
-        val REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_ANNOTATION by warning<KtExpression>()
+        val REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_FUNCTION by warning<KtElement>(PositioningStrategy.SPREAD_OPERATOR)
+        val REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_ANNOTATION by warning<KtElement>(PositioningStrategy.SPREAD_OPERATOR)
 
         val ILLEGAL_TYPE_ARGUMENT_FOR_VARARG_PARAMETER_WARNING by warning<KtElement>(PositioningStrategy.REFERENCE_BY_QUALIFIED) {
             parameter<ConeKotlinType>("type")
@@ -1133,6 +1140,9 @@ object DIAGNOSTICS_LIST : DiagnosticList("FirErrors") {
         val CLASS_LITERAL_LHS_NOT_A_CLASS by error<KtExpression>()
         val NULLABLE_TYPE_IN_CLASS_LITERAL_LHS by error<KtExpression>()
         val EXPRESSION_OF_NULLABLE_TYPE_IN_CLASS_LITERAL_LHS by error<PsiElement> {
+            parameter<ConeKotlinType>("lhsType")
+        }
+        val EXPRESSION_OF_NULLABLE_TYPE_IN_CLASS_LITERAL_LHS_WARNING by warning<PsiElement> {
             parameter<ConeKotlinType>("lhsType")
         }
         val UNSUPPORTED_CLASS_LITERALS_WITH_EMPTY_LHS by error<KtElement>()

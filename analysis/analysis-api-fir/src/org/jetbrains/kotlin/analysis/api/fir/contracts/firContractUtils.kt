@@ -111,6 +111,22 @@ private class ConeContractDescriptionElementToAnalysisApi(
             else -> error("Can't convert $booleanConstantDescriptor to Analysis API")
         }
 
+    override fun visitHoldsInEffectDeclaration(
+        holdsInEffect: KtHoldsInEffectDeclaration<ConeKotlinType, ConeDiagnostic>,
+        data: Unit,
+    ): KaContractHoldsInEffectDeclaration = KaBaseContractHoldsInEffectDeclaration(
+        backingCondition = holdsInEffect.argumentsCondition.accept(),
+        backingValueParameterReference = holdsInEffect.valueParameterReference.accept(),
+    )
+
+    override fun visitConditionalReturnsDeclaration(
+        conditionalEffect: KtConditionalReturnsDeclaration<ConeKotlinType, ConeDiagnostic>,
+        data: Unit
+    ): KaContractConditionalContractEffectDeclaration = KaBaseContractConditionalContractEffectDeclaration(
+        backingEffect = conditionalEffect.returnsEffect.accept(),
+        backingCondition = conditionalEffect.argumentsCondition.accept(),
+    )
+
     override fun visitValueParameterReference(
         valueParameterReference: ConeValueParameterReference,
         data: Unit

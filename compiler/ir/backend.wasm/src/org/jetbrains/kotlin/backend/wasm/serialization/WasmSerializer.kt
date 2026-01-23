@@ -248,6 +248,7 @@ class WasmSerializer(outputStream: OutputStream) {
             WasmStructRef -> setTag(TypeTags.STRUCT_REF)
             WasmUnreachableType -> setTag(TypeTags.UNREACHABLE_TYPE)
             WasmV128 -> setTag(TypeTags.V12)
+            WasmArrayRef -> setTag(TypeTags.ARRAY_REF)
         }
 
     private fun serializeWasmHeapType(type: WasmHeapType) =
@@ -632,6 +633,7 @@ class WasmSerializer(outputStream: OutputStream) {
             serializeList(equivalentFunctions) { serializePair(it, ::serializeString, ::serializeIdSignature) }
             serializeSet(jsModuleAndQualifierReferences, ::serializeJsModuleAndQualifierReference)
             serializeList(classAssociatedObjectsInstanceGetters, ::serializeClassAssociatedObjects)
+            serializeNullable(classAssociatedObjectsGetterWrapper, ::serializeClassAssociatedObjectsGetterWrapper)
             serializeNullable(builtinIdSignatures, ::serializeBuiltinIdSignatures)
             serializeNullable(specialITableTypes, ::serializeInterfaceTableTypes)
             serializeNullable(rttiElements, ::serializeRttiElements)
@@ -664,6 +666,10 @@ class WasmSerializer(outputStream: OutputStream) {
     private fun serializeInterfaceTableTypes(specialITableTypes: SpecialITableTypes) {
         serializeWasmSymbolReadOnly(specialITableTypes.wasmAnyArrayType, ::serializeWasmArrayDeclaration)
         serializeWasmSymbolReadOnly(specialITableTypes.specialSlotITableType, ::serializeWasmTypeDeclaration)
+    }
+
+    private fun serializeClassAssociatedObjectsGetterWrapper(wrapper: WasmSymbol<WasmStructDeclaration>) {
+        serializeWasmSymbolReadOnly(wrapper, ::serializeWasmStructDeclaration)
     }
 
     private fun serializeBuiltinIdSignatures(builtinIdSignatures: BuiltinIdSignatures) {

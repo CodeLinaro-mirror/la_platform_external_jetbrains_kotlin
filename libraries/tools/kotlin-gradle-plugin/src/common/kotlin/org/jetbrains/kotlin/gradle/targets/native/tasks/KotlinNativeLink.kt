@@ -34,7 +34,6 @@ import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.create
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.cocoapods.asValidFrameworkName
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
 import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
@@ -199,7 +198,7 @@ constructor(
     val exportLibraries: FileCollection get() = exportLibrariesResolvedConfiguration?.files ?: objectFactory.fileCollection()
 
     private val exportLibrariesResolvedConfiguration = if (binary is AbstractNativeLibrary) {
-        LazyResolvedConfiguration(project.configurations.maybeCreateResolvable(binary.exportConfigurationName))
+        LazyResolvedConfigurationWithArtifacts(project.configurations.maybeCreateResolvable(binary.exportConfigurationName))
     } else {
         null
     }
@@ -217,17 +216,6 @@ constructor(
     @get:Input
     val target: String = compilation.konanTarget.name
 
-    @Suppress("DEPRECATION_ERROR")
-    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, level = DeprecationLevel.ERROR)
-    @get:Internal
-    val embedBitcode: BitcodeEmbeddingMode
-        get() = embedBitcodeMode.get()
-
-    @get:Input
-    @get:Optional
-    @Suppress("DEPRECATION_ERROR")
-    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, level = DeprecationLevel.ERROR)
-    val embedBitcodeMode: Provider<BitcodeEmbeddingMode> = objectFactory.property()
 
     @get:Internal
     val apiFiles: ConfigurableFileCollection = objectFactory.fileCollection()
@@ -357,7 +345,7 @@ constructor(
     protected val friendModule: FileCollection = objectFactory.fileCollection().from({ compilation.friendPaths })
 
     @Suppress("DEPRECATION_ERROR")
-    private val resolvedConfiguration = LazyResolvedConfiguration(
+    private val resolvedConfiguration = LazyResolvedConfigurationWithArtifacts(
         project.configurations.getByName(compilation.compileDependencyConfigurationName)
     )
 
@@ -369,7 +357,7 @@ constructor(
             val filename = "$prefix${baseName}$suffix".let {
                 when {
                     outputKind == CompilerOutputKind.FRAMEWORK ->
-                        it.asValidFrameworkName()
+                        it.asValidFrameworkName
                     outputKind in listOf(CompilerOutputKind.STATIC, CompilerOutputKind.DYNAMIC) ->
                         it.replace('-', '_')
                     else -> it
@@ -500,3 +488,5 @@ constructor(
         return objectFactory.providerWithLazyConvention(lazyConventionValue)
     }
 }
+
+internal val String.asValidFrameworkName get() = replace('-', '_')

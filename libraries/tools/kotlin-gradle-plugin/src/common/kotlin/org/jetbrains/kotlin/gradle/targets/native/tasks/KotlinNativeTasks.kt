@@ -44,7 +44,6 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationInfo
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.create
-import org.jetbrains.kotlin.gradle.plugin.cocoapods.asValidFrameworkName
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
 import org.jetbrains.kotlin.gradle.plugin.statistics.NativeCompilerOptionMetrics
@@ -230,7 +229,7 @@ abstract class AbstractKotlinNativeCompile<
             val filename = "$prefix${baseName}$suffix".let {
                 when {
                     outputKind == FRAMEWORK ->
-                        it.asValidFrameworkName()
+                        it.asValidFrameworkName
 
                     outputKind in listOf(STATIC, DYNAMIC) ->
                         it.replace('-', '_')
@@ -839,7 +838,7 @@ internal class CacheBuilder(
         }.lastOrNull() ?: PartialLinkageMode.DEFAULT.name
 
     private fun getCacheDirectory(
-        resolvedConfiguration: LazyResolvedConfiguration,
+        resolvedConfiguration: LazyResolvedConfigurationWithArtifacts,
         dependency: ResolvedDependencyResult,
     ): File = getCacheDirectory(
         rootCacheDirectory = rootCacheDirectory,
@@ -852,7 +851,7 @@ internal class CacheBuilder(
     private fun needCache(libraryPath: String) =
         libraryPath.startsWith(settings.gradleUserHomeDir.absolutePath) && libraryPath.endsWith(".klib")
 
-    private fun LazyResolvedConfiguration.ensureDependencyPrecached(
+    private fun LazyResolvedConfigurationWithArtifacts.ensureDependencyPrecached(
         dependency: ResolvedDependencyResult,
         visitedDependencies: MutableSet<ResolvedDependencyResult>,
     ) {
@@ -1013,7 +1012,7 @@ internal class CacheBuilder(
             ensureCompilerProvidedLibPrecached(platformLibName, platformLibs, visitedLibs)
     }
 
-    fun buildCompilerArgs(resolvedConfiguration: LazyResolvedConfiguration): List<String> = mutableListOf<String>().apply {
+    fun buildCompilerArgs(resolvedConfiguration: LazyResolvedConfigurationWithArtifacts): List<String> = mutableListOf<String>().apply {
         if (konanCacheKind != NativeCacheKind.NONE && !optimized && konanPropertiesService.cacheWorksFor(konanTarget)) {
             rootCacheDirectory.mkdirs()
             ensureCompilerProvidedLibsPrecached()

@@ -22,10 +22,8 @@ import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
 import org.jetbrains.kotlin.gradle.targets.js.testing.mocha.KotlinMocha
 import org.jetbrains.kotlin.gradle.tasks.KotlinTest
 import org.jetbrains.kotlin.gradle.utils.domainObjectSet
-import org.jetbrains.kotlin.gradle.utils.getExecOperations
 import org.jetbrains.kotlin.gradle.utils.newFileProperty
 import org.jetbrains.kotlin.gradle.utils.processes.ProcessLaunchOptions.Companion.processLaunchOptions
-import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import javax.inject.Inject
 
 @DisableCachingByDefault
@@ -43,16 +41,16 @@ internal constructor(
 
     @Deprecated(
         "Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.",
-        level = DeprecationLevel.ERROR
+        level = DeprecationLevel.ERROR,
     )
-    @Suppress("DEPRECATION")
+    @Suppress("UNUSED_PARAMETER", "UNREACHABLE_CODE")
     constructor(
         compilation: KotlinJsIrCompilation,
     ) : this(
-        compilation = compilation,
-        objects = compilation.target.project.objects,
-        providers = compilation.target.project.providers,
-        execOps = compilation.target.project.getExecOperations(),
+        compilation = throw UnsupportedOperationException(),
+        objects = throw UnsupportedOperationException(),
+        providers = throw UnsupportedOperationException(),
+        execOps = throw UnsupportedOperationException(),
     )
 
     @Input
@@ -67,7 +65,7 @@ internal constructor(
             }
         }
 
-    private var onTestFrameworkCallbacks = project.objects.domainObjectSet<Action<KotlinJsTestFramework>>()
+    private var onTestFrameworkCallbacks = objects.domainObjectSet<Action<KotlinJsTestFramework>>()
 
     fun onTestFrameworkSet(action: Action<KotlinJsTestFramework>) {
         onTestFrameworkCallbacks.add(action)
@@ -114,7 +112,7 @@ internal constructor(
 
     @Input
     val nodeJsArgs: MutableList<String> =
-        if (compilation.wasmTarget == WasmTarget.WASI) mutableListOf("--experimental-wasm-exnref") else mutableListOf()
+        mutableListOf()
 
     override val requiredNpmDependencies: Set<RequiredKotlinJsDependency>
         @Internal get() = testFramework!!.requiredNpmDependencies

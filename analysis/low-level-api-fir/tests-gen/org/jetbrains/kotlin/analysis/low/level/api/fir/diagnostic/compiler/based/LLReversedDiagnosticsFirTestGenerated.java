@@ -117,6 +117,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
     }
 
     @Test
+    @TestMetadata("collectionLiteralInLambdaReturningAnnotation.kt")
+    public void testCollectionLiteralInLambdaReturningAnnotation() {
+      runTest("compiler/fir/analysis-tests/testData/resolve/collectionLiteralInLambdaReturningAnnotation.kt");
+    }
+
+    @Test
     @TestMetadata("companion.kt")
     public void testCompanion() {
       runTest("compiler/fir/analysis-tests/testData/resolve/companion.kt");
@@ -2024,6 +2030,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       }
 
       @Test
+      @TestMetadata("inaccessibleReceiver.kt")
+      public void testInaccessibleReceiver() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inaccessibleReceiver.kt");
+      }
+
+      @Test
       @TestMetadata("inferringContextOfType.kt")
       public void testInferringContextOfType() {
         runTest("compiler/fir/analysis-tests/testData/resolve/contextParameters/inferringContextOfType.kt");
@@ -3737,6 +3749,18 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       @TestMetadata("explicitDelegationCallRequired.kt")
       public void testExplicitDelegationCallRequired() {
         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/explicitDelegationCallRequired.kt");
+      }
+
+      @Test
+      @TestMetadata("implicitNestedClassFromSuperClass.kt")
+      public void testImplicitNestedClassFromSuperClass() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/implicitNestedClassFromSuperClass.kt");
+      }
+
+      @Test
+      @TestMetadata("implicitNestedClassFromSuperInterface.kt")
+      public void testImplicitNestedClassFromSuperInterface() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/implicitNestedClassFromSuperInterface.kt");
       }
 
       @Test
@@ -5757,6 +5781,18 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
         public void testManyDelegateInsidePCLA() {
           runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/manyDelegateInsidePCLA.kt.can-freeze-ide");
         }
+
+        @Test
+        @TestMetadata("noCompilerAssertionInAttemptToSemifixLowerVariablesOnlyConstraints.kt")
+        public void testNoCompilerAssertionInAttemptToSemifixLowerVariablesOnlyConstraints() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/noCompilerAssertionInAttemptToSemifixLowerVariablesOnlyConstraints.kt");
+        }
+
+        @Test
+        @TestMetadata("noCompilerAssertionWithErrorTypes.kt")
+        public void testNoCompilerAssertionWithErrorTypes() {
+          runTest("compiler/fir/analysis-tests/testData/resolve/inference/pcla/noCompilerAssertionWithErrorTypes.kt");
+        }
       }
     }
 
@@ -5853,6 +5889,34 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       @TestMetadata("simple.kt")
       public void testSimple() {
         runTest("compiler/fir/analysis-tests/testData/resolve/innerClasses/simple.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/j+k")
+    @TestDataPath("$PROJECT_ROOT")
+    public class J_k {
+      @Test
+      public void testAllFilesPresentInJ_k() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/j+k"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("asListOfToArrayJDKBased.kt")
+      public void testAsListOfToArrayJDKBased() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/j+k/asListOfToArrayJDKBased.kt");
+      }
+
+      @Test
+      @TestMetadata("asListOfToArraySimplified.kt")
+      public void testAsListOfToArraySimplified() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/j+k/asListOfToArraySimplified.kt");
+      }
+
+      @Test
+      @TestMetadata("usingNullableValueAsLowerBoundLeadsToNullableResult.kt")
+      public void testUsingNullableValueAsLowerBoundLeadsToNullableResult() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/j+k/usingNullableValueAsLowerBoundLeadsToNullableResult.kt");
       }
     }
 
@@ -5985,6 +6049,22 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
     }
 
     @Nested
+    @TestMetadata("compiler/fir/analysis-tests/testData/resolve/multiplatform")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Multiplatform {
+      @Test
+      public void testAllFilesPresentInMultiplatform() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/multiplatform"), Pattern.compile("^([^.]+)\\.kt(\\.can-freeze-ide)?$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("redeclarationOfExpectActualFromDependency.kt")
+      public void testRedeclarationOfExpectActualFromDependency() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/multiplatform/redeclarationOfExpectActualFromDependency.kt");
+      }
+    }
+
+    @Nested
     @TestMetadata("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases")
     @TestDataPath("$PROJECT_ROOT")
     public class NestedTypeAliases {
@@ -6051,6 +6131,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       @TestMetadata("localTypeAliases.kt")
       public void testLocalTypeAliases() {
         runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/localTypeAliases.kt");
+      }
+
+      @Test
+      @TestMetadata("localTypeAliasesDisabled.kt")
+      public void testLocalTypeAliasesDisabled() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/nestedTypeAliases/localTypeAliasesDisabled.kt");
       }
 
       @Test
@@ -9362,6 +9448,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       }
 
       @Test
+      @TestMetadata("JavaMethodWithTypeParameterAndContinuation.kt")
+      public void testJavaMethodWithTypeParameterAndContinuation() {
+        runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/JavaMethodWithTypeParameterAndContinuation.kt");
+      }
+
+      @Test
       @TestMetadata("JavaSyntheticProperty.kt")
       public void testJavaSyntheticProperty() {
         runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/j+k/JavaSyntheticProperty.kt");
@@ -9885,6 +9977,24 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
         }
 
         @Test
+        @TestMetadata("backingFieldExplicitAndImplicit.kt")
+        public void testBackingFieldExplicitAndImplicit() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldExplicitAndImplicit.kt");
+        }
+
+        @Test
+        @TestMetadata("backingFieldInInnerAndNestedScopes.kt")
+        public void testBackingFieldInInnerAndNestedScopes() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldInInnerAndNestedScopes.kt");
+        }
+
+        @Test
+        @TestMetadata("backingFieldInReceiverScope.kt")
+        public void testBackingFieldInReceiverScope() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldInReceiverScope.kt");
+        }
+
+        @Test
         @TestMetadata("backingFieldInitializedInInit.kt")
         public void testBackingFieldInitializedInInit() {
           runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldInitializedInInit.kt");
@@ -9897,15 +10007,39 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
         }
 
         @Test
+        @TestMetadata("backingFieldTypeModifier.kt")
+        public void testBackingFieldTypeModifier() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldTypeModifier.kt");
+        }
+
+        @Test
         @TestMetadata("backingFieldVisibility.kt")
         public void testBackingFieldVisibility() {
           runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldVisibility.kt");
         }
 
         @Test
+        @TestMetadata("backingFieldWithContextParameter.kt")
+        public void testBackingFieldWithContextParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldWithContextParameter.kt");
+        }
+
+        @Test
         @TestMetadata("backingFieldWithSmartTypeParameters.kt")
         public void testBackingFieldWithSmartTypeParameters() {
           runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/backingFieldWithSmartTypeParameters.kt");
+        }
+
+        @Test
+        @TestMetadata("callableReferenceOnBackingField.kt")
+        public void testCallableReferenceOnBackingField() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/callableReferenceOnBackingField.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitBackingFieldDeclarationScope.kt")
+        public void testExplicitBackingFieldDeclarationScope() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitBackingFieldDeclarationScope.kt");
         }
 
         @Test
@@ -9930,6 +10064,30 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
         @TestMetadata("explicitBackingFieldWithJvmField.kt")
         public void testExplicitBackingFieldWithJvmField() {
           runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitBackingFieldWithJvmField.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitBackingFieldWithTypeParameter.kt")
+        public void testExplicitBackingFieldWithTypeParameter() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitBackingFieldWithTypeParameter.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitBackingFieldsInEffectivelyPrivateInline.kt")
+        public void testExplicitBackingFieldsInEffectivelyPrivateInline() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitBackingFieldsInEffectivelyPrivateInline.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitBackingFieldsInInlineAccessors.kt")
+        public void testExplicitBackingFieldsInInlineAccessors() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitBackingFieldsInInlineAccessors.kt");
+        }
+
+        @Test
+        @TestMetadata("explicitBackingFieldsInInlineWithAnonymousFunction.kt")
+        public void testExplicitBackingFieldsInInlineWithAnonymousFunction() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitBackingFieldsInInlineWithAnonymousFunction.kt");
         }
 
         @Test
@@ -9987,6 +10145,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
         }
 
         @Test
+        @TestMetadata("explicitFieldWithFunctionTypeWithReceiver.kt")
+        public void testExplicitFieldWithFunctionTypeWithReceiver() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitFieldWithFunctionTypeWithReceiver.kt");
+        }
+
+        @Test
         @TestMetadata("explicitFieldsInitializerTypeMismatch.kt")
         public void testExplicitFieldsInitializerTypeMismatch() {
           runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/explicitFieldsInitializerTypeMismatch.kt");
@@ -10014,6 +10178,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
         @TestMetadata("overriddenPropertiesWithExplicitBackingFields.kt")
         public void testOverriddenPropertiesWithExplicitBackingFields() {
           runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/overriddenPropertiesWithExplicitBackingFields.kt");
+        }
+
+        @Test
+        @TestMetadata("overrideByThePropertyWithExplicitBackingField.kt")
+        public void testOverrideByThePropertyWithExplicitBackingField() {
+          runTest("compiler/fir/analysis-tests/testData/resolveWithStdlib/properties/backingField/overrideByThePropertyWithExplicitBackingField.kt");
         }
 
         @Test

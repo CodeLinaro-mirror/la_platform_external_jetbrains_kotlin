@@ -43,7 +43,6 @@ import org.jetbrains.kotlin.gradle.plugin.diagnostics.DefaultProblemsReporter
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ProblemsReporter
 import org.jetbrains.kotlin.gradle.plugin.internal.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.internal.initSwiftExportClasspathConfigurations
 import org.jetbrains.kotlin.gradle.plugin.statistics.BuildFinishBuildService
 import org.jetbrains.kotlin.gradle.plugin.statistics.BuildFusService
 import org.jetbrains.kotlin.gradle.report.BuildMetricsService
@@ -81,7 +80,8 @@ abstract class DefaultKotlinBasePlugin : KotlinBasePlugin {
         BuildSessionService.registerIfAbsent(project)
 
         val buildUidService = BuildUidService.registerIfAbsent(project.gradle)
-        BuildFusService.registerIfAbsent(project, pluginVersion, buildUidService)
+        val buildFinishBuildService = BuildFinishBuildService.registerIfAbsent(project, buildUidService, pluginVersion)
+        BuildFusService.registerIfAbsent(project, pluginVersion, buildUidService, buildFinishBuildService)
         PropertiesBuildService.registerIfAbsent(project)
 
         project.gradle.projectsEvaluated {
@@ -102,7 +102,7 @@ abstract class DefaultKotlinBasePlugin : KotlinBasePlugin {
 
         BuildMetricsService.registerIfAbsent(project)
         KotlinNativeBundleBuildService.registerIfAbsent(project)
-        BuildFinishBuildService.registerIfAbsent(project, buildUidService, pluginVersion)
+
     }
 
     private fun addKotlinCompilerConfiguration(project: Project) {
@@ -253,7 +253,6 @@ abstract class KotlinBasePluginWrapper : DefaultKotlinBasePlugin() {
             addGradlePluginMetadataAttributes(project)
         }
         project.maybeCreateCommonizerClasspathConfiguration()
-        project.initSwiftExportClasspathConfigurations()
         project.addPgpSignatureHelpers()
         project.addPomValidationHelpers()
         project.addSigningValidationHelpers()

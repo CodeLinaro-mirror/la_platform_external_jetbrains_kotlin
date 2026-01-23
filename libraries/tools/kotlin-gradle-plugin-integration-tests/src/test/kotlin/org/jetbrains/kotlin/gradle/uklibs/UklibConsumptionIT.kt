@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.gradle.uklibs
 
 import com.android.build.api.dsl.LibraryExtension
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.tasks.JavaExec
 import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.kotlin
@@ -46,6 +47,7 @@ class UklibConsumptionIT : KGPBaseTest() {
         androidVersion: String,
     ) {
         val symmetricTargets: KotlinMultiplatformExtension.() -> Unit = {
+            @Suppress("DEPRECATION")
             androidTarget().publishLibraryVariants("debug", "release")
             linuxArm64()
             iosArm64()
@@ -474,6 +476,7 @@ class UklibConsumptionIT : KGPBaseTest() {
                     namespace = "kotlin.multiplatform.projects"
                 }
                 project.applyMultiplatform {
+                    @Suppress("DEPRECATION")
                     androidTarget()
                     sourceSets.commonMain.get().compileSource("fun consume() { Jvm() }")
                     sourceSets.commonMain.dependencies {
@@ -909,6 +912,7 @@ class UklibConsumptionIT : KGPBaseTest() {
                             "org.gradle.category" to "library",
                             "org.gradle.libraryelements" to "jar",
                             "org.gradle.usage" to "java-api",
+                            "org.gradle.jvm.environment" to "standard-jvm",
                         ),
                     ),
                     configuration = "javaApiElements",
@@ -968,6 +972,7 @@ class UklibConsumptionIT : KGPBaseTest() {
                             "org.gradle.category" to "library",
                             "org.gradle.libraryelements" to "jar",
                             "org.gradle.usage" to "java-runtime",
+                            "org.gradle.jvm.environment" to "standard-jvm",
                         ),
                     ),
                     configuration = "javaRuntimeElements",
@@ -1037,6 +1042,7 @@ class UklibConsumptionIT : KGPBaseTest() {
                             "org.gradle.category" to "library",
                             "org.gradle.libraryelements" to "jar",
                             "org.gradle.usage" to "java-api",
+                            "org.gradle.jvm.environment" to "standard-jvm",
                         ),
                     ),
                     configuration = "javaApiElements",
@@ -1095,6 +1101,7 @@ class UklibConsumptionIT : KGPBaseTest() {
                             "org.gradle.category" to "library",
                             "org.gradle.libraryelements" to "jar",
                             "org.gradle.usage" to "java-runtime",
+                            "org.gradle.jvm.environment" to "standard-jvm",
                         ),
                     ),
                     configuration = "javaRuntimeElements",
@@ -1239,6 +1246,362 @@ class UklibConsumptionIT : KGPBaseTest() {
 
             build("assemble")
         }
+    }
+
+    @GradleTest
+    fun `uklib consumption - linkage with cinterops`(version: GradleVersion) {
+        val producer = project(
+            "empty",
+            version,
+        ) {
+            addKgpToBuildScriptCompilationClasspath()
+            buildScriptInjection {
+                // Commonizer is not supported yet which will be captured by this test
+                project.extraProperties.set(PropertiesProvider.PropertyNames.KOTLIN_MPP_ENABLE_CINTEROP_COMMONIZATION, true)
+                project.setUklibPublicationStrategy()
+                project.applyMultiplatform {
+                    listOf(
+                        linuxArm64(),
+                        linuxX64(),
+                    ).forEach {
+                        val foo = project.layout.projectDirectory.file("foo.def")
+                        val bar = project.layout.projectDirectory.file("bar.def")
+
+                        foo.asFile.writeText(
+                            """
+                                language = C
+                                ---
+                                void foo(void);
+                            """.trimIndent()
+                        )
+                        bar.asFile.writeText(
+                            """
+                                language = C
+                                ---
+                                void bar(void);
+                            """.trimIndent()
+                        )
+
+                        it.compilations.getByName("main").cinterops.create("foo") {
+                            it.definitionFile.set(foo)
+                        }
+                        it.compilations.getByName("main").cinterops.create("bar") {
+                            it.definitionFile.set(bar)
+                        }
+                    }
+
+                    sourceSets.commonMain.get().compileSource("class Common")
+                }
+            }
+        }.publish()
+
+        project("empty", version) {
+            addKgpToBuildScriptCompilationClasspath()
+            addPublishedProjectToRepositories(producer)
+            buildScriptInjection {
+                project.setUklibResolutionStrategy()
+                project.applyMultiplatform {
+                    linuxArm64 {
+                        binaries.staticLib {  }
+                    }
+                    sourceSets.commonMain.get().compileSource(
+                        """
+                        @file:OptIn(ExperimentalForeignApi::class)
+
+                        import kotlinx.cinterop.ExperimentalForeignApi
+
+                        fun consumeCinterops() { 
+                            bar.bar()
+                            foo.foo()
+                        }
+                        """.trimIndent()
+                    )
+                    sourceSets.commonMain.get().dependencies {
+                        api(producer.rootCoordinate)
+                    }
+                }
+            }
+
+            build("linkDebugStaticLinuxArm64")
+        }
+    }
+
+    @GradleAndroidTest
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_88)
+    fun `uklib consumption - KMP androidLibrary resolves to fallback variant with pre-UKlib dependencies`(
+        version: GradleVersion,
+        androidVersion: String,
+    ) {
+        val configureAndroidLibrary: KotlinMultiplatformExtension.() -> Unit = {
+            val target = targets.getByName("android")
+            val klass = target::class.java.classLoader.loadClass("com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryExtension")
+            val compileSdk = klass.getMethod("setCompileSdk", Int::class.javaObjectType)
+            compileSdk.invoke(target, 31)
+            val namespace = klass.getMethod("setNamespace", String::class.java)
+            namespace.invoke(target, "foo")
+        }
+        val producer = project(
+            "empty",
+            version,
+        ) {
+            addKgpToBuildScriptCompilationClasspath()
+            addAgpToBuildScriptCompilationClasspath(androidVersion)
+            buildScriptInjection {
+                project.applyMultiplatform {
+                    iosArm64()
+                    iosX64()
+                    js()
+                    sourceSets.commonMain.get().compileSource("class Common")
+                }
+            }
+        }.publish(publisherConfiguration = PublisherConfiguration(group = "producer"))
+
+        val consumer = project("empty", version) {
+            addKgpToBuildScriptCompilationClasspath()
+            addAgpToBuildScriptCompilationClasspath(androidVersion)
+            addPublishedProjectToRepositories(producer)
+            buildScriptInjection {
+                project.setUklibResolutionStrategy()
+                project.setUklibPublicationStrategy()
+                project.plugins.apply("com.android.kotlin.multiplatform.library")
+                project.applyMultiplatform {
+                    configureAndroidLibrary()
+                    sourceSets.commonMain.dependencies {
+                        implementation(producer.rootCoordinate)
+                    }
+                }
+            }
+        }
+
+        assertEquals<PrettyPrint<Map<String, ResolvedComponentWithArtifacts>>>(
+            mutableMapOf<String, ResolvedComponentWithArtifacts>(
+                "org.jetbrains.kotlin:kotlin-stdlib:${defaultBuildOptions.kotlinVersion}" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.jvm.environment" to "standard-jvm",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-api",
+                            "org.jetbrains.kotlin.platform.type" to "jvm",
+                        ),
+                    ),
+                    configuration = "jvmApiElements",
+                ),
+                "org.jetbrains:annotations:13.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-api",
+                        ),
+                    ),
+                    configuration = "compile",
+                ),
+                "producer:empty:1.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                    ),
+                    configuration = "fallbackVariant_KT-81412",
+                ),
+            ).prettyPrinted,
+            consumer.buildScriptReturn {
+                project.ignoreAccessViolations {
+                    project.configurations.getByName("androidCompileClasspath").resolveProjectDependencyComponentsWithArtifacts()
+                }
+            }.buildAndReturn("assemble").prettyPrinted
+        )
+        assertEquals<PrettyPrint<Map<String, ResolvedComponentWithArtifacts>>>(
+            mutableMapOf<String, ResolvedComponentWithArtifacts>(
+                "org.jetbrains.kotlin:kotlin-stdlib:${defaultBuildOptions.kotlinVersion}" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.jvm.environment" to "standard-jvm",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-runtime",
+                            "org.jetbrains.kotlin.platform.type" to "jvm",
+                        ),
+                    ),
+                    configuration = "jvmRuntimeElements",
+                ),
+                "org.jetbrains:annotations:13.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-runtime",
+                        ),
+                    ),
+                    configuration = "runtime",
+                ),
+                "producer:empty:1.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                    ),
+                    configuration = "fallbackVariant_KT-81412",
+                ),
+            ).prettyPrinted,
+            consumer.buildScriptReturn {
+                project.ignoreAccessViolations {
+                    project.configurations.getByName("androidRuntimeClasspath").resolveProjectDependencyComponentsWithArtifacts()
+                }
+            }.buildAndReturn("assemble").prettyPrinted
+        )
+    }
+
+    @GradleAndroidTest
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_88)
+    fun `uklib consumption - KMP androidLibrary with stub JVM variant - KT-81434`(
+        version: GradleVersion,
+        androidVersion: String,
+    ) {
+        val configureAndroidLibrary: KotlinMultiplatformExtension.() -> Unit = {
+            val target = targets.getByName("android")
+            val klass = target::class.java.classLoader.loadClass("com.android.build.api.dsl.KotlinMultiplatformAndroidLibraryExtension")
+            val compileSdk = klass.getMethod("setCompileSdk", Int::class.javaObjectType)
+            compileSdk.invoke(target, 31)
+            val namespace = klass.getMethod("setNamespace", String::class.java)
+            namespace.invoke(target, "foo")
+        }
+        val producer = project(
+            "empty",
+            version,
+        ) {
+            addKgpToBuildScriptCompilationClasspath()
+            addAgpToBuildScriptCompilationClasspath(androidVersion)
+            buildScriptInjection {
+                project.setUklibPublicationStrategy()
+                project.setUklibResolutionStrategy()
+                project.plugins.apply("com.android.kotlin.multiplatform.library")
+                project.applyMultiplatform {
+                    configureAndroidLibrary()
+                    linuxArm64()
+                    sourceSets.commonMain.get().compileSource("class Common")
+                }
+            }
+        }.publish(publisherConfiguration = PublisherConfiguration(group = "producer"))
+
+        val consumer = project("empty", version) {
+            addKgpToBuildScriptCompilationClasspath()
+            addAgpToBuildScriptCompilationClasspath(androidVersion)
+            addPublishedProjectToRepositories(producer)
+            buildScriptInjection {
+                project.setUklibResolutionStrategy()
+                project.setUklibPublicationStrategy()
+                project.plugins.apply("com.android.kotlin.multiplatform.library")
+                project.applyMultiplatform {
+                    configureAndroidLibrary()
+                    sourceSets.commonMain.dependencies {
+                        (implementation(producer.rootCoordinate) as ModuleDependency).isTransitive = false
+                    }
+                }
+            }
+        }
+
+        assertEquals<PrettyPrint<Map<String, ResolvedComponentWithArtifacts>>>(
+            mutableMapOf<String, ResolvedComponentWithArtifacts>(
+                "org.jetbrains.kotlin:kotlin-stdlib:${defaultBuildOptions.kotlinVersion}" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.jvm.environment" to "standard-jvm",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-api",
+                            "org.jetbrains.kotlin.platform.type" to "jvm",
+                        ),
+                    ),
+                    configuration = "jvmApiElements",
+                ),
+                "org.jetbrains:annotations:13.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-api",
+                        ),
+                    ),
+                    configuration = "compile",
+                ),
+                "producer:empty-android:1.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "aar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.jvm.environment" to "android",
+                            "org.gradle.libraryelements" to "aar",
+                            "org.gradle.usage" to "java-api",
+                            "org.jetbrains.kotlin.platform.type" to "jvm",
+                        ),
+                    ),
+                    configuration = "androidApiElements-published",
+                ),
+                "producer:empty:1.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                    ),
+                    configuration = "androidApiElements-published",
+                ),
+            ).prettyPrinted,
+            consumer.buildScriptReturn {
+                project.ignoreAccessViolations {
+                    project.configurations.getByName("androidCompileClasspath").resolveProjectDependencyComponentsWithArtifacts()
+                }
+            }.buildAndReturn("assemble").prettyPrinted
+        )
+        assertEquals<PrettyPrint<Map<String, ResolvedComponentWithArtifacts>>>(
+            mutableMapOf<String, ResolvedComponentWithArtifacts>(
+                "org.jetbrains.kotlin:kotlin-stdlib:${defaultBuildOptions.kotlinVersion}" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.jvm.environment" to "standard-jvm",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-runtime",
+                            "org.jetbrains.kotlin.platform.type" to "jvm",
+                        ),
+                    ),
+                    configuration = "jvmRuntimeElements",
+                ),
+                "org.jetbrains:annotations:13.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "jar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.libraryelements" to "jar",
+                            "org.gradle.usage" to "java-runtime",
+                        ),
+                    ),
+                    configuration = "runtime",
+                ),
+                "producer:empty-android:1.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                        mutableMapOf(
+                            "artifactType" to "aar",
+                            "org.gradle.category" to "library",
+                            "org.gradle.jvm.environment" to "android",
+                            "org.gradle.libraryelements" to "aar",
+                            "org.gradle.usage" to "java-runtime",
+                            "org.jetbrains.kotlin.platform.type" to "jvm",
+                        ),
+                    ),
+                    configuration = "androidRuntimeElements-published",
+                ),
+                "producer:empty:1.0" to ResolvedComponentWithArtifacts(
+                    artifacts = mutableListOf(
+                    ),
+                    configuration = "androidRuntimeElements-published",
+                ),
+            ).prettyPrinted,
+            consumer.buildScriptReturn {
+                project.ignoreAccessViolations {
+                    project.configurations.getByName("androidRuntimeClasspath").resolveProjectDependencyComponentsWithArtifacts()
+                }
+            }.buildAndReturn("assemble").prettyPrinted
+        )
     }
 
 }

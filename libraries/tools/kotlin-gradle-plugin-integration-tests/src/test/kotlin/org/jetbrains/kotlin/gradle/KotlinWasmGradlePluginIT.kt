@@ -71,6 +71,8 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
             build(":wasmWasiNodeProductionRun") {
                 assertTasksExecuted(":compileProductionExecutableKotlinWasmWasi")
                 assertTasksExecuted(":compileProductionExecutableKotlinWasmWasiOptimize")
+
+                assertTasksAreNotInTaskGraph(":kotlinWasmToolingSetup")
             }
         }
     }
@@ -591,6 +593,14 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                                 static = (static ?: mutableListOf()).apply {
                                     add("bar")
                                 }
+                            }
+                        }
+
+                        runTask {
+                            it.devServerProperty.set(it.devServerProperty.get().copy())
+
+                            if (it.devServerProperty.get().statics.isEmpty()) {
+                                error("No dev server statics after copying of data class")
                             }
                         }
                     }

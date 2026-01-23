@@ -333,7 +333,6 @@ org.jetbrains.kotlin.psi.KtArrayAccessExpression:getIndicesNode()
 org.jetbrains.kotlin.psi.KtArrayAccessExpression:getLeftBracket()
 org.jetbrains.kotlin.psi.KtArrayAccessExpression:getRightBracket()
 org.jetbrains.kotlin.psi.KtArrayAccessExpression:getTrailingComma()
-org.jetbrains.kotlin.psi.KtBackingField
 org.jetbrains.kotlin.psi.KtBackingField.equalsToken
 org.jetbrains.kotlin.psi.KtBackingField.fieldKeyword
 org.jetbrains.kotlin.psi.KtBackingField.namePlaceholder
@@ -373,7 +372,6 @@ org.jetbrains.kotlin.psi.KtCallElement:getTypeArgumentList()
 org.jetbrains.kotlin.psi.KtCallElement:getTypeArguments()
 org.jetbrains.kotlin.psi.KtCallElement:getValueArgumentList()
 org.jetbrains.kotlin.psi.KtCallElement:getValueArguments()
-org.jetbrains.kotlin.psi.KtCallExpression
 org.jetbrains.kotlin.psi.KtCallExpression:constructor(ASTNode)
 org.jetbrains.kotlin.psi.KtCallExpression:constructor(KotlinPlaceHolderStub<KtCallExpression>)
 org.jetbrains.kotlin.psi.KtCallableDeclaration
@@ -764,15 +762,14 @@ org.jetbrains.kotlin.psi.KtNamedDeclaration:getNameAsSafeName()
 org.jetbrains.kotlin.psi.KtNamedDeclarationUtil
 org.jetbrains.kotlin.psi.KtNamedDeclarationUtil:getParentFqName(KtNamedDeclaration)
 org.jetbrains.kotlin.psi.KtNamedDeclarationUtil:getUnsafeFQName(KtNamedDeclaration)
-org.jetbrains.kotlin.psi.KtNamedFunction
+org.jetbrains.kotlin.psi.KtNamedFunction.funKeyword
+org.jetbrains.kotlin.psi.KtNamedFunction.hasTypeParameterListBeforeFunctionName()
+org.jetbrains.kotlin.psi.KtNamedFunction.isAnonymous
+org.jetbrains.kotlin.psi.KtNamedFunction.isTopLevel
+org.jetbrains.kotlin.psi.KtNamedFunction.mayHaveContract(Boolean)
+org.jetbrains.kotlin.psi.KtNamedFunction.shouldChangeModificationCount(PsiElement?)
 org.jetbrains.kotlin.psi.KtNamedFunction:constructor(ASTNode)
 org.jetbrains.kotlin.psi.KtNamedFunction:constructor(KotlinFunctionStub)
-org.jetbrains.kotlin.psi.KtNamedFunction:getFunKeyword()
-org.jetbrains.kotlin.psi.KtNamedFunction:hasTypeParameterListBeforeFunctionName()
-org.jetbrains.kotlin.psi.KtNamedFunction:isAnonymous()
-org.jetbrains.kotlin.psi.KtNamedFunction:isTopLevel()
-org.jetbrains.kotlin.psi.KtNamedFunction:mayHaveContract(boolean)
-org.jetbrains.kotlin.psi.KtNamedFunction:shouldChangeModificationCount(PsiElement)
 org.jetbrains.kotlin.psi.KtNullableType
 org.jetbrains.kotlin.psi.KtNullableType:constructor(ASTNode)
 org.jetbrains.kotlin.psi.KtNullableType:constructor(KotlinPlaceHolderStub<KtNullableType>)
@@ -874,7 +871,6 @@ org.jetbrains.kotlin.psi.KtProperty:isMember()
 org.jetbrains.kotlin.psi.KtProperty:isTopLevel()
 org.jetbrains.kotlin.psi.KtProperty:setInitializer(KtExpression)
 org.jetbrains.kotlin.psi.KtProperty:shouldChangeModificationCount(PsiElement)
-org.jetbrains.kotlin.psi.KtPropertyAccessor
 org.jetbrains.kotlin.psi.KtPropertyAccessor.isGetter
 org.jetbrains.kotlin.psi.KtPropertyAccessor.isSetter
 org.jetbrains.kotlin.psi.KtPropertyAccessor.leftParenthesis
@@ -2085,7 +2081,6 @@ org.jetbrains.kotlin.psi.stubs.elements.KtPlaceHolderStubElementType:constructor
 org.jetbrains.kotlin.psi.stubs.elements.KtPlaceHolderWithTextStubElementType
 org.jetbrains.kotlin.psi.stubs.elements.KtPrimaryConstructorElementType
 org.jetbrains.kotlin.psi.stubs.elements.KtPropertyAccessorElementType
-org.jetbrains.kotlin.psi.stubs.elements.KtPropertyAccessorElementType:constructor(String)
 org.jetbrains.kotlin.psi.stubs.elements.KtPropertyElementType
 org.jetbrains.kotlin.psi.stubs.elements.KtPropertyElementType:constructor(String)
 org.jetbrains.kotlin.psi.stubs.elements.KtScriptElementType
@@ -2243,8 +2238,10 @@ org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.BOOLEAN_LOGIC
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.BOOLEAN_PARAMETER_REFERENCE
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.CALLS
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.CONDITIONAL
+org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.CONDITIONAL_RETURNS
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.CONSTANT
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.Companion.IGNORE_REFERENCE_PARAMETER_NAME
+org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.HOLDS_IN
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.IS_INSTANCE
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.IS_NULL
 org.jetbrains.kotlin.psi.stubs.impl.KotlinContractEffectType.NOT
@@ -2265,8 +2262,6 @@ org.jetbrains.kotlin.psi.stubs.impl.KotlinFileStubImpl.facadePartSimpleNames
 org.jetbrains.kotlin.psi.stubs.impl.KotlinFileStubImpl.partSimpleName
 org.jetbrains.kotlin.psi.stubs.impl.KotlinFlexibleTypeBean
 org.jetbrains.kotlin.psi.stubs.impl.KotlinFunctionStubImpl
-org.jetbrains.kotlin.psi.stubs.impl.KotlinFunctionStubImpl.Companion.deserializeContract(StubInputStream)
-org.jetbrains.kotlin.psi.stubs.impl.KotlinFunctionStubImpl.serializeContract(StubOutputStream)
 org.jetbrains.kotlin.psi.stubs.impl.KotlinImportAliasStubImpl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinImportDirectiveStubImpl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinModifierListStubImpl
@@ -2283,7 +2278,6 @@ org.jetbrains.kotlin.psi.stubs.impl.KotlinPlaceHolderStubImpl:constructor(StubEl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinPlaceHolderWithTextStubImpl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinPrimaryConstructorStubImpl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinPropertyAccessorStubImpl
-org.jetbrains.kotlin.psi.stubs.impl.KotlinPropertyAccessorStubImpl:constructor(StubElement<?>, boolean, boolean, boolean, boolean)
 org.jetbrains.kotlin.psi.stubs.impl.KotlinPropertyStubImpl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinScriptStubImpl
 org.jetbrains.kotlin.psi.stubs.impl.KotlinSecondaryConstructorStubImpl

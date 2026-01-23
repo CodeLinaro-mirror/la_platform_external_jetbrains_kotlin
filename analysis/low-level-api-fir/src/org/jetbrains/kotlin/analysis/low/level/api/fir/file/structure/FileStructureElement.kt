@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.util.isPartialAnalyzable
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.isPartialBodyResolvable
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.correspondingProperty
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirPrimaryConstructor
@@ -34,6 +35,7 @@ import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhase
 import org.jetbrains.kotlin.fir.types.builder.buildResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.builder.buildTypeProjectionWithVariance
 import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.toKtPsiSourceElement
@@ -155,6 +157,7 @@ internal class KtToFirMapping(private val elementMapper: LLElementMapper) {
                     }
                     variance = Variance.INVARIANT
                 }
+                coneTypeOrNull = argument.resolvedType
             }
         }
 
@@ -439,6 +442,11 @@ internal class DeclarationStructureElement(
 
             if (element is FirDelegatedConstructorCall && currentParent is FirConstructor && currentParent == declaration) {
                 // Skip delegated constructors
+                return
+            }
+
+            if (element is FirContractDescription) {
+                // Skip contract description
                 return
             }
 

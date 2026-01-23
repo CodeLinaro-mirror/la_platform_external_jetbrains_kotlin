@@ -30,6 +30,7 @@ object AbstractExpectActualAnnotationMatchChecker {
         StandardClassIds.Annotations.jsExportIgnore,
         StandardClassIds.Annotations.MustUseReturnValues,
         StandardClassIds.Annotations.IgnorableReturnValue,
+        StandardClassIds.Annotations.jsExportDefault,
         OptInNames.OPT_IN_CLASS_ID,
         OptInNames.SUBCLASS_OPT_IN_REQUIRED_CLASS_ID,
     )
@@ -288,6 +289,9 @@ object AbstractExpectActualAnnotationMatchChecker {
             }
             val actualAnnotationsWithSameClassId = actualAnnotationsByName[expectClassId] ?: emptyList()
             if (actualAnnotationsWithSameClassId.isEmpty()) {
+                if (skipOptionalAnnotationMismatch && expectAnnotation.isOptionalExpectation) {
+                    continue
+                }
                 return IncompatibilityType.MissingOnActual(expectAnnotation)
             }
             val collectionCompatibilityChecker = getAnnotationCollectionArgumentsCompatibilityChecker(expectClassId)

@@ -1634,6 +1634,12 @@ public class SourceGetOrBuildFirTestGenerated extends AbstractSourceGetOrBuildFi
     }
 
     @Test
+    @TestMetadata("lambdaFromContract.kt")
+    public void testLambdaFromContract() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/partialBodyAnalysis/lambdaFromContract.kt");
+    }
+
+    @Test
     @TestMetadata("logicalOperators.kt")
     public void testLogicalOperators() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/partialBodyAnalysis/logicalOperators.kt");
@@ -1747,6 +1753,12 @@ public class SourceGetOrBuildFirTestGenerated extends AbstractSourceGetOrBuildFi
     @TestMetadata("functionalTypeInsideAlias.kt")
     public void testFunctionalTypeInsideAlias() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/functionalTypeInsideAlias.kt");
+    }
+
+    @Test
+    @TestMetadata("implicitNestedClassFromSuperClass.kt")
+    public void testImplicitNestedClassFromSuperClass() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/types/implicitNestedClassFromSuperClass.kt");
     }
 
     @Test

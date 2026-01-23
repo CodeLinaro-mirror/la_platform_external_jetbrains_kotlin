@@ -5,9 +5,12 @@
 
 package org.jetbrains.kotlin.konan.test.blackbox.support.settings
 
+import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
+import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.Configurables
 import org.jetbrains.kotlin.konan.target.Distribution
 import org.jetbrains.kotlin.konan.target.HostManager
+import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.target.PlatformManager
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.fail
@@ -66,10 +69,26 @@ class SimpleTestRunSettings(parent: SimpleTestClassSettings, settings: Iterable<
 
 val Settings.configurables: Configurables
     get() {
+        val propertyOverrides = buildMap {
+            // Development variant of LLVM is used to have utilities like FileCheck
+            put("llvmHome.${HostManager.hostName}", "\$llvm.${HostManager.hostName}.dev")
+
+            val macabi = get<ExplicitBinaryOptions>().getOrNull(BinaryOptions.macabi) ?: false
+            if (macabi) {
+                // The same as in KonanConfig. See the motivation there.
+                val target = get<KotlinNativeTargets>().testTarget
+                val arch = when (target) {
+                    KonanTarget.IOS_X64 -> "x86_64"
+                    KonanTarget.IOS_SIMULATOR_ARM64 -> "arm64"
+                    else -> error("Unsupported target for macabi: $target")
+                }
+                put("targetTriple.${target.name}", "$arch-apple-ios-macabi")
+                put("targetSysRoot.${target.name}", "\$targetSysRoot.macos_arm64")
+            }
+        }
         val distribution = Distribution(
             get<KotlinNativeHome>().dir.path,
-            // Development variant of LLVM is used to have utilities like FileCheck
-            propertyOverrides = mapOf("llvmHome.${HostManager.hostName}" to "\$llvm.${HostManager.hostName}.dev")
+            propertyOverrides = propertyOverrides
         )
         return PlatformManager(distribution).platform(get<KotlinNativeTargets>().testTarget).configurables
     }
