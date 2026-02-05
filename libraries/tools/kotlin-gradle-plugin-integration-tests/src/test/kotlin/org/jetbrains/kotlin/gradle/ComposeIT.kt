@@ -10,7 +10,9 @@ import org.gradle.api.logging.LogLevel
 import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 import org.jetbrains.kotlin.gradle.testbase.*
+import org.jetbrains.kotlin.gradle.uklibs.applyMultiplatform
 import org.jetbrains.kotlin.test.TestMetadata
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.DisabledOnOs
@@ -654,9 +656,7 @@ class ComposeIT : KGPBaseTest() {
             projectName = "AndroidSimpleComposeApp",
             gradleVersion = gradleVersion,
             buildJdk = providedJdk.location,
-            buildOptions = defaultBuildOptions
-                .copy(androidVersion = agpVersion)
-                .suppressAgpWarningSinceGradle814(gradleVersion, WarningMode.None),
+            buildOptions = defaultBuildOptions.copy(androidVersion = agpVersion)
         ) {
             buildScriptInjection {
                 val appExtension = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
@@ -713,6 +713,130 @@ class ComposeIT : KGPBaseTest() {
                 }
 
                 assertEquals(calculatedHash, recordedHash)
+            }
+        }
+    }
+
+    @DisplayName("Minified app with disabled mapping does not run Compose tasks.")
+    @AndroidGradlePluginTests
+    @GradleAndroidTest
+    @DisabledOnOs(
+        OS.WINDOWS, disabledReason = "AGP contains a bug that prevents test output files from being cleaned up on Windows. " +
+                "See: https://issuetracker.google.com/issues/445967244"
+    )
+    @TestMetadata("AndroidSimpleComposeApp")
+    fun testMinifyWithComposeDisabled(
+        gradleVersion: GradleVersion,
+        agpVersion: String,
+        providedJdk: JdkVersions.ProvidedJdk
+    ) {
+        project(
+            projectName = "AndroidSimpleComposeApp",
+            gradleVersion = gradleVersion,
+            buildJdk = providedJdk.location,
+            buildOptions = defaultBuildOptions
+                .copy(androidVersion = agpVersion)
+        ) {
+            buildScriptInjection {
+                val appExtension = project.extensions.getByType<ApplicationAndroidComponentsExtension>()
+                appExtension.beforeVariants {
+                    if (it.name == "release") {
+                        it.isMinifyEnabled = true
+                    }
+                }
+                val composeExtension = project.extensions.getByType<ComposeCompilerGradlePluginExtension>()
+                composeExtension.includeComposeMappingFile.set(false)
+            }
+
+            build("assembleRelease") {
+                assertTasksAreNotInTaskGraph(
+                    ":produceReleaseComposeMapping",
+                    ":mergeReleaseComposeMapping"
+                )
+            }
+        }
+    }
+
+    @DisplayName("CMP-9167 verification")
+    @GradleTest
+    @OtherGradlePluginTests
+    fun testComposeDefaultValueParamStubs(
+        gradleVersion: GradleVersion,
+    ) {
+        project(
+            projectName = "empty",
+            gradleVersion = gradleVersion,
+            buildOptions = defaultBuildOptions.copy(
+                nativeOptions = super.defaultBuildOptions.nativeOptions.copy(
+                    version = TestVersions.Kotlin.CURRENT
+                ),
+                isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED
+            ),
+            dependencyManagement = DependencyManagement.DefaultDependencyManagement(setOf("https://maven.pkg.jetbrains.space/public/p/compose/dev")),
+            enableGradleDaemonMemoryLimitInMb = 2048,
+            enableKotlinDaemonMemoryLimitInMb = 2048,
+        ) {
+            plugins {
+                id("org.jetbrains.kotlin.plugin.compose")
+            }
+            buildScriptInjection {
+                project.applyMultiplatform {
+                    listOf(
+                        iosArm64(),
+                        iosSimulatorArm64()
+                    ).forEach { iosTarget ->
+                        iosTarget.binaries.framework {
+                            baseName = "ComposeApp"
+                            isStatic = true
+                        }
+                    }
+                    jvm()
+
+                    @OptIn(ExperimentalWasmDsl::class)
+                    wasmJs {
+                        browser()
+                        binaries.library()
+                    }
+
+                    js {
+                        browser()
+                        binaries.library()
+                    }
+                    sourceSets.commonMain {
+                        compileSource(
+                            //language=kotlin
+                            """
+                            package com.example
+                            
+                            import androidx.compose.runtime.Composable
+                            import kotlin.jvm.JvmInline
+                            
+                            @JvmInline
+                            value class ImeAction private constructor(val value: Int) {
+                                companion object {
+                                    val Default = ImeAction(0)
+                                }
+                            }
+                            
+                            @Composable
+                            fun <T> TextCompose(genericText: (T) -> String, imeAction: ImeAction = ImeAction.Default) {}
+                            """.trimIndent()
+                        )
+                        dependencies {
+                            implementation("org.jetbrains.compose.runtime:runtime:1.9.1")
+                        }
+                    }
+                }
+            }
+
+            build(":compileKotlinIosSimulatorArm64") {
+                assertTasksExecuted(":compileKotlinIosSimulatorArm64")
+            }
+            build(":compileKotlinWasmJs") {
+                assertTasksExecuted(":compileKotlinWasmJs")
+            }
+            build(":compileKotlinJs") {
+                assertTasksExecuted(":compileKotlinJs")
             }
         }
     }

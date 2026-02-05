@@ -31,7 +31,11 @@ import kotlin.math.*
  */
 @SinceKotlin("1.6")
 @JvmInline
-public value class Duration private constructor(private val rawValue: Long) : Comparable<Duration> {
+public value class Duration
+// A temporary workaround for KT-81995, the constructor has to be private once the issue is resolved.
+@Deprecated("Don't call this constructor directly.", level = DeprecationLevel.ERROR)
+internal constructor(private val rawValue: Long) :
+    Comparable<Duration> {
 
     private val value: Long get() = rawValue shr 1
     private inline val unitDiscriminator: Int get() = rawValue.toInt() and 1
@@ -40,6 +44,7 @@ public value class Duration private constructor(private val rawValue: Long) : Co
     private val storageUnit get() = if (isInNanos()) DurationUnit.NANOSECONDS else DurationUnit.MILLISECONDS
 
     public companion object {
+        @Suppress("DEPRECATION_ERROR") // A temporary workaround for KT-81995.
         internal fun fromRawValue(rawValue: Long): Duration = Duration(rawValue).apply {
             if (durationAssertionsEnabled) {
                 if (isInNanos()) {
@@ -52,6 +57,7 @@ public value class Duration private constructor(private val rawValue: Long) : Co
         }
 
         /** The duration equal to exactly 0 seconds. */
+        @Suppress("DEPRECATION_ERROR") // A temporary workaround for KT-81995.
         public val ZERO: Duration = Duration(0L)
 
         /** The duration whose value is positive infinity. It is useful for representing timeouts that should never expire. */
@@ -59,6 +65,7 @@ public value class Duration private constructor(private val rawValue: Long) : Co
         internal val NEG_INFINITE: Duration = durationOfMillis(-MAX_MILLIS)
 
         internal const val INVALID_RAW_VALUE = 0x7FFFFFFFFFFFC0DE
+        @Suppress("DEPRECATION_ERROR") // A temporary workaround for KT-81995.
         internal val INVALID = Duration(INVALID_RAW_VALUE)
 
         /** Converts the given time duration [value] expressed in the specified [sourceUnit] into the specified [targetUnit]. */
@@ -970,7 +977,12 @@ public fun Long.toDuration(unit: DurationUnit): Duration {
     val maxNsInUnit = convertDurationUnitOverflow(MAX_NANOS, DurationUnit.NANOSECONDS, unit)
     return when {
         this in -maxNsInUnit..maxNsInUnit -> durationOfNanos(convertDurationUnitOverflow(this, unit, DurationUnit.NANOSECONDS))
-        unit >= DurationUnit.MILLISECONDS -> durationOfMillis(this.sign * convertDurationUnitToMilliseconds(abs(this), unit))
+        unit >= DurationUnit.MILLISECONDS -> durationOfMillis(
+            this.sign * convertDurationUnitToMilliseconds(
+                abs(this.coerceAtLeast(Long.MIN_VALUE + 1)),
+                unit
+            )
+        )
         else -> durationOfMillis(convertDurationUnit(this, unit, DurationUnit.MILLISECONDS).coerceIn(-MAX_MILLIS, MAX_MILLIS))
     }
 }
@@ -1435,19 +1447,6 @@ private inline fun handleError(throwException: Boolean, message: String = ""): D
  * @return [this] if valid, or the result of the block if [Duration.INVALID]
  */
 private inline fun Duration.onInvalid(block: () -> Duration?): Duration? = if (this == Duration.INVALID) block() else this
-
-/**
- * Skips characters in this string starting from the given index while they match the predicate.
- *
- * @param startIndex the index to start skipping from
- * @param predicate condition to test each character
- * @return the index of the first character that doesn't match the predicate, or string length
- */
-private inline fun String.skipWhile(startIndex: Int, predicate: (Char) -> Boolean): Int {
-    var i = startIndex
-    while (i < length && predicate(this[i])) i++
-    return i
-}
 
 /**
  * Parses a duration unit from its default format short name at the given position.

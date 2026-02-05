@@ -44,6 +44,14 @@ public class IncrementalCompilationIT extends MavenITBase {
         };
     }
 
+    @NotNull
+    private String[] withJavaOutputPaths() {
+        return new String[]{
+                "target/classes/SomeMain.class",
+                "target/test-classes/SomeTests.class"
+        };
+    }
+
     @Test
     public void testNoChanges() throws Exception {
         MavenProject project = new MavenProject("kotlinSimple");
@@ -105,5 +113,42 @@ public class IncrementalCompilationIT extends MavenITBase {
                 .succeeded()
                 .filesExist(kotlinSimpleOutputPaths())
                 .compiledKotlin("src/main/kotlin/A.kt");
+    }
+
+    @Test // Regression test for KT-81681
+    public void secondRunWithTests() throws Exception {
+        MavenProject project = new MavenProject("kotlinWithTests");
+        project.exec(executionStrategy, "package");
+
+        project.exec(executionStrategy, "package", "-X")
+                .succeeded()
+                .filesExist(withJavaOutputPaths())
+                .compiledKotlin();
+    }
+
+    @Test // Regression test for KT-82180
+    public void removeUsedClass() throws Exception {
+        MavenProject project = new MavenProject("kotlinSimple");
+        project.exec(executionStrategy, "package");
+
+        MavenTestUtils.deleteFile(project.file("src/main/kotlin/A.kt"));
+
+        project.exec(executionStrategy, "package", "-X")
+                .failed()
+                .contains("Unresolved reference 'A'")
+                .compiledKotlin("src/main/kotlin/useA.kt");
+    }
+
+    @Test // Regression test for KT-82180
+    public void renameUsedClassInTest() throws Exception {
+        MavenProject project = new MavenProject("kotlinWithTests");
+        project.exec(executionStrategy, "package");
+
+        MavenTestUtils.replaceFirstInFile(project.file("src/test/kotlin/BaseTests.kt"), "BaseTests", "MyBaseTests");
+
+        project.exec(executionStrategy, "package", "-X")
+                .failed()
+                .contains("Unresolved reference 'BaseTests'")
+                .compiledKotlin("src/test/kotlin/BaseTests.kt", "src/test/kotlin/SomeTests.kt");
     }
 }

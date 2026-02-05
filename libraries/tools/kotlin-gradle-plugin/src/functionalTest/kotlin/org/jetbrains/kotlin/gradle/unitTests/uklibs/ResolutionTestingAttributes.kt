@@ -40,6 +40,12 @@ val uklibTransformationWasmWasiAttributes = mapOf(
     "org.jetbrains.kotlin.uklibState" to "decompressed",
 )
 
+val preHmppKmpAttributes = mapOf(
+    "org.gradle.category" to "library",
+    "org.gradle.usage" to "kotlin-api",
+    "org.jetbrains.kotlin.platform.type" to "common"
+)
+
 val jvmRuntimeAttributes = mapOf(
     "org.gradle.category" to "library",
     "org.gradle.libraryelements" to "jar",
@@ -50,6 +56,26 @@ val jvmApiAttributes = mapOf(
     "org.gradle.libraryelements" to "jar",
     "org.gradle.usage" to "java-api",
 )
+val jvmRuntimeClassifiedAttributes = mapOf(
+    "org.gradle.libraryelements" to "jar",
+    "org.gradle.usage" to "java-runtime",
+)
+
+val kmpAndroidLibraryApiAttributes = mapOf(
+    "org.gradle.category" to "library",
+    "org.gradle.jvm.environment" to "android",
+    "org.gradle.libraryelements" to "aar",
+    "org.gradle.usage" to "java-api",
+    "org.jetbrains.kotlin.platform.type" to "jvm",
+)
+val kmpAndroidLibraryRuntimeAttributes = mapOf(
+    "org.gradle.category" to "library",
+    "org.gradle.jvm.environment" to "android",
+    "org.gradle.libraryelements" to "aar",
+    "org.gradle.usage" to "java-runtime",
+    "org.jetbrains.kotlin.platform.type" to "jvm",
+)
+
 
 val kmpJvmRuntimeVariantAttributes = mapOf(
     "org.gradle.category" to "library",
@@ -63,6 +89,17 @@ val kmpJvmApiVariantAttributes = mapOf(
     "org.gradle.jvm.environment" to "standard-jvm",
     "org.gradle.libraryelements" to "jar",
     "org.gradle.usage" to "java-api",
+    "org.jetbrains.kotlin.platform.type" to "jvm",
+)
+
+val kmpPreHmppAndWithoutCategoryJvmRuntimeVariantAttributes = mapOf(
+    "org.gradle.usage" to "java-runtime",
+    "org.gradle.libraryelements" to "jar",
+    "org.jetbrains.kotlin.platform.type" to "jvm",
+)
+val kmpPreHmppAndWithoutCategoryJvmApiVariantAttributes = mapOf(
+    "org.gradle.usage" to "java-api",
+    "org.gradle.libraryelements" to "jar",
     "org.jetbrains.kotlin.platform.type" to "jvm",
 )
 
@@ -157,4 +194,7 @@ val uklibArtifact = mapOf(
 )
 val klibCinteropCommonizerType = mapOf(
     "org.jetbrains.kotlin.cinteropCommonizerArtifactType" to "klib",
+)
+val orgJetbrainsKotlinKlibArtifactType = mapOf(
+    "artifactType" to "org.jetbrains.kotlin.klib"
 )

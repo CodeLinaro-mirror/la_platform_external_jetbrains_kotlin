@@ -3837,6 +3837,18 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         runTest("compiler/testData/codegen/box/bridges/typeParameterInExtensionReceiver.kt");
       }
 
+      @Test
+      @TestMetadata("varargBridge1.kt")
+      public void testVarargBridge1() {
+        runTest("compiler/testData/codegen/box/bridges/varargBridge1.kt");
+      }
+
+      @Test
+      @TestMetadata("varargBridge2.kt")
+      public void testVarargBridge2() {
+        runTest("compiler/testData/codegen/box/bridges/varargBridge2.kt");
+      }
+
       @Nested
       @TestMetadata("compiler/testData/codegen/box/bridges/declarationDifferentSignature")
       @TestDataPath("$PROJECT_ROOT")
@@ -7116,6 +7128,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
       @TestMetadata("kt81257.kt")
       public void testKt81257() {
         runTest("compiler/testData/codegen/box/casts/kt81257.kt");
+      }
+
+      @Test
+      @TestMetadata("kt81617.kt")
+      public void testKt81617() {
+        runTest("compiler/testData/codegen/box/casts/kt81617.kt");
       }
 
       @Test
@@ -23350,6 +23368,18 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
       }
 
       @Test
+      @TestMetadata("noConversionForSubtype.kt")
+      public void testNoConversionForSubtype() {
+        runTest("compiler/testData/codegen/box/funInterface/noConversionForSubtype.kt");
+      }
+
+      @Test
+      @TestMetadata("noConversionForSubtypeGeneric.kt")
+      public void testNoConversionForSubtypeGeneric() {
+        runTest("compiler/testData/codegen/box/funInterface/noConversionForSubtypeGeneric.kt");
+      }
+
+      @Test
       @TestMetadata("nonAbstractMethod.kt")
       public void testNonAbstractMethod() {
         runTest("compiler/testData/codegen/box/funInterface/nonAbstractMethod.kt");
@@ -35890,6 +35920,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
       @HeavyTest()
       public class Serialization {
         @Test
+        @TestMetadata("actualAnnotationOnFakeOverride.kt")
+        public void testActualAnnotationOnFakeOverride() {
+          runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/actualAnnotationOnFakeOverride.kt");
+        }
+
+        @Test
         public void testAllFilesPresentInSerialization() {
           KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/box/involvesIrInterpreter/serialization"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
@@ -35907,9 +35943,27 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         }
 
         @Test
+        @TestMetadata("annotationOnFakeOverrideProperty.kt")
+        public void testAnnotationOnFakeOverrideProperty() {
+          runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/annotationOnFakeOverrideProperty.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationOnFakeOverrideWithJava.kt")
+        public void testAnnotationOnFakeOverrideWithJava() {
+          runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/annotationOnFakeOverrideWithJava.kt");
+        }
+
+        @Test
         @TestMetadata("annotationOnParameterOnFakeOverride.kt")
         public void testAnnotationOnParameterOnFakeOverride() {
           runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/annotationOnParameterOnFakeOverride.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationOnSecondParameterOnFakeOverride.kt")
+        public void testAnnotationOnSecondParameterOnFakeOverride() {
+          runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/annotationOnSecondParameterOnFakeOverride.kt");
         }
 
         @Test
@@ -35928,6 +35982,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         @TestMetadata("annotationWithArray.kt")
         public void testAnnotationWithArray() {
           runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/annotationWithArray.kt");
+        }
+
+        @Test
+        @TestMetadata("annotationWithDefaultValueOnFakeOverride.kt")
+        public void testAnnotationWithDefaultValueOnFakeOverride() {
+          runTest("compiler/testData/codegen/box/involvesIrInterpreter/serialization/annotationWithDefaultValueOnFakeOverride.kt");
         }
 
         @Test
@@ -36714,6 +36774,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
       @TestMetadata("unresolvedJavaClassInDifferentFile.kt")
       public void testUnresolvedJavaClassInDifferentFile() {
         runTest("compiler/testData/codegen/box/javaInterop/unresolvedJavaClassInDifferentFile.kt");
+      }
+
+      @Test
+      @TestMetadata("usingNullableValueAsLowerBoundLeadsToNullableResult.kt")
+      public void testUsingNullableValueAsLowerBoundLeadsToNullableResult() {
+        runTest("compiler/testData/codegen/box/javaInterop/usingNullableValueAsLowerBoundLeadsToNullableResult.kt");
       }
 
       @Test
@@ -42115,6 +42181,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
           public void testOptionalExpectation() {
             runTest("compiler/testData/codegen/box/multiplatform/k2/annotations/optionalExpectation.kt");
           }
+
+          @Test
+          @TestMetadata("optionalExpectationAnnotation.kt")
+          public void testOptionalExpectationAnnotation() {
+            runTest("compiler/testData/codegen/box/multiplatform/k2/annotations/optionalExpectationAnnotation.kt");
+          }
         }
 
         @Nested
@@ -46515,6 +46587,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         }
 
         @Test
+        @TestMetadata("backingFieldAndPropertyWithTheSameName.kt")
+        public void testBackingFieldAndPropertyWithTheSameName() {
+          runTest("compiler/testData/codegen/box/properties/backingField/backingFieldAndPropertyWithTheSameName.kt");
+        }
+
+        @Test
         @TestMetadata("backingFieldInitializedInInit.kt")
         public void testBackingFieldInitializedInInit() {
           runTest("compiler/testData/codegen/box/properties/backingField/backingFieldInitializedInInit.kt");
@@ -46596,6 +46674,18 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         @TestMetadata("overriddenPropertiesWithExplicitBackingFields.kt")
         public void testOverriddenPropertiesWithExplicitBackingFields() {
           runTest("compiler/testData/codegen/box/properties/backingField/overriddenPropertiesWithExplicitBackingFields.kt");
+        }
+
+        @Test
+        @TestMetadata("overrideWithExplicitBackingField.kt")
+        public void testOverrideWithExplicitBackingField() {
+          runTest("compiler/testData/codegen/box/properties/backingField/overrideWithExplicitBackingField.kt");
+        }
+
+        @Test
+        @TestMetadata("propertyWithBackingFieldAndWithContext.kt")
+        public void testPropertyWithBackingFieldAndWithContext() {
+          runTest("compiler/testData/codegen/box/properties/backingField/propertyWithBackingFieldAndWithContext.kt");
         }
       }
 
@@ -56569,6 +56659,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         }
 
         @Test
+        @TestMetadata("functionSupertype.kt")
+        public void testFunctionSupertype() {
+          runTest("compiler/testData/codegen/box/reflection/supertypes/functionSupertype.kt");
+        }
+
+        @Test
         @TestMetadata("genericSubstitution.kt")
         public void testGenericSubstitution() {
           runTest("compiler/testData/codegen/box/reflection/supertypes/genericSubstitution.kt");
@@ -57108,6 +57204,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         }
 
         @Test
+        @TestMetadata("functionClasses.kt")
+        public void testFunctionClasses() {
+          runTest("compiler/testData/codegen/box/reflection/typeParameters/functionClasses.kt");
+        }
+
+        @Test
         @TestMetadata("innerGeneric.kt")
         public void testInnerGeneric() {
           runTest("compiler/testData/codegen/box/reflection/typeParameters/innerGeneric.kt");
@@ -57320,6 +57422,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
           }
 
           @Test
+          @TestMetadata("javaTypeProjection.kt")
+          public void testJavaTypeProjection() {
+            runTest("compiler/testData/codegen/box/reflection/types/subtyping/javaTypeProjection.kt");
+          }
+
+          @Test
           @TestMetadata("nestedGenericCapturedType.kt")
           public void testNestedGenericCapturedType() {
             runTest("compiler/testData/codegen/box/reflection/types/subtyping/nestedGenericCapturedType.kt");
@@ -57408,6 +57516,18 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
       @TestMetadata("commonSupertypeContravariant2.kt")
       public void testCommonSupertypeContravariant2() {
         runTest("compiler/testData/codegen/box/regressions/commonSupertypeContravariant2.kt");
+      }
+
+      @Test
+      @TestMetadata("dataClassInInlineFunctionWithTypeParameters.kt")
+      public void testDataClassInInlineFunctionWithTypeParameters() {
+        runTest("compiler/testData/codegen/box/regressions/dataClassInInlineFunctionWithTypeParameters.kt");
+      }
+
+      @Test
+      @TestMetadata("dataClassInRegularFunctionWithTypeParameters.kt")
+      public void testDataClassInRegularFunctionWithTypeParameters() {
+        runTest("compiler/testData/codegen/box/regressions/dataClassInRegularFunctionWithTypeParameters.kt");
       }
 
       @Test
@@ -66895,6 +67015,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
         }
 
         @Test
+        @TestMetadata("genericVararg.kt")
+        public void testGenericVararg() {
+          runTest("compiler/testData/codegen/boxInline/callableReference/adaptedReferences/genericVararg.kt");
+        }
+
+        @Test
         @TestMetadata("inlineBound.kt")
         public void testInlineBound() {
           runTest("compiler/testData/codegen/boxInline/callableReference/adaptedReferences/inlineBound.kt");
@@ -68955,6 +69081,12 @@ public class CustomJsCompilerSecondPhaseTestGenerated extends AbstractCustomJsCo
       @Test
       public void testAllFilesPresentInMultiModule() {
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxInline/multiModule"), Pattern.compile("^(.+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("notInlinedFunFromKlib.kt")
+      public void testNotInlinedFunFromKlib() {
+        runTest("compiler/testData/codegen/boxInline/multiModule/notInlinedFunFromKlib.kt");
       }
 
       @Test

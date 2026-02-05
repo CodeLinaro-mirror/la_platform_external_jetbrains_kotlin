@@ -14,6 +14,8 @@ import org.jetbrains.kotlin.fir.declarations.utils.isExternal
 import org.jetbrains.kotlin.fir.diagnostics.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.FirOperation.*
+import org.jetbrains.kotlin.fir.expressions.InaccessibleReceiverKind.OuterClassOfNonInner
+import org.jetbrains.kotlin.fir.expressions.InaccessibleReceiverKind.SecondaryConstructor
 import org.jetbrains.kotlin.fir.expressions.builder.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
@@ -136,7 +138,12 @@ open class FirExpressionsResolveTransformer(transformer: FirAbstractBodyResolveT
                 }
                 val implicitType = implicitReceiver?.originalType
                 val resultType: ConeKotlinType = when {
-                    implicitReceiver is InaccessibleImplicitReceiverValue -> ConeErrorType(ConeInstanceAccessBeforeSuperCall("<this>"))
+                    implicitReceiver is InaccessibleImplicitReceiverValue -> ConeErrorType(
+                        when (implicitReceiver.kind) {
+                            SecondaryConstructor -> ConeInstanceAccessBeforeSuperCall("<this>")
+                            OuterClassOfNonInner -> ConeInaccessibleOuterClass(implicitReceiver.boundSymbol)
+                        }
+                    )
                     implicitType != null -> implicitType
                     labelName != null -> ConeErrorType(ConeSimpleDiagnostic("Unresolved this@$labelName", DiagnosticKind.UnresolvedLabel))
                     else -> ConeErrorType(ConeSimpleDiagnostic("'this' is not defined in this context", DiagnosticKind.NoThis))
@@ -535,8 +542,9 @@ open class FirExpressionsResolveTransformer(transformer: FirAbstractBodyResolveT
             if (calleeReference is FirNamedReferenceWithCandidate) return functionCall
             if (calleeReference !is FirSimpleNamedReference) {
                 // The callee reference can be resolved as an error very early, e.g., `super` as a callee during raw FIR creation.
-                // We still need to visit/transform other parts, e.g., call arguments, to check if any other errors are there.
-                if (calleeReference !is FirResolvedNamedReference) {
+                // We still need to visit/transform other parts, e.g., call arguments, to check if any other errors are there,
+                // but only if they haven't been resolved yet.
+                if (calleeReference !is FirResolvedNamedReference && functionCall.argumentList !is FirResolvedArgumentList) {
                     functionCall.transformChildren(transformer, ResolutionMode.ContextIndependent)
                 }
                 return functionCall

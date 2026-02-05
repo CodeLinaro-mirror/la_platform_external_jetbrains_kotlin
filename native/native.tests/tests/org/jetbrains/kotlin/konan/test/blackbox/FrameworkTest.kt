@@ -9,6 +9,7 @@ import com.intellij.testFramework.TestDataPath
 import org.jetbrains.kotlin.config.nativeBinaryOptions.GC
 import org.jetbrains.kotlin.config.nativeBinaryOptions.GCSchedulerType
 import org.jetbrains.kotlin.konan.target.Family
+import org.jetbrains.kotlin.konan.target.isMacabi
 import org.jetbrains.kotlin.konan.test.blackbox.support.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.*
 import org.jetbrains.kotlin.konan.test.blackbox.support.compilation.TestCompilationResult.Companion.assertSuccess
@@ -228,6 +229,9 @@ class FrameworkTest : AbstractNativeSimpleTest() {
     fun testStacktrace() {
         val testName = "stacktrace"
         Assumptions.assumeFalse(testRunSettings.get<OptimizationMode>() == OptimizationMode.OPT)
+        // Stacktraces support for Mac Catalyst requires additional adjustments in `supportsCoreSymbolication`.
+        // We can do it later if needed.
+        Assumptions.assumeFalse(testRunSettings.configurables.targetTriple.isMacabi)
 
         val testCase = generateObjCFramework(testName, listOf("-g"))
         compileAndRunSwift(testName, testCase)
@@ -289,6 +293,32 @@ class FrameworkTest : AbstractNativeSimpleTest() {
             "<key>CFBundleIdentifier</key>\\s*<string>$testName</string>",
             "<key>CFBundleShortVersionString</key>\\s*<string>FooBundleShortVersionString</string>",
             "<key>CFBundleVersion</key>\\s*<string>FooBundleVersion</string>",
+        ).forEach {
+            assertTrue(infoPlistContents.contains(Regex(it))) {
+                "${infoPlist.absolutePath} does not contain pattern `$it`:\n$infoPlistContents"
+            }
+        }
+    }
+
+    @Test
+    fun testSanitizedBundleId() {
+        Assumptions.assumeTrue(testRunSettings.get<KotlinNativeTargets>().testTarget.family == Family.OSX)
+        val testName = "sanitizedBundleId"
+        val moduleName = "S@nitizedВundle Id" // NOTE: uses cyrillic В.
+        val testCase = generateObjCFrameworkTestCase(
+            TestKind.STANDALONE_NO_TR,
+            extras,
+            moduleName,
+            listOf(testSuiteDir.resolve(testName).resolve("lib.kt")),
+        )
+        val objCFrameworkCompilation = testCompilationFactory.testCaseToObjCFrameworkCompilation(testCase, testRunSettings).result.assertSuccess()
+
+        val expectedBundleId = "sp-aces.da-sh-es.S-nitized-undle-Id"
+        val buildDir = testRunSettings.get<Binaries>().testBinariesDir
+        val infoPlist = buildDir.resolve("$moduleName.framework/Resources/Info.plist")
+        val infoPlistContents = infoPlist.readText()
+        listOf(
+            "<key>CFBundleIdentifier</key>\\s*<string>$expectedBundleId</string>",
         ).forEach {
             assertTrue(infoPlistContents.contains(Regex(it))) {
                 "${infoPlist.absolutePath} does not contain pattern `$it`:\n$infoPlistContents"

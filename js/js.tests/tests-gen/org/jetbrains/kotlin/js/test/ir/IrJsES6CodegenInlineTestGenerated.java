@@ -1287,6 +1287,12 @@ public class IrJsES6CodegenInlineTestGenerated extends AbstractIrJsES6CodegenInl
       }
 
       @Test
+      @TestMetadata("genericVararg.kt")
+      public void testGenericVararg() {
+        runTest("compiler/testData/codegen/boxInline/callableReference/adaptedReferences/genericVararg.kt");
+      }
+
+      @Test
       @TestMetadata("inlineBound.kt")
       public void testInlineBound() {
         runTest("compiler/testData/codegen/boxInline/callableReference/adaptedReferences/inlineBound.kt");
@@ -3379,6 +3385,12 @@ public class IrJsES6CodegenInlineTestGenerated extends AbstractIrJsES6CodegenInl
     @Test
     public void testAllFilesPresentInMultiModule() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/codegen/boxInline/multiModule"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("notInlinedFunFromKlib.kt")
+    public void testNotInlinedFunFromKlib() {
+      runTest("compiler/testData/codegen/boxInline/multiModule/notInlinedFunFromKlib.kt");
     }
 
     @Test

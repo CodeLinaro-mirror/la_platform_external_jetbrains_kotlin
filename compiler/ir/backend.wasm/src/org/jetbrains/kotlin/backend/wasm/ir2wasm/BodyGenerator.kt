@@ -37,6 +37,7 @@ class BodyGenerator(
     private val functionContext: WasmFunctionCodegenContext,
     private val wasmModuleMetadataCache: WasmModuleMetadataCache,
     private val wasmModuleTypeTransformer: WasmModuleTypeTransformer,
+    private val inlineUnitGetter: Boolean,
 ) : IrVisitorVoid() {
     val body: WasmExpressionBuilder = functionContext.bodyGen
 
@@ -48,10 +49,17 @@ class BodyGenerator(
     private val unitInstanceField by lazy { backendContext.findUnitInstanceField() }
 
     fun WasmExpressionBuilder.buildGetUnit() {
-        buildGetGlobal(
-            wasmFileCodegenContext.referenceGlobalField(unitInstanceField.symbol),
-            SourceLocation.NoLocation("GET_UNIT")
-        )
+        if (inlineUnitGetter) {
+            buildGetGlobal(
+                wasmFileCodegenContext.referenceGlobalField(unitInstanceField.symbol),
+                SourceLocation.NoLocation("GET_UNIT")
+            )
+        } else {
+            buildCall(
+                wasmFileCodegenContext.referenceFunction(unitGetInstance.symbol),
+                SourceLocation.NoLocation("GET_UNIT")
+            )
+        }
     }
 
     fun getStructFieldRef(field: IrField): WasmSymbol<Int> {
@@ -985,11 +993,6 @@ class BodyGenerator(
                 body.buildStructGet(wasmFileCodegenContext.rttiType, fieldId, location)
 
                 body.buildInstr(
-                    op = WasmOp.REF_CAST,
-                    location = location,
-                    WasmImmediate.HeapType(WasmHeapType.Type(wasmFileCodegenContext.wasmStringsElements.createStringLiteralType))
-                )
-                body.buildInstr(
                     op = WasmOp.CALL_REF,
                     location = location,
                     WasmImmediate.TypeIdx(wasmFileCodegenContext.wasmStringsElements.createStringLiteralType),
@@ -1191,10 +1194,16 @@ class BodyGenerator(
                 val tryGetAssociatedObjectType =
                     wasmFileCodegenContext.referenceFunctionType(backendContext.wasmSymbols.tryGetAssociatedObject)
 
+                val getterWrapperType = wasmFileCodegenContext.classAssociatedObjectsGetterWrapper
                 body.buildInstr(
                     op = WasmOp.REF_CAST,
                     location = location,
-                    WasmImmediate.HeapType(WasmHeapType.Type(tryGetAssociatedObjectType))
+                    WasmImmediate.HeapType(WasmHeapType.Type(getterWrapperType))
+                )
+                body.buildStructGet(
+                    struct = getterWrapperType,
+                    fieldId = classAssociatedObjectsGetterWrapperFieldId,
+                    location = location
                 )
                 body.buildInstr(
                     op = WasmOp.CALL_REF,
@@ -1603,6 +1612,7 @@ class BodyGenerator(
         val rttiSuperClassFieldId = WasmSymbol(1)
         val rttiQualifierGetterFieldId = WasmSymbol(6)
         val rttiSimpleNameGetterFieldId = WasmSymbol(7)
+        private val classAssociatedObjectsGetterWrapperFieldId = WasmSymbol(0)
         private val exceptionTagId = WasmSymbol(0)
         private val relativeTryLevelForRethrowInFinallyBlock = WasmImmediate.LabelIdx(0)
     }

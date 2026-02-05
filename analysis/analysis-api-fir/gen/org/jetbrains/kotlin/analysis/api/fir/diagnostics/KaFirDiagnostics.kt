@@ -267,6 +267,14 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = WrappedLhsInAssignmentWarning::class
     }
 
+    interface UnsupportedArrayLiteralOutsideOfAnnotationError : KaFirDiagnostic<PsiElement> {
+        override val diagnosticClass get() = UnsupportedArrayLiteralOutsideOfAnnotationError::class
+    }
+
+    interface UnsupportedArrayLiteralOutsideOfAnnotationWarning : KaFirDiagnostic<PsiElement> {
+        override val diagnosticClass get() = UnsupportedArrayLiteralOutsideOfAnnotationWarning::class
+    }
+
     interface UnresolvedReference : KaFirDiagnostic<PsiElement> {
         override val diagnosticClass get() = UnresolvedReference::class
         val reference: String
@@ -276,6 +284,11 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
     interface UnresolvedReferenceWrongReceiver : KaFirDiagnostic<PsiElement> {
         override val diagnosticClass get() = UnresolvedReferenceWrongReceiver::class
         val candidates: List<KaSymbol>
+    }
+
+    interface InaccessibleOuterClassReceiver : KaFirDiagnostic<PsiElement> {
+        override val diagnosticClass get() = InaccessibleOuterClassReceiver::class
+        val symbol: KaSymbol
     }
 
     interface UnresolvedImport : KaFirDiagnostic<PsiElement> {
@@ -400,6 +413,10 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
 
     interface NoConstructor : KaFirDiagnostic<PsiElement> {
         override val diagnosticClass get() = NoConstructor::class
+    }
+
+    interface NoImplicitDefaultConstructorOnExpectClass : KaFirDiagnostic<PsiElement> {
+        override val diagnosticClass get() = NoImplicitDefaultConstructorOnExpectClass::class
     }
 
     interface FunctionCallExpected : KaFirDiagnostic<PsiElement> {
@@ -1630,11 +1647,11 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = AssigningSingleElementToVarargInNamedFormAnnotationWarning::class
     }
 
-    interface RedundantSpreadOperatorInNamedFormInFunction : KaFirDiagnostic<KtExpression> {
+    interface RedundantSpreadOperatorInNamedFormInFunction : KaFirDiagnostic<KtElement> {
         override val diagnosticClass get() = RedundantSpreadOperatorInNamedFormInFunction::class
     }
 
-    interface RedundantSpreadOperatorInNamedFormInAnnotation : KaFirDiagnostic<KtExpression> {
+    interface RedundantSpreadOperatorInNamedFormInAnnotation : KaFirDiagnostic<KtElement> {
         override val diagnosticClass get() = RedundantSpreadOperatorInNamedFormInAnnotation::class
     }
 
@@ -2309,6 +2326,11 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
 
     interface ExpressionOfNullableTypeInClassLiteralLhs : KaFirDiagnostic<PsiElement> {
         override val diagnosticClass get() = ExpressionOfNullableTypeInClassLiteralLhs::class
+        val lhsType: KaType
+    }
+
+    interface ExpressionOfNullableTypeInClassLiteralLhsWarning : KaFirDiagnostic<PsiElement> {
+        override val diagnosticClass get() = ExpressionOfNullableTypeInClassLiteralLhsWarning::class
         val lhsType: KaType
     }
 
@@ -5021,6 +5043,10 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
 
     interface NestedJsExport : KaFirDiagnostic<KtElement> {
         override val diagnosticClass get() = NestedJsExport::class
+    }
+
+    interface MultipleJsExportDefaultInOneFile : KaFirDiagnostic<KtElement> {
+        override val diagnosticClass get() = MultipleJsExportDefaultInOneFile::class
     }
 
     interface DelegationByDynamic : KaFirDiagnostic<KtElement> {

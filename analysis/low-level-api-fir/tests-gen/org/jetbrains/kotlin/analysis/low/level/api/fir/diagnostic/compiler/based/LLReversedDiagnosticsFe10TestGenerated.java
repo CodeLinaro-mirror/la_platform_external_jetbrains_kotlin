@@ -7096,6 +7096,18 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       }
 
       @Test
+      @TestMetadata("reifiedWithoutUpperBound.kt")
+      public void testReifiedWithoutUpperBound() {
+        runTest("compiler/testData/diagnostics/tests/classLiteral/reifiedWithoutUpperBound.kt");
+      }
+
+      @Test
+      @TestMetadata("reifiedWithoutUpperBoundAfter.kt")
+      public void testReifiedWithoutUpperBoundAfter() {
+        runTest("compiler/testData/diagnostics/tests/classLiteral/reifiedWithoutUpperBoundAfter.kt");
+      }
+
+      @Test
       @TestMetadata("simpleClassLiteral.kt")
       public void testSimpleClassLiteral() {
         runTest("compiler/testData/diagnostics/tests/classLiteral/simpleClassLiteral.kt");
@@ -7329,6 +7341,12 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       @TestMetadata("arrayLiteralInNestedAnnotationCall.kt")
       public void testArrayLiteralInNestedAnnotationCall() {
         runTest("compiler/testData/diagnostics/tests/collectionLiterals/arrayLiteralInNestedAnnotationCall.kt");
+      }
+
+      @Test
+      @TestMetadata("arrayLiteralsInCallsReturningAnnotations.kt")
+      public void testArrayLiteralsInCallsReturningAnnotations() {
+        runTest("compiler/testData/diagnostics/tests/collectionLiterals/arrayLiteralsInCallsReturningAnnotations.kt");
       }
 
       @Test
@@ -29724,6 +29742,12 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       }
 
       @Test
+      @TestMetadata("errorWhenUseExpectAnnWithoutDefaultConstructor.kt")
+      public void testErrorWhenUseExpectAnnWithoutDefaultConstructor() {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/errorWhenUseExpectAnnWithoutDefaultConstructor.kt");
+      }
+
+      @Test
       @TestMetadata("expectAbstractToString.kt")
       public void testExpectAbstractToString() {
         runTest("compiler/testData/diagnostics/tests/multiplatform/expectAbstractToString.kt");
@@ -29973,6 +29997,12 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       @TestMetadata("nestedClassViaActualTypealiasWithTypeParam.kt")
       public void testNestedClassViaActualTypealiasWithTypeParam() {
         runTest("compiler/testData/diagnostics/tests/multiplatform/nestedClassViaActualTypealiasWithTypeParam.kt");
+      }
+
+      @Test
+      @TestMetadata("noImplicitDefaultConstructorOnExpectClass.kt")
+      public void testNoImplicitDefaultConstructorOnExpectClass() {
+        runTest("compiler/testData/diagnostics/tests/multiplatform/noImplicitDefaultConstructorOnExpectClass.kt");
       }
 
       @Test
@@ -37980,6 +38010,12 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       }
 
       @Test
+      @TestMetadata("missingOuterClassReceiver.kt")
+      public void testMissingOuterClassReceiver() {
+        runTest("compiler/testData/diagnostics/tests/resolve/missingOuterClassReceiver.kt");
+      }
+
+      @Test
       @TestMetadata("nestedClassUnresolvedReference.kt")
       public void testNestedClassUnresolvedReference() {
         runTest("compiler/testData/diagnostics/tests/resolve/nestedClassUnresolvedReference.kt");
@@ -40155,6 +40191,12 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       @TestMetadata("LateInit.kts")
       public void testLateInit() {
         runTest("compiler/testData/diagnostics/tests/script/LateInit.kts");
+      }
+
+      @Test
+      @TestMetadata("localTypealiasInScript.kts")
+      public void testLocalTypealiasInScript() {
+        runTest("compiler/testData/diagnostics/tests/script/localTypealiasInScript.kts");
       }
 
       @Test
@@ -44487,6 +44529,18 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
       @TestMetadata("suspendFunctionExpectedTypeAndWhen.kt")
       public void testSuspendFunctionExpectedTypeAndWhen() {
         runTest("compiler/testData/diagnostics/tests/suspendConversion/suspendFunctionExpectedTypeAndWhen.kt");
+      }
+
+      @Test
+      @TestMetadata("suspendVsNonSuspendGeneric.kt")
+      public void testSuspendVsNonSuspendGeneric() {
+        runTest("compiler/testData/diagnostics/tests/suspendConversion/suspendVsNonSuspendGeneric.kt");
+      }
+
+      @Test
+      @TestMetadata("suspendVsNonSuspendSam.kt")
+      public void testSuspendVsNonSuspendSam() {
+        runTest("compiler/testData/diagnostics/tests/suspendConversion/suspendVsNonSuspendSam.kt");
       }
     }
 
@@ -50363,6 +50417,12 @@ public class LLReversedDiagnosticsFe10TestGenerated extends AbstractLLReversedDi
           @TestMetadata("missingArgumentsInEffectDeclarations.kt")
           public void testMissingArgumentsInEffectDeclarations() {
             runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/missingArgumentsInEffectDeclarations.kt");
+          }
+
+          @Test
+          @TestMetadata("missingImport.kt")
+          public void testMissingImport() {
+            runTest("compiler/testData/diagnostics/testsWithStdLib/contracts/dsl/errors/missingImport.kt");
           }
 
           @Test
