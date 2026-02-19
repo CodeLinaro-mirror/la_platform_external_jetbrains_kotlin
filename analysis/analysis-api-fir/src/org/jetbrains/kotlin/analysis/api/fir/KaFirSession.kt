@@ -67,7 +67,6 @@ private constructor(
     expressionInformationProvider = KaFirExpressionInformationProvider(analysisSessionProvider),
     evaluator = KaFirEvaluator(analysisSessionProvider),
     referenceShortener = KaFirReferenceShortener(analysisSessionProvider),
-    importOptimizer = KaFirImportOptimizer(analysisSessionProvider),
     renderer = KaRendererImpl(analysisSessionProvider),
     visibilityChecker = KaFirVisibilityChecker(analysisSessionProvider),
     originalPsiProvider = KaFirOriginalPsiProvider(analysisSessionProvider),
@@ -129,7 +128,7 @@ private constructor(
             val extensionTools = buildList {
                 addIfNotNull(useSiteSession.llResolveExtensionTool)
                 useSiteModule.allDirectDependencies().mapNotNullTo(this) { dependency ->
-                    resolutionFacade.getSessionFor(dependency).llResolveExtensionTool
+                    resolutionFacade.getDependencySessionFor(dependency)?.llResolveExtensionTool
                 }
             }
 

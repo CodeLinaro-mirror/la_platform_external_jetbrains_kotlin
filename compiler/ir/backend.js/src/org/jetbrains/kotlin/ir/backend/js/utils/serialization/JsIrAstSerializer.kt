@@ -310,6 +310,10 @@ private class JsIrAstSerializer {
 
                 when (val subject = export.subject) {
                     is JsExport.Subject.All -> writeByte(ExportType.ALL)
+                    is JsExport.Subject.Default -> {
+                        writeByte(ExportType.DEFAULT)
+                        writeInt(internalizeName(subject.name.name!!))
+                    }
                     is JsExport.Subject.Elements -> {
                         writeByte(ExportType.ITEMS)
                         writeCollection(subject.elements) {
@@ -413,6 +417,11 @@ private class JsIrAstSerializer {
             override fun visitInt(x: JsIntLiteral) {
                 writeByte(ExpressionIds.INT_LITERAL)
                 writeInt(x.value)
+            }
+
+            override fun visitBigInt(x: JsBigIntLiteral) {
+                writeByte(ExpressionIds.BIGINT_LITERAL)
+                writeByteArray(x.value.toByteArray())
             }
 
             override fun visitDouble(x: JsDoubleLiteral) {

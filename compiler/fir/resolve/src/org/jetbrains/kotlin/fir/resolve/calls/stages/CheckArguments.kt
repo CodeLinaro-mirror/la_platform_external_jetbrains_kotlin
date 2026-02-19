@@ -33,6 +33,12 @@ internal object CheckArguments : ResolutionStage() {
         val contextArgumentsOfInvoke = candidate.expectedContextParameterCountForInvoke ?: 0
         for ((index, argument) in candidate.arguments.withIndex()) {
             if (index < contextArgumentsOfInvoke) continue
+
+            val expression = argument.expression
+            if (expression.isInaccessibleFromStaticNestedClass()) {
+                sink.reportDiagnostic(expression.toInaccessibleReceiverDiagnostic())
+            }
+
             val parameter = argumentMapping[argument]
             candidate.resolveArgument(
                 candidate.callInfo,
@@ -53,7 +59,7 @@ internal object CheckArguments : ResolutionStage() {
                         val coneType = it.returnTypeRef.coneType
                         context.bodyResolveComponents.samResolver.isSamType(coneType) &&
                                 // Candidate is not from Java, so no flexible types are possible here
-                                coneType.toRegularClassSymbol(context.session)?.isJavaOrEnhancement == true
+                                coneType.toRegularClassSymbol()?.isJavaOrEnhancement == true
                     }
                 ) {
                     sink.markCandidateForCompatibilityResolve()
@@ -249,6 +255,6 @@ private fun FirExpression.namedReferenceWithCandidate(): FirNamedReferenceWithCa
 
 context(context: ResolutionContext)
 private fun CheckerSink.markCandidateForCompatibilityResolve() {
-    if (context.session.languageVersionSettings.supportsFeature(LanguageFeature.DisableCompatibilityModeForNewInference)) return
+    if (LanguageFeature.DisableCompatibilityModeForNewInference.isEnabled()) return
     reportDiagnostic(LowerPriorityToPreserveCompatibilityDiagnostic)
 }

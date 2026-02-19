@@ -43,6 +43,7 @@ object ImportType {
 object ExportType {
     const val ALL = 0
     const val ITEMS = 1
+    const val DEFAULT = 2
 }
 
 object ExpressionIds {
@@ -71,4 +72,5 @@ object ExpressionIds {
     const val CLASS = 22
     const val SUPER_REF = 23
     const val YIELD = 24
+    const val BIGINT_LITERAL = 25
 }

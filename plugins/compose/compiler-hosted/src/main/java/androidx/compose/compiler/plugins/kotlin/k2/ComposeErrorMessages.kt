@@ -53,6 +53,11 @@ object ComposeErrorMessages : BaseDiagnosticRendererFactory() {
         )
 
         map.put(
+            ComposeErrors.ILLEGAL_RUN_CATCHING_AROUND_COMPOSABLE,
+            "runCatching call is not allowed to contain @Composable function invocations"
+        )
+
+        map.put(
             ComposeErrors.MISSING_DISALLOW_COMPOSABLE_CALLS_ANNOTATION,
             "Parameter {0} cannot be inlined inside of lambda argument {1} of {2} " +
                     "without also being annotated with @DisallowComposableCalls",
@@ -79,8 +84,8 @@ object ComposeErrorMessages : BaseDiagnosticRendererFactory() {
         )
 
         map.put(
-            ComposeErrors.COMPOSABLE_FUNCTION_REFERENCE,
-            "Function References of @Composable functions are not currently supported"
+            ComposeErrors.COMPOSABLE_PROPERTY_REFERENCE,
+            "@Composable property references are not currently supported."
         )
 
         map.put(
@@ -126,6 +131,18 @@ object ComposeErrorMessages : BaseDiagnosticRendererFactory() {
         map.put(
             ComposeErrors.COMPOSE_APPLIER_DECLARATION_MISMATCH,
             "The composition target of an override must match the ancestor target"
+        )
+
+        map.put(
+            ComposeErrors.ABSTRACT_COMPOSABLE_DEFAULT_PARAMETER_VALUE,
+            "Default parameters in abstract @Composable functions are not supported before language version 2.1 (configured version is {0})",
+            KtDiagnosticRenderers.TO_STRING
+        )
+
+        map.put(
+            ComposeErrors.OPEN_COMPOSABLE_DEFAULT_PARAMETER_VALUE,
+            "Default parameters in open @Composable functions are not supported before language version 2.2 (configured version is {0})",
+            KtDiagnosticRenderers.TO_STRING
         )
     }
 }

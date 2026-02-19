@@ -16,19 +16,16 @@
 
 package org.jetbrains.kotlin.maven;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.LifecyclePhase;
-import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.plugins.annotations.ResolutionScope;
+import org.apache.maven.plugins.annotations.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.build.SourcesUtilsKt;
 import org.jetbrains.kotlin.buildtools.api.*;
-import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalCompilationApproachParameters;
-import org.jetbrains.kotlin.buildtools.api.jvm.ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration;
-import org.jetbrains.kotlin.buildtools.api.jvm.JvmCompilationConfiguration;
+import org.jetbrains.kotlin.buildtools.api.jvm.*;
+import org.jetbrains.kotlin.buildtools.api.jvm.operations.JvmCompilationOperation;
 import org.jetbrains.kotlin.cli.common.CLICompiler;
 import org.jetbrains.kotlin.cli.common.ExitCode;
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments;
@@ -41,17 +38,24 @@ import org.jetbrains.kotlin.config.JvmTarget;
 import org.jetbrains.kotlin.maven.incremental.FileCopier;
 import org.jetbrains.kotlin.maven.kapt.AnnotationProcessingManager;
 
+import javax.inject.Inject;
 import java.io.*;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.jetbrains.kotlin.com.intellij.openapi.util.text.StringUtil.join;
 import static org.jetbrains.kotlin.maven.Util.filterClassPath;
+import static org.jetbrains.kotlin.maven.Util.getMavenPluginVersion;
 
 /**
  * Compiles kotlin sources
@@ -96,9 +100,42 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
     @Parameter(property = "kotlin.compiler.javaParameters")
     protected boolean javaParameters;
 
+    @Parameter(property = "kotlin.compiler.daemon", defaultValue = "true")
+    protected boolean useDaemon;
+
+    @Parameter(property = "kotlin.compiler.classloader.cache.timeoutSeconds")
+    @Nullable
+    protected Long classLoaderCacheTimeoutSeconds;
+
+    private static final Duration DEFAULT_CLASSLOADER_CACHE_TIMEOUT = Duration.ofMinutes(30);
+
+    @Parameter(property = "kotlin.compiler.daemon.jvmArgs")
+    protected List<String> kotlinDaemonJvmArgs;
+
+    @Parameter(property = "kotlin.compiler.daemon.shutdownDelayMs")
+    protected Long daemonShutdownDelayMs;
+
+    /**
+     * The time the Kotlin daemon continues to live after the Maven build process finishes (without the Maven daemon)
+     */
+    private static final Duration DEFAULT_NON_MAVEN_DAEMON_SHUTDOWN_DELAY = Duration.ofMinutes(30);
+    /**
+     * The time the Kotlin daemon continues to live after the Maven daemon shuts down
+     */
+    private static final Duration DEFAULT_MAVEN_DAEMON_SHUTDOWN_DELAY = Duration.ofSeconds(1);
+    /**
+     * A system property used to detect we are inside the Maven Daemon.
+     */
+    private static final String MAVEN_DAEMON_PROPERTY_NAME = "mvnd.home";
+
     @NotNull
-    private File getCachesDir() {
-        return new File(incrementalCachesRoot, getSourceSetName());
+    private Path getCachesDir() {
+        return Paths.get(incrementalCachesRoot, getSourceSetName());
+    }
+
+    @NotNull
+    private Path getKotlinClassesCacheDir() {
+        return getCachesDir().resolve("classes");
     }
 
     protected boolean isIncremental() {
@@ -194,8 +231,6 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
         if (scriptTemplates != null && !scriptTemplates.isEmpty()) {
             arguments.setScriptTemplates(scriptTemplates.toArray(new String[0]));
         }
-
-        arguments.setJavaSourceRoots(sourceRoots.stream().map(File::getAbsolutePath).toArray(String[]::new));
     }
 
     private boolean isJava9Module(@NotNull List<File> sourceRoots) {
@@ -222,13 +257,51 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
         super.execute();
     }
 
-    private CompilationService getCompilationService() {
-        ClassLoader btaClassloader = this.getClass().getClassLoader(); // load it within the same classloader yet
-        return CompilationService.loadImplementation(btaClassloader);
+    @Inject
+    private KotlinArtifactResolver kotlinArtifactResolver;
+
+    private KotlinToolchains getKotlinToolchains() throws MojoExecutionException {
+        try {
+            Set<Artifact> artifacts =
+                    Stream.concat(
+                            kotlinArtifactResolver.resolveArtifact("org.jetbrains.kotlin", "kotlin-build-tools-impl", getMavenPluginVersion()).stream(),
+                            kotlinArtifactResolver.resolveArtifact("org.jetbrains.kotlin", "kotlin-scripting-compiler-embeddable", getMavenPluginVersion()).stream()
+                    ).collect(Collectors.toCollection(LinkedHashSet::new));
+            List<File> files = artifacts.stream().map(Artifact::getFile).collect(Collectors.toList());
+            ClassLoader btaClassLoader = getBtaClassLoader(files);
+            return KotlinToolchains.loadImplementation(btaClassLoader);
+        } catch (Throwable t) {
+            throw new MojoExecutionException("Failed to load Kotlin Build Tools API implementation", t);
+        }
     }
 
-    private static String getFileExtension(File file) {
-        String fileName = file.getName();
+    private ClassLoader getBtaClassLoader(List<File> files) {
+        ClassLoaderCache.ClassLoaderCacheKey cacheKey =
+                new ClassLoaderCache.ClassLoaderCacheKey(files, new SharedBuildToolsApiClassesClassLoaderProvider());
+        try {
+            long cacheTimeout = classLoaderCacheTimeoutSeconds == null
+                                ? DEFAULT_CLASSLOADER_CACHE_TIMEOUT.getSeconds()
+                                : classLoaderCacheTimeoutSeconds;
+            return ClassLoaderCache.getCache(cacheTimeout).get(cacheKey, () -> {
+                getLog().debug("Creating classloader for " + cacheKey.getClasspath());
+                URL[] urls = cacheKey.getClasspath().stream().map(file -> {
+                    try {
+                        return file.toURI().toURL();
+                    }
+                    catch (MalformedURLException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).toArray(URL[]::new);
+                return new URLClassLoader(urls, cacheKey.getParentClassLoaderProvider().getClassLoader());
+            });
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static String getFileExtension(Path file) {
+        String fileName = file.getFileName().toString();
         int lastDotIndex = fileName.lastIndexOf('.');
         if (lastDotIndex == -1) {
             return "";
@@ -245,51 +318,70 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
             List<File> sourceRoots
     ) throws MojoExecutionException {
         try {
-            ProjectId projectId = ProjectId.Companion.RandomProjectUUID();
-            CompilationService compilationService = getCompilationService();
-            CompilerExecutionStrategyConfiguration strategyConfig = compilationService.makeCompilerExecutionStrategyConfiguration();
-            strategyConfig.useInProcessStrategy();
-
-            JvmCompilationConfiguration compileConfig = compilationService.makeJvmCompilationConfiguration();
-
-            LegacyKotlinMavenLogger kotlinMavenLogger = new LegacyKotlinMavenLogger(messageCollector, getLog());
-            compileConfig.useLogger(kotlinMavenLogger);
-
-            Set<Consumer<CompilationResult>> resultHandlers = new HashSet<>();
-            if (isIncremental()) {
-                resultHandlers.add(configureIncrementalCompilation(compileConfig, arguments));
+            KotlinToolchains kotlinToolchains = getKotlinToolchains();
+            ExecutionPolicy executionPolicy;
+            if (useDaemon) {
+                boolean inMavenDaemon = System.getProperty(MAVEN_DAEMON_PROPERTY_NAME) != null;
+                Duration usedDaemonShutdownDelay;
+                if (daemonShutdownDelayMs != null) {
+                    // respect explicitly specified value
+                    usedDaemonShutdownDelay = Duration.ofMillis(daemonShutdownDelayMs);
+                } else if (inMavenDaemon) {
+                    usedDaemonShutdownDelay = DEFAULT_MAVEN_DAEMON_SHUTDOWN_DELAY;
+                } else {
+                    usedDaemonShutdownDelay = DEFAULT_NON_MAVEN_DAEMON_SHUTDOWN_DELAY;
+                }
+                getLog().debug("Using Kotlin compiler daemon with shutdown delay " + usedDaemonShutdownDelay + " ms" + (inMavenDaemon ? " (in Maven daemon)" : " (outside Maven daemon)"));
+                ExecutionPolicy.WithDaemon daemonPolicy = kotlinToolchains.createDaemonExecutionPolicy();
+                daemonPolicy.set(ExecutionPolicy.WithDaemon.JVM_ARGUMENTS, kotlinDaemonJvmArgs);
+                daemonPolicy.set(ExecutionPolicy.WithDaemon.SHUTDOWN_DELAY_MILLIS, usedDaemonShutdownDelay.toMillis());
+                executionPolicy = daemonPolicy;
+            } else {
+                getLog().debug("Using in-process Kotlin compiler");
+                executionPolicy = kotlinToolchains.createInProcessExecutionPolicy();
             }
 
+            JvmPlatformToolchain jvmToolchain = JvmPlatformToolchain.from(kotlinToolchains);
             Set<String> kotlinExtensions = SourcesUtilsKt.getDEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS();
             Set<String> allExtensions = new HashSet<>(kotlinExtensions);
             allExtensions.add("java");
 
-            List<File> allSources = new ArrayList<>();
+            List<Path> allSources = new ArrayList<>();
             for (File sourceRoot : sourceRoots) {
                 try (Stream<Path> files = Files.walk(sourceRoot.toPath())) {
                     allSources.addAll(
                             files
-                                    .map(Path::toFile)
                                     .filter(file -> allExtensions.contains(getFileExtension(file).toLowerCase(Locale.ROOT)))
-                                    .filter(File::isFile)
+                                    .filter(Files::isRegularFile)
                                     .collect(Collectors.toList())
                     );
                 }
             }
-            List<String> myArguments = ArgumentUtils.convertArgumentsToStringList(arguments);
 
-            CompilationResult result = compilationService.compileJvm(projectId, strategyConfig, compileConfig, allSources, myArguments);
-            compilationService.finishProjectCompilation(projectId);
-            resultHandlers.forEach(handler -> handler.accept(result));
-            switch (result) {
-                case COMPILATION_SUCCESS:
-                    return ExitCode.OK;
-                case COMPILATION_ERROR:
-                    return ExitCode.COMPILATION_ERROR;
-                case COMPILATION_OOM_ERROR:
-                    return ExitCode.OOM_ERROR;
-                default:
-                    return ExitCode.INTERNAL_ERROR;
+            Path destination = getEffectiveDestinationDirectory(arguments);
+            JvmCompilationOperation compilationOperation = jvmToolchain.createJvmCompilationOperation(allSources, destination);
+
+            Set<Consumer<CompilationResult>> resultHandlers = new HashSet<>();
+            if (isIncremental()) {
+                resultHandlers.add(configureIncrementalCompilation(compilationOperation, arguments));
+            }
+
+            LegacyKotlinMavenLogger kotlinMavenLogger = new LegacyKotlinMavenLogger(messageCollector, getLog());
+            try (KotlinToolchains.BuildSession buildSession = kotlinToolchains.createBuildSession()) {
+                List<String> myArguments = ArgumentUtils.convertArgumentsToStringList(arguments);
+                compilationOperation.getCompilerArguments().applyArgumentStrings(myArguments);
+                CompilationResult result = buildSession.executeOperation(compilationOperation, executionPolicy, kotlinMavenLogger);
+                resultHandlers.forEach(handler -> handler.accept(result));
+                switch (result) {
+                    case COMPILATION_SUCCESS:
+                        return ExitCode.OK;
+                    case COMPILATION_ERROR:
+                        return ExitCode.COMPILATION_ERROR;
+                    case COMPILATION_OOM_ERROR:
+                        return ExitCode.OOM_ERROR;
+                    default:
+                        return ExitCode.INTERNAL_ERROR;
+                }
             }
         } catch (Throwable t) {
             getLog().error("Internal Kotlin compilation error", t);
@@ -297,22 +389,29 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
         }
     }
 
+    private Path getEffectiveDestinationDirectory(K2JVMCompilerArguments arguments) {
+        if (isIncremental()) {
+            return getKotlinClassesCacheDir();
+        } else {
+            String destination = Objects.requireNonNull(arguments.getDestination());
+            return Paths.get(destination);
+        }
+    }
+
     private Consumer<CompilationResult> configureIncrementalCompilation(
-            JvmCompilationConfiguration compileConfig,
+            JvmCompilationOperation compileOperation,
             K2JVMCompilerArguments arguments
-    ) {
+    ) throws IOException {
         getLog().warn("Using experimental Kotlin incremental compilation");
-        File cachesDir = getCachesDir();
-        //noinspection ResultOfMethodCallIgnored
-        cachesDir.mkdirs();
+        Path cachesDir = getCachesDir();
+        Files.createDirectories(cachesDir);
         String originalDestination = arguments.getDestination();
         assert originalDestination != null : "output is not specified!";
         File classesDir = new File(originalDestination);
-        File kotlinClassesDir = new File(cachesDir, "classes");
-        File snapshotsFile = new File(cachesDir, "snapshots.bin");
+        File kotlinClassesDir = getKotlinClassesCacheDir().toFile();
+        File snapshotsFile = new File(cachesDir.toFile(), "snapshots.bin");
         String originalClasspath = arguments.getClasspath();
 
-        arguments.setDestination(kotlinClassesDir.getAbsolutePath());
         if (originalClasspath != null) {
             List<String> filteredClasspath = new ArrayList<>();
             for (String path : originalClasspath.split(File.pathSeparator)) {
@@ -323,18 +422,19 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
             arguments.setClasspath(StringUtil.join(filteredClasspath, File.pathSeparator));
         }
 
-        ClasspathSnapshotBasedIncrementalJvmCompilationConfiguration icConf =
-                compileConfig.makeClasspathSnapshotBasedIncrementalCompilationConfiguration();
-        ClasspathSnapshotBasedIncrementalCompilationApproachParameters classpathSnapshotParams =
-                new ClasspathSnapshotBasedIncrementalCompilationApproachParameters(Collections.EMPTY_LIST,
-                                                                                   new File(cachesDir, "shrunk-classpath-snapshot.bin"));
-        compileConfig.useIncrementalCompilation(cachesDir, SourcesChanges.ToBeCalculated.INSTANCE, classpathSnapshotParams, icConf);
+        JvmSnapshotBasedIncrementalCompilationOptions classpathSnapshotsOptions = compileOperation.createSnapshotBasedIcOptions();
+        compileOperation.set(JvmCompilationOperation.INCREMENTAL_COMPILATION, new JvmSnapshotBasedIncrementalCompilationConfiguration(
+                cachesDir,
+                SourcesChanges.ToBeCalculated.INSTANCE,
+                Collections.EMPTY_LIST,
+                cachesDir.resolve("shrunk-classpath-snapshot.bin"),
+                classpathSnapshotsOptions
+        ));
 
         return compilationResult -> {
             if (compilationResult == CompilationResult.COMPILATION_SUCCESS) {
                 (new FileCopier(getLog())).syncDirs(kotlinClassesDir, classesDir, snapshotsFile);
             }
-            arguments.setDestination(originalDestination);
             arguments.setClasspath(originalClasspath);
         };
     }

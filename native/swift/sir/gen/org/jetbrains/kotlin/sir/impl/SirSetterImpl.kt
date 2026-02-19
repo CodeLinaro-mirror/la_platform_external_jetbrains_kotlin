@@ -17,8 +17,10 @@ internal class SirSetterImpl(
     override val visibility: SirVisibility,
     override val documentation: String?,
     override val attributes: MutableList<SirAttribute>,
+    override val bridges: MutableList<SirBridge>,
     override var body: SirFunctionBody?,
     override val errorType: SirType,
+    override val isAsync: Boolean,
     override val parameterName: String,
 ) : SirSetter() {
     override lateinit var parent: SirDeclarationParent

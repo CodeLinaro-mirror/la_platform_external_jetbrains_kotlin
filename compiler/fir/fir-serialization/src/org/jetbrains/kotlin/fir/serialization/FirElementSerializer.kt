@@ -601,6 +601,9 @@ class FirElementSerializer private constructor(
             if (accessorFlags != defaultAccessorFlags) {
                 builder.getterFlags = accessorFlags
             }
+            contractSerializer.buildAccessorContractProtoIfAny(getter, local)?.let {
+                builder.setGetterContract(it)
+            }
         }
 
         val setter = property.setter ?: with(property) {
@@ -634,6 +637,10 @@ class FirElementSerializer private constructor(
                     builder.setSetterValueParameter(setterLocal.valueParameterProto(valueParameterDescriptor, index, setter, annotations))
                 }
             }
+
+            contractSerializer.buildAccessorContractProtoIfAny(setter, local)?.let {
+                builder.setSetterContract(it)
+            }
         }
 
         val hasConstant = property.isConst || (!property.isVar
@@ -646,7 +653,7 @@ class FirElementSerializer private constructor(
             property.memberKind(),
             property.isVar, hasGetter, hasSetter, hasConstant, property.isConst, property.isLateInit,
             property.isExternal, property.delegateFieldSymbol != null, property.isExpect,
-            property.status.hasMustUseReturnValue
+            ProtoEnumFlags.returnValueStatus(property.status.returnValueStatus)
         )
         if (flags != builder.flags) {
             builder.flags = flags
@@ -730,7 +737,7 @@ class FirElementSerializer private constructor(
             function.isSuspend,
             simpleFunction?.isExpect == true,
             shouldSetStableParameterNames(function),
-            simpleFunction?.status?.hasMustUseReturnValue == true,
+            ProtoEnumFlags.returnValueStatus(simpleFunction?.status?.returnValueStatus),
         )
 
         if (flags != builder.flags) {
@@ -849,7 +856,7 @@ class FirElementSerializer private constructor(
 
         val underlyingType = typeAlias.expandedConeType!!
         if (useTypeTable()) {
-            builder.underlyingTypeId = local.typeId(underlyingType)
+            builder.underlyingTypeId = local.typeId(underlyingType, abbreviationOnly = true)
         } else {
             builder.setUnderlyingType(local.typeProto(underlyingType, abbreviationOnly = true))
         }
@@ -893,7 +900,7 @@ class FirElementSerializer private constructor(
             ProtoEnumFlags.visibility(normalizeVisibility(constructor)),
             !constructor.isPrimary,
             shouldSetStableParameterNames(constructor),
-            constructor.status.hasMustUseReturnValue
+            ProtoEnumFlags.returnValueStatus(constructor.status.returnValueStatus)
         )
         if (flags != builder.flags) {
             builder.flags = flags
@@ -1030,7 +1037,8 @@ class FirElementSerializer private constructor(
         return typeId(typeRef.coneType, toSuper)
     }
 
-    fun typeId(type: ConeKotlinType, toSuper: Boolean = false): Int = typeTable[typeProto(type, toSuper)]
+    fun typeId(type: ConeKotlinType, toSuper: Boolean = false, abbreviationOnly: Boolean = false): Int =
+        typeTable[typeProto(type, toSuper, abbreviationOnly = abbreviationOnly)]
 
     private fun typeProto(typeRef: FirTypeRef, toSuper: Boolean = false): ProtoBuf.Type.Builder {
         return typeProto(typeRef.coneType, toSuper, correspondingTypeRef = typeRef)
@@ -1158,10 +1166,13 @@ class FirElementSerializer private constructor(
                 } else {
                     typeApproximator.approximateToSubType(type, TypeApproximatorConfiguration.PublicDeclaration.SaveAnonymousTypes)
                 }
-                assert(approximatedType != type && approximatedType is ConeKotlinType) {
+                require(approximatedType is ConeKotlinType) {
                     "Approximation failed: ${type.renderForDebugging()}"
                 }
-                return typeProto(approximatedType as ConeKotlinType)
+                assert(approximatedType != type) {
+                    "Approximation failed: ${type.renderForDebugging()}"
+                }
+                return typeProto(approximatedType)
             }
             is ConeIntegerLiteralType -> {
                 throw IllegalStateException("Integer literal types should not persist up to the serializer: ${type.renderForDebugging()}")
@@ -1189,10 +1200,7 @@ class FirElementSerializer private constructor(
         for (attribute in sortedAttributes) {
             when {
                 attribute is CustomAnnotationTypeAttribute -> typeAnnotations.addAll(attribute.annotations.nonSourceAnnotations(session))
-                attribute is ParameterNameTypeAttribute -> {
-                    typeAnnotations.addAll(listOf(attribute.annotation).nonSourceAnnotations(session))
-                    typeAnnotations.addAll(attribute.others.nonSourceAnnotations(session))
-                }
+                attribute is ParameterNameTypeAttribute -> typeAnnotations.addAll(attribute.annotations.nonSourceAnnotations(session))
                 attribute.key in CompilerConeAttributes.classIdByCompilerAttributeKey ->
                     typeAnnotations.addIfNotNull(createAnnotationForCompilerDefinedTypeAttribute(attribute))
                 else -> extensionAttributes += attribute
@@ -1211,7 +1219,7 @@ class FirElementSerializer private constructor(
 
     private fun createAnnotationForCompilerDefinedTypeAttribute(attribute: ConeAttribute<*>): FirAnnotation? {
         val lookupTag = CompilerConeAttributes.classIdByCompilerAttributeKey.getValue(attribute.key).toLookupTag()
-        val annotationClassSymbol = lookupTag.toRegularClassSymbol(session)
+        val annotationClassSymbol = lookupTag.toRegularClassSymbol()
         if (annotationClassSymbol?.getRetention(session) == AnnotationRetention.SOURCE) return null
         return buildAnnotation {
             annotationTypeRef = buildResolvedTypeRef {
@@ -1268,8 +1276,8 @@ class FirElementSerializer private constructor(
 
         if (!symbol.isInner) return
         val outerClassId = symbol.classId.outerClassId
-        if (outerClassId == null || outerClassId.isLocal) return
-        val outerSymbol = outerClassId.toLookupTag().toSymbol(session)
+        if (outerClassId == null || symbol.isLocal) return
+        val outerSymbol = outerClassId.toLookupTag().toSymbol()
         if (outerSymbol != null) {
             val outerBuilder = ProtoBuf.Type.newBuilder()
             fillFromPossiblyInnerType(outerBuilder, outerSymbol, typeArguments, argumentIndex)
@@ -1282,7 +1290,7 @@ class FirElementSerializer private constructor(
     }
 
     private fun fillFromPossiblyInnerType(builder: ProtoBuf.Type.Builder, type: ConeClassLikeType, abbreviationOnly: Boolean = false) {
-        val classifierSymbol = type.lookupTag.toSymbol(session)
+        val classifierSymbol = type.lookupTag.toSymbol()
         if (classifierSymbol != null) {
             fillFromPossiblyInnerType(builder, classifierSymbol, type.typeArguments, 0, abbreviationOnly)
         } else {
@@ -1304,7 +1312,7 @@ class FirElementSerializer private constructor(
             }
 
             if (useTypeTable()) {
-                builder.typeId = typeId(typeProjection.type)
+                builder.typeId = typeId(typeProjection.type, abbreviationOnly = abbreviationOnly)
             } else {
                 builder.setType(typeProto(typeProjection.type, abbreviationOnly = abbreviationOnly))
             }
@@ -1326,7 +1334,7 @@ class FirElementSerializer private constructor(
     }
 
     private fun isDefaultAccessor(accessor: FirPropertyAccessor, property: FirProperty): Boolean {
-        if (property.isLocalInFunction) return true
+        if (property.isLocal) return true
 
         // [FirDefaultPropertyAccessor]---a property accessor without body---can still hold other information, such as annotations,
         // user-contributed visibility, and modifiers, such as `external` or `inline`.
@@ -1494,7 +1502,7 @@ class FirElementSerializer private constructor(
             produceHeaderKlib: Boolean = false,
         ): FirElementSerializer {
             val parentClassId = klass.symbol.classId.outerClassId
-            val parent = if (parentClassId != null && !parentClassId.isLocal) {
+            val parent = if (parentClassId != null && !klass.isLocal) {
                 val parentClass = session.symbolProvider.getClassLikeSymbolByClassId(parentClassId)!!.fir as FirRegularClass
                 parentSerializer ?: create(
                     session, scopeSession, parentClass, extension, null, typeApproximator,

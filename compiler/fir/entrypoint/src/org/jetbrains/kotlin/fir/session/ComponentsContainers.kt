@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.fir.session
 
 import org.jetbrains.kotlin.KtSourceElement
-import org.jetbrains.kotlin.analyzer.common.CommonPlatformAnalyzerServices
+import org.jetbrains.kotlin.analyzer.common.CommonDefaultImportsProvider
 import org.jetbrains.kotlin.config.JvmAnalysisFlags
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.config.jvmDefaultMode
@@ -19,7 +19,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.FirIdentityLessPlatformDetermi
 import org.jetbrains.kotlin.fir.analysis.checkers.FirInlineCheckerPlatformSpecificComponent
 import org.jetbrains.kotlin.fir.analysis.checkers.FirPlatformUpperBoundsProvider
 import org.jetbrains.kotlin.fir.analysis.checkers.FirPrimaryConstructorSuperTypeCheckerPlatformComponent
-import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirNameConflictsTracker
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirNameConflictsTrackerImpl
 import org.jetbrains.kotlin.fir.analysis.checkers.expression.FirGenericArrayClassLiteralSupport
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirComposedDiagnosticRendererFactory
 import org.jetbrains.kotlin.fir.analysis.jvm.FirJvmOverridesBackwardCompatibilityHelper
@@ -39,6 +39,7 @@ import org.jetbrains.kotlin.fir.java.JvmSupertypeUpdater
 import org.jetbrains.kotlin.fir.java.deserialization.FirJvmDeserializationExtension
 import org.jetbrains.kotlin.fir.java.enhancement.FirAnnotationTypeQualifierResolver
 import org.jetbrains.kotlin.fir.java.enhancement.FirEnhancedSymbolsStorage
+import org.jetbrains.kotlin.fir.java.scopes.FirRenamedForOverrideSymbolsStorage
 import org.jetbrains.kotlin.fir.java.scopes.JavaOverridabilityRules
 import org.jetbrains.kotlin.fir.modules.FirJavaModuleResolverProvider
 import org.jetbrains.kotlin.fir.resolve.*
@@ -63,9 +64,12 @@ import org.jetbrains.kotlin.fir.serialization.FirProvidedDeclarationsForMetadata
 import org.jetbrains.kotlin.fir.symbols.FirLazyDeclarationResolver
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.incremental.components.EnumWhenTracker
+import org.jetbrains.kotlin.incremental.components.ICFileMappingTracker
 import org.jetbrains.kotlin.incremental.components.ImportTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.load.java.JavaAnnotationProvider
 import org.jetbrains.kotlin.load.java.JavaTypeEnhancementState
+import org.jetbrains.kotlin.resolve.jvm.JvmConstants
 import org.jetbrains.kotlin.resolve.jvm.JvmTypeSpecificityComparator
 import org.jetbrains.kotlin.resolve.jvm.modules.JavaModuleResolver
 
@@ -100,6 +104,7 @@ fun FirSession.registerCommonComponents(languageVersionSettings: LanguageVersion
     register(FirMissingDependencyStorage::class, FirMissingDependencyStorage(this))
     register(FirPlatformSpecificCastChecker::class, FirPlatformSpecificCastChecker.Default)
     register(FirComposedDiagnosticRendererFactory::class, FirComposedDiagnosticRendererFactory())
+    register(FirMustUseReturnValueStatusComponent::class, FirMustUseReturnValueStatusComponent.create(languageVersionSettings))
 }
 
 @OptIn(SessionConfiguration::class)
@@ -132,11 +137,13 @@ fun FirSession.registerCliCompilerOnlyComponents(languageVersionSettings: Langua
 
 class FirSharableJavaComponents(
     val enhancementStorage: FirEnhancedSymbolsStorage,
-    val mappedStorage: FirMappedSymbolStorage
+    val mappedStorage: FirMappedSymbolStorage,
+    val renamedFunctionsStorage: FirRenamedForOverrideSymbolsStorage,
 ) {
     constructor(cachesFactory: FirCachesFactory) : this(
         FirEnhancedSymbolsStorage(cachesFactory),
-        FirMappedSymbolStorage(cachesFactory)
+        FirMappedSymbolStorage(cachesFactory),
+        FirRenamedForOverrideSymbolsStorage(cachesFactory)
     )
 }
 
@@ -155,6 +162,7 @@ fun FirSession.registerJavaComponents(
     )
     register(FirEnhancedSymbolsStorage::class, predefinedComponents?.enhancementStorage ?: FirEnhancedSymbolsStorage(this))
     register(FirMappedSymbolStorage::class, predefinedComponents?.mappedStorage ?: FirMappedSymbolStorage(this))
+    register(FirRenamedForOverrideSymbolsStorage::class, predefinedComponents?.renamedFunctionsStorage ?: FirRenamedForOverrideSymbolsStorage(this))
     register(FirSyntheticPropertiesStorage::class, FirSyntheticPropertiesStorage(this))
     register(FirJvmDefaultModeComponent::class, FirJvmDefaultModeComponent(languageVersionSettings.jvmDefaultMode))
     register(PlatformSupertypeUpdater::class, JvmSupertypeUpdater(this))
@@ -177,7 +185,8 @@ fun FirSession.registerJavaComponents(
     register(FirGenericArrayClassLiteralSupport::class, FirGenericArrayClassLiteralSupport.Enabled)
     register(FirDelegatedMembersFilter::class, FirJvmDelegatedMembersFilter(this))
     register(FirPlatformUpperBoundsProvider::class, FirJavaNullabilityWarningUpperBoundsProvider(this))
-    register(FirDefaultImportProviderHolder::class, FirDefaultImportProviderHolder(FirJvmDefaultImportProvider))
+    register(FirDefaultImportsProviderHolder::class, FirDefaultImportsProviderHolder(FirJvmDefaultImportsProvider))
+    register(FirDeclarationNameInvalidCharsProvider::class, FirDeclarationNameInvalidCharsProvider(JvmConstants.INVALID_CHARS))
 }
 
 /**
@@ -192,7 +201,7 @@ fun FirSession.registerDefaultComponents() {
     register(FirOverridesBackwardCompatibilityHelper::class, FirDefaultOverridesBackwardCompatibilityHelper)
     register(FirDelegatedMembersFilter::class, FirDelegatedMembersFilter.Default)
     register(FirPlatformSpecificCastChecker::class, FirPlatformSpecificCastChecker.Default)
-    register(FirDefaultImportProviderHolder::class, FirDefaultImportProviderHolder(CommonPlatformAnalyzerServices))
+    register(FirDefaultImportsProviderHolder::class, FirDefaultImportsProviderHolder(CommonDefaultImportsProvider))
     register(FirIdentityLessPlatformDeterminer::class, FirIdentityLessPlatformDeterminer.Default)
 }
 
@@ -202,11 +211,14 @@ fun FirSession.registerDefaultComponents() {
  * Resolve components which are same on all platforms
  */
 @OptIn(SessionConfiguration::class)
-fun FirSession.registerResolveComponents(lookupTracker: LookupTracker? = null, enumWhenTracker: EnumWhenTracker? = null, importTracker: ImportTracker? = null) {
+fun FirSession.registerResolveComponents(
+    lookupTracker: LookupTracker? = null,
+    enumWhenTracker: EnumWhenTracker? = null,
+    importTracker: ImportTracker? = null,
+    fileMappingTracker: ICFileMappingTracker? = null,
+) {
     register(FirQualifierResolver::class, FirQualifierResolverImpl(this))
     register(FirTypeResolver::class, FirTypeResolverImpl(this))
-    register(CheckersComponent::class, CheckersComponent())
-    register(FirNameConflictsTrackerComponent::class, FirNameConflictsTracker())
     register(FirModuleVisibilityChecker::class, FirModuleVisibilityChecker.Standard(this))
     register(SourcesToPathsMapper::class, SourcesToPathsMapper())
     if (lookupTracker != null) {
@@ -215,7 +227,7 @@ fun FirSession.registerResolveComponents(lookupTracker: LookupTracker? = null, e
         }
         register(
             FirLookupTrackerComponent::class,
-            IncrementalPassThroughLookupTrackerComponent(lookupTracker, firFileToPath)
+            IncrementalPassThroughLookupTrackerComponent(this, lookupTracker, fileMappingTracker, firFileToPath)
         )
     }
     if (enumWhenTracker != null) {
@@ -231,6 +243,14 @@ fun FirSession.registerResolveComponents(lookupTracker: LookupTracker? = null, e
         )
     }
     register(FirExpectActualMatchingContextFactory::class, FirExpectActualMatchingContextImpl.Factory)
+}
+
+@OptIn(SessionConfiguration::class)
+fun FirSession.registerCliCompilerOnlyResolveComponents() {
+    register(FirNameConflictsTracker::class, FirNameConflictsTrackerImpl())
+
+    // The Analysis API uses `LLCheckersFactory`.
+    register(CheckersComponent::class, CheckersComponent())
 }
 
 @OptIn(SessionConfiguration::class)

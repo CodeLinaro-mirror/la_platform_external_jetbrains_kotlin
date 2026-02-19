@@ -259,14 +259,17 @@ internal class ReplSnippetsToClassesLowering(val context: IrPluginContext) : Mod
             name = statement.name
             isDelegated = true
         }.also { property ->
+            val delegate = statement.delegate
+            requireNotNull(delegate) { "Local delegated property ${statement.render()} has no delegate" }
+
             property.backingField = context.irFactory.buildField {
-                updateFrom(statement.delegate)
+                updateFrom(delegate)
                 origin = IrDeclarationOrigin.PROPERTY_DELEGATE
-                name = statement.delegate.name
-                type = statement.delegate.type
+                name = delegate.name
+                type = delegate.type
                 visibility = DescriptorVisibilities.PRIVATE
             }.also { field ->
-                statement.delegate.initializer?.let { initializer ->
+                delegate.initializer?.let { initializer ->
                     field.initializer = context.irFactory.createExpressionBody(initializer)
                 }
                 field.parent = irSnippetClass
@@ -280,7 +283,7 @@ internal class ReplSnippetsToClassesLowering(val context: IrPluginContext) : Mod
                 setter.parent = irSnippetClass
                 setter.correspondingPropertySymbol = property.symbol
             }
-            valsToProps[statement.delegate.symbol] = property.symbol
+            valsToProps[delegate.symbol] = property.symbol
         }
     }
 
@@ -506,23 +509,6 @@ private class ReplSnippetToClassTransformer(
             )
         }
         return super.visitLocalDelegatedPropertyReference(expression, data)
-    }
-
-    override fun visitConstructorCall(
-        expression: IrConstructorCall,
-        data: ScriptLikeToClassTransformerContext,
-    ): IrElement {
-        return if ((expression.symbol.owner.parent as? IrDeclaration)?.let { it in irSnippet.declarationsFromOtherSnippets } == true) {
-            expression.arguments +=
-                accessCallsGenerator.createAccessToSnippet(
-                    ((expression.symbol.owner.parent as IrClass).parent as IrClass).symbol,
-                    expression.startOffset, expression.endOffset
-                )
-            expression.transformChildren(this, data)
-            expression
-        } else {
-            super.visitConstructorCall(expression, data)
-        }
     }
 
     override fun visitClass(declaration: IrClass, data: ScriptLikeToClassTransformerContext): IrClass {

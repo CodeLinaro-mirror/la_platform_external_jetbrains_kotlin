@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.mpp.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.mpp.ExpectActualCollectionArgumentsCompatibilityCheckStrategy
 import org.jetbrains.kotlin.resolve.calls.mpp.ExpectActualMatchingContext
 import org.jetbrains.kotlin.resolve.calls.mpp.ExpectActualMatchingContext.AnnotationCallInfo
@@ -48,6 +49,13 @@ internal abstract class IrExpectActualMatchingContext(
     // Default params can't be accurately checked without information about overriddenSymbols of expect classes members
     override val shouldCheckDefaultParams: Boolean
         get() = false
+
+    /**
+     * `expect` optional annotations are getting stripped from the IR,
+     *   so it doesn't make sense to check for them.
+     */
+    override val skipOptionalAnnotationMismatch: Boolean
+        get() = true
 
     private inline fun <R> CallableSymbolMarker.processIr(
         onFunction: (IrFunction) -> R,
@@ -446,7 +454,7 @@ internal abstract class IrExpectActualMatchingContext(
         }
 
         private fun substituteOrNull(type: IrType): IrType? {
-            if (type !is IrSimpleTypeImpl) return null
+            if (type !is IrSimpleType) return null
             val newClassifier = (type.classifier.owner as? IrClass)?.let { expectToActualClassMap[it.classIdOrFail] }
             val newArguments = ArrayList<IrTypeArgument>(type.arguments.size)
             var argumentsChanged = false
@@ -466,8 +474,7 @@ internal abstract class IrExpectActualMatchingContext(
                 classifier = newClassifier ?: type.classifier,
                 type.nullability,
                 newArguments,
-                type.annotations,
-                type.abbreviation
+                type.annotations
             )
         }
 
@@ -513,7 +520,11 @@ internal abstract class IrExpectActualMatchingContext(
         get() = this is IrPropertySymbol && owner.isPropertyForJavaField()
 
     override val CallableSymbolMarker.canBeActualizedByJavaField: Boolean
-        get() = this is IrPropertySymbol && callableId == abstractMutableListModCountCallableId
+        get() = this is IrPropertySymbol && canBeActualizedByJavaField()
+
+    private fun IrPropertySymbol.canBeActualizedByJavaField(): Boolean {
+        return callableId == abstractMutableListModCountCallableId || owner.overriddenSymbols.any { it.canBeActualizedByJavaField() }
+    }
 
     override fun onMatchedMembers(
         expectSymbol: DeclarationSymbolMarker,
@@ -569,6 +580,9 @@ internal abstract class IrExpectActualMatchingContext(
 
         override val isOptIn: Boolean
             get() = getAnnotationClass()?.hasAnnotation(OptInNames.REQUIRES_OPT_IN_FQ_NAME) ?: false
+
+        override val isOptionalExpectation: Boolean
+            get() = getAnnotationClass()?.hasAnnotation(StandardClassIds.Annotations.OptionalExpectation) ?: false
 
         private fun getAnnotationClass(): IrClass? {
             val annotationClass = irElement.type.getClass() ?: return null

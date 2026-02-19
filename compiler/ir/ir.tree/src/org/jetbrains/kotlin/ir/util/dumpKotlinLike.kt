@@ -70,6 +70,7 @@ data class KotlinLikeDumpOptions(
     val normalizeNames: Boolean = false,
     val printExpectDeclarations: Boolean = true,
     val collapseObjectLiteralBlock: Boolean = false,
+    val printVariableInitializers: Boolean = true,
 
     /**
      * Whether to print member declarations (default: true).
@@ -295,7 +296,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         if (options.printRegionsPerFile) p.println("//endregion")
     }
 
-    override fun visitClass(declaration: IrClass, data: IrDeclaration?) = wrap(declaration, data) {
+    override fun visitClass(declaration: IrClass, data: IrDeclaration?): Unit = wrap(declaration, data) {
         // TODO omit super class for enums, annotations?
         // TODO omit Companion name for companion objects?
         // TODO do we need to print info about `thisReceiver`?
@@ -723,7 +724,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
                     isExternal = isExternal,
                     isOverride = overriddenSymbols.isNotEmpty(),
                     isFakeOverride = isFakeOverride,
-                    isLateinit = isTailrec,
+                    isTailrec = isTailrec,
                     isSuspend = isSuspend,
                     isInline = isInline,
                     isInfix = isInfix,
@@ -832,7 +833,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         declaration.printAValueParameterWithNoIndent(data)
     }
 
-    override fun visitProperty(declaration: IrProperty, data: IrDeclaration?) = wrap(declaration, data) {
+    override fun visitProperty(declaration: IrProperty, data: IrDeclaration?): Unit = wrap(declaration, data) {
         if (options.printFakeOverridesStrategy == FakeOverridesStrategy.NONE && declaration.isFakeOverride) return
 
         declaration.printlnAnnotations()
@@ -996,9 +997,11 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         p(declaration.isConst, "const")
         declaration.run { printVariable(isVar, normalizedName(variableNameData), type) }
 
-        declaration.initializer?.let {
-            p.printWithNoIndent(" = ")
-            it.accept(this, declaration)
+        if (options.printVariableInitializers) {
+            declaration.initializer?.let {
+                p.printWithNoIndent(" = ")
+                it.accept(this, declaration)
+            }
         }
     }
 
@@ -1012,7 +1015,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         p.printlnWithNoIndent()
         p.pushIndent()
 
-        declaration.delegate.accept(this, declaration)
+        declaration.delegate?.accept(this, declaration)
         p.printlnWithNoIndent()
 
         declaration.getter.printAccessor("get", declaration)
@@ -1079,7 +1082,7 @@ private class KotlinLikeDumper(val p: Printer, val options: KotlinLikeDumpOption
         expression.printStatementContainer("// COMPOSITE {", "// }", data, withIndentation = false)
     }
 
-    override fun visitBlock(expression: IrBlock, data: IrDeclaration?) = wrap(expression, data) {
+    override fun visitBlock(expression: IrBlock, data: IrDeclaration?): Unit = wrap(expression, data) {
         // TODO special blocks using `origin`
         // TODO inlinedFunctionSymbol for IrReturnableBlock
         // TODO no tests for IrReturnableBlock?

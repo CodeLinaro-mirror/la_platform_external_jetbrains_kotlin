@@ -116,9 +116,6 @@ context(c: TypeSystemContext)
 fun CapturedTypeMarker.captureStatus(): CaptureStatus = with(c) { captureStatus() }
 
 context(c: TypeSystemContext)
-fun CapturedTypeMarker.isProjectionNotNull(): Boolean = with(c) { isProjectionNotNull() }
-
-context(c: TypeSystemContext)
 fun CapturedTypeConstructorMarker.projection(): TypeArgumentMarker = with(c) { projection() }
 
 context(c: TypeSystemContext)
@@ -138,6 +135,15 @@ fun RigidTypeMarker.isStubType(): Boolean = with(c) { isStubType() }
 
 context(c: TypeSystemContext)
 fun RigidTypeMarker.isStubTypeForVariableInSubtyping(): Boolean = with(c) { isStubTypeForVariableInSubtyping() }
+
+context(_: TypeSystemContext)
+fun RigidTypeMarker.isStubTypeForVariableInSubtypingOrCaptured(): Boolean =
+    isStubTypeForVariableInSubtyping() || isCapturedStubTypeForVariableInSubtyping()
+
+context(_: TypeSystemContext)
+private fun RigidTypeMarker.isCapturedStubTypeForVariableInSubtyping() =
+    asCapturedTypeUnwrappingDnn()?.typeConstructor()?.projection()?.takeUnless { it.isStarProjection() }
+        ?.getType()?.asRigidType()?.isStubTypeForVariableInSubtyping() == true
 
 context(c: TypeSystemContext)
 fun RigidTypeMarker.isStubTypeForBuilderInference(): Boolean = with(c) { isStubTypeForBuilderInference() }
@@ -273,7 +279,7 @@ context(c: TypeSystemContext)
 fun KotlinTypeMarker.typeConstructor(): TypeConstructorMarker = with(c) { typeConstructor() }
 
 context(c: TypeSystemContext)
-fun KotlinTypeMarker.isNullableType(): Boolean = with(c) { isNullableType() }
+fun KotlinTypeMarker.isNullableType(considerTypeVariableBounds: Boolean = true): Boolean = with(c) { isNullableType(considerTypeVariableBounds) }
 
 context(c: TypeSystemContext)
 fun KotlinTypeMarker.isNullableAny() = with(c) { isNullableAny() }
@@ -344,3 +350,6 @@ fun KotlinTypeMarker.isTypeVariableType(): Boolean = with(c) { isTypeVariableTyp
 
 context(c: TypeSystemContext)
 fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker = with(c) { safeSubstitute(type) }
+
+context(c: TypeSystemContext)
+fun KotlinTypeMarker.unwrapToSimpleTypeUsingLowerBound(): SimpleTypeMarker = lowerBoundIfFlexible().originalIfDefinitelyNotNullable()

@@ -2,7 +2,7 @@
  * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
-@file:Suppress("DEPRECATION")
+@file:Suppress("DEPRECATION_ERROR")
 
 package org.jetbrains.kotlin.gradle.targets.native.tasks.artifact
 
@@ -52,7 +52,7 @@ abstract class KotlinNativeFrameworkConfigImpl @Inject constructor(artifactName:
     }
 }
 
-@Deprecated(KotlinArtifactsExtension.KOTLIN_NATIVE_ARTIFACTS_DEPRECATION)
+@Deprecated(KotlinArtifactsExtension.KOTLIN_NATIVE_ARTIFACTS_DEPRECATION, level = DeprecationLevel.ERROR)
 class KotlinNativeFrameworkImpl(
     override val artifactName: String,
     override val modules: Set<Any>,
@@ -68,9 +68,6 @@ class KotlinNativeFrameworkImpl(
     override val toolOptionsConfigure: KotlinCommonCompilerToolOptions.() -> Unit,
     override val binaryOptions: Map<String, String>,
     override val target: KonanTarget,
-    @Suppress("DEPRECATION_ERROR")
-    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, level = DeprecationLevel.ERROR)
-    override val embedBitcode: BitcodeEmbeddingMode? = null,
     extensions: ExtensionAware
 ) : KotlinNativeFramework, ExtensionAware by extensions {
     private val kind = NativeOutputKind.FRAMEWORK
@@ -82,7 +79,7 @@ class KotlinNativeFrameworkImpl(
         val resultTask = project.registerTask<Task>(taskName) { task ->
             task.group = BasePlugin.BUILD_GROUP
             task.description = "Assemble ${kind.description} '$artifactName' for ${target.visibleName}."
-            task.enabled = target.enabledOnCurrentHostForBinariesCompilation()
+            task.enabled = target.enabledOnCurrentHostForBinariesCompilation
         }
 
         val librariesConfigurationName = project.registerLibsDependencies(target, artifactName, modules)
@@ -118,7 +115,7 @@ internal fun KotlinNativeArtifact.registerLinkFrameworkTask(
         listOf(target, kind.compilerOutputKind)
     ) { task ->
         task.description = "Assemble ${kind.description} '$name' for a target '${target.name}'."
-        val enabledOnCurrentHost = target.enabledOnCurrentHostForBinariesCompilation()
+        val enabledOnCurrentHost = target.enabledOnCurrentHostForBinariesCompilation
         task.enabled = enabledOnCurrentHost
         task.baseName.set(name)
         task.destinationDir.set(destinationDir)
@@ -129,9 +126,9 @@ internal fun KotlinNativeArtifact.registerLinkFrameworkTask(
         task.staticFramework.set(isStatic)
         task.libraries.setFrom(project.configurations.getByName(librariesConfigurationName))
         task.exportLibraries.setFrom(project.configurations.getByName(exportConfigurationName))
-        @Suppress("DEPRECATION_ERROR")
+        @Suppress("DEPRECATION")
         task.kotlinOptions(kotlinOptionsFn)
-        task.kotlinNativeProvider.set(task.chooseKotlinNativeProvider(enabledOnCurrentHost, task.konanTarget))
+        task.kotlinNativeProvider.set(task.chooseKotlinNativeProvider(enabledOnCurrentHost, task.konanTarget, project))
         task.kotlinCompilerArgumentsLogLevel
             .value(project.kotlinPropertiesProvider.kotlinCompilerArgumentsLogLevel)
             .finalizeValueOnRead()

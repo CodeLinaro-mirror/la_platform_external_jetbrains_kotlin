@@ -8,14 +8,20 @@ plugins {
 }
 
 pluginApiReference {
-    enableForGradlePluginVariants(GradlePluginVariant.values().toSet())
+    enableForAllGradlePluginVariants()
     enableKotlinlangDocumentation()
 
     failOnWarning = true
+    moduleName("The Kotlin Gradle plugins API")
 
     additionalDokkaConfiguration {
         reportUndocumented.set(true)
+        if (name == "jvm") {
+            includes.setFrom("api-reference-description.md")
+        }
     }
+
+    embeddedProject(project.dependencies.project(":kotlin-gradle-compiler-types"))
 }
 
 dependencies {
@@ -39,5 +45,19 @@ apiValidation {
 tasks {
     apiBuild {
         inputJar.value(jar.flatMap { it.archiveFile })
+    }
+}
+
+registerKotlinSourceForVersionRange(
+    GradlePluginVariant.GRADLE_MIN,
+    GradlePluginVariant.GRADLE_88,
+)
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.apache.commons" && requested.name == "commons-lang3") {
+            useVersion(libs.versions.commons.lang.get())
+            because("CVE-2025-48924")
+        }
     }
 }

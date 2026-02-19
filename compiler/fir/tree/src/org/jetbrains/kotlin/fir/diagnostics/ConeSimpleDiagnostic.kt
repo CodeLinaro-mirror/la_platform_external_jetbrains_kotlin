@@ -40,11 +40,15 @@ class ConeCannotInferTypeParameterType(
 
 class ConeCannotInferValueParameterType(
     val valueParameter: FirValueParameterSymbol?,
-    override val reason: String = "Cannot infer type for parameter " + (valueParameter?.let { "${it.name}" } ?: "it"),
+    reason: String? = null,
     // Currently, we use it to preserve the exact previous diagnostic VALUE_PARAMETER_WITHOUT_EXPLICIT_TYPE for top-levels.
     // By top-level, we mean any lambda outside any call, both with and without an expected type.
     val isTopLevelLambda: Boolean = false,
-) : ConeCannotInferType()
+) : ConeCannotInferType() {
+    private val _reason: String? = reason
+
+    override val reason: String get() = _reason ?: ("Cannot infer type for parameter " + (valueParameter?.let { "${it.name}" } ?: "it"))
+}
 
 class ConeCannotInferReceiverParameterType(
     override val reason: String = "Cannot infer type for receiver parameter"
@@ -86,6 +90,10 @@ object ConeUnsupportedClassLiteralsWithEmptyLhs : ConeDiagnostic {
 
 object ConeNoConstructorError : ConeDiagnostic {
     override val reason: String get() = "This type does not have a constructor"
+}
+
+object ConeNoImplicitDefaultConstructorOnExpectClass : ConeDiagnostic {
+    override val reason: String get() = "No implicit default constructor on expect class"
 }
 
 object ConeContractShouldBeFirstStatement : ConeDiagnostic {
@@ -146,6 +154,8 @@ enum class DiagnosticKind {
 
     IsEnumEntry,
     EnumEntryAsType,
+
+    UnderscoreWithoutRenamingInDestructuring,
 
     Other,
 }

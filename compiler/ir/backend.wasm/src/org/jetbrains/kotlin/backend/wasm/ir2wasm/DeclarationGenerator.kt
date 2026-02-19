@@ -39,6 +39,7 @@ class DeclarationGenerator(
     private val wasmModuleMetadataCache: WasmModuleMetadataCache,
     private val allowIncompleteImplementations: Boolean,
     private val skipCommentInstructions: Boolean,
+    private val inlineUnitGetter: Boolean = true,
 ) : IrVisitorVoid() {
     // Shortcuts
     private val irBuiltIns: IrBuiltIns = backendContext.irBuiltIns
@@ -98,9 +99,11 @@ class DeclarationGenerator(
             "Sanity check that $declaration is a real function that can be used in calls"
         }
 
-        val functionTypeSymbol = wasmFileCodegenContext.referenceFunctionType(declaration.symbol)
+        if (wasmFileCodegenContext.handleFunctionWithImport(declaration.symbol)) return
 
+        val functionTypeSymbol = wasmFileCodegenContext.referenceFunctionType(declaration.symbol)
         val wasmImportModule = declaration.getWasmImportDescriptor()
+        val jsBuiltin = declaration.getJsBuiltinDescriptor()
         val jsCode = declaration.getJsFunAnnotation()
 
         val importedName = when {
@@ -108,6 +111,12 @@ class DeclarationGenerator(
                 check(declaration.isExternal) { "Non-external fun with @WasmImport ${declaration.fqNameWhenAvailable}"}
                 wasmFileCodegenContext.addJsModuleImport(declaration.symbol, wasmImportModule.moduleName)
                 wasmImportModule
+            }
+            jsBuiltin != null -> {
+                check(declaration.isExternal) { "Non-external fun with @JsBuiltin ${declaration.fqNameWhenAvailable}"}
+                wasmFileCodegenContext.addJsModuleImport(declaration.symbol, jsBuiltin.moduleName)
+                wasmFileCodegenContext.addJsBuiltin(jsBuiltin.declarationName, jsBuiltin.polyfillImpl)
+                WasmImportDescriptor(jsBuiltin.moduleName, WasmSymbol(jsBuiltin.declarationName))
             }
             jsCode != null -> {
                 // check(declaration.isExternal) { "Non-external fun with @JsFun ${declaration.fqNameWhenAvailable}"}
@@ -131,9 +140,10 @@ class DeclarationGenerator(
             return
         }
 
+        val sourceFile = declaration.getSourceFile()!!
         val locationTarget = declaration.locationTarget
-        val functionStartLocation = locationTarget.getSourceLocation(declaration.symbol, declaration.fileOrNull)
-        val functionEndLocation = locationTarget.getSourceLocation(declaration.symbol, declaration.fileOrNull, LocationType.END)
+        val functionStartLocation = locationTarget.getSourceLocation(declaration.symbol, sourceFile)
+        val functionEndLocation = locationTarget.getSourceLocation(declaration.symbol, sourceFile, LocationType.END)
 
         val function = WasmFunction.Defined(
             watName,
@@ -147,6 +157,7 @@ class DeclarationGenerator(
             backendContext,
             wasmFileCodegenContext,
             wasmModuleTypeTransformer,
+            sourceFile,
             skipCommentInstructions
         )
 
@@ -161,6 +172,7 @@ class DeclarationGenerator(
             functionCodegenContext,
             wasmModuleMetadataCache,
             wasmModuleTypeTransformer,
+            inlineUnitGetter,
         )
 
         val declarationBody = declaration.body
@@ -309,6 +321,8 @@ class DeclarationGenerator(
 
         if (klass.isAbstractOrSealed) return
 
+        if (wasmFileCodegenContext.handleVTableWithImport(symbol)) return
+
         val vTableTypeReference = wasmFileCodegenContext.referenceVTableGcType(symbol)
         val vTableRefGcType = WasmRefType(WasmHeapType.Type(vTableTypeReference))
 
@@ -363,6 +377,8 @@ class DeclarationGenerator(
         val symbol = klass.symbol
         val superType = klass.getSuperClass(irBuiltIns)?.symbol
 
+        if (wasmFileCodegenContext.handleRTTIWithImport(symbol, superType)) return
+
         val fqnShouldBeEmitted = backendContext.configuration.languageVersionSettings.getFlag(allowFullyQualifiedNameInKClass)
         val qualifier =
             if (fqnShouldBeEmitted) {
@@ -371,8 +387,8 @@ class DeclarationGenerator(
                 ""
             }
         val simpleName = klass.name.asString()
-        val (packageNameAddress, packageNamePoolId) = wasmFileCodegenContext.referenceStringLiteralAddressAndId(qualifier)
-        val (simpleNameAddress, simpleNamePoolId) = wasmFileCodegenContext.referenceStringLiteralAddressAndId(simpleName)
+        val packageNameStringLiteralId = wasmFileCodegenContext.referenceStringLiteralId(qualifier)
+        val simpleNameStringLiteralId = wasmFileCodegenContext.referenceStringLiteralId(simpleName)
 
         val location = SourceLocation.NoLocation("Create instance of rtti struct")
         val initRttiGlobal = buildWasmExpression {
@@ -383,19 +399,38 @@ class DeclarationGenerator(
                 buildRefNull(WasmHeapType.Simple.None, location)
             }
 
-            buildConstI32Symbol(packageNameAddress, location)
-            buildConstI32(qualifier.length, location)
-            buildConstI32Symbol(packageNamePoolId, location)
-
-            buildConstI32Symbol(simpleNameAddress, location)
-            buildConstI32(simpleName.length, location)
-            buildConstI32Symbol(simpleNamePoolId, location)
+            buildConstI32Symbol(packageNameStringLiteralId, location)
+            buildConstI32Symbol(simpleNameStringLiteralId, location)
 
             buildConstI64(wasmFileCodegenContext.referenceTypeId(symbol), location)
 
             val isAnonymousFlag = if (klass.isAnonymousObject) TYPE_INFO_FLAG_ANONYMOUS_CLASS else 0
-            val isLocalFlag = if (klass.isOriginallyLocalClass) TYPE_INFO_FLAG_LOCAL_CLASS else 0
+            val isLocalFlag = if (klass.isOriginallyLocalDeclaration) TYPE_INFO_FLAG_LOCAL_CLASS else 0
             buildConstI32(isAnonymousFlag or isLocalFlag, location)
+
+            val qualifierStringLoaderRef =
+                if (qualifier.fitsLatin1)
+                    wasmFileCodegenContext.wasmStringsElements.createStringLiteralLatin1
+                else
+                    wasmFileCodegenContext.wasmStringsElements.createStringLiteralUtf16
+
+            buildInstr(
+                WasmOp.REF_FUNC,
+                location,
+                WasmImmediate.FuncIdx(qualifierStringLoaderRef),
+            )
+
+            val simpleNameStringLoaderRef =
+                if (simpleName.fitsLatin1)
+                    wasmFileCodegenContext.wasmStringsElements.createStringLiteralLatin1
+                else
+                    wasmFileCodegenContext.wasmStringsElements.createStringLiteralUtf16
+
+            buildInstr(
+                WasmOp.REF_FUNC,
+                location,
+                WasmImmediate.FuncIdx(simpleNameStringLoaderRef),
+            )
 
             buildStructNew(wasmFileCodegenContext.rttiType, location)
         }
@@ -414,6 +449,8 @@ class DeclarationGenerator(
         val klass = metadata.klass
         if (klass.isAbstractOrSealed) return
         if (!klass.hasInterfaceSuperClass()) return
+
+        if (wasmFileCodegenContext.handleClassITableWithImport(klass.symbol)) return
 
         val location = SourceLocation.NoLocation("Create instance of itable struct")
 
@@ -544,40 +581,15 @@ class DeclarationGenerator(
         val wasmExpressionGenerator = WasmExpressionBuilder(initBody, skipCommentInstructions = skipCommentInstructions)
 
         val initValue: IrExpression? = declaration.initializer?.expression
-        if (initValue != null) {
-            if (initValue is IrConst && initValue.kind !is IrConstKind.String) {
-                generateConstExpression(
-                    initValue,
-                    wasmExpressionGenerator,
-                    wasmFileCodegenContext,
-                    backendContext,
-                    initValue.getSourceLocation(declaration.symbol, declaration.fileOrNull)
-                )
-            } else {
-                val stubFunction = WasmFunction.Defined("static_fun_stub", WasmSymbol())
-                val functionCodegenContext = WasmFunctionCodegenContext(
-                    null,
-                    stubFunction,
-                    backendContext,
-                    wasmFileCodegenContext,
-                    wasmModuleTypeTransformer,
-                    skipCommentInstructions,
-                )
-                val bodyGenerator = BodyGenerator(
-                    backendContext,
-                    wasmFileCodegenContext,
-                    functionCodegenContext,
-                    wasmModuleMetadataCache,
-                    wasmModuleTypeTransformer,
-                )
-                bodyGenerator.generateExpression(initValue)
-                wasmFileCodegenContext.addFieldInitializer(
-                    declaration.symbol,
-                    stubFunction.instructions,
-                    declaration.isObjectInstanceField()
-                )
-                generateDefaultInitializerForType(wasmType, wasmExpressionGenerator)
-            }
+        if (initValue is IrConst && initValue.kind !is IrConstKind.String) {
+            val sourceFile = declaration.getSourceFile()!!
+            generateConstExpression(
+                initValue,
+                wasmExpressionGenerator,
+                wasmFileCodegenContext,
+                backendContext,
+                initValue.getSourceLocation(declaration.symbol, sourceFile)
+            )
         } else {
             generateDefaultInitializerForType(wasmType, wasmExpressionGenerator)
         }
@@ -601,6 +613,7 @@ fun generateDefaultInitializerForType(type: WasmType, g: WasmExpressionBuilder) 
             WasmF32 -> g.buildConstF32(0f, location)
             WasmF64 -> g.buildConstF64(0.0, location)
             is WasmRefNullType -> g.buildRefNull(type.heapType, location)
+            is WasmRefType -> g.buildRefNull(type.heapType, location)
             is WasmRefNullrefType -> g.buildRefNull(WasmHeapType.Simple.None, location)
             is WasmRefNullExternrefType -> g.buildRefNull(WasmHeapType.Simple.NoExtern, location)
             is WasmAnyRef -> g.buildRefNull(WasmHeapType.Simple.Any, location)
@@ -645,12 +658,14 @@ fun generateConstExpression(
         is IrConstKind.Double -> body.buildConstF64(expression.value as Double, location)
         is IrConstKind.String -> {
             val stringValue = expression.value as String
-            val (literalAddress, literalPoolId) = context.referenceStringLiteralAddressAndId(stringValue)
+            val literalId = context.referenceStringLiteralId(stringValue)
             body.commentGroupStart { "const string: \"$stringValue\"" }
-            body.buildConstI32Symbol(literalPoolId, location)
-            body.buildConstI32Symbol(literalAddress, location)
-            body.buildConstI32(stringValue.length, location)
-            body.buildCall(context.referenceFunction(backendContext.wasmSymbols.stringGetLiteral), location)
+            body.buildConstI32Symbol(literalId, location)
+            if (stringValue.fitsLatin1) {
+                body.buildCall(context.wasmStringsElements.createStringLiteralLatin1, location)
+            } else {
+                body.buildCall(context.wasmStringsElements.createStringLiteralUtf16, location)
+            }
             body.commentGroupEnd()
         }
     }

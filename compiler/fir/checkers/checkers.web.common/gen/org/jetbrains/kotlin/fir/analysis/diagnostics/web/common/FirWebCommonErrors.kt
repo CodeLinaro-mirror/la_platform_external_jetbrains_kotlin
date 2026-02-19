@@ -51,9 +51,13 @@ object FirWebCommonErrors : KtDiagnosticsContainer() {
 
     // Export
     val NESTED_JS_EXPORT: KtDiagnosticFactory0 = KtDiagnosticFactory0("NESTED_JS_EXPORT", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class, getRendererFactory())
+    val MULTIPLE_JS_EXPORT_DEFAULT_IN_ONE_FILE: KtDiagnosticFactory0 = KtDiagnosticFactory0("MULTIPLE_JS_EXPORT_DEFAULT_IN_ONE_FILE", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class, getRendererFactory())
 
     // JsCode
     val JSCODE_ARGUMENT_NON_CONST_EXPRESSION: KtDiagnosticFactory0 = KtDiagnosticFactory0("JSCODE_ARGUMENT_NON_CONST_EXPRESSION", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class, getRendererFactory())
+
+    // Reflection
+    val UNSUPPORTED_REFLECTION_API: KtDiagnosticFactory1<String> = KtDiagnosticFactory1("UNSUPPORTED_REFLECTION_API", ERROR, SourceElementPositioningStrategies.DEFAULT, KtElement::class, getRendererFactory())
 
     override fun getRendererFactory(): BaseDiagnosticRendererFactory = FirWebCommonErrorsDefaultMessages
 }

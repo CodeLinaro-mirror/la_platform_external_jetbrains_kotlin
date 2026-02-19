@@ -121,10 +121,13 @@ internal fun consumeDoubleIntoVoid(a: Double): Void =
     implementedAsIntrinsic
 
 @ExcludedFromCodegen
-internal fun stringGetPoolSize(): Int =
+internal fun getWasmAbiVersion(): Int =
     implementedAsIntrinsic
 
-// This initializer is a special case in FieldInitializersLowering
+// TODO remove after bootstrap (KT-81325)
+internal fun stringGetPoolSize(): Int = 0
+
+// TODO remove after bootstrap (KT-81325)
 @Suppress("DEPRECATION")
 @OptIn(ExperimentalStdlibApi::class)
 @EagerInitialization

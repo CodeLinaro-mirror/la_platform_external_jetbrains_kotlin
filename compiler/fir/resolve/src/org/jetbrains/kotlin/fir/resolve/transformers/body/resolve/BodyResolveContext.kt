@@ -7,18 +7,19 @@ package org.jetbrains.kotlin.fir.resolve.transformers.body.resolve
 
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.ClassKind
-import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.SessionAndScopeSessionHolder
-import org.jetbrains.kotlin.fir.correspondingProperty
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
+import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.declarations.utils.isInner
+import org.jetbrains.kotlin.fir.declarations.utils.isScriptTopLevelDeclaration
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
+import org.jetbrains.kotlin.fir.expressions.InaccessibleReceiverKind
 import org.jetbrains.kotlin.fir.extensions.extensionService
 import org.jetbrains.kotlin.fir.extensions.replSnippetResolveExtensions
-import org.jetbrains.kotlin.fir.languageVersionSettings
+import org.jetbrains.kotlin.fir.extensions.scriptResolutionHacksComponent
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.dfa.DataFlowAnalyzerContext
@@ -42,6 +43,7 @@ class BodyResolveContext(
     @set:PrivateForInline
     var returnTypeCalculator: ReturnTypeCalculator,
     val dataFlowAnalyzerContext: DataFlowAnalyzerContext,
+    private val isContextCollectorMode: Boolean
 ) {
     val fileImportsScope: MutableList<FirScope> = mutableListOf()
 
@@ -85,6 +87,7 @@ class BodyResolveContext(
     @set:PrivateForInline
     var inferenceSession: FirInferenceSession = FirInferenceSession.DEFAULT
 
+    // TODO: Remove it once LanguageFeature.EqualityConstraintForOperatorsUnderAssignments is gone KT-81144
     @set:PrivateForInline
     var isInsideAssignmentRhs: Boolean = false
 
@@ -146,6 +149,28 @@ class BodyResolveContext(
         }
     }
 
+    var inlineFunction: FirFunction? = null
+
+    inline fun <T> withInlineFunction(function: FirFunction?, block: () -> T): T {
+        val oldValue = inlineFunction
+        return try {
+            inlineFunction = function
+            block()
+        } finally {
+            inlineFunction = oldValue
+        }
+    }
+
+    inline fun <T> withInlineFunctionIfApplicable(function: FirFunction, block: () -> T): T = when {
+        function.isInline -> withInlineFunction(function, block)
+        else -> block()
+    }
+
+    inline fun <T> withSuppressedInlineFunctionIfNeeded(element: FirElement?, block: () -> T): T = when {
+        shouldSuppressInlineContextAt(element, containers.lastOrNull()?.symbol) -> withInlineFunction(null, block)
+        else -> block()
+    }
+
     @PrivateForInline
     inline fun <T> withContainer(declaration: FirDeclaration, f: () -> T): T {
         containers.add(declaration)
@@ -185,6 +210,17 @@ class BodyResolveContext(
             l()
         } finally {
             replaceTowerDataContext(initialContext)
+        }
+    }
+
+    // TODO: the [skipCleanup] hack should be reverted on fixing KT-79107
+    @PrivateForInline
+    inline fun <R> withConditionalTowerDataCleanup(skipCleanup: Boolean, l: () -> R): R {
+        val initialContext = towerDataContext
+        return try {
+            l()
+        } finally {
+            if (!skipCleanup) replaceTowerDataContext(initialContext)
         }
     }
 
@@ -319,8 +355,9 @@ class BodyResolveContext(
             implicitReceiverValue = InaccessibleImplicitReceiverValue(
                 owningClass.symbol,
                 owningClass.defaultType(),
+                InaccessibleReceiverKind.SecondaryConstructor,
                 holder.session,
-                holder.scopeSession
+                holder.scopeSession,
             )
         )
     }
@@ -352,9 +389,9 @@ class BodyResolveContext(
         regularTowerDataContexts.primaryConstructorAllParametersScope
 
     @OptIn(PrivateForInline::class)
-    fun storeClassIfNotNested(klass: FirRegularClass, session: FirSession) {
+    fun storeClassOrTypealiasIfNotNested(classOrTypeAlias: FirClassLikeDeclaration, session: FirSession) {
         if (containerIfAny is FirClass) return
-        updateLastScope { storeClass(klass, session) }
+        updateLastScope { storeClassOrTypeAlias(classOrTypeAlias, session) }
     }
 
     @OptIn(PrivateForInline::class)
@@ -461,7 +498,7 @@ class BodyResolveContext(
         holder: SessionAndScopeSessionHolder,
         f: () -> T
     ): T {
-        storeClassIfNotNested(regularClass, holder.session)
+        storeClassOrTypealiasIfNotNested(regularClass, holder.session)
         return withSwitchedTowerDataModeForStaticNestedClass(regularClass) {
             withScopesForClass(regularClass, holder) {
                 withContainerRegularClass(regularClass, f)
@@ -579,10 +616,24 @@ class BodyResolveContext(
         val scopeForEnumEntries = forConstructorHeader
 
         val newTowerDataContextForStaticNestedClasses =
-            if ((owner as? FirRegularClass)?.classKind?.isSingleton == true)
+            if ((owner as? FirRegularClass)?.classKind?.isSingleton == true) {
                 forMembersResolution
-            else
+            } else if (!isContextCollectorMode) {
+                // ContextCollector is used by the IDE for completion, reference shortening, etc.
+                // Creating the inaccessible receiver in this mode would lead to the appearance of new completion items that would always
+                // lead to red code unless we specifically filter it out in all relevant call-sites.
+                // Instead, we just don't create it when running in ContextCollector mode.
+                val inaccessibleImplicitReceiverValue = InaccessibleImplicitReceiverValue(
+                    owner.symbol,
+                    type,
+                    InaccessibleReceiverKind.OuterClassOfNonInner,
+                    holder.session,
+                    holder.scopeSession,
+                )
+                staticsAndCompanion.addReceiver(labelName, inaccessibleImplicitReceiverValue)
+            } else {
                 staticsAndCompanion
+            }
 
         val constructor = (owner as? FirRegularClass)?.declarations?.firstOrNull { it is FirConstructor } as? FirConstructor
         val (primaryConstructorPureParametersScope, primaryConstructorAllParametersScope) =
@@ -742,7 +793,9 @@ class BodyResolveContext(
         }
 
         return withTypeParametersOf(simpleFunction) {
-            withContainer(simpleFunction, f)
+            withInlineFunctionIfApplicable(simpleFunction) {
+                withContainer(simpleFunction, f)
+            }
         }
     }
 
@@ -884,7 +937,10 @@ class BodyResolveContext(
         session: FirSession,
         f: () -> T
     ): T {
-        return withTowerDataCleanup {
+        // TODO: the [skipCleanup] hack should be reverted on fixing KT-79107
+        val skipCleanup = anonymousInitializer.isScriptTopLevelDeclaration == true &&
+                session.scriptResolutionHacksComponent?.skipTowerDataCleanupForTopLevelInitializers == true
+        return withConditionalTowerDataCleanup(skipCleanup) {
             getPrimaryConstructorPureParametersScope()?.let { addLocalScope(it) }
             addLocalScope(FirLocalScope(session))
             addAnonymousInitializer(anonymousInitializer)
@@ -899,7 +955,9 @@ class BodyResolveContext(
         f: () -> T
     ): T {
         storeValueParameterIfNeeded(valueParameter, session)
-        return withContainer(valueParameter, f)
+        return withContainer(valueParameter) {
+            withSuppressedInlineFunctionIfNeeded(valueParameter.defaultValue, f)
+        }
     }
 
     fun storeValueParameterIfNeeded(valueParameter: FirValueParameter, session: FirSession) {
@@ -966,14 +1024,18 @@ class BodyResolveContext(
             withContainer(accessor) {
                 val type = receiverTypeRef?.coneType
                 val additionalLabelName = type?.abbreviatedTypeOrSelf?.labelName(holder.session)
-                withLabelAndReceiverType(property.name, property, type, holder, additionalLabelName, f)
+
+                withInlineFunctionIfApplicable(accessor) {
+                    withLabelAndReceiverType(property.name, property, type, holder, additionalLabelName, f)
+                }
             }
         }
     }
 
     @OptIn(PrivateForInline::class)
-    inline fun <T> forPropertyInitializer(f: () -> T): T {
-        return withTowerDataCleanup {
+    // TODO: the [skipCleanup] hack should be reverted on fixing KT-79107
+    inline fun <T> forPropertyInitializer(skipCleanup: Boolean, f: () -> T): T {
+        return withConditionalTowerDataCleanup(skipCleanup) {
             getPrimaryConstructorPureParametersScope()?.let { addLocalScope(it) }
             f()
         }

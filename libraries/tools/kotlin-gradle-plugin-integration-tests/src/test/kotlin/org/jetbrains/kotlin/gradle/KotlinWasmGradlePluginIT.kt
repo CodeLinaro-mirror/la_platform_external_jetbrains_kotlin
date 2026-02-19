@@ -10,6 +10,8 @@ import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.targets.js.dsl.Distribution
 import org.jetbrains.kotlin.gradle.targets.js.npm.NpmProject
 import org.jetbrains.kotlin.gradle.targets.js.npm.fromSrcPackageJson
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec
 import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin
 import org.jetbrains.kotlin.gradle.targets.wasm.d8.D8EnvSpec
@@ -69,6 +71,8 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
             build(":wasmWasiNodeProductionRun") {
                 assertTasksExecuted(":compileProductionExecutableKotlinWasmWasi")
                 assertTasksExecuted(":compileProductionExecutableKotlinWasmWasiOptimize")
+
+                assertTasksAreNotInTaskGraph(":kotlinWasmToolingSetup")
             }
         }
     }
@@ -213,6 +217,20 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                 assertFileInProjectExists("build/${Distribution.DIST}/wasmJs/productionExecutable/new-mpp-wasm-js.js")
                 assertFileInProjectExists("build/${Distribution.DIST}/wasmJs/productionExecutable/new-mpp-wasm-js.js.map")
 
+                assertFileContains(
+                    projectPath.resolve(
+                        "build/compileSync/wasmJs/main/productionExecutable/kotlin/redefined-wasm-module-name.wasm.map"
+                    ),
+                    "src/wasmJsMain/kotlin/foo.kt"
+                )
+
+                assertFileContains(
+                    projectPath.resolve(
+                        "build/wasm/packages/redefined-wasm-module-name/kotlin/redefined-wasm-module-name.wasm.map"
+                    ),
+                    "src/wasmJsMain/kotlin/foo.kt"
+                )
+
                 assertTrue("Expected one wasm file") {
                     projectPath.resolve("build/${Distribution.DIST}/wasmJs/productionExecutable").toFile().listFiles()!!
                         .filter { it.extension == "wasm" }
@@ -238,6 +256,16 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
                         .filter { it.extension == "wasm" }
                         .size == 1
                 }
+            }
+
+            build("wasmJsBrowserDistribution") {
+                assertTasksUpToDate(":kotlinWasmNpmInstall")
+                assertTasksAreNotInTaskGraph(":kotlinNpmInstall")
+            }
+
+            build("jsBrowserDistribution") {
+                assertTasksUpToDate(":kotlinNpmInstall")
+                assertTasksAreNotInTaskGraph(":kotlinWasmNpmInstall")
             }
         }
     }
@@ -472,27 +500,29 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
     @GradleTest
     fun testDifferentBinaryenVersions(gradleVersion: GradleVersion) {
         project("wasm-browser-several-modules", gradleVersion) {
+            val binaryenVersionForFoo = "123"
+            val binaryenVersionForBar = "119"
             subProject("foo").let {
                 it.buildScriptInjection {
-                    project.extensions.getByType(BinaryenEnvSpec::class.java).version.set("119")
+                    project.extensions.getByType(BinaryenEnvSpec::class.java).version.set(binaryenVersionForFoo)
                 }
             }
 
             subProject("bar").let {
                 it.buildScriptInjection {
-                    project.extensions.getByType(BinaryenEnvSpec::class.java).version.set("118")
+                    project.extensions.getByType(BinaryenEnvSpec::class.java).version.set(binaryenVersionForBar)
                 }
             }
 
             build(":foo:compileProductionExecutableKotlinWasmJsOptimize") {
                 assertOutputContains(
-                    Path("binaryen-version_119").resolve("bin").resolve("wasm-opt").pathString
+                    Path("binaryen-version_$binaryenVersionForFoo").resolve("bin").resolve("wasm-opt").pathString
                 )
             }
 
             build(":bar:compileProductionExecutableKotlinWasmJsOptimize") {
                 assertOutputContains(
-                    Path("binaryen-version_118").resolve("bin").resolve("wasm-opt").pathString
+                    Path("binaryen-version_$binaryenVersionForBar").resolve("bin").resolve("wasm-opt").pathString
                 )
             }
         }
@@ -528,6 +558,76 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
 
             build("wasmJsTest") {
                 assertTasksExecuted(":wasmJsTest")
+            }
+        }
+    }
+
+    @DisplayName("Check js target webpack config changes reflected in webpack task properties")
+    @GradleTest
+    fun webpackConfigChangesReflectedInWebpackTask(gradleVersion: GradleVersion) {
+        project("new-mpp-wasm-js", gradleVersion) {
+            buildGradleKts.modify {
+                it.replace(
+                    "<JsEngine>",
+                    "browser"
+                )
+            }
+
+            @OptIn(ExperimentalWasmDsl::class)
+            buildScriptInjection {
+                kotlinMultiplatform.wasmJs {
+                    browser {
+                        webpackTask {
+                            it.generateConfigOnly = true
+                            it.devServerProperty.set(
+                                KotlinWebpackConfig.DevServer(
+                                    static = mutableListOf("foo")
+                                )
+                            )
+                        }
+
+                        commonWebpackConfig {
+                            it.outputFileName = "check.js"
+                            it.devServer = (it.devServer ?: KotlinWebpackConfig.DevServer()).apply {
+                                @Suppress("DEPRECATION")
+                                static = (static ?: mutableListOf()).apply {
+                                    add("bar")
+                                }
+                            }
+                        }
+
+                        runTask {
+                            it.devServerProperty.set(it.devServerProperty.get().copy())
+
+                            if (it.devServerProperty.get().statics.isEmpty()) {
+                                error("No dev server statics after copying of data class")
+                            }
+                        }
+                    }
+                }
+
+                project.tasks.withType(KotlinWebpack::class.java).named("wasmJsBrowserProductionWebpack") {
+                    it.doLast { task ->
+                        task as KotlinWebpack
+                        println("File output name: " + task.mainOutputFileName.get())
+                        val pathConfig = task.configFile.get().toPath()
+                        println("Path config: " + pathConfig)
+                    }
+                }
+            }
+
+            build("wasmJsBrowserProductionWebpack") {
+                assertTasksExecuted(":wasmJsBrowserProductionWebpack")
+
+                assertOutputContains("File output name: check.js")
+                val pathConfig = output.substringAfter("Path config: ").substringBefore("webpack.config.js")
+                assertFileContains(
+                    Path(pathConfig).resolve("webpack.config.js"),
+                    "\"static\": [\n" +
+                            "    \"foo\",\n" +
+                            "    \"bar\"\n" +
+                            "  ]"
+                )
             }
         }
     }

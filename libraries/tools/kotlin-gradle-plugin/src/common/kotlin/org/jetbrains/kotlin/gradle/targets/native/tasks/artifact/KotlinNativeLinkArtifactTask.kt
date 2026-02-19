@@ -2,7 +2,7 @@
  * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
-@file:Suppress("DEPRECATION")
+@file:Suppress("DEPRECATION_ERROR")
 
 package org.jetbrains.kotlin.gradle.targets.native.tasks.artifact
 
@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.gradle.internal.UsesClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.internal.ensureParentDirsCreated
 import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.mpp.BITCODE_EMBEDDING_DEPRECATION_MESSAGE
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
 import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.report.GradleBuildMetricsReporter
@@ -53,7 +52,7 @@ import javax.inject.Inject
 
 @DisableCachingByDefault
 @Suppress("LeakingThis")
-@Deprecated(KotlinArtifactsExtension.KOTLIN_NATIVE_ARTIFACTS_DEPRECATION)
+@Deprecated(KotlinArtifactsExtension.KOTLIN_NATIVE_ARTIFACTS_DEPRECATION, level = DeprecationLevel.ERROR)
 abstract class KotlinNativeLinkArtifactTask @Inject constructor(
     @get:Input val konanTarget: KonanTarget,
     @get:Input val outputKind: CompilerOutputKind,
@@ -88,12 +87,6 @@ abstract class KotlinNativeLinkArtifactTask @Inject constructor(
 
     @get:Input
     abstract val staticFramework: Property<Boolean>
-
-    @get:Input
-    @get:Optional
-    @Suppress("DEPRECATION_ERROR")
-    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, level = DeprecationLevel.ERROR)
-    abstract val embedBitcode: Property<org.jetbrains.kotlin.gradle.plugin.mpp.BitcodeEmbeddingMode>
 
     @get:Classpath
     abstract val libraries: ConfigurableFileCollection
@@ -134,13 +127,13 @@ abstract class KotlinNativeLinkArtifactTask @Inject constructor(
             get() = toolOptions
     }
 
-    @Suppress("DEPRECATION_ERROR")
+    @Suppress("DEPRECATION")
     @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
     fun kotlinOptions(fn: KotlinCommonToolOptions.() -> Unit) {
         kotlinOptions.fn()
     }
 
-    @Suppress("DEPRECATION_ERROR")
+    @Suppress("DEPRECATION")
     @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
     fun kotlinOptions(fn: Action<KotlinCommonToolOptions>) {
         fn.execute(kotlinOptions)
@@ -226,7 +219,6 @@ abstract class KotlinNativeLinkArtifactTask @Inject constructor(
     @get:Internal
     internal abstract val kotlinCompilerArgumentsLogLevel: Property<KotlinCompilerArgumentsLogLevel>
 
-    private val shouldUseEmbeddableCompilerJar = project.nativeProperties.shouldUseEmbeddableCompilerJar
     private val actualNativeHomeDirectory = project.nativeProperties.actualNativeHomeDirectory
     private val runnerJvmArgs = project.nativeProperties.jvmArgs
     private val forceDisableRunningInProcess = project.nativeProperties.forceDisableRunningInProcess
@@ -240,7 +232,6 @@ abstract class KotlinNativeLinkArtifactTask @Inject constructor(
             classLoadersCachingService,
             forceDisableRunningInProcess,
             useXcodeMessageStyle,
-            shouldUseEmbeddableCompilerJar,
             actualNativeHomeDirectory,
             runnerJvmArgs,
             konanPropertiesService,

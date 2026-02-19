@@ -37,6 +37,7 @@ internal object TypeTags {
     const val STRUCT_REF = 17u
     const val UNREACHABLE_TYPE = 18u
     const val V12 = 19u
+    const val ARRAY_REF = 20u
 }
 
 internal object HeapTypeTags {
@@ -114,7 +115,7 @@ internal object ExportTags {
 
 internal object LocationTags {
     const val NO_LOCATION = 0u
-    const val LOCATION = 1u
+    const val DEFINED_LOCATION = 1u
     const val IGNORED_LOCATION = 2u
     const val NEXT_LOCATION = 3u
 }

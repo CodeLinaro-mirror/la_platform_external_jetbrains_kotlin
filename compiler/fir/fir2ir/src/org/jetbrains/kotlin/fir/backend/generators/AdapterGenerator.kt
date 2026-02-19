@@ -11,16 +11,19 @@ import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.backend.*
 import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
 import org.jetbrains.kotlin.fir.backend.utils.convertWithOffsets
+import org.jetbrains.kotlin.fir.backend.utils.createWhenForSafeFall
 import org.jetbrains.kotlin.fir.backend.utils.varargElementType
 import org.jetbrains.kotlin.fir.containingClassLookupTag
-import org.jetbrains.kotlin.fir.declarations.*
+import org.jetbrains.kotlin.fir.declarations.FirConstructor
+import org.jetbrains.kotlin.fir.declarations.FirFunction
+import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.references.FirResolvedCallableReference
 import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.FirSamResolver
-import org.jetbrains.kotlin.fir.resolve.calls.stages.FirFakeArgumentForCallableReference
 import org.jetbrains.kotlin.fir.resolve.calls.ResolvedCallArgument
+import org.jetbrains.kotlin.fir.resolve.calls.stages.FirFakeArgumentForCallableReference
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.substitution.AbstractConeSubstitutor
 import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
@@ -30,7 +33,6 @@ import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
-import org.jetbrains.kotlin.fir.types.ConeStarProjection
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
 import org.jetbrains.kotlin.ir.expressions.*
@@ -43,7 +45,10 @@ import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.makeTypeProjection
-import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.isPrimitiveArray
+import org.jetbrains.kotlin.ir.util.isSuspendFunction
+import org.jetbrains.kotlin.ir.util.isTypeParameter
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.types.Variance
@@ -99,7 +104,7 @@ class AdapterGenerator(
         val actualReturnType = function.returnTypeRef.coneType
         return expectedReturnType?.isUnit() == true &&
                 // In case of an external function whose return type is a type parameter, e.g., operator fun <T, R> invoke(T): R
-                !actualReturnType.isUnit && actualReturnType.toSymbol(c.session) !is FirTypeParameterSymbol
+                !actualReturnType.isUnit && actualReturnType.toSymbol() !is FirTypeParameterSymbol
     }
 
     /**
@@ -310,7 +315,7 @@ class AdapterGenerator(
         } else if (
             callableReferenceAccess.explicitReceiver is FirResolvedQualifier &&
             (firAdaptee !is FirConstructor ||
-                    firAdaptee.containingClassLookupTag()?.toRegularClassSymbol(session)?.isInner == true) &&
+                    firAdaptee.containingClassLookupTag()?.toRegularClassSymbol()?.isInner == true) &&
             ((firAdaptee as? FirMemberDeclaration)?.isStatic != true)
         ) {
             // Unbound callable reference 'A::foo'
@@ -349,8 +354,7 @@ class AdapterGenerator(
                                 parameterType.classifier,
                                 parameterType.nullability,
                                 listOf(makeTypeProjection(reifiedVarargElementType, Variance.OUT_VARIANCE)),
-                                parameterType.annotations,
-                                parameterType.abbreviation
+                                parameterType.annotations
                             )
                         } else {
                             reifiedVarargElementType = varargElementType!!
@@ -489,7 +493,7 @@ class AdapterGenerator(
                         // So we do it "carefully". If we have a class `A<T>` and a method that takes e.g. `A<in String>`, we check
                         // if `T` has a non-trivial upper bound. If it has one, we don't attempt to perform a SAM conversion at all.
                         // Otherwise we erase the type to `Any?`, so `A<in String>` becomes `A<Any?>`, which is the computed SAM type.
-                        val upperBound = parameter.getUpperBounds().singleOrNull()?.upperBoundIfFlexible() as ConeKotlinType? ?: return null
+                        val upperBound = parameter.getUpperBounds().singleOrNull()?.upperBoundIfFlexible()?.asCone() ?: return null
                         if (!upperBound.isNullableAny) return null
 
                         upperBound
@@ -541,22 +545,29 @@ class AdapterGenerator(
      */
     internal fun IrExpression.applySuspendConversionIfNeeded(
         argument: FirExpression,
-        parameterType: ConeKotlinType
+        expectedType: ConeKotlinType,
     ): IrExpression {
         if (this is IrBlock && origin == IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE) {
             return this
         }
+
+        val preparedArgumentType = prepareArgumentTypeForSuspendConversion(argument)
+        // No conversion should happen if an argument already satisfies the expected type requirements
+        // NB: It's not just a fast path, but sometimes the presence adapter generation is incorrect (see KT-82590)
+        if (preparedArgumentType.isSubtypeOf(expectedType, session)) return this
+
+        val unwrappedExpectedType = getFunctionTypeForPossibleSamType(expectedType) ?: expectedType
+
         // Expect the expected type to be a suspend functional type.
-        if (!parameterType.isSuspendOrKSuspendFunctionType(session)) {
+        if (!unwrappedExpectedType.isSuspendOrKSuspendFunctionType(session)) {
             return this
         }
-        val expectedFunctionalType = parameterType.customFunctionTypeToSimpleFunctionType(session)
+        val expectedFunctionalType = unwrappedExpectedType.customFunctionTypeToSimpleFunctionType(session)
 
-        val functionalArgumentType = calculateFunctionalArgumentType(argument)
-        val invokeSymbol = findInvokeSymbol(expectedFunctionalType, functionalArgumentType) ?: return this
-        val suspendConvertedType = parameterType.toIrType() as IrSimpleType
+        val invokeSymbol = findInvokeSymbol(expectedFunctionalType, preparedArgumentType) ?: return this
+        val suspendConvertedType = unwrappedExpectedType.toIrType() as IrSimpleType
         return argument.convertWithOffsets { startOffset, endOffset ->
-            val argumentType = functionalArgumentType.toIrType()
+            val argumentType = preparedArgumentType.toIrType()
             val irAdapterFunction =
                 createAdapterFunctionForArgument(startOffset, endOffset, suspendConvertedType, argumentType, invokeSymbol)
             val irAdapterRef = IrFunctionReferenceImpl(
@@ -570,8 +581,15 @@ class AdapterGenerator(
         }
     }
 
-    private fun calculateFunctionalArgumentType(argument: FirExpression): ConeKotlinType {
+    /**
+     * For SAM conversions, it unwraps a contained function type
+     * For KProperty-typed expression it transforms it to the similarly shaped FunctionN
+     * For all other cases, it just returns the resolved type.
+     */
+    private fun prepareArgumentTypeForSuspendConversion(argument: FirExpression): ConeKotlinType {
         var argumentType = ((argument as? FirSamConversionExpression)?.expression ?: argument).resolvedType.fullyExpandedType()
+        // TODO: This code looks like a workaround for KT-73399, but the initial problem is still reproducible as KT-82683
+        // TODO: Invent a more general fix and rename the function to "unwrapSamConversion" KT-82683
         if (argumentType.isKProperty(session) || argumentType.isKMutableProperty(session)) {
             val functionClassId = FunctionTypeKind.Function.numberedClassId(argumentType.typeArguments.size - 1)
             argumentType = functionClassId.toLookupTag().constructClassType(typeArguments = argumentType.typeArguments)
@@ -648,7 +666,12 @@ class AdapterGenerator(
                 }
             }
             irAdapterFunction.body = IrFactoryImpl.createBlockBody(startOffset, endOffset) {
-                val irCall = createAdapteeCallForArgument(startOffset, endOffset, irAdapterFunction, invokeSymbol)
+                var irCall = createAdapteeCallForArgument(startOffset, endOffset, irAdapterFunction, invokeSymbol)
+
+                if (argumentType.isMarkedNullable()) {
+                    irCall = createWhenForSafeFall(irCall.type, irAdapterFunction.parameters[0].symbol, irCall)
+                }
+
                 if (returnType.isUnit()) {
                     statements.add(irCall)
                 } else {

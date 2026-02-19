@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.backend.konan.objcexport
 
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.name.Name
@@ -176,7 +177,9 @@ internal class InfoPListBuilder(
                 moduleDescriptor.getIncludedLibraryDescriptors(config),
                 moduleDescriptor.getExportedDependencies(config),
         )
-        val bundleID = mainPackage.child(Name.identifier(bundleName)).asString()
+        // Bundle ID must contain only alphanumerics, `-` and `.`: https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleidentifier#Discussion
+        // Replace any other character with `-`.
+        val bundleID = mainPackage.child(Name.identifier(bundleName)).asString().replace("[^0-9a-zA-Z.-]".toRegex(), "-")
 
         if (mainPackage.isRoot) {
             configuration.report(

@@ -2,6 +2,7 @@
 # Small patches are allowed if they are relatively safe and have already been
 # submitted upstream. This OWNERS file is here to enforce that policy.
 gharrma@google.com
+jlogs@google.com
 ralucas@google.com
 jvg@google.com
 jsjeon@google.com

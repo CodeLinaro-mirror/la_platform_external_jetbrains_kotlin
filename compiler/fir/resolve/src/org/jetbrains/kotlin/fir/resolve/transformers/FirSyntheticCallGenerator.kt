@@ -255,10 +255,13 @@ class FirSyntheticCallGenerator(
     ): FirExpression {
         val argumentList = buildUnaryArgumentList(anonymousFunctionExpression)
 
+        val expectedType =
+            expectedTypeData?.expectedType?.adaptExpectedTypeForLambdaIfNeeded(anonymousFunctionExpression.anonymousFunction)
+
         val reference = generateCalleeReferenceToFunctionWithExpectedTypeForArgument(
             anonymousFunctionExpression,
             argumentList,
-            expectedTypeData?.expectedType,
+            expectedType,
             context,
         )
 
@@ -298,6 +301,26 @@ class FirSyntheticCallGenerator(
         return resolvedArgument
     }
 
+    private fun ConeKotlinType.adaptExpectedTypeForLambdaIfNeeded(lambda: FirAnonymousFunction): ConeKotlinType {
+        if (!lambda.hasExplicitParameterList) return this
+        if (!isSomeFunctionType(session)) return this
+
+        val isThereReceiver = receiverType(session) != null
+        if (!isThereReceiver && contextParameterNumberForFunctionType == 0) return this
+
+        val classLikeType = unwrapLowerBound() as? ConeClassLikeType ?: return this
+
+        return when {
+            lambda.valueParameters.size == classLikeType.valueParameterTypesIncludingReceiver(session).size ->
+                classLikeType.withAttributes(
+                    classLikeType.attributes
+                        .remove(CompilerConeAttributes.ExtensionFunctionType::class)
+                        .remove(CompilerConeAttributes.ContextFunctionTypeParams::class)
+                )
+            else -> this
+        }
+    }
+
     /**
      * After resolution of a top-level lambda via synthetic call, we have some diagnostic, which in most of the cases says
      * that the type of the lambda can't be passed to the given expected type.
@@ -325,7 +348,7 @@ class FirSyntheticCallGenerator(
 
         anonymousFunction.replaceTypeRef(
             anonymousFunction.typeRef.withReplacedConeType(
-                substitutor.safeSubstitute(components.session.typeContext, argumentTypeMismatchOnWholeLambda.actualType) as ConeKotlinType
+                substitutor.safeSubstitute(components.session.typeContext, argumentTypeMismatchOnWholeLambda.actualType).asCone()
             )
         )
 
@@ -409,7 +432,7 @@ class FirSyntheticCallGenerator(
                     diagnostic = ConeAmbiguityError(
                         it.name,
                         CandidateApplicability.INAPPLICABLE,
-                        it.candidates,
+                        it.candidatesWithErrors,
                     )
                     name = it.name
                 }
@@ -654,7 +677,7 @@ class FirSyntheticCallGenerator(
             isCrossinline = false
             isNoinline = false
             this.isVararg = isVararg
-            symbol = FirValueParameterSymbol(name)
+            symbol = FirValueParameterSymbol()
             resolvePhase = FirResolvePhase.BODY_RESOLVE
         }
     }

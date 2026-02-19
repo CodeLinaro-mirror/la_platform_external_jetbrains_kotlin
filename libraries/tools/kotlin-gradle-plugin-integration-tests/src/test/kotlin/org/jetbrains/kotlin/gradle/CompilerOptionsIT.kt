@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
+import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import org.jetbrains.kotlin.gradle.testbase.*
@@ -51,9 +51,10 @@ internal class CompilerOptionsIT : KGPBaseTest() {
 
                     afterEvaluate {
                         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-                            // aligned with embedded Kotlin compiler: https://docs.gradle.org/current/userguide/compatibility.html#kotlin
-                            compilerOptions.apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.${firstNonDeprecatedKotlinVersion.name})
-                            compilerOptions.languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.${firstNonDeprecatedKotlinVersion.name})
+                            // aligned with embedded Kotlin compiler: https://docs.gradle.org/current/userguide/compatibility.html#kotlin;
+                            // the hardcoded values are fine as this block (and the test) are checking some old Gradle functionality
+                            compilerOptions.apiVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
+                            compilerOptions.languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_0)
                         }
                     }
                     """.trimIndent()
@@ -278,6 +279,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             build("compileNativeMainKotlinMetadata") {
                 assertTasksExecuted(":compileNativeMainKotlinMetadata")
                 val taskOutput = getOutputForTask(":compileNativeMainKotlinMetadata", logLevel = LogLevel.INFO)
+                @Suppress("DEPRECATION")
                 val arguments = parseCompilerArgumentsFromBuildOutput(K2NativeCompilerArguments::class, taskOutput)
                 assertEquals(
                     setOf("another.custom.UnderOptIn", "my.custom.OptInAnnotation"), arguments.optIn?.toSet(),
@@ -288,6 +290,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             build("compileKotlinLinux64") {
                 assertTasksExecuted(":compileKotlinLinux64")
                 val taskOutput = getOutputForTask(":compileKotlinLinux64", logLevel = LogLevel.INFO)
+                @Suppress("DEPRECATION")
                 val arguments = parseCompilerArgumentsFromBuildOutput(K2NativeCompilerArguments::class, taskOutput)
                 assertEquals(
                     setOf("another.custom.UnderOptIn", "my.custom.OptInAnnotation"), arguments.optIn?.toSet(),
@@ -316,6 +319,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
 
             build("compileKotlinHost") {
                 val expectedOptIn = listOf("kotlin.RequiresOptIn", "my.CustomOptIn")
+                @Suppress("DEPRECATION")
                 val arguments = parseCompilerArguments<K2NativeCompilerArguments>()
                 if (arguments.optIn?.toList() != listOf("kotlin.RequiresOptIn", "my.CustomOptIn")) {
                     fail(

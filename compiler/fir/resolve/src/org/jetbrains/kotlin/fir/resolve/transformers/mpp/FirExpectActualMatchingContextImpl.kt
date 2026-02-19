@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.transformers.mpp
 
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibility
@@ -15,7 +16,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.isJava
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.resolve.*
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.substitution.asCone
 import org.jetbrains.kotlin.fir.scopes.*
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.mpp.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.calls.mpp.ExpectActualCollectionArgumentsCompatibilityCheckStrategy
 import org.jetbrains.kotlin.resolve.calls.mpp.ExpectActualMatchingContext
 import org.jetbrains.kotlin.resolve.calls.mpp.ExpectActualMatchingContext.AnnotationCallInfo
@@ -69,7 +71,7 @@ class FirExpectActualMatchingContextImpl private constructor(
     override val TypeAliasSymbolMarker.classId: ClassId
         get() = asSymbol().classId
     override val CallableSymbolMarker.callableId: CallableId
-        get() = asSymbol().callableId
+        get() = asSymbol().callableId!!
 
     override val TypeParameterSymbolMarker.parameterName: Name
         get() = asSymbol().name
@@ -108,6 +110,19 @@ class FirExpectActualMatchingContextImpl private constructor(
         get() = asSymbol().resolvedStatus.modality
     override val CallableSymbolMarker.visibility: Visibility
         get() = asSymbol().resolvedStatus.visibility
+
+    override val mustUseMatcher: ExpectActualMatchingContext.MustUseMatcher = object : ExpectActualMatchingContext.MustUseMatcher {
+        override fun matches(
+            expectCallable: CallableSymbolMarker,
+            actualCallable: CallableSymbolMarker,
+            containingExpectClass: RegularClassSymbolMarker?,
+        ): Boolean = actualSession.mustUseReturnValueStatusComponent.isExpectActualIgnorabilityCompatible(
+            actualSession,
+            expectCallable.asSymbol(),
+            actualCallable.asSymbol(),
+            containingExpectClass?.asSymbol()
+        )
+    }
 
     override val CallableSymbolMarker.isExpect: Boolean
         get() = asSymbol().resolvedStatus.isExpect
@@ -148,7 +163,7 @@ class FirExpectActualMatchingContextImpl private constructor(
         return createExpectActualTypeParameterSubstitutor(
             expectActualTypeParameters as List<Pair<FirTypeParameterSymbol, FirTypeParameterSymbol>>,
             actualSession,
-            parentSubstitutor as ConeSubstitutor?
+            parentSubstitutor?.asCone()
         )
     }
 
@@ -340,8 +355,8 @@ class FirExpectActualMatchingContextImpl private constructor(
                 return false
             }
         }
-        val actualizedExpectType = (expectType as ConeKotlinType).actualize()
-        val actualizedActualType = (actualType as ConeKotlinType).actualize()
+        val actualizedExpectType = expectType.asCone().actualize()
+        val actualizedActualType = actualType.asCone().actualize()
 
         if (parameterOfAnnotationComparisonMode && actualizedExpectType is ConeClassLikeType && actualizedExpectType.isArrayType &&
             actualizedActualType is ConeClassLikeType && actualizedActualType.isArrayType
@@ -488,6 +503,9 @@ class FirExpectActualMatchingContextImpl private constructor(
 
         override val isOptIn: Boolean
             get() = getAnnotationClass()?.hasAnnotation(OptInNames.REQUIRES_OPT_IN_CLASS_ID, actualSession) ?: false
+
+        override val isOptionalExpectation: Boolean
+            get() = getAnnotationClass()?.hasAnnotation(StandardClassIds.Annotations.OptionalExpectation, actualSession) ?: false
 
         private fun getAnnotationClass(): FirRegularClassSymbol? =
             getAnnotationConeType()?.toRegularClassSymbol(actualSession)

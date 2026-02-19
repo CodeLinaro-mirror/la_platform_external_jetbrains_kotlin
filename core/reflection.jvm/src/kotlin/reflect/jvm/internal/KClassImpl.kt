@@ -19,6 +19,8 @@ package kotlin.reflect.jvm.internal
 import org.jetbrains.kotlin.SpecialJvmAnnotations
 import org.jetbrains.kotlin.builtins.CompanionObjectMapping
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
+import org.jetbrains.kotlin.builtins.functions.FunctionTypeKind
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.impl.ClassDescriptorImpl
 import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
@@ -35,32 +37,49 @@ import org.jetbrains.kotlin.metadata.deserialization.getExtensionOrNull
 import org.jetbrains.kotlin.metadata.jvm.JvmProtoBuf
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.resolve.DescriptorUtils
-import org.jetbrains.kotlin.resolve.descriptorUtil.builtIns
 import org.jetbrains.kotlin.resolve.scopes.GivenFunctionsMemberScope
 import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedClassDescriptor
+import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.utils.compact
+import java.io.Serializable
 import java.lang.reflect.Modifier
+import java.lang.reflect.TypeVariable
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.jvm.internal.TypeIntrinsics
 import kotlin.metadata.*
 import kotlin.metadata.ClassKind
 import kotlin.metadata.Modality
 import kotlin.metadata.internal.toKmClass
+import kotlin.metadata.jvm.KotlinClassMetadata
 import kotlin.reflect.*
-import kotlin.reflect.jvm.internal.KDeclarationContainerImpl.MemberBelonginess.DECLARED
-import kotlin.reflect.jvm.internal.KDeclarationContainerImpl.MemberBelonginess.INHERITED
+import kotlin.reflect.jvm.internal.KClassImpl.MemberBelonginess.DECLARED
+import kotlin.reflect.jvm.internal.KClassImpl.MemberBelonginess.INHERITED
+import kotlin.reflect.jvm.internal.types.DescriptorKType
 import org.jetbrains.kotlin.descriptors.ClassKind as DescriptorClassKind
 import org.jetbrains.kotlin.descriptors.Modality as DescriptorModality
 
 internal class KClassImpl<T : Any>(
     override val jClass: Class<T>,
-) : KDeclarationContainerImpl(), KClass<T>, KClassifierImpl, KTypeParameterOwnerImpl {
+) : KDeclarationContainerImpl(), KClass<T>, KTypeParameterOwnerImpl, TypeConstructorMarker {
     inner class Data : KDeclarationContainerImpl.Data() {
         val kmClass: KmClass? by lazy(PUBLICATION) {
-            (descriptor as? DeserializedClassDescriptor)?.let { descriptor ->
-                descriptor.classProto.toKmClass(descriptor.c.nameResolver)
+            if (loadMetadataDirectly) {
+                jClass.getAnnotation(Metadata::class.java)?.let { metadata ->
+                    (KotlinClassMetadata.readLenient(metadata) as? KotlinClassMetadata.Class)?.kmClass
+                }
+            } else {
+                val descriptor = descriptor
+                if (descriptor is FunctionClassDescriptor) {
+                    // There are no special KClass instances for suspend function type classes yet (KT-79225), so all functions are
+                    // treated as normal functions (`kotlin.Function{n}`).
+                    if (descriptor.functionTypeKind !is FunctionTypeKind.Function)
+                        throw KotlinReflectionInternalError("Unsupported function type kind: ${descriptor.functionTypeKind} ($descriptor)")
+                    return@lazy createFunctionKmClass(descriptor.arity)
+                }
+                (descriptor as? DeserializedClassDescriptor)?.let { descriptor ->
+                    descriptor.classProto.toKmClass(descriptor.c.nameResolver)
+                }
             }
         }
 
@@ -119,7 +138,7 @@ internal class KClassImpl<T : Any>(
         @Suppress("UNCHECKED_CAST")
         val constructors: Collection<KFunction<T>> by ReflectProperties.lazySoft {
             constructorDescriptors.map { descriptor ->
-                KFunctionImpl(this@KClassImpl, descriptor) as KFunction<T>
+                DescriptorKFunction(this@KClassImpl, descriptor) as KFunction<T>
             }
         }
 
@@ -156,36 +175,113 @@ internal class KClassImpl<T : Any>(
         }
 
         val typeParameters: List<KTypeParameter> by ReflectProperties.lazySoft {
-            descriptor.declaredTypeParameters.map { descriptor -> KTypeParameterImpl(this@KClassImpl, descriptor) }
+            if (useK1Implementation) {
+                descriptor.declaredTypeParameters.map { descriptor -> KTypeParameterImpl(this@KClassImpl, descriptor) }
+            } else if (kmClass == null) {
+                jClass.typeParameters.toKTypeParameters()
+            } else {
+                typeParameterTable.ownTypeParameters
+            }
+        }
+
+        private val typeParameterTable: TypeParameterTable by ReflectProperties.lazySoft {
+            if (kmClass == null)
+                TypeParameterTable.EMPTY
+            else
+                TypeParameterTable.create(
+                    kmClass!!.typeParameters,
+                    (jClass.enclosingClass?.takeIf { kmClass!!.isInner }?.kotlin as? KClassImpl<*>)?.data?.value?.typeParameterTable,
+                    this@KClassImpl,
+                    jClass.safeClassLoader,
+                )
         }
 
         val supertypes: List<KType> by ReflectProperties.lazySoft {
+            if (jClass == Any::class.java) return@lazySoft emptyList()
+
+            if (useK1Implementation) {
+                return@lazySoft computeLegacySupertypes()
+            }
+
+            val result = ArrayList<KType>()
+            val kmTypes = kmClass?.supertypes
+            if (kmTypes != null) {
+                kmTypes.mapTo(result) { kmType ->
+                    val superClassId = (kmType.classifier as? KmClassifier.Class)?.name?.toClassId()
+                        ?: throw KotlinReflectionInternalError("Supertype of ${this@KClassImpl} not a class: ${kmType.classifier}")
+
+                    val superJavaClass = jClass.safeClassLoader.loadClass(superClassId)
+                        ?: throw KotlinReflectionInternalError("Unsupported superclass of ${this@KClassImpl}: $superClassId")
+
+                    kmType.toKType(jClass.safeClassLoader, typeParameterTable) {
+                        if (jClass.superclass == superJavaClass) {
+                            jClass.genericSuperclass
+                        } else {
+                            val index = jClass.interfaces.indexOf(superJavaClass)
+                            if (index < 0) throw KotlinReflectionInternalError(
+                                "No superclass of ${this@KClassImpl} in Java reflection for $superClassId"
+                            )
+                            jClass.genericInterfaces[index]
+                        }
+                    }
+                }
+
+                // Compiler adds Cloneable and Serializable supertypes for some builtin classes, see `JvmBuiltInsCustomizer.getSupertypes`.
+                if (jClass.isArray) {
+                    result += StandardKTypes.CLONEABLE
+                }
+                if (Serializable::class.java.isAssignableFrom(jClass) && StandardKTypes.SERIALIZABLE !in result &&
+                    qualifiedName?.startsWith("kotlin.") == true
+                ) {
+                    result += StandardKTypes.SERIALIZABLE
+                }
+            } else {
+                jClass.genericSuperclass?.takeUnless { it == Any::class.java }?.let {
+                    result += it.toKType(knownTypeParameters = emptyMap(), nullability = TypeNullability.NOT_NULL)
+                }
+                jClass.genericInterfaces.mapTo(result) {
+                    it.toKType(knownTypeParameters = emptyMap(), nullability = TypeNullability.NOT_NULL)
+                }
+            }
+
+            if (result.all {
+                    val klass = it.classifier as? KClassImpl<*>
+                    klass != null && (klass.classKind == ClassKind.INTERFACE || klass.classKind == ClassKind.ANNOTATION_CLASS)
+                }) {
+                result += StandardKTypes.ANY
+            }
+            result.compact()
+        }
+
+        private fun computeLegacySupertypes(): List<KType> {
             val kotlinTypes = descriptor.typeConstructor.supertypes
-            val result = ArrayList<KTypeImpl>(kotlinTypes.size)
+            val result = ArrayList<KType>(kotlinTypes.size)
             kotlinTypes.mapTo(result) { kotlinType ->
-                KTypeImpl(kotlinType) {
+                DescriptorKType(kotlinType) {
                     val superClass = kotlinType.constructor.declarationDescriptor
                     if (superClass !is ClassDescriptor) throw KotlinReflectionInternalError("Supertype not a class: $superClass")
 
                     val superJavaClass = superClass.toJavaClass()
-                        ?: throw KotlinReflectionInternalError("Unsupported superclass of $this: $superClass")
+                        ?: throw KotlinReflectionInternalError("Unsupported superclass of ${this@KClassImpl}: $superClass")
 
                     if (jClass.superclass == superJavaClass) {
                         jClass.genericSuperclass
                     } else {
                         val index = jClass.interfaces.indexOf(superJavaClass)
-                        if (index < 0) throw KotlinReflectionInternalError("No superclass of $this in Java reflection for $superClass")
+                        if (index < 0) throw KotlinReflectionInternalError(
+                            "No superclass of ${this@KClassImpl} in Java reflection for $superClass"
+                        )
                         jClass.genericInterfaces[index]
                     }
                 }
             }
             if (!KotlinBuiltIns.isSpecialClassWithNoSupertypes(descriptor) && result.all {
-                    val classKind = DescriptorUtils.getClassDescriptorForType(it.type).kind
-                    classKind == DescriptorClassKind.INTERFACE || classKind == DescriptorClassKind.ANNOTATION_CLASS
+                    val klass = it.classifier as? KClassImpl<*>
+                    klass != null && (klass.classKind == ClassKind.INTERFACE || klass.classKind == ClassKind.ANNOTATION_CLASS)
                 }) {
-                result += KTypeImpl(descriptor.builtIns.anyType) { Any::class.java }
+                result += StandardKTypes.ANY
             }
-            result.compact()
+            return result.compact()
         }
 
         val sealedSubclasses: List<KClass<out T>> by ReflectProperties.lazySoft {
@@ -202,34 +298,43 @@ internal class KClassImpl<T : Any>(
             result as List<KClass<out T>>
         }
 
-        val declaredNonStaticMembers: Collection<KCallableImpl<*>>
+        val declaredNonStaticMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { getMembers(memberScope, DECLARED) }
-        private val declaredStaticMembers: Collection<KCallableImpl<*>>
+        private val declaredStaticMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { getMembers(staticScope, DECLARED) }
-        private val inheritedNonStaticMembers: Collection<KCallableImpl<*>>
+        private val inheritedNonStaticMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { getMembers(memberScope, INHERITED) }
-        private val inheritedStaticMembers: Collection<KCallableImpl<*>>
+        private val inheritedStaticMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { getMembers(staticScope, INHERITED) }
 
-        val allNonStaticMembers: Collection<KCallableImpl<*>>
+        val allNonStaticMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { declaredNonStaticMembers + inheritedNonStaticMembers }
-        val allStaticMembers: Collection<KCallableImpl<*>>
+        val allStaticMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { declaredStaticMembers + inheritedStaticMembers }
-        val declaredMembers: Collection<KCallableImpl<*>>
+        val declaredMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { declaredNonStaticMembers + declaredStaticMembers }
-        val allMembers: Collection<KCallableImpl<*>>
+        val allMembers: Collection<DescriptorKCallable<*>>
                 by ReflectProperties.lazySoft { allNonStaticMembers + allStaticMembers }
     }
 
     val data = lazy(PUBLICATION) { Data() }
 
-    override val descriptor: ClassDescriptor get() = data.value.descriptor
+    val descriptor: ClassDescriptor get() = data.value.descriptor
 
     private val kmClass: KmClass? get() = data.value.kmClass
 
     override val annotations: List<Annotation> get() = data.value.annotations
 
     private val classId: ClassId get() = RuntimeTypeMapper.mapJvmClassToKotlinClassId(jClass)
+
+    internal val classKind: ClassKind
+        get() = kmClass?.kind ?: when {
+            jClass.isAnnotation -> ClassKind.ANNOTATION_CLASS
+            jClass.isInterface -> ClassKind.INTERFACE
+            jClass.isEnum -> ClassKind.ENUM_CLASS
+            jClass.superclass.isEnum -> ClassKind.ENUM_ENTRY
+            else -> ClassKind.CLASS
+        }
 
     // Note that we load members from the container's default type, which might be confusing. For example, a function declared in a
     // generic class "A<T>" would have "A<T>" as the receiver parameter even if a concrete type like "A<String>" was specified
@@ -239,6 +344,27 @@ internal class KClassImpl<T : Any>(
     internal val staticScope: MemberScope get() = descriptor.staticScope
 
     override val members: Collection<KCallable<*>> get() = data.value.allMembers
+
+    private fun getMembers(scope: MemberScope, belonginess: MemberBelonginess): Collection<DescriptorKCallable<*>> {
+        val visitor = object : CreateKCallableVisitor(this) {
+            override fun visitConstructorDescriptor(descriptor: ConstructorDescriptor, data: Unit): DescriptorKCallable<*> =
+                throw IllegalStateException("No constructors should appear here: $descriptor")
+        }
+        return scope.getContributedDescriptors().mapNotNull { descriptor ->
+            if (descriptor is CallableMemberDescriptor &&
+                descriptor.visibility != DescriptorVisibilities.INVISIBLE_FAKE &&
+                belonginess.accept(descriptor)
+            ) descriptor.accept(visitor, Unit) else null
+        }.toList()
+    }
+
+    private enum class MemberBelonginess {
+        DECLARED,
+        INHERITED;
+
+        fun accept(member: CallableMemberDescriptor): Boolean =
+            member.kind.isReal == (this == DECLARED)
+    }
 
     override val constructorDescriptors: Collection<ConstructorDescriptor>
         get() {
@@ -344,6 +470,9 @@ internal class KClassImpl<T : Any>(
 
     override val isValue: Boolean
         get() = kmClass?.isValue == true
+
+    internal val isInline: Boolean
+        get() = kmClass?.inlineClassUnderlyingType != null
 
     override fun equals(other: Any?): Boolean =
         other is KClassImpl<*> && javaObjectType == other.javaObjectType

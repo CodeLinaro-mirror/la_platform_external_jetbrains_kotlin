@@ -10,10 +10,13 @@ import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.ir.backend.js.export.*
+import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
+import org.jetbrains.kotlin.ir.backend.js.tsexport.*
 import org.jetbrains.kotlin.ir.backend.js.utils.getFqNameWithJsNameWhenAvailable
 import org.jetbrains.kotlin.ir.backend.js.utils.isJsExport
+import org.jetbrains.kotlin.ir.backend.js.utils.isJsExportDefault
 import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
+import org.jetbrains.kotlin.ir.backend.js.utils.typeScriptInnerClassReference
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
@@ -23,8 +26,8 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.js.config.ModuleKind
 import org.jetbrains.kotlin.name.parentOrNull
-import org.jetbrains.kotlin.serialization.js.ModuleKind
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.memoryOptimizedFilter
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
@@ -48,7 +51,7 @@ class ExportModelGenerator(val context: WasmBackendContext) {
             modules.asSequence()
                 .flatMap { it.files }
                 .flatMap { it.declarations }
-                .filter { it.isJsExport() }
+                .filter { it.isJsExport() || it.isJsExportDefault() }
                 .forEach {
                     declarationsToExport.add(it)
                     addLast(it)
@@ -129,7 +132,6 @@ class ExportModelGenerator(val context: WasmBackendContext) {
                 function.getExportedIdentifier(),
                 returnType = exportType(function.returnType),
                 typeParameters = function.typeParameters.memoryOptimizedMap(::exportTypeParameter),
-                ir = function,
                 isMember = parentClass != null,
                 isStatic = function.isStaticMethodOfClass,
                 isProtected = function.visibility == DescriptorVisibilities.PROTECTED,
@@ -164,8 +166,7 @@ class ExportModelGenerator(val context: WasmBackendContext) {
             isAbstract = parentClass?.isInterface == false && property.modality == Modality.ABSTRACT,
             isProtected = property.visibility == DescriptorVisibilities.PROTECTED,
             isField = parentClass?.isInterface == true,
-            irGetter = property.getter,
-            irSetter = property.setter,
+            isObjectGetter = property.getter?.origin == JsLoweredDeclarationOrigin.OBJECT_GET_INSTANCE_FUNCTION,
             isOptional = isOptional,
             isStatic = (property.getter ?: property.setter)?.isStaticMethodOfClass == true,
         )
@@ -206,6 +207,7 @@ class ExportModelGenerator(val context: WasmBackendContext) {
                 parameterTypes = nonNullType.arguments.dropLast(1).memoryOptimizedMap { exportTypeArgument(it) },
                 returnType = exportTypeArgument(nonNullType.arguments.last())
             )
+            nonNullType.isNothing() -> ExportedType.Primitive.Nothing
 
             classifier is IrTypeParameterSymbol -> ExportedType.TypeParameter(classifier.owner.name.identifier)
 
@@ -219,14 +221,24 @@ class ExportModelGenerator(val context: WasmBackendContext) {
 
                 when (klass.kind) {
                     ClassKind.OBJECT ->
-                        ExportedType.TypeOf(ExportedType.ClassType(name, emptyList(), klass))
+                        ExportedType.TypeOf(
+                            ExportedType.ClassType(
+                                name,
+                                emptyList(),
+                                isObject = true,
+                                isExternal = klass.isEffectivelyExternal(),
+                                classId = klass.classId,
+                            )
+                        )
 
                     ClassKind.CLASS,
                     ClassKind.INTERFACE ->
                         ExportedType.ClassType(
                             name,
                             type.arguments.memoryOptimizedMap { exportTypeArgument(it) },
-                            klass
+                            isObject = false,
+                            isExternal = klass.isEffectivelyExternal(),
+                            classId = klass.classId,
                         )
                     else -> error("Unexpected class kind ${klass.kind}")
                 }
@@ -296,24 +308,29 @@ class ExportModelGenerator(val context: WasmBackendContext) {
 
         val exportedDeclaration = if (declaration.kind == ClassKind.OBJECT) {
             ExportedObject(
-                ir = declaration,
                 name = name,
                 members = members,
                 superClasses = listOfNotNull(superClass),
                 nestedClasses = emptyList(),
-                superInterfaces = superInterfaces
+                superInterfaces = superInterfaces,
+                originalClassId = declaration.classId,
+                isExternal = declaration.isEffectivelyExternal(),
+                isCompanion = declaration.isCompanion,
+                isTopLevel = declaration.isTopLevel
             )
         } else {
             ExportedRegularClass(
                 name = name,
                 isInterface = declaration.isInterface,
                 isAbstract = declaration.modality == Modality.ABSTRACT || declaration.modality == Modality.SEALED,
+                isExternal = declaration.isEffectivelyExternal(),
                 superClasses = listOfNotNull(superClass),
                 superInterfaces = superInterfaces,
                 typeParameters = typeParameters,
                 members = members,
                 nestedClasses = emptyList(),
-                ir = declaration
+                originalClassId = declaration.classId,
+                innerClassReference = runIf(declaration.isInner) { declaration.typeScriptInnerClassReference() },
             )
         }
 

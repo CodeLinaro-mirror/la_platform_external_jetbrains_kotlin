@@ -1,4 +1,5 @@
 // RUN_PIPELINE_TILL: FRONTEND
+// LANGUAGE: +NestedTypeAliases +LocalTypeAliases
 // CHECK_TYPE
 // DIAGNOSTICS: -UNUSED_VALUE -VARIABLE_WITH_REDUNDANT_INITIALIZER -TOPLEVEL_TYPEALIASES_ONLY
 
@@ -10,7 +11,7 @@ private fun <E> foobar() = {
             fun a() = A<E, X, Y, Z>()
         }
 
-        <!UNSUPPORTED!><!WRONG_MODIFIER_TARGET!>inner<!> typealias LocalAlias<W> = A<E, X, Y, W><!>
+        <!WRONG_MODIFIER_TARGET!>inner<!> typealias LocalAlias<W> = A<E, X, Y, W>
     }
 
     class Derived : LocalOuter<Double, Short>() {
@@ -27,7 +28,7 @@ private fun noParameters() = {
             fun a() = A<Any, X, Y, Z>()
         }
 
-        <!UNSUPPORTED!><!WRONG_MODIFIER_TARGET!>inner<!> typealias LocalAlias2<W> = A<Any, X, Y, W><!>
+        <!WRONG_MODIFIER_TARGET!>inner<!> typealias LocalAlias2<W> = A<Any, X, Y, W>
     }
 
     class Derived2 : LocalOuter2<Double, Short>() {

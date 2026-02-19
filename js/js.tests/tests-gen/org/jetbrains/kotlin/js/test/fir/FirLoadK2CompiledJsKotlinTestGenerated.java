@@ -24,7 +24,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
   public class CompiledKotlin {
     @Test
     public void testAllFilesPresentInCompiledKotlin() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Nested
@@ -33,7 +33,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Annotations {
       @Test
       public void testAllFilesPresentInAnnotations() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -108,7 +108,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class ClassMembers {
         @Test
         public void testAllFilesPresentInClassMembers() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/classMembers"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/classMembers"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -127,6 +127,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         @TestMetadata("DelegatedProperty.kt")
         public void testDelegatedProperty() {
           runTest("compiler/testData/loadJava/compiledKotlin/annotations/classMembers/DelegatedProperty.kt");
+        }
+
+        @Test
+        @TestMetadata("EnumArgument.kt")
+        public void testEnumArgument() {
+          runTest("compiler/testData/loadJava/compiledKotlin/annotations/classMembers/EnumArgument.kt");
         }
 
         @Test
@@ -172,7 +178,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Classes {
         @Test
         public void testAllFilesPresentInClasses() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/classes"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/classes"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -215,6 +221,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         @TestMetadata("DollarsInAnnotationName.kt")
         public void testDollarsInAnnotationName() {
           runTest("compiler/testData/loadJava/compiledKotlin/annotations/classes/DollarsInAnnotationName.kt");
+        }
+
+        @Test
+        @TestMetadata("EnumArgument.kt")
+        public void testEnumArgument() {
+          runTest("compiler/testData/loadJava/compiledKotlin/annotations/classes/EnumArgument.kt");
         }
 
         @Test
@@ -266,13 +278,25 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class PackageMembers {
         @Test
         public void testAllFilesPresentInPackageMembers() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/packageMembers"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/packageMembers"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
         @TestMetadata("DelegatedProperty.kt")
         public void testDelegatedProperty() {
           runTest("compiler/testData/loadJava/compiledKotlin/annotations/packageMembers/DelegatedProperty.kt");
+        }
+
+        @Test
+        @TestMetadata("EnumArgument.kt")
+        public void testEnumArgument() {
+          runTest("compiler/testData/loadJava/compiledKotlin/annotations/packageMembers/EnumArgument.kt");
+        }
+
+        @Test
+        @TestMetadata("EnumArrayArgument.kt")
+        public void testEnumArrayArgument() {
+          runTest("compiler/testData/loadJava/compiledKotlin/annotations/packageMembers/EnumArrayArgument.kt");
         }
 
         @Test
@@ -312,7 +336,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Parameters {
         @Test
         public void testAllFilesPresentInParameters() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/parameters"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/parameters"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -388,7 +412,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class PropertiesWithoutBackingFields {
         @Test
         public void testAllFilesPresentInPropertiesWithoutBackingFields() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/propertiesWithoutBackingFields"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/propertiesWithoutBackingFields"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -446,7 +470,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Types {
         @Test
         public void testAllFilesPresentInTypes() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/types"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/types"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -477,6 +501,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         @TestMetadata("SourceRetention.kt")
         public void testSourceRetention() {
           runTest("compiler/testData/loadJava/compiledKotlin/annotations/types/SourceRetention.kt");
+        }
+
+        @Test
+        @TestMetadata("SupertypesAndBounds.kt")
+        public void testSupertypesAndBounds() {
+          runTest("compiler/testData/loadJava/compiledKotlin/annotations/types/SupertypesAndBounds.kt");
         }
 
         @Test
@@ -516,7 +546,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
 
         @Test
         public void testAllFilesPresentInWithUseSiteTarget() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/withUseSiteTarget"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/annotations/withUseSiteTarget"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -551,7 +581,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Class {
       @Test
       public void testAllFilesPresentInClass() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/class"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/class"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -609,6 +639,24 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("ClassParamUpperClassBound.kt")
+      public void testClassParamUpperClassBound() {
+        runTest("compiler/testData/loadJava/compiledKotlin/class/ClassParamUpperClassBound.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassParamUpperClassInterfaceBound.kt")
+      public void testClassParamUpperClassInterfaceBound() {
+        runTest("compiler/testData/loadJava/compiledKotlin/class/ClassParamUpperClassInterfaceBound.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassParamUpperInterfaceBound.kt")
+      public void testClassParamUpperInterfaceBound() {
+        runTest("compiler/testData/loadJava/compiledKotlin/class/ClassParamUpperInterfaceBound.kt");
+      }
+
+      @Test
       @TestMetadata("ClassTwoParams.kt")
       public void testClassTwoParams() {
         runTest("compiler/testData/loadJava/compiledKotlin/class/ClassTwoParams.kt");
@@ -633,6 +681,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("InheritClassWithParam.kt")
+      public void testInheritClassWithParam() {
+        runTest("compiler/testData/loadJava/compiledKotlin/class/InheritClassWithParam.kt");
+      }
+
+      @Test
       @TestMetadata("InheritSubstitutedMethod.kt")
       public void testInheritSubstitutedMethod() {
         runTest("compiler/testData/loadJava/compiledKotlin/class/InheritSubstitutedMethod.kt");
@@ -642,6 +696,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       @TestMetadata("InheritTraitWithFunctionParam.kt")
       public void testInheritTraitWithFunctionParam() {
         runTest("compiler/testData/loadJava/compiledKotlin/class/InheritTraitWithFunctionParam.kt");
+      }
+
+      @Test
+      @TestMetadata("InheritTraitWithParam.kt")
+      public void testInheritTraitWithParam() {
+        runTest("compiler/testData/loadJava/compiledKotlin/class/InheritTraitWithParam.kt");
       }
 
       @Test
@@ -746,7 +806,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class JavaBean {
         @Test
         public void testAllFilesPresentInJavaBean() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/class/javaBean"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/class/javaBean"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -774,6 +834,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         }
 
         @Test
+        @TestMetadata("JavaBeanVarOfGenericType.kt")
+        public void testJavaBeanVarOfGenericType() {
+          runTest("compiler/testData/loadJava/compiledKotlin/class/javaBean/JavaBeanVarOfGenericType.kt");
+        }
+
+        @Test
         @TestMetadata("TwoSetters.kt")
         public void testTwoSetters() {
           runTest("compiler/testData/loadJava/compiledKotlin/class/javaBean/TwoSetters.kt");
@@ -787,7 +853,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class ClassFun {
       @Test
       public void testAllFilesPresentInClassFun() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/classFun"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/classFun"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -827,7 +893,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class ClassObject {
       @Test
       public void testAllFilesPresentInClassObject() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/classObject"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/classObject"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -915,7 +981,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Constructor {
       @Test
       public void testAllFilesPresentInConstructor() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/constructor"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/constructor"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -949,9 +1015,21 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("ConstructorGenericDeep.kt")
+      public void testConstructorGenericDeep() {
+        runTest("compiler/testData/loadJava/compiledKotlin/constructor/ConstructorGenericDeep.kt");
+      }
+
+      @Test
       @TestMetadata("ConstructorGenericSimple.kt")
       public void testConstructorGenericSimple() {
         runTest("compiler/testData/loadJava/compiledKotlin/constructor/ConstructorGenericSimple.kt");
+      }
+
+      @Test
+      @TestMetadata("ConstructorGenericUpperBound.kt")
+      public void testConstructorGenericUpperBound() {
+        runTest("compiler/testData/loadJava/compiledKotlin/constructor/ConstructorGenericUpperBound.kt");
       }
 
       @Test
@@ -1008,7 +1086,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Vararg {
         @Test
         public void testAllFilesPresentInVararg() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/constructor/vararg"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/constructor/vararg"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -1031,7 +1109,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class ContextParameters {
       @Test
       public void testAllFilesPresentInContextParameters() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/contextParameters"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/contextParameters"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1053,7 +1131,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class ContextReceivers {
       @Test
       public void testAllFilesPresentInContextReceivers() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/contextReceivers"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/contextReceivers"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1069,7 +1147,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Coroutines {
       @Test
       public void testAllFilesPresentInCoroutines() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/coroutines"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/coroutines"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1091,7 +1169,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class DataClass {
       @Test
       public void testAllFilesPresentInDataClass() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/dataClass"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/dataClass"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -1125,13 +1203,19 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class FromLoadJava {
       @Test
       public void testAllFilesPresentInFromLoadJava() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
       @TestMetadata("ArrayTypeVariance.kt")
       public void testArrayTypeVariance() {
         runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/ArrayTypeVariance.kt");
+      }
+
+      @Test
+      @TestMetadata("ClassDoesNotOverrideMethod.kt")
+      public void testClassDoesNotOverrideMethod() {
+        runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/ClassDoesNotOverrideMethod.kt");
       }
 
       @Test
@@ -1195,6 +1279,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("FieldOfArrayType.kt")
+      public void testFieldOfArrayType() {
+        runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/FieldOfArrayType.kt");
+      }
+
+      @Test
       @TestMetadata("FinalFieldAsVal.kt")
       public void testFinalFieldAsVal() {
         runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/FinalFieldAsVal.kt");
@@ -1222,6 +1312,18 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       @TestMetadata("InnerClass.kt")
       public void testInnerClass() {
         runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/InnerClass.kt");
+      }
+
+      @Test
+      @TestMetadata("MethodTypePOneUpperBound.kt")
+      public void testMethodTypePOneUpperBound() {
+        runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/MethodTypePOneUpperBound.kt");
+      }
+
+      @Test
+      @TestMetadata("MethodTypePTwoUpperBounds.kt")
+      public void testMethodTypePTwoUpperBounds() {
+        runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/MethodTypePTwoUpperBounds.kt");
       }
 
       @Test
@@ -1307,8 +1409,14 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       @TestDataPath("$PROJECT_ROOT")
       public class KotlinSignature {
         @Test
+        @TestMetadata("AllBoundsInWhen.kt")
+        public void testAllBoundsInWhen() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/AllBoundsInWhen.kt");
+        }
+
+        @Test
         public void testAllFilesPresentInKotlinSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -1327,6 +1435,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         @TestMetadata("ConstructorWithParentTypeParams.kt")
         public void testConstructorWithParentTypeParams() {
           runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/ConstructorWithParentTypeParams.kt");
+        }
+
+        @Test
+        @TestMetadata("ConstructorWithSeveralParams.kt")
+        public void testConstructorWithSeveralParams() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/ConstructorWithSeveralParams.kt");
         }
 
         @Test
@@ -1360,6 +1474,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         }
 
         @Test
+        @TestMetadata("MethodWithTypeParameters.kt")
+        public void testMethodWithTypeParameters() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/MethodWithTypeParameters.kt");
+        }
+
+        @Test
         @TestMetadata("MethodWithVararg.kt")
         public void testMethodWithVararg() {
           runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/MethodWithVararg.kt");
@@ -1369,6 +1489,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         @TestMetadata("PropertyArrayTypes.kt")
         public void testPropertyArrayTypes() {
           runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/PropertyArrayTypes.kt");
+        }
+
+        @Test
+        @TestMetadata("PropertyComplexTypes.kt")
+        public void testPropertyComplexTypes() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/PropertyComplexTypes.kt");
         }
 
         @Test
@@ -1395,7 +1521,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
 
           @Test
           public void testAllFilesPresentInError() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error"), Pattern.compile("^(.+)\\.kt$"), null, true);
           }
 
           @Test
@@ -1408,6 +1534,18 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
           @TestMetadata("ExplicitFieldGettersAndSetters.kt")
           public void testExplicitFieldGettersAndSetters() {
             runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error/ExplicitFieldGettersAndSetters.kt");
+          }
+
+          @Test
+          @TestMetadata("ExtraUpperBound.kt")
+          public void testExtraUpperBound() {
+            runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error/ExtraUpperBound.kt");
+          }
+
+          @Test
+          @TestMetadata("MissingUpperBound.kt")
+          public void testMissingUpperBound() {
+            runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error/MissingUpperBound.kt");
           }
 
           @Test
@@ -1507,6 +1645,18 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
           }
 
           @Test
+          @TestMetadata("WrongTypeParameterBoundStructure1.kt")
+          public void testWrongTypeParameterBoundStructure1() {
+            runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error/WrongTypeParameterBoundStructure1.kt");
+          }
+
+          @Test
+          @TestMetadata("WrongTypeParameterBoundStructure2.kt")
+          public void testWrongTypeParameterBoundStructure2() {
+            runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error/WrongTypeParameterBoundStructure2.kt");
+          }
+
+          @Test
           @TestMetadata("WrongTypeParametersCount.kt")
           public void testWrongTypeParametersCount() {
             runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/error/WrongTypeParametersCount.kt");
@@ -1537,7 +1687,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         public class Propagation {
           @Test
           public void testAllFilesPresentInPropagation() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation"), Pattern.compile("^(.+)\\.kt$"), null, true);
           }
 
           @Test
@@ -1552,7 +1702,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
           public class Parameter {
             @Test
             public void testAllFilesPresentInParameter() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/parameter"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/parameter"), Pattern.compile("^(.+)\\.kt$"), null, true);
             }
 
             @Test
@@ -1754,7 +1904,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
 
             @Test
             public void testAllFilesPresentInReturn() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/return"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/return"), Pattern.compile("^(.+)\\.kt$"), null, true);
             }
 
             @Test
@@ -1932,7 +2082,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
           public class TypeParameter {
             @Test
             public void testAllFilesPresentInTypeParameter() {
-              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/typeParameter"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+              KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/typeParameter"), Pattern.compile("^(.+)\\.kt$"), null, true);
             }
 
             @Test
@@ -1954,9 +2104,21 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
             }
 
             @Test
+            @TestMetadata("TwoBounds.kt")
+            public void testTwoBounds() {
+              runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/typeParameter/TwoBounds.kt");
+            }
+
+            @Test
             @TestMetadata("TwoSuperclasses.kt")
             public void testTwoSuperclasses() {
               runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/typeParameter/TwoSuperclasses.kt");
+            }
+
+            @Test
+            @TestMetadata("TwoTypeParameters.kt")
+            public void testTwoTypeParameters() {
+              runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/kotlinSignature/propagation/typeParameter/TwoTypeParameters.kt");
             }
 
             @Test
@@ -1986,7 +2148,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Library {
         @Test
         public void testAllFilesPresentInLibrary() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/library"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/library"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2014,7 +2176,13 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Modality {
         @Test
         public void testAllFilesPresentInModality() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/modality"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/modality"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("ModalityOfFakeOverrides.kt")
+        public void testModalityOfFakeOverrides() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fromLoadJava/modality/ModalityOfFakeOverrides.kt");
         }
       }
 
@@ -2024,7 +2192,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class NotNull {
         @Test
         public void testAllFilesPresentInNotNull() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/notNull"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fromLoadJava/notNull"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2065,7 +2233,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Fun {
       @Test
       public void testAllFilesPresentInFun() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2105,6 +2273,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("NoSamAdapter.kt")
+      public void testNoSamAdapter() {
+        runTest("compiler/testData/loadJava/compiledKotlin/fun/NoSamAdapter.kt");
+      }
+
+      @Test
       @TestMetadata("NoSamConstructor.kt")
       public void testNoSamConstructor() {
         runTest("compiler/testData/loadJava/compiledKotlin/fun/NoSamConstructor.kt");
@@ -2134,7 +2308,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class GenericWithTypeVariables {
         @Test
         public void testAllFilesPresentInGenericWithTypeVariables() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/genericWithTypeVariables"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/genericWithTypeVariables"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2168,6 +2342,24 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         }
 
         @Test
+        @TestMetadata("FunParamUpperClassBound.kt")
+        public void testFunParamUpperClassBound() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/genericWithTypeVariables/FunParamUpperClassBound.kt");
+        }
+
+        @Test
+        @TestMetadata("FunParamUpperClassInterfaceBound.kt")
+        public void testFunParamUpperClassInterfaceBound() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/genericWithTypeVariables/FunParamUpperClassInterfaceBound.kt");
+        }
+
+        @Test
+        @TestMetadata("FunParamUpperInterfaceBound.kt")
+        public void testFunParamUpperInterfaceBound() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/genericWithTypeVariables/FunParamUpperInterfaceBound.kt");
+        }
+
+        @Test
         @TestMetadata("FunParamVaragParam.kt")
         public void testFunParamVaragParam() {
           runTest("compiler/testData/loadJava/compiledKotlin/fun/genericWithTypeVariables/FunParamVaragParam.kt");
@@ -2186,7 +2378,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class GenericWithoutTypeVariables {
         @Test
         public void testAllFilesPresentInGenericWithoutTypeVariables() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/genericWithoutTypeVariables"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/genericWithoutTypeVariables"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2199,6 +2391,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         @TestMetadata("FunClassParamNullable.kt")
         public void testFunClassParamNullable() {
           runTest("compiler/testData/loadJava/compiledKotlin/fun/genericWithoutTypeVariables/FunClassParamNullable.kt");
+        }
+
+        @Test
+        @TestMetadata("FunParamNullable.kt")
+        public void testFunParamNullable() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/genericWithoutTypeVariables/FunParamNullable.kt");
         }
 
         @Test
@@ -2220,7 +2418,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class NonGeneric {
         @Test
         public void testAllFilesPresentInNonGeneric() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2266,9 +2464,21 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         }
 
         @Test
+        @TestMetadata("FunParamNotNull.kt")
+        public void testFunParamNotNull() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric/FunParamNotNull.kt");
+        }
+
+        @Test
         @TestMetadata("FunVarargInt.kt")
         public void testFunVarargInt() {
           runTest("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric/FunVarargInt.kt");
+        }
+
+        @Test
+        @TestMetadata("FunVarargInteger.kt")
+        public void testFunVarargInteger() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric/FunVarargInteger.kt");
         }
 
         @Test
@@ -2294,6 +2504,18 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
         public void testNsFunGetFoo() {
           runTest("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric/NsFunGetFoo.kt");
         }
+
+        @Test
+        @TestMetadata("ReturnTypeNotNull.kt")
+        public void testReturnTypeNotNull() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric/ReturnTypeNotNull.kt");
+        }
+
+        @Test
+        @TestMetadata("ReturnTypeNullable.kt")
+        public void testReturnTypeNullable() {
+          runTest("compiler/testData/loadJava/compiledKotlin/fun/nonGeneric/ReturnTypeNullable.kt");
+        }
       }
 
       @Nested
@@ -2302,7 +2524,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Vararg {
         @Test
         public void testAllFilesPresentInVararg() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/vararg"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/fun/vararg"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2331,7 +2553,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Inline {
       @Test
       public void testAllFilesPresentInInline() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/inline"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/inline"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2347,7 +2569,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class MemberOrder {
       @Test
       public void testAllFilesPresentInMemberOrder() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/memberOrder"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/memberOrder"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2387,7 +2609,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class NestedClasses {
       @Test
       public void testAllFilesPresentInNestedClasses() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/nestedClasses"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/nestedClasses"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2415,7 +2637,19 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class PlatformTypes {
       @Test
       public void testAllFilesPresentInPlatformTypes() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/platformTypes"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/platformTypes"), Pattern.compile("^(.+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("notnullTypeArgument.kt")
+      public void testNotnullTypeArgument() {
+        runTest("compiler/testData/loadJava/compiledKotlin/platformTypes/notnullTypeArgument.kt");
+      }
+
+      @Test
+      @TestMetadata("nullableTypeArgument.kt")
+      public void testNullableTypeArgument() {
+        runTest("compiler/testData/loadJava/compiledKotlin/platformTypes/nullableTypeArgument.kt");
       }
     }
 
@@ -2425,7 +2659,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Prop {
       @Test
       public void testAllFilesPresentInProp() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/prop"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/prop"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2465,6 +2699,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("ExtValClass.kt")
+      public void testExtValClass() {
+        runTest("compiler/testData/loadJava/compiledKotlin/prop/ExtValClass.kt");
+      }
+
+      @Test
       @TestMetadata("ExtValInClass.kt")
       public void testExtValInClass() {
         runTest("compiler/testData/loadJava/compiledKotlin/prop/ExtValInClass.kt");
@@ -2489,6 +2729,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("ExtValIntListQOfIntInClass.kt")
+      public void testExtValIntListQOfIntInClass() {
+        runTest("compiler/testData/loadJava/compiledKotlin/prop/ExtValIntListQOfIntInClass.kt");
+      }
+
+      @Test
       @TestMetadata("ExtValIntTInClass.kt")
       public void testExtValIntTInClass() {
         runTest("compiler/testData/loadJava/compiledKotlin/prop/ExtValIntTInClass.kt");
@@ -2504,6 +2750,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       @TestMetadata("ExtValTIntInClass.kt")
       public void testExtValTIntInClass() {
         runTest("compiler/testData/loadJava/compiledKotlin/prop/ExtValTIntInClass.kt");
+      }
+
+      @Test
+      @TestMetadata("ExtVarClass.kt")
+      public void testExtVarClass() {
+        runTest("compiler/testData/loadJava/compiledKotlin/prop/ExtVarClass.kt");
       }
 
       @Test
@@ -2620,7 +2872,67 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class DefaultAccessors {
         @Test
         public void testAllFilesPresentInDefaultAccessors() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors"), Pattern.compile("^(.+)\\.kt$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("ClassVal.kt")
+        public void testClassVal() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassVal.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassValParams.kt")
+        public void testClassValParams() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassValParams.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassValWithGet.kt")
+        public void testClassValWithGet() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassValWithGet.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassVar.kt")
+        public void testClassVar() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassVar.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassVarModality.kt")
+        public void testClassVarModality() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassVarModality.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassVarParams.kt")
+        public void testClassVarParams() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassVarParams.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassVarWithGet.kt")
+        public void testClassVarWithGet() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassVarWithGet.kt");
+        }
+
+        @Test
+        @TestMetadata("ClassVarWithSet.kt")
+        public void testClassVarWithSet() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ClassVarWithSet.kt");
+        }
+
+        @Test
+        @TestMetadata("ExtValLong.kt")
+        public void testExtValLong() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ExtValLong.kt");
+        }
+
+        @Test
+        @TestMetadata("ExtVarLong.kt")
+        public void testExtVarLong() {
+          runTest("compiler/testData/loadJava/compiledKotlin/prop/defaultAccessors/ExtVarLong.kt");
         }
       }
     }
@@ -2631,7 +2943,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Type {
       @Test
       public void testAllFilesPresentInType() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/type"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/type"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2656,6 +2968,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       @TestMetadata("ArrayOfInt.kt")
       public void testArrayOfInt() {
         runTest("compiler/testData/loadJava/compiledKotlin/type/ArrayOfInt.kt");
+      }
+
+      @Test
+      @TestMetadata("ArrayOfInteger.kt")
+      public void testArrayOfInteger() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/ArrayOfInteger.kt");
       }
 
       @Test
@@ -2701,6 +3019,48 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("jlInteger.kt")
+      public void testJlInteger() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlInteger.kt");
+      }
+
+      @Test
+      @TestMetadata("jlIntegerQ.kt")
+      public void testJlIntegerQ() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlIntegerQ.kt");
+      }
+
+      @Test
+      @TestMetadata("jlNumber.kt")
+      public void testJlNumber() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlNumber.kt");
+      }
+
+      @Test
+      @TestMetadata("jlObject.kt")
+      public void testJlObject() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlObject.kt");
+      }
+
+      @Test
+      @TestMetadata("jlObjectQ.kt")
+      public void testJlObjectQ() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlObjectQ.kt");
+      }
+
+      @Test
+      @TestMetadata("jlString.kt")
+      public void testJlString() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlString.kt");
+      }
+
+      @Test
+      @TestMetadata("jlStringQ.kt")
+      public void testJlStringQ() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/jlStringQ.kt");
+      }
+
+      @Test
       @TestMetadata("ListOfAny.kt")
       public void testListOfAny() {
         runTest("compiler/testData/loadJava/compiledKotlin/type/ListOfAny.kt");
@@ -2719,6 +3079,18 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       }
 
       @Test
+      @TestMetadata("ListOfString.kt")
+      public void testListOfString() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/ListOfString.kt");
+      }
+
+      @Test
+      @TestMetadata("ListOfjlString.kt")
+      public void testListOfjlString() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/ListOfjlString.kt");
+      }
+
+      @Test
       @TestMetadata("Nothing.kt")
       public void testNothing() {
         runTest("compiler/testData/loadJava/compiledKotlin/type/Nothing.kt");
@@ -2728,6 +3100,12 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       @TestMetadata("NothingQ.kt")
       public void testNothingQ() {
         runTest("compiler/testData/loadJava/compiledKotlin/type/NothingQ.kt");
+      }
+
+      @Test
+      @TestMetadata("platform.kt")
+      public void testPlatform() {
+        runTest("compiler/testData/loadJava/compiledKotlin/type/platform.kt");
       }
 
       @Test
@@ -2761,7 +3139,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Typealias {
       @Test
       public void testAllFilesPresentInTypealias() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/typealias"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/typealias"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2795,7 +3173,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Visibility {
       @Test
       public void testAllFilesPresentInVisibility() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/visibility"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlin/visibility"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2878,7 +3256,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
   public class CompiledKotlinWithStdlib {
     @Test
     public void testAllFilesPresentInCompiledKotlinWithStdlib() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib"), Pattern.compile("^(.+)\\.kt$"), null, true);
     }
 
     @Nested
@@ -2887,13 +3265,31 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Annotations {
       @Test
       public void testAllFilesPresentInAnnotations() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations"), Pattern.compile("^(.+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("annotationClassDefaultValues.kt")
+      public void testAnnotationClassDefaultValues() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/annotationClassDefaultValues.kt");
       }
 
       @Test
       @TestMetadata("AnnotationInAnnotationArguments.kt")
       public void testAnnotationInAnnotationArguments() {
         runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/AnnotationInAnnotationArguments.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationTargetsWithKlibAnnotationsInMetadata.kt")
+      public void testAnnotationTargetsWithKlibAnnotationsInMetadata() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/annotationTargetsWithKlibAnnotationsInMetadata.kt");
+      }
+
+      @Test
+      @TestMetadata("annotationTargetsWithoutKlibAnnotationsInMetadata.kt")
+      public void testAnnotationTargetsWithoutKlibAnnotationsInMetadata() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/annotationTargetsWithoutKlibAnnotationsInMetadata.kt");
       }
 
       @Test
@@ -2926,7 +3322,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class ClassMembers {
         @Test
         public void testAllFilesPresentInClassMembers() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/classMembers"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/classMembers"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2942,7 +3338,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
       public class Parameters {
         @Test
         public void testAllFilesPresentInParameters() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/parameters"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/annotations/parameters"), Pattern.compile("^(.+)\\.kt$"), null, true);
         }
 
         @Test
@@ -2959,7 +3355,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Class {
       @Test
       public void testAllFilesPresentInClass() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/class"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/class"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -2981,7 +3377,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Contracts {
       @Test
       public void testAllFilesPresentInContracts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/contracts"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/contracts"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -3063,7 +3459,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Coroutines {
       @Test
       public void testAllFilesPresentInCoroutines() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/coroutines"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/coroutines"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -3079,7 +3475,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Enum {
       @Test
       public void testAllFilesPresentInEnum() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/enum"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/enum"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -3125,7 +3521,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class FromLoadJava {
       @Test
       public void testAllFilesPresentInFromLoadJava() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/fromLoadJava"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/fromLoadJava"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -3141,7 +3537,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class MemberOrder {
       @Test
       public void testAllFilesPresentInMemberOrder() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/memberOrder"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/memberOrder"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test
@@ -3157,7 +3553,31 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class Mutability {
       @Test
       public void testAllFilesPresentInMutability() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/mutability"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/mutability"), Pattern.compile("^(.+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("LoadIterable.kt")
+      public void testLoadIterable() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/mutability/LoadIterable.kt");
+      }
+
+      @Test
+      @TestMetadata("LoadIterableWithConflict.kt")
+      public void testLoadIterableWithConflict() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/mutability/LoadIterableWithConflict.kt");
+      }
+
+      @Test
+      @TestMetadata("LoadIterableWithNullability.kt")
+      public void testLoadIterableWithNullability() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/mutability/LoadIterableWithNullability.kt");
+      }
+
+      @Test
+      @TestMetadata("LoadIterableWithPropagation.kt")
+      public void testLoadIterableWithPropagation() {
+        runTest("compiler/testData/loadJava/compiledKotlinWithStdlib/mutability/LoadIterableWithPropagation.kt");
       }
     }
 
@@ -3167,7 +3587,7 @@ public class FirLoadK2CompiledJsKotlinTestGenerated extends AbstractFirLoadK2Com
     public class PlatformNames {
       @Test
       public void testAllFilesPresentInPlatformNames() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/platformNames"), Pattern.compile("^(.+)\\.kt$"), null, TargetBackend.JS_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/loadJava/compiledKotlinWithStdlib/platformNames"), Pattern.compile("^(.+)\\.kt$"), null, true);
       }
 
       @Test

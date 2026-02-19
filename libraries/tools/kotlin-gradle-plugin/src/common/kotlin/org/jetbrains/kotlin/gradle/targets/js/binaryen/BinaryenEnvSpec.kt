@@ -17,18 +17,18 @@ import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlatform
 import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenSetupTask
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmPlatformDisambiguator
 import org.jetbrains.kotlin.gradle.targets.web.HasPlatformDisambiguator
-import org.jetbrains.kotlin.gradle.tasks.internal.CleanableStore
 import org.jetbrains.kotlin.gradle.utils.getFile
 
 /**
  * Specification for executing Binaryen, an optimization tool for wasm files.
  */
 @Deprecated(
-    "Use 'org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec' instead",
+    "Use 'org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec' instead. Scheduled for removal in Kotlin 2.4.",
     ReplaceWith(
         "BinaryenEnvSpec",
         "org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec"
-    )
+    ),
+    level = DeprecationLevel.ERROR
 )
 @ExperimentalWasmDsl
 abstract class BinaryenEnvSpec : EnvSpec<BinaryenEnv>() {
@@ -45,8 +45,7 @@ abstract class BinaryenEnvSpec : EnvSpec<BinaryenEnv>() {
     final override fun produceEnv(): Provider<BinaryenEnv> {
         return version.map { versionValue ->
             val requiredVersionName = "binaryen-version_$versionValue"
-            val cleanableStore = CleanableStore[installationDirectory.getFile().absolutePath]
-            val targetPath = cleanableStore[requiredVersionName].use()
+            val targetPath = installationDirectory.getFile().resolve(requiredVersionName)
             val platformValue = platform.get()
             val isWindows = platformValue.isWindows()
 
@@ -70,7 +69,6 @@ abstract class BinaryenEnvSpec : EnvSpec<BinaryenEnv>() {
                 ivyDependency = "com.github.webassembly:binaryen:$versionValue:${platformValue.platform}@tar.gz",
                 executable = getExecutable("wasm-opt", command.get(), "exe"),
                 dir = targetPath,
-                cleanableStore = cleanableStore,
                 isWindows = isWindows,
             )
         }

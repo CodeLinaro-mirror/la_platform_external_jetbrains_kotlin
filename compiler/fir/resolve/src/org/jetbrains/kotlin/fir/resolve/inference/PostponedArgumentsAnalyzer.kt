@@ -8,7 +8,10 @@ package org.jetbrains.kotlin.fir.resolve.inference
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fakeElement
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.SessionHolder
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.lookupTracker
 import org.jetbrains.kotlin.fir.recordTypeResolveAsLookup
@@ -18,11 +21,11 @@ import org.jetbrains.kotlin.fir.resolve.calls.candidate.*
 import org.jetbrains.kotlin.fir.resolve.calls.stages.ArgumentCheckingProcessor
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.lastStatement
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedReferenceError
-import org.jetbrains.kotlin.fir.resolve.inference.model.ConeLambdaArgumentConstraintPosition
+import org.jetbrains.kotlin.fir.resolve.inference.model.ConeLambdaArgumentConstraintPositionWithCoercionToUnit
 import org.jetbrains.kotlin.fir.resolve.isImplicitUnitForEmptyLambda
 import org.jetbrains.kotlin.fir.resolve.lambdaWithExplicitEmptyReturns
 import org.jetbrains.kotlin.fir.resolve.runContextSensitiveResolutionForPropertyAccess
-import org.jetbrains.kotlin.fir.resolve.substitution.ConeSubstitutor
+import org.jetbrains.kotlin.fir.resolve.substitution.asCone
 import org.jetbrains.kotlin.fir.resolvedTypeFromPrototype
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.resolve.calls.components.PostponedArgumentsAnalyzerContext
@@ -56,7 +59,10 @@ class PostponedArgumentsAnalyzer(
     private val lambdaAnalyzer: LambdaAnalyzer,
     private val components: InferenceComponents,
     private val callResolver: FirCallResolver,
-) {
+) : SessionHolder {
+
+    override val session: FirSession
+        get() = resolutionContext.session
 
     fun analyze(
         c: PostponedArgumentsAnalyzerContext,
@@ -149,8 +155,8 @@ class PostponedArgumentsAnalyzer(
     ) {
         atom.analyzed = true
 
-        val substitutor = topLevelCandidate.csBuilder.buildCurrentSubstitutor(emptyMap()) as ConeSubstitutor
-        val substitutedExpectedType = substitutor.safeSubstitute(topLevelCandidate.csBuilder, atom.expectedType) as ConeKotlinType
+        val substitutor = topLevelCandidate.csBuilder.buildCurrentSubstitutor(emptyMap()).asCone()
+        val substitutedExpectedType = substitutor.safeSubstitute(topLevelCandidate.csBuilder, atom.expectedType).asCone()
 
         if (!runContextSensitiveResolutionAndApplyResultsIfSuccessful(atom, topLevelCandidate, substitutedExpectedType)) {
             ArgumentCheckingProcessor.resolveArgumentExpression(
@@ -219,7 +225,7 @@ class PostponedArgumentsAnalyzer(
         val unitType = components.session.builtinTypes.unitType.coneType
         val currentSubstitutor = c.buildCurrentSubstitutor(inferenceSession.semiFixedVariables)
 
-        fun substitute(type: ConeKotlinType) = currentSubstitutor.safeSubstitute(c, type) as ConeKotlinType
+        fun substitute(type: ConeKotlinType) = currentSubstitutor.safeSubstitute(c, type).asCone()
 
         val receiver = lambda.receiverType?.let(::substitute)
         val contextParameters = lambda.contextParameterTypes.map(::substitute)
@@ -244,7 +250,7 @@ class PostponedArgumentsAnalyzer(
             //
             // NB: It's explicitly put below the unit case
             // (see testData/diagnostics/tests/inference/pcla/lambdaBelongsToOuterCallUnitConstraint.kt)
-            withPCLASession && resolutionContext.session.languageVersionSettings.supportsFeature(LanguageFeature.PCLAEnhancementsIn21) ->
+            withPCLASession && LanguageFeature.PCLAEnhancementsIn21.isEnabled() ->
                 substitute(lambdaReturnType)
 
             else -> null
@@ -325,7 +331,7 @@ class PostponedArgumentsAnalyzer(
                     // See KT-63602 for details.
                     builder.addSubtypeConstraintIfCompatible(
                         expression.resolvedType, returnTypeRef.coneType,
-                        ConeLambdaArgumentConstraintPosition(lambda.anonymousFunction)
+                        ConeLambdaArgumentConstraintPositionWithCoercionToUnit(lambda.anonymousFunction, expression)
                     )
                 }
                 continue
@@ -367,7 +373,10 @@ class PostponedArgumentsAnalyzer(
         // If we've got some errors already, no new constraints or diagnostics are required
         if (with(c) { lambdaReturnType.isError() } || builder.hasContradiction) return
 
-        val position = ConeLambdaArgumentConstraintPosition(lambda.anonymousFunction)
+        val position = ConeLambdaArgumentConstraintPositionWithCoercionToUnit(
+            lambda.anonymousFunction,
+            anonymousFunctionReturnExpression = null,
+        )
         val unitType = components.session.builtinTypes.unitType.coneType
         if (!builder.addSubtypeConstraintIfCompatible(
                 unitType,
@@ -403,7 +412,7 @@ class PostponedArgumentsAnalyzer(
     private fun PostponedArgumentsAnalyzerContext.createSubstituteFunctorForLambdaAnalysis(): (ConeKotlinType) -> ConeKotlinType {
         val stubsForPostponedVariables = bindingStubsForPostponedVariables()
         val currentSubstitutor = buildCurrentSubstitutor(stubsForPostponedVariables.mapKeys { it.key.freshTypeConstructor(this) })
-        return { currentSubstitutor.safeSubstitute(this, it) as ConeKotlinType }
+        return { currentSubstitutor.safeSubstitute(this, it).asCone() }
     }
 }
 
@@ -413,11 +422,12 @@ fun ConeLambdaWithTypeVariableAsExpectedTypeAtom.transformToResolvedLambda(
     expectedType: ConeKotlinType? = null,
     returnTypeVariable: ConeTypeVariableForLambdaReturnType? = null,
 ): ConeResolvedLambdaAtom {
-    val fixedExpectedType = (csBuilder.buildCurrentSubstitutor() as ConeSubstitutor)
+    val fixedExpectedType = csBuilder.buildCurrentSubstitutor().asCone()
         .substituteOrSelf(expectedType ?: this.expectedType)
     val resolvedAtom = ArgumentCheckingProcessor.createResolvedLambdaAtomDuringCompletion(
         candidateOfOuterCall, csBuilder, ConeResolutionAtomWithPostponedChild(expression), fixedExpectedType,
-        context, returnTypeVariable = returnTypeVariable
+        context, returnTypeVariable = returnTypeVariable,
+        anonymousFunctionIfReturnExpression = anonymousFunctionIfReturnExpression,
     )
 
     subAtom = resolvedAtom

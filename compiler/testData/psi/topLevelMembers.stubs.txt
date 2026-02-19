@@ -1,15 +1,17 @@
-PsiJetFileStubImpl[package=foo.TopLevelMembers]
+FILE[kind=Facade[packageFqName=foo.TopLevelMembers, facadeFqName=foo.TopLevelMembers.TopLevelMembersKt]]
+  facadeFqName: foo.TopLevelMembers.TopLevelMembersKt
+  partSimpleName: "TopLevelMembersKt"
   PACKAGE_DIRECTIVE
     DOT_QUALIFIED_EXPRESSION
       REFERENCE_EXPRESSION[referencedName=foo]
       REFERENCE_EXPRESSION[referencedName=TopLevelMembers]
   IMPORT_LIST
-  FUN[fqName=foo.TopLevelMembers.funWithBlockBody, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithBlockBody]
+  FUN[fqName=foo.TopLevelMembers.funWithBlockBody, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithBlockBody]
     VALUE_PARAMETER_LIST
-  FUN[fqName=foo.TopLevelMembers.funWithExprBody, hasBlockBody=false, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithExprBody]
+  FUN[fqName=foo.TopLevelMembers.funWithExprBody, hasBody=true, hasNoExpressionBody=false, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithExprBody]
     MODIFIER_LIST[private]
     VALUE_PARAMETER_LIST
-  FUN[fqName=foo.TopLevelMembers.funWithParams, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithParams]
+  FUN[fqName=foo.TopLevelMembers.funWithParams, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithParams]
     MODIFIER_LIST[private]
     VALUE_PARAMETER_LIST
       VALUE_PARAMETER[fqName=null, hasDefaultValue=false, hasValOrVar=false, isMutable=false, name=c]
@@ -34,9 +36,9 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
     TYPE_REFERENCE
       USER_TYPE
         REFERENCE_EXPRESSION[referencedName=String]
-    PROPERTY_ACCESSOR[hasBlockBody=false, hasBody=true, isGetter=true]
+    PROPERTY_ACCESSOR[hasBody=true, hasNoExpressionBody=false, isGetter=true, mayHaveContract=false]
       VALUE_PARAMETER_LIST
-  FUN[fqName=foo.TopLevelMembers.ext, hasBlockBody=false, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=true, isTopLevel=true, mayHaveContract=false, name=ext]
+  FUN[fqName=foo.TopLevelMembers.ext, hasBody=true, hasNoExpressionBody=false, hasTypeParameterListBeforeFunctionName=false, isExtension=true, isTopLevel=true, mayHaveContract=false, name=ext]
     MODIFIER_LIST[public]
     TYPE_REFERENCE
       USER_TYPE
@@ -49,7 +51,7 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
     TYPE_REFERENCE
       USER_TYPE
         REFERENCE_EXPRESSION[referencedName=Int]
-  FUN[fqName=foo.TopLevelMembers.funWithVarargParam, hasBlockBody=true, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithVarargParam]
+  FUN[fqName=foo.TopLevelMembers.funWithVarargParam, hasBody=true, hasNoExpressionBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=funWithVarargParam]
     MODIFIER_LIST[private]
     VALUE_PARAMETER_LIST
       VALUE_PARAMETER[fqName=null, hasDefaultValue=false, hasValOrVar=false, isMutable=false, name=c]
@@ -61,7 +63,7 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
         TYPE_REFERENCE
           USER_TYPE
             REFERENCE_EXPRESSION[referencedName=Int]
-  FUN[fqName=foo.TopLevelMembers.probablyNothing, hasBlockBody=false, hasBody=true, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=probablyNothing]
+  FUN[fqName=foo.TopLevelMembers.probablyNothing, hasBody=true, hasNoExpressionBody=false, hasTypeParameterListBeforeFunctionName=false, isExtension=false, isTopLevel=true, mayHaveContract=false, name=probablyNothing]
     MODIFIER_LIST[private]
     VALUE_PARAMETER_LIST
     TYPE_REFERENCE
@@ -77,7 +79,7 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
   TYPEALIAS[classId=foo/TopLevelMembers/Alias, fqName=foo.TopLevelMembers.Alias, isTopLevel=true, name=Alias]
     MODIFIER_LIST[private]
     TYPE_PARAMETER_LIST
-      TYPE_PARAMETER[fqName=null, isInVariance=false, isOutVariance=false, name=E]
+      TYPE_PARAMETER[fqName=null, name=E]
     TYPE_REFERENCE
       FUNCTION_TYPE
         VALUE_PARAMETER_LIST
@@ -88,8 +90,8 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
         TYPE_REFERENCE
           USER_TYPE
             REFERENCE_EXPRESSION[referencedName=E]
-  CLASS[classId=foo/TopLevelMembers/Nothing, fqName=foo.TopLevelMembers.Nothing, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=Nothing, superNames=[]]
-  CLASS[classId=foo/TopLevelMembers/A, fqName=foo.TopLevelMembers.A, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=A, superNames=[]]
+  CLASS[classId=foo/TopLevelMembers/Nothing, fqName=foo.TopLevelMembers.Nothing, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=Nothing, superNames=[]]
+  CLASS[classId=foo/TopLevelMembers/A, fqName=foo.TopLevelMembers.A, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=A, superNames=[]]
     MODIFIER_LIST[annotation]
       ANNOTATION_ENTRY[hasValueArguments=true, shortName=Target]
         CONSTRUCTOR_CALLEE
@@ -101,7 +103,7 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
             DOT_QUALIFIED_EXPRESSION
               REFERENCE_EXPRESSION[referencedName=AnnotationTarget]
               REFERENCE_EXPRESSION[referencedName=FIELD]
-  CLASS[classId=foo/TopLevelMembers/D, fqName=foo.TopLevelMembers.D, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=D, superNames=[]]
+  CLASS[classId=foo/TopLevelMembers/D, fqName=foo.TopLevelMembers.D, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=D, superNames=[]]
   PROPERTY[fqName=foo.TopLevelMembers.Main, hasBackingField=null, hasDelegate=false, hasDelegateExpression=false, hasInitializer=false, hasReturnTypeRef=true, isExtension=true, isTopLevel=true, isVar=false, name=Main]
     MODIFIER_LIST[public]
     TYPE_REFERENCE
@@ -111,7 +113,7 @@ PsiJetFileStubImpl[package=foo.TopLevelMembers]
       NULLABLE_TYPE
         USER_TYPE
           REFERENCE_EXPRESSION[referencedName=D]
-    PROPERTY_ACCESSOR[hasBlockBody=false, hasBody=true, isGetter=true]
+    PROPERTY_ACCESSOR[hasBody=true, hasNoExpressionBody=false, isGetter=true, mayHaveContract=false]
       VALUE_PARAMETER_LIST
   PROPERTY[fqName=foo.TopLevelMembers.Main, hasBackingField=null, hasDelegate=false, hasDelegateExpression=false, hasInitializer=true, hasReturnTypeRef=true, isExtension=false, isTopLevel=true, isVar=false, name=Main]
     MODIFIER_LIST[internal]

@@ -17,8 +17,10 @@ internal class SirFunctionImpl(
     override val visibility: SirVisibility,
     override val documentation: String?,
     override val attributes: MutableList<SirAttribute>,
+    override val bridges: MutableList<SirBridge>,
     override var body: SirFunctionBody?,
     override val errorType: SirType,
+    override val isAsync: Boolean,
     override val isOverride: Boolean,
     override val isInstance: Boolean,
     override val modality: SirModality,
@@ -26,6 +28,7 @@ internal class SirFunctionImpl(
     override val extensionReceiverParameter: SirParameter?,
     override val parameters: MutableList<SirParameter>,
     override val returnType: SirType,
+    override val fixity: SirFixity?,
 ) : SirFunction() {
     override lateinit var parent: SirDeclarationParent
 }

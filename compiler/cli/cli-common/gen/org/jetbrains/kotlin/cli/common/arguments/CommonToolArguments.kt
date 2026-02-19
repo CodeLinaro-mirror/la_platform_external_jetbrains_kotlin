@@ -12,11 +12,20 @@ import java.io.Serializable
 
 abstract class CommonToolArguments : Freezable(), Serializable {
     @Argument(
-        value = "-help",
-        shortName = "-h",
-        description = "Print a synopsis of standard options.",
+        value = "-Werror",
+        description = "Report an error if there are any warnings.",
     )
-    var help: Boolean = false
+    var allWarningsAsErrors: Boolean = false
+        set(value) {
+            checkFrozen()
+            field = value
+        }
+
+    @Argument(
+        value = "-Wextra",
+        description = "Enable extra checkers for K2.",
+    )
+    var extraWarnings: Boolean = false
         set(value) {
             checkFrozen()
             field = value
@@ -33,35 +42,16 @@ abstract class CommonToolArguments : Freezable(), Serializable {
         }
 
     @Argument(
-        value = "-version",
-        description = "Display the compiler version.",
+        value = "-help",
+        shortName = "-h",
+        description = "Print a synopsis of standard options.",
     )
-    var version: Boolean = false
+    var help: Boolean = false
         set(value) {
             checkFrozen()
             field = value
         }
 
-    @GradleOption(
-        value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-        gradleInputType = GradleInputTypes.INTERNAL,
-        shouldGenerateDeprecatedKotlinOptions = true,
-    )
-    @Argument(
-        value = "-verbose",
-        description = "Enable verbose logging output.",
-    )
-    var verbose: Boolean = false
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @GradleOption(
-        value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-        gradleInputType = GradleInputTypes.INTERNAL,
-        shouldGenerateDeprecatedKotlinOptions = true,
-    )
     @Argument(
         value = "-nowarn",
         description = "Don't generate any warnings.",
@@ -72,30 +62,21 @@ abstract class CommonToolArguments : Freezable(), Serializable {
             field = value
         }
 
-    @GradleOption(
-        value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-        gradleInputType = GradleInputTypes.INPUT,
-        shouldGenerateDeprecatedKotlinOptions = true,
-    )
     @Argument(
-        value = "-Werror",
-        description = "Report an error if there are any warnings.",
+        value = "-verbose",
+        description = "Enable verbose logging output.",
     )
-    var allWarningsAsErrors: Boolean = false
+    var verbose: Boolean = false
         set(value) {
             checkFrozen()
             field = value
         }
 
-    @GradleOption(
-        value = DefaultValue.BOOLEAN_FALSE_DEFAULT,
-        gradleInputType = GradleInputTypes.INPUT,
-    )
     @Argument(
-        value = "-Wextra",
-        description = "Enable extra checkers for K2.",
+        value = "-version",
+        description = "Display the compiler version.",
     )
-    var extraWarnings: Boolean = false
+    var version: Boolean = false
         set(value) {
             checkFrozen()
             field = value
@@ -107,7 +88,7 @@ abstract class CommonToolArguments : Freezable(), Serializable {
             field = value
         }
 
-    var internalArguments: List<InternalArgument> = emptyList()
+    var internalArguments: List<ManualLanguageFeatureSetting> = emptyList()
         set(value) {
             checkFrozen()
             field = value

@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
 import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameterRef
 import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
-import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.declarations.utils.superConeTypes
 import org.jetbrains.kotlin.fir.diagnostics.ConeSimpleDiagnostic
 import org.jetbrains.kotlin.fir.diagnostics.DiagnosticKind
@@ -186,7 +185,7 @@ fun createSubstitutionForScope(
     session: FirSession
 ): Map<FirTypeParameterSymbol, ConeKotlinType> {
     val capturedOrType = session.typeContext.captureFromArguments(type, CaptureStatus.FROM_EXPRESSION) ?: type
-    val capturedTypeArguments = (capturedOrType as ConeClassLikeType).typeArguments
+    val capturedTypeArguments = capturedOrType.asCone().typeArguments
 
     return typeParameters.withIndex().mapNotNull { (index, typeParameter) ->
         val capturedTypeArgument = capturedTypeArguments.getOrNull(index) ?: return@mapNotNull null

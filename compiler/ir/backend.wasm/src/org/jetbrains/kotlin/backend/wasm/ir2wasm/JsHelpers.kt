@@ -19,9 +19,7 @@ data class JsModuleAndQualifierReference(
 
     private val qualifierBase64 = qualifier?.let { encode(it) }.orEmpty()
 
-    val jsVariableName = "_ref_${moduleBase64}_$qualifierBase64"
-
-    val importVariableName = "_import_${moduleBase64}_$qualifierBase64"
+    val jsReference = module?.let { "_ref_${moduleBase64}_$qualifierBase64" } ?: "$qualifier"
 
     companion object {
         // Encode variable name as base64 to have a valid unique JS identifier

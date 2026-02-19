@@ -1,25 +1,18 @@
 /*
- * Copyright 2010-2022 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 
-import org.jetbrains.kotlin.backend.js.TsCompilationStrategy
-import org.jetbrains.kotlin.ir.backend.js.export.TypeScriptFragment
-import org.jetbrains.kotlin.ir.backend.js.export.toTypeScript
-import org.jetbrains.kotlin.js.backend.ast.ESM_EXTENSION
+import org.jetbrains.kotlin.ir.backend.js.tsexport.TypeScriptFragment
+import org.jetbrains.kotlin.ir.backend.js.tsexport.toTypeScript
 import org.jetbrains.kotlin.js.backend.ast.JsProgram
-import org.jetbrains.kotlin.js.backend.ast.REGULAR_EXTENSION
-import org.jetbrains.kotlin.serialization.js.ModuleKind
+import org.jetbrains.kotlin.js.config.ModuleKind
+import org.jetbrains.kotlin.js.config.TsCompilationStrategy
+import org.jetbrains.kotlin.js.config.WebArtifactConfiguration
 import java.io.File
 import java.nio.file.Files
-
-val ModuleKind.extension: String
-    get() = when (this) {
-        ModuleKind.ES -> ESM_EXTENSION
-        else -> REGULAR_EXTENSION
-    }
 
 abstract class CompilationOutputs {
     var dependencies: Collection<Pair<String, CompilationOutputs>> = emptyList()
@@ -32,40 +25,40 @@ abstract class CompilationOutputs {
 
     fun createWrittenFilesContainer(): MutableSet<File> = LinkedHashSet(2 * (dependencies.size + 1) + 1)
 
-    open fun writeAll(outputDir: File, outputName: String, dtsStrategy: TsCompilationStrategy, moduleName: String, moduleKind: ModuleKind): Collection<File> {
+    open fun writeAll(artifactConfiguration: WebArtifactConfiguration): Collection<File> {
         val writtenFiles = createWrittenFilesContainer()
 
-        fun File.writeAsJsFile(out: CompilationOutputs) {
-            parentFile.mkdirs()
-            val jsMapFile = mapForJsFile
-            val jsFile = normalizedAbsoluteFile
+        fun writeOutputFiles(outputName: String, out: CompilationOutputs) {
+            var jsFile = artifactConfiguration.outputJsFile(outputName)
+            jsFile.parentFile.mkdirs()
+            jsFile = jsFile.normalizedAbsoluteFile
+            val jsMapFile = artifactConfiguration.outputSourceMapFile(outputName).normalizedAbsoluteFile
 
             out.writeJsCode(jsFile, jsMapFile)
 
             writtenFiles += jsFile
             writtenFiles += jsMapFile
 
-            out.tsDefinitions.takeIf { dtsStrategy == TsCompilationStrategy.EACH_FILE }?.let {
-                val tsFile = jsFile.dtsForJsFile
-                tsFile.writeText(listOf(it).toTypeScript(name, moduleKind))
+            out.tsDefinitions.takeIf { artifactConfiguration.tsCompilationStrategy == TsCompilationStrategy.EACH_FILE }?.let {
+                val tsFile = artifactConfiguration.outputDtsFile(outputName).normalizedAbsoluteFile
+                tsFile.writeText(listOf(it).toTypeScript(jsFile.name, artifactConfiguration.moduleKind))
                 writtenFiles += tsFile
             }
         }
 
         dependencies.forEach { (name, content) ->
-            outputDir.resolve("$name${moduleKind.extension}").writeAsJsFile(content)
+            writeOutputFiles(name, content)
         }
 
-        val outputJsFile = outputDir.resolve("$outputName${moduleKind.extension}")
-        outputJsFile.writeAsJsFile(this)
+        writeOutputFiles(artifactConfiguration.outputName, this)
 
-        if (dtsStrategy == TsCompilationStrategy.MERGED) {
-            val dtsFile = outputJsFile.dtsForJsFile
-            dtsFile.writeText(getFullTsDefinition(moduleName, moduleKind))
+        if (artifactConfiguration.tsCompilationStrategy == TsCompilationStrategy.MERGED) {
+            val dtsFile = artifactConfiguration.outputDtsFile().normalizedAbsoluteFile
+            dtsFile.writeText(getFullTsDefinition(artifactConfiguration.moduleName, artifactConfiguration.moduleKind))
             writtenFiles += dtsFile
         }
 
-        return writtenFiles.also { deleteNonWrittenFiles(outputDir, it) }
+        return writtenFiles.also { deleteNonWrittenFiles(artifactConfiguration.outputDirectory, it) }
     }
 
     fun deleteNonWrittenFiles(outputDir: File, writtenFiles: Set<File>) {
@@ -83,12 +76,6 @@ abstract class CompilationOutputs {
 
     protected val File.normalizedAbsoluteFile
         get() = absoluteFile.normalize()
-
-    protected val File.mapForJsFile
-        get() = resolveSibling("$name.map").normalizedAbsoluteFile
-
-    protected val File.dtsForJsFile
-        get() = resolveSibling("$nameWithoutExtension.d.ts").normalizedAbsoluteFile
 }
 
 private fun File.copyModificationTimeFrom(from: File) {

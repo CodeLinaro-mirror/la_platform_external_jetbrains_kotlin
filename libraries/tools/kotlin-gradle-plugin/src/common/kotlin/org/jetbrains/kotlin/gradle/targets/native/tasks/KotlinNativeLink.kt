@@ -27,19 +27,19 @@ import org.jetbrains.kotlin.compilerRunner.getKonanCacheKind
 import org.jetbrains.kotlin.compilerRunner.getKonanCacheOrchestration
 import org.jetbrains.kotlin.compilerRunner.getKonanParallelThreads
 import org.jetbrains.kotlin.compilerRunner.isKonanIncrementalCompilationEnabled
+import org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.internal.UsesClassLoadersCachingBuildService
 import org.jetbrains.kotlin.gradle.internal.properties.nativeProperties
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerArgumentsProducer.CreateCompilerArgumentsContext.Companion.create
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.cocoapods.asValidFrameworkName
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.useXcodeMessageStyle
 import org.jetbrains.kotlin.gradle.plugin.statistics.UsesBuildFusService
 import org.jetbrains.kotlin.gradle.report.UsesBuildMetricsService
 import org.jetbrains.kotlin.gradle.targets.native.UsesKonanPropertiesBuildService
-import org.jetbrains.kotlin.gradle.targets.native.internal.getOriginalPlatformLibrariesFor
+import org.jetbrains.kotlin.gradle.targets.native.internal.getOriginalPlatformLibrariesForTargetWithKonanDistribution
 import org.jetbrains.kotlin.gradle.targets.native.tasks.CompilerPluginData
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.KotlinNativeFromToolchainProvider
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.NoopKotlinNativeProvider
@@ -101,7 +101,7 @@ constructor(
 
     @get:Internal
     internal val excludeDependencies
-        get() = objects.getOriginalPlatformLibrariesFor(actualNativeHomeDirectory.map {
+        get() = objects.getOriginalPlatformLibrariesForTargetWithKonanDistribution(actualNativeHomeDirectory.map {
             KonanDistribution(it)
         }, konanTarget)
 
@@ -110,7 +110,7 @@ constructor(
         {
             // Avoid resolving these dependencies during task graph construction when we can't build the target:
             @Suppress("DEPRECATION_ERROR")
-            if (konanTarget.enabledOnCurrentHostForBinariesCompilation()) compilation.compileDependencyFiles.exclude(excludeDependencies)
+            if (konanTarget.enabledOnCurrentHostForBinariesCompilation) compilation.compileDependencyFiles.exclude(excludeDependencies)
             else objectFactory.fileCollection()
         }
     )
@@ -139,10 +139,6 @@ constructor(
     @get:Input
     internal val konanCacheKind: Provider<NativeCacheKind> = project.getKonanCacheKind(konanTarget)
 
-    @Suppress("unused")
-    @get:Input
-    internal val useEmbeddableCompilerJar: Provider<Boolean> = project.nativeProperties.shouldUseEmbeddableCompilerJar
-
     @Suppress("unused", "UNCHECKED_CAST")
     @Deprecated(
         "Use toolOptions.freeCompilerArgs",
@@ -155,9 +151,9 @@ constructor(
     @Deprecated(KOTLIN_OPTIONS_AS_TOOLS_DEPRECATION_MESSAGE)
     @get:Internal
     val kotlinOptions: KotlinCommonToolOptions = object : KotlinCommonToolOptions {
-        @OptIn(org.jetbrains.kotlin.gradle.InternalKotlinGradlePluginApi::class)
+        @OptIn(InternalKotlinGradlePluginApi::class)
         @Deprecated(
-            message = org.jetbrains.kotlin.gradle.dsl.KOTLIN_OPTIONS_DEPRECATION_MESSAGE,
+            message = KOTLIN_OPTIONS_DEPRECATION_MESSAGE,
             level = DeprecationLevel.ERROR,
         )
         override val options: KotlinCommonCompilerToolOptions
@@ -202,7 +198,7 @@ constructor(
     val exportLibraries: FileCollection get() = exportLibrariesResolvedConfiguration?.files ?: objectFactory.fileCollection()
 
     private val exportLibrariesResolvedConfiguration = if (binary is AbstractNativeLibrary) {
-        LazyResolvedConfiguration(project.configurations.maybeCreateResolvable(binary.exportConfigurationName))
+        LazyResolvedConfigurationWithArtifacts(project.configurations.maybeCreateResolvable(binary.exportConfigurationName))
     } else {
         null
     }
@@ -210,21 +206,16 @@ constructor(
     @get:Input
     val isStaticFramework: Boolean by lazyConvention { binary.let { it is Framework && it.isStatic } }
 
+    @get:Input
+    val exportKdoc: Provider<Boolean> = when (binary) {
+        is Framework -> binary.exportKdoc
+        else -> objectFactory.property(false)
+    }
+
     @Suppress("DEPRECATION_ERROR")
     @get:Input
     val target: String = compilation.konanTarget.name
 
-    @Suppress("DEPRECATION_ERROR")
-    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, level = DeprecationLevel.ERROR)
-    @get:Internal
-    val embedBitcode: BitcodeEmbeddingMode
-        get() = embedBitcodeMode.get()
-
-    @get:Input
-    @get:Optional
-    @Suppress("DEPRECATION_ERROR")
-    @Deprecated(BITCODE_EMBEDDING_DEPRECATION_MESSAGE, level = DeprecationLevel.ERROR)
-    val embedBitcodeMode: Provider<BitcodeEmbeddingMode> = objectFactory.property()
 
     @get:Internal
     val apiFiles: ConfigurableFileCollection = objectFactory.fileCollection()
@@ -282,8 +273,10 @@ constructor(
             args.target = konanTarget.name
             args.produce = outputKind.name.toLowerCaseAsciiOnly()
             args.multiPlatform = true
+            @Suppress("DEPRECATION")
             args.noendorsedlibs = true
             args.nostdlib = true
+            args.exportKDoc = exportKdoc.get()
             args.pluginOptions = compilerPlugins.flatMap { it.options.arguments }.toTypedArray()
             args.generateTestRunner = processTests
             args.mainPackage = entryPoint
@@ -352,7 +345,7 @@ constructor(
     protected val friendModule: FileCollection = objectFactory.fileCollection().from({ compilation.friendPaths })
 
     @Suppress("DEPRECATION_ERROR")
-    private val resolvedConfiguration = LazyResolvedConfiguration(
+    private val resolvedConfiguration = LazyResolvedConfigurationWithArtifacts(
         project.configurations.getByName(compilation.compileDependencyConfigurationName)
     )
 
@@ -364,7 +357,7 @@ constructor(
             val filename = "$prefix${baseName}$suffix".let {
                 when {
                     outputKind == CompilerOutputKind.FRAMEWORK ->
-                        it.asValidFrameworkName()
+                        it.asValidFrameworkName
                     outputKind in listOf(CompilerOutputKind.STATIC, CompilerOutputKind.DYNAMIC) ->
                         it.replace('-', '_')
                     else -> it
@@ -425,7 +418,6 @@ constructor(
             classLoadersCachingService,
             forceDisableRunningInProcess,
             useXcodeMessageStyle,
-            useEmbeddableCompilerJar,
             actualNativeHomeDirectory,
             runnerJvmArgs,
             konanPropertiesService,
@@ -496,3 +488,5 @@ constructor(
         return objectFactory.providerWithLazyConvention(lazyConventionValue)
     }
 }
+
+internal val String.asValidFrameworkName get() = replace('-', '_')

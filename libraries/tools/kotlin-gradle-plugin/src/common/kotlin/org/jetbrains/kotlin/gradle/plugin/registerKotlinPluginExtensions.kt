@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.gradle.plugin
 
 import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.artifacts.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.diagnostics.UklibPublicationDiagnosticsSetupAction
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.internal.CustomizeKotlinDependenciesSetupAction
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
@@ -20,6 +19,7 @@ import org.jetbrains.kotlin.gradle.plugin.ide.IdeMultiplatformImportSetupAction
 import org.jetbrains.kotlin.gradle.plugin.ide.IdeResolveDependenciesTaskSetupAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.AddBuildListenerForXcodeSetupAction
+import org.jetbrains.kotlin.gradle.plugin.mpp.apple.CheckXcodeTargetsConfigurationSetupAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XcodeVersionSetupAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.apple.swiftexport.SetUpSwiftExportAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.compilationImpl.*
@@ -32,9 +32,11 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.resources.RegisterMultiplatformRes
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.publication.SetUpMultiplatformAndroidAssetsAndResourcesPublicationAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.resources.publication.SetUpMultiplatformJvmResourcesPublicationAction
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.consumption.UklibConsumptionSetupAction
+import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.UklibPublicationSetupAction
 import org.jetbrains.kotlin.gradle.plugin.sources.KotlinMultiplatformSourceSetSetupAction
 import org.jetbrains.kotlin.gradle.plugin.sources.LanguageSettingsSetupAction
 import org.jetbrains.kotlin.gradle.plugin.statistics.FinalizeConfigurationFusMetricAction
+import org.jetbrains.kotlin.gradle.plugin.statistics.ConfigurationTimeFusMetricsCollectorAction
 import org.jetbrains.kotlin.gradle.plugin.statistics.MultiplatformBuildStatsReportSetupAction
 import org.jetbrains.kotlin.gradle.scripting.internal.ScriptingGradleSubpluginSetupAction
 import org.jetbrains.kotlin.gradle.targets.*
@@ -63,7 +65,7 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, UserDefinedAttributesSetupAction)
         register(project, CustomizeKotlinDependenciesSetupAction)
         register(project, AddKotlinPlatformIntegersSupportLibrary)
-        register(project, SetupKotlinNativeStdlibAndPlatformDependenciesImport)
+        register(project, ConfigurationTimeFusMetricsCollectorAction)
         register(project, FinalizeConfigurationFusMetricAction)
 
         if (isAbiValidationEnabled) {
@@ -89,6 +91,7 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, IdeResolveDependenciesTaskSetupAction)
             register(project, CInteropCommonizedCInteropApiElementsConfigurationsSetupAction)
             register(project, XcodeVersionSetupAction)
+            register(project, CheckXcodeTargetsConfigurationSetupAction)
             register(project, AddBuildListenerForXcodeSetupAction)
             register(project, CreateFatFrameworksSetupAction)
             register(project, KotlinRegisterCompilationArchiveTasksExtension)
@@ -100,6 +103,7 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, SetUpMultiplatformJvmResourcesPublicationAction)
             register(project, SetUpMultiplatformAndroidAssetsAndResourcesPublicationAction)
             register(project, SetUpSwiftExportAction)
+            register(project, ConfigureKotlinTopLevelDependenciesDSL)
 
             if (isKmpProjectIsolationEnabled) {
                 register(project, ProjectStructureMetadataForKMPSetupAction)
@@ -111,7 +115,7 @@ internal fun Project.registerKotlinPluginExtensions() {
             }
 
             register(project, NativeToolchainProjectSetupAction)
-            register(project, UklibPublicationDiagnosticsSetupAction)
+            register(project, UklibPublicationSetupAction)
             register(project, UklibConsumptionSetupAction)
         }
 
@@ -183,13 +187,18 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, GradleDeprecatedPropertyChecker)
         register(project, OverriddenKotlinNativeHomeChecker)
         register(project, ComposePluginSuggestApplyChecker)
-        register(project, NativeVersionChecker)
         register(project, AndroidPublicationNotConfiguredChecker)
         register(project, KonanHomeConflictDeclarationChecker)
+        register(project, KmpPartiallyResolvedDependenciesChecker)
+        register(project, TestApiDependenciesChecker)
+        register(project, ConfigurationOnDemandSupportChecker)
 
         if (isMultiplatform) {
+            register(project, NativeVersionChecker)
             register(project, MultipleSourceSetRootsInCompilationChecker)
             register(project, SwiftExportModuleNameChecker)
+            register(project, CinteropCrossCompilationChecker)
+            register(project, NativeBinaryConfigurationChecker)
         }
     }
 }

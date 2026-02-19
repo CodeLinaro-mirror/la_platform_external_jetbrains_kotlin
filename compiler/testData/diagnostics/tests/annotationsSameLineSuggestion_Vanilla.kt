@@ -1,5 +1,5 @@
-// LATEST_LV_DIFFERENCE
-// RUN_PIPELINE_TILL: BACKEND
+// LANGUAGE: +ForbidParenthesizedLhsInAssignments
+// RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-72941
 
 @Target(AnnotationTarget.EXPRESSION)

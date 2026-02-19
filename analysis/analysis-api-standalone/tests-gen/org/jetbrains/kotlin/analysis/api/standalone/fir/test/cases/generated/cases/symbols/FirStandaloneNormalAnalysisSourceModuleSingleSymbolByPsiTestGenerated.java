@@ -690,6 +690,12 @@ public class FirStandaloneNormalAnalysisSourceModuleSingleSymbolByPsiTestGenerat
     }
 
     @Test
+    @TestMetadata("holdsInWithContextParameters.kt")
+    public void testHoldsInWithContextParameters() {
+      runTest("analysis/analysis-api/testData/symbols/singleSymbolByPsi/contracts/holdsInWithContextParameters.kt");
+    }
+
+    @Test
     @TestMetadata("invalidContractParameterPassedToReturns.kt")
     public void testInvalidContractParameterPassedToReturns() {
       runTest("analysis/analysis-api/testData/symbols/singleSymbolByPsi/contracts/invalidContractParameterPassedToReturns.kt");
@@ -881,6 +887,12 @@ public class FirStandaloneNormalAnalysisSourceModuleSingleSymbolByPsiTestGenerat
     @TestMetadata("incompleteFunctionTypeParameter.kt")
     public void testIncompleteFunctionTypeParameter() {
       runTest("analysis/analysis-api/testData/symbols/singleSymbolByPsi/errors/incompleteFunctionTypeParameter.kt");
+    }
+
+    @Test
+    @TestMetadata("inheritedSuspend.kt")
+    public void testInheritedSuspend() {
+      runTest("analysis/analysis-api/testData/symbols/singleSymbolByPsi/errors/inheritedSuspend.kt");
     }
 
     @Test

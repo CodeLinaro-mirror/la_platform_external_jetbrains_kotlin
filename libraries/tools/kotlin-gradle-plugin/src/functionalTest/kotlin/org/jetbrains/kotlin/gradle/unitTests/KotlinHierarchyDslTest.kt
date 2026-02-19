@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("FunctionName", "DuplicatedCode")
+@file:Suppress("FunctionName", "JUnitTestCaseWithNoTests")
 @file:OptIn(ExperimentalWasmDsl::class)
 
 package org.jetbrains.kotlin.gradle.unitTests
@@ -19,44 +19,24 @@ import kotlin.test.*
 
 class KotlinHierarchyDslTest {
 
-
     private val project = buildProjectWithMPP()
     private val kotlin = project.multiplatformExtension
-
 
     @Test
     fun `test - hierarchy default - targets from all families`() {
         kotlin.apply {
             applyHierarchyTemplate(KotlinHierarchyTemplate.default)
 
-            iosArm64()
-            iosX64()
-            iosSimulatorArm64()
-
-            tvosArm64()
-            tvosX64()
-
-            watchosArm32()
-            watchosArm64()
-
-            macosX64()
-            macosArm64()
-
-            linuxX64()
-
-            mingwX64()
-
-            androidNativeArm32()
-            androidNativeArm64()
+            enableAllKotlinTargets()
         }
 
         assertEquals(
-            stringSetOf("nativeMain"),
+            stringSetOf("jvmMain", "nativeMain", "wasmWasiMain", "webMain"),
             kotlin.dependingSourceSetNames("commonMain")
         )
 
         assertEquals(
-            stringSetOf("nativeTest"),
+            stringSetOf("jvmTest", "nativeTest", "wasmWasiTest", "webTest"),
             kotlin.dependingSourceSetNames("commonTest")
         )
 
@@ -91,32 +71,32 @@ class KotlinHierarchyDslTest {
         )
 
         assertEquals(
-            stringSetOf("tvosArm64Main", "tvosX64Main"),
+            stringSetOf("tvosArm64Main", "tvosSimulatorArm64Main", "tvosX64Main"),
             kotlin.dependingSourceSetNames("tvosMain")
         )
 
         assertEquals(
-            stringSetOf("tvosArm64Test", "tvosX64Test"),
+            stringSetOf("tvosArm64Test", "tvosSimulatorArm64Test", "tvosX64Test"),
             kotlin.dependingSourceSetNames("tvosTest")
         )
 
         assertEquals(
-            stringSetOf("watchosArm32Main", "watchosArm64Main"),
+            stringSetOf("watchosArm32Main", "watchosArm64Main", "watchosDeviceArm64Main", "watchosSimulatorArm64Main", "watchosX64Main"),
             kotlin.dependingSourceSetNames("watchosMain")
         )
 
         assertEquals(
-            stringSetOf("watchosArm32Test", "watchosArm64Test"),
+            stringSetOf("watchosArm32Test", "watchosArm64Test", "watchosDeviceArm64Test", "watchosSimulatorArm64Test", "watchosX64Test"),
             kotlin.dependingSourceSetNames("watchosTest")
         )
 
         assertEquals(
-            stringSetOf("linuxX64Main"),
+            stringSetOf("linuxArm64Main", "linuxX64Main"),
             kotlin.dependingSourceSetNames("linuxMain")
         )
 
         assertEquals(
-            stringSetOf("linuxX64Test"),
+            stringSetOf("linuxArm64Test", "linuxX64Test"),
             kotlin.dependingSourceSetNames("linuxTest")
         )
 
@@ -141,13 +121,114 @@ class KotlinHierarchyDslTest {
         )
 
         assertEquals(
-            stringSetOf("androidNativeArm32Main", "androidNativeArm64Main"),
+            stringSetOf("androidNativeArm32Main", "androidNativeArm64Main", "androidNativeX64Main", "androidNativeX86Main"),
             kotlin.dependingSourceSetNames("androidNativeMain")
         )
 
         assertEquals(
-            stringSetOf("androidNativeArm32Test", "androidNativeArm64Test"),
+            stringSetOf("androidNativeArm32Test", "androidNativeArm64Test", "androidNativeX64Test", "androidNativeX86Test"),
             kotlin.dependingSourceSetNames("androidNativeTest")
+        )
+
+        assertEquals(
+            stringSetOf("jsMain", "wasmJsMain"),
+            kotlin.dependingSourceSetNames("webMain")
+        )
+
+        assertEquals(
+            stringSetOf("jsTest", "wasmJsTest"),
+            kotlin.dependingSourceSetNames("webTest")
+        )
+    }
+
+    @Test
+    fun `test - tree layout for all targets`() {
+        kotlin.apply {
+            applyHierarchyTemplate(KotlinHierarchyTemplate.default)
+
+            enableAllKotlinTargets()
+        }
+
+        assertEquals(
+            /* language=text */ """
+            commonMain
+                ├── jvmMain
+                ├── nativeMain
+                │   ├── androidNativeMain
+                │   │   ├── androidNativeArm32Main
+                │   │   ├── androidNativeArm64Main
+                │   │   ├── androidNativeX64Main
+                │   │   └── androidNativeX86Main
+                │   ├── appleMain
+                │   │   ├── iosMain
+                │   │   │   ├── iosArm64Main
+                │   │   │   ├── iosSimulatorArm64Main
+                │   │   │   └── iosX64Main
+                │   │   ├── macosMain
+                │   │   │   ├── macosArm64Main
+                │   │   │   └── macosX64Main
+                │   │   ├── tvosMain
+                │   │   │   ├── tvosArm64Main
+                │   │   │   ├── tvosSimulatorArm64Main
+                │   │   │   └── tvosX64Main
+                │   │   └── watchosMain
+                │   │       ├── watchosArm32Main
+                │   │       ├── watchosArm64Main
+                │   │       ├── watchosDeviceArm64Main
+                │   │       ├── watchosSimulatorArm64Main
+                │   │       └── watchosX64Main
+                │   ├── linuxMain
+                │   │   ├── linuxArm64Main
+                │   │   └── linuxX64Main
+                │   └── mingwMain
+                │       └── mingwX64Main
+                ├── wasmWasiMain
+                └── webMain
+                    ├── jsMain
+                    └── wasmJsMain
+            """.trimIndent(),
+            renderSourceSetsAsTree(kotlin, "commonMain")
+        )
+
+        assertEquals(
+            /* language=text */ """
+            commonTest
+                ├── jvmTest
+                ├── nativeTest
+                │   ├── androidNativeTest
+                │   │   ├── androidNativeArm32Test
+                │   │   ├── androidNativeArm64Test
+                │   │   ├── androidNativeX64Test
+                │   │   └── androidNativeX86Test
+                │   ├── appleTest
+                │   │   ├── iosTest
+                │   │   │   ├── iosArm64Test
+                │   │   │   ├── iosSimulatorArm64Test
+                │   │   │   └── iosX64Test
+                │   │   ├── macosTest
+                │   │   │   ├── macosArm64Test
+                │   │   │   └── macosX64Test
+                │   │   ├── tvosTest
+                │   │   │   ├── tvosArm64Test
+                │   │   │   ├── tvosSimulatorArm64Test
+                │   │   │   └── tvosX64Test
+                │   │   └── watchosTest
+                │   │       ├── watchosArm32Test
+                │   │       ├── watchosArm64Test
+                │   │       ├── watchosDeviceArm64Test
+                │   │       ├── watchosSimulatorArm64Test
+                │   │       └── watchosX64Test
+                │   ├── linuxTest
+                │   │   ├── linuxArm64Test
+                │   │   └── linuxX64Test
+                │   └── mingwTest
+                │       └── mingwX64Test
+                ├── wasmWasiTest
+                └── webTest
+                    ├── jsTest
+                    └── wasmJsTest
+            """.trimIndent(),
+            renderSourceSetsAsTree(kotlin, "commonTest")
         )
     }
 
@@ -208,6 +289,7 @@ class KotlinHierarchyDslTest {
             }
         }
 
+        @Suppress("DEPRECATION")
         kotlin.androidTarget()
         kotlin.jvm()
 
@@ -234,6 +316,7 @@ class KotlinHierarchyDslTest {
         )
 
         /* Check all source sets: All from jvm and android target + expected common source sets */
+        @Suppress("DEPRECATION")
         assertEquals(
             setOf("commonMain", "commonTest", "jvmAndAndroidMain", "jvmAndAndroidTest") +
                     kotlin.androidTarget().compilations.flatMap { it.kotlinSourceSets }.map { it.name } +
@@ -261,6 +344,7 @@ class KotlinHierarchyDslTest {
             linuxX64()
         }
 
+        @Suppress("DuplicatedCode")
         assertEquals(
             stringSetOf("baseMain"), kotlin.dependingSourceSetNames("commonMain")
         )
@@ -418,6 +502,8 @@ class KotlinHierarchyDslTest {
 
     /**
      * Example from the documentation is supposed to create
+     *
+     * ```
      *                       commonMain
      *                           |
      *              +------------+----------+
@@ -432,6 +518,7 @@ class KotlinHierarchyDslTest {
      *                      +----+----+
      *                      |         |
      *                iosX64Main   iosArm64Main
+     * ```
      */
     @Test
     fun `test - diamond hierarchy from documentation example`() {
@@ -473,6 +560,96 @@ class KotlinHierarchyDslTest {
         )
     }
 
+    @Test
+    fun `verify all default hierarchy SourceSets have static accessors`() {
+        kotlin.apply {
+            enableAllKotlinTargets()
+            applyDefaultHierarchyTemplate()
+        }
+
+        val actualAccessorNames = kotlin.sourceSets.names.toList().sorted()
+
+        val expectedAccessorNames =
+            kotlin.run {
+                sourceSets.run {
+                    listOf(
+                        commonMain,
+                        jvmMain,
+                        nativeMain,
+                        androidNativeMain,
+                        androidNativeArm32Main,
+                        androidNativeArm64Main,
+                        androidNativeX64Main,
+                        androidNativeX86Main,
+                        appleMain,
+                        iosMain,
+                        iosArm64Main,
+                        iosSimulatorArm64Main,
+                        iosX64Main,
+                        macosMain,
+                        macosArm64Main,
+                        macosX64Main,
+                        tvosMain,
+                        tvosArm64Main,
+                        tvosSimulatorArm64Main,
+                        tvosX64Main,
+                        watchosMain,
+                        watchosArm32Main,
+                        watchosArm64Main,
+                        watchosDeviceArm64Main,
+                        watchosSimulatorArm64Main,
+                        watchosX64Main,
+                        linuxMain,
+                        linuxArm64Main,
+                        linuxX64Main,
+                        mingwMain,
+                        mingwX64Main,
+                        wasmWasiMain,
+                        webMain,
+                        jsMain,
+                        wasmJsMain,
+
+                        commonTest,
+                        jvmTest,
+                        nativeTest,
+                        androidNativeTest,
+                        androidNativeArm32Test,
+                        androidNativeArm64Test,
+                        androidNativeX64Test,
+                        androidNativeX86Test,
+                        appleTest,
+                        iosTest,
+                        iosArm64Test,
+                        iosSimulatorArm64Test,
+                        iosX64Test,
+                        macosTest,
+                        macosArm64Test,
+                        macosX64Test,
+                        tvosTest,
+                        tvosArm64Test,
+                        tvosSimulatorArm64Test,
+                        tvosX64Test,
+                        watchosTest,
+                        watchosArm32Test,
+                        watchosArm64Test,
+                        watchosDeviceArm64Test,
+                        watchosSimulatorArm64Test,
+                        watchosX64Test,
+                        linuxTest,
+                        linuxArm64Test,
+                        linuxX64Test,
+                        mingwTest,
+                        mingwX64Test,
+                        wasmWasiTest,
+                        webTest,
+                        jsTest,
+                        wasmJsTest,
+                    )
+                }
+            }.map { it.name }.sorted()
+
+        assertEquals(expectedAccessorNames, actualAccessorNames)
+    }
 }
 
 private fun KotlinMultiplatformExtension.dependingSourceSetNames(sourceSetName: String) =
@@ -492,4 +669,46 @@ private data class StringSet(private val set: Set<String>) : Set<String> by set 
     override fun toString(): String {
         return "stringSetOf(" + set.joinToString(", ") { "\"$it\"" } + ")"
     }
+}
+
+
+/**
+ * Create a tree of the source set hierarchy.
+ *
+ * @param[rootSourceSetName] Name of the root source set. Good choices are `commonMain` or `commonTest`.
+ * @param[node] The type of node we're rendering. The first node is `null`. Do not configure manually, this function is called recursively.
+ */
+private fun renderSourceSetsAsTree(
+    kotlin: KotlinMultiplatformExtension,
+    rootSourceSetName: String,
+    margin: String = "",
+    node: TreeNode? = null,
+): String {
+    val childSourceSets = kotlin.dependingSourceSetNames(rootSourceSetName)
+        .sorted()
+
+    val nextMargin = if (node == TreeNode.Intermediate) "$margin│   " else "$margin    "
+
+    val currentMargin = margin + node?.prefix.orEmpty()
+
+    return buildString {
+        appendLine("${currentMargin}${rootSourceSetName}")
+        childSourceSets.forEach { entry ->
+            val isLastEntry = entry == childSourceSets.last()
+            val nextNode = if (isLastEntry) TreeNode.Last else TreeNode.Intermediate
+            appendLine(
+                renderSourceSetsAsTree(
+                    kotlin = kotlin,
+                    rootSourceSetName = entry,
+                    margin = nextMargin,
+                    node = nextNode,
+                )
+            )
+        }
+    }.trimEnd()
+}
+
+private enum class TreeNode(val prefix: String) {
+    Intermediate("├── "),
+    Last("└── "),
 }

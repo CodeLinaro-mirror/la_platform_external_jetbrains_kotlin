@@ -8,20 +8,18 @@ package org.jetbrains.kotlin.config
 import org.jetbrains.kotlin.library.KotlinAbiVersion
 
 enum class KlibAbiCompatibilityLevel(val major: Int, val minor: Int) {
-    ABI_LEVEL_2_1(2, 1) {
-        override fun toAbiVersionForManifest(): KotlinAbiVersion = KotlinAbiVersion(1, 201, 0)
-    },
     ABI_LEVEL_2_2(2, 2),
+    ABI_LEVEL_2_3(2, 3),
     ;
 
     override fun toString() = "$major.$minor"
 
-    open fun toAbiVersionForManifest(): KotlinAbiVersion = KotlinAbiVersion(major, minor, 0)
+    fun toAbiVersionForManifest(): KotlinAbiVersion = KotlinAbiVersion(major, minor, 0)
 
     fun isAtLeast(other: KlibAbiCompatibilityLevel): Boolean =
         major > other.major || major == other.major && minor >= other.minor
 
     companion object {
-        val LATEST_STABLE = ABI_LEVEL_2_2
+        val LATEST_STABLE = ABI_LEVEL_2_3
     }
 }

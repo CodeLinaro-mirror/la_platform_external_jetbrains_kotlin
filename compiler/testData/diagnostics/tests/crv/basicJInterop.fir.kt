@@ -1,15 +1,15 @@
 // RUN_PIPELINE_TILL: BACKEND
 // WITH_STDLIB
-// LANGUAGE: +UnnamedLocalVariables
-
 
 // FILE: JavaMain.java
 
-import kotlin.MustUseReturnValue;
+import kotlin.MustUseReturnValues;
 import kotlin.IgnorableReturnValue;
 
-@MustUseReturnValue
+@MustUseReturnValues
 public class JavaMain {
+    public JavaMain() { }
+
     public String checkedMethod() {
         System.out.println("checkedMethod");
         return("checkedMethod");
@@ -25,11 +25,24 @@ public class JavaMain {
         System.out.println("createException");
         return new RuntimeException("createException");
     }
+
+    public String getProp() {
+        return "prop";
+    }
 }
+
+// FILE: JavaImplicitConstructor.java
+import kotlin.MustUseReturnValues;
+
+@MustUseReturnValues
+public class JavaImplicitConstructor {}
 
 // FILE: KtFile.kt
 fun simple() {
-    <!RETURN_VALUE_NOT_USED!>JavaMain().checkedMethod()<!>
+    <!RETURN_VALUE_NOT_USED!>JavaImplicitConstructor<!>()
+    <!RETURN_VALUE_NOT_USED!>JavaMain<!>()
+    JavaMain().<!RETURN_VALUE_NOT_USED!>prop<!>
+    JavaMain().<!RETURN_VALUE_NOT_USED!>checkedMethod<!>()
     val annotatedClassMember = JavaMain().checkedMethod()
     JavaMain().ignoredMethod()
     val markedToIgnore = JavaMain().ignoredMethod()

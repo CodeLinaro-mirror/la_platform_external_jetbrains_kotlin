@@ -6,6 +6,8 @@
 package org.jetbrains.kotlin.analysis.low.level.api.fir.sessions
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.analysis.api.platform.analysisMessageBus
 import org.jetbrains.kotlin.analysis.api.platform.modification.KotlinCodeFragmentContextModificationEvent
@@ -22,7 +24,6 @@ import org.jetbrains.kotlin.analysis.api.projectStructure.*
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirInternals
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLFirBuiltinsSessionFactory
 
-
 /**
  * Invalidates sessions in [LLFirSessionCacheStorage] when the corresponding module state has changed.
  *
@@ -30,13 +31,25 @@ import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLFirBui
  * [LLFirSessionCache] and the cache has to be kept consistent. The exception is [invalidateAll] – it is called from a stop-the-world
  * cache invalidation (see `KaFirStopWorldCacheCleaner` in Analysis API K2) when it's guaranteed no threads perform code analysis.
  *
+ * ### Cache consistency
+ *
+ * Invalidation must also preserve cache consistency. A cache is consistent when none of the sessions are outdated and all sessions
+ * referenced by other sessions also exist in the cache. Ensuring this is straightforward on the happy path but gets more complicated when
+ * exceptions are involved.
+ *
+ * To achieve resilience, the invalidator takes the following measures:
+ *
+ * - All invalidation is performed in non-cancellable sections, which avoids (most) cancellation exceptions.
+ * - When removing entries from [LLFirSessionCacheStorage] caches, session cleanup with [LLFirSessionCleaner] might cause exceptions. The
+ *   cache implementation ensures that if such an exception happens, removal from the cache is still guaranteed.
+ * - An invalidation operation might be composed of several, independent cache removal operations. The invalidator uses
+ *   [withIndependentRemoval] to ensure that all removal operations run even if one of them throws an exception.
  */
 @LLFirInternals
 class LLFirSessionCacheStorageInvalidator(
     private val project: Project,
     private val storage: LLFirSessionCacheStorage,
 ) {
-
     private val sessionInvalidationEventPublisher: LLFirSessionInvalidationEventPublisher
         get() = LLFirSessionInvalidationEventPublisher.getInstance(project)
 
@@ -45,8 +58,8 @@ class LLFirSessionCacheStorageInvalidator(
             is KotlinModuleStateModificationEvent ->
                 when (val module = event.module) {
                     is KaBuiltinsModule -> {
-                        // Modification of builtins might affect any session, so all sessions need to be invalidated.
-                        invalidateAll(includeLibraryModules = true)
+                        // Modification of fallback builtins might affect any session, so all sessions need to be invalidated.
+                        invalidateAll(includeLibraryModules = true, "builtins module state modification")
                     }
                     is KaLibraryModule -> {
                         invalidate(module)
@@ -61,10 +74,16 @@ class LLFirSessionCacheStorageInvalidator(
             // out-of-block modification.
             is KotlinModuleOutOfBlockModificationEvent -> invalidate(event.module)
 
-            is KotlinGlobalModuleStateModificationEvent -> invalidateAll(includeLibraryModules = true)
-            is KotlinGlobalSourceModuleStateModificationEvent -> invalidateAll(includeLibraryModules = false)
+            is KotlinGlobalModuleStateModificationEvent -> invalidateAll(includeLibraryModules = true, "global module state modification")
+
+            is KotlinGlobalSourceModuleStateModificationEvent ->
+                invalidateAll(includeLibraryModules = false, "source module state modification")
+
             is KotlinGlobalScriptModuleStateModificationEvent -> invalidateScriptSessions()
-            is KotlinGlobalSourceOutOfBlockModificationEvent -> invalidateAll(includeLibraryModules = false)
+
+            is KotlinGlobalSourceOutOfBlockModificationEvent ->
+                invalidateAll(includeLibraryModules = false, "global source out-of-block modification")
+
             is KotlinCodeFragmentContextModificationEvent -> invalidateContextualDanglingFileSessions(event.module)
         }
     }
@@ -156,7 +175,7 @@ class LLFirSessionCacheStorageInvalidator(
         }
     }
 
-    private fun invalidateScriptSessions() = removeAllScriptSessions()
+    private fun invalidateScriptSessions() = performInvalidation { removeAllScriptSessions() }
 
     /**
      * Invalidates all cached sessions. If [includeLibraryModules] is `true`, also invalidates sessions for libraries and builtins.
@@ -164,27 +183,37 @@ class LLFirSessionCacheStorageInvalidator(
      * The method must be called in a write action, or alternatively when the caller can guarantee that no other threads can perform
      * invalidation or code analysis until the invalidation is complete.
      */
-    fun invalidateAll(includeLibraryModules: Boolean) = performInvalidation {
-        if (includeLibraryModules) {
-            // Builtins modules and sessions are not part of `LLFirSessionCache`, so they need to be invalidated separately. This can be
-            // triggered either by a global module state modification, or a local module state modification of the builtins module itself.
-            LLFirBuiltinsSessionFactory.getInstance(project).invalidateAll()
-        } else {
-            // When anchor modules are configured and `includeLibraryModules` is `false`, we get a situation where the anchor module session
-            // will be invalidated (because it is a source session), while its library dependents won't be invalidated. But such library
-            // sessions also need to be invalidated because they depend on the anchor module.
+    fun invalidateAll(includeLibraryModules: Boolean, diagnosticInformation: String? = null) = performInvalidation {
+        try {
+            withIndependentRemoval {
+                if (includeLibraryModules) {
+                    // Builtins modules and sessions are not part of `LLFirSessionCache`, so they need to be invalidated separately. This
+                    // can be triggered either by a global module state modification or a local module state modification of the builtins
+                    // module itself.
+                    independently { LLFirBuiltinsSessionFactory.getInstance(project).invalidateAll() }
+                } else {
+                    // When anchor modules are configured and `includeLibraryModules` is `false`, we get a situation where the anchor module session
+                    // will be invalidated (because it is a source session), while its library dependents won't be invalidated. But such library
+                    // sessions also need to be invalidated because they depend on the anchor module.
+                    //
+                    // Invalidating anchor modules before all source sessions has the advantage that `invalidate`'s session existence check will
+                    // work, so we do not have to invalidate dependent sessions if the anchor module does not exist in the first place.
+                    val anchorModules = KotlinAnchorModuleProvider.getInstance(project)?.getAllAnchorModulesIfComputed()
+                    anchorModules?.forEach { anchorModule ->
+                        independently { invalidate(anchorModule) }
+                    }
+                }
+
+                independently { removeAllSessions(includeLibraryModules, diagnosticInformation) }
+            }
+        } finally {
+            // The session invalidation event is published in a `finally` to ensure that `KaFirSession`s are invalidated even when LL FIR
+            // session invalidation partially fails. This is an essential part of exception resilience.
             //
-            // Invalidating anchor modules before all source sessions has the advantage that `invalidate`'s session existence check will
-            // work, so we do not have to invalidate dependent sessions if the anchor module does not exist in the first place.
-            val anchorModules = KotlinAnchorModuleProvider.getInstance(project)?.getAllAnchorModulesIfComputed()
-            anchorModules?.forEach(::invalidate)
+            // We could also take `includeLibraryModules` into account here, but this will complicate the handling of the global session
+            // invalidation event, and it isn't currently necessary for `KaFirSession` invalidation to be more granular.
+            project.analysisMessageBus.syncPublisher(LLFirSessionInvalidationTopics.SESSION_INVALIDATION).afterGlobalInvalidation()
         }
-
-        removeAllSessions(includeLibraryModules)
-
-        // We could take `includeLibraryModules` into account here, but this will make the global session invalidation event more
-        // complicated to handle, and it isn't currently necessary for `KaFirSession` invalidation to be more granular.
-        project.analysisMessageBus.syncPublisher(LLFirSessionInvalidationTopics.SESSION_INVALIDATION).afterGlobalInvalidation()
     }
 
     private fun invalidateContextualDanglingFileSessions(contextModule: KaModule) = performInvalidation {
@@ -203,7 +232,7 @@ class LLFirSessionCacheStorageInvalidator(
     }
 
     /**
-     * Ensures that the invalidated [block] does not run concurrently.
+     * Ensures that the invalidated [block] does not run concurrently and cannot be canceled.
      *
      * Invalidation caused by a listener only happens in a write action. However, `KaFirCacheCleaner` can perform immediate invalidation
      * from outside one if there are no ongoing analyses. There might happen a situation when both an invalidation listener and the
@@ -211,9 +240,27 @@ class LLFirSessionCacheStorageInvalidator(
      *
      * The synchronization protects concurrent-unsafe cleanup in [SessionStorage].
      */
-    private inline fun performInvalidation(block: () -> Unit) {
+    private inline fun performInvalidation(crossinline block: () -> Unit) {
         synchronized(this) {
-            block()
+            // Any exception from session invalidation is an error that should be logged (even control flow exceptions). Since an exception
+            // interrupts session invalidation, session caches might be left in an inconsistent state. See KT-78994.
+            //
+            // This is temporary code to gather more diagnostic data.
+            try {
+                // Cancellation exceptions can bring session caches into an inconsistent state (see KT-78994). Conceptually, session
+                // invalidation is a critical operation that must not be interrupted. Historically, this was not an issue because session
+                // invalidation was performed only in write actions. However, with low-memory cache cleanup, session invalidation can be
+                // executed in a read action.
+                //
+                // Note that this does not prevent all cancellation exceptions, for example, when awaiting on an external cancellable
+                // resource. However, it covers all known cases of such exceptions occurring during session invalidation.
+                ProgressManager.getInstance().executeNonCancelableSection {
+                    block()
+                }
+            } catch (t: Throwable) {
+                LOG.error("Exception from LL FIR session invalidation!", t)
+                throw t
+            }
         }
     }
 
@@ -262,18 +309,22 @@ class LLFirSessionCacheStorageInvalidator(
      * [removeAllSessions] must be called in a write action, or in the case if the caller can guarantee no other threads can perform
      * invalidation or code analysis until the cleanup is complete.
      */
-    private fun removeAllSessions(includeLibraryModules: Boolean) {
-        if (includeLibraryModules) {
-            removeAllSessionsFrom(storage.sourceCache)
-            removeAllSessionsFrom(storage.binaryCache)
-            removeAllLibraryFallbackDependenciesSessions()
-        } else {
-            // `binaryCache` and `libraryFallbackDependenciesCache` can only contain library modules, so we only need to remove sessions
-            // from `sourceCache`.
-            removeAllMatchingSessionsFrom(storage.sourceCache) { it !is KaLibraryModule && it !is KaLibrarySourceModule }
-        }
+    private fun removeAllSessions(includeLibraryModules: Boolean, diagnosticInformation: String? = null) {
+        withIndependentRemoval {
+            if (includeLibraryModules) {
+                independently { removeAllSessionsFrom(storage.sourceCache, diagnosticInformation) }
+                independently { removeAllSessionsFrom(storage.binaryCache, diagnosticInformation) }
+                independently { removeAllLibraryFallbackDependenciesSessions() }
+            } else {
+                // `binaryCache` and `libraryFallbackDependenciesCache` can only contain library modules, so we only need to remove sessions
+                // from `sourceCache`.
+                independently {
+                    removeAllMatchingSessionsFrom(storage.sourceCache) { it !is KaLibraryModule && it !is KaLibrarySourceModule }
+                }
+            }
 
-        removeAllDanglingFileSessions()
+            independently { removeAllDanglingFileSessions() }
+        }
     }
 
     private fun removeUnstableDanglingFileSessions() {
@@ -305,8 +356,10 @@ class LLFirSessionCacheStorageInvalidator(
     }
 
     private fun removeAllDanglingFileSessions() {
-        removeAllSessionsFrom(storage.danglingFileSessionCache)
-        removeAllSessionsFrom(storage.unstableDanglingFileSessionCache)
+        withIndependentRemoval {
+            independently { removeAllSessionsFrom(storage.danglingFileSessionCache) }
+            independently { removeAllSessionsFrom(storage.unstableDanglingFileSessionCache) }
+        }
     }
 
     // Removing script sessions is only needed temporarily until KTIJ-25620 has been implemented.
@@ -333,18 +386,46 @@ class LLFirSessionCacheStorageInvalidator(
         removeAllMatchingSessionsFrom(storage.sourceCache) { it is KaLibraryModule || it is KaLibrarySourceModule }
     }
 
-    private fun removeAllSessionsFrom(storage: SessionStorage) {
-        storage.clear()
+    private fun removeAllSessionsFrom(storage: SessionStorage, diagnosticInformation: String? = null) {
+        storage.clear(diagnosticInformation)
     }
 
     private inline fun removeAllMatchingSessionsFrom(storage: SessionStorage, shouldBeRemoved: (KaModule) -> Boolean) {
-        // Because this function is executed in a write action, we do not need concurrency guarantees to remove all matching sessions, so a
+        // Because this function is executed in a single thread, we do not need concurrency guarantees to remove all matching sessions, so a
         // "collect and remove" approach also works.
-        storage.keys.forEach { module ->
-            if (shouldBeRemoved(module)) {
-                storage.remove(module)
+        withIndependentRemoval {
+            storage.keys.forEach { module ->
+                if (shouldBeRemoved(module)) {
+                    independently { storage.remove(module) }
+                }
             }
         }
     }
 
+    /**
+     * Allows running multiple different removal operations with [independently] while avoiding interference caused by exceptions. This
+     * ensures that all removal operations can run during an invalidation operation, supporting cache consistency.
+     *
+     * Exceptions disrupting session invalidation have so far only been encountered outside write actions, so at this time, usage of this
+     * function is limited to cases where invalidation is performed outside a write action.
+     */
+    private inline fun withIndependentRemoval(block: MutableList<Result<Unit>>.() -> Unit) {
+        val results = buildList {
+            block()
+        }
+
+        results.forEach { result -> result.onFailure { throw it } }
+    }
+
+    /**
+     * Runs [block], deferring any exception until it is handled by [withIndependentRemoval] after all operations have been run.
+     */
+    private inline fun MutableList<Result<Unit>>.independently(block: () -> Unit) {
+        val result = runCatching { block() }
+        add(result)
+    }
+
+    companion object {
+        private val LOG = logger<LLFirSessionCacheStorageInvalidator>()
+    }
 }

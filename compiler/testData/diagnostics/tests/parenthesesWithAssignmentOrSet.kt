@@ -1,8 +1,8 @@
-// RUN_PIPELINE_TILL: BACKEND
+// LANGUAGE: +ForbidParenthesizedLhsInAssignments
+// RUN_PIPELINE_TILL: FRONTEND
 // ISSUE: KT-70507
 // DIAGNOSTICS: -VARIABLE_WITH_REDUNDANT_INITIALIZER
 // WITH_STDLIB
-// LATEST_LV_DIFFERENCE
 
 class A {
     operator fun plus(x: String): A = this

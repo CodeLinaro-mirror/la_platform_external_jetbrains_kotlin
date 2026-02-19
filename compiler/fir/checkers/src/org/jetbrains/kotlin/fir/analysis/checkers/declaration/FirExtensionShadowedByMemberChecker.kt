@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.isVisible
+import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.resolve.toClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.canBeNull
@@ -21,6 +22,7 @@ import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.visibilityChecker
 import org.jetbrains.kotlin.name.SpecialNames.NO_NAME_PROVIDED
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.util.OperatorNameConventions
 
 sealed class FirExtensionShadowedByMemberChecker(kind: MppCheckerKind) : FirCallableDeclarationChecker(kind) {
@@ -47,14 +49,15 @@ sealed class FirExtensionShadowedByMemberChecker(kind: MppCheckerKind) : FirCall
             declaration.receiverParameter.let { it == null || it.typeRef.coneType.canBeNull(context.session) } ||
             declaration.nameOrSpecialName == NO_NAME_PROVIDED ||
             // A common pattern, KT-70012
-            declaration.isActual
+            declaration.isActual ||
+            declaration.isOverride
         ) {
             return
         }
 
         val receiverSymbol = declaration.receiverParameter?.typeRef?.coneType
-            ?.toClassLikeSymbol(context.session)
-            ?.fullyExpandedClass(context.session)
+            ?.toClassLikeSymbol()
+            ?.fullyExpandedClass()
             ?: return
         val scope = receiverSymbol.unsubstitutedScope()
 
@@ -71,8 +74,12 @@ sealed class FirExtensionShadowedByMemberChecker(kind: MppCheckerKind) : FirCall
         }
 
         if (shadowingMember != null) {
-            reporter.reportOn(declaration.source, FirErrors.EXTENSION_SHADOWED_BY_MEMBER, shadowingMember)
-            return
+            val shadowingMemberDeprecation = shadowingMember.getDeprecation(context.session, declaration)
+
+            if (shadowingMemberDeprecation?.deprecationLevel != DeprecationLevelValue.HIDDEN) {
+                reporter.reportOn(declaration.source, FirErrors.EXTENSION_SHADOWED_BY_MEMBER, shadowingMember)
+                return
+            }
         }
 
         if (declaration !is FirSimpleFunction) {
@@ -85,8 +92,8 @@ sealed class FirExtensionShadowedByMemberChecker(kind: MppCheckerKind) : FirCall
                     return@findFirstNotNullSymbol null
                 }
 
-                val returnTypeScope = property.resolvedReturnType.toClassLikeSymbol(context.session)
-                    ?.fullyExpandedClass(context.session)
+                val returnTypeScope = property.resolvedReturnType.toClassLikeSymbol()
+                    ?.fullyExpandedClass()
                     ?.unsubstitutedScope()
                     ?: return@findFirstNotNullSymbol null
 
@@ -151,7 +158,6 @@ sealed class FirExtensionShadowedByMemberChecker(kind: MppCheckerKind) : FirCall
     private fun FirFunctionSymbol<*>.shadows(extension: FirFunctionSymbol<*>): Boolean {
         if (isExtension) return false
 
-        if (extension.contextParameterSymbols.size != contextParameterSymbols.size) return false
         if (extension.valueParameterSymbols.size != valueParameterSymbols.size) return false
         if (extension.varargParameterPosition != varargParameterPosition) return false
         if (extension.isOperator && !isOperator) return false
@@ -170,10 +176,7 @@ sealed class FirExtensionShadowedByMemberChecker(kind: MppCheckerKind) : FirCall
         }
 
         val helper = context.session.declarationOverloadabilityHelper
-        val memberSignature = helper.createSignature(this)
-        val extensionSignature = helper.createSignatureForPossiblyShadowedExtension(extension)
-
-        return helper.isEquallyOrMoreSpecific(extensionSignature, memberSignature)
+        return helper.isExtensionShadowedByMember(extension, this)
     }
 
     private val FirFunctionSymbol<*>.varargParameterPosition: Int

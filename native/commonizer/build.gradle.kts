@@ -1,5 +1,8 @@
+import org.jetbrains.kotlin.gradle.utils.NativeCompilerDownloader
+
 plugins {
     kotlin("jvm")
+    id("project-tests-convention")
 }
 
 description = "Kotlin KLIB Library Commonizer"
@@ -26,7 +29,6 @@ dependencies {
     compileOnly(project(":kotlin-tooling-core")) { isTransitive = false }
     compileOnly(project(":compiler:cli-common"))
     compileOnly(project(":compiler:ir.serialization.common"))
-    compileOnly(project(":compiler:frontend"))
     compileOnly(project(":core:compiler.common.native"))
     compileOnly(project(":native:frontend.native"))
     compileOnly(project(":kotlin-util-klib-metadata"))
@@ -39,7 +41,7 @@ dependencies {
     api(kotlinStdlib())
 
     testImplementation(libs.junit4)
-    testImplementation(projectTests(":compiler:tests-common"))
+    testImplementation(testFixtures(project(":compiler:tests-common")))
     testImplementation(project(":kotlinx-metadata-klib")) { isTransitive = false }
     testImplementation(project(":kotlin-metadata")) { isTransitive = false }
     testImplementation(project(":native:kotlin-klib-commonizer-api"))
@@ -59,10 +61,26 @@ sourceSets {
     "test" { projectDefault() }
 }
 
-projectTest(parallel = true) {
-    workingDir = rootDir
+projectTests {
+    testTask(parallel = true, jUnitMode = JUnitMode.JUnit4) {
+        workingDir = rootDir
+    }
 }
 
 runtimeJar()
 sourcesJar { includeEmptyDirs = false; eachFile { exclude() } } // empty Jar, no public sources
 javadocJar { includeEmptyDirs = false; eachFile { exclude() } } // empty Jar, no public javadocs
+
+tasks.test.configure {
+    // Use the bootstrap K/N stdlib for compiling test code samples.
+    val nativeDistributionDownloader = NativeCompilerDownloader(project).also { it.downloadIfNeeded() }
+
+    jvmArgumentProviders += objects.newInstance<SystemPropertyClasspathProvider>().apply {
+        val compilerDirectory = project.layout.dir(
+            providers.provider { nativeDistributionDownloader.compilerDirectory }
+        )
+
+        classpath.from(compilerDirectory)
+        property.set("kotlin.internal.native.test.nativeHome")
+    }
+}

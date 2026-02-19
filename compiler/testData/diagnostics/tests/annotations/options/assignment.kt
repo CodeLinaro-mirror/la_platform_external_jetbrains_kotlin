@@ -1,5 +1,5 @@
-// RUN_PIPELINE_TILL: BACKEND
-// LATEST_LV_DIFFERENCE
+// LANGUAGE: +ForbidParenthesizedLhsInAssignments
+// RUN_PIPELINE_TILL: FRONTEND
 
 @Target(AnnotationTarget.EXPRESSION)
 @Retention(AnnotationRetention.SOURCE)

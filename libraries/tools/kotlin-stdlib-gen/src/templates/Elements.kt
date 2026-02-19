@@ -326,6 +326,18 @@ object Elements : TemplateGroupBase() {
                     """
                 }
             }
+            on(Platform.Native) {
+                on(Backend.Wasm) {
+                    inlineOnly()
+
+                    val size = f.code.size
+                    body {
+                        """
+                        return elementAtOrElse(index) { throw IndexOutOfBoundsException("index: $index, $size: $$size}") }
+                        """
+                    }
+                }
+            }
         }
     }
 
@@ -390,6 +402,13 @@ object Elements : TemplateGroupBase() {
         include(CharSequences, Lists, ArraysOfObjects, ArraysOfPrimitives, ArraysOfUnsigned)
     } builder {
         doc { "Returns ${f.element.prefixWithArticle()} at the given [index] or the result of calling the [defaultValue] function if the [index] is out of bounds of this ${f.collection}." }
+        sample(
+            when (family) {
+                CharSequences, Lists -> "samples.collections.Collections.Elements.getOrElse"
+                ArraysOfObjects, ArraysOfPrimitives, ArraysOfUnsigned -> "samples.collections.Arrays.Usage.getOrElse"
+                else -> "samples.collections.Collections.Elements.getOrElse"
+            }
+        )
         returns("T")
         inlineOnly()
         val indices = if (family == Lists) "0..<size" else "indices"
@@ -1132,7 +1151,9 @@ object Elements : TemplateGroupBase() {
                     Returns ${getOrdinal(n)} *element* from the ${f.collection}.
             
                     If $condition, throws an [IndexOutOfBoundsException] except in Kotlin/JS 
-                    where the behavior is unspecified.
+                    where the behavior is unspecified, and in Kotlin/Wasm where 
+                    a [trap](https://webassembly.github.io/spec/core/intro/overview.html#trap) will be raised instead,
+                    unless `-Xwasm-enable-array-range-checks` compiler flag was specified when linking an executable.
                     """
                 }
             }

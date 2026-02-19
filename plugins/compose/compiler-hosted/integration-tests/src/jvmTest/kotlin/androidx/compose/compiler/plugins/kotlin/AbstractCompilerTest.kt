@@ -69,6 +69,7 @@ abstract class AbstractCompilerTest(val useFir: Boolean) {
         val defaultClassPath by lazy {
             listOf(
                 Classpath.kotlinStdlibJar(),
+                Classpath.kotlinxCoroutinesJar(),
                 Classpath.composeRuntimeJar(),
                 Classpath.composeRuntimeAnnotationsJar()
             )
@@ -98,7 +99,7 @@ abstract class AbstractCompilerTest(val useFir: Boolean) {
             val enableFir = if (forcedFirSetting != null) forcedFirSetting else this@AbstractCompilerTest.useFir
             val languageVersion =
                 if (enableFir) {
-                    LanguageVersion.KOTLIN_2_0
+                    LanguageVersion.LATEST_STABLE
                 } else {
                     LanguageVersion.KOTLIN_1_9
                 }
@@ -160,6 +161,7 @@ abstract class AbstractCompilerTest(val useFir: Boolean) {
         platformSourceFiles: List<SourceFile>,
         commonSourceFiles: List<SourceFile> = listOf(),
         additionalPaths: List<File> = listOf(),
+        additionalConfigurationParameters: (CompilerConfiguration) -> Unit = {},
         forcedFirSetting: Boolean? = null,
     ): GeneratedClassLoader {
         val classLoader = if (additionalPaths.isNotEmpty()) {
@@ -171,7 +173,7 @@ abstract class AbstractCompilerTest(val useFir: Boolean) {
             defaultClassLoader
         }
         return GeneratedClassLoader(
-            createCompilerFacade(additionalPaths, forcedFirSetting)
+            createCompilerFacade(additionalPaths, forcedFirSetting, additionalConfigurationParameters)
                 .compile(platformSourceFiles, commonSourceFiles).factory,
             classLoader
         )

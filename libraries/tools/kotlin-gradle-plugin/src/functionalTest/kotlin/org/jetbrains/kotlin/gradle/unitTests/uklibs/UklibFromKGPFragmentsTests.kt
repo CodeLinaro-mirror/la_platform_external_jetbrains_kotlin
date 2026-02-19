@@ -3,9 +3,13 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("FunctionName")
+@file:OptIn(ExperimentalWasmDsl::class)
+
 package org.jetbrains.kotlin.gradle.unitTests.uklibs
 
-import org.gradle.kotlin.dsl.*
+import org.gradle.kotlin.dsl.creating
+import org.gradle.kotlin.dsl.getValue
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
@@ -14,17 +18,13 @@ import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.ToolingDiagnostic.Severity.WARNING
 import org.jetbrains.kotlin.gradle.plugin.mpp.external.createCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.external.createExternalKotlinTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.UklibFragment
 import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.validateKgpModelIsUklibCompliantAndCreateKgpFragments
-import org.jetbrains.kotlin.gradle.testing.PrettyPrint
 import org.jetbrains.kotlin.gradle.testing.prettyPrinted
 import org.jetbrains.kotlin.gradle.util.*
 import org.jetbrains.kotlin.konan.target.HostManager
-import kotlin.test.Test
+import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.text.get
 
-@ExperimentalWasmDsl
 class UklibFromKGPFragmentsTests {
 
 
@@ -58,7 +58,6 @@ class UklibFromKGPFragmentsTests {
         buildProjectWithMPP(
             preApplyCode = {
                 setUklibPublicationStrategy()
-                enableCrossCompilation()
             }
         ) {
             kotlin {
@@ -125,7 +124,6 @@ class UklibFromKGPFragmentsTests {
         buildProjectWithMPP(
             preApplyCode = {
                 setUklibPublicationStrategy()
-                enableCrossCompilation()
             }
         ) {
             kotlin {
@@ -158,6 +156,7 @@ class UklibFromKGPFragmentsTests {
                 js()
                 wasmJs()
                 wasmWasi()
+                @Suppress("DEPRECATION")
                 androidTarget()
             }
         }.runLifecycleAwareTest {
@@ -176,8 +175,9 @@ class UklibFromKGPFragmentsTests {
                         identifier = "commonMain",
                         attributes = setOf("android", "ios_arm64", "ios_x64", "js_ir", "jvm", "wasm_js", "wasm_wasi")
                     ),
-                ),
-                multiplatformExtension.testFragments().toSet()
+                    TestAttributesFragment(identifier = "webMain", attributes = setOf("js_ir", "wasm_js")),
+                ).sorted().prettyPrinted,
+                multiplatformExtension.testFragments().toSet().sorted().prettyPrinted,
             )
         }
     }
@@ -199,10 +199,11 @@ class UklibFromKGPFragmentsTests {
     }
 
     @Test
-    fun `project configuration with enabled uklib publication - without enabled cross compilation - emits diagnostic`() {
+    fun `project configuration with enabled uklib publication - with disabled cross compilation - emits diagnostic`() {
         buildProjectWithMPP(
             preApplyCode = {
                 setUklibPublicationStrategy()
+                enableCrossCompilation(false)
             }
         ) {
             kotlin {
@@ -212,21 +213,6 @@ class UklibFromKGPFragmentsTests {
             KotlinToolingDiagnostics.UklibPublicationWithoutCrossCompilation(
                 if (HostManager.hostIsMac) WARNING else ERROR
             )
-        )
-    }
-
-    @Test
-    fun `project configuration with enabled uklib publication - with cinterops - emits diagnostic`() {
-        buildProjectWithMPP(
-            preApplyCode = {
-                setUklibPublicationStrategy()
-            }
-        ) {
-            kotlin {
-                iosArm64().compilations.getByName("main").cinterops.create("foo")
-            }
-        }.evaluate().assertContainsDiagnostic(
-            KotlinToolingDiagnostics.UklibPublicationWithCinterops
         )
     }
 
@@ -301,7 +287,6 @@ class UklibFromKGPFragmentsTests {
         buildProjectWithMPP(
             preApplyCode = {
                 setUklibPublicationStrategy()
-                enableCrossCompilation()
             }
         ) {
             kotlin {
@@ -329,10 +314,34 @@ class UklibFromKGPFragmentsTests {
         )
     }
 
+    @Test
+    fun `project configuration with enabled uklib publication - single target with cinterops`() {
+        buildProjectWithMPP(
+            preApplyCode = {
+                setUklibPublicationStrategy()
+            }
+        ) {
+            kotlin {
+                val main = linuxArm64().compilations.getByName("main")
+                main.cinterops.create("foo")
+                main.cinterops.create("bar")
+            }
+        }.evaluate().assertNoDiagnostics(
+            filterDiagnosticIds = defaultFilteredDiagnostics + listOf(
+                KotlinToolingDiagnostics.InternalKotlinGradlePluginPropertiesUsed,
+                KotlinToolingDiagnostics.UnusedSourceSetsWarning,
+            )
+        )
+    }
+
     internal data class TestAttributesFragment(
         val identifier: String,
         val attributes: Set<String>,
-    )
+    ) : Comparable<TestAttributesFragment> {
+        override fun compareTo(other: TestAttributesFragment): Int {
+            return this.toString().compareTo(other.toString())
+        }
+    }
 
     private suspend fun KotlinMultiplatformExtension.testFragments(): List<TestAttributesFragment> =
         validateKgpModelIsUklibCompliantAndCreateKgpFragments().map {

@@ -1,6 +1,6 @@
+// LANGUAGE: +ForbidParenthesizedLhsInAssignments
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -DEBUG_INFO_SMARTCAST
-// LATEST_LV_DIFFERENCE
 
 class Foo {
     fun foo(a: Foo): Foo = a

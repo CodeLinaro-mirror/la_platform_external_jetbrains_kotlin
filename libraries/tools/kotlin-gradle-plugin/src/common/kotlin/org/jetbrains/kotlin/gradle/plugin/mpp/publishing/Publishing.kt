@@ -16,9 +16,6 @@ import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.*
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
 import org.jetbrains.kotlin.gradle.plugin.mpp.*
-import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.Uklib
-import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.KmpPublicationStrategy
-import org.jetbrains.kotlin.gradle.plugin.mpp.uklibs.publication.createUklibPublication
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrTarget
 import org.jetbrains.kotlin.gradle.tooling.buildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.utils.*
@@ -56,10 +53,6 @@ private fun createRootPublication(project: Project, publishing: PublishingExtens
         (this as MavenPublicationInternal).publishWithOriginalFileName()
 
         addKotlinToolingMetadataArtifactIfNeeded(project)
-        configureRootComponentForUklibPublication(
-            project,
-            kotlinSoftwareComponent,
-        )
     }
 }
 
@@ -72,38 +65,34 @@ private fun MavenPublication.addKotlinToolingMetadataArtifactIfNeeded(project: P
     }
 }
 
-private fun MavenPublication.configureRootComponentForUklibPublication(
-    project: Project,
-    rootComponent: KotlinSoftwareComponent,
-) {
-    when (project.kotlinPropertiesProvider.kmpPublicationStrategy) {
-        KmpPublicationStrategy.UklibPublicationInASingleComponentWithKMPPublication -> {
-            pom.packaging = Uklib.UKLIB_PACKAGING
-            project.launch {
-                rootComponent.uklibUsages.complete(
-                    project.createUklibPublication()
-                )
-            }
-        }
-        KmpPublicationStrategy.StandardKMPPublication ->
-            rootComponent.uklibUsages.complete(emptyList())
-    }
-}
-
 private fun createTargetPublications(project: Project, publishing: PublishingExtension) {
     val kotlin = project.multiplatformExtension
     // Enforce the order of creating the publications, since the metadata publication is used in the other publications:
     kotlin.targets
         .withType(InternalKotlinTarget::class.java)
-        .matching { it.publishable }
+        .matching { kotlinTarget ->
+            when (kotlinTarget) {
+                is KotlinNativeTarget -> kotlinTarget.publishableWithFallback
+                else -> kotlinTarget.publishable
+            }
+        }
         .all { kotlinTarget ->
             /** Publication for [KotlinMetadataTarget] is created in [createRootPublication] */
             if (kotlinTarget is KotlinMetadataTarget) return@all
-            if (kotlinTarget is KotlinAndroidTarget)
-            // Android targets have their variants created in afterEvaluate; TODO handle this better?
-                project.whenEvaluated { kotlinTarget.createTargetSpecificMavenPublications(publishing.publications) }
-            else
-                kotlinTarget.createTargetSpecificMavenPublications(publishing.publications)
+            when (kotlinTarget) {
+                // Android targets have their variants created in afterEvaluate; TODO handle this better?
+                is KotlinAndroidTarget -> project.whenEvaluated {
+                    kotlinTarget.createTargetSpecificMavenPublications(publishing.publications)
+                }
+                is KotlinNativeTarget -> {
+                    project.launch {
+                        val crossCompilationSupported = kotlinTarget.crossCompilationOnCurrentHostSupported.await()
+                        if (!crossCompilationSupported) return@launch
+                        kotlinTarget.createTargetSpecificMavenPublications(publishing.publications)
+                    }
+                }
+                else -> kotlinTarget.createTargetSpecificMavenPublications(publishing.publications)
+            }
         }
 }
 

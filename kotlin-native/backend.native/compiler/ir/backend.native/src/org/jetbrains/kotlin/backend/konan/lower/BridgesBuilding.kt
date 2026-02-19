@@ -80,12 +80,15 @@ internal class BridgesSupport(val irBuiltIns: IrBuiltIns, val irFactory: IrFacto
             returnType = bridgeDirections.returnDirection.type() ?: target.returnType
             isSuspend = function.isSuspend
         }.apply {
-            attributeOwnerId = function.attributeOwnerId
             parent = function.parent
             val bridge = this
 
             parameters = target.parameters.map {
-                it.copyTo(bridge, type = bridgeDirections.parameterDirectionAt(it.indexInParameters).type() ?: it.type)
+                it.copyTo(
+                        bridge,
+                        type = bridgeDirections.parameterDirectionAt(it.indexInParameters).type() ?: it.type,
+                        varargElementType = it.varargElementType
+                )
             }
 
             typeParameters = function.typeParameters.map { parameter ->

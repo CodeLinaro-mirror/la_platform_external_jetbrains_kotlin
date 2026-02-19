@@ -10,8 +10,7 @@ import org.jetbrains.kotlin.builtins.StandardNames.DATA_CLASS_COPY
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
 import org.jetbrains.kotlin.fir.*
-import org.jetbrains.kotlin.fir.analysis.checkers.getContainingClassSymbol
-import org.jetbrains.kotlin.fir.analysis.checkers.isVisibleInClass
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.backend.generators.isExternalParent
 import org.jetbrains.kotlin.fir.backend.utils.ConversionTypeOrigin
 import org.jetbrains.kotlin.fir.declarations.*
@@ -211,7 +210,7 @@ class Fir2IrDeclarationStorage(
                 return FakeOverrideIdentifier(
                     originalSymbol,
                     dispatchReceiverLookupTag,
-                    dispatchReceiverLookupTag.toRegularClassSymbol(c.session)?.isExpect == true
+                    dispatchReceiverLookupTag.toRegularClassSymbol()?.isExpect == true
                 )
             }
         }
@@ -223,7 +222,9 @@ class Fir2IrDeclarationStorage(
     private val delegatedClassesMap: MutableMap<IrClassSymbol, MutableMap<IrClassSymbol, IrFieldSymbol>> = commonMemberStorage.delegatedClassesInfo
     private val firClassesWithInheritanceByDelegation: MutableSet<FirClass> = commonMemberStorage.firClassesWithInheritanceByDelegation
 
-    private val localStorage: Fir2IrLocalCallableStorage by threadLocal { Fir2IrLocalCallableStorage() }
+    private val localStorage: Fir2IrLocalCallableStorage by threadLocal {
+        Fir2IrLocalCallableStorage(commonMemberStorage.localCallableCache)
+    }
 
     // TODO: move to common storage
     private val propertyForFieldCache: ConcurrentHashMap<FirField, IrPropertySymbol> = ConcurrentHashMap()
@@ -512,6 +513,7 @@ class Fir2IrDeclarationStorage(
 
         // caching of created constructor is not called here, because `callablesGenerator` calls `cacheIrConstructor` by itself
         val symbol = IrConstructorSymbolImpl()
+        cacheIrConstructorSymbol(constructor, symbol)
         if (potentiallyExternal) {
             val irParent = findIrParent(constructor, fakeOverrideOwnerLookupTag = null)
             if (irParent.isExternalParent()) {
@@ -526,7 +528,6 @@ class Fir2IrDeclarationStorage(
                 }
             }
         }
-        cacheIrConstructorSymbol(constructor, symbol)
 
         return symbol
     }
@@ -628,7 +629,7 @@ class Fir2IrDeclarationStorage(
 
         val setterSymbol = runIf(property.isVar) {
             val setterIsVisible = property.setter?.let { setter ->
-                fakeOverrideOwnerLookupTag?.toClassSymbol(session)?.fir?.let { containingClass ->
+                fakeOverrideOwnerLookupTag?.toClassSymbol()?.fir?.let { containingClass ->
                     setter.isVisibleInClass(containingClass)
                 }
             } ?: true
@@ -1038,7 +1039,9 @@ class Fir2IrDeclarationStorage(
         val symbols = createLocalDelegatedPropertySymbols(property)
         val irProperty = callablesGenerator.createIrLocalDelegatedProperty(property, irParent, symbols)
         val symbol = irProperty.symbol
-        delegateVariableForPropertyCache[symbol] = irProperty.delegate.symbol
+        val irDelegate = irProperty.delegate
+        requireNotNull(irDelegate) { "Local delegated property ${irProperty.render()} has no delegate" }
+        delegateVariableForPropertyCache[symbol] = irDelegate.symbol
         getterForPropertyCache[symbol] = irProperty.getter.symbol
         irProperty.setter?.let { setterForPropertyCache[symbol] = it.symbol }
         localStorage.putDelegatedProperty(property, symbol)
@@ -1107,7 +1110,7 @@ class Fir2IrDeclarationStorage(
     }
 
     private fun FirCallableDeclaration.computeExternalOrigin(): IrDeclarationOrigin {
-        val containingClass = containingClassLookupTag()?.toRegularClassSymbol(session)
+        val containingClass = containingClassLookupTag()?.toRegularClassSymbol()
         return when (containingClass?.isJavaOrEnhancement) {
             true -> IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB
             else -> IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
@@ -1323,10 +1326,11 @@ class Fir2IrDeclarationStorage(
             symbol is IrScriptSymbol ||
             symbol is IrReplSnippetSymbol
         ) {
+            @OptIn(LeakedDeclarationCaches::class)
             if (configuration.allowNonCachedDeclarations) {
                 // See KDoc to `fillUnboundSymbols` function
-                @OptIn(LeakedDeclarationCaches::class)
                 fillUnboundSymbols(localStorage.lastCache.localFunctions)
+                extensions.preserveLocalScope(symbol, localStorage.lastCache)
             }
             localStorage.leaveCallable()
         }
@@ -1438,7 +1442,7 @@ class Fir2IrDeclarationStorage(
         val callableOrigin = callableDeclaration.origin
         val parentLookupTag = fakeOverrideOwnerLookupTag ?: callableDeclaration.containingClassLookupTag()
         return findIrParent(
-            callableId.packageName,
+            callableId!!.packageName,
             parentLookupTag,
             firBasedSymbol,
             callableOrigin

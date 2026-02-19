@@ -40,25 +40,19 @@ fun box() {
 
 // EXPECTATIONS JS_IR
 // test.kt:16 box
-// EXPECTATIONS FIR JS_IR
 // test.kt:6 foo
 // test.kt:7 foo
 // test.kt:9 foo
-// EXPECTATIONS JS_IR
 // test.kt:13 foo
 // test.kt:17 box
-// EXPECTATIONS FIR JS_IR
 // test.kt:6 foo
 // test.kt:7 foo
 // test.kt:9 foo
-// EXPECTATIONS JS_IR
 // test.kt:13 foo
 // test.kt:18 box
-// EXPECTATIONS FIR JS_IR
 // test.kt:6 foo
 // test.kt:7 foo
 // test.kt:9 foo
-// EXPECTATIONS JS_IR
 // test.kt:13 foo
 // test.kt:19 box
 
@@ -80,5 +74,4 @@ fun box() {
 // test.kt:8 $foo (8)
 // test.kt:11 $foo (12)
 // test.kt:13 $foo (1)
-// test.kt:18 $box (4)
 // test.kt:19 $box (1)

@@ -26,6 +26,7 @@ import org.jetbrains.org.objectweb.asm.tree.analysis.Frame
 import kotlin.math.max
 
 private const val COROUTINES_DEBUG_METADATA_VERSION = 2
+private const val COROUTINES_DEBUG_METADATA_VERSION_BEFORE_2_3 = 1
 
 private const val COROUTINES_METADATA_SOURCE_FILE_JVM_NAME = "f"
 private const val COROUTINES_METADATA_LINE_NUMBERS_JVM_NAME = "l"
@@ -413,11 +414,14 @@ class CoroutineTransformerMethodVisitor(
         spilledToLocalMapping: List<List<SpilledVariableAndField>>
     ) {
         val lines = suspensionPointLineNumbers.map { it?.line ?: -1 }
-        val nextLines = suspensionPointNextLineNumbers.map { it?.line ?: -1 }
         val metadata = classBuilderForCoroutineState.newAnnotation(DEBUG_METADATA_ANNOTATION_ASM_TYPE.descriptor, true)
         metadata.visit(COROUTINES_METADATA_SOURCE_FILE_JVM_NAME, sourceFile)
         metadata.visit(COROUTINES_METADATA_LINE_NUMBERS_JVM_NAME, lines.toIntArray())
-        metadata.visit(COROUTINES_METADATA_NEXT_LINE_NUMBERS_JVM_NAME, nextLines.toIntArray())
+
+        if (config.generateDebugMetadataV2) {
+            val nextLines = suspensionPointNextLineNumbers.map { it?.line ?: -1 }
+            metadata.visit(COROUTINES_METADATA_NEXT_LINE_NUMBERS_JVM_NAME, nextLines.toIntArray())
+        }
 
         val debugIndexToLabel = spilledToLocalMapping.withIndex().flatMap { (labelIndex, list) ->
             list.map { labelIndex }
@@ -432,7 +436,10 @@ class CoroutineTransformerMethodVisitor(
         }.visitEnd()
         metadata.visit(COROUTINES_METADATA_METHOD_NAME_JVM_NAME, methodNode.name)
         metadata.visit(COROUTINES_METADATA_CLASS_NAME_JVM_NAME, Type.getObjectType(containingClassInternalName).className)
-        metadata.visit(COROUTINES_METADATA_VERSION_JVM_NAME, COROUTINES_DEBUG_METADATA_VERSION)
+        metadata.visit(
+            COROUTINES_METADATA_VERSION_JVM_NAME,
+            if (config.generateDebugMetadataV2) COROUTINES_DEBUG_METADATA_VERSION else COROUTINES_DEBUG_METADATA_VERSION_BEFORE_2_3
+        )
         metadata.visitEnd()
     }
 
@@ -655,7 +662,10 @@ class CoroutineTransformerMethodVisitor(
      * When a variable becomes dead, we have to clean it up - spilling null into continuation.
      */
     private fun spillVariables(suspensionPoints: List<SuspensionPoint>, methodNode: MethodNode): List<List<SpilledVariableAndField>> {
+        if (suspensionPoints.isEmpty()) return emptyList()
+
         val frames: Array<out Frame<BasicValue>?> = performSpilledVariableFieldTypesAnalysis(methodNode, containingClassInternalName)
+        val afterResumeFrames = performUninitializedAfterResumeVariablesAnalysis(suspensionPoints, methodNode, containingClassInternalName)
 
         val suspendLambdaParameters =
             if (config.nullOutSpilledCoroutineLocalsUsingStdlibFunction) methodNode.collectSuspendLambdaParameterSlots()
@@ -676,6 +686,8 @@ class CoroutineTransformerMethodVisitor(
         val referencesToSpillBySuspensionPointIndex = mutableListOf<List<SpillableVariable>>()
         // while primitives shall not
         val primitivesToSpillBySuspensionPointIndex = mutableListOf<List<SpillableVariable>>()
+        // both references and primitives
+        val variablesToSpillBySuspensionPointIndex = mutableListOf<List<SpillableVariable>>()
 
         // Collect information about spillable variables, that we use to determine which variables we need to cleanup
         for (suspension in suspensionPoints) {
@@ -699,6 +711,7 @@ class CoroutineTransformerMethodVisitor(
 
             referencesToSpillBySuspensionPointIndex += referencesToSpill
             primitivesToSpillBySuspensionPointIndex += primitivesToSpill
+            variablesToSpillBySuspensionPointIndex += variablesToSpill
 
             for ((type, index) in varsCountByType) {
                 maxVarsCountByType[type] = max(maxVarsCountByType[type] ?: 0, index)
@@ -714,6 +727,11 @@ class CoroutineTransformerMethodVisitor(
         val spilledToVariableMapping = mapFieldNameToVariable(
             methodNode, suspensionPoints, referencesToSpillBySuspensionPointIndex, primitivesToSpillBySuspensionPointIndex
         )
+
+        // for each suspension point, check if there are some dead non-spilled variables that will be spilled on further points
+        // but could be unitialized there if resumed on this point
+        val varilablesForReinitializationBySuspensionPointIndex =
+            calculateVariablesToReinitialize(suspensionPoints, afterResumeFrames, methodNode, variablesToSpillBySuspensionPointIndex)
 
         // Mutate method node
         for (suspensionPointIndex in suspensionPoints.indices) {
@@ -736,6 +754,10 @@ class CoroutineTransformerMethodVisitor(
             for (primitiveToSpill in primitivesToSpillBySuspensionPointIndex[suspensionPointIndex]) {
                 generateSpillAndUnspill(methodNode, suspension, primitiveToSpill, suspendLambdaParameters)
             }
+
+            for (variable in varilablesForReinitializationBySuspensionPointIndex[suspensionPointIndex]) {
+                generateFakeUnspill(methodNode, suspension, variable)
+            }
         }
 
         for (entry in maxVarsCountByType) {
@@ -749,6 +771,37 @@ class CoroutineTransformerMethodVisitor(
         }
 
         return spilledToVariableMapping
+    }
+
+    private fun calculateVariablesToReinitialize(
+        suspensionPoints: List<SuspensionPoint>,
+        afterResumeFrames: Array<out Frame<ResumeDependentValue>?>,
+        methodNode: MethodNode,
+        variablesToSpillBySuspensionPointIndex: MutableList<List<SpillableVariable>>,
+    ): Array<MutableList<SpillableVariable>> {
+        val varilablesForReinitializationBySuspensionPointIndex = Array(suspensionPoints.size) { mutableListOf<SpillableVariable>() }
+        for ((spIndex, suspensionPoint) in suspensionPoints.withIndex()) {
+            val resumeDependentFrame = afterResumeFrames[methodNode.instructions.indexOf(suspensionPoint.suspensionCallEnd)]
+                ?: error(
+                    "Missing 'after resume' analysis data for ${suspensionPoint.suspensionCallEnd} " +
+                            "at ${containingClassInternalName}::${methodNode.name}"
+                )
+            for (variable in variablesToSpillBySuspensionPointIndex[spIndex]) {
+                val resumeDependentValue = resumeDependentFrame.getLocal(variable.slot)
+                    ?: error("Missing 'after resume' analysis data for slot ${variable.slot}")
+                resumeDependentValue.states.withIndex().filter { it.value.isUnitialized() }.forEach {
+                    val otherSpIndex = it.index
+                    // it was deduced by analysis that there is a path between suspension points (otherSpIndex -> spIndex) with no
+                    // STOREs to the variable's slot
+                    if (variablesToSpillBySuspensionPointIndex[otherSpIndex].all { it.slot != variable.slot }) {
+                        // .. and the variable is not spilled on preceding (other) SP, so we need to additionally initialize it
+                        // with some value (e.g. default one) on unspill block
+                        varilablesForReinitializationBySuspensionPointIndex[otherSpIndex].add(variable)
+                    }
+                }
+            }
+        }
+        return varilablesForReinitializationBySuspensionPointIndex
     }
 
     private fun generateSpillAndUnspill(
@@ -826,6 +879,21 @@ class CoroutineTransformerMethodVisitor(
 
                 splitLvtRecord(methodNode, suspension, local, localRestart)
             }
+        }
+    }
+
+    private fun generateFakeUnspill(methodNode: MethodNode, suspension: SuspensionPoint, variable: SpillableVariable) {
+        with(methodNode.instructions) {
+            insert(suspension.tryCatchBlockEndLabelAfterSuspensionCall, withInstructionAdapter {
+                when(variable.normalizedType.sort) {
+                    Type.INT, Type.SHORT, Type.BYTE, Type.BOOLEAN, Type.CHAR -> iconst(0)
+                    Type.FLOAT -> fconst(0f)
+                    Type.DOUBLE -> dconst(0.0)
+                    Type.LONG -> lconst(0L)
+                    else -> aconst(null)
+                }
+                store(variable.slot, variable.normalizedType)
+            })
         }
     }
 
@@ -988,7 +1056,18 @@ class CoroutineTransformerMethodVisitor(
             }
             cursor = cursor.next
         }
-        return true
+
+        // Check whether the variable range has meaningful operations in it
+        cursor = local.start
+        while (cursor != null && cursor != local.end) {
+            if (cursor.isMeaningful) {
+                // found at least one meaningful operation
+                return true
+            }
+            cursor = cursor.next
+        }
+
+        return false
     }
 
     private fun mapFieldNameToVariable(
@@ -1132,7 +1211,6 @@ class CoroutineTransformerMethodVisitor(
         suspendPointLineNumber: LineNumberNode?
     ): LabelNode {
         val continuationLabelAfterLoadedResult = LabelNode()
-        val suspendElementLineNumber = lineNumber
         var nextLineNumberNode = nextDefinitelyHitLineNumber(suspension)
         with(methodNode.instructions) {
             // Save state
@@ -1156,7 +1234,7 @@ class CoroutineTransformerMethodVisitor(
                 val returnLabel = LabelNode()
                 visitLabel(returnLabel.label)
                 // Special line number to stop in debugger before suspend return
-                visitLineNumber(suspendElementLineNumber, returnLabel.label)
+                visitLineNumber(lineNumber, returnLabel.label)
                 load(suspendMarkerVarIndex, AsmTypes.OBJECT_TYPE)
                 areturn(AsmTypes.OBJECT_TYPE)
                 // Mark place for continuation
@@ -1189,27 +1267,38 @@ class CoroutineTransformerMethodVisitor(
 
                 visitLabel(continuationLabelAfterLoadedResult.label)
 
-                if (nextLineNumberNode != null) {
-                    // If there is a clear next linenumber instruction, extend it. Can't use line number of suspension point
-                    // here because both non-suspended execution and re-entering after suspension passes this label.
-                    if (possibleTryCatchBlockStart.next?.opcode?.let {
-                            it != Opcodes.ASTORE && it != Opcodes.CHECKCAST && it != Opcodes.INVOKESTATIC &&
-                                    it != Opcodes.INVOKEVIRTUAL && it != Opcodes.INVOKEINTERFACE
-                        } == true
-                    ) {
-                        visitLineNumber(nextLineNumberNode!!.line, continuationLabelAfterLoadedResult.label)
-                    } else {
-                        // But keep the linenumber if the result of the call is used afterwards
-                        nextLineNumberNode = null
+                if (!config.enhancedCoroutinesDebugging) {
+                    if (nextLineNumberNode != null) {
+                        // Move linenumber closer to suspend call, otherwise, step-over suspend function does not work.
+                        // - To do step-over, the debugger sets breakpoints to the beginning of the function and to the next meaningful
+                        //   instruction.
+                        // - If the call does not suspend, the second breakpoint is hit.
+                        // - Otherwise, the call has suspended and then resumed.
+                        //
+                        // Enhanced coroutines debugging does not need such hack. Besides, it leads sometime to breakpoints not being hit.
+                        // See KT-48311
+
+                        // If there is a clear next linenumber instruction, extend it. Can't use line number of suspension point
+                        // here because both non-suspended execution and re-entering after suspension passes this label.
+                        if (possibleTryCatchBlockStart.next?.opcode?.let {
+                                it != Opcodes.ASTORE && it != Opcodes.CHECKCAST && it != Opcodes.INVOKESTATIC &&
+                                        it != Opcodes.INVOKEVIRTUAL && it != Opcodes.INVOKEINTERFACE
+                            } == true
+                        ) {
+                            visitLineNumber(nextLineNumberNode!!.line, continuationLabelAfterLoadedResult.label)
+                        } else {
+                            // But keep the linenumber if the result of the call is used afterwards
+                            nextLineNumberNode = null
+                        }
+                    } else if (suspendPointLineNumber != null) {
+                        // If there is no clear next linenumber instruction, the continuation is still on the
+                        // same line as the suspend point. For example, elvis.
+                        visitLineNumber(suspendPointLineNumber.line, continuationLabelAfterLoadedResult.label)
                     }
-                } else if (suspendPointLineNumber != null) {
-                    // If there is no clear next linenumber instruction, the continuation is still on the
-                    // same line as the suspend point.
-                    visitLineNumber(suspendPointLineNumber.line, continuationLabelAfterLoadedResult.label)
                 }
             })
 
-            if (nextLineNumberNode != null) {
+            if (!config.enhancedCoroutinesDebugging && nextLineNumberNode != null) {
                 // Remove the line number instruction as it now covered with line number on continuation label.
                 // If both linenumber are present in bytecode, debugger will trigger line specific events twice.
                 remove(nextLineNumberNode)

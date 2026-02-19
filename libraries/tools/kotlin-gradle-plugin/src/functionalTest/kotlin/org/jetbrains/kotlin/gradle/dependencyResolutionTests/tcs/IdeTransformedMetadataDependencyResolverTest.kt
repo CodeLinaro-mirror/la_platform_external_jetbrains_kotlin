@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinBinaryDependency
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.assertMatches
 import org.jetbrains.kotlin.gradle.idea.testFixtures.tcs.binaryCoordinates
+import org.jetbrains.kotlin.gradle.idea.testFixtures.utils.*
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 import org.jetbrains.kotlin.gradle.plugin.ide.dependencyResolvers.IdeTransformedMetadataDependencyResolver
@@ -47,18 +48,22 @@ class IdeTransformedMetadataDependencyResolverTest {
 
         project.evaluate()
 
+        val unresolvedDependenciesDiagnosticMatcher = unresolvedDependenciesDiagnosticMatcher("com.arkivanov.mvikotlin:mvikotlin")
+
         IdeTransformedMetadataDependencyResolver.resolve(commonMain)
             .assertMatches(
                 binaryCoordinates("com.arkivanov.mvikotlin:mvikotlin:commonMain:3.0.2"),
                 binaryCoordinates("com.arkivanov.essenty:lifecycle:commonMain:0.4.2"),
-                binaryCoordinates("com.arkivanov.essenty:instance-keeper:commonMain:0.4.2")
+                binaryCoordinates("com.arkivanov.essenty:instance-keeper:commonMain:0.4.2"),
+                unresolvedDependenciesDiagnosticMatcher,
             )
 
         IdeTransformedMetadataDependencyResolver.resolve(commonTest)
             .assertMatches(
                 binaryCoordinates("com.arkivanov.mvikotlin:mvikotlin:commonMain:3.0.2"),
                 binaryCoordinates("com.arkivanov.essenty:lifecycle:commonMain:0.4.2"),
-                binaryCoordinates("com.arkivanov.essenty:instance-keeper:commonMain:0.4.2")
+                binaryCoordinates("com.arkivanov.essenty:instance-keeper:commonMain:0.4.2"),
+                unresolvedDependenciesDiagnosticMatcher,
             )
 
         IdeTransformedMetadataDependencyResolver.resolve(linuxMain)
@@ -66,7 +71,8 @@ class IdeTransformedMetadataDependencyResolverTest {
                 binaryCoordinates("com.arkivanov.mvikotlin:mvikotlin:commonMain:3.0.2"),
                 binaryCoordinates("com.arkivanov.mvikotlin:mvikotlin:jsNativeMain:3.0.2"),
                 binaryCoordinates("com.arkivanov.essenty:lifecycle:commonMain:0.4.2"),
-                binaryCoordinates("com.arkivanov.essenty:instance-keeper:commonMain:0.4.2")
+                binaryCoordinates("com.arkivanov.essenty:instance-keeper:commonMain:0.4.2"),
+                unresolvedDependenciesDiagnosticMatcher
             )
     }
 
@@ -85,6 +91,7 @@ class IdeTransformedMetadataDependencyResolverTest {
         val kotlin = project.multiplatformExtension
 
         kotlin.jvm()
+        @Suppress("DEPRECATION")
         kotlin.androidTarget()
 
         val commonMain = kotlin.sourceSets.getByName("commonMain")

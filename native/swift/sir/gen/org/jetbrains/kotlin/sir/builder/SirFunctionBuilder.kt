@@ -20,8 +20,10 @@ class SirFunctionBuilder {
     var visibility: SirVisibility = SirVisibility.PUBLIC
     var documentation: String? = null
     val attributes: MutableList<SirAttribute> = mutableListOf()
+    val bridges: MutableList<SirBridge> = mutableListOf()
     var body: SirFunctionBody? = null
     var errorType: SirType = SirType.never
+    var isAsync: Boolean = false
     var isOverride: Boolean = false
     var isInstance: Boolean = true
     var modality: SirModality = SirModality.UNSPECIFIED
@@ -29,6 +31,7 @@ class SirFunctionBuilder {
     var extensionReceiverParameter: SirParameter? = null
     val parameters: MutableList<SirParameter> = mutableListOf()
     lateinit var returnType: SirType
+    var fixity: SirFixity? = null
 
     fun build(): SirFunction {
         return SirFunctionImpl(
@@ -36,8 +39,10 @@ class SirFunctionBuilder {
             visibility,
             documentation,
             attributes,
+            bridges,
             body,
             errorType,
+            isAsync,
             isOverride,
             isInstance,
             modality,
@@ -45,6 +50,7 @@ class SirFunctionBuilder {
             extensionReceiverParameter,
             parameters,
             returnType,
+            fixity,
         )
     }
 
@@ -68,8 +74,10 @@ inline fun buildFunctionCopy(original: SirFunction, init: SirFunctionBuilder.() 
     copyBuilder.visibility = original.visibility
     copyBuilder.documentation = original.documentation
     copyBuilder.attributes.addAll(original.attributes)
+    copyBuilder.bridges.addAll(original.bridges)
     copyBuilder.body = original.body
     copyBuilder.errorType = original.errorType
+    copyBuilder.isAsync = original.isAsync
     copyBuilder.isOverride = original.isOverride
     copyBuilder.isInstance = original.isInstance
     copyBuilder.modality = original.modality
@@ -77,5 +85,6 @@ inline fun buildFunctionCopy(original: SirFunction, init: SirFunctionBuilder.() 
     copyBuilder.extensionReceiverParameter = original.extensionReceiverParameter
     copyBuilder.parameters.addAll(original.parameters)
     copyBuilder.returnType = original.returnType
+    copyBuilder.fixity = original.fixity
     return copyBuilder.apply(init).build()
 }

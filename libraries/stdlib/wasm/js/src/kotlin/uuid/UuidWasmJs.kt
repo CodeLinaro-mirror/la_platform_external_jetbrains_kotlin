@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:OptIn(ExperimentalWasmJsInterop::class)
+
 package kotlin.uuid
 
 private fun cryptoGetRandomValues(size: Int): JsAny =
@@ -11,9 +13,9 @@ private fun cryptoGetRandomValues(size: Int): JsAny =
 private fun get(array: JsAny, index: Int): Byte =
     js("array[index]")
 
-@ExperimentalUuidApi
-internal actual fun secureRandomUuid(): Uuid {
-    val int8Array = cryptoGetRandomValues(Uuid.SIZE_BYTES)
-    val randomBytes = ByteArray(Uuid.SIZE_BYTES) { get(int8Array, it) }
-    return uuidFromRandomBytes(randomBytes)
+internal actual fun secureRandomBytes(destination: ByteArray): Unit {
+    val int8Array = cryptoGetRandomValues(destination.size)
+    for (idx in destination.indices) {
+        destination[idx] = get(int8Array, idx)
+    }
 }

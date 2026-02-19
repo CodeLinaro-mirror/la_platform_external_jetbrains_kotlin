@@ -29,7 +29,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
     }
 
     public void testAllFilesPresentInCommonAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common"), Pattern.compile("^([^.]+)$"), null, true);
     }
 
     @TestMetadata("classAdded")
@@ -161,7 +161,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/classAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/classAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -174,7 +174,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/classRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/classRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -187,7 +187,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInConstantValueChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/constantValueChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/constantValueChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -200,7 +200,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCopyFileToAnotherModule() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/copyFileToAnotherModule"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/copyFileToAnotherModule"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -213,7 +213,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDefaultArgumentInConstructorRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultArgumentInConstructorRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultArgumentInConstructorRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -226,7 +226,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDefaultParameterAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -239,7 +239,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDefaultParameterAddedForTopLevelFun() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterAddedForTopLevelFun"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterAddedForTopLevelFun"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -252,7 +252,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDefaultParameterRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -265,7 +265,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDefaultParameterRemovedForTopLevelFun() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterRemovedForTopLevelFun"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultParameterRemovedForTopLevelFun"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -278,7 +278,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDefaultValueInConstructorRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultValueInConstructorRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/defaultValueInConstructorRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -291,7 +291,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInDuplicatedClass() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/duplicatedClass"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/duplicatedClass"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -304,7 +304,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInExportedDependency() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/exportedDependency"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/exportedDependency"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -317,7 +317,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInFunctionFromDifferentPackageChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/functionFromDifferentPackageChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/functionFromDifferentPackageChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -330,7 +330,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInInlineFunctionInlined() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/inlineFunctionInlined"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/inlineFunctionInlined"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -343,7 +343,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInInlineFunctionTwoPackageParts() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/inlineFunctionTwoPackageParts"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/inlineFunctionTwoPackageParts"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -356,7 +356,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMoveFileToAnotherModule() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/moveFileToAnotherModule"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/moveFileToAnotherModule"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -369,7 +369,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSimple() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simple"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simple"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -382,7 +382,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSimpleDependency() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependency"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependency"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -395,7 +395,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSimpleDependencyErrorOnAccessToInternal1() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependencyErrorOnAccessToInternal1"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependencyErrorOnAccessToInternal1"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -408,7 +408,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSimpleDependencyErrorOnAccessToInternal2() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependencyErrorOnAccessToInternal2"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependencyErrorOnAccessToInternal2"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -421,7 +421,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSimpleDependencyUnchanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependencyUnchanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/simpleDependencyUnchanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -434,7 +434,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInTransitiveDependency() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/transitiveDependency"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/transitiveDependency"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -447,7 +447,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInTransitiveInlining() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/transitiveInlining"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/transitiveInlining"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -460,7 +460,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInTwoDependants() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/twoDependants"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/common/twoDependants"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
   }
@@ -474,7 +474,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
     }
 
     public void testAllFilesPresentInJvmAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm"), Pattern.compile("^([^.]+)$"), null, true);
     }
 
     @TestMetadata("circular")
@@ -511,7 +511,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCircular() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circular"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circular"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -524,7 +524,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCircularDependencyClasses() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencyClasses"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencyClasses"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -537,7 +537,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCircularDependencySamePackageUnchanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencySamePackageUnchanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencySamePackageUnchanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -550,7 +550,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCircularDependencyTopLevelFunctions() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencyTopLevelFunctions"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencyTopLevelFunctions"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -563,128 +563,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCircularDependencyWithAccessToInternal() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencyWithAccessToInternal"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-      }
-    }
-  }
-
-  @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom")
-  @TestDataPath("$PROJECT_ROOT")
-  @RunWith(JUnit3RunnerWithInners.class)
-  public static class CustomAbstractIncrementalK1JvmJpsTest extends AbstractIncrementalK1JvmJpsTest {
-    private void runTest(String testDataFilePath) {
-      KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-    }
-
-    public void testAllFilesPresentInCustomAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-    }
-
-    @TestMetadata("buildError")
-    public void testBuildError() {
-      runTest("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/buildError/");
-    }
-
-    @TestMetadata("buildError2Levels")
-    public void testBuildError2Levels() {
-      runTest("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/buildError2Levels/");
-    }
-
-    @TestMetadata("commonSourcesCompilerArg")
-    public void testCommonSourcesCompilerArg() {
-      runTest("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/commonSourcesCompilerArg/");
-    }
-
-    @TestMetadata("complementaryFiles")
-    public void testComplementaryFiles() {
-      runTest("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/complementaryFiles/");
-    }
-
-    @TestMetadata("modifyOptionalAnnotationUsage")
-    public void testModifyOptionalAnnotationUsage() {
-      runTest("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/modifyOptionalAnnotationUsage/");
-    }
-
-    @TestMetadata("notSameCompiler")
-    public void testNotSameCompiler() {
-      runTest("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/notSameCompiler/");
-    }
-
-    @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/buildError")
-    @TestDataPath("$PROJECT_ROOT")
-    @RunWith(JUnit3RunnerWithInners.class)
-    public static class BuildError extends AbstractIncrementalK1JvmJpsTest {
-      private void runTest(String testDataFilePath) {
-        KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-      }
-
-      public void testAllFilesPresentInBuildError() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/buildError"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-      }
-    }
-
-    @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/buildError2Levels")
-    @TestDataPath("$PROJECT_ROOT")
-    @RunWith(JUnit3RunnerWithInners.class)
-    public static class BuildError2Levels extends AbstractIncrementalK1JvmJpsTest {
-      private void runTest(String testDataFilePath) {
-        KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-      }
-
-      public void testAllFilesPresentInBuildError2Levels() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/buildError2Levels"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-      }
-    }
-
-    @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/commonSourcesCompilerArg")
-    @TestDataPath("$PROJECT_ROOT")
-    @RunWith(JUnit3RunnerWithInners.class)
-    public static class CommonSourcesCompilerArg extends AbstractIncrementalK1JvmJpsTest {
-      private void runTest(String testDataFilePath) {
-        KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-      }
-
-      public void testAllFilesPresentInCommonSourcesCompilerArg() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/commonSourcesCompilerArg"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-      }
-    }
-
-    @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/complementaryFiles")
-    @TestDataPath("$PROJECT_ROOT")
-    @RunWith(JUnit3RunnerWithInners.class)
-    public static class ComplementaryFiles extends AbstractIncrementalK1JvmJpsTest {
-      private void runTest(String testDataFilePath) {
-        KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-      }
-
-      public void testAllFilesPresentInComplementaryFiles() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/complementaryFiles"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-      }
-    }
-
-    @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/modifyOptionalAnnotationUsage")
-    @TestDataPath("$PROJECT_ROOT")
-    @RunWith(JUnit3RunnerWithInners.class)
-    public static class ModifyOptionalAnnotationUsage extends AbstractIncrementalK1JvmJpsTest {
-      private void runTest(String testDataFilePath) {
-        KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-      }
-
-      public void testAllFilesPresentInModifyOptionalAnnotationUsage() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/modifyOptionalAnnotationUsage"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
-      }
-    }
-
-    @TestMetadata("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/notSameCompiler")
-    @TestDataPath("$PROJECT_ROOT")
-    @RunWith(JUnit3RunnerWithInners.class)
-    public static class NotSameCompiler extends AbstractIncrementalK1JvmJpsTest {
-      private void runTest(String testDataFilePath) {
-        KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM_IR, testDataFilePath);
-      }
-
-      public void testAllFilesPresentInNotSameCompiler() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/multiplatform/custom/notSameCompiler"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/multiModule/jvm/circularDependencyWithAccessToInternal"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
   }
@@ -728,7 +607,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
     }
 
     public void testAllFilesPresentInPureKotlinAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/pureKotlin"), Pattern.compile("^([^.]+)$"), Pattern.compile(".*SinceK2"), TargetBackend.JVM_IR, false);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/pureKotlin"), Pattern.compile("^([^.]+)$"), Pattern.compile(".*SinceK2"), false);
     }
 
     @TestMetadata("annotations")
@@ -1396,7 +1275,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
     }
 
     public void testAllFilesPresentInWithJavaAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava"), Pattern.compile("^([^.]+)$"), null, true);
     }
 
     @TestMetadata("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin")
@@ -1408,7 +1287,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInConvertBetweenJavaAndKotlin() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin"), Pattern.compile("^([^.]+)$"), null, true);
       }
 
       @TestMetadata("javaToKotlin")
@@ -1440,7 +1319,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaToKotlin() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/javaToKotlin"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/javaToKotlin"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1453,7 +1332,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaToKotlinAndBack() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/javaToKotlinAndBack"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/javaToKotlinAndBack"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1466,7 +1345,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaToKotlinAndRemove() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/javaToKotlinAndRemove"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/javaToKotlinAndRemove"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1479,7 +1358,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInKotlinToJava() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/kotlinToJava"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/convertBetweenJavaAndKotlin/kotlinToJava"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
     }
@@ -1493,7 +1372,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInJavaUsedInKotlin() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin"), Pattern.compile("^([^.]+)$"), null, true);
       }
 
       @TestMetadata("changeFieldType")
@@ -1615,7 +1494,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeFieldType() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeFieldType"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeFieldType"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1628,7 +1507,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeNotUsedSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeNotUsedSignature"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeNotUsedSignature"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1641,7 +1520,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangePropertyOverrideType() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changePropertyOverrideType"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changePropertyOverrideType"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1654,7 +1533,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignature"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignature"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1667,7 +1546,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeSignaturePackagePrivate() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignaturePackagePrivate"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignaturePackagePrivate"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1680,7 +1559,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeSignaturePackagePrivateNonRoot() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignaturePackagePrivateNonRoot"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignaturePackagePrivateNonRoot"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1693,7 +1572,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeSignatureStatic() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignatureStatic"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/changeSignatureStatic"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1706,7 +1585,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInConstantChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1719,7 +1598,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInConstantPropertyChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantPropertyChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantPropertyChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1732,7 +1611,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInConstantUnchanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantUnchanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/constantUnchanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1745,7 +1624,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInEnumEntryAdded() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/enumEntryAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/enumEntryAdded"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1758,7 +1637,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInEnumEntryRemoved() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/enumEntryRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/enumEntryRemoved"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1771,7 +1650,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaAndKotlinChangedSimultaneously() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaAndKotlinChangedSimultaneously"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaAndKotlinChangedSimultaneously"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1784,7 +1663,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaFieldNullabilityChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaFieldNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaFieldNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1797,7 +1676,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaMethodParamNullabilityChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaMethodParamNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaMethodParamNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1810,7 +1689,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJavaMethodReturnTypeNullabilityChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaMethodReturnTypeNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/javaMethodReturnTypeNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1823,7 +1702,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMethodAddedInSuper() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/methodAddedInSuper"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/methodAddedInSuper"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1836,7 +1715,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMethodRenamed() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/methodRenamed"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/methodRenamed"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1849,7 +1728,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMixedInheritance() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/mixedInheritance"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/mixedInheritance"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1862,7 +1741,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInNotChangeSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/notChangeSignature"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/notChangeSignature"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1875,7 +1754,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInRawErrorTypeDuringSerialization() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/rawErrorTypeDuringSerialization"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/rawErrorTypeDuringSerialization"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1888,7 +1767,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInRemoveAnnotation() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/removeAnnotation"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/removeAnnotation"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -1901,7 +1780,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInSamConversions() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions"), Pattern.compile("^([^.]+)$"), null, true);
         }
 
         @TestMetadata("methodAddDefault")
@@ -1938,7 +1817,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
           }
 
           public void testAllFilesPresentInMethodAddDefault() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodAddDefault"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodAddDefault"), Pattern.compile("^([^.]+)$"), null, true);
           }
         }
 
@@ -1951,7 +1830,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
           }
 
           public void testAllFilesPresentInMethodAdded() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodAdded"), Pattern.compile("^([^.]+)$"), null, true);
           }
         }
 
@@ -1964,7 +1843,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
           }
 
           public void testAllFilesPresentInMethodAddedSamAdapter() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodAddedSamAdapter"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodAddedSamAdapter"), Pattern.compile("^([^.]+)$"), null, true);
           }
         }
 
@@ -1977,7 +1856,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
           }
 
           public void testAllFilesPresentInMethodSignatureChanged() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodSignatureChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodSignatureChanged"), Pattern.compile("^([^.]+)$"), null, true);
           }
         }
 
@@ -1990,7 +1869,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
           }
 
           public void testAllFilesPresentInMethodSignatureChangedSamAdapter() {
-            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodSignatureChangedSamAdapter"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+            KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/javaUsedInKotlin/samConversions/methodSignatureChangedSamAdapter"), Pattern.compile("^([^.]+)$"), null, true);
           }
         }
       }
@@ -2010,7 +1889,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInKotlinUsedInJava() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava"), Pattern.compile("^([^.]+)$"), null, true);
       }
 
       @TestMetadata("changeNotUsedSignature")
@@ -2092,7 +1971,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInAddOptionalParameter() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/addOptionalParameter"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/addOptionalParameter"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2105,7 +1984,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeNotUsedSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/changeNotUsedSignature"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/changeNotUsedSignature"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2118,7 +1997,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInChangeSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/changeSignature"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/changeSignature"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2131,7 +2010,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInConstantChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/constantChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/constantChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2144,7 +2023,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInConstantUnchanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/constantUnchanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/constantUnchanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2157,7 +2036,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInFunRenamed() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/funRenamed"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/funRenamed"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2170,7 +2049,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInImportedClassRemoved() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/importedClassRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/importedClassRemoved"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2183,7 +2062,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJvmFieldChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/jvmFieldChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/jvmFieldChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2196,7 +2075,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJvmFieldUnchanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/jvmFieldUnchanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/jvmFieldUnchanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2209,7 +2088,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMethodAddedInSuper() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/methodAddedInSuper"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/methodAddedInSuper"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2222,7 +2101,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInNotChangeSignature() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/notChangeSignature"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/notChangeSignature"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2235,7 +2114,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInOnlyTopLevelFunctionInFileRemoved() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/onlyTopLevelFunctionInFileRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/onlyTopLevelFunctionInFileRemoved"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2248,7 +2127,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPackageFileAdded() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/packageFileAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/packageFileAdded"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2261,7 +2140,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPrivateChanges() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/privateChanges"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/privateChanges"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2274,7 +2153,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPropertyRenamed() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/propertyRenamed"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/kotlinUsedInJava/propertyRenamed"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
     }
@@ -2293,7 +2172,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInOther() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other"), Pattern.compile("^([^.]+)$"), null, true);
       }
 
       @TestMetadata("allKotlinFilesRemovedThenNewAdded")
@@ -2455,7 +2334,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInAccessingFunctionsViaRenamedFileClass() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/accessingFunctionsViaRenamedFileClass"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/accessingFunctionsViaRenamedFileClass"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2468,7 +2347,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInAllKotlinFilesRemovedThenNewAdded() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/allKotlinFilesRemovedThenNewAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/allKotlinFilesRemovedThenNewAdded"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2481,7 +2360,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInClassRedeclaration() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/classRedeclaration"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/classRedeclaration"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2494,7 +2373,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInClassToPackageFacade() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/classToPackageFacade"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/classToPackageFacade"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2507,7 +2386,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInConflictingPlatformDeclarations() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/conflictingPlatformDeclarations"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/conflictingPlatformDeclarations"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2520,7 +2399,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInDefaultValueInConstructorAdded() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/defaultValueInConstructorAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/defaultValueInConstructorAdded"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2533,7 +2412,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInInlineFunctionWithJvmNameInClass() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/inlineFunctionWithJvmNameInClass"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/inlineFunctionWithJvmNameInClass"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2546,7 +2425,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInInlineTopLevelFunctionWithJvmName() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/inlineTopLevelFunctionWithJvmName"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/inlineTopLevelFunctionWithJvmName"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2559,7 +2438,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInInlineTopLevelValPropertyWithJvmName() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/inlineTopLevelValPropertyWithJvmName"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/inlineTopLevelValPropertyWithJvmName"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2572,7 +2451,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInInnerClassNotGeneratedWhenRebuilding() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/innerClassNotGeneratedWhenRebuilding"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/innerClassNotGeneratedWhenRebuilding"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2585,7 +2464,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInJvmNameChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/jvmNameChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/jvmNameChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2598,7 +2477,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMainRedeclaration() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/mainRedeclaration"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/mainRedeclaration"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2611,7 +2490,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassAddTopLevelFunWithDefault() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassAddTopLevelFunWithDefault"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassAddTopLevelFunWithDefault"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2624,7 +2503,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassFileAdded() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassFileAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassFileAdded"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2637,7 +2516,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassFileChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassFileChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassFileChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2650,7 +2529,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassFileMovedToAnotherMultifileClass() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassFileMovedToAnotherMultifileClass"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassFileMovedToAnotherMultifileClass"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2663,7 +2542,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassInlineFunction() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassInlineFunction"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassInlineFunction"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2676,7 +2555,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassInlineFunctionAccessingField() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassInlineFunctionAccessingField"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassInlineFunctionAccessingField"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2689,7 +2568,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassRecreated() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassRecreated"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassRecreated"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2702,7 +2581,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassRecreatedAfterRenaming() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassRecreatedAfterRenaming"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassRecreatedAfterRenaming"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2715,7 +2594,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileClassRemoved() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileClassRemoved"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2728,7 +2607,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifileDependantUsage() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileDependantUsage"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifileDependantUsage"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2741,7 +2620,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifilePackagePartMethodAdded() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifilePackagePartMethodAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifilePackagePartMethodAdded"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2754,7 +2633,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInMultifilePartsWithProperties() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifilePartsWithProperties"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/multifilePartsWithProperties"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2767,7 +2646,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInOptionalParameter() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/optionalParameter"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/optionalParameter"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2780,7 +2659,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPackageFacadeToClass() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/packageFacadeToClass"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/packageFacadeToClass"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2793,7 +2672,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPackageMultifileClassOneFileWithPublicChanges() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/packageMultifileClassOneFileWithPublicChanges"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/packageMultifileClassOneFileWithPublicChanges"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2806,7 +2685,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPackageMultifileClassPrivateOnlyChanged() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/packageMultifileClassPrivateOnlyChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/packageMultifileClassPrivateOnlyChanged"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2819,7 +2698,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInPublicPropertyWithPrivateSetterMultiFileFacade() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/publicPropertyWithPrivateSetterMultiFileFacade"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/publicPropertyWithPrivateSetterMultiFileFacade"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2832,7 +2711,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInTopLevelFunctionWithJvmName() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/topLevelFunctionWithJvmName"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/topLevelFunctionWithJvmName"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
 
@@ -2845,7 +2724,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
         }
 
         public void testAllFilesPresentInTopLevelPropertyWithJvmName() {
-          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/topLevelPropertyWithJvmName"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/withJava/other/topLevelPropertyWithJvmName"), Pattern.compile("^([^.]+)$"), null, true);
         }
       }
     }
@@ -2860,7 +2739,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
     }
 
     public void testAllFilesPresentInInlineFunCallSiteAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite"), Pattern.compile("^([^.]+)$"), null, true);
     }
 
     @TestMetadata("classProperty")
@@ -2952,7 +2831,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassProperty() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/classProperty"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/classProperty"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -2965,7 +2844,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCompanionObjectProperty() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/companionObjectProperty"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/companionObjectProperty"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -2978,7 +2857,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCoroutine() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/coroutine"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/coroutine"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -2991,7 +2870,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInFunction() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/function"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/function"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3004,7 +2883,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInFunctionIndirect() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/functionIndirect"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/functionIndirect"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3017,7 +2896,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInGetter() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/getter"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/getter"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3030,7 +2909,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInLambda() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/lambda"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/lambda"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3043,7 +2922,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInLocalFun() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/localFun"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/localFun"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3056,7 +2935,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMethod() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/method"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/method"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3069,7 +2948,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInParameterDefaultValue() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/parameterDefaultValue"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/parameterDefaultValue"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3082,7 +2961,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInPrimaryConstructorParameterDefaultValue() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/primaryConstructorParameterDefaultValue"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/primaryConstructorParameterDefaultValue"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3095,7 +2974,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInPublishedApi() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/publishedApi"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/publishedApi"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3108,7 +2987,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSuperCall() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/superCall"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/superCall"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3121,7 +3000,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInThisCall() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/thisCall"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/thisCall"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3134,7 +3013,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInTopLevelObjectProperty() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/topLevelObjectProperty"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/topLevelObjectProperty"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3147,7 +3026,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInTopLevelProperty() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/topLevelProperty"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/inlineFunCallSite/topLevelProperty"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
   }
@@ -3161,7 +3040,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
     }
 
     public void testAllFilesPresentInClassHierarchyAffectedAbstractIncrementalK1JvmJpsTest() {
-      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected"), Pattern.compile("^([^.]+)$"), null, true);
     }
 
     @TestMetadata("annotationFlagRemoved")
@@ -3383,7 +3262,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInAnnotationFlagRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/annotationFlagRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/annotationFlagRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3396,7 +3275,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInAnnotationListChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/annotationListChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/annotationListChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3409,7 +3288,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInBridgeGenerated() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/bridgeGenerated"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/bridgeGenerated"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3422,7 +3301,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassBecameFinal() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classBecameFinal"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classBecameFinal"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3435,7 +3314,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassBecameInterface() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classBecameInterface"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classBecameInterface"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3448,7 +3327,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassBecamePrivate() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classBecamePrivate"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classBecamePrivate"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3461,7 +3340,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassMovedIntoOtherClass() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classMovedIntoOtherClass"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classMovedIntoOtherClass"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3474,7 +3353,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3487,7 +3366,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInClassRemovedAndRestored() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classRemovedAndRestored"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/classRemovedAndRestored"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3500,7 +3379,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCompanionObjectInheritedMemberChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectInheritedMemberChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectInheritedMemberChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3513,7 +3392,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCompanionObjectMemberChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectMemberChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectMemberChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3526,7 +3405,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCompanionObjectNameChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectNameChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectNameChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3539,7 +3418,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInCompanionObjectToSimpleObject() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectToSimpleObject"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/companionObjectToSimpleObject"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3552,7 +3431,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInConstructorVisibilityChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/constructorVisibilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/constructorVisibilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3565,7 +3444,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInEnumEntryAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/enumEntryAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/enumEntryAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3578,7 +3457,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInEnumEntryRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/enumEntryRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/enumEntryRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3591,7 +3470,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInEnumMemberChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/enumMemberChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/enumMemberChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3604,7 +3483,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInFlagsAndMemberInDifferentClassesChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/flagsAndMemberInDifferentClassesChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/flagsAndMemberInDifferentClassesChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3617,7 +3496,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInFlagsAndMemberInSameClassChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/flagsAndMemberInSameClassChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/flagsAndMemberInSameClassChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3630,7 +3509,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInImplcitUpcast() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/implcitUpcast"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/implcitUpcast"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3643,7 +3522,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInInferredTypeArgumentChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/inferredTypeArgumentChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/inferredTypeArgumentChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3656,7 +3535,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInInferredTypeChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/inferredTypeChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/inferredTypeChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3669,7 +3548,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInInterfaceAnyMethods() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/interfaceAnyMethods"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/interfaceAnyMethods"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3682,7 +3561,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInLambdaParameterAffected() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/lambdaParameterAffected"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/lambdaParameterAffected"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3695,7 +3574,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMethodAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3708,7 +3587,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMethodAnnotationAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodAnnotationAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodAnnotationAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3721,7 +3600,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMethodNullabilityChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3734,7 +3613,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMethodParameterWithDefaultValueAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodParameterWithDefaultValueAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodParameterWithDefaultValueAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3747,7 +3626,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInMethodRemoved() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodRemoved"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/methodRemoved"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3760,7 +3639,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInOuterClassVisibilityChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/outerClassVisibilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/outerClassVisibilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3773,7 +3652,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInOverrideExplicit() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/overrideExplicit"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/overrideExplicit"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3786,7 +3665,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInOverrideImplicit() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/overrideImplicit"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/overrideImplicit"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3799,7 +3678,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInPropertyNullabilityChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/propertyNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/propertyNullabilityChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3812,7 +3691,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSealedClassImplAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/sealedClassImplAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/sealedClassImplAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3825,7 +3704,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSealedClassIndirectImplAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/sealedClassIndirectImplAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/sealedClassIndirectImplAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3838,7 +3717,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSealedClassNestedImplAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/sealedClassNestedImplAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/sealedClassNestedImplAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3851,7 +3730,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSecondaryConstructorAdded() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/secondaryConstructorAdded"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/secondaryConstructorAdded"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3864,7 +3743,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInStarProjectionUpperBoundChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/starProjectionUpperBoundChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/starProjectionUpperBoundChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3877,7 +3756,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInSupertypesListChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/supertypesListChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/supertypesListChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3890,7 +3769,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInTypeParameterListChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/typeParameterListChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/typeParameterListChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3903,7 +3782,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInVarianceChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/varianceChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/varianceChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
 
@@ -3916,7 +3795,7 @@ public class IncrementalK1JvmJpsTestGenerated extends AbstractIncrementalK1JvmJp
       }
 
       public void testAllFilesPresentInWithIntermediateBodiesChanged() {
-        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/withIntermediateBodiesChanged"), Pattern.compile("^([^.]+)$"), null, TargetBackend.JVM_IR, true);
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("jps/jps-plugin/testData/incremental/classHierarchyAffected/withIntermediateBodiesChanged"), Pattern.compile("^([^.]+)$"), null, true);
       }
     }
   }

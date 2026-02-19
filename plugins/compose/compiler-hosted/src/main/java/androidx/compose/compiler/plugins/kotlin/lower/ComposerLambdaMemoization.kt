@@ -40,7 +40,6 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.isUnit
@@ -49,7 +48,6 @@ import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.kotlin.PackagePartClassUtils
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.isJs
-import org.jetbrains.kotlin.platform.isWasm
 import org.jetbrains.kotlin.platform.jvm.isJvm
 
 private class CaptureCollector {
@@ -129,11 +127,21 @@ private class SymbolOwnerContext(override val declaration: IrSymbolOwner) : Decl
 private class FunctionContext(
     override val declaration: IrFunction,
     override val composable: Boolean,
+    /**
+     * The number of `IrTry` elements that are descendants of _d_ and ancestors of the current
+     * scope, where _d_ is [declaration] if [declaration] is not an inline lambda or the closest
+     * ancestor of [declaration] that is not an inline lambda, otherwise.
+     */
+    var enclosingTryCount: Int = 0,
 ) : DeclarationContext() {
     val locals = mutableSetOf<IrValueDeclaration>()
     override val captures: MutableSet<IrValueDeclaration> = mutableSetOf()
     var collectors = mutableListOf<CaptureCollector>()
-    val canRemember: Boolean get() = composable
+
+
+    // Composable function invocations are not allowed in `try` expressions, so memoization is not
+    // allowed in them.
+    val canRemember: Boolean get() = composable && enclosingTryCount == 0
 
     init {
         declaration.parameters.forEach {
@@ -234,7 +242,7 @@ private class ClassContext(override val declaration: IrClass) : DeclarationConte
     override fun declareLocal(local: IrValueDeclaration) {}
     override fun recordCapture(local: IrValueDeclaration): Boolean {
         val isThis = local == thisParam
-        val isConstructorParam = (local?.parent as? IrConstructor)?.parent === declaration
+        val isConstructorParam = (local.parent as? IrConstructor)?.parent === declaration
         val isClassParam = isThis || isConstructorParam
         if (collectors.isNotEmpty() && isClassParam) {
             for (collector in collectors) {
@@ -416,14 +424,23 @@ class ComposerLambdaMemoization(
 
     override fun visitFunction(declaration: IrFunction): IrStatement {
         val composable = declaration.allowsComposableCalls
-        val context = FunctionContext(declaration, composable)
+        val context = FunctionContext(
+            declaration,
+            composable,
+            // When creating a [FunctionContext] for an inline lambda, we must carry
+            // `enclosingTryCount` over, because the counted `try` expressions effectively enclose
+            // the contents of the inline lambda.
+            if (!inlineLambdaInfo.isInlineLambda(declaration)) 0 else currentFunctionContext?.enclosingTryCount ?: 0
+        )
         if (declaration.isLocal) {
             declarationContextStack.recordLocalDeclaration(context)
         }
         declarationContextStack.push(context)
         val oldFunctionContext = currentFunctionContext
         currentFunctionContext = context
+
         val result = super.visitFunction(declaration)
+
         currentFunctionContext = oldFunctionContext
         declarationContextStack.pop()
         return result
@@ -435,7 +452,12 @@ class ComposerLambdaMemoization(
             declarationContextStack.recordLocalDeclaration(context)
         }
         declarationContextStack.push(context)
+        val oldFunctionContext = currentFunctionContext
+        currentFunctionContext = null
+
         val result = super.visitClass(declaration)
+
+        currentFunctionContext = oldFunctionContext
         declarationContextStack.pop()
         return result
     }
@@ -446,6 +468,14 @@ class ComposerLambdaMemoization(
         declarationContextStack.push(context)
         val result = super.visitAnonymousInitializer(declaration)
         declarationContextStack.pop()
+        return result
+    }
+
+    override fun visitTry(aTry: IrTry): IrExpression {
+        currentFunctionContext?.enclosingTryCount++
+        val result = super.visitExpression(aTry)
+        currentFunctionContext?.enclosingTryCount--
+
         return result
     }
 

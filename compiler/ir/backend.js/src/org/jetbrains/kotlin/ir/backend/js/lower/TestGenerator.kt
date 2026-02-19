@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.ir.backend.js.lower
 
-import org.jetbrains.kotlin.backend.common.lower.UpgradeCallableReferences.Companion.selectSAMOverriddenFunction
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -31,7 +30,9 @@ import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
 import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.types.typeWithArguments
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.filterIsInstanceAnd
@@ -92,13 +93,13 @@ class TestGenerator(val context: JsCommonBackendContext) {
         function.parent = parentFunction
         function.body = body
 
-        val refType = context.symbols.functionN(0).typeWith(function.returnType)
+        val refClass = context.symbols.functionN(0)
         val testFunReference = IrRichFunctionReferenceImpl(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
-            type = refType,
+            type = refClass.typeWith(function.returnType),
             reflectionTargetSymbol = null,
-            overriddenFunctionSymbol = selectSAMOverriddenFunction(refType),
+            overriddenFunctionSymbol = refClass.owner.selectSAMOverriddenFunction().symbol,
             invokeFunction = function,
             origin = null,
             isRestrictedSuspension = false,
@@ -215,7 +216,7 @@ class TestGenerator(val context: JsCommonBackendContext) {
                     endOffset = UNDEFINED_OFFSET,
                     type = testFun.returnType,
                     operator = IrTypeOperator.CAST,
-                    typeOperand = promiseSymbol.defaultType,
+                    typeOperand = promiseSymbol.typeWithArguments(listOf(IrStarProjectionImpl)),
                     argument = returnStatement.value
                 )
             }
@@ -237,13 +238,13 @@ class TestGenerator(val context: JsCommonBackendContext) {
                 )
             }
 
-            val refType = context.symbols.functionN(0).typeWith(afterFunction.returnType)
+            val refClass = context.symbols.functionN(0)
             val finallyLambda = IrRichFunctionReferenceImpl(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
-                type = refType,
+                type = refClass.typeWith(afterFunction.returnType),
                 reflectionTargetSymbol = null,
-                overriddenFunctionSymbol = selectSAMOverriddenFunction(refType),
+                overriddenFunctionSymbol = refClass.owner.selectSAMOverriddenFunction().symbol,
                 invokeFunction = afterFunction,
                 origin = null,
                 isRestrictedSuspension = false,

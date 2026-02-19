@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.ir.backend.js.objectGetInstanceFunction
 import org.jetbrains.kotlin.ir.backend.js.utils.findUnitGetInstanceFunction
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
+import org.jetbrains.kotlin.ir.util.IdSignature
 import org.jetbrains.kotlin.ir.util.fileOrNull
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 
@@ -20,12 +21,39 @@ class WasmModuleFragmentGenerator(
     private val idSignatureRetriever: IdSignatureRetriever,
     private val allowIncompleteImplementations: Boolean,
     private val skipCommentInstructions: Boolean,
+    private val inlineUnitGetter: Boolean = true,
 ) {
-    fun generateModuleAsSingleFileFragment(irModuleFragment: IrModuleFragment): WasmCompiledFileFragment {
+    fun generateModuleAsSingleFileFragment(
+        irModuleFragment: IrModuleFragment,
+    ): WasmCompiledFileFragment {
         val wasmFileFragment = WasmCompiledFileFragment(fragmentTag = null)
         val wasmFileCodegenContext = WasmFileCodegenContext(wasmFileFragment, idSignatureRetriever)
-        val wasmModuleTypeTransformer = WasmModuleTypeTransformer(backendContext, wasmFileCodegenContext)
+        generate(irModuleFragment, wasmFileCodegenContext)
+        return wasmFileFragment
+    }
 
+    fun generateModuleAsSingleFileFragmentWithModuleImport(
+        irModuleFragment: IrModuleFragment,
+        moduleName: String,
+        importDeclarations: Set<IdSignature>,
+    ): WasmCompiledFileFragment {
+        val wasmFileFragment = WasmCompiledFileFragment(fragmentTag = null)
+        val wasmFileCodegenContext = WasmFileCodegenContextWithImport(wasmFileFragment, idSignatureRetriever, moduleName, importDeclarations)
+        generate(irModuleFragment, wasmFileCodegenContext)
+        return wasmFileFragment
+    }
+
+    fun generateModuleAsSingleFileFragmentWithModuleExport(
+        irModuleFragment: IrModuleFragment,
+    ): WasmCompiledFileFragment {
+        val wasmFileFragment = WasmCompiledFileFragment(fragmentTag = null)
+        val wasmFileCodegenContext = WasmFileCodegenContextWithExport(wasmFileFragment, idSignatureRetriever)
+        generate(irModuleFragment, wasmFileCodegenContext)
+        return wasmFileFragment
+    }
+
+    private fun generate(irModuleFragment: IrModuleFragment, wasmFileCodegenContext: WasmFileCodegenContext) {
+        val wasmModuleTypeTransformer = WasmModuleTypeTransformer(backendContext, wasmFileCodegenContext)
         for (irFile in irModuleFragment.files) {
             compileIrFile(
                 irFile,
@@ -35,9 +63,9 @@ class WasmModuleFragmentGenerator(
                 wasmFileCodegenContext,
                 wasmModuleTypeTransformer,
                 skipCommentInstructions,
+                inlineUnitGetter,
             )
         }
-        return wasmFileFragment
     }
 }
 
@@ -49,6 +77,7 @@ internal fun compileIrFile(
     allowIncompleteImplementations: Boolean,
     fragmentTag: String?,
     skipCommentInstructions: Boolean,
+    inlineUnitGetter: Boolean,
 ): WasmCompiledFileFragment {
     val wasmFileFragment = WasmCompiledFileFragment(fragmentTag)
     val wasmFileCodegenContext = WasmFileCodegenContext(wasmFileFragment, idSignatureRetriever)
@@ -61,6 +90,7 @@ internal fun compileIrFile(
         wasmFileCodegenContext,
         wasmModuleTypeTransformer,
         skipCommentInstructions,
+        inlineUnitGetter,
     )
     return wasmFileFragment
 }
@@ -73,6 +103,7 @@ private fun compileIrFile(
     wasmFileCodegenContext: WasmFileCodegenContext,
     wasmModuleTypeTransformer: WasmModuleTypeTransformer,
     skipCommentInstructions: Boolean,
+    inlineUnitGetter: Boolean,
 ) {
     val generator = DeclarationGenerator(
         backendContext,
@@ -81,6 +112,7 @@ private fun compileIrFile(
         wasmModuleMetadataCache,
         allowIncompleteImplementations,
         skipCommentInstructions,
+        inlineUnitGetter,
     )
     for (irDeclaration in irFile.declarations) {
         irDeclaration.acceptVoid(generator)
@@ -104,6 +136,12 @@ private fun compileIrFile(
     }
     fileContext.jsToKotlinClosures.forEach { (exportSignature, function) ->
         wasmFileCodegenContext.addEquivalentFunction("<4>_$exportSignature", function.symbol)
+    }
+    fileContext.objectInstanceFieldInitializer?.apply {
+        wasmFileCodegenContext.addObjectInstanceFieldInitializer(symbol)
+    }
+    fileContext.nonConstantFieldInitializer?.apply {
+        wasmFileCodegenContext.addNonConstantFieldInitializers(symbol)
     }
 
     fileContext.classAssociatedObjects.forEach { (klass, associatedObjects) ->
@@ -129,6 +167,10 @@ private fun WasmBackendContext.defineBuiltinSignatures(irFile: IrFile, wasmFileC
         irFile == it.owner.fileOrNull
     }
 
+    val kotlinAnyClass = irBuiltIns.anyClass.takeIf {
+        irFile == it.owner.fileOrNull
+    }
+
     val tryGetAssociatedObjectFunction = wasmSymbols.tryGetAssociatedObject.takeIf {
         irFile == it.owner.fileOrNull
     }
@@ -150,11 +192,22 @@ private fun WasmBackendContext.defineBuiltinSignatures(irFile: IrFile, wasmFileC
         irFile == it.owner.fileOrNull
     }
 
+    val createString = wasmSymbols.createString.takeIf {
+        irFile == it.owner.fileOrNull
+    }
+
+    val registerModuleDescriptor = wasmSymbols.registerModuleDescriptor.takeIf {
+        irFile == it.owner.fileOrNull
+    }
+
     wasmFileCodegenContext.defineBuiltinIdSignatures(
         throwable = throwableClass,
+        kotlinAny = kotlinAnyClass,
         tryGetAssociatedObject = tryGetAssociatedObjectFunction,
         jsToKotlinAnyAdapter = jsToKotlinAnyAdapter,
         unitGetInstance = unitGetInstance?.symbol,
         runRootSuites = runRootSuites,
+        createString = createString,
+        registerModuleDescriptor = registerModuleDescriptor,
     )
 }

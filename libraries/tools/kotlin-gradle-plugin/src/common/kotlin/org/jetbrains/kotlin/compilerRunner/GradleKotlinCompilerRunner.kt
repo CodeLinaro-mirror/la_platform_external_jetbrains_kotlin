@@ -18,6 +18,7 @@ import org.gradle.workers.WorkerExecutor
 import org.jetbrains.kotlin.build.report.metrics.*
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.compilerRunner.btapi.BuildSessionService
 import org.jetbrains.kotlin.compilerRunner.btapi.GradleBuildToolsApiCompilerRunner
 import org.jetbrains.kotlin.daemon.client.CompileServiceSession
 import org.jetbrains.kotlin.daemon.common.CompilerId
@@ -32,6 +33,8 @@ import org.jetbrains.kotlin.gradle.logging.kotlinDebug
 import org.jetbrains.kotlin.gradle.logging.kotlinInfo
 import org.jetbrains.kotlin.gradle.plugin.BuildFinishedListenerService
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.UsesKotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.plugin.getKotlinPluginVersion
 import org.jetbrains.kotlin.gradle.plugin.internal.BuildIdService
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskLoggers
@@ -66,30 +69,36 @@ internal fun createGradleCompilerRunner(
     cachedClassLoadersService: Property<ClassLoadersCachingBuildService>,
     buildFinishedListenerService: Provider<BuildFinishedListenerService>,
     buildIdService: Provider<BuildIdService>,
-    fusMetricsConsumer: StatisticsValuesConsumer?,
+    buildSessionService: Provider<BuildSessionService>,
+    fusMetricsConsumer: Provider<StatisticsValuesConsumer>,
+    diagnosticsReporter: UsesKotlinToolingDiagnostics,
 ): GradleCompilerRunner {
-    return if (runViaBuildToolsApi) {
-        GradleBuildToolsApiCompilerRunner(
-            taskProvider,
-            toolsJar,
-            compilerExecutionSettings,
-            buildMetricsReporter,
-            workerExecutor,
-            cachedClassLoadersService,
-            buildFinishedListenerService,
-            buildIdService,
-            fusMetricsConsumer
-        )
-    } else {
-        GradleCompilerRunnerWithWorkers(
-            taskProvider,
-            toolsJar,
-            compilerExecutionSettings,
-            buildMetricsReporter,
-            workerExecutor,
-            fusMetricsConsumer
-        )
+    if (runViaBuildToolsApi) {
+        if (compilerExecutionSettings.strategy != KotlinCompilerExecutionStrategy.OUT_OF_PROCESS) {
+            return GradleBuildToolsApiCompilerRunner(
+                taskProvider,
+                toolsJar,
+                compilerExecutionSettings,
+                buildMetricsReporter,
+                workerExecutor,
+                cachedClassLoadersService,
+                buildFinishedListenerService,
+                buildIdService,
+                buildSessionService,
+                fusMetricsConsumer
+            )
+        } else {
+            diagnosticsReporter.reportDiagnostic(KotlinToolingDiagnostics.UsingOutOfProcessDisablesBuildToolsApi())
+        }
     }
+    return GradleCompilerRunnerWithWorkers(
+        taskProvider,
+        toolsJar,
+        compilerExecutionSettings,
+        buildMetricsReporter,
+        workerExecutor,
+        fusMetricsConsumer
+    )
 }
 
 /*
@@ -102,7 +111,7 @@ internal open class GradleCompilerRunner(
     protected val jdkToolsJar: File?,
     protected val compilerExecutionSettings: CompilerExecutionSettings,
     protected val buildMetrics: BuildMetricsReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
-    protected val fusMetricsConsumer: StatisticsValuesConsumer?,
+    protected val fusMetricsConsumer: Provider<StatisticsValuesConsumer>,
 ) {
 
     internal val pathProvider = taskProvider.path.get()
@@ -167,7 +176,7 @@ internal open class GradleCompilerRunner(
         }
         val argsArray = ArgumentUtils.convertArgumentsToStringList(compilerArgs).toTypedArray()
 
-        fusMetricsConsumer?.let { metricsConsumer -> CompilerArgumentMetrics.collectMetrics(compilerArgs, argsArray, metricsConsumer) }
+        fusMetricsConsumer.orNull?.let { metricsConsumer -> CompilerArgumentMetrics.collectMetrics(compilerArgs, argsArray, metricsConsumer) }
 
         val incrementalCompilationEnvironment = environment.incrementalCompilationEnvironment
         val modulesInfo = incrementalCompilationEnvironment?.let { incrementalModuleInfoProvider.orNull?.info }

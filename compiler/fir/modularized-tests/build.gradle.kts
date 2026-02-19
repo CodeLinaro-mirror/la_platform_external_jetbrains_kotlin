@@ -6,30 +6,35 @@
 plugins {
     kotlin("jvm")
     id("jps-compatible")
+    id("project-tests-convention")
 }
 
 repositories {
     mavenLocal()
 }
 
+val composeCompilerPlugin by configurations.creating
+
 dependencies {
     testApi(intellijCore())
 
     testRuntimeOnly(libs.xerces)
-    testRuntimeOnly(commonDependency("commons-lang:commons-lang"))
+    testRuntimeOnly(commonDependency("org.apache.commons:commons-lang3"))
 
     testImplementation(libs.junit4)
     testCompileOnly(kotlinTest("junit"))
-    testApi(projectTests(":compiler:tests-common"))
+    testApi(testFixtures(project(":compiler:tests-common")))
 
     testRuntimeOnly(project(":core:descriptors.runtime"))
-    testApi(projectTests(":compiler:fir:analysis-tests:legacy-fir-tests"))
+    testApi(testFixtures(project(":compiler:fir:analysis-tests:legacy-fir-tests")))
     testApi(project(":compiler:fir:resolve"))
     testApi(project(":compiler:fir:providers"))
     testApi(project(":compiler:fir:semantics"))
     testApi(project(":compiler:fir:dump"))
 
     testRuntimeOnly(project(":compiler:fir:plugin-utils"))
+
+    composeCompilerPlugin(project(":plugins:compose-compiler-plugin:compiler-hosted")) { isTransitive = false }
 
     val asyncProfilerClasspath = project.findProperty("fir.bench.async.profiler.classpath") as? String
     if (asyncProfilerClasspath != null) {
@@ -44,16 +49,33 @@ sourceSets {
 
 optInToK1Deprecation()
 
-projectTest(minHeapSizeMb = 8192, maxHeapSizeMb = 8192, reservedCodeCacheSizeMb = 512) {
-    dependsOn(":dist")
-    systemProperties(project.properties.filterKeys { it.startsWith("fir.") })
-    workingDir = rootDir
+projectTests {
+    val modelDumpAndReadTest = "org.jetbrains.kotlin.fir.ModelDumpAndReadTest"
 
-    run {
-        val argsExt = project.findProperty("fir.modularized.jvm.args") as? String
-        if (argsExt != null) {
-            val paramRegex = "([^\"]\\S*|\".+?\")\\s*".toRegex()
-            jvmArgs(paramRegex.findAll(argsExt).map { it.groupValues[1] }.toList())
+    testTask(minHeapSizeMb = 8192, maxHeapSizeMb = 8192, reservedCodeCacheSizeMb = 512, jUnitMode = JUnitMode.JUnit4) {
+        dependsOn(":dist", ":plugins:compose-compiler-plugin:compiler-hosted:jar")
+        systemProperties(project.properties.filterKeys { it.startsWith("fir.") })
+        workingDir = rootDir
+        val composePluginClasspath = composeCompilerPlugin.asPath
+
+        filter {
+            excludeTestsMatching(modelDumpAndReadTest)
+        }
+        run {
+            systemProperty("fir.bench.compose.plugin.classpath", composePluginClasspath)
+            val argsExt = project.findProperty("fir.modularized.jvm.args") as? String
+            if (argsExt != null) {
+                val paramRegex = "([^\"]\\S*|\".+?\")\\s*".toRegex()
+                jvmArgs(paramRegex.findAll(argsExt).map { it.groupValues[1] }.toList())
+            }
+        }
+    }
+
+    testTask("modelDumpTest", jUnitMode = JUnitMode.JUnit4, skipInLocalBuild = false) {
+        dependsOn(":dist")
+        workingDir = rootDir
+        filter {
+            includeTestsMatching(modelDumpAndReadTest)
         }
     }
 }

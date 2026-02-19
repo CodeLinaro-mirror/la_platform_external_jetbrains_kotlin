@@ -5,11 +5,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 int32_t ClassWithFactoryWithoutParameters_value_get(void * self);
 
-void * EnumWithFactory_ONE_get();
-
-NSArray<id> * EnumWithFactory_entries_get();
-
-void * EnumWithFactory_valueOf__TypesOfArguments__Swift_String__(NSString * value);
+void * EnumWithFactory_ONE();
 
 void * __root___ClassWithFactoryWithoutParameters();
 
@@ -23,7 +19,7 @@ void * __root___FlattenedPackageClass__TypesOfArguments__Swift_Float__(float f);
 
 void * __root___InterfaceWithFactory();
 
-void * __root___InterfaceWithFactory__TypesOfArguments__KotlinRuntime_KotlinBase__(void * arg);
+void * __root___InterfaceWithFactory__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * arg);
 
 void * __root___ObjectWithFactory();
 
@@ -35,7 +31,7 @@ void * __root___UtcOffset_init_allocate();
 
 void __root___UtcOffset_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
-void * test_factory_ClassWithFactoryInAPackage__TypesOfArguments__KotlinRuntime_KotlinBase__(void * arg);
+void * test_factory_ClassWithFactoryInAPackage__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * arg);
 
 void * test_factory_ClassWithFactoryInAPackage_init_allocate();
 
@@ -43,9 +39,9 @@ void test_factory_ClassWithFactoryInAPackage_init_initialize__TypesOfArguments__
 
 void * test_factory_Nested();
 
-void * test_factory_Outer_ClassWithFactoryInAPackage__TypesOfArguments__KotlinRuntime_KotlinBase__(void * self, void * arg);
+void * test_factory_Outer_ClassWithFactoryInAPackage__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * self, void * arg);
 
-void * test_factory_Outer_Nested__TypesOfArguments__KotlinRuntime_KotlinBase__(void * self, void * x);
+void * test_factory_Outer_Nested__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * self, void * x);
 
 void * test_factory_Outer_Nested_init_allocate();
 
@@ -55,9 +51,9 @@ void * test_factory_Outer_init_allocate();
 
 void test_factory_Outer_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
-void * test_factory_modules_ClassFromDependency__TypesOfArguments__KotlinRuntime_KotlinBase__(void * arg);
+void * test_factory_modules_ClassFromDependency__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * arg);
 
-void * test_not_factory_ClassWithFactoryInAPackage__TypesOfArguments__KotlinRuntime_KotlinBase__(void * arg);
+void * test_not_factory_ClassWithFactoryInAPackage__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * arg);
 
 void * typealiases_TypealiasWithFactoryWithoutParameters();
 

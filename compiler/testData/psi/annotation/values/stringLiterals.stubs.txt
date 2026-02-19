@@ -1,10 +1,12 @@
 StringLiteral.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=Facade[packageFqName=<root>, facadeFqName=StringLiteralKt]]
+    facadeFqName: StringLiteralKt
+    partSimpleName: "StringLiteralKt"
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/StringLiteral, fqName=StringLiteral, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=StringLiteral, superNames=[]]
+    CLASS[classId=/StringLiteral, fqName=StringLiteral, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=StringLiteral, superNames=[]]
       MODIFIER_LIST[annotation]
-      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, name=StringLiteral]
+      PRIMARY_CONSTRUCTOR[fqName=null, hasBody=false, hasNoExpressionBody=true, isDelegatedCallToThis=false, isExplicitDelegationCall=false, isExtension=false, isTopLevel=false, mayHaveContract=false, name=StringLiteral]
         VALUE_PARAMETER_LIST
           VALUE_PARAMETER[fqName=StringLiteral.s1, hasDefaultValue=false, hasValOrVar=true, isMutable=false, name=s1]
             TYPE_REFERENCE
@@ -23,10 +25,10 @@ StringLiteral.kt:
 
 
 WithStringConstant.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/WithStringConstant, fqName=WithStringConstant, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringConstant, superNames=[]]
+    CLASS[classId=/WithStringConstant, fqName=WithStringConstant, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringConstant, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=StringLiteral]
           CONSTRUCTOR_CALLEE
@@ -47,10 +49,10 @@ WithStringConstant.kt:
 
 
 WithStringInterpolationPrefix.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/WithStringInterpolationPrefix, fqName=WithStringInterpolationPrefix, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringInterpolationPrefix, superNames=[]]
+    CLASS[classId=/WithStringInterpolationPrefix, fqName=WithStringInterpolationPrefix, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringInterpolationPrefix, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=StringLiteral]
           CONSTRUCTOR_CALLEE
@@ -76,10 +78,10 @@ WithStringInterpolationPrefix.kt:
 
 
 WithStringLiteral.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/WithStringLiteral, fqName=WithStringLiteral, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringLiteral, superNames=[]]
+    CLASS[classId=/WithStringLiteral, fqName=WithStringLiteral, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringLiteral, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=StringLiteral]
           CONSTRUCTOR_CALLEE
@@ -100,10 +102,10 @@ WithStringLiteral.kt:
 
 
 WithStringLiteralConcat.kt:
-  PsiJetFileStubImpl[package=]
+  FILE[kind=File[packageFqName=<root>]]
     PACKAGE_DIRECTIVE
     IMPORT_LIST
-    CLASS[classId=/WithStringLiteralConcat, fqName=WithStringLiteralConcat, isClsStubCompiledToJvmDefaultImplementation=false, isEnumEntry=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringLiteralConcat, superNames=[]]
+    CLASS[classId=/WithStringLiteralConcat, fqName=WithStringLiteralConcat, isClsStubCompiledToJvmDefaultImplementation=false, isInterface=false, isLocal=false, isTopLevel=true, name=WithStringLiteralConcat, superNames=[]]
       MODIFIER_LIST[]
         ANNOTATION_ENTRY[hasValueArguments=true, shortName=StringLiteral]
           CONSTRUCTOR_CALLEE

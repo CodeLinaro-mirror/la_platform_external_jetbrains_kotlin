@@ -28,6 +28,7 @@ KaKotlinPropertySymbol:
     getContainingJvmClassName: Check
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
+    importableFqName: null
   callableId: /Check.prop
   compilerVisibility: Public
   contextParameters: []
@@ -45,7 +46,7 @@ KaKotlinPropertySymbol:
     isNotDefault: false
     isOverride: false
     location: PROPERTY
-    modality: OPEN
+    modality: ABSTRACT
     origin: SOURCE
     receiverParameter: null
     returnType: KaUsualClassType:
@@ -62,6 +63,7 @@ KaKotlinPropertySymbol:
     getContainingJvmClassName: Check
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
+    importableFqName: null
   hasBackingField: false
   hasGetter: true
   hasSetter: true
@@ -78,7 +80,7 @@ KaKotlinPropertySymbol:
   isStatic: false
   isVal: false
   location: CLASS
-  modality: OPEN
+  modality: ABSTRACT
   name: prop
   origin: SOURCE
   receiverParameter: null
@@ -99,7 +101,7 @@ KaKotlinPropertySymbol:
     isNotDefault: false
     isOverride: false
     location: PROPERTY
-    modality: OPEN
+    modality: ABSTRACT
     origin: SOURCE
     parameter: KaValueParameterSymbol:
       annotations: []
@@ -130,6 +132,7 @@ KaKotlinPropertySymbol:
       getContainingJvmClassName: null
       getContainingModule: KaSourceModule "Sources of main"
       deprecationStatus: null
+      importableFqName: null
     receiverParameter: null
     returnType: KaUsualClassType:
       annotations: []
@@ -165,6 +168,7 @@ KaKotlinPropertySymbol:
         getContainingJvmClassName: null
         getContainingModule: KaSourceModule "Sources of main"
         deprecationStatus: null
+        importableFqName: null
     ]
     visibility: PUBLIC
     getDispatchReceiver(): KaUsualClassType:
@@ -175,6 +179,7 @@ KaKotlinPropertySymbol:
     getContainingJvmClassName: Check
     getContainingModule: KaSourceModule "Sources of main"
     deprecationStatus: null
+    importableFqName: null
   typeParameters: []
   visibility: PUBLIC
   getDispatchReceiver(): KaUsualClassType:
@@ -190,3 +195,4 @@ KaKotlinPropertySymbol:
   javaSetterName: setProp
   setterDeprecationStatus: null
   isInline: false
+  importableFqName: null

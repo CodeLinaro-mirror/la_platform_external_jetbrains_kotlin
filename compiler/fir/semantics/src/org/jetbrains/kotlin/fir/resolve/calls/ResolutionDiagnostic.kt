@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
@@ -167,6 +168,12 @@ class NotFunctionAsOperator(val symbol: FirBasedSymbol<*>) : ResolutionDiagnosti
 
 class DslScopeViolation(val calleeSymbol: FirBasedSymbol<*>) : ResolutionDiagnostic(RESOLVED_WITH_ERROR)
 
+class ReceiverShadowedByContextParameter(
+    val calleeSymbol: FirBasedSymbol<*>,
+    val isDispatchOfMemberExtension: Boolean,
+    val compatibleContextParameters: List<FirValueParameterSymbol>
+) : ResolutionDiagnostic(RESOLVED_WITH_ERROR)
+
 class MultipleContextReceiversApplicableForExtensionReceivers : ResolutionDiagnostic(INAPPLICABLE)
 
 object NoReceiverAllowed : ResolutionDiagnostic(INAPPLICABLE)
@@ -204,3 +211,5 @@ val Collection<ResolutionDiagnostic>.anyUnsuccessful: Boolean get() = !allSucces
 
 @OptIn(ApplicabilityDetail::class)
 val ResolutionDiagnostic.isSuccess: Boolean get() = applicability.isSuccess
+
+class InaccessibleOuterClassReceiver(val symbol: FirClassSymbol<*>) : ResolutionDiagnostic(INAPPLICABLE)

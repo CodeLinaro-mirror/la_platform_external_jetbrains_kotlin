@@ -59,6 +59,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   }
 
   @Test
+  @TestMetadata("backingFieldAccessInPropertySetter.kt")
+  public void testBackingFieldAccessInPropertySetter() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/backingFieldAccessInPropertySetter.kt");
+  }
+
+  @Test
   @TestMetadata("binaryExpressionWithString.kt")
   public void testBinaryExpressionWithString() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/binaryExpressionWithString.kt");
@@ -89,9 +95,27 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   }
 
   @Test
+  @TestMetadata("constLiteralPropertyInAnnotation.kt")
+  public void testConstLiteralPropertyInAnnotation() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/constLiteralPropertyInAnnotation.kt");
+  }
+
+  @Test
+  @TestMetadata("constPropertyInAnnotation.kt")
+  public void testConstPropertyInAnnotation() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/constPropertyInAnnotation.kt");
+  }
+
+  @Test
   @TestMetadata("differentNumberTypesComparison.kt")
   public void testDifferentNumberTypesComparison() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/differentNumberTypesComparison.kt");
+  }
+
+  @Test
+  @TestMetadata("doubleLiteralsPlusAndEqual.kt")
+  public void testDoubleLiteralsPlusAndEqual() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/doubleLiteralsPlusAndEqual.kt");
   }
 
   @Test
@@ -101,9 +125,21 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   }
 
   @Test
+  @TestMetadata("equalsFunOnEqualInts.kt")
+  public void testEqualsFunOnEqualInts() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/equalsFunOnEqualInts.kt");
+  }
+
+  @Test
   @TestMetadata("expressionWithEquals.kt")
   public void testExpressionWithEquals() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/expressionWithEquals.kt");
+  }
+
+  @Test
+  @TestMetadata("floatLiteralsPlusAndEqual.kt")
+  public void testFloatLiteralsPlusAndEqual() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/floatLiteralsPlusAndEqual.kt");
   }
 
   @Test
@@ -143,6 +179,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   }
 
   @Test
+  @TestMetadata("integerLiteralsPlusAndEqual.kt")
+  public void testIntegerLiteralsPlusAndEqual() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/integerLiteralsPlusAndEqual.kt");
+  }
+
+  @Test
   @TestMetadata("interpolationWithInc.kt")
   public void testInterpolationWithInc() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/interpolationWithInc.kt");
@@ -170,6 +212,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   @TestMetadata("javaStaticFinalField.kt")
   public void testJavaStaticFinalField() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/javaStaticFinalField.kt");
+  }
+
+  @Test
+  @TestMetadata("javaStaticFinalLiteralField.kt")
+  public void testJavaStaticFinalLiteralField() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/javaStaticFinalLiteralField.kt");
   }
 
   @Test
@@ -206,6 +254,36 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   @TestMetadata("nestedAnnotationValue.kt")
   public void testNestedAnnotationValue() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/nestedAnnotationValue.kt");
+  }
+
+  @Test
+  @TestMetadata("nonConstLiteralPropertyAccess.kt")
+  public void testNonConstLiteralPropertyAccess() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/nonConstLiteralPropertyAccess.kt");
+  }
+
+  @Test
+  @TestMetadata("nonConstPropertyAccess.kt")
+  public void testNonConstPropertyAccess() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/nonConstPropertyAccess.kt");
+  }
+
+  @Test
+  @TestMetadata("nullEqualsNull.kt")
+  public void testNullEqualsNull() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/nullEqualsNull.kt");
+  }
+
+  @Test
+  @TestMetadata("nullEqualsNullCastedToInt.kt")
+  public void testNullEqualsNullCastedToInt() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/nullEqualsNullCastedToInt.kt");
+  }
+
+  @Test
+  @TestMetadata("nullEqualsNullCastedToNullableInt.kt")
+  public void testNullEqualsNullCastedToNullableInt() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/nullEqualsNullCastedToNullableInt.kt");
   }
 
   @Test
@@ -296,6 +374,18 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
   @TestMetadata("recursivePropertyReference.kt")
   public void testRecursivePropertyReference() {
     runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/recursivePropertyReference.kt");
+  }
+
+  @Test
+  @TestMetadata("stringLengthEquals.kt")
+  public void testStringLengthEquals() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/stringLengthEquals.kt");
+  }
+
+  @Test
+  @TestMetadata("stringLengthEqualsConstVal.kt")
+  public void testStringLengthEqualsConstVal() {
+    runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/stringLengthEqualsConstVal.kt");
   }
 
   @Test
@@ -398,6 +488,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
     }
 
     @Test
+    @TestMetadata("annotationWithNoArgument.kt")
+    public void testAnnotationWithNoArgument() {
+      runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/withErrors/annotationWithNoArgument.kt");
+    }
+
+    @Test
     @TestMetadata("constFieldWithCustomGetter.kt")
     public void testConstFieldWithCustomGetter() {
       runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/withErrors/constFieldWithCustomGetter.kt");
@@ -455,6 +551,12 @@ public class FirStandaloneNormalAnalysisSourceModuleCompileTimeConstantEvaluator
     @TestMetadata("nullableConstVal.kt")
     public void testNullableConstVal() {
       runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/withErrors/nullableConstVal.kt");
+    }
+
+    @Test
+    @TestMetadata("nullableConstValAccess.kt")
+    public void testNullableConstValAccess() {
+      runTest("analysis/analysis-api/testData/components/compileTimeConstantProvider/evaluate/withErrors/nullableConstValAccess.kt");
     }
 
     @Test

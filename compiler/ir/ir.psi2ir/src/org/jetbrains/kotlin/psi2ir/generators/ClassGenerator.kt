@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.psi2ir.generators
 
-import org.jetbrains.kotlin.backend.common.CodegenUtil
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.*
@@ -37,6 +36,7 @@ import org.jetbrains.kotlin.psi.synthetics.findClassDescriptor
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DelegationResolver
 import org.jetbrains.kotlin.resolve.DescriptorUtils
+import org.jetbrains.kotlin.resolve.codegen.CodegenUtil
 import org.jetbrains.kotlin.resolve.descriptorUtil.propertyIfAccessor
 import org.jetbrains.kotlin.resolve.descriptorUtil.setSingleOverridden
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
@@ -473,18 +473,20 @@ internal class ClassGenerator(
         ktClassOrObject: KtPureClassOrObject
     ) {
         ktClassOrObject.primaryConstructor?.let { ktPrimaryConstructor ->
-            irPrimaryConstructor.valueParameters.forEach {
+            irPrimaryConstructor.parameters.filter { it.kind == IrParameterKind.Regular || it.kind == IrParameterKind.Context }.forEach {
                 context.symbolTable.descriptorExtension.introduceValueParameter(it)
             }
 
-            ktPrimaryConstructor.valueParameters.forEachIndexed { i, ktParameter ->
-                val irValueParameter = irPrimaryConstructor.valueParameters[i + ktClassOrObject.contextReceivers.size]
-                if (ktParameter.hasValOrVar()) {
-                    val irProperty = PropertyGenerator(declarationGenerator)
-                        .generatePropertyForPrimaryConstructorParameter(ktParameter, irValueParameter)
-                    irClass.addMember(irProperty)
+            irPrimaryConstructor.parameters
+                .filter { it.kind == IrParameterKind.Regular }
+                .zip(ktPrimaryConstructor.valueParameters)
+                .forEach { (irValueParameter, ktParameter) ->
+                    if (ktParameter.hasValOrVar()) {
+                        val irProperty = PropertyGenerator(declarationGenerator)
+                            .generatePropertyForPrimaryConstructorParameter(ktParameter, irValueParameter)
+                        irClass.addMember(irProperty)
+                    }
                 }
-            }
         }
     }
 

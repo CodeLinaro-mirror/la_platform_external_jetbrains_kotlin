@@ -100,8 +100,7 @@ object FirExpressionEvaluator {
     }
 
     private fun FirExpression?.canBeEvaluated(session: FirSession): Boolean {
-        val intrinsicConstEvaluation = session.languageVersionSettings.supportsFeature(LanguageFeature.IntrinsicConstEvaluation)
-        if (this == null || intrinsicConstEvaluation || this is FirLazyExpression || !isResolved) return false
+        if (this == null  || this is FirLazyExpression || !isResolved) return false
         return canBeEvaluatedAtCompileTime(this, session, allowErrors = false, calledOnCheckerStage = false)
     }
 
@@ -223,29 +222,34 @@ object FirExpressionEvaluator {
                 return RecursionInInitializer
             }
 
-            fun evaluateOrCopy(initializer: FirExpression?): FirEvaluatorResult = propertySymbol.visit {
+            fun evaluateWithSourceCopy(initializer: FirExpression?): FirEvaluatorResult = propertySymbol.visit {
+                // We need a copy here to copy a source of the original expression
                 if (initializer is FirLiteralExpression) {
-                    // We need a copy here to copy a source of the original expression
                     initializer.copy(propertyAccessExpression).wrap()
                 } else {
-                    evaluate(initializer)
+                    val evaluatedResult = evaluate(initializer)
+                    if (evaluatedResult !is Evaluated || evaluatedResult.result !is FirLiteralExpression) {
+                        return evaluatedResult
+                    }
+                    val unwrappedLiteralResult = evaluatedResult.result as FirLiteralExpression
+                    unwrappedLiteralResult.copy(propertyAccessExpression).wrap()
                 }
             }
 
             return when (propertySymbol) {
                 is FirPropertySymbol -> {
                     when {
-                        propertySymbol.callableId.isStringLength || propertySymbol.callableId.isCharCode -> {
+                        propertySymbol.callableId?.isStringLength == true || propertySymbol.callableId?.isCharCode == true -> {
                             evaluate(propertyAccessExpression.explicitReceiver).let { receiver ->
                                 val unaryArg = receiver.unwrapOr<FirExpression> { return it } ?: return NotEvaluated
-                                evaluateUnary(unaryArg, propertySymbol.callableId)
+                                evaluateUnary(unaryArg, propertySymbol.callableId!!)
                                     .adjustTypeAndConvertToLiteral(propertyAccessExpression)
                             }
                         }
-                        else -> evaluateOrCopy(propertySymbol.fir.initializer)
+                        else -> evaluateWithSourceCopy(propertySymbol.fir.initializer)
                     }
                 }
-                is FirFieldSymbol -> evaluateOrCopy(propertySymbol.fir.initializer)
+                is FirFieldSymbol -> evaluateWithSourceCopy(propertySymbol.fir.initializer)
                 is FirEnumEntrySymbol -> propertyAccessExpression.wrap()
                 else -> error("FIR symbol \"${propertySymbol::class}\" is not supported in constant evaluation")
             }
@@ -334,10 +338,15 @@ object FirExpressionEvaluator {
                 evaluate(it).unwrapOr<FirLiteralExpression> { return it } ?: return NotEvaluated
             }
             if (evaluatedArgs.size != 2) return NotEvaluated
+            val opr1 = evaluatedArgs[0]
+            val opr2 = evaluatedArgs[1]
+
+            val opr1Value = opr1.kind.convertToGivenKind(opr1.value)
+            val opr2Value = opr2.kind.convertToGivenKind(opr2.value)
 
             val result = when (equalityOperatorCall.operation) {
-                FirOperation.EQ -> evaluatedArgs[0].value == evaluatedArgs[1].value
-                FirOperation.NOT_EQ -> evaluatedArgs[0].value != evaluatedArgs[1].value
+                FirOperation.EQ -> opr1Value == opr2Value
+                FirOperation.NOT_EQ -> opr1Value != opr2Value
                 else -> error("Operation \"${equalityOperatorCall.operation}\" is not supported in compile time evaluation")
             }
 
@@ -418,6 +427,10 @@ private fun ConstantValueKind.toCompileTimeType(): CompileTimeType {
         ConstantValueKind.Short -> CompileTimeType.SHORT
         ConstantValueKind.Int -> CompileTimeType.INT
         ConstantValueKind.Long -> CompileTimeType.LONG
+        ConstantValueKind.UnsignedByte -> CompileTimeType.UBYTE
+        ConstantValueKind.UnsignedShort -> CompileTimeType.USHORT
+        ConstantValueKind.UnsignedInt -> CompileTimeType.UINT
+        ConstantValueKind.UnsignedLong -> CompileTimeType.ULONG
         ConstantValueKind.Double -> CompileTimeType.DOUBLE
         ConstantValueKind.Float -> CompileTimeType.FLOAT
         ConstantValueKind.Char -> CompileTimeType.CHAR
@@ -505,7 +518,7 @@ private fun ConeKotlinType.toConstantValueKind(): ConstantValueKind? =
         is ConeErrorType -> null
         is ConeLookupTagBasedType -> (lookupTag as? ConeClassLikeLookupTag)?.classId?.toConstantValueKind()
         is ConeFlexibleType -> upperBound.toConstantValueKind()
-        is ConeCapturedType -> lowerType?.toConstantValueKind() ?: constructor.supertypes!!.first().toConstantValueKind()
+        is ConeCapturedType -> constructor.lowerType?.toConstantValueKind() ?: constructor.supertypes!!.first().toConstantValueKind()
         is ConeDefinitelyNotNullType -> original.toConstantValueKind()
         is ConeIntersectionType -> intersectedTypes.first().toConstantValueKind()
         is ConeStubType, is ConeIntegerLiteralType, is ConeTypeVariableType -> null

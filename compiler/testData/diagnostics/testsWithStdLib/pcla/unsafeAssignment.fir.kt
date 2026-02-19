@@ -1,5 +1,5 @@
+// LANGUAGE: +ForbidParenthesizedLhsInAssignments
 // RUN_PIPELINE_TILL: FRONTEND
-// LATEST_LV_DIFFERENCE
 
 class Foo<T : Any> {
     fun doSmthng(arg: T) {}
@@ -17,7 +17,7 @@ fun main(arg: Any) {
         this.a = 57
         this.<!ILLEGAL_SELECTOR, VARIABLE_EXPECTED!>(a)<!> = 57
         a = x
-        <!WRAPPED_LHS_IN_ASSIGNMENT_WARNING!>(a)<!> = x
+        <!WRAPPED_LHS_IN_ASSIGNMENT_ERROR!>(a)<!> = x
         a.<!FUNCTION_CALL_EXPECTED, VARIABLE_EXPECTED!>hashCode<!> = 99
         if (arg is String) {
             a = arg

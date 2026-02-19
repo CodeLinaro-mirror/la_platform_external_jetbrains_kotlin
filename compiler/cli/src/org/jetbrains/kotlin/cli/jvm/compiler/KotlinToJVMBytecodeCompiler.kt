@@ -21,8 +21,7 @@ import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.messages.toLogger
-import org.jetbrains.kotlin.cli.common.perfManager
+import org.jetbrains.kotlin.cli.common.modules.ModuleBuilder
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.config.ClassicFrontendSpecificJvmConfigurationKeys.JAVA_CLASSES_TRACKER
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
@@ -38,8 +37,9 @@ import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
 import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
-import org.jetbrains.kotlin.ir.backend.jvm.jvmResolveLibraries
+import org.jetbrains.kotlin.ir.backend.jvm.loadJvmKlibs
 import org.jetbrains.kotlin.ir.declarations.impl.IrModuleFragmentImpl
+import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.load.kotlin.ModuleVisibilityManager
 import org.jetbrains.kotlin.modules.Module
 import org.jetbrains.kotlin.modules.TargetId
@@ -51,8 +51,6 @@ import org.jetbrains.kotlin.util.PhaseType
 import org.jetbrains.kotlin.util.tryMeasurePhaseTime
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import java.io.File
-import java.nio.file.Paths
-import kotlin.io.path.isSymbolicLink
 
 object KotlinToJVMBytecodeCompiler {
     var customClassBuilderFactory = CompilerConfigurationKey.create<ClassBuilderFactory>("Custom ClassBuilderFactory")
@@ -200,19 +198,8 @@ object KotlinToJVMBytecodeCompiler {
     )
 
     fun compileBunchOfSources(environment: KotlinCoreEnvironment): Boolean {
-        val moduleVisibilityManager = ModuleVisibilityManager.SERVICE.getInstance(environment.project)
-
-        val friendPaths = environment.configuration.getList(JVMConfigurationKeys.FRIEND_PATHS)
-        for (path in friendPaths) {
-            moduleVisibilityManager.addFriendPath(path)
-        }
-
-        if (!checkKotlinPackageUsageForPsi(environment.configuration, environment.getSourceFiles())) return false
-
-        val generationState = analyzeAndGenerate(environment) ?: return false
-
-        writeOutput(environment.configuration, generationState.factory, null)
-        return true
+        val module = ModuleBuilder("test", environment.configuration.outputDirectory!!.path, "test")
+        return compileModules(environment, buildFile = null, listOf(module))
     }
 
     private fun repeatAnalysisIfNeeded(result: AnalysisResult?, environment: KotlinCoreEnvironment): AnalysisResult? {
@@ -254,7 +241,7 @@ object KotlinToJVMBytecodeCompiler {
         return result
     }
 
-    @Suppress("MemberVisibilityCanBePrivate") // Used in ExecuteKotlinScriptMojo
+    @Suppress("unused") // Used in ExecuteKotlinScriptMojo. To be removed (KT-71729).
     fun analyzeAndGenerate(environment: KotlinCoreEnvironment): GenerationState? {
         val result = environment.configuration.perfManager.let {
             it?.notifyPhaseFinished(PhaseType.Initialization)
@@ -291,8 +278,7 @@ object KotlinToJVMBytecodeCompiler {
     ): Pair<JvmIrCodegenFactory, JvmIrCodegenFactory.BackendInput> {
         val configuration = environment.configuration
         val codegenFactory = JvmIrCodegenFactory(configuration)
-        val performanceManager = environment.configuration[CLIConfigurationKeys.PERF_MANAGER]
-        val backendInput = performanceManager.tryMeasurePhaseTime(PhaseType.TranslationToIr) {
+        val backendInput = environment.configuration.perfManager.tryMeasurePhaseTime(PhaseType.TranslationToIr) {
             codegenFactory.convertToIr(
                 environment.project,
                 environment.getSourceFiles(),
@@ -324,12 +310,10 @@ object KotlinToJVMBytecodeCompiler {
     }
 
     fun analyze(environment: KotlinCoreEnvironment): AnalysisResult? {
+        val klibs: List<KotlinLibrary> = loadJvmKlibs(environment.configuration).all
+
         val collector = environment.messageCollector
         val sourceFiles = environment.getSourceFiles()
-
-        val resolvedKlibs = environment.configuration.get(JVMConfigurationKeys.KLIB_PATHS)?.let { klibPaths ->
-            jvmResolveLibraries(klibPaths, collector.toLogger())
-        }?.getFullList() ?: emptyList()
 
         val analyzerWithCompilerReport = AnalyzerWithCompilerReport(
             collector,
@@ -353,7 +337,7 @@ object KotlinToJVMBytecodeCompiler {
                 environment.configuration,
                 environment::createPackagePartProvider,
                 sourceModuleSearchScope = scope,
-                klibList = resolvedKlibs
+                klibList = klibs
             )
         }
 
@@ -422,11 +406,7 @@ object KotlinToJVMBytecodeCompiler {
     ): GenerationState {
         ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
 
-        val performanceManager = configuration[CLIConfigurationKeys.PERF_MANAGER]
-
-        performanceManager.tryMeasurePhaseTime(PhaseType.Backend) {
-            codegenFactory.invokeCodegen(codegenInput)
-        }
+        codegenFactory.invokeCodegen(codegenInput)
 
         ProgressIndicatorAndCompilationCanceledStatus.checkCanceled()
 
@@ -474,18 +454,10 @@ fun CompilerConfiguration.configureSourceRoots(chunk: List<Module>, buildFile: F
 
     for (module in chunk) {
         for (classpathRoot in module.getClasspathRoots()) {
-            // The "official" way of `Paths.get(path).isSymbolicLink()` does not work on Windows
-            //   if the path starts with `/C:` - `sun.nio.fs.WindowsPathParser.normalize`
-            //   throws `InvalidPathException: Illegal char <:>`.
-            val path =
-                if (System.getProperty("os.name").contains("Windows") && classpathRoot.startsWith("/"))
-                    Paths.get(classpathRoot.removePrefix("/"))
-                else Paths.get(classpathRoot)
-            val file = if (path.isSymbolicLink()) path.toRealPath().toFile() else File(classpathRoot)
             if (isJava9Module) {
-                add(CLIConfigurationKeys.CONTENT_ROOTS, JvmModulePathRoot(file))
+                add(CLIConfigurationKeys.CONTENT_ROOTS, JvmModulePathRoot(File(classpathRoot)))
             }
-            add(CLIConfigurationKeys.CONTENT_ROOTS, JvmClasspathRoot(file))
+            add(CLIConfigurationKeys.CONTENT_ROOTS, JvmClasspathRoot(File(classpathRoot)))
         }
     }
 

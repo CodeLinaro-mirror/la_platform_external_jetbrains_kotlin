@@ -31,6 +31,7 @@ interface IrDeclarationOrigin {
         val FUNCTION_FOR_DEFAULT_PARAMETER by IrDeclarationOriginImpl.Synthetic
         val MASK_FOR_DEFAULT_FUNCTION by IrDeclarationOriginImpl.Synthetic
         val DEFAULT_CONSTRUCTOR_MARKER by IrDeclarationOriginImpl.Synthetic
+        val SYNTHETIC_CONSTRUCTOR_MARKER by IrDeclarationOriginImpl.Synthetic
         val METHOD_HANDLER_IN_DEFAULT_FUNCTION by IrDeclarationOriginImpl.Synthetic
         val MOVED_DISPATCH_RECEIVER by IrDeclarationOriginImpl
         val MOVED_EXTENSION_RECEIVER by IrDeclarationOriginImpl
@@ -103,6 +104,8 @@ interface IrDeclarationOrigin {
          * or `super` calls from lambdas and inline functions.
          */
         val SYNTHETIC_ACCESSOR by IrDeclarationOriginImpl.Synthetic
+
+        val SYNTHETIC_ACCESSOR_CAPTURED_TYPE_PARAMETER by IrDeclarationOriginImpl.Synthetic
 
         /**
          * Created by `Fir2IrDeclarationStorage.fillUnboundSymbols()` to handle the code fragment

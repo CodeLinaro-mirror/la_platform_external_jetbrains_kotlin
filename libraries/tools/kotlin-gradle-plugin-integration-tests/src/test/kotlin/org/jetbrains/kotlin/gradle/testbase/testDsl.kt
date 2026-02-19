@@ -12,9 +12,7 @@ import org.gradle.testkit.runner.GradleRunner
 import org.gradle.testkit.runner.internal.DefaultGradleRunner
 import org.gradle.tooling.GradleConnector
 import org.gradle.util.GradleVersion
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
-import org.jetbrains.kotlin.gradle.model.ModelContainer
-import org.jetbrains.kotlin.gradle.model.ModelFetcherBuildAction
+import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.util.isTeamCityRun
 import org.jetbrains.kotlin.gradle.util.runProcess
@@ -50,6 +48,7 @@ fun KGPBaseTest.project(
     gradleVersion: GradleVersion,
     buildOptions: BuildOptions = defaultBuildOptions,
     enableBuildScan: Boolean = false,
+    enableOfflineMode: Boolean = false,
     addHeapDumpOptions: Boolean = true,
     enableGradleDebug: EnableGradleDebug = EnableGradleDebug.AUTO,
     enableGradleDaemonMemoryLimitInMb: Int? = 1024,
@@ -92,16 +91,16 @@ fun KGPBaseTest.project(
         buildOptions = buildOptions,
         gradleVersion = gradleVersion,
         enableBuildScan = enableBuildScan,
+        enableOfflineMode = enableOfflineMode,
         enableGradleDebug = enableGradleDebug,
         enableGradleDaemonMemoryLimitInMb = enableGradleDaemonMemoryLimitInMb,
         enableKotlinDaemonMemoryLimitInMb = enableKotlinDaemonMemoryLimitInMb,
-        environmentVariables = environmentVariables
+        environmentVariables = environmentVariables,
+        counter = KGPBaseTest.counter.get(),
     )
     addHeapDumpOptions.ifTrue { testProject.addHeapDumpOptions() }
     localRepoDir?.let { testProject.configureLocalRepository(localRepoDir) }
     if (buildJdk != null) testProject.setupNonDefaultJdk(buildJdk)
-
-    testProject.customizeProject()
 
     val result = runCatching {
         testProject.test()
@@ -126,6 +125,7 @@ fun KGPBaseTest.nativeProject(
     gradleVersion: GradleVersion,
     buildOptions: BuildOptions = defaultBuildOptions,
     enableBuildScan: Boolean = false,
+    enableOfflineMode: Boolean = false,
     dependencyManagement: DependencyManagement = DependencyManagement.DefaultDependencyManagement(),
     addHeapDumpOptions: Boolean = true,
     enableGradleDebug: EnableGradleDebug = EnableGradleDebug.AUTO,
@@ -143,6 +143,7 @@ fun KGPBaseTest.nativeProject(
         gradleVersion = gradleVersion,
         buildOptions = buildOptions,
         enableBuildScan = enableBuildScan,
+        enableOfflineMode = enableOfflineMode,
         dependencyManagement = dependencyManagement,
         addHeapDumpOptions = addHeapDumpOptions,
         enableGradleDebug = enableGradleDebug,
@@ -167,6 +168,7 @@ fun TestProject.build(
     kotlinDaemonDebugPort: Int? = this.kotlinDaemonDebugPort,
     enableBuildCacheDebug: Boolean = false,
     enableBuildScan: Boolean = this.enableBuildScan,
+    enableOfflineMode: Boolean = this.enableOfflineMode,
     enableGradleDaemonMemoryLimitInMb: Int? = this.enableGradleDaemonMemoryLimitInMb,
     enableKotlinDaemonMemoryLimitInMb: Int? = this.enableKotlinDaemonMemoryLimitInMb,
     buildOptions: BuildOptions = this.buildOptions,
@@ -182,6 +184,7 @@ fun TestProject.build(
         kotlinDaemonDebugPort = kotlinDaemonDebugPort,
         enableBuildCacheDebug = enableBuildCacheDebug,
         enableBuildScan = enableBuildScan,
+        enableOfflineMode = enableOfflineMode,
         buildOptions = buildOptions,
         enableGradleDaemonMemoryLimitInMb = enableGradleDaemonMemoryLimitInMb,
         enableKotlinDaemonMemoryLimitInMb = enableKotlinDaemonMemoryLimitInMb,
@@ -202,6 +205,7 @@ fun TestProject.buildAndFail(
     kotlinDaemonDebugPort: Int? = this.kotlinDaemonDebugPort,
     enableBuildCacheDebug: Boolean = false,
     enableBuildScan: Boolean = this.enableBuildScan,
+    enableOfflineMode: Boolean = this.enableOfflineMode,
     buildOptions: BuildOptions = this.buildOptions,
     enableGradleDaemonMemoryLimitInMb: Int? = this.enableGradleDaemonMemoryLimitInMb,
     enableKotlinDaemonMemoryLimitInMb: Int? = this.enableKotlinDaemonMemoryLimitInMb,
@@ -216,6 +220,7 @@ fun TestProject.buildAndFail(
         kotlinDaemonDebugPort = kotlinDaemonDebugPort,
         enableBuildCacheDebug = enableBuildCacheDebug,
         enableBuildScan = enableBuildScan,
+        enableOfflineMode = enableOfflineMode,
         buildOptions = buildOptions,
         enableGradleDaemonMemoryLimitInMb = enableGradleDaemonMemoryLimitInMb,
         enableKotlinDaemonMemoryLimitInMb = enableKotlinDaemonMemoryLimitInMb,
@@ -233,6 +238,7 @@ private data class BuildParameterization(
     val kotlinDaemonDebugPort: Int?,
     val enableBuildCacheDebug: Boolean,
     val enableBuildScan: Boolean,
+    val enableOfflineMode: Boolean,
     val buildOptions: BuildOptions,
     val enableGradleDaemonMemoryLimitInMb: Int?,
     val enableKotlinDaemonMemoryLimitInMb: Int?,
@@ -263,6 +269,7 @@ private fun TestProject.buildWithAction(
             buildOptions = buildOptions,
             enableBuildCacheDebug = enableBuildCacheDebug,
             enableBuildScan = enableBuildScan,
+            enableOfflineMode = enableOfflineMode,
             enableGradleDaemonMemoryLimitInMb = enableGradleDaemonMemoryLimitInMb,
             enableKotlinDaemonMemoryLimitInMb = enableKotlinDaemonMemoryLimitInMb,
             connectSubprocessVMToDebugger = connectSubprocessVMToDebugger,
@@ -355,36 +362,6 @@ private fun TestProject.ensureKotlinCompilerArgumentsPluginAppliedCorrectly(buil
     }
 }
 
-internal inline fun <reified T> TestProject.getModels(
-    crossinline assertions: ModelContainer<T>.() -> Unit,
-) {
-    val allBuildArguments = commonBuildSetup(
-        buildArguments = emptyList(),
-        buildOptions = buildOptions,
-        enableBuildCacheDebug = false,
-        enableBuildScan = enableBuildScan,
-        enableGradleDaemonMemoryLimitInMb = enableGradleDaemonMemoryLimitInMb,
-        enableKotlinDaemonMemoryLimitInMb = enableKotlinDaemonMemoryLimitInMb,
-        connectSubprocessVMToDebugger = false,
-        gradleVersion = gradleVersion
-    )
-
-    val connector = GradleConnector
-        .newConnector()
-        .useGradleUserHomeDir(getGradleUserHome())
-        .useDistribution(URI("https://cache-redirector.jetbrains.com/services.gradle.org/distributions/gradle-${gradleVersion.version}-bin.zip"))
-        .forProjectDirectory(projectPath.toAbsolutePath().toFile())
-
-    connector.connect().use {
-        assertions(
-            it
-                .action(ModelFetcherBuildAction(T::class.java))
-                .withArguments(allBuildArguments)
-                .run()
-        )
-    }
-}
-
 fun TestProject.enableLocalBuildCache(
     buildCacheLocation: Path,
 ) {
@@ -426,6 +403,7 @@ fun String.wrapIntoBlock(s: String): String =
 open class GradleProject(
     val projectName: String,
     val projectPath: Path,
+    val counter: KGPBaseTest.Counter,
 ) {
     val buildGradle: Path get() = projectPath.resolve("build.gradle")
     val buildGradleKts: Path get() = projectPath.resolve("build.gradle.kts")
@@ -461,9 +439,8 @@ open class GradleProject(
         files: List<Path>,
     ): List<Path> = files.map { projectPath.relativize(it) }
 
-    private var counter = 0
     fun generateIdentifier(): String {
-        return counter.toString().also { counter += 1 }
+        return counter.counter++.toString()
     }
 
     fun markAsUsingInjections() {
@@ -497,6 +474,7 @@ class TestProject(
     val buildOptions: BuildOptions,
     val gradleVersion: GradleVersion,
     val enableBuildScan: Boolean,
+    val enableOfflineMode: Boolean,
     val enableGradleDaemonMemoryLimitInMb: Int?,
     val enableKotlinDaemonMemoryLimitInMb: Int?,
     val enableGradleDebug: EnableGradleDebug,
@@ -506,8 +484,9 @@ class TestProject(
      */
     val kotlinDaemonDebugPort: Int? = null,
     val environmentVariables: EnvironmentalVariables = EnvironmentalVariables(),
-) : GradleProject(projectName, projectPath) {
-    fun subProject(name: String) = GradleProject(name, projectPath.resolve(name))
+    counter: KGPBaseTest.Counter,
+) : GradleProject(projectName, projectPath, counter) {
+    fun subProject(name: String) = GradleProject(name, projectPath.resolve(name), counter)
 
     /**
      * Includes another project as a submodule in the current project.
@@ -576,9 +555,10 @@ class TestProject(
     }
 
     /**
-     * Copies the contents of a directory from the test data of another project into this project's directory structure.
+     * Copies a directory from the test data of another project into the current test project.
      *
-     * @param otherProjectName The name of the other project whose directory is copied from its test data.
+     * @param otherProjectName The name of the other project whose directory will be copied.
+     * @param destination The target path in the current project where the directory will be copied. Defaults to the value of [otherProjectName].
      */
     fun embedDirectoryFromTestData(otherProjectName: String, destination: String = otherProjectName) {
         val otherProjectPath = otherProjectName.testProjectPath
@@ -591,6 +571,7 @@ private fun commonBuildSetup(
     buildOptions: BuildOptions,
     enableBuildCacheDebug: Boolean,
     enableBuildScan: Boolean,
+    enableOfflineMode: Boolean,
     enableGradleDaemonMemoryLimitInMb: Int?,
     enableKotlinDaemonMemoryLimitInMb: Int?,
     connectSubprocessVMToDebugger: Boolean,
@@ -631,6 +612,7 @@ private fun commonBuildSetup(
         } else null,
         if (enableBuildCacheDebug) "-Dorg.gradle.caching.debug=true" else null,
         if (enableBuildScan) "--scan" else null,
+        if (enableOfflineMode) "--offline" else null,
         if (kotlinDaemonJvmArgs.isNotEmpty()) {
             // do not enclose as KGP transforms arguments like "-Xmx1024m" to -"-Xmx1024m": KT-72870
             "-Pkotlin.daemon.jvmargs=${kotlinDaemonJvmArgs.joinToJvmArgsString(enclose = false)}"
@@ -638,6 +620,7 @@ private fun commonBuildSetup(
         // Configure a non-default directory to be able to track Kotlin daemons started from the tests
         // Useful for the tests like KGPDaemonsBaseTest
         if (buildOptions.customKotlinDaemonRunFilesDirectory != null) {
+            @Suppress("DEPRECATION")
             "-D${CompilerSystemProperties.COMPILE_DAEMON_CUSTOM_RUN_FILES_PATH_FOR_TESTS.property}=${buildOptions.customKotlinDaemonRunFilesDirectory.absolutePath}"
         } else null,
     )
@@ -1073,7 +1056,8 @@ internal fun Path.enableAndroidSdk() {
 
 internal fun Path.enableCacheRedirector() {
     // Path relative to the current Gradle module project dir
-    val redirectorScript = Paths.get("../../../repo/gradle-settings-conventions/cache-redirector/src/main/kotlin/cache-redirector.settings.gradle.kts")
+    val redirectorScript =
+        Paths.get("../../../repo/gradle-settings-conventions/cache-redirector/src/main/kotlin/cache-redirector.settings.gradle.kts")
     assert(redirectorScript.exists()) {
         "$redirectorScript does not exist! Please provide correct path to 'cache-redirector.settings.gradle.kts' file."
     }
@@ -1119,11 +1103,12 @@ internal fun Path.enableCacheRedirector() {
 }
 
 private fun GradleProject.addHeapDumpOptions() {
+    val heapDumpPath = Path(System.getProperty("user.dir")).resolve("build").absolute().normalize().invariantSeparatorsPathString
     addPropertyToGradleProperties(
         propertyName = "org.gradle.jvmargs",
         mapOf(
             "-XX:+HeapDumpOnOutOfMemoryError" to "-XX:+HeapDumpOnOutOfMemoryError",
-            "-XX:HeapDumpPath" to "-XX:HeapDumpPath=\"${System.getProperty("user.dir")}${File.separatorChar}build\""
+            "-XX:HeapDumpPath" to "-XX:HeapDumpPath=\"$heapDumpPath\""
         ),
     )
 }

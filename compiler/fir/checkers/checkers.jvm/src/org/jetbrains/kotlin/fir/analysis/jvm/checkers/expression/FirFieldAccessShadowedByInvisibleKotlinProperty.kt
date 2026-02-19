@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.jvm.FirJvmErrors.JAVA_FIELD
 import org.jetbrains.kotlin.fir.declarations.isJavaOrEnhancement
 import org.jetbrains.kotlin.fir.declarations.utils.hasBackingField
 import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.isVisible
 import org.jetbrains.kotlin.fir.resolve.scope
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
@@ -46,7 +47,7 @@ context(context: CheckerContext, reporter: DiagnosticReporter)
 private fun checkFieldAccess(
     expression: FirQualifiedAccessExpression,
 ) {
-    if (context.languageVersionSettings.supportsFeature(ProperFieldAccessGenerationForFieldAccessShadowedByKotlinProperty)) return
+    if (ProperFieldAccessGenerationForFieldAccessShadowedByKotlinProperty.isEnabled()) return
     val fieldSymbol = expression.toResolvedCallableSymbol() as? FirFieldSymbol ?: return
     if (!fieldSymbol.isJavaOrEnhancement) return
 
@@ -92,7 +93,7 @@ private fun checkClashWithCompanionProperty(
     fieldSymbol: FirFieldSymbol,
     expression: FirQualifiedAccessExpression,
 ) {
-    val dispatchReceiverClass = expression.dispatchReceiver?.resolvedType?.toRegularClassSymbol(context.session) ?: return
+    val dispatchReceiverClass = expression.dispatchReceiver?.resolvedType?.toRegularClassSymbol() ?: return
     val companionClass = dispatchReceiverClass.resolvedCompanionObjectSymbol ?: return
     val companionScope = companionClass.unsubstitutedScope()
     val properties = companionScope.getProperties(fieldSymbol.name)

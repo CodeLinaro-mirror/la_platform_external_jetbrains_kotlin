@@ -20,4 +20,3 @@ val x: Boolean /* by */
 fun main() {
   println(message = <get-x>())
 }
-
