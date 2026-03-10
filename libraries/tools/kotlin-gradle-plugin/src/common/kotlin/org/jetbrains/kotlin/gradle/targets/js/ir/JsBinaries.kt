@@ -13,10 +13,10 @@ import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.RegularFile
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.TaskProvider
-import org.gradle.language.base.plugins.LifecycleBasePlugin
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompilerOptionsHelper
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
+import org.jetbrains.kotlin.gradle.plugin.addToAssemble
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsCompilation
 import org.jetbrains.kotlin.gradle.plugin.mpp.fileExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.isMain
@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.gradle.targets.js.subtargets.createDefaultDistributi
 import org.jetbrains.kotlin.gradle.targets.js.typescript.TypeScriptValidationTask
 import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenExec
 import org.jetbrains.kotlin.gradle.tasks.configuration.KotlinJsIrLinkConfig
-import org.jetbrains.kotlin.gradle.tasks.dependsOn
 import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.filesProvider
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
@@ -83,18 +82,20 @@ sealed class JsIrBinary(
 
                 task.duplicatesStrategy = DuplicatesStrategy.WARN
 
-                task.from.from(project.tasks.named(compilation.processResourcesTaskName))
+                task.from.from(linkSyncTaskRegisteredResources)
 
                 task.destinationDirectory.set(compilation.npmProject.dist.mapToFile())
             }
         }
 
+    internal val defaultLinkSyncTaskInput: Provider<Directory>
+        get() = linkTask.flatMap(KotlinJsIrLink::destinationDirectory)
+
+    internal val linkSyncTaskRegisteredResources: TaskProvider<*>
+        get() = project.tasks.named(compilation.processResourcesTaskName)
+
     protected open fun syncInputConfigure(syncTask: DefaultIncrementalSyncTask) {
-        syncTask.from.from(
-            linkTask.flatMap { linkTask ->
-                linkTask.destinationDirectory
-            }
-        )
+        syncTask.from.from(defaultLinkSyncTaskInput)
     }
 
     // Wasi target doesn't have sync task
@@ -222,7 +223,7 @@ internal fun TaskProvider<BinaryenExec>.configureOptimizeTask(binary: WasmBinary
     if (compilation.isMain() && binary.mode == KotlinJsBinaryMode.PRODUCTION) {
         if (target.wasmTargetType == KotlinWasmTargetType.WASI) {
             val project = target.project
-            project.tasks.named(LifecycleBasePlugin.ASSEMBLE_TASK_NAME).dependsOn(this)
+            project.addToAssemble(this)
         }
     }
 }

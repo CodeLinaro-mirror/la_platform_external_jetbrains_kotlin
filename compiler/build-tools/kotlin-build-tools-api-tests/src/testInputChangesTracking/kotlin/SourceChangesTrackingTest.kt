@@ -3,14 +3,14 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.buildtools.api.tests.compilation
+package org.jetbrains.kotlin.buildtools.tests.compilation
 
-import org.jetbrains.kotlin.buildtools.api.tests.CompilerExecutionStrategyConfiguration
-import org.jetbrains.kotlin.buildtools.api.tests.compilation.assertions.assertCompiledSources
-import org.jetbrains.kotlin.buildtools.api.tests.compilation.model.DefaultStrategyAgnosticCompilationTest
-import org.jetbrains.kotlin.buildtools.api.tests.compilation.scenario.assertAddedOutputs
-import org.jetbrains.kotlin.buildtools.api.tests.compilation.scenario.assertRemovedOutputs
-import org.jetbrains.kotlin.buildtools.api.tests.compilation.scenario.scenario
+import org.jetbrains.kotlin.buildtools.tests.CompilerExecutionStrategyConfiguration
+import org.jetbrains.kotlin.buildtools.tests.compilation.assertions.assertCompiledSources
+import org.jetbrains.kotlin.buildtools.tests.compilation.model.DefaultStrategyAgnosticCompilationTest
+import org.jetbrains.kotlin.buildtools.tests.compilation.scenario.assertAddedOutputs
+import org.jetbrains.kotlin.buildtools.tests.compilation.scenario.assertRemovedOutputs
+import org.jetbrains.kotlin.buildtools.tests.compilation.scenario.scenario
 import org.jetbrains.kotlin.test.TestMetadata
 import org.junit.jupiter.api.DisplayName
 
@@ -22,18 +22,18 @@ class SourceChangesTrackingTest : BaseCompilationTest() {
         scenario(strategyConfig) {
             val module1 = trackedModule("jvm-module-1")
             module1.createPredefinedFile("secret.kt", "new-file")
-            module1.compile { module, scenarioModule ->
-                assertCompiledSources(module, "secret.kt")
-                assertAddedOutputs(module, scenarioModule, "SecretKt.class")
+            module1.compile {
+                assertCompiledSources("secret.kt")
+                assertAddedOutputs("SecretKt.class")
             }
 
             // replaces bar.kt with bar.kt.1
             module1.replaceFileWithVersion("bar.kt", "add-default-argument")
             module1.deleteFile("secret.kt")
 
-            module1.compile { module, scenarioModule ->
-                assertCompiledSources(module, "bar.kt")
-                assertRemovedOutputs(module, scenarioModule, "SecretKt.class")
+            module1.compile {
+                assertCompiledSources("bar.kt")
+                assertRemovedOutputs("SecretKt.class")
             }
         }
     }

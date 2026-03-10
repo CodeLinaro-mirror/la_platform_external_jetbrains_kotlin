@@ -20,7 +20,6 @@ import org.jetbrains.kotlin.konan.test.dump.AbstractNativeKlibDumpIrSignaturesTe
 import org.jetbrains.kotlin.konan.test.dump.AbstractNativeKlibDumpIrTest
 import org.jetbrains.kotlin.konan.test.dump.AbstractNativeKlibDumpMetadataSignaturesTest
 import org.jetbrains.kotlin.konan.test.dump.AbstractNativeKlibDumpMetadataTest
-import org.jetbrains.kotlin.konan.test.evolution.AbstractNativeKlibEvolutionTest
 import org.jetbrains.kotlin.konan.test.headerklib.AbstractNativeHeaderKlibComparisonTest
 import org.jetbrains.kotlin.konan.test.headerklib.AbstractNativeHeaderKlibCompilationTest
 import org.jetbrains.kotlin.konan.test.irText.AbstractLightTreeNativeIrTextTest
@@ -30,6 +29,7 @@ import org.jetbrains.kotlin.konan.test.klib.AbstractKlibCrossCompilationIdentity
 import org.jetbrains.kotlin.konan.test.serialization.AbstractNativeIrDeserializationTest
 import org.jetbrains.kotlin.konan.test.serialization.AbstractNativeIrDeserializationWithInlinedFunInKlibTest
 import org.jetbrains.kotlin.konan.test.syntheticAccessors.AbstractNativeKlibSyntheticAccessorTest
+import org.jetbrains.kotlin.konan.test.dump.AbstractNativeLoadCompiledKotlinTest
 import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 import org.junit.jupiter.api.Tag
 
@@ -37,6 +37,7 @@ fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
     val k1BoxTestDir = listOf("multiplatform/k1")
     val testsRoot = args[0]
+    val excludedCustomTestdataPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN
 
     generateTestGroupSuiteWithJUnit5(args) {
         // irText tests
@@ -51,44 +52,33 @@ fun main(args: Array<String>) {
 
         // New frontend test infrastructure tests
         testGroup(testsRoot = testsRoot, testDataRoot = "compiler/testData/diagnostics") {
-            testClass<AbstractPsiNativeDiagnosticsTest>(
-                suiteTestClassName = "PsiOldFrontendNativeDiagnosticsTestGenerated",
-            ) {
-                model("nativeTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
-            }
-
-            testClass<AbstractLightTreeNativeDiagnosticsTest>(
-                suiteTestClassName = "LightTreeOldFrontendNativeDiagnosticsTestGenerated",
-            ) {
-                model("nativeTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
-            }
-
             testClass<AbstractPsiNativeDiagnosticsWithBackendTestBase>(
                 suiteTestClassName = "PsiNativeKlibDiagnosticsTestGenerated",
                 annotations = listOf(klib())
             ) {
-                model("klibSerializationTests")
+                model("klibSerializationTests", excludedPattern = excludedCustomTestdataPattern)
                 // KT-67300: TODO: extract specialBackendChecks into own test runner, invoking Native backend facade at the end
-                model("nativeTests/specialBackendChecks")
+                model("nativeTests", excludedPattern = excludedCustomTestdataPattern)
             }
 
             testClass<AbstractLightTreeNativeDiagnosticsWithBackendTestBase>(
                 suiteTestClassName = "LightTreeNativeKlibDiagnosticsTestGenerated",
                 annotations = listOf(klib())
             ) {
-                model("klibSerializationTests")
+                model("klibSerializationTests", excludedPattern = excludedCustomTestdataPattern)
                 // KT-67300: TODO: extract specialBackendChecks into own test runner, invoking Native backend facade at the end
-                model("nativeTests/specialBackendChecks")
+                model("nativeTests", excludedPattern = excludedCustomTestdataPattern)
+                model("testsWithAnyBackend", excludedPattern = excludedCustomTestdataPattern)
             }
 
             testClass<AbstractNativeDiagnosticsWithBackendWithInlinedFunInKlibTestBase>(
                 suiteTestClassName = "NativeKlibDiagnosticsWithInlinedFunInKlibTestGenerated",
                 annotations = listOf(klib())
             ) {
-                model("klibSerializationTests")
+                model("klibSerializationTests", excludedPattern = excludedCustomTestdataPattern)
                 // KT-67300: TODO: extract specialBackendChecks into own test runner, invoking Native backend facade at the end
-                model("nativeTests/specialBackendChecks")
-                model("testsWithAnyBackend")
+                model("nativeTests", excludedPattern = excludedCustomTestdataPattern)
+                model("testsWithAnyBackend", excludedPattern = excludedCustomTestdataPattern)
             }
         }
 
@@ -131,13 +121,6 @@ fun main(args: Array<String>) {
         testGroup(testsRoot, "native/native.tests/testData/klib/header-klibs/compilation") {
             testClass<AbstractNativeHeaderKlibCompilationTest> {
                 model(extension = null, recursive = false)
-            }
-        }
-
-        // KLIB evolution tests.
-        testGroup(testsRoot, "compiler/testData/klib/evolution") {
-            testClass<AbstractNativeKlibEvolutionTest> {
-                model(recursive = false)
             }
         }
 
@@ -201,6 +184,13 @@ fun main(args: Array<String>) {
         testGroup(testsRoot, "compiler/testData/klib/dump-abi/content") {
             testClass<AbstractNativeLibraryAbiReaderTest> {
                 model()
+            }
+        }
+
+        testGroup(testsRoot, "compiler/testData/loadJava", testRunnerMethodName = "runTest0") {
+            testClass<AbstractNativeLoadCompiledKotlinTest> {
+                model("compiledKotlin", extension = "kt")
+                model("compiledKotlinWithStdlib", extension = "kt")
             }
         }
     }

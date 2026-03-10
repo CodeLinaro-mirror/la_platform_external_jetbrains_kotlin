@@ -1,19 +1,21 @@
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
+import org.jetbrains.kotlin.backend.konan.driver.NativeBackendPhaseContext
 import org.jetbrains.kotlin.backend.konan.util.toObsoleteKind
 import org.jetbrains.kotlin.config.nativeBinaryOptions.AndroidProgramType
 import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
 import org.jetbrains.kotlin.konan.KonanExternalToolFailure
 import org.jetbrains.kotlin.konan.TempFiles
+import org.jetbrains.kotlin.konan.config.NativeConfigurationKeys
 import org.jetbrains.kotlin.konan.exec.Command
 import org.jetbrains.kotlin.konan.file.File
-import org.jetbrains.kotlin.konan.library.KonanLibrary
+import org.jetbrains.kotlin.konan.library.components.nativeIncludedBinaries
+import org.jetbrains.kotlin.konan.library.linkerOpts
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.library.metadata.isCInteropLibrary
 import org.jetbrains.kotlin.library.uniqueName
 
-internal fun determineLinkerOutput(context: PhaseContext): LinkerOutputKind =
+internal fun determineLinkerOutput(context: NativeBackendPhaseContext): LinkerOutputKind =
         when (context.config.produce) {
             CompilerOutputKind.FRAMEWORK -> {
                 val staticFramework = context.config.produceStaticFramework
@@ -61,7 +63,7 @@ internal class Linker(
 
         val includedBinariesLibraries = config.libraryToCache?.let { listOf(it.klib) }
                 ?: nativeDependencies.filterNot { config.cachedLibraries.isLibraryCached(it) }
-        val includedBinaries = includedBinariesLibraries.map { (it as? KonanLibrary)?.includedPaths.orEmpty() }.flatten()
+        val includedBinaries = includedBinariesLibraries.map { it.nativeIncludedBinaries(config.target)?.nativeIncludedBinaryFilePaths.orEmpty() }.flatten()
 
         val libraryProvidedLinkerFlags = dependenciesTrackingResult.allNativeDependencies.map { it.linkerOpts }.flatten()
         return runLinker(outputFile, objectFiles, includedBinaries, libraryProvidedLinkerFlags, caches)
@@ -135,8 +137,7 @@ internal class Linker(
         }
         File(executable).delete()
 
-        val linkerArgs = asLinkerArgs(config.configuration.getNotNull(KonanConfigKeys.LINKER_ARGS)) +
-                caches.dynamic +
+        val linkerArgs = asLinkerArgs(config.configuration.getNotNull(NativeConfigurationKeys.LINKER_ARGS)) +
                 libraryProvidedLinkerFlags + additionalLinkerArgs
 
         return with(linker) {
@@ -144,7 +145,8 @@ internal class Linker(
                     tempFiles = tempFiles,
                     objectFiles = objectFiles,
                     executable = executable,
-                    libraries = linker.linkStaticLibraries(includedBinaries) + caches.static,
+                    staticLibraries = linker.linkStaticLibraries(includedBinaries) + caches.static,
+                    dynamicLibraries = caches.dynamic,
                     linkerArgs = linkerArgs,
                     optimize = optimize,
                     debug = debug,
@@ -156,7 +158,7 @@ internal class Linker(
     }
 }
 
-internal fun runLinkerCommands(context: PhaseContext, commands: List<Command>, cachingInvolved: Boolean) = try {
+internal fun runLinkerCommands(context: NativeBackendPhaseContext, commands: List<Command>, cachingInvolved: Boolean) = try {
     commands.forEach {
         it.logWith(context::log)
         it.execute()
@@ -164,10 +166,10 @@ internal fun runLinkerCommands(context: PhaseContext, commands: List<Command>, c
 } catch (e: KonanExternalToolFailure) {
     val extraUserInfo = if (cachingInvolved)
         """
-                    Please try to disable compiler caches and rerun the build. To disable compiler caches, add the following line to the gradle.properties file in the project's root directory:
-                        
-                        kotlin.native.cacheKind.${context.config.target.presetName}=none
-                        
+                    Please try to disable compiler caches and rerun the build.
+                    To disable compiler caches, use `disableNativeCache` in the binary declaration in the Gradle build script.
+                    See https://kotl.in/disable-native-cache for specific instructions.
+
                     Also, consider filing an issue with full Gradle log here: https://kotl.in/issue
                     """.trimIndent()
     else null

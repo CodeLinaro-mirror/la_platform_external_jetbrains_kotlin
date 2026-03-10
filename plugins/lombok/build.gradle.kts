@@ -2,7 +2,6 @@ description = "Lombok compiler plugin"
 
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("java-test-fixtures")
     id("project-tests-convention")
 }
@@ -21,24 +20,10 @@ dependencies {
 
     testFixturesApi(commonDependency("org.projectlombok:lombok"))
 
-    testFixturesApi(project(":compiler:util"))
-    testFixturesApi(project(":compiler:backend"))
-    testFixturesApi(project(":compiler:ir.backend.common"))
-    testFixturesApi(project(":compiler:backend.jvm"))
-    testFixturesApi(project(":compiler:cli"))
-
     testFixturesApi(testFixtures(project(":compiler:tests-common-new")))
-    testFixturesApi(testFixtures(project(":compiler:test-infrastructure")))
-    testFixturesApi(testFixtures(project(":compiler:test-infrastructure-utils")))
     testFixturesApi(libs.junit.jupiter.api)
     testFixturesImplementation(testFixtures(project(":generators:test-generator")))
 
-    // FIR dependencies
-    testFixturesApi(project(":compiler:fir:checkers"))
-    testFixturesApi(project(":compiler:fir:checkers:checkers.jvm"))
-    testRuntimeOnly(project(":compiler:fir:fir-serialization"))
-
-    testRuntimeOnly(project(":core:descriptors.runtime"))
     testRuntimeOnly(libs.junit.jupiter.engine)
 
     testFixturesApi(libs.junit4)
@@ -53,12 +38,18 @@ optInToExperimentalCompilerApi()
 
 sourceSets {
     "main" { none() }
-    "test" { generatedTestDir() }
+    "test" {
+        projectDefault()
+        generatedTestDir()
+    }
     "testFixtures" { projectDefault() }
 }
 
 projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5) {
+    testTask(
+        jUnitMode = JUnitMode.JUnit5,
+        defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_17_0)
+    ) {
         dependsOn(":dist")
         workingDir = rootDir
 

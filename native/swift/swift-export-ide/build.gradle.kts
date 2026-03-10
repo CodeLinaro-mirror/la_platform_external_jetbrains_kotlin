@@ -1,6 +1,5 @@
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("project-tests-convention")
 }
 
@@ -19,7 +18,7 @@ dependencies {
 
     implementation(project(":analysis:analysis-api"))
 
-    testApi(platform(libs.junit.bom))
+    testImplementation(platform(libs.junit.bom))
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.junit.jupiter.api)
 
@@ -38,7 +37,7 @@ sourceSets {
 }
 
 projectTests {
-    nativeTestTask("test", null) {
+    nativeTestTask("test") {
         dependsOn(":dist", ":kotlin-native:distInvalidateStaleCaches")
     }
 

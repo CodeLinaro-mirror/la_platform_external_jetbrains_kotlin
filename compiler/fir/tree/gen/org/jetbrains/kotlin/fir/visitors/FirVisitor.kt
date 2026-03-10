@@ -149,8 +149,8 @@ abstract class FirVisitor<out R, in D> {
     open fun visitIntegerLiteralOperatorCall(integerLiteralOperatorCall: FirIntegerLiteralOperatorCall, data: D): R =
         visitElement(integerLiteralOperatorCall, data)
 
-    open fun visitArrayLiteral(arrayLiteral: FirArrayLiteral, data: D): R =
-        visitElement(arrayLiteral, data)
+    open fun visitCollectionLiteral(collectionLiteral: FirCollectionLiteral, data: D): R =
+        visitElement(collectionLiteral, data)
 
     open fun visitCheckNotNullCall(checkNotNullCall: FirCheckNotNullCall, data: D): R =
         visitElement(checkNotNullCall, data)
@@ -206,8 +206,8 @@ abstract class FirVisitor<out R, in D> {
     open fun visitOuterClassTypeParameterRef(outerClassTypeParameterRef: FirOuterClassTypeParameterRef, data: D): R =
         visitElement(outerClassTypeParameterRef, data)
 
-    open fun visitSimpleFunction(simpleFunction: FirSimpleFunction, data: D): R =
-        visitElement(simpleFunction, data)
+    open fun visitNamedFunction(namedFunction: FirNamedFunction, data: D): R =
+        visitElement(namedFunction, data)
 
     open fun visitContractDescriptionOwner(contractDescriptionOwner: FirContractDescriptionOwner, data: D): R =
         visitElement(contractDescriptionOwner, data)
@@ -283,6 +283,18 @@ abstract class FirVisitor<out R, in D> {
 
     open fun visitReplSnippet(replSnippet: FirReplSnippet, data: D): R =
         visitElement(replSnippet, data)
+
+    open fun visitReplDeclarationReference(replDeclarationReference: FirReplDeclarationReference, data: D): R =
+        visitElement(replDeclarationReference, data)
+
+    open fun visitReplExpressionReference(replExpressionReference: FirReplExpressionReference, data: D): R =
+        visitElement(replExpressionReference, data)
+
+    open fun visitReplPropertyInitializer(replPropertyInitializer: FirReplPropertyInitializer, data: D): R =
+        visitElement(replPropertyInitializer, data)
+
+    open fun visitReplPropertyDelegate(replPropertyDelegate: FirReplPropertyDelegate, data: D): R =
+        visitElement(replPropertyDelegate, data)
 
     open fun visitPackageDirective(packageDirective: FirPackageDirective, data: D): R =
         visitElement(packageDirective, data)

@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.java.enhancement
 
-import com.intellij.openapi.util.registry.Registry
 import org.jetbrains.kotlin.KtFakeSourceElementKind
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.builtins.StandardNames.DEFAULT_VALUE_PARAMETER
@@ -218,8 +217,8 @@ class FirSignatureEnhancement(
                     moduleData = this@FirSignatureEnhancement.moduleData
                     this.name = name
                     symbol = FirJavaOverriddenSyntheticPropertySymbol(propertySymbol.callableId, propertySymbol.getterId)
-                    delegateGetter = enhancedGetterSymbol?.fir as FirSimpleFunction? ?: getterDelegate
-                    delegateSetter = enhancedSetterSymbol?.fir as FirSimpleFunction? ?: setterDelegate
+                    delegateGetter = enhancedGetterSymbol?.fir as FirNamedFunction? ?: getterDelegate
+                    delegateSetter = enhancedSetterSymbol?.fir as FirNamedFunction? ?: setterDelegate
                     customStatus = enhanceStatus(firElement.status, predefinedEnhancementInfo = null, overriddenMembers = overridden)
                     deprecationsProvider = getDeprecationsProviderFromAccessors(session, delegateGetter, delegateSetter)
                     dispatchReceiverType = firElement.dispatchReceiverType
@@ -234,7 +233,7 @@ class FirSignatureEnhancement(
         }
     }
 
-    private fun FirSimpleFunction.enhanceAccessorOrNull(overriddenProperties: List<FirCallableDeclaration>): FirFunctionSymbol<*>? {
+    private fun FirNamedFunction.enhanceAccessorOrNull(overriddenProperties: List<FirCallableDeclaration>): FirFunctionSymbol<*>? {
         if (!symbol.isEnhanceable()) return null
         return enhancedFunction(symbol, name, overriddenProperties)
     }
@@ -314,9 +313,9 @@ class FirSignatureEnhancement(
         }
 
         val defaultQualifiers = firMethod.computeDefaultQualifiers()
-        val overriddenMembers = precomputedOverridden ?: (firMethod as? FirSimpleFunction)?.overridden().orEmpty()
+        val overriddenMembers = precomputedOverridden ?: (firMethod as? FirNamedFunction)?.overridden().orEmpty()
 
-        val (newReturnTypeRef, deferredCalc) = if (firMethod is FirSimpleFunction) {
+        val (newReturnTypeRef, deferredCalc) = if (firMethod is FirNamedFunction) {
             enhanceReturnType(firMethod, overriddenMembers, defaultQualifiers, predefinedEnhancementInfo)
         } else {
             firMethod.returnTypeRef to null
@@ -385,6 +384,7 @@ class FirSignatureEnhancement(
                     }
                 }
                 builder.apply {
+                    isLocal = false
                     source = firMethod.source
                     moduleData = this@FirSignatureEnhancement.moduleData
                     resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
@@ -402,15 +402,16 @@ class FirSignatureEnhancement(
                     // Constructors has no extension receiver, and deferredCalc is always null for them
                 }
             }
-            is FirSimpleFunction -> {
+            is FirNamedFunction -> {
                 isJavaRecordComponent = firMethod.isJavaRecordComponent == true
-                FirSimpleFunctionBuilder().apply {
+                FirNamedFunctionBuilder().apply {
                     source = firMethod.source
                     moduleData = this@FirSignatureEnhancement.moduleData
                     origin = declarationOrigin
 
                     this.name = name!!
                     status = enhanceStatus(firMethod.status, predefinedEnhancementInfo, overriddenMembers)
+                    isLocal = false
                     symbol = if (isIntersectionOverride) {
                         FirIntersectionOverrideFunctionSymbol(
                             methodId, overriddenMembers.map { it.symbol },
@@ -608,7 +609,7 @@ class FirSignatureEnhancement(
     }
 
     private fun updateIsOperatorFlagIfNeeded(function: FirFunction) {
-        if (function !is FirSimpleFunction) return
+        if (function !is FirNamedFunction) return
         val isOperator = OperatorFunctionChecks.isOperator(function, session, scopeSession = null).isSuccess
         if (!isOperator) return
         val newStatus = function.status.copy(isOperator = true)
@@ -1137,47 +1138,21 @@ class FirEnhancedSymbolsStorage(private val cachesFactory: FirCachesFactory) : F
     class EnhancementSymbolsCache(cachesFactory: FirCachesFactory) {
         @OptIn(PrivateForInline::class)
         val enhancedFunctions: FirCache<FirFunctionSymbol<*>, FirFunctionSymbol<*>, FunctionEnhancementContext> =
-            when {
-                // TODO: Leave only `else` branch if there are no exceptions (KT-71929)
-                // TODO: Also consider removing PerformanceWise as well
-                // `cachesFactory.isThreadSafe` is used just for sake of not calling the registry in the compiler
-                @OptIn(FirCachesFactory.PerformanceWise::class)
-                cachesFactory.isThreadSafe && isRegistryForPostComputeEnhancedJavaFunctionsCache ->
-                    cachesFactory.createCacheWithPostCompute(
-                        createValue = { original, context ->
-                            context.enhancement.enhance(original, context.name, context.precomputedOverridden) to context.enhancement
-                        },
-                        postCompute = { _, enhancedVersion, enhancement ->
-                            val enhancedVersionFir = enhancedVersion.fir
-                            (enhancedVersionFir.initialSignatureAttr)?.let {
-                                enhancedVersionFir.initialSignatureAttr = enhancement.enhancedFunction(it, it.name)
-                            }
-                        }
-                    )
-                else ->
-                    cachesFactory.createCache { original, context ->
-                        context.enhancement.enhance(original, context.name, context.precomputedOverridden).also { enhancedVersion ->
-                            val enhancedVersionFir = enhancedVersion.fir
-                            enhancedVersionFir.initialSignatureAttr?.let {
-                                enhancedVersionFir.initialSignatureAttr =
-                                    context.enhancement.enhancedFunction(it, it.name)
-                            }
-                        }
+            cachesFactory.createCache { original, context ->
+                context.enhancement.enhance(original, context.name, context.precomputedOverridden).also { enhancedVersion ->
+                    val enhancedVersionFir = enhancedVersion.fir
+                    enhancedVersionFir.initialSignatureAttr?.let {
+                        enhancedVersionFir.initialSignatureAttr =
+                            context.enhancement.enhancedFunction(it, it.name)
                     }
+                }
             }
-
 
         @OptIn(PrivateForInline::class)
         val enhancedVariables: FirCache<FirVariableSymbol<*>, FirVariableSymbol<*>, Pair<FirSignatureEnhancement, Name>> =
             cachesFactory.createCache { original, (enhancement, name) ->
                 enhancement.enhance(original, name)
             }
-
-        private companion object {
-            private val isRegistryForPostComputeEnhancedJavaFunctionsCache by lazy(LazyThreadSafetyMode.PUBLICATION) {
-                Registry.`is`("kotlin.analysis.postComputeEnhancedJavaFunctionsCache", false)
-            }
-        }
     }
 }
 

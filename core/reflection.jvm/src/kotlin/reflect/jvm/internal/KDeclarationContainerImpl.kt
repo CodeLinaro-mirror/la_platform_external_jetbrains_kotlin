@@ -27,11 +27,15 @@ import org.jetbrains.kotlin.descriptors.runtime.structure.wrapperByPrimitive
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.renderer.DescriptorRenderer
-import org.jetbrains.kotlin.resolve.isMultiFieldValueClass
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import kotlin.jvm.internal.ClassBasedDeclarationContainer
-import kotlin.reflect.jvm.internal.calls.toJvmDescriptor
+import kotlin.metadata.KmConstructor
+import kotlin.metadata.KmFunction
+import kotlin.metadata.KmProperty
+import kotlin.metadata.isVar
+import kotlin.metadata.jvm.signature
+import kotlin.reflect.KProperty0
 
 internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContainer {
     abstract inner class Data {
@@ -44,19 +48,58 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
     protected open val methodOwner: Class<*>
         get() = jClass.wrapperByPrimitive ?: jClass
 
+    abstract val functionsMetadata: Collection<KmFunction>
+
+    abstract val propertiesMetadata: Collection<KmProperty>
+
+    abstract val constructorsMetadata: Collection<KmConstructor>
+
     abstract val constructorDescriptors: Collection<ConstructorDescriptor>
 
     abstract fun getProperties(name: Name): Collection<PropertyDescriptor>
 
     abstract fun getFunctions(name: Name): Collection<FunctionDescriptor>
 
-    abstract fun getLocalProperty(index: Int): PropertyDescriptor?
+    abstract fun getLocalPropertyDescriptor(index: Int): PropertyDescriptor?
+
+    abstract fun getLocalPropertyMetadata(index: Int): KmProperty?
+
+    private val classLoader: ClassLoader get() = jClass.safeClassLoader
+
+    fun createLocalProperty(index: Int, signature: String): KProperty0<*>? {
+        val kmProperty = getLocalPropertyMetadata(index) ?: return null
+        if (kmProperty.receiverParameterType != null) {
+            throw KotlinReflectionInternalError("Local property ${kmProperty.name} is an extension, which is not yet supported")
+        }
+
+        return if (kmProperty.isVar)
+            KotlinKMutableProperty0<Any?>(this, signature, rawBoundReceiver = null, kmProperty)
+        else
+            KotlinKProperty0<Any?>(this, signature, rawBoundReceiver = null, kmProperty)
+    }
+
+    fun findPropertyMetadata(name: String, signature: String): KmProperty {
+        // For class properties, we'll also need to support the case when there are several properties with the same name,
+        // see `findPropertyDescriptor`.
+        require(this is KPackageImpl) { "Only top-level properties are supported for now: $this/$name ($signature)" }
+
+        val properties = propertiesMetadata.filter { it.name == name && it.computeJvmSignature(this) == signature }
+        if (properties.isEmpty()) {
+            throw KotlinReflectionInternalError("Property '$name' (JVM signature: $signature) not resolved in $this")
+        }
+
+        if (properties.size > 1) {
+            throw KotlinReflectionInternalError("Property '$name' (JVM signature: $signature) resolved in several methods in $this")
+        }
+
+        return properties.single()
+    }
 
     fun findPropertyDescriptor(name: String, signature: String): PropertyDescriptor {
         val match = LOCAL_PROPERTY_SIGNATURE.matchEntire(signature)
         if (match != null) {
             val (number) = match.destructured
-            return getLocalProperty(number.toInt())
+            return getLocalPropertyDescriptor(number.toInt())
                 ?: throw KotlinReflectionInternalError("Local property #$number not found in $jClass")
         }
 
@@ -101,26 +144,27 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
         return properties.single()
     }
 
-    fun findFunctionDescriptor(name: String, signature: String): FunctionDescriptor {
-        val members: Collection<FunctionDescriptor>
-        val functions: List<FunctionDescriptor>
-        if (name == "<init>") {
-            members = constructorDescriptors.toList()
-            functions = members.filter { descriptor ->
-                val descriptorSignature = if (descriptor.isPrimary && descriptor.containingDeclaration.isMultiFieldValueClass()) {
-                    val initial = RuntimeTypeMapper.mapSignature(descriptor).asString()
-                    require(initial.startsWith("constructor-impl") && initial.endsWith(")V")) {
-                        "Invalid signature of $descriptor: $initial"
-                    }
-                    initial.removeSuffix("V") + descriptor.containingDeclaration.toJvmDescriptor()
-                } else {
-                    RuntimeTypeMapper.mapSignature(descriptor).asString()
-                }
-                descriptorSignature == signature
+    fun findFunctionMetadata(name: String, signature: String): KmFunction {
+        require(this is KPackageImpl) { "Only top-level functions are supported for now: $this/$name ($signature)" }
+
+        val functions = functionsMetadata.filter { it.name == name && it.signature.toString() == signature }
+        if (functions.size != 1) {
+            val allMembers = functionsMetadata.joinToString("\n") { function ->
+                function.name + " | " + function.signature
             }
-        } else {
-            members = getFunctions(Name.identifier(name))
-            functions = members.filter { descriptor -> RuntimeTypeMapper.mapSignature(descriptor).asString() == signature }
+            throw KotlinReflectionInternalError(
+                "Function '$name' (JVM signature: $signature) not resolved in $this:" +
+                        if (allMembers.isEmpty()) " no members found" else " several matching members found:\n$allMembers"
+            )
+        }
+
+        return functions.single()
+    }
+
+    fun findFunctionDescriptor(name: String, signature: String): FunctionDescriptor {
+        val members = if (name == "<init>") constructorDescriptors.toList() else getFunctions(Name.identifier(name))
+        val functions = members.filter { descriptor ->
+            RuntimeTypeMapper.mapSignature(descriptor).asString() == signature
         }
 
         if (functions.size != 1) {
@@ -136,8 +180,21 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
         return functions.single()
     }
 
+    fun findConstructorMetadata(signature: String): KmConstructor {
+        val constructors = constructorsMetadata.filter { it.signature.toString() == signature }
+        if (constructors.size != 1) {
+            val allMembers = constructorsMetadata.joinToString("\n") { constructor -> constructor.signature.toString() }
+            throw KotlinReflectionInternalError(
+                "Constructor (JVM signature: $signature) not resolved in $this:" +
+                        if (allMembers.isEmpty()) " no constructors found" else " several matching constructors found:\n$allMembers"
+            )
+        }
+
+        return constructors.single()
+    }
+
     private fun Class<*>.lookupMethod(
-        name: String, parameterTypes: Array<Class<*>>, returnType: Class<*>, isStaticDefault: Boolean
+        name: String, parameterTypes: Array<Class<*>>, returnType: Class<*>, isStaticDefault: Boolean,
     ): Method? {
         // Static "$default" method in any class takes an instance of that class as the first parameter.
         if (isStaticDefault) {
@@ -193,7 +250,7 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
     fun findMethodBySignature(name: String, desc: String): Method? {
         if (name == "<init>") return null
 
-        val functionJvmDescriptor = parseJvmDescriptor(desc, parseReturnType = true)
+        val functionJvmDescriptor = classLoader.parseAndLoadDescriptor(desc, loadReturnType = true)
         val parameterTypes = functionJvmDescriptor.parameters.toTypedArray()
         val returnType = functionJvmDescriptor.returnType!!
         methodOwner.lookupMethod(name, parameterTypes, returnType, false)?.let { return it }
@@ -207,7 +264,7 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
         return null
     }
 
-    fun findDefaultMethod(name: String, desc: String, isMember: Boolean): Method? {
+    fun findDefaultMethod(name: String, desc: String, isMember: Boolean, hasExtensionParameter: Boolean): Method? {
         if (name == "<init>") return null
 
         val parameterTypes = arrayListOf<Class<*>>()
@@ -215,8 +272,8 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
             // Note that this value is replaced inside the lookupMethod call below, for each class/interface in the hierarchy.
             parameterTypes.add(jClass)
         }
-        val jvmDescriptor = parseJvmDescriptor(desc, parseReturnType = true)
-        addParametersAndMasks(parameterTypes, jvmDescriptor.parameters, isConstructor = false)
+        val jvmDescriptor = classLoader.parseAndLoadDescriptor(desc, loadReturnType = true)
+        addParametersAndMasks(parameterTypes, jvmDescriptor.parameters, isConstructor = false, hasExtensionParameter)
 
         return methodOwner.lookupMethod(
             name + JvmAbi.DEFAULT_PARAMS_IMPL_SUFFIX, parameterTypes.toTypedArray(), jvmDescriptor.returnType!!, isStaticDefault = isMember
@@ -224,73 +281,40 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
     }
 
     fun findConstructorBySignature(desc: String): Constructor<*>? =
-        jClass.tryGetConstructor(parseJvmDescriptor(desc, parseReturnType = false).parameters)
+        jClass.tryGetConstructor(classLoader.parseAndLoadDescriptor(desc, loadReturnType = false).parameters)
 
     fun findDefaultConstructor(desc: String): Constructor<*>? =
         jClass.tryGetConstructor(arrayListOf<Class<*>>().also { parameterTypes ->
-            val parsedParameters = parseJvmDescriptor(desc, parseReturnType = false).parameters
-            addParametersAndMasks(parameterTypes, parsedParameters, isConstructor = true)
+            val parsedParameters = classLoader.parseAndLoadDescriptor(desc, loadReturnType = false).parameters
+            addParametersAndMasks(parameterTypes, parsedParameters, isConstructor = true, hasExtensionParameter = false)
         })
 
-    private fun addParametersAndMasks(result: MutableList<Class<*>>, valueParameters: List<Class<*>>, isConstructor: Boolean) {
+    private fun addParametersAndMasks(
+        result: MutableList<Class<*>>,
+        parameters: List<Class<*>>,
+        isConstructor: Boolean,
+        hasExtensionParameter: Boolean,
+    ) {
         // Constructors that include parameters of inline class types contain an extra trailing DEFAULT_CONSTRUCTOR_MARKER parameter,
         // which should be excluded when calculating mask size.
         val withoutMarker =
-            if (valueParameters.lastOrNull() == DEFAULT_CONSTRUCTOR_MARKER) valueParameters.subList(0, valueParameters.size - 1)
-            else valueParameters
+            if (parameters.lastOrNull() == DEFAULT_CONSTRUCTOR_MARKER) parameters.subList(0, parameters.size - 1)
+            else parameters
+
+        val allocatedBitsForDefaultMask = if (hasExtensionParameter) withoutMarker.size - 1 else withoutMarker.size
 
         result.addAll(withoutMarker)
-        repeat((withoutMarker.size + Integer.SIZE - 1) / Integer.SIZE) {
+        repeat((allocatedBitsForDefaultMask + Integer.SIZE - 1) / Integer.SIZE) {
             result.add(Integer.TYPE)
         }
 
         result.add(if (isConstructor) DEFAULT_CONSTRUCTOR_MARKER else Any::class.java)
     }
 
-    private class FunctionJvmDescriptor(val parameters: List<Class<*>>, val returnType: Class<*>?)
-
-    private fun parseJvmDescriptor(desc: String, parseReturnType: Boolean): FunctionJvmDescriptor {
-        val result = arrayListOf<Class<*>>()
-
-        var begin = 1
-        while (desc[begin] != ')') {
-            var end = begin
-            while (desc[end] == '[') end++
-            @Suppress("SpellCheckingInspection")
-            when (desc[end]) {
-                in "VZCBSIFJD" -> end++
-                'L' -> end = desc.indexOf(';', begin) + 1
-                else -> throw KotlinReflectionInternalError("Unknown type prefix in the method signature: $desc")
-            }
-
-            result.add(parseType(desc, begin, end))
-            begin = end
-        }
-
-        val returnType = if (parseReturnType) parseType(desc, begin = begin + 1, end = desc.length) else null
-
-        return FunctionJvmDescriptor(result, returnType)
-    }
-
-    private fun parseType(desc: String, begin: Int, end: Int): Class<*> =
-        when (desc[begin]) {
-            'L' -> jClass.safeClassLoader.loadClass(desc.substring(begin + 1, end - 1).replace('/', '.'))
-            '[' -> parseType(desc, begin + 1, end).createArrayType()
-            'V' -> Void.TYPE
-            'Z' -> Boolean::class.java
-            'C' -> Char::class.java
-            'B' -> Byte::class.java
-            'S' -> Short::class.java
-            'I' -> Int::class.java
-            'F' -> Float::class.java
-            'J' -> Long::class.java
-            'D' -> Double::class.java
-            else -> throw KotlinReflectionInternalError("Unknown type prefix in the method signature: $desc")
-        }
-
     companion object {
         private val DEFAULT_CONSTRUCTOR_MARKER = Class.forName("kotlin.jvm.internal.DefaultConstructorMarker")
 
-        internal val LOCAL_PROPERTY_SIGNATURE = "<v#(\\d+)>".toRegex()
+        @JvmField
+        val LOCAL_PROPERTY_SIGNATURE = "<v#(\\d+)>".toRegex()
     }
 }

@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.library
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.properties.Properties
 import org.jetbrains.kotlin.konan.properties.propertyList
+import org.jetbrains.kotlin.library.components.ir
 import org.jetbrains.kotlin.library.impl.BuiltInsPlatform
 import org.jetbrains.kotlin.metadata.deserialization.BinaryVersion
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
@@ -83,49 +84,12 @@ const val KLIB_PROPERTY_MANUALLY_ENABLED_POISONING_LANGUAGE_FEATURES = "poisonin
  */
 
 interface BaseKotlinLibrary {
-    val libraryName: String
+    /** This is the obsolete but still supported way to get the library "location". Please use [Klib.location] instead. */
     val libraryFile: File
-    val componentList: List<String>
+
     val versions: KotlinLibraryVersioning
 
-    // Whether this library is default (provided by distribution)?
-    val isDefault: Boolean
     val manifestProperties: Properties
-}
-
-interface MetadataLibrary {
-    val moduleHeaderData: ByteArray
-    fun packageMetadataParts(fqName: String): Set<String>
-    fun packageMetadata(fqName: String, partName: String): ByteArray
-}
-
-interface IrLibrary {
-    val hasMainIr: Boolean
-    val mainIr: IrDirectory
-
-    // This directory, if present, stores prepared copies of inlinable functions, see KT-75794.
-    val hasInlinableFunsIr: Boolean
-    val inlinableFunsIr: IrDirectory
-
-    interface IrDirectory {
-        val hasFileEntriesTable: Boolean
-        fun irDeclaration(index: Int, fileIndex: Int): ByteArray
-        fun type(index: Int, fileIndex: Int): ByteArray
-        fun signature(index: Int, fileIndex: Int): ByteArray
-        fun string(index: Int, fileIndex: Int): ByteArray
-        fun body(index: Int, fileIndex: Int): ByteArray
-        fun debugInfo(index: Int, fileIndex: Int): ByteArray?
-        fun fileEntry(index: Int, fileIndex: Int): ByteArray?
-        fun file(index: Int): ByteArray
-        fun fileCount(): Int
-
-        fun types(fileIndex: Int): ByteArray
-        fun signatures(fileIndex: Int): ByteArray
-        fun strings(fileIndex: Int): ByteArray
-        fun declarations(fileIndex: Int): ByteArray
-        fun bodies(fileIndex: Int): ByteArray
-        fun fileEntries(fileIndex: Int): ByteArray?
-    }
 }
 
 /** Whether [this] is a Kotlin/Native stdlib. */
@@ -168,7 +132,7 @@ fun BaseKotlinLibrary.unresolvedDependencies(lenient: Boolean = false): List<Unr
 val BaseKotlinLibrary.hasDependencies: Boolean
     get() = !manifestProperties.getProperty(KLIB_PROPERTY_DEPENDS).isNullOrBlank()
 
-interface KotlinLibrary : BaseKotlinLibrary, MetadataLibrary, IrLibrary
+interface KotlinLibrary : Klib, BaseKotlinLibrary
 
 val BaseKotlinLibrary.interopFlag: String?
     get() = manifestProperties.getProperty(KLIB_PROPERTY_INTEROP)
@@ -215,4 +179,4 @@ val KotlinLibrary.metadataVersion: MetadataVersion?
     }
 
 val KotlinLibrary.hasAbi: Boolean
-    get() = hasMainIr || irProviderName != null
+    get() = ir != null || irProviderName != null

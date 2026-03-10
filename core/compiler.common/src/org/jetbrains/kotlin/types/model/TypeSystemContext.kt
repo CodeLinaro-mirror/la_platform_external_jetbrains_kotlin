@@ -269,6 +269,9 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
 
     fun KotlinTypeMarker.isSpecial(): Boolean
 
+    @K2Only
+    fun KotlinTypeMarker.hasEnhancedNullability(): Boolean
+
     fun TypeConstructorMarker.isTypeVariable(): Boolean
     fun TypeVariableTypeConstructorMarker.isContainedInInvariantOrContravariantPositions(): Boolean
 
@@ -377,6 +380,8 @@ interface TypeSystemInferenceExtensionContext : TypeSystemContext, TypeSystemBui
     val isK2: Boolean
 
     val allowSemiFixationToOtherTypeVariables: Boolean get() = false
+
+    val lexicographicVariableReadinessCalculation: Boolean get() = false
 }
 
 
@@ -596,6 +601,9 @@ interface TypeSystemContext : TypeSystemOptimizationContext {
     fun TypeConstructorMarker.isAnyConstructor(): Boolean
     fun TypeConstructorMarker.isNothingConstructor(): Boolean
     fun TypeConstructorMarker.isArrayConstructor(): Boolean
+
+    // TODO: Consider making `LanguageFeature` accessible from this module.
+    fun KotlinTypeMarker.withNewTypeSince(languageFeature: Any, newType: KotlinTypeMarker): KotlinTypeMarker = this
 
     /**
      *

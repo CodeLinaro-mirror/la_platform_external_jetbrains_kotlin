@@ -35,7 +35,6 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.library.metadata.impl.KlibResolvedModuleDescriptorsFactoryImpl.Companion.FORWARD_DECLARATIONS_MODULE_NAME
-import java.util.*
 
 internal object DataFlowIR {
     abstract class Type(
@@ -582,7 +581,7 @@ internal object DataFlowIR {
         private fun choosePrimary(erasure: List<IrClass>): IrClass {
             if (erasure.size == 1) return erasure[0]
             // A parameter with constraints - choose class if exists.
-            return erasure.singleOrNull { !it.isInterface } ?: context.symbols.any.owner
+            return erasure.singleOrNull { !it.isInterface } ?: context.irBuiltIns.anyClass.owner
         }
 
         private fun mapPrimitiveBinaryType(primitiveBinaryType: PrimitiveBinaryType): Type =

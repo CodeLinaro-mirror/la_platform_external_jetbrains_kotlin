@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,22 +7,36 @@ package org.jetbrains.kotlin.incremental
 
 
 import org.jetbrains.kotlin.K1Deprecation
-import org.jetbrains.kotlin.backend.wasm.compileWasm
+import org.jetbrains.kotlin.backend.wasm.WasmIrModuleConfiguration
+import org.jetbrains.kotlin.backend.wasm.compileWasmIrToBinary
 import org.jetbrains.kotlin.backend.wasm.ic.WasmICContextForTesting
 import org.jetbrains.kotlin.backend.wasm.ir2wasm.WasmCompiledFileFragment
+import org.jetbrains.kotlin.backend.wasm.linkWasmIr
 import org.jetbrains.kotlin.backend.wasm.writeCompilationResult
+import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.codegen.ModelTarget
 import org.jetbrains.kotlin.codegen.ModuleInfo
 import org.jetbrains.kotlin.codegen.ProjectInfo
 import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.targetPlatform
 import org.jetbrains.kotlin.ir.backend.js.ic.CacheUpdater
 import org.jetbrains.kotlin.js.config.ModuleKind
+import org.jetbrains.kotlin.js.config.sourceMap
+import org.jetbrains.kotlin.js.config.useDebuggerCustomFormatters
 import org.jetbrains.kotlin.js.config.wasmCompilation
 import org.jetbrains.kotlin.klib.KlibCompilerInvocationTestUtils
+import org.jetbrains.kotlin.platform.wasm.WasmPlatforms
+import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.test.TargetBackend
+import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.utils.TestDisposable
+import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
+import org.jetbrains.kotlin.wasm.config.wasmDebug
+import org.jetbrains.kotlin.wasm.config.wasmGenerateDwarf
+import org.jetbrains.kotlin.wasm.config.wasmGenerateWat
+import org.jetbrains.kotlin.wasm.config.wasmTarget
 import org.jetbrains.kotlin.wasm.test.AbstractWasmPartialLinkageTestCase
 import org.jetbrains.kotlin.wasm.test.WasmCompilerInvocationTestConfiguration
 import org.jetbrains.kotlin.wasm.test.tools.WasmVM
@@ -39,17 +53,17 @@ abstract class WasmAbstractInvalidationTest(
     override val outputDirPath = System.getProperty("kotlin.wasm.test.root.out.dir") ?: error("'kotlin.wasm.test.root.out.dir' is not set")
 
     override val stdlibKLib: String =
-        File(System.getProperty("kotlin.wasm-js.stdlib.path") ?: error("Please set stdlib path")).canonicalPath
+        File(WasmEnvironmentConfigurator.stdlibPath(WasmTarget.JS)).canonicalPath
 
     override val kotlinTestKLib: String =
-        File(System.getProperty("kotlin.wasm-js.kotlin.test.path") ?: error("Please set kotlin.test path")).canonicalPath
+        File(WasmEnvironmentConfigurator.kotlinTestPath(WasmTarget.JS)).canonicalPath
 
     final override val rootDisposable: TestDisposable =
         TestDisposable("${WasmAbstractInvalidationTest::class.simpleName}.rootDisposable")
 
     @OptIn(K1Deprecation::class)
     override val environment: KotlinCoreEnvironment =
-        KotlinCoreEnvironment.createForParallelTests(rootDisposable, CompilerConfiguration(), EnvironmentConfigFiles.JS_CONFIG_FILES)
+        KotlinCoreEnvironment.createForParallelTests(rootDisposable, CompilerConfiguration.create(), EnvironmentConfigFiles.JS_CONFIG_FILES)
 
     override fun testConfiguration(buildDir: File): KlibCompilerInvocationTestUtils.TestConfiguration =
         WasmCompilerInvocationTestConfiguration(buildDir, AbstractWasmPartialLinkageTestCase.CompilerType.WITH_IC)
@@ -71,6 +85,13 @@ abstract class WasmAbstractInvalidationTest(
             includedLibrary = includedLibrary
         )
         config.wasmCompilation = true
+        config.wasmTarget = WasmTarget.JS
+        config.targetPlatform = WasmPlatforms.wasmJs
+        config.wasmDebug = false
+        config.sourceMap = false
+        config.useDebuggerCustomFormatters = false
+        config.wasmGenerateDwarf = false
+        config.wasmGenerateWat = false
         return config
     }
 
@@ -117,20 +138,19 @@ abstract class WasmAbstractInvalidationTest(
 
             verifyCacheUpdateStats(stepId, cacheUpdater.getDirtyFileLastStats(), testInfo + removedModulesInfo)
 
-            val res = compileWasm(
+            val parameters = WasmIrModuleConfiguration(
                 wasmCompiledFileFragments = fileFragments,
                 moduleName = mainModuleInfo.moduleName,
                 configuration = configuration,
                 typeScriptFragment = null,
                 baseFileName = mainModuleInfo.moduleName,
-                emitNameSection = false,
-                generateSourceMaps = false,
-                generateWat = false,
-                useDebuggerCustomFormatters = false,
-                generateDwarf = false
+                multimoduleOptions = null,
             )
 
-            writeCompilationResult(res, buildDir, mainModuleInfo.moduleName)
+            val linkedModule = linkWasmIr(parameters)
+            val compilationResult = compileWasmIrToBinary(parameters, linkedModule)
+
+            writeCompilationResult(compilationResult, buildDir, mainModuleInfo.moduleName)
 
             WasmVM.NodeJs.run(
                 "./test.mjs",
@@ -214,4 +234,5 @@ abstract class WasmAbstractInvalidationTest(
             }
         }
     }
+
 }

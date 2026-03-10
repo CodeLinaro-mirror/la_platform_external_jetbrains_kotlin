@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -21,9 +21,12 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.Test
 import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.project
 import org.gradle.kotlin.dsl.register
 import org.jetbrains.kotlin.build.project.tests.CollectTestDataTask
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.attributes.KlibPackaging
 import java.io.File
 
 abstract class ProjectTestsExtension(val project: Project) {
@@ -55,18 +58,43 @@ abstract class ProjectTestsExtension(val project: Project) {
     val scriptingPluginForTests: Configuration = project.configurations.create("scriptingPluginForTests") {
         isTransitive = false
     }
+    val stdlibWebRuntimeForTests: Configuration = project.configurations.create("stdlibWebRuntimeForTests") {
+        isTransitive = false
+    }
     val stdlibJsRuntimeForTests: Configuration = project.configurations.create("stdlibJsRuntimeForTests") {
         isTransitive = false
+    }
+    val stdlibJsMinimalRuntimeForTests: Configuration = project.configurations.create("stdlibJsMinimalRuntimeForTests") {
+        isTransitive = false
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        attributes.attribute(KlibPackaging.ATTRIBUTE, project.objects.named(KlibPackaging.NON_PACKED))
     }
     val testJsRuntimeForTests: Configuration = project.configurations.create("testJsRuntimeForTests") {
         isTransitive = false
     }
+    val stdlibWasmJsRuntimeForTests: Configuration = project.configurations.create("stdlibWasmJsRuntimeForTests") {
+        isTransitive = false
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        attributes.attribute(KlibPackaging.ATTRIBUTE, project.objects.named(KlibPackaging.NON_PACKED))
+    }
+    val stdlibWasmWasiRuntimeForTests: Configuration = project.configurations.create("stdlibWasmWasiRuntimeForTests") {
+        isTransitive = false
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        attributes.attribute(KlibPackaging.ATTRIBUTE, project.objects.named(KlibPackaging.NON_PACKED))
+    }
+    val testWasmJsRuntimeForTests: Configuration = project.configurations.create("testWasmJsRuntimeForTests") {
+        isTransitive = false
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        attributes.attribute(KlibPackaging.ATTRIBUTE, project.objects.named(KlibPackaging.NON_PACKED))
+    }
+    val testWasmWasiRuntimeForTests: Configuration = project.configurations.create("testWasmWasiRuntimeForTests") {
+        isTransitive = false
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        attributes.attribute(KlibPackaging.ATTRIBUTE, project.objects.named(KlibPackaging.NON_PACKED))
+    }
 
-    private val noOp = project.kotlinBuildProperties.isInJpsBuildIdeaSync
     private fun add(configuration: Configuration, dependency: DependencyHandler.() -> ProjectDependency) {
-        if (!noOp) {
-            project.dependencies { configuration(dependency(this)) }
-        }
+        project.dependencies { configuration(dependency(this)) }
     }
 
     fun withJvmStdlibAndReflect() {
@@ -91,12 +119,21 @@ abstract class ProjectTestsExtension(val project: Project) {
         add(kotlinAnnotationsForTests) { project(":kotlin-annotations-jvm") }
     }
 
-    fun withStdlibJsRuntime() {
-        add(stdlibJsRuntimeForTests) { project(":kotlin-stdlib", "distJsKlib") }
+    fun withStdlibWeb() {
+        add(stdlibWebRuntimeForTests) { project(":kotlin-stdlib", "webMainMetadataElements") }
     }
 
-    fun withTestJsRuntime() {
+    fun withJsRuntime() {
+        add(stdlibJsRuntimeForTests) { project(":kotlin-stdlib", "distJsKlib") }
+        add(stdlibJsMinimalRuntimeForTests) { project(":kotlin-stdlib-js-ir-minimal-for-test", "jsRuntimeElements") }
         add(testJsRuntimeForTests) { project(":kotlin-test", "jsRuntimeElements") }
+    }
+
+    fun withWasmRuntime() {
+        add(stdlibWasmJsRuntimeForTests) { project(":kotlin-stdlib", "wasmJsRuntimeElements") }
+        add(stdlibWasmWasiRuntimeForTests) { project(":kotlin-stdlib", "wasmWasiRuntimeElements") }
+        add(testWasmJsRuntimeForTests) { project(":kotlin-test", "wasmJsRuntimeElements") }
+        add(testWasmWasiRuntimeForTests) { project(":kotlin-test", "wasmWasiRuntimeElements") }
     }
 
     fun withScriptingPlugin() {
@@ -201,7 +238,7 @@ abstract class ProjectTestsExtension(val project: Project) {
         skipInLocalBuild: Boolean,
         body: Test.() -> Unit = {},
     ): TaskProvider<out Task> {
-        if (skipInLocalBuild && !project.kotlinBuildProperties.isTeamcityBuild) {
+        if (skipInLocalBuild && !project.kotlinBuildProperties.isTeamcityBuild.get()) {
             return project.tasks.register(taskName)
         }
         if (jUnitMode == JUnitMode.JUnit5 && parallel != null) {
@@ -233,7 +270,9 @@ abstract class ProjectTestsExtension(val project: Project) {
         taskName: String = "generateTests",
         doNotSetFixturesSourceSetDependency: Boolean = false,
         generateTestsInBuildDirectory: Boolean = false,
-        configure: JavaExec.() -> Unit = {}
+        skipCollectDataTask: Boolean = false,
+        configureTestDataCollection: CollectTestDataTask.() -> Unit = {},
+        configure: JavaExec.() -> Unit = {},
     ) {
         val fixturesSourceSet = if (doNotSetFixturesSourceSetDependency) {
             null
@@ -242,13 +281,17 @@ abstract class ProjectTestsExtension(val project: Project) {
         }
         val generationPath = when (generateTestsInBuildDirectory) {
             false -> project.layout.projectDirectory.dir("tests-gen")
-            true -> project.layout.buildDirectory.dir("tests-gen").get().also {
-                project.sourceSets.named(SourceSet.TEST_SOURCE_SET_NAME) {
-                    generatedDir(project, it)
-                }
-            }
+            true -> project.layout.buildDirectory.dir("tests-gen").get()
         }
-        val generatorTask = project.generator(taskName, fqName, fixturesSourceSet) {
+        val generatorTask = project.generator(
+            taskName = taskName,
+            fqName = fqName,
+            sourceSet = fixturesSourceSet ?: project.testSourceSet,
+            inputKind = when (doNotSetFixturesSourceSetDependency) {
+                true -> GeneratorInputKind.RuntimeClasspath
+                false -> GeneratorInputKind.SourceSetJar
+            }
+        ) {
             this.args = buildList {
                 add(generationPath.asFile.absolutePath)
                 if (generateTestsInBuildDirectory) {
@@ -265,17 +308,21 @@ abstract class ProjectTestsExtension(val project: Project) {
             }
             configure()
         }
-        if (generateTestsInBuildDirectory) {
-            configureCollectTestDataTask(generatorTask)
+        if (generateTestsInBuildDirectory && !skipCollectDataTask) {
+            project.sourceSets.named(SourceSet.TEST_SOURCE_SET_NAME) {
+                generatedDir(project, generatorTask.map { generationPath })
+            }
+            configureCollectTestDataTask(generatorTask, configureTestDataCollection)
         }
     }
 
-    private fun configureCollectTestDataTask(generatorTask: TaskProvider<out Task>) {
+    private fun configureCollectTestDataTask(generatorTask: TaskProvider<out Task>, configure: CollectTestDataTask.() -> Unit) {
         val collectTestDataTask = project.tasks.register<CollectTestDataTask>("collectTestData") {
             projectName.set(project.name)
             rootDirPath.set(project.rootDir.absolutePath)
             targetFile.set(project.layout.buildDirectory.file("testDataInfo/testDataFilesList.txt"))
             testDataFiles.set(this@ProjectTestsExtension.testDataFiles)
+            configure()
         }
         generatorTask.configure {
             inputs.file(collectTestDataTask.map { it.targetFile })

@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.swiftexport.standalone.test;
 
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.util.KtTestUtil;
-import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseStandardTestCaseGroupProvider;
+import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseExtTestCaseGroupProvider;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 @SuppressWarnings("all")
 @TestMetadata("native/swift/swift-export-standalone-integration-tests/simple/testData/execution")
 @TestDataPath("$PROJECT_ROOT")
-@UseStandardTestCaseGroupProvider()
+@UseExtTestCaseGroupProvider()
 public class SwiftExportExecutionTestGenerated extends AbstractSwiftExportExecutionTest {
   @Test
   public void testAllFilesPresentInExecution() {
@@ -131,6 +131,12 @@ public class SwiftExportExecutionTestGenerated extends AbstractSwiftExportExecut
   @TestMetadata("protocols")
   public void testProtocols() {
     runTest("native/swift/swift-export-standalone-integration-tests/simple/testData/execution/protocols/");
+  }
+
+  @Test
+  @TestMetadata("ranges")
+  public void testRanges() {
+    runTest("native/swift/swift-export-standalone-integration-tests/simple/testData/execution/ranges/");
   }
 
   @Test

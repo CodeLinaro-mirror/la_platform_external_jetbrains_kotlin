@@ -25,6 +25,8 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationCallCopy
 import org.jetbrains.kotlin.fir.expressions.builder.buildAnnotationCopy
 import org.jetbrains.kotlin.fir.expressions.builder.buildExpressionStub
+import org.jetbrains.kotlin.fir.extensions.extensionService
+import org.jetbrains.kotlin.fir.extensions.replSnippetResolveExtensions
 import org.jetbrains.kotlin.fir.resolve.ScopeSession
 import org.jetbrains.kotlin.fir.resolve.TypeResolutionConfiguration
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeAmbiguouslyResolvedAnnotationFromPlugin
@@ -122,6 +124,27 @@ open class FirTypeResolveTransformer(
         currentFile = file
         return withScopeCleanup {
             addScopes(createImportingScopes(file, session, scopeSession))
+            action()
+        }
+    }
+
+    override fun transformReplSnippet(replSnippet: FirReplSnippet, data: Any?): FirReplSnippet {
+        whileAnalysing(session, replSnippet) {
+            return withReplSnippetScope(replSnippet) {
+                transformElement(replSnippet, data)
+            }
+        }
+    }
+
+    inline fun <R> withReplSnippetScope(replSnippet: FirReplSnippet, crossinline action: () -> R): R {
+        return withScopeCleanup {
+            addScopes(buildList {
+                // TODO: robuster matching and error reporting on no extension (KT-72969)
+                for (resolveExt in session.extensionService.replSnippetResolveExtensions) {
+                    val scope = resolveExt.getSnippetScope(replSnippet, session)
+                    if (scope != null) add(scope)
+                }
+            })
             action()
         }
     }
@@ -274,19 +297,19 @@ open class FirTypeResolveTransformer(
         super.transformBackingField(backingField, data)
     }
 
-    override fun transformSimpleFunction(
-        simpleFunction: FirSimpleFunction,
+    override fun transformNamedFunction(
+        namedFunction: FirNamedFunction,
         data: Any?,
-    ): FirSimpleFunction = whileAnalysing(session, simpleFunction) {
+    ): FirNamedFunction = whileAnalysing(session, namedFunction) {
         withScopeCleanup {
-            withDeclaration(simpleFunction) {
-                addTypeParametersScope(simpleFunction)
-                val result = transformDeclaration(simpleFunction, data).also {
+            withDeclaration(namedFunction) {
+                addTypeParametersScope(namedFunction)
+                val result = transformDeclaration(namedFunction, data).also {
                     unboundCyclesInTypeParametersSupertypes(it as FirTypeParametersOwner)
                 }
 
                 if (result.source?.kind == KtFakeSourceElementKind.DataClassGeneratedMembers &&
-                    result is FirSimpleFunction &&
+                    result is FirNamedFunction &&
                     result.name == StandardNames.DATA_CLASS_COPY
                 ) {
                     for (valueParameter in result.valueParameters) {
@@ -296,7 +319,7 @@ open class FirTypeResolveTransformer(
 
                 result
             }
-        } as FirSimpleFunction
+        } as FirNamedFunction
     }
 
     private fun unboundCyclesInTypeParametersSupertypes(typeParametersOwner: FirTypeParameterRefsOwner) {

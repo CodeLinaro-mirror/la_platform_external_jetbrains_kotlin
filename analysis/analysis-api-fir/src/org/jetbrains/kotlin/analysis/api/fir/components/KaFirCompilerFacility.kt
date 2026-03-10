@@ -13,13 +13,8 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.KtRealPsiSourceElement
-import org.jetbrains.kotlin.analysis.api.compile.CodeFragmentCapturedValue
-import org.jetbrains.kotlin.analysis.api.components.KaCodeCompilationException
-import org.jetbrains.kotlin.analysis.api.components.KaCompilationResult
-import org.jetbrains.kotlin.analysis.api.components.KaCompilerFacility
-import org.jetbrains.kotlin.analysis.api.components.KaCompilerFacility.Companion.CODE_FRAGMENT_CLASS_NAME
-import org.jetbrains.kotlin.analysis.api.components.KaCompilerFacility.Companion.CODE_FRAGMENT_METHOD_NAME
-import org.jetbrains.kotlin.analysis.api.components.KaCompilerTarget
+import org.jetbrains.kotlin.analysis.api.compile.KaCodeFragmentCapturedValue
+import org.jetbrains.kotlin.analysis.api.components.*
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnostic
 import org.jetbrains.kotlin.analysis.api.diagnostics.KaDiagnosticWithPsi
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
@@ -48,12 +43,14 @@ import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
 import org.jetbrains.kotlin.codegen.state.CompiledCodeProvider
 import org.jetbrains.kotlin.codegen.state.GenerationState
-import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.config.CompilerConfiguration
+import org.jetbrains.kotlin.config.JvmTarget
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.DeclarationDescriptor
 import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
-import org.jetbrains.kotlin.diagnostics.impl.PendingDiagnosticsCollectorWithSuppress
-import org.jetbrains.kotlin.diagnostics.impl.SimpleDiagnosticsCollector
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.toFirDiagnostics
@@ -79,7 +76,6 @@ import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirThisReference
 import org.jetbrains.kotlin.fir.references.toResolvedSymbol
-import org.jetbrains.kotlin.fir.resolve.referencedMemberSymbol
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.symbols.lazyResolveToPhaseRecursively
@@ -92,7 +88,7 @@ import org.jetbrains.kotlin.ir.descriptors.IrBasedDeclarationDescriptor
 import org.jetbrains.kotlin.ir.descriptors.IrBasedReceiverParameterDescriptor
 import org.jetbrains.kotlin.ir.descriptors.IrBasedValueParameterDescriptor
 import org.jetbrains.kotlin.ir.descriptors.IrBasedVariableDescriptor
-import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
@@ -347,7 +343,7 @@ internal class KaFirCompilerFacility(
     }
 
     private fun detectNonLocalReturnsInEvaluatingLambdas(inlineStackData: InlineStackData): List<KaDiagnostic> {
-        val reporter = SimpleDiagnosticsCollector(BaseDiagnosticsCollector.RawReporter.DO_NOTHING)
+        val reporter = DiagnosticsCollectorImpl()
         inlineStackData.inlineLambdaParameterMapping.values.forEach {
 
             val lambda = it.expr as? FirAnonymousFunctionExpression ?: return@forEach
@@ -874,7 +870,7 @@ internal class KaFirCompilerFacility(
         codeFragmentMappings: CodeFragmentMappings?,
         codegenFactory: JvmIrCodegenFactory,
         generateClassFilter: GenerationState.GenerateClassFilter,
-        diagnosticReporter: PendingDiagnosticsCollectorWithSuppress,
+        diagnosticsCollector: BaseDiagnosticsCollector,
         jvmGeneratorExtensions: JvmGeneratorExtensions,
         compiledCodeProvider: CompiledCodeProvider,
     ): KaCompilationResult {
@@ -901,7 +897,7 @@ internal class KaFirCompilerFacility(
             configuration,
             classBuilderFactory,
             generateDeclaredClassFilter = generateClassFilter,
-            diagnosticReporter = diagnosticReporter,
+            diagnosticReporter = diagnosticsCollector,
             compiledCodeProvider = compiledCodeProvider
         )
 
@@ -949,7 +945,9 @@ internal class KaFirCompilerFacility(
     }
 
     private fun getIrGenerationExtensions(module: KaModule): List<IrGenerationExtension> {
-        val projectExtensions = IrGenerationExtension.getInstances(project)
+        val projectExtensions = project.extensionArea
+            .getExtensionPoint<IrGenerationExtension>(IrGenerationExtension.name)
+            .extensionList
 
         val unwrappedModule = module.baseContextModuleOrSelf
         if (unwrappedModule !is KaSourceModule) {
@@ -999,7 +997,7 @@ internal class KaFirCompilerFacility(
             else -> baseFir2IrExtensions
         }
 
-        val diagnosticReporter = DiagnosticReporterFactory.createPendingReporter(configuration.messageCollector)
+        val diagnosticsCollector = DiagnosticsCollectorImpl()
 
         val commonMemberStorage = contextDeclarationCache?.customCommonMemberStorage ?: Fir2IrCommonMemberStorage()
 
@@ -1009,7 +1007,7 @@ internal class KaFirCompilerFacility(
             session = session,
             firFiles = chunk.files.map { it.firFile },
             fir2IrExtensions = fir2IrExtensions,
-            diagnosticReporter = diagnosticReporter,
+            diagnosticReporter = diagnosticsCollector,
             effectiveConfiguration = configuration,
             irGeneratorExtensions = irGeneratorExtensions,
             commonMemberStorage = commonMemberStorage
@@ -1020,8 +1018,8 @@ internal class KaFirCompilerFacility(
             irTypeParam to with(fir2IrResult.components) { coneType.toIrType() }
         }
 
-        if (diagnosticReporter.hasErrors) {
-            val errors = computeErrors(diagnosticReporter.diagnostics.filterIsInstance<KtDiagnosticWithSource>(), allowedErrorFilter)
+        if (diagnosticsCollector.hasErrors) {
+            val errors = computeErrors(diagnosticsCollector.diagnostics.filterIsInstance<KtDiagnosticWithSource>(), allowedErrorFilter)
             if (errors.isNotEmpty()) {
                 return KaCompilationResult.Failure(errors)
             }
@@ -1062,13 +1060,13 @@ internal class KaFirCompilerFacility(
             codeFragmentMappings,
             codegenFactory,
             generateClassFilter,
-            diagnosticReporter,
+            diagnosticsCollector,
             baseFir2IrExtensions,
             compiledCodeProvider
         )
 
-        if (diagnosticReporter.hasErrors) {
-            val errors = computeErrors(diagnosticReporter.diagnostics.filterIsInstance<KtDiagnosticWithSource>(), allowedErrorFilter)
+        if (diagnosticsCollector.hasErrors) {
+            val errors = computeErrors(diagnosticsCollector.diagnostics.filterIsInstance<KtDiagnosticWithSource>(), allowedErrorFilter)
             if (errors.isNotEmpty()) {
                 return KaCompilationResult.Failure(errors)
             }
@@ -1092,11 +1090,11 @@ internal class KaFirCompilerFacility(
     ): Fir2IrActualizedResult {
         val fir2IrConfiguration =
             Fir2IrConfiguration.forAnalysisApi(effectiveConfiguration, session.languageVersionSettings, diagnosticReporter)
-        val firResult = FirResult(listOf(ModuleCompilerAnalyzedOutput(session, session.getScopeSession(), firFiles)))
-        val singleOutput = firResult.outputs.size == 1
+        val frontendOutput = AllModulesFrontendOutput(listOf(SingleModuleFrontendOutput(session, session.getScopeSession(), firFiles)))
+        val singleOutput = frontendOutput.outputs.size == 1
         check(singleOutput) { "Single output invariant is used in the lambda below" }
 
-        return firResult.convertToIrAndActualize(
+        return frontendOutput.convertToIrAndActualize(
             fir2IrExtensions = fir2IrExtensions,
             fir2IrConfiguration = fir2IrConfiguration,
             irGeneratorExtensions = irGeneratorExtensions,
@@ -1119,7 +1117,7 @@ internal class KaFirCompilerFacility(
     }
 
     @OptIn(UnsafeDuringIrConstructionAPI::class)
-    private fun computeAdditionalCodeFragmentMapping(descriptor: IrBasedDeclarationDescriptor<*>): CodeFragmentCapturedValue? {
+    private fun computeAdditionalCodeFragmentMapping(descriptor: IrBasedDeclarationDescriptor<*>): KaCodeFragmentCapturedValue? {
         val owner = descriptor.owner
 
         if (descriptor is IrBasedReceiverParameterDescriptor && owner is IrValueParameter) {
@@ -1130,7 +1128,7 @@ internal class KaFirCompilerFacility(
             if (receiverClassId != null && parent is IrFunction) {
                 when (owner.kind) {
                     IrParameterKind.DispatchReceiver -> {
-                        return CodeFragmentCapturedValue.ContainingClass(
+                        return KaCodeFragmentCapturedValue.ContainingClass(
                             receiverClassId,
                             isCrossingInlineBounds = true,
                             depthRelativeToCurrentFrame = 0
@@ -1141,7 +1139,7 @@ internal class KaFirCompilerFacility(
                             .subList(0, owner.indexInParameters)
                             .count { it.kind == IrParameterKind.Context }
                         val labelName = receiverClassId.shortClassName
-                        return CodeFragmentCapturedValue.ContextReceiver(
+                        return KaCodeFragmentCapturedValue.ContextReceiver(
                             contextParameterIndex,
                             labelName,
                             isCrossingInlineBounds = true,
@@ -1149,7 +1147,7 @@ internal class KaFirCompilerFacility(
                         )
                     }
                     IrParameterKind.ExtensionReceiver -> {
-                        return CodeFragmentCapturedValue.ExtensionReceiver(
+                        return KaCodeFragmentCapturedValue.ExtensionReceiver(
                             parent.name.asString(),
                             isCrossingInlineBounds = true,
                             depthRelativeToCurrentFrame = 0
@@ -1165,7 +1163,7 @@ internal class KaFirCompilerFacility(
             val isMutated = false // TODO capture the usage somehow
 
             if (owner.origin == IrDeclarationOrigin.PROPERTY_DELEGATE) {
-                return CodeFragmentCapturedValue.LocalDelegate(
+                return KaCodeFragmentCapturedValue.LocalDelegate(
                     name,
                     isMutated,
                     isCrossingInlineBounds = true,
@@ -1173,12 +1171,12 @@ internal class KaFirCompilerFacility(
                 )
             }
 
-            return CodeFragmentCapturedValue.Local(name, isMutated, isCrossingInlineBounds = true, depthRelativeToCurrentFrame = 0)
+            return KaCodeFragmentCapturedValue.Local(name, isMutated, isCrossingInlineBounds = true, depthRelativeToCurrentFrame = 0)
         }
 
         if (descriptor is IrBasedValueParameterDescriptor && owner is IrValueParameter) {
             val name = owner.name
-            return CodeFragmentCapturedValue.Local(name, isMutated = false, isCrossingInlineBounds = true, depthRelativeToCurrentFrame = 0)
+            return KaCodeFragmentCapturedValue.Local(name, isMutated = false, isCrossingInlineBounds = true, depthRelativeToCurrentFrame = 0)
         }
 
         return null
@@ -1234,7 +1232,7 @@ internal class KaFirCompilerFacility(
      * [inlineLambdaParametersMapping]
      */
     private class CodeFragmentMappings(
-        val capturedValues: List<CodeFragmentCapturedValue>,
+        val capturedValues: List<KaCodeFragmentCapturedValue>,
         val capturedFiles: List<KtFile>,
         val injectedValues: List<InjectedValue>,
         val conversionData: CodeFragmentConversionData,
@@ -1296,14 +1294,7 @@ internal class KaFirCompilerFacility(
             val id = when (calleeReference) {
                 is FirThisReference -> when (val boundSymbol = calleeReference.boundSymbol) {
                     is FirClassSymbol -> CodeFragmentCapturedId(boundSymbol)
-                    is FirReceiverParameterSymbol, is FirValueParameterSymbol -> {
-                        when (val referencedSymbol = calleeReference.referencedMemberSymbol) {
-                            // Specific (deprecated) case for a class context receiver
-                            // TODO: remove with KT-72994
-                            is FirClassSymbol -> CodeFragmentCapturedId(referencedSymbol)
-                            else -> CodeFragmentCapturedId(boundSymbol)
-                        }
-                    }
+                    is FirReceiverParameterSymbol -> CodeFragmentCapturedId(boundSymbol)
                     is FirTypeParameterSymbol, is FirTypeAliasSymbol -> errorWithFirSpecificEntries(
                         message = "Unexpected FirThisOwnerSymbol ${calleeReference::class.simpleName}", fir = boundSymbol.fir
                     )
@@ -1318,7 +1309,7 @@ internal class KaFirCompilerFacility(
     private class CompilerFacilityJvmGeneratorExtensions(
         private val delegate: JvmGeneratorExtensions
     ) : StubGeneratorExtensions(), JvmGeneratorExtensions by delegate {
-        override fun generateRawTypeAnnotationCall(): IrConstructorCall? = delegate.generateRawTypeAnnotationCall()
+        override fun generateRawTypeAnnotation(): IrAnnotation? = delegate.generateRawTypeAnnotation()
 
         /**
          * This method is used from `org.jetbrains.kotlin.backend.jvm.lower.SpecialAccessLowering.visitCall`

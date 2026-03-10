@@ -14,23 +14,20 @@ import org.jetbrains.kotlin.KtNodeTypes
 import org.jetbrains.kotlin.ObsoleteTestInfrastructure
 import org.jetbrains.kotlin.checkers.collectLanguageFeatureMap
 import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirElementWithResolveState
-import org.jetbrains.kotlin.fir.FirFunctionTypeParameter
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.contracts.FirContractDescription
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirTypeParameter
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.declarations.utils.isNonLocal
+import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.references.impl.FirStubReference
-import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.renderer.FirRenderer
 import org.jetbrains.kotlin.fir.session.FirSessionFactoryHelper
+import org.jetbrains.kotlin.fir.symbols.impl.FirBackingFieldSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionWithoutNameSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
@@ -47,6 +44,7 @@ import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.TestDataAssertions
 import org.jetbrains.kotlin.test.testFramework.KtParsingTestCase
+import org.jetbrains.kotlin.test.util.JUnit4Assertions
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import org.jetbrains.kotlin.utils.addToStdlib.joinToWithBuffer
 import java.io.File
@@ -90,7 +88,11 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
         val expectedPath = expectedPath(filePath, ".annotationOwners.txt")
         val expectedFile = File(expectedPath)
         val annotations = firFile.collectAnnotations()
-        if (annotations.isEmpty() && !expectedFile.exists()) {
+        if (annotations.isEmpty()) {
+            JUnit4Assertions.assertFileDoesntExist(expectedFile) {
+                "No annotations found, but $expectedFile exists"
+            }
+
             return
         }
 
@@ -296,7 +298,8 @@ abstract class AbstractRawFirBuilderTestCase : KtParsingTestCase(
                 }
             }
 
-            private fun FirDeclaration.shouldAddParentContext(): Boolean = symbol is FirFunctionWithoutNameSymbol || !isNonLocal
+            private fun FirDeclaration.shouldAddParentContext(): Boolean =
+                symbol is FirFunctionWithoutNameSymbol || symbol is FirBackingFieldSymbol || isLocal
         }
     }
 }

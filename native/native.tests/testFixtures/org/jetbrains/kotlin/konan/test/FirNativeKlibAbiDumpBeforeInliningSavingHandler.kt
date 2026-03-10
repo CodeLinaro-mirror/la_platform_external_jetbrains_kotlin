@@ -5,8 +5,9 @@
 
 package org.jetbrains.kotlin.konan.test
 
-import org.jetbrains.kotlin.config.messageCollector
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.config.languageVersionSettings
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.test.backend.handlers.AbstractKlibAbiDumpBeforeInliningSavingHandler
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.model.BinaryArtifacts
@@ -19,10 +20,14 @@ class FirNativeKlibAbiDumpBeforeInliningSavingHandler(
 ) : AbstractKlibAbiDumpBeforeInliningSavingHandler(testServices) {
     override fun serializeModule(module: TestModule, inputArtifact: IrBackendInput): BinaryArtifacts.KLib {
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
-        val diagnosticReporter = DiagnosticReporterFactory.createReporter(configuration.messageCollector)
+        val diagnosticReporter = DiagnosticsCollectorImpl()
+        val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
+            diagnosticReporter,
+            configuration.languageVersionSettings
+        )
         val outputFile = getAbiCheckKlibArtifactFile(module.name)
 
-        NativeKlibSerializerFacade(testServices).serializeBare(module, inputArtifact, outputFile, configuration, diagnosticReporter)
+        NativeKlibSerializerFacade(testServices).serializeBare(module, inputArtifact, outputFile, configuration, irDiagnosticReporter)
 
         return BinaryArtifacts.KLib(outputFile, diagnosticReporter)
     }

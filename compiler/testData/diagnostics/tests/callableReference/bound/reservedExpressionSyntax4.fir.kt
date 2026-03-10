@@ -1,6 +1,7 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -UNUSED_VARIABLE
 // WITH_STDLIB
+// LANGUAGE: -ProperSupportOfInnerClassesInCallableReferenceLHS
 
 class A {
     class B<T> {
@@ -28,10 +29,10 @@ fun goodClassifiers() {
 
 fun nullableClassifiers() {
     <!NULLABLE_TYPE_IN_CLASS_LITERAL_LHS!>A.B.C?::class<!>
-    A.B.C?::<!UNSAFE_CALL!>foo<!>
+    A.B.C?::<!UNSAFE_CALLABLE_REFERENCE!>foo<!>
 
     <!NULLABLE_TYPE_IN_CLASS_LITERAL_LHS!>A.B.InnerC?::class<!>
-    A.B<Int>.InnerC?::<!UNSAFE_CALL!>foo<!>
+    A.B<Int>.InnerC?::<!UNSAFE_CALLABLE_REFERENCE!>foo<!>
 }
 
 fun classifiersWithTA() {
@@ -59,19 +60,19 @@ fun rain() {
     <!SAFE_CALLABLE_REFERENCE_CALL!>a.b.c?::foo<!>
 
     <!EXPRESSION_OF_NULLABLE_TYPE_IN_CLASS_LITERAL_LHS!>a.b<!UNNECESSARY_SAFE_CALL!>?.<!>c<!>::class
-    a.b<!UNNECESSARY_SAFE_CALL!>?.<!>c::<!UNSAFE_CALL!>foo<!>
+    a.b<!UNNECESSARY_SAFE_CALL!>?.<!>c::<!UNSAFE_CALLABLE_REFERENCE!>foo<!>
 
     <!EXPRESSION_OF_NULLABLE_TYPE_IN_CLASS_LITERAL_LHS!>a.maybeB?.c<!>::class
-    a.maybeB?.c::<!UNSAFE_CALL!>foo<!>
+    a.maybeB?.c::<!UNSAFE_CALLABLE_REFERENCE!>foo<!>
 
     a.<!EXPLICIT_TYPE_ARGUMENTS_IN_PROPERTY_ACCESS!>b<!><Int>.c::class
     a.<!EXPLICIT_TYPE_ARGUMENTS_IN_PROPERTY_ACCESS!>b<!><Int>.c::foo
 
     <!EXPRESSION_OF_NULLABLE_TYPE_IN_CLASS_LITERAL_LHS!>a.b.maybeC<!>::class
-    a.b.maybeC::<!UNSAFE_CALL!>foo<!>
+    a.b.maybeC::<!UNSAFE_CALLABLE_REFERENCE!>foo<!>
 
     <!EXPRESSION_OF_NULLABLE_TYPE_IN_CLASS_LITERAL_LHS!>a.b.maybeC<!>?::class
-    <!SAFE_CALLABLE_REFERENCE_CALL!>a.b.maybeC?::<!UNSAFE_CALL!>foo<!><!>
+    <!SAFE_CALLABLE_REFERENCE_CALL!>a.b.maybeC?::<!UNSAFE_CALLABLE_REFERENCE!>foo<!><!>
 }
 
 /* GENERATED_FIR_TAGS: callableReference, classDeclaration, classReference, functionDeclaration, getter, inner,

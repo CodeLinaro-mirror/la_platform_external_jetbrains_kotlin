@@ -17,18 +17,25 @@ import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.PermissivenessForExposedVisibility
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
+import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.relationForExposedVisibility
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.correspondingProperty
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
+import org.jetbrains.kotlin.fir.declarations.utils.expandedConeType
+import org.jetbrains.kotlin.fir.declarations.utils.fromPrimaryConstructor
+import org.jetbrains.kotlin.fir.declarations.utils.isFromSealedClass
+import org.jetbrains.kotlin.fir.declarations.utils.isScriptTopLevelDeclaration
+import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.extensions.scriptResolutionHacksComponent
+import org.jetbrains.kotlin.fir.isDisabled
 import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
 import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -162,7 +169,7 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker(MppCh
     context(reporter: DiagnosticReporter, context: CheckerContext)
     private fun checkProperty(declaration: FirProperty) {
         if (declaration.fromPrimaryConstructor == true) return
-        if (declaration.isLocal) return
+        if (declaration.symbol is FirLocalPropertySymbol) return
         if (declaration.source?.kind == KtFakeSourceElementKind.EnumGeneratedDeclaration) return
         val propertyVisibility = declaration.effectiveVisibility
 
@@ -202,7 +209,7 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker(MppCh
         }
 
         val property = correspondingProperty ?: return
-        if (property.isLocal) return
+        if (property.symbol is FirLocalPropertySymbol) return
         val propertyVisibility = property.effectiveVisibility
 
         if (propertyVisibility == EffectiveVisibility.Local) return
@@ -332,7 +339,7 @@ object FirExposedVisibilityDeclarationChecker : FirBasicDeclarationChecker(MppCh
             source: KtSourceElement?,
         ) {
             val isPackagePrivateFromInternal = permissiveness == PermissivenessForExposedVisibility.PACKAGE_PRIVATE_FROM_INTERNAL
-            if (isPackagePrivateFromInternal && !LanguageFeature.ForbidExposingPackagePrivateInInternal.isEnabled()) return
+            if (isPackagePrivateFromInternal && LanguageFeature.ForbidExposingPackagePrivateInInternal.isDisabled()) return
 
             reporter.reportOn(
                 source,

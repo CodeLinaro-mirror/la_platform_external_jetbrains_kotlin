@@ -8,15 +8,14 @@ import org.jetbrains.kotlinx.dataframe.api.asDataColumn
 import org.jetbrains.kotlinx.dataframe.api.cast
 import org.jetbrains.kotlinx.dataframe.api.convert
 import org.jetbrains.kotlinx.dataframe.api.dataFrameOf
-import org.jetbrains.kotlinx.dataframe.api.with
+import org.jetbrains.kotlinx.dataframe.api.perRowCol
 import org.jetbrains.kotlinx.dataframe.columns.ColumnGroup
 import org.jetbrains.kotlinx.dataframe.columns.FrameColumn
-import org.jetbrains.kotlinx.dataframe.plugin.extensions.Marker
+import org.jetbrains.kotlinx.dataframe.plugin.extensions.ColumnType
 import org.jetbrains.kotlinx.dataframe.plugin.impl.api.ColumnsResolver
-import org.jetbrains.kotlinx.dataframe.plugin.impl.api.TypeApproximation
 
-fun PluginDataFrameSchema.asDataFrame(): DataFrame<ConeTypesAdapter> {
-    val df = columns().map()
+fun PluginDataFrameSchema.asDataFrame(impliedColumnsResolver: ColumnsResolver? = null): DataFrame<ConeTypesAdapter> {
+    val df = columns(impliedColumnsResolver).map()
     return df
 }
 
@@ -24,12 +23,16 @@ fun DataFrame<ConeTypesAdapter>.toPluginDataFrameSchema() = PluginDataFrameSchem
 
 interface ConeTypesAdapter
 
-fun PluginDataFrameSchema.convert(columns: ColumnsResolver, converter: (Marker) -> Marker): PluginDataFrameSchema {
-    return asDataFrame().convert { columns }.with { converter(it as Marker) }.toPluginDataFrameSchema()
+fun PluginDataFrameSchema.convert(columns: ColumnsResolver, converter: (SimpleCol) -> ColumnType): PluginDataFrameSchema {
+    return asDataFrame(impliedColumnsResolver = columns)
+        .convert { columns }.perRowCol { _, col -> converter(col.asSimpleColumn()) }
+        .toPluginDataFrameSchema()
 }
 
 fun PluginDataFrameSchema.convertAsColumn(columns: ColumnsResolver, converter: (SimpleCol) -> SimpleCol): PluginDataFrameSchema {
-    return asDataFrame().convert { columns }.asColumn { converter(it.asSimpleColumn()).asDataColumn() }.toPluginDataFrameSchema()
+    return asDataFrame(impliedColumnsResolver = columns)
+        .convert { columns }.asColumn { converter(it.asSimpleColumn()).asDataColumn() }
+        .toPluginDataFrameSchema()
 }
 
 private fun List<SimpleCol>.map(): DataFrame<ConeTypesAdapter> {
@@ -63,7 +66,7 @@ fun AnyCol.asSimpleColumn(): SimpleCol {
         }
 
         else -> {
-            SimpleDataColumn(name(), this[0] as TypeApproximation)
+            SimpleDataColumn(name(), this[0] as ColumnType)
         }
     }
 }

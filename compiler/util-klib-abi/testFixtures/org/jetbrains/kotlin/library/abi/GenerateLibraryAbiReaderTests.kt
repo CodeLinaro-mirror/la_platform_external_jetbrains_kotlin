@@ -12,13 +12,13 @@ fun main(args: Array<String>) {
 
     generateTestGroupSuiteWithJUnit5(args) {
         testGroup(testsRoot, "compiler/testData/klib/dump-abi") {
-            testClass<AbstractFirJsLibraryAbiReaderTest> {
+            testClass<AbstractJsLibraryAbiReaderTest> {
                 model("content")
             }
-            testClass<AbstractFirJsLibraryAbiReaderWithInlinedFunInKlibTest> {
+            testClass<AbstractJsLibraryAbiReaderWithInlinedFunInKlibTest> {
                 model("content")
             }
-            testClass<AbstractClassicJsLibraryAbiReaderTest> {
+            testClass<AbstractKlibDumpParserTest> {
                 model("content")
             }
         }

@@ -66,6 +66,16 @@ public class RawFirBuilderLazyBodiesByAstTestGenerated extends AbstractRawFirBui
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnField.kt");
     }
 
+    @TestMetadata("annotationOnFullNameBasedDestructuring.kt")
+    public void testAnnotationOnFullNameBasedDestructuring() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnFullNameBasedDestructuring.kt");
+    }
+
+    @TestMetadata("annotationOnFullNameBasedDestructuringScript.kts")
+    public void testAnnotationOnFullNameBasedDestructuringScript() {
+      runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnFullNameBasedDestructuringScript.kts");
+    }
+
     @TestMetadata("annotationOnProperty.kt")
     public void testAnnotationOnProperty() {
       runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/annotationOnProperty.kt");
@@ -625,6 +635,21 @@ public class RawFirBuilderLazyBodiesByAstTestGenerated extends AbstractRawFirBui
         KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode"), Pattern.compile("^(.+)\\.(kt|kts)$"), null, true);
       }
 
+      @TestMetadata("annotatedClassAsFunctionBody.kt")
+      public void testAnnotatedClassAsFunctionBody() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/annotatedClassAsFunctionBody.kt");
+      }
+
+      @TestMetadata("annotatedObjectAsFunctionBody.kt")
+      public void testAnnotatedObjectAsFunctionBody() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/annotatedObjectAsFunctionBody.kt");
+      }
+
+      @TestMetadata("annotatedTypealiasAsFunctionBody.kt")
+      public void testAnnotatedTypealiasAsFunctionBody() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/annotatedTypealiasAsFunctionBody.kt");
+      }
+
       @TestMetadata("annotationArgumentLocalDeclarations.kt")
       public void testAnnotationArgumentLocalDeclarations() {
         runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/annotationArgumentLocalDeclarations.kt");
@@ -633,6 +658,11 @@ public class RawFirBuilderLazyBodiesByAstTestGenerated extends AbstractRawFirBui
       @TestMetadata("contextParameterOnErrorPrimaryConstructor.kt")
       public void testContextParameterOnErrorPrimaryConstructor() {
         runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/contextParameterOnErrorPrimaryConstructor.kt");
+      }
+
+      @TestMetadata("danglingAnnotationAsFunctionBody.kt")
+      public void testDanglingAnnotationAsFunctionBody() {
+        runTest("compiler/fir/raw-fir/psi2fir/testData/rawBuilder/declarations/invalidCode/danglingAnnotationAsFunctionBody.kt");
       }
 
       @TestMetadata("danglingContextParameter.kt")

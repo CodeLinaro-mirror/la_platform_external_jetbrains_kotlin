@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirContractCallBlock
 import org.jetbrains.kotlin.fir.expressions.impl.FirSingleExpressionBlock
 import org.jetbrains.kotlin.fir.references.symbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitor
@@ -29,11 +29,13 @@ abstract class FirUnusedCheckerBase : FirBasicDeclarationChecker(MppCheckerKind.
     /**
      * If this function returns true, a corresponding warning should be issued using [reporter].
      * If this function returns false, the visitor continues to visit the children of [expression].
+     * [data] is guaranteed to be either [UsageState.UnusedFromCoercion] or [UsageState.Unused].
      */
     context(context: CheckerContext, reporter: DiagnosticReporter)
-    abstract fun reportUnusedExpressionIfNeeded(
+    protected abstract fun reportUnusedExpressionIfNeeded(
         expression: FirExpression,
         hasSideEffects: Boolean,
+        data: UsageState,
         source: KtSourceElement?,
     ): Boolean
 
@@ -44,12 +46,12 @@ abstract class FirUnusedCheckerBase : FirBasicDeclarationChecker(MppCheckerKind.
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(declaration: FirDeclaration) {
         if (!isEnabled()) return
+        if (context.isContractBody) return
         val visitor = createVisitor()
         when (declaration) {
             // A "used" FirBlock is one that uses the last statement as an implicit return.
             // If the containing element of the block is an FirFunction or FirAnonymousInitializer, the block is unused.
             // All other FirBlocks are considered used.
-            is FirReplSnippet -> declaration.body.acceptChildren(visitor, UsageState.Used)
             is FirCodeFragment -> declaration.block.acceptChildren(visitor, UsageState.Used)
             is FirAnonymousInitializer -> declaration.body?.acceptChildren(visitor, UsageState.Unused)
             is FirFunction -> {
@@ -70,6 +72,7 @@ abstract class FirUnusedCheckerBase : FirBasicDeclarationChecker(MppCheckerKind.
     protected enum class UsageState {
         Used,
         Unused,
+        UnusedFromCoercion
     }
 
     protected open inner class UsageVisitorBase(
@@ -81,12 +84,12 @@ abstract class FirUnusedCheckerBase : FirBasicDeclarationChecker(MppCheckerKind.
 
             val source = element.source
             if (
-                data == UsageState.Unused &&
+                data != UsageState.Used &&
                 element is FirExpression &&
                 source != null
             ) {
                 context(context, reporter) {
-                    if (reportUnusedExpressionIfNeeded(element, element.hasSideEffect(), source)) return
+                    if (reportUnusedExpressionIfNeeded(element, element.hasSideEffect(), data, source)) return
                 }
             }
 
@@ -121,15 +124,17 @@ abstract class FirUnusedCheckerBase : FirBasicDeclarationChecker(MppCheckerKind.
         override fun visitBlock(block: FirBlock, data: UsageState) {
             // Increment and decrement operators are always considered used (because they have a side effect).
             if (block.source?.kind is KtFakeSourceElementKind.DesugaredIncrementOrDecrement) return
-            // Function contract blocks can be ignored.
-            if (block is FirContractCallBlock) return
 
             val statements = block.statements
             val lastIndex = statements.lastIndex
             for (i in statements.indices) {
                 val statement = statements[i]
-                val isImplicitReturn = i == lastIndex && !block.isUnitCoerced
-                statement.accept(this, if (isImplicitReturn) data else UsageState.Unused)
+                val isUsed = when {
+                    block.isUnitCoerced -> UsageState.UnusedFromCoercion
+                    i == lastIndex -> data // is implicit return
+                    else -> UsageState.Unused
+                }
+                statement.accept(this, isUsed)
             }
         }
 
@@ -195,7 +200,7 @@ private fun FirExpression.hasSideEffect(): Boolean {
             if (source?.kind == KtFakeSourceElementKind.ReferenceInAtomicQualifiedAccess) true
             else when (val propertySymbol = calleeReference.symbol) {
                 is FirValueParameterSymbol, is FirReceiverParameterSymbol -> false
-                is FirPropertySymbol -> !propertySymbol.isLocal || propertySymbol.hasDelegate
+                is FirLocalPropertySymbol -> propertySymbol.hasDelegate
                 else -> true
             }
         }

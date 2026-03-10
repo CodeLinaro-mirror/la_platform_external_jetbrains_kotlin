@@ -36,7 +36,7 @@ declare namespace JS_TESTS {
         }
         class ChildTestInterfaceImpl extends foo.TestInterfaceImpl.$metadata$.constructor implements foo.AnotherExportedInterface {
             constructor();
-            readonly __doNotUseOrImplementIt: foo.TestInterfaceImpl["__doNotUseOrImplementIt"] & foo.AnotherExportedInterface["__doNotUseOrImplementIt"];
+            readonly __doNotUseOrImplementIt: foo.AnotherExportedInterface["__doNotUseOrImplementIt"] & foo.TestInterface["__doNotUseOrImplementIt"];
         }
         namespace ChildTestInterfaceImpl {
             /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
@@ -66,11 +66,73 @@ declare namespace JS_TESTS {
                 }
             }
         }
+        interface KT83930 {
+            readonly __doNotUseOrImplementIt: {
+                readonly "foo.KT83930": unique symbol;
+            };
+        }
+        namespace KT83930 {
+            const hello: string;
+            abstract class Companion extends KtSingleton<Companion.$metadata$.constructor>() {
+                private constructor();
+            }
+            namespace Companion {
+                /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+                namespace $metadata$ {
+                    abstract class constructor {
+                        private constructor();
+                    }
+                }
+            }
+        }
         function processOptionalInterface(a: foo.OptionalFieldsInterface): string;
         interface InterfaceWithCompanion {
             readonly __doNotUseOrImplementIt: {
                 readonly "foo.InterfaceWithCompanion": unique symbol;
             };
+        }
+        interface InterfaceWithNamedCompanion {
+            readonly __doNotUseOrImplementIt: {
+                readonly "foo.InterfaceWithNamedCompanion": unique symbol;
+            };
+        }
+        namespace InterfaceWithNamedCompanion {
+            function companionStaticFunction(): string;
+            abstract class Named extends KtSingleton<Named.$metadata$.constructor>() {
+                private constructor();
+            }
+            namespace Named {
+                /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+                namespace $metadata$ {
+                    abstract class constructor {
+                        companionFunction(): string;
+                        private constructor();
+                    }
+                }
+            }
+        }
+        interface SomeSealedInterface {
+            readonly x: string;
+            readonly __doNotUseOrImplementIt: {
+                readonly "foo.SomeSealedInterface": unique symbol;
+            };
+        }
+        namespace SomeSealedInterface {
+            class SomeNestedImpl implements foo.SomeSealedInterface {
+                constructor(x: string);
+                get x(): string;
+                copy(x?: string): foo.SomeSealedInterface.SomeNestedImpl;
+                toString(): string;
+                hashCode(): number;
+                equals(other: Nullable<any>): boolean;
+                readonly __doNotUseOrImplementIt: foo.SomeSealedInterface["__doNotUseOrImplementIt"];
+            }
+            namespace SomeNestedImpl {
+                /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+                namespace $metadata$ {
+                    const constructor: abstract new () => SomeNestedImpl;
+                }
+            }
         }
         interface ExportedChildInterface extends foo.ExportedParentInterface {
             bar(): void;

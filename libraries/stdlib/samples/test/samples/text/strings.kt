@@ -91,6 +91,18 @@ class Strings {
     }
 
     @Sample
+    fun elementAt() {
+        val string = "kotlin"
+        assertPrints(string.elementAt(0), "k")
+        assertPrints(string.elementAt(5), "n")
+        assertFailsWith<IndexOutOfBoundsException> { string.elementAt(-1) }
+        assertFailsWith<IndexOutOfBoundsException> { string.elementAt(6) }
+
+        val empty = ""
+        assertFailsWith<IndexOutOfBoundsException> { empty.elementAt(0) }
+    }
+
+    @Sample
     fun filter() {
         val text = "a1b2c3d4e5"
 
@@ -411,6 +423,65 @@ class Strings {
     fun map() {
         val string = "kotlin"
         assertPrints(string.map { it.uppercaseChar() }, "[K, O, T, L, I, N]")
+    }
+
+    @Sample
+    fun allWithPredicate() {
+        val string = "Kotlin"
+        // All characters are letters
+        assertTrue(string.all { it.isLetter() })
+        // Not all of them are lowercase, though
+        assertFalse(string.all { it.isLowerCase() })
+        // And there are definitely no digits
+        assertFalse(string.all { it.isDigit() })
+
+        // For an empty string `all` always return `true`
+        assertTrue("".all { true })
+        assertTrue("".all { false })
+    }
+
+    @Sample
+    fun anyWithPredicate() {
+        val string = "Kotlin"
+        // All characters are letters
+        assertTrue(string.any { it.isLetter() })
+        // Some of them are lowercase letters
+        assertTrue(string.any { it.isLowerCase() })
+        // But there are no digits among them
+        assertFalse(string.any { it.isDigit() })
+
+        // For an empty string `any` always return `false`
+        assertFalse("".any { true })
+        assertFalse("".any { false })
+    }
+
+    @Sample
+    fun noneWithPredicate() {
+        val string = "Kotlin"
+        // All characters are letters
+        assertFalse(string.none { it.isLetter() })
+        // Some of them are lowercase letters
+        assertFalse(string.none { it.isLowerCase() })
+        // But there are no digits among them, thus none returns true only for this predicate
+        assertTrue(string.none { it.isDigit() })
+
+        // For an empty string `none` always return `true`
+        assertTrue("".none { true })
+        assertTrue("".none { false })
+    }
+
+    @Sample
+    fun any() {
+        // any is synonymous to !isEmpty()
+        assertTrue("str".any())
+        assertFalse("".any())
+    }
+
+    @Sample
+    fun none() {
+        // none is synonymous to isEmpty()
+        assertFalse("str".none())
+        assertTrue("".none())
     }
 
     @Sample
@@ -885,11 +956,11 @@ class Strings {
 
     @Sample
     fun stringPlus() {
-        assertEquals("Kodee", "Ko" + "dee")
+        assertPrints("Ko" + "dee", "Kodee")
         // 2 is not a string, but plus concatenates its string representation with the "Kotlin " string
-        assertEquals("Kotlin 2", "Kotlin " + 2)
+        assertPrints("Kotlin " + 2, "Kotlin 2")
         // list is converted to a String first and then concatenated with the "Numbers: " string
-        assertEquals("Numbers: [1, 2, 3]", "Numbers: " + listOf(1, 2, 3))
+        assertPrints("Numbers: " + listOf(1, 2, 3), "Numbers: [1, 2, 3]")
     }
 
     @Sample

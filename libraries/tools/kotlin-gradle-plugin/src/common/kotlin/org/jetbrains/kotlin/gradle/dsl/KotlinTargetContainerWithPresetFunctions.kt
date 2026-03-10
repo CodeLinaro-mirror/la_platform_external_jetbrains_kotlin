@@ -3,6 +3,7 @@ package org.jetbrains.kotlin.gradle.dsl
 import javax.inject.Inject
 import org.gradle.api.Action
 import org.gradle.api.NamedDomainObjectCollection
+import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
 import org.jetbrains.kotlin.gradle.plugin.KotlinTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinTargetsContainer
@@ -41,29 +42,55 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainer {
 
     fun jvm(configure: Action<KotlinJvmTarget>) = jvm { configure.execute(this) }
 
-    @Deprecated("The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins since Android Gradle Plugin version 9.0.0.\n\nPlease use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp\n\nThe change may require changing the structure of the your project. Read more: https://kotl.in/kmp-project-structure-migration", level = DeprecationLevel.WARNING)
+    /**
+     * The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins
+     * from Android Gradle Plugin version 9.0.0.
+     * 
+     * Please use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp
+     * The change may require changing the structure of your project. Read more: https://kotl.in/kmp-project-structure-migration
+     */
     fun androidTarget(
         name: String = "android",
         configure: KotlinAndroidTarget.() -> Unit = { }
     ): KotlinAndroidTarget
 
-    @Deprecated("The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins since Android Gradle Plugin version 9.0.0.\n\nPlease use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp\n\nThe change may require changing the structure of the your project. Read more: https://kotl.in/kmp-project-structure-migration", level = DeprecationLevel.WARNING)
-    @Suppress("DEPRECATION")
+    /**
+     * The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins
+     * from Android Gradle Plugin version 9.0.0.
+     * 
+     * Please use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp
+     * The change may require changing the structure of your project. Read more: https://kotl.in/kmp-project-structure-migration
+     */
     fun androidTarget() = androidTarget("android") { }
 
-    @Deprecated("The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins since Android Gradle Plugin version 9.0.0.\n\nPlease use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp\n\nThe change may require changing the structure of the your project. Read more: https://kotl.in/kmp-project-structure-migration", level = DeprecationLevel.WARNING)
-    @Suppress("DEPRECATION")
+    /**
+     * The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins
+     * from Android Gradle Plugin version 9.0.0.
+     * 
+     * Please use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp
+     * The change may require changing the structure of your project. Read more: https://kotl.in/kmp-project-structure-migration
+     */
     fun androidTarget(name: String) = androidTarget(name) { }
 
-    @Deprecated("The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins since Android Gradle Plugin version 9.0.0.\n\nPlease use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp\n\nThe change may require changing the structure of the your project. Read more: https://kotl.in/kmp-project-structure-migration", level = DeprecationLevel.WARNING)
-    @Suppress("DEPRECATION")
+    /**
+     * The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins
+     * from Android Gradle Plugin version 9.0.0.
+     * 
+     * Please use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp
+     * The change may require changing the structure of your project. Read more: https://kotl.in/kmp-project-structure-migration
+     */
     fun androidTarget(
         name: String,
         configure: Action<KotlinAndroidTarget>
     ) = androidTarget(name) { configure.execute(this) }
 
-    @Deprecated("The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins since Android Gradle Plugin version 9.0.0.\n\nPlease use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp\n\nThe change may require changing the structure of the your project. Read more: https://kotl.in/kmp-project-structure-migration", level = DeprecationLevel.WARNING)
-    @Suppress("DEPRECATION")
+    /**
+     * The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins
+     * from Android Gradle Plugin version 9.0.0.
+     * 
+     * Please use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp
+     * The change may require changing the structure of your project. Read more: https://kotl.in/kmp-project-structure-migration
+     */
     fun androidTarget(configure: Action<KotlinAndroidTarget>) = androidTarget { configure.execute(this) }
 
     fun androidNativeX64(
@@ -146,20 +173,29 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainer {
 
     fun iosArm64(configure: Action<KotlinNativeTarget>) = iosArm64 { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     fun iosX64(
         name: String = "iosX64",
         configure: KotlinNativeTargetWithSimulatorTests.() -> Unit = { }
     ): KotlinNativeTargetWithSimulatorTests
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun iosX64() = iosX64("iosX64") { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun iosX64(name: String) = iosX64(name) { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun iosX64(
         name: String,
         configure: Action<KotlinNativeTargetWithSimulatorTests>
     ) = iosX64(name) { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun iosX64(configure: Action<KotlinNativeTargetWithSimulatorTests>) = iosX64 { configure.execute(this) }
 
     fun iosSimulatorArm64(
@@ -210,20 +246,29 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainer {
 
     fun watchosArm64(configure: Action<KotlinNativeTarget>) = watchosArm64 { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     fun watchosX64(
         name: String = "watchosX64",
         configure: KotlinNativeTargetWithSimulatorTests.() -> Unit = { }
     ): KotlinNativeTargetWithSimulatorTests
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun watchosX64() = watchosX64("watchosX64") { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun watchosX64(name: String) = watchosX64(name) { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun watchosX64(
         name: String,
         configure: Action<KotlinNativeTargetWithSimulatorTests>
     ) = watchosX64(name) { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun watchosX64(configure: Action<KotlinNativeTargetWithSimulatorTests>) = watchosX64 { configure.execute(this) }
 
     fun watchosSimulatorArm64(
@@ -274,20 +319,29 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainer {
 
     fun tvosArm64(configure: Action<KotlinNativeTarget>) = tvosArm64 { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     fun tvosX64(
         name: String = "tvosX64",
         configure: KotlinNativeTargetWithSimulatorTests.() -> Unit = { }
     ): KotlinNativeTargetWithSimulatorTests
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun tvosX64() = tvosX64("tvosX64") { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun tvosX64(name: String) = tvosX64(name) { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun tvosX64(
         name: String,
         configure: Action<KotlinNativeTargetWithSimulatorTests>
     ) = tvosX64(name) { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun tvosX64(configure: Action<KotlinNativeTargetWithSimulatorTests>) = tvosX64 { configure.execute(this) }
 
     fun tvosSimulatorArm64(
@@ -338,20 +392,29 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainer {
 
     fun mingwX64(configure: Action<KotlinNativeTargetWithHostTests>) = mingwX64 { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     fun macosX64(
         name: String = "macosX64",
         configure: KotlinNativeTargetWithHostTests.() -> Unit = { }
     ): KotlinNativeTargetWithHostTests
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun macosX64() = macosX64("macosX64") { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun macosX64(name: String) = macosX64(name) { }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun macosX64(
         name: String,
         configure: Action<KotlinNativeTargetWithHostTests>
     ) = macosX64(name) { configure.execute(this) }
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
+    @Suppress("DEPRECATION")
     fun macosX64(configure: Action<KotlinNativeTargetWithHostTests>) = macosX64 { configure.execute(this) }
 
     fun macosArm64(
@@ -414,12 +477,14 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainer {
 }
 
 internal fun ObjectFactory.DefaultKotlinTargetContainerWithPresetFunctions(
-    targets: NamedDomainObjectCollection<KotlinTarget>
-): DefaultKotlinTargetContainerWithPresetFunctions = newInstance<DefaultKotlinTargetContainerWithPresetFunctions>(targets)
+    targets: NamedDomainObjectCollection<KotlinTarget>,
+    project: Project,
+): DefaultKotlinTargetContainerWithPresetFunctions = newInstance<DefaultKotlinTargetContainerWithPresetFunctions>(targets, project)
 
 internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject constructor(
     objectFactory: ObjectFactory,
     override val targets: NamedDomainObjectCollection<KotlinTarget>,
+    private val project: Project,
 ) : KotlinTargetContainerWithPresetFunctions, KotlinTargetsContainer {
 
     val presets: NamedDomainObjectCollection<InternalKotlinTargetPreset<*>> =
@@ -432,10 +497,17 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("jvm") as KotlinJvmTargetPreset,
+            project,
             configure
         )
 
-    @Deprecated("The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins since Android Gradle Plugin version 9.0.0.\n\nPlease use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp\n\nThe change may require changing the structure of the your project. Read more: https://kotl.in/kmp-project-structure-migration", level = DeprecationLevel.WARNING)
+    /**
+     * The 'org.jetbrains.kotlin.multiplatform' plugin will not be compatible with most of the Android Gradle plugins
+     * from Android Gradle Plugin version 9.0.0.
+     * 
+     * Please use the 'com.android.kotlin.multiplatform.library' plugin instead. Read more: https://kotl.in/gradle/agp-new-kmp
+     * The change may require changing the structure of your project. Read more: https://kotl.in/kmp-project-structure-migration
+     */
     override fun androidTarget(
         name: String,
         configure: KotlinAndroidTarget.() -> Unit
@@ -443,6 +515,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("android") as KotlinAndroidTargetPreset,
+            project,
             configure
         )
 
@@ -453,6 +526,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("androidNativeX64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -463,6 +537,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("androidNativeX86") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -473,6 +548,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("androidNativeArm32") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -483,6 +559,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("androidNativeArm64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -493,9 +570,11 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("iosArm64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     override fun iosX64(
         name: String,
         configure: KotlinNativeTargetWithSimulatorTests.() -> Unit
@@ -503,6 +582,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("iosX64") as KotlinNativeTargetWithSimulatorTestsPreset,
+            project,
             configure
         )
 
@@ -513,6 +593,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("iosSimulatorArm64") as KotlinNativeTargetWithSimulatorTestsPreset,
+            project,
             configure
         )
 
@@ -523,6 +604,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("watchosArm32") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -533,9 +615,11 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("watchosArm64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     override fun watchosX64(
         name: String,
         configure: KotlinNativeTargetWithSimulatorTests.() -> Unit
@@ -543,6 +627,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("watchosX64") as KotlinNativeTargetWithSimulatorTestsPreset,
+            project,
             configure
         )
 
@@ -553,6 +638,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("watchosSimulatorArm64") as KotlinNativeTargetWithSimulatorTestsPreset,
+            project,
             configure
         )
 
@@ -563,6 +649,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("watchosDeviceArm64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -573,9 +660,11 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("tvosArm64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     override fun tvosX64(
         name: String,
         configure: KotlinNativeTargetWithSimulatorTests.() -> Unit
@@ -583,6 +672,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("tvosX64") as KotlinNativeTargetWithSimulatorTestsPreset,
+            project,
             configure
         )
 
@@ -593,6 +683,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("tvosSimulatorArm64") as KotlinNativeTargetWithSimulatorTestsPreset,
+            project,
             configure
         )
 
@@ -603,6 +694,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("linuxX64") as KotlinNativeTargetWithHostTestsPreset,
+            project,
             configure
         )
 
@@ -613,9 +705,11 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("mingwX64") as KotlinNativeTargetWithHostTestsPreset,
+            project,
             configure
         )
 
+    @Deprecated(DEPRECATED_TARGET_MESSAGE, level = DeprecationLevel.WARNING)
     override fun macosX64(
         name: String,
         configure: KotlinNativeTargetWithHostTests.() -> Unit
@@ -623,6 +717,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("macosX64") as KotlinNativeTargetWithHostTestsPreset,
+            project,
             configure
         )
 
@@ -633,6 +728,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("macosArm64") as KotlinNativeTargetWithHostTestsPreset,
+            project,
             configure
         )
 
@@ -643,6 +739,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("linuxArm64") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 
@@ -654,6 +751,7 @@ internal abstract class DefaultKotlinTargetContainerWithPresetFunctions @Inject 
         configureOrCreate(
             name,
             presets.getByName("linuxArm32Hfp") as KotlinNativeTargetPreset,
+            project,
             configure
         )
 

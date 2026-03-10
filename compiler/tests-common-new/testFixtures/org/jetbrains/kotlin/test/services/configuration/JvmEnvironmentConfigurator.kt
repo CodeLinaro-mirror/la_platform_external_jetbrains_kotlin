@@ -37,6 +37,7 @@ import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirective
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.DISABLE_OPTIMIZATION
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ENABLE_DEBUG_MODE
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.ENHANCED_COROUTINES_DEBUGGING
+import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.IGNORED_ANNOTATIONS_FOR_BRIDGES
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JDK_KIND
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.JVM_TARGET
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives.LAMBDAS
@@ -75,7 +76,7 @@ import java.io.File
 
 open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentConfigurator(testServices) {
     companion object {
-        val TEST_CONFIGURATION_KIND_KEY = CompilerConfigurationKey.create<ConfigurationKind>("ConfigurationKind")
+        val TEST_CONFIGURATION_KIND_KEY = CompilerConfigurationKey.create<ConfigurationKind>("TEST_CONFIGURATION_KIND_KEY")
 
         private val DEFAULT_JVM_TARGET_FROM_PROPERTY: String? = System.getProperty("kotlin.test.default.jvm.target")
         const val DEFAULT_JVM_VERSION_PROPERTY: String = "kotlin.test.default.jvm.version"
@@ -100,7 +101,7 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
 
         fun extractJdkKind(registeredDirectives: RegisteredDirectives): TestJdkKind {
             val fullJdkEnabled = JvmEnvironmentConfigurationDirectives.FULL_JDK in registeredDirectives
-            val jdkKinds = registeredDirectives[JvmEnvironmentConfigurationDirectives.JDK_KIND]
+            val jdkKinds = registeredDirectives[JDK_KIND]
 
             if (fullJdkEnabled) {
                 if (jdkKinds.isNotEmpty()) {
@@ -263,6 +264,10 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
             configuration.addJavaBinaryRootsByCompiledJavaModulesFromModuleDependencies(configurationKind, module)
         }
 
+        if (IGNORED_ANNOTATIONS_FOR_BRIDGES in module.directives) {
+            configuration.put(JVMConfigurationKeys.IGNORED_ANNOTATIONS_FOR_BRIDGES, module.directives[IGNORED_ANNOTATIONS_FOR_BRIDGES])
+        }
+
         setupK2CliConfiguration(module, configuration)
 
         val javaFiles = module.javaFiles.ifEmpty { return }
@@ -393,8 +398,8 @@ open class JvmEnvironmentConfigurator(testServices: TestServices) : EnvironmentC
         val phases = module.directives[CodegenTestDirectives.DUMP_IR_FOR_GIVEN_PHASES]
         if (phases.isNotEmpty()) {
             phaseConfig = PhaseConfig(
-                toDumpStateBefore = PhaseSet.Enum(phases.toSet()),
-                toDumpStateAfter = PhaseSet.Enum(phases.toSet()),
+                toDumpStateBefore = if (phases.contains("ALL_BEFORE") || phases.contains("ALL")) PhaseSet.All else PhaseSet.Enum(phases.toSet()),
+                toDumpStateAfter = if (phases.contains("ALL_AFTER") || phases.contains("ALL")) PhaseSet.All else PhaseSet.Enum(phases.toSet()),
                 dumpToDirectory = dumpDirectory.absolutePath
             )
         }

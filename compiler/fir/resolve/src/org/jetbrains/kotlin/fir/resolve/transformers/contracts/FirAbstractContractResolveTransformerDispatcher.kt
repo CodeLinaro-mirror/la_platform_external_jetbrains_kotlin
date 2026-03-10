@@ -35,6 +35,7 @@ import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBod
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirDeclarationsResolveTransformer
 import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirExpressionsResolveTransformer
 import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitTypeRefImplWithoutSource
 import org.jetbrains.kotlin.fir.visitors.transformSingle
@@ -78,15 +79,15 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
 
     protected open inner class FirDeclarationsContractResolveTransformer :
         FirDeclarationsResolveTransformer(this@FirAbstractContractResolveTransformerDispatcher) {
-        override fun transformSimpleFunction(
-            simpleFunction: FirSimpleFunction,
+        override fun transformNamedFunction(
+            namedFunction: FirNamedFunction,
             data: ResolutionMode
-        ): FirSimpleFunction {
-            if (!simpleFunction.hasContractToResolve) return simpleFunction
+        ): FirNamedFunction {
+            if (!namedFunction.hasContractToResolve) return namedFunction
 
-            return context.withSimpleFunction(simpleFunction, session) {
-                context.forFunctionBody(simpleFunction, components) {
-                    transformContractDescriptionOwner(simpleFunction)
+            return context.withNamedFunction(namedFunction, session) {
+                context.forFunctionBody(namedFunction, components) {
+                    transformContractDescriptionOwner(namedFunction)
                 }
             }
         }
@@ -103,12 +104,12 @@ abstract class FirAbstractContractResolveTransformerDispatcher(
         override fun transformProperty(property: FirProperty, data: ResolutionMode): FirProperty {
             if (
                 property.getter?.hasContractToResolve != true && property.setter?.hasContractToResolve != true ||
-                property.isLocal || property.delegate != null
+                property.symbol is FirLocalPropertySymbol || property.delegate != null
             ) {
                 return property
             }
             if (property is FirSyntheticProperty) {
-                transformSimpleFunction(property.getter.delegate, data)
+                transformNamedFunction(property.getter.delegate, data)
                 return property
             }
             context.withProperty(property) {

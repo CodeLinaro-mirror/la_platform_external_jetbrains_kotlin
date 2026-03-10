@@ -15,14 +15,14 @@ FIR source kind: KtRealSourceElementKind
 
 FIR element rendered:
 public final [ResolvedTo(BODY_RESOLVE)] class Foo : R|kotlin/Any| {
-    public final [ResolvedTo(BODY_RESOLVE)] [HasBackingFieldKey=false] val explicitAny: R|{test/MySuspendAlias<kotlin/Any?>=} suspend (kotlin/Int, kotlin/coroutines/SuspendFunction1<kotlin/String, kotlin/Any?>) -> kotlin/Any?|
-        public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] get(): R|{test/MySuspendAlias<kotlin/Any?>=} suspend (kotlin/Int, kotlin/coroutines/SuspendFunction1<kotlin/String, kotlin/Any?>) -> kotlin/Any?|
+    public final [ResolvedTo(BODY_RESOLVE)] [HasBackingFieldKey=false] val explicitAny: R|{test/MySuspendAlias<kotlin/Any?>=} suspend (kotlin/Int, suspend (kotlin/String) -> kotlin/Any?) -> kotlin/Any?|
+        public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] get(): R|{test/MySuspendAlias<kotlin/Any?>=} suspend (kotlin/Int, suspend (kotlin/String) -> kotlin/Any?) -> kotlin/Any?|
 
-    public final [ResolvedTo(BODY_RESOLVE)] [HasBackingFieldKey=false] val explicitInt: R|{test/MySuspendAlias<kotlin/Int>=} suspend (kotlin/Int, kotlin/coroutines/SuspendFunction1<kotlin/String, kotlin/Int>) -> kotlin/Int|
-        public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] get(): R|{test/MySuspendAlias<kotlin/Int>=} suspend (kotlin/Int, kotlin/coroutines/SuspendFunction1<kotlin/String, kotlin/Int>) -> kotlin/Int|
+    public final [ResolvedTo(BODY_RESOLVE)] [HasBackingFieldKey=false] val explicitInt: R|{test/MySuspendAlias<kotlin/Int>=} suspend (kotlin/Int, suspend (kotlin/String) -> kotlin/Int) -> kotlin/Int|
+        public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] get(): R|{test/MySuspendAlias<kotlin/Int>=} suspend (kotlin/Int, suspend (kotlin/String) -> kotlin/Int) -> kotlin/Int|
 
-    public final [ResolvedTo(BODY_RESOLVE)] [HasBackingFieldKey=false] val explicitStar: R|{test/MySuspendAlias<*>=} suspend (kotlin/Int, kotlin/coroutines/SuspendFunction1<kotlin/String, kotlin/Any?>) -> kotlin/Any?|
-        public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] get(): R|{test/MySuspendAlias<*>=} suspend (kotlin/Int, kotlin/coroutines/SuspendFunction1<kotlin/String, kotlin/Any?>) -> kotlin/Any?|
+    public final [ResolvedTo(BODY_RESOLVE)] [HasBackingFieldKey=false] val explicitStar: R|{test/MySuspendAlias<*>=} suspend (kotlin/Int, suspend (kotlin/String) -> kotlin/Any?) -> kotlin/Any?|
+        public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] get(): R|{test/MySuspendAlias<*>=} suspend (kotlin/Int, suspend (kotlin/String) -> kotlin/Any?) -> kotlin/Any?|
 
     public [ResolvedTo(BODY_RESOLVE)] [ContainingClassKey=Foo] constructor(): R|test/Foo|
 

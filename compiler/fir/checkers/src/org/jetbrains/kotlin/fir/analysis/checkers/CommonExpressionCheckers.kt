@@ -14,6 +14,10 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         FirOptInAnnotationCallChecker,
     )
 
+    override val annotationCheckers: Set<FirAnnotationChecker> = setOf(
+        FirDslMarkerUseSiteChecker,
+    )
+
     override val basicExpressionCheckers: Set<FirBasicExpressionChecker> = setOf(
         FirUnderscoreChecker,
         FirExpressionAnnotationChecker,
@@ -47,6 +51,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         FirReifiedChecker,
         FirSuspendCallChecker,
         FirLateinitIntrinsicApplicabilityChecker,
+        FirLargeArityFunctionCallableReferenceChecker,
         FirAbstractClassInstantiationChecker,
         FirIncompatibleClassExpressionChecker,
         FirMissingDependencyClassChecker,
@@ -65,6 +70,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         FirKotlinActualAnnotationHasNoEffectInKotlinExpressionChecker.FunctionCall,
         FirConventionFunctionCallChecker,
         FirDivisionByZeroChecker,
+        FirTrimMarginBlankPrefixChecker,
         FirConstructorCallChecker,
         FirSpreadOfNullableChecker,
         FirAssignmentOperatorCallChecker,
@@ -79,6 +85,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         FirVarargWithNonTrivialUpperBoundInferredToNothingChecker,
         PlatformClassMappedToKotlinConstructorCallChecker,
         RedundantCallOfConversionMethodChecker,
+        FirImplicitPropertyTypeMakesBehaviorOrderDependantChecker,
     )
 
     override val propertyAccessExpressionCheckers: Set<FirPropertyAccessExpressionChecker> = setOf(
@@ -166,6 +173,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         FirInlineBodyResolvedQualifierChecker,
         FirCustomEnumEntriesMigrationQualifierChecker,
         FirQualifierWithTypeArgumentsChecker,
+        FirRootIdePackageDeprecatedInCliQualifierChecker,
     )
 
     override val equalityOperatorCallCheckers: Set<FirEqualityOperatorCallChecker> = setOf(
@@ -173,7 +181,7 @@ object CommonExpressionCheckers : ExpressionCheckers() {
         FirContextSensitiveResolutionAmbiguityCheckerForEqualities,
     )
 
-    override val arrayLiteralCheckers: Set<FirArrayLiteralChecker> = setOf(
+    override val collectionLiteralCheckers: Set<FirCollectionLiteralChecker> = setOf(
         FirUnsupportedArrayLiteralChecker
     )
 
@@ -193,5 +201,9 @@ object CommonExpressionCheckers : ExpressionCheckers() {
 
     override val literalExpressionCheckers: Set<FirLiteralExpressionChecker> = setOf(
         FirMultiDollarInterpolationCheckerLiteral,
+    )
+
+    override val thisReceiverExpressionCheckers: Set<FirThisReceiverExpressionChecker> = setOf(
+        FirInlineExposedLessVisibleThisReceiverChecker
     )
 }

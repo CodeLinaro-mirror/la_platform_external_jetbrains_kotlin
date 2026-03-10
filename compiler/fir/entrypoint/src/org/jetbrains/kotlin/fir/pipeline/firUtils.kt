@@ -6,12 +6,14 @@
 package org.jetbrains.kotlin.fir.pipeline
 
 import org.jetbrains.kotlin.KtSourceFile
+import org.jetbrains.kotlin.config.AnalysisFlags
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.builder.PsiRawFirBuilder
 import org.jetbrains.kotlin.fir.declarations.FirFile
+import org.jetbrains.kotlin.fir.languageVersionSettings
 import org.jetbrains.kotlin.fir.lightTree.LightTree2Fir
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.impl.FirProviderImpl
@@ -60,7 +62,7 @@ fun buildResolveAndCheckFirFromKtFiles(
     session: FirSession,
     ktFiles: List<KtFile>,
     diagnosticsReporter: BaseDiagnosticsCollector
-): ModuleCompilerAnalyzedOutput {
+): SingleModuleFrontendOutput {
     return resolveAndCheckFir(session, session.buildFirFromKtFiles(ktFiles), diagnosticsReporter)
 }
 
@@ -72,10 +74,13 @@ fun resolveAndCheckFir(
     session: FirSession,
     firFiles: List<FirFile>,
     diagnosticsReporter: BaseDiagnosticsCollector
-): ModuleCompilerAnalyzedOutput {
+): SingleModuleFrontendOutput {
     val (scopeSession, fir) = session.runResolution(firFiles)
-    session.runCheckers(scopeSession, fir, diagnosticsReporter, MppCheckerKind.Common)
-    return ModuleCompilerAnalyzedOutput(session, scopeSession, fir)
+    // Skip checkers in header mode.
+    if (!session.languageVersionSettings.getFlag(AnalysisFlags.headerMode)) {
+        session.runCheckers(scopeSession, fir, diagnosticsReporter, MppCheckerKind.Common)
+    }
+    return SingleModuleFrontendOutput(session, scopeSession, fir)
 }
 
 fun buildResolveAndCheckFirViaLightTree(
@@ -83,7 +88,7 @@ fun buildResolveAndCheckFirViaLightTree(
     ktFiles: Collection<KtSourceFile>,
     diagnosticsReporter: BaseDiagnosticsCollector,
     countFilesAndLines: KFunction2<Int, Int, Unit>?
-): ModuleCompilerAnalyzedOutput {
+): SingleModuleFrontendOutput {
     val firFiles = session.buildFirViaLightTree(ktFiles, diagnosticsReporter, countFilesAndLines)
     return resolveAndCheckFir(session, firFiles, diagnosticsReporter)
 }

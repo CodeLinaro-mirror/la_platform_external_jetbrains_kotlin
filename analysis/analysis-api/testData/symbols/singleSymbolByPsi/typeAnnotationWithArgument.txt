@@ -32,9 +32,9 @@ KaNamedFunctionSymbol:
             psi: KtAnnotationEntry
         ]
         typeArguments: []
-        type: @R|Anno5|(s = String(1))  kotlin/Int
+        type: @R|Anno5|(s = String(1) [evaluated = String(1)])  kotlin/Int
     ]
-    type: kotlin/collections/List<@R|Anno5|(s = String(1))  kotlin/Int>?
+    type: kotlin/collections/List<@R|Anno5|(s = String(1) [evaluated = String(1)])  kotlin/Int>?
   typeParameters: []
   valueParameters: []
   visibility: PUBLIC
@@ -43,4 +43,5 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: foo

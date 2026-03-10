@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -22,7 +22,8 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.*
 
 @KaIdeApi
-@SubclassOptInRequired(KaImplementationDetail::class)
+@KaSessionComponentImplementationDetail
+@SubclassOptInRequired(KaSessionComponentImplementationDetail::class)
 public interface KaReferenceShortener : KaSessionComponent {
     /**
      * Collects possible references to shorten. By default, it shortens a fully-qualified members to the outermost class and does not
@@ -226,7 +227,7 @@ public interface ShortenCommand {
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaIdeApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun collectPossibleReferenceShortenings(
     file: KtFile,
     selection: TextRange = file.textRange,
@@ -234,7 +235,7 @@ public fun collectPossibleReferenceShortenings(
     classShortenStrategy: (KaClassLikeSymbol) -> ShortenStrategy = defaultClassShortenStrategy,
     callableShortenStrategy: (KaCallableSymbol) -> ShortenStrategy = defaultCallableShortenStrategy
 ): ShortenCommand {
-    return with(s) {
+    return with(session) {
         collectPossibleReferenceShortenings(
             file = file,
             selection = selection,
@@ -257,14 +258,14 @@ public fun collectPossibleReferenceShortenings(
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaIdeApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun collectPossibleReferenceShorteningsInElement(
     element: KtElement,
     shortenOptions: ShortenOptions = ShortenOptions.DEFAULT,
     classShortenStrategy: (KaClassLikeSymbol) -> ShortenStrategy = defaultClassShortenStrategy,
     callableShortenStrategy: (KaCallableSymbol) -> ShortenStrategy = defaultCallableShortenStrategy
 ): ShortenCommand {
-    return with(s) {
+    return with(session) {
         collectPossibleReferenceShorteningsInElement(
             element = element,
             shortenOptions = shortenOptions,

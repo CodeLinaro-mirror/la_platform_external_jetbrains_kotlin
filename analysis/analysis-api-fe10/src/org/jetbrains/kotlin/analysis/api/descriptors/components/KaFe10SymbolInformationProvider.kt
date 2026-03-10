@@ -1,10 +1,11 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.descriptors.components
 
+import org.jetbrains.kotlin.analysis.api.components.KaReturnValueStatus
 import org.jetbrains.kotlin.analysis.api.descriptors.KaFe10Session
 import org.jetbrains.kotlin.analysis.api.descriptors.components.base.KaFe10SessionComponent
 import org.jetbrains.kotlin.analysis.api.descriptors.symbols.base.KaFe10Symbol
@@ -107,9 +108,11 @@ internal class KaFe10SymbolInformationProvider(
         return getDeprecation(propertyDescriptor)
     }
 
+    @Deprecated("Use 'deprecationStatus' directly instead", replaceWith = ReplaceWith("this.getter?.deprecationStatus"))
     override val KaPropertySymbol.getterDeprecationStatus: DeprecationInfo?
         get() = withValidityAssertion { getAccessorDeprecation(this, getter) { it.getter } }
 
+    @Deprecated("Use 'deprecationStatus' directly instead", replaceWith = ReplaceWith("this.setter?.deprecationStatus"))
     override val KaPropertySymbol.setterDeprecationStatus: DeprecationInfo?
         get() = withValidityAssertion { getAccessorDeprecation(this, setter) { it.setter } }
 
@@ -124,6 +127,11 @@ internal class KaFe10SymbolInformationProvider(
     override val KaSymbol.importableFqName: FqName?
         get() = withValidityAssertion {
             require(this is KaFe10Symbol)
+
+            if (this is KaBackingFieldSymbol) {
+                // Backing field symbol in FE10 references the property descriptor, rather than the field descriptor
+                return@withValidityAssertion null
+            }
 
             val descriptor = getSymbolDescriptor(this)
             if (descriptor?.canBeReferencedViaImport() != true) return null
@@ -152,4 +160,7 @@ internal class KaFe10SymbolInformationProvider(
             else -> parentClassifier is ClassDescriptor && parentClassifier.kind == ClassKind.OBJECT
         }
     }
+
+    override val KaNamedFunctionSymbol.returnValueStatus: KaReturnValueStatus
+        get() = withValidityAssertion { KaReturnValueStatus.Unspecified }
 }

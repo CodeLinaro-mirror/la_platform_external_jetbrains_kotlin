@@ -397,6 +397,30 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
   }
 
   @Test
+  @TestMetadata("emptyArguments.kt")
+  public void testEmptyArguments() {
+    runTest("compiler/testData/psi/emptyArguments.kt");
+  }
+
+  @Test
+  @TestMetadata("emptyArgumentsInAnnotations.kt")
+  public void testEmptyArgumentsInAnnotations() {
+    runTest("compiler/testData/psi/emptyArgumentsInAnnotations.kt");
+  }
+
+  @Test
+  @TestMetadata("emptyArgumentsInArrayAccesses.kt")
+  public void testEmptyArgumentsInArrayAccesses() {
+    runTest("compiler/testData/psi/emptyArgumentsInArrayAccesses.kt");
+  }
+
+  @Test
+  @TestMetadata("emptyContextParameters.kt")
+  public void testEmptyContextParameters() {
+    runTest("compiler/testData/psi/emptyContextParameters.kt");
+  }
+
+  @Test
   @TestMetadata("emptyEnum.kt")
   public void testEmptyEnum() {
     runTest("compiler/testData/psi/emptyEnum.kt");
@@ -412,6 +436,18 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
   @TestMetadata("EmptyName.kt")
   public void testEmptyName() {
     runTest("compiler/testData/psi/EmptyName.kt");
+  }
+
+  @Test
+  @TestMetadata("emptyParameters.kt")
+  public void testEmptyParameters() {
+    runTest("compiler/testData/psi/emptyParameters.kt");
+  }
+
+  @Test
+  @TestMetadata("emptyParametersInFunctionalTypes.kt")
+  public void testEmptyParametersInFunctionalTypes() {
+    runTest("compiler/testData/psi/emptyParametersInFunctionalTypes.kt");
   }
 
   @Test
@@ -1402,6 +1438,12 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     }
 
     @Test
+    @TestMetadata("annotatedWhenExpression.kt")
+    public void testAnnotatedWhenExpression() {
+      runTest("compiler/testData/psi/annotation/annotatedWhenExpression.kt");
+    }
+
+    @Test
     @TestMetadata("Annotations.kt")
     public void testAnnotations() {
       runTest("compiler/testData/psi/annotation/Annotations.kt");
@@ -2098,6 +2140,18 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     }
 
     @Test
+    @TestMetadata("parsingWithLocalDeclarations.kt")
+    public void testParsingWithLocalDeclarations() {
+      runTest("compiler/testData/psi/contextParameters/parsingWithLocalDeclarations.kt");
+    }
+
+    @Test
+    @TestMetadata("parsingWithLocalDeclarationsIncorrect.kt")
+    public void testParsingWithLocalDeclarationsIncorrect() {
+      runTest("compiler/testData/psi/contextParameters/parsingWithLocalDeclarationsIncorrect.kt");
+    }
+
+    @Test
     @TestMetadata("properties.kt")
     public void testProperties() {
       runTest("compiler/testData/psi/contextParameters/properties.kt");
@@ -2547,6 +2601,18 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     @Test
     public void testAllFilesPresentInDestructuring() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/psi/destructuring"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("annotationOnFullNameBasedDestructuring.kt")
+    public void testAnnotationOnFullNameBasedDestructuring() {
+      runTest("compiler/testData/psi/destructuring/annotationOnFullNameBasedDestructuring.kt");
+    }
+
+    @Test
+    @TestMetadata("danglingAnnotation.kt")
+    public void testDanglingAnnotation() {
+      runTest("compiler/testData/psi/destructuring/danglingAnnotation.kt");
     }
 
     @Test
@@ -3146,6 +3212,12 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     }
 
     @Test
+    @TestMetadata("CodeBlocks.kt")
+    public void testCodeBlocks() {
+      runTest("compiler/testData/psi/kdoc/CodeBlocks.kt");
+    }
+
+    @Test
     @TestMetadata("DocCommentAtBeginningOfFile1.kt")
     public void testDocCommentAtBeginningOfFile1() {
       runTest("compiler/testData/psi/kdoc/DocCommentAtBeginningOfFile1.kt");
@@ -3200,6 +3272,30 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     }
 
     @Test
+    @TestMetadata("IncompleteCodeBlock.kt")
+    public void testIncompleteCodeBlock() {
+      runTest("compiler/testData/psi/kdoc/IncompleteCodeBlock.kt");
+    }
+
+    @Test
+    @TestMetadata("IncompleteCodeBlockWithoutCode.kt")
+    public void testIncompleteCodeBlockWithoutCode() {
+      runTest("compiler/testData/psi/kdoc/IncompleteCodeBlockWithoutCode.kt");
+    }
+
+    @Test
+    @TestMetadata("IncompleteIndentedCodeBlock.kt")
+    public void testIncompleteIndentedCodeBlock() {
+      runTest("compiler/testData/psi/kdoc/IncompleteIndentedCodeBlock.kt");
+    }
+
+    @Test
+    @TestMetadata("IncompleteIndentedList.kt")
+    public void testIncompleteIndentedList() {
+      runTest("compiler/testData/psi/kdoc/IncompleteIndentedList.kt");
+    }
+
+    @Test
     @TestMetadata("Markdown.kt")
     public void testMarkdown() {
       runTest("compiler/testData/psi/kdoc/Markdown.kt");
@@ -3221,6 +3317,18 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     @TestMetadata("MarkdownQualifiedName.kt")
     public void testMarkdownQualifiedName() {
       runTest("compiler/testData/psi/kdoc/MarkdownQualifiedName.kt");
+    }
+
+    @Test
+    @TestMetadata("MultipleAsterisksOnTheSameLine.kt")
+    public void testMultipleAsterisksOnTheSameLine() {
+      runTest("compiler/testData/psi/kdoc/MultipleAsterisksOnTheSameLine.kt");
+    }
+
+    @Test
+    @TestMetadata("NestedLists.kt")
+    public void testNestedLists() {
+      runTest("compiler/testData/psi/kdoc/NestedLists.kt");
     }
 
     @Test
@@ -4081,6 +4189,40 @@ public class CompiledJvmStubsTestGenerated extends AbstractCompiledJvmStubsTest 
     @TestMetadata("WithWithoutInAndMultideclaration.kt")
     public void testWithWithoutInAndMultideclaration() {
       runTest("compiler/testData/psi/recovery/WithWithoutInAndMultideclaration.kt");
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/psi/recovery/binaryExpression")
+    @TestDataPath("$PROJECT_ROOT")
+    public class BinaryExpression {
+      @Test
+      public void testAllFilesPresentInBinaryExpression() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/psi/recovery/binaryExpression"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("IsAndSubsequentExpressions.kt")
+      public void testIsAndSubsequentExpressions() {
+        runTest("compiler/testData/psi/recovery/binaryExpression/IsAndSubsequentExpressions.kt");
+      }
+
+      @Test
+      @TestMetadata("IsExpressionComplex.kt")
+      public void testIsExpressionComplex() {
+        runTest("compiler/testData/psi/recovery/binaryExpression/IsExpressionComplex.kt");
+      }
+
+      @Test
+      @TestMetadata("NoHigherPrecedenceAfterIs.kt")
+      public void testNoHigherPrecedenceAfterIs() {
+        runTest("compiler/testData/psi/recovery/binaryExpression/NoHigherPrecedenceAfterIs.kt");
+      }
+
+      @Test
+      @TestMetadata("SoftModifierAsInfixFunction.kt")
+      public void testSoftModifierAsInfixFunction() {
+        runTest("compiler/testData/psi/recovery/binaryExpression/SoftModifierAsInfixFunction.kt");
+      }
     }
 
     @Nested

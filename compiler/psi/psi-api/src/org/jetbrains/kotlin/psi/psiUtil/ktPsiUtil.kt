@@ -233,7 +233,9 @@ fun KtAnnotationsContainer.collectAnnotationEntriesFromStubOrPsi(): List<KtAnnot
 
 private fun StubElement<*>.collectAnnotationEntriesFromStubElement(): List<KtAnnotationEntry> {
     return childrenStubs.flatMap { child ->
-        when (child.stubType) {
+        @Suppress("DEPRECATION") // KT-78356
+        val stubType = child.stubType
+        when (stubType) {
             KtNodeTypes.ANNOTATION_ENTRY -> listOf(child.psi as KtAnnotationEntry)
             KtNodeTypes.ANNOTATION -> (child.psi as KtAnnotation).entries
             else -> emptyList()
@@ -375,7 +377,7 @@ fun PsiElement.parameterIndex(): Int {
     val parent = parent
     return when (this) {
         is KtParameter if parent is KtParameterList -> parent.parameters.indexOf(this)
-        is KtParameter if parent is KtContextReceiverList -> parent.contextParameters().indexOf(this)
+        is KtParameter if parent is KtContextParameterList -> parent.contextParameters.indexOf(this)
         is PsiParameter if parent is PsiParameterList -> parent.getParameterIndex(this)
         else -> -1
     }
@@ -658,7 +660,8 @@ fun KtExpression.getLabeledParent(labelName: String): KtLabeledExpression? {
 
 fun PsiElement.astReplace(newElement: PsiElement) = parent.node.replaceChild(node, newElement.node)
 
-var KtElement.parentSubstitute: PsiElement? by UserDataProperty(Key.create<PsiElement>("PARENT_SUBSTITUTE"))
+@Deprecated("The API is deprecated and is preserved only for compatibility with K1")
+var KtElement.parentSubstitute: PsiElement? by UserDataProperty(Key.create("PARENT_SUBSTITUTE"))
 
 private val HARD_KEYWORDS: Set<String> by lazy(LazyThreadSafetyMode.PUBLICATION) {
     KtTokens.KEYWORDS.types.mapTo(HashSet()) { (it as KtKeywordToken).value }

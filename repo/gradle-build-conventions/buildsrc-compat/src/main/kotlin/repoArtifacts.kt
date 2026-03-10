@@ -120,7 +120,7 @@ fun Project.runtimeJarWithRelocation(body: ShadowJar.() -> Unit = {}): TaskProvi
 
     val shadowJarTask = tasks.register<ShadowJar>("shadowJar") {
         archiveClassifier.set("shadow")
-        configurations = configurations + listOf(project.configurations["embedded"])
+        configurations.add(project.configurations["embedded"])
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         body()
     }
@@ -146,7 +146,7 @@ fun Project.runtimeJar(task: TaskProvider<ShadowJar>, body: ShadowJar.() -> Unit
     noDefaultJar()
 
     task.configure {
-        configurations = configurations + listOf(project.configurations["embedded"])
+        configurations.add(project.configurations["embedded"])
         setupPublicJar(project.extensions.getByType<BasePluginExtension>().archivesName.get())
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         body()
@@ -299,7 +299,11 @@ fun Project.idePluginDependency(block: () -> Unit) {
     }
 }
 
-fun Project.publishJarsForIde(projects: List<String>, libraryDependencies: List<String> = emptyList()) {
+fun Project.publishJarsForIde(
+    projects: List<String>,
+    libraryDependencies: List<String> = emptyList(),
+    jarTaskConfiguration: Jar.() -> Unit = {},
+) {
     val projectsUsedInIntelliJKotlinPlugin: Array<String> by rootProject.extra
 
     for (projectName in projects) {
@@ -309,7 +313,7 @@ fun Project.publishJarsForIde(projects: List<String>, libraryDependencies: List<
     }
 
     idePluginDependency {
-        publishProjectJars(projects, libraryDependencies)
+        publishProjectJars(projects, libraryDependencies, jarTaskConfiguration)
     }
     configurations.all {
         // Don't allow `ideaIC` from compiler to leak into Kotlin plugin modules. Compiler and
@@ -369,7 +373,11 @@ fun Project.publishTestJarsForIde(
     }
 }
 
-fun Project.publishProjectJars(projects: List<String>, libraryDependencies: List<String> = emptyList()) {
+fun Project.publishProjectJars(
+    projects: List<String>,
+    libraryDependencies: List<String> = emptyList(),
+    jarTaskConfiguration: Jar.() -> Unit = {},
+) {
     apply<JavaPlugin>()
 
     val fatJarContents by configurations.creating
@@ -390,10 +398,12 @@ fun Project.publishProjectJars(projects: List<String>, libraryDependencies: List
 
     jar.apply {
         dependsOn(fatJarContents)
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         val archiveOperations = project.serviceOf<ArchiveOperations>()
         from {
             fatJarContents.map(archiveOperations::zipTree)
         }
+        jarTaskConfiguration()
     }
 
     sourcesJar {

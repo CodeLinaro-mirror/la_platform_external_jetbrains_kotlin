@@ -24,11 +24,12 @@ import org.jetbrains.kotlin.cli.pipeline.jvm.JvmBackendPipelinePhase
 import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFir2IrPipelinePhase
 import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFrontendPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFrontendPipelinePhase
+import org.jetbrains.kotlin.cli.registerExtensionStorage
 import org.jetbrains.kotlin.codegen.ClassBuilderMode
 import org.jetbrains.kotlin.codegen.OriginCollectingClassBuilderFactory
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.config.CommonConfigurationKeys.USE_FIR
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.fir.builder.FirSyntaxErrors
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.kapt.base.*
@@ -96,6 +97,13 @@ open class FirKaptAnalysisHandlerExtension(
                 this.messageCollector = messageCollector
                 skipBodies = true
                 useLightTree = false
+
+                /*
+                 * Later the KAPT pipeline registers extensions once again, so the extensions storage
+                 * should be reset. Otherwise the extensions would be duplicated.
+                 */
+                @OptIn(CompilerConfiguration.Internals::class)
+                registerExtensionStorage()
             }
             val disposable = Disposer.newDisposable("K2KaptSession.project")
             try {
@@ -107,38 +115,40 @@ open class FirKaptAnalysisHandlerExtension(
 
         if (!options.mode.runAnnotationProcessing) return true
 
-        val processors = loadProcessors()
-        if (processors.processors.isEmpty()) return true
+        createProcessorLoader().use { processorLoader ->
+            val processors = processorLoader.loadProcessors()
+            if (processors.processors.isEmpty()) return true
 
-        val kaptContext = KaptContext(options, false, logger)
+            val kaptContext = KaptContext(options, false, logger)
 
-        fun handleKaptError(error: KaptError): Boolean {
-            val cause = error.cause
+            fun handleKaptError(error: KaptError): Boolean {
+                val cause = error.cause
 
-            if (cause != null) {
-                kaptContext.logger.exception(cause)
+                if (cause != null) {
+                    kaptContext.logger.exception(cause)
+                }
+
+                return false
             }
 
-            return false
-        }
+            try {
+                runAnnotationProcessing(kaptContext, processors)
+            } catch (error: KaptBaseError) {
+                val kind = when (error.kind) {
+                    KaptBaseError.Kind.EXCEPTION -> KaptError.Kind.EXCEPTION
+                    KaptBaseError.Kind.ERROR_RAISED -> KaptError.Kind.ERROR_RAISED
+                }
 
-        try {
-            runAnnotationProcessing(kaptContext, processors)
-        } catch (error: KaptBaseError) {
-            val kind = when (error.kind) {
-                KaptBaseError.Kind.EXCEPTION -> KaptError.Kind.EXCEPTION
-                KaptBaseError.Kind.ERROR_RAISED -> KaptError.Kind.ERROR_RAISED
+                val cause = error.cause
+                return handleKaptError(if (cause != null) KaptError(kind, cause) else KaptError(kind))
+            } catch (error: KaptError) {
+                return handleKaptError(error)
+            } catch (thr: Throwable) {
+                kaptContext.logger.exception(thr)
+                return false
+            } finally {
+                kaptContext.close()
             }
-
-            val cause = error.cause
-            return handleKaptError(if (cause != null) KaptError(kind, cause) else KaptError(kind))
-        } catch (error: KaptError) {
-            return handleKaptError(error)
-        } catch (thr: Throwable) {
-            kaptContext.logger.exception(thr)
-            return false
-        } finally {
-            kaptContext.close()
         }
 
         return true
@@ -181,7 +191,7 @@ open class FirKaptAnalysisHandlerExtension(
         configuration.moduleChunk = ModuleChunk(configuration.modules)
 
         val frontendInput = ConfigurationPipelineArtifact(
-            configuration, DiagnosticReporterFactory.createPendingReporter(configuration.messageCollector), disposable,
+            configuration, DiagnosticsCollectorImpl(), disposable,
         )
         val frontendOutput = JvmFrontendPipelinePhase.executePhase(frontendInput) ?: return null
 
@@ -192,7 +202,7 @@ open class FirKaptAnalysisHandlerExtension(
         val fir2IrOutput = JvmFir2IrPipelinePhase.executePhase(
             frontendOutput.copy(
                 // Ignore all other FE errors
-                diagnosticCollector = DiagnosticReporterFactory.createPendingReporter(configuration.messageCollector),
+                diagnosticCollector = DiagnosticsCollectorImpl(),
             ),
             emptyList(),
         ) ?: return null
@@ -204,7 +214,7 @@ open class FirKaptAnalysisHandlerExtension(
 
         return KaptContextForStubGeneration(
             options, false, logger, builderFactory.compiledClasses, builderFactory.origins, generationState,
-            BindingContext.EMPTY, frontendOutput.result.outputs.flatMap { it.fir },
+            BindingContext.EMPTY, frontendOutput.frontendOutput.outputs.flatMap { it.fir },
         )
     }
 
@@ -317,9 +327,8 @@ open class FirKaptAnalysisHandlerExtension(
         }
     }
 
-    protected open fun loadProcessors(): LoadedProcessors {
-        return EfficientProcessorLoader(options, logger).loadProcessors()
-    }
+    protected open fun createProcessorLoader(): ProcessorLoader =
+        EfficientProcessorLoader(options, logger)
 
     private fun KaptOptions.Builder.checkOptions(logger: KaptLogger, configuration: CompilerConfiguration): Boolean? {
         if (classesOutputDir == null && configuration.get(JVMConfigurationKeys.OUTPUT_JAR) != null) {

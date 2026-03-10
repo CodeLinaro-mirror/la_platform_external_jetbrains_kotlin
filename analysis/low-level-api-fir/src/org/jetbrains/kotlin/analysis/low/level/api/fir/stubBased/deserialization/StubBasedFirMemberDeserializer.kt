@@ -388,6 +388,7 @@ internal class StubBasedFirMemberDeserializer(
             }
 
             status = resolvedStatus
+            isLocal = false
 
             resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
             typeParameters += local.typeDeserializer.ownTypeParameters.map { it.fir }
@@ -439,11 +440,11 @@ internal class StubBasedFirMemberDeserializer(
                 isFromAnnotation,
             )
 
-            property.contextReceiverList?.contextReceivers()?.mapTo(contextParameters) {
+            property.contextReceivers.mapTo(contextParameters) {
                 local.memberDeserializer.loadContextReceiver(it, symbol)
             }
 
-            property.contextReceiverList?.contextParameters()?.mapTo(contextParameters) {
+            property.contextParameters.mapTo(contextParameters) {
                 local.memberDeserializer.loadContextParameter(it, symbol)
             }
         }.apply {
@@ -541,13 +542,13 @@ internal class StubBasedFirMemberDeserializer(
         classSymbol: FirClassSymbol<*>? = null,
         session: FirSession,
         existingSymbol: FirNamedFunctionSymbol? = null,
-    ): FirSimpleFunction {
+    ): FirNamedFunction {
         val callableName = function.nameAsSafeName
         val callableId = CallableId(c.packageFqName, c.relativeClassName, callableName)
         val symbol = existingSymbol ?: FirNamedFunctionSymbol(callableId)
         val local = c.childContext(function, containingDeclarationSymbol = symbol)
 
-        val simpleFunction = buildSimpleFunction {
+        val simpleFunction = buildNamedFunction {
             moduleData = c.moduleData
             origin = initialOrigin
             source = KtRealPsiSourceElement(function)
@@ -571,6 +572,7 @@ internal class StubBasedFirMemberDeserializer(
                 isSuspend = function.hasModifier(KtTokens.SUSPEND_KEYWORD)
                 setSpecialFlags(function.modifierList)
             }
+            isLocal = false
             this.symbol = symbol
             dispatchReceiverType = c.dispatchReceiver
             resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
@@ -583,11 +585,11 @@ internal class StubBasedFirMemberDeserializer(
             deprecationsProvider = annotations.getDeprecationsProviderFromAnnotations(c.session, fromJava = false)
             this.containerSource = c.containerSource
 
-            function.contextReceiverList?.contextReceivers()?.mapTo(contextParameters) {
+            function.contextReceivers.mapTo(contextParameters) {
                 local.memberDeserializer.loadContextReceiver(it, symbol)
             }
 
-            function.contextReceiverList?.contextParameters()?.mapTo(contextParameters) {
+            function.contextParameters.mapTo(contextParameters) {
                 local.memberDeserializer.loadContextParameter(it, symbol)
             }
         }.apply {
@@ -643,6 +645,7 @@ internal class StubBasedFirMemberDeserializer(
                 this.isInner = isInner
                 setSpecialFlags(constructor.modifierList)
             }
+            isLocal = false
             this.symbol = symbol
             dispatchReceiverType =
                 if (!isInner) null
@@ -762,6 +765,7 @@ internal class StubBasedFirMemberDeserializer(
             ).apply {
                 isStatic = true
             }
+            isLocal = false
             resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
         }.apply {
             containingClassForStaticMemberAttr = c.dispatchReceiver!!.lookupTag

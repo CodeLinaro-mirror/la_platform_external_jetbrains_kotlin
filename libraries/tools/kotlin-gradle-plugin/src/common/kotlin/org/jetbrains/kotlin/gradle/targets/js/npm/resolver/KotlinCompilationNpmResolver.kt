@@ -38,6 +38,7 @@ import org.jetbrains.kotlin.gradle.tasks.registerTask
 import org.jetbrains.kotlin.gradle.utils.createConsumable
 import org.jetbrains.kotlin.gradle.utils.createResolvable
 import org.jetbrains.kotlin.gradle.utils.currentBuild
+import org.jetbrains.kotlin.gradle.utils.setInvisibleIfSupported
 import java.io.Serializable
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin.Companion.kotlinNodeJsRootExtension as wasmKotlinNodeJsRootExtension
 import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsRootPlugin.Companion.kotlinNpmResolutionManager as wasmKotlinNpmResolutionManager
@@ -160,11 +161,11 @@ class KotlinCompilationNpmResolver(
 
     private fun createAggregatedConfiguration(): Configuration {
         return project.configurations.createResolvable(compilation.npmAggregatedConfigurationName) {
+            setInvisibleIfSupported()
             usesPlatformOf(target)
             attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.consumerRuntimeUsage(target))
             attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
             attributes.attribute(publicPackageJsonAttribute, PUBLIC_PACKAGE_JSON_ATTR_VALUE)
-            isVisible = false
             description = "NPM configuration for $compilation."
 
             /**
@@ -194,11 +195,11 @@ class KotlinCompilationNpmResolver(
 
     private fun createPublicPackageJsonConfiguration(): Configuration {
         return project.configurations.createConsumable(compilation.publicPackageJsonConfigurationName) {
+            setInvisibleIfSupported()
             usesPlatformOf(target)
             attributes.attribute(Usage.USAGE_ATTRIBUTE, KotlinUsages.consumerRuntimeUsage(target))
             attributes.attribute(Category.CATEGORY_ATTRIBUTE, project.categoryByName(Category.LIBRARY))
             attributes.attribute(publicPackageJsonAttribute, PUBLIC_PACKAGE_JSON_ATTR_VALUE)
-            isVisible = false
         }
     }
 

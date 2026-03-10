@@ -155,6 +155,18 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveCandidatesByFileTestGenerat
   }
 
   @Test
+  @TestMetadata("explicitContextArgumentErrorExpression.kt")
+  public void testExplicitContextArgumentErrorExpression() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/explicitContextArgumentErrorExpression.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitContextArguments.kt")
+  public void testExplicitContextArguments() {
+    runTest("analysis/analysis-api/testData/components/resolver/allByPsi/explicitContextArguments.kt");
+  }
+
+  @Test
   @TestMetadata("forWithIterator.kt")
   public void testForWithIterator() {
     runTest("analysis/analysis-api/testData/components/resolver/allByPsi/forWithIterator.kt");
@@ -911,6 +923,64 @@ public class Fe10IdeNormalAnalysisSourceModuleResolveCandidatesByFileTestGenerat
       public void testUnqualifiedEnum() {
         runTest("analysis/analysis-api/testData/components/resolver/allByPsi/contextSensitiveResolution/unqualifiedEnum/unqualifiedEnum.kt");
       }
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Destructuring {
+    @Test
+    public void testAllFilesPresentInDestructuring() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("nameBasedDestructuringFullForm.kt")
+    public void testNameBasedDestructuringFullForm() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/nameBasedDestructuringFullForm.kt");
+    }
+
+    @Test
+    @TestMetadata("nameBasedDestructuringFullFormErrors.kt")
+    public void testNameBasedDestructuringFullFormErrors() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/nameBasedDestructuringFullFormErrors.kt");
+    }
+
+    @Test
+    @TestMetadata("nameBasedDestructuringShortFormAfter.kt")
+    public void testNameBasedDestructuringShortFormAfter() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/nameBasedDestructuringShortFormAfter.kt");
+    }
+
+    @Test
+    @TestMetadata("nameBasedDestructuringShortFormErrorsAfter.kt")
+    public void testNameBasedDestructuringShortFormErrorsAfter() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/nameBasedDestructuringShortFormErrorsAfter.kt");
+    }
+
+    @Test
+    @TestMetadata("positionalDestructuringFullForm.kt")
+    public void testPositionalDestructuringFullForm() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/positionalDestructuringFullForm.kt");
+    }
+
+    @Test
+    @TestMetadata("positionalDestructuringFullFormErrors.kt")
+    public void testPositionalDestructuringFullFormErrors() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/positionalDestructuringFullFormErrors.kt");
+    }
+
+    @Test
+    @TestMetadata("positionalDestructuringShortForm.kt")
+    public void testPositionalDestructuringShortForm() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/positionalDestructuringShortForm.kt");
+    }
+
+    @Test
+    @TestMetadata("positionalDestructuringShortFormErrors.kt")
+    public void testPositionalDestructuringShortFormErrors() {
+      runTest("analysis/analysis-api/testData/components/resolver/allByPsi/destructuring/positionalDestructuringShortFormErrors.kt");
     }
   }
 

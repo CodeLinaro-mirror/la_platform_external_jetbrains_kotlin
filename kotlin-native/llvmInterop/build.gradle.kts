@@ -12,6 +12,8 @@ dependencies {
     cppLink(project(":kotlin-native:llvmDebugInfoC"))
     cppImplementation(project(":kotlin-native:libllvmext"))
     cppLink(project(":kotlin-native:libllvmext"))
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 nativeInteropPlugin {

@@ -41,6 +41,7 @@ import org.jetbrains.kotlin.ir.util.KotlinMangler
 import org.jetbrains.kotlin.ir.util.SymbolTable
 import org.jetbrains.kotlin.ir.validation.IrValidationError
 import org.jetbrains.kotlin.ir.validation.IrValidatorConfig
+import org.jetbrains.kotlin.ir.validation.checkers.IrNestedOffsetRangeChecker
 import org.jetbrains.kotlin.ir.validation.checkers.symbol.IrVisibilityChecker
 import org.jetbrains.kotlin.ir.validation.checkers.declaration.IrFieldVisibilityChecker
 import org.jetbrains.kotlin.ir.validation.checkers.declaration.IrExpressionBodyInFunctionChecker
@@ -59,9 +60,10 @@ import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.exceptions.rethrowIntellijPlatformExceptionIfNeeded
 
-data class FirResult(val outputs: List<ModuleCompilerAnalyzedOutput>)
+@JvmInline
+value class AllModulesFrontendOutput(val outputs: List<SingleModuleFrontendOutput>)
 
-data class ModuleCompilerAnalyzedOutput(
+data class SingleModuleFrontendOutput(
     val session: FirSession,
     val scopeSession: ScopeSession,
     val fir: List<FirFile>
@@ -76,16 +78,18 @@ data class Fir2IrActualizedResult(
     val symbolTable: SymbolTable,
 )
 
-fun List<ModuleCompilerAnalyzedOutput>.runPlatformCheckers(reporter: BaseDiagnosticsCollector) {
+fun List<SingleModuleFrontendOutput>.runPlatformCheckers(reporter: BaseDiagnosticsCollector) {
     val platformModule = this.last()
     val session = platformModule.session
+    // Skip checkers in header mode.
+    if (session.languageVersionSettings.getFlag(AnalysisFlags.headerMode)) return
     val scopeSession = platformModule.scopeSession
 
     val allFiles = this.flatMap { it.fir }
     session.runCheckers(scopeSession, allFiles, reporter, MppCheckerKind.Platform)
 }
 
-fun FirResult.convertToIrAndActualize(
+fun AllModulesFrontendOutput.convertToIrAndActualize(
     fir2IrExtensions: Fir2IrExtensions,
     fir2IrConfiguration: Fir2IrConfiguration,
     irGeneratorExtensions: Collection<IrGenerationExtension>,
@@ -116,7 +120,7 @@ fun FirResult.convertToIrAndActualize(
 }
 
 private class Fir2IrPipeline(
-    val outputs: List<ModuleCompilerAnalyzedOutput>,
+    val outputs: List<SingleModuleFrontendOutput>,
     val fir2IrExtensions: Fir2IrExtensions,
     val fir2IrConfiguration: Fir2IrConfiguration,
     val irGeneratorExtensions: Collection<IrGenerationExtension>,
@@ -511,6 +515,9 @@ private class Fir2IrPipeline(
                     // so visibility checks are only performed if requested via a flag, and in tests.
                     withCheckers(IrVisibilityChecker.Strict)
                 }
+                .applyIf(fir2IrConfiguration.irVerificationSettings.enableIrNestedOffsetsChecks) {
+                    withCheckers(IrNestedOffsetRangeChecker)
+                }
                 .applyIf(extension == null) {
                     // KT-80065: This checker is known to trigger on a lot of internal and external compiler plugins,
                     //  while most of them, somehow, work. It is disabled for now, not to cause too much breakage.
@@ -562,7 +569,7 @@ private class Fir2IrPipeline(
         )
     }
 
-    fun IrPluginContext.applyIrGenerationExtensions(
+    fun Fir2IrPluginContext.applyIrGenerationExtensions(
         irModuleFragment: IrModuleFragment,
         irGenerationExtensions: Collection<IrGenerationExtension>,
     ) {
@@ -577,6 +584,7 @@ private class Fir2IrPipeline(
                 throw IrGenerationExtensionException(e, extension::class.java)
             }
         }
+        recordLookupsWithoutSpecificFile(irModuleFragment)
     }
 }
 

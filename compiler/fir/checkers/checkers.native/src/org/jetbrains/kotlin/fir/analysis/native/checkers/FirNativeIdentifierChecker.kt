@@ -28,7 +28,7 @@ object FirNativeIdentifierChecker : FirBasicDeclarationChecker(MppCheckerKind.Co
         val source = declaration.source
         when (declaration) {
             is FirRegularClass -> checkNameAndReport(declaration.name, source)
-            is FirSimpleFunction -> checkNameAndReport(declaration.name, source)
+            is FirNamedFunction -> checkNameAndReport(declaration.name, source)
             is FirTypeParameter -> checkNameAndReport(declaration.name, source)
             is FirProperty -> checkNameAndReport(declaration.name, source)
             is FirTypeAlias -> checkNameAndReport(declaration.name, source)
@@ -53,7 +53,7 @@ object FirNativeIdentifierChecker : FirBasicDeclarationChecker(MppCheckerKind.Co
             }
 
             if (message != null) {
-                reporter.reportOn(source, FirNativeErrors.INVALID_CHARACTERS_NATIVE, message)
+                reporter.reportOn(source, FirNativeErrors.INVALID_CHARACTERS_NATIVE_ERROR, message)
             }
         }
     }

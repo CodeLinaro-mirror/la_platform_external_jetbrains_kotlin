@@ -27,7 +27,7 @@ import org.jetbrains.kotlin.js.config.artifactConfiguration
 import org.jetbrains.kotlin.js.config.outputDir
 import java.io.File
 
-object JsBackendPipelinePhase : WebBackendPipelinePhase<JsBackendPipelineArtifact>("JsBackendPipelinePhase") {
+object JsBackendPipelinePhase : WebBackendPipelinePhase<JsBackendPipelineArtifact, JsBackendPipelineArtifact>("JsBackendPipelinePhase") {
     override val configFiles: EnvironmentConfigFiles
         get() = EnvironmentConfigFiles.JS_CONFIG_FILES
 
@@ -43,10 +43,7 @@ object JsBackendPipelinePhase : WebBackendPipelinePhase<JsBackendPipelineArtifac
         return JsBackendPipelineArtifact(outputs, configuration.outputDir!!, configuration)
     }
 
-    /**
-     * This method is shared between K2 phased pipeline and [org.jetbrains.kotlin.cli.js.K2JsCompilerImpl.compileWithIC] for K1 CLI
-     */
-    internal fun compileIncrementally(
+    private fun compileIncrementally(
         icCaches: IcCachesArtifacts,
         configuration: CompilerConfiguration,
         artifactConfiguration: WebArtifactConfiguration,
@@ -91,10 +88,12 @@ object JsBackendPipelinePhase : WebBackendPipelinePhase<JsBackendPipelineArtifac
         return JsBackendPipelineArtifact(outputs, configuration.outputDir!!, configuration)
     }
 
-    /**
-     * This method is shared between K2 phased pipeline and [org.jetbrains.kotlin.cli.js.K2JsCompilerImpl.compileNoIC] for K1 CLI
-     */
-    internal fun compileNonIncrementally(
+    override fun compileIntermediate(
+        intermediateResult: JsBackendPipelineArtifact,
+        configuration: CompilerConfiguration,
+    ): JsBackendPipelineArtifact = intermediateResult
+
+    private fun compileNonIncrementally(
         messageCollector: MessageCollector,
         ir2JsTransformer: Ir2JsTransformer,
         artifactConfiguration: WebArtifactConfiguration,

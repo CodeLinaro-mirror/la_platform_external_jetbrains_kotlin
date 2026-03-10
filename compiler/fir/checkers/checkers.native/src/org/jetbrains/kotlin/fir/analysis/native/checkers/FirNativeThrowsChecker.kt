@@ -96,7 +96,7 @@ sealed class FirNativeThrowsChecker(mppKind: MppCheckerKind) : FirBasicDeclarati
         declaration: FirDeclaration,
         throwsAnnotation: FirAnnotation?,
     ): Boolean {
-        if (declaration !is FirSimpleFunction) return true
+        if (declaration !is FirNamedFunction) return true
 
         val inherited = getInheritedThrows(declaration, throwsAnnotation).entries.distinctBy { it.value }
 
@@ -112,10 +112,9 @@ sealed class FirNativeThrowsChecker(mppKind: MppCheckerKind) : FirBasicDeclarati
             ?: return true // Should not happen though.
 
         if (throwsAnnotation?.source != null && decodeThrowsFilter(throwsAnnotation, context.session) != overriddenThrows) {
-            val containingClassSymbol = overriddenMember.containingClassLookupTag()?.toRegularClassSymbol()
-            if (containingClassSymbol != null) {
-                reporter.reportOn(throwsAnnotation.source, FirNativeErrors.INCOMPATIBLE_THROWS_OVERRIDE, containingClassSymbol)
-            }
+            val containingClassSymbol = overriddenMember.containingClassLookupTag()?.toRegularClassSymbol() ?: return true
+            if (containingClassSymbol.isExpect) return true
+            reporter.reportOn(throwsAnnotation.source, FirNativeErrors.INCOMPATIBLE_THROWS_OVERRIDE, containingClassSymbol)
             return false
         }
 
@@ -124,7 +123,7 @@ sealed class FirNativeThrowsChecker(mppKind: MppCheckerKind) : FirBasicDeclarati
 
     context(context: CheckerContext)
     private fun getInheritedThrows(
-        function: FirSimpleFunction,
+        function: FirNamedFunction,
         throwsAnnotation: FirAnnotation?
     ): Map<FirNamedFunctionSymbol, ThrowsFilter> {
         val visited = mutableSetOf<FirNamedFunctionSymbol>()

@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.fir.contracts.builder.buildEffectDeclaration
 import org.jetbrains.kotlin.fir.contracts.builder.buildResolvedContractDescription
 import org.jetbrains.kotlin.fir.contracts.description.*
 import org.jetbrains.kotlin.fir.declarations.FirContractDescriptionOwner
+import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.diagnostics.ConeDiagnostic
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
@@ -179,7 +179,7 @@ internal class StubBasedFirContractDeserializer(
             parameterIndex < contractOwner.valueParameters.size -> contractOwner.valueParameters[parameterIndex].name.asString()
             else -> {
                 val contextParameters = when (contractOwner) {
-                    is FirSimpleFunction -> contractOwner.contextParameters
+                    is FirNamedFunction -> contractOwner.contextParameters
                     is FirPropertyAccessor -> contractOwner.propertySymbol.fir.contextParameters
                     else -> errorWithAttachment("Unsupported contract owner kind: ${contractOwner::class.simpleName}"){
                         withFirEntry("contractOwner", contractOwner)

@@ -31,7 +31,7 @@ object JvmEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
         """.trimIndent()
     )
 
-    val WITH_JAKARTA_ANNOTATIONS by directive("Add jakarta nullability annotations to the test classpath")
+    val WITH_THIRD_PARTY_ANNOTATIONS by directive("Add third-party nullability annotations to the test classpath")
 
     val USE_PSI_CLASS_FILES_READING by directive("Use a slower (PSI-based) class files reading implementation")
 
@@ -84,4 +84,6 @@ object JvmEnvironmentConfigurationDirectives : SimpleDirectivesContainer() {
     )
 
     val USE_LEGACY_REFLECTION_IMPLEMENTATION by directive("Use legacy reflection implementation")
+
+    val IGNORED_ANNOTATIONS_FOR_BRIDGES by stringDirective("Ignored annotations for bridges")
 }

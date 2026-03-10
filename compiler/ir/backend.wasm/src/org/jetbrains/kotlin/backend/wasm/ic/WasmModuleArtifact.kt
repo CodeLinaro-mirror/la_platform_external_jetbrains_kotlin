@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.backend.wasm.ic
 
 import org.jetbrains.kotlin.backend.wasm.serialization.WasmDeserializer
-import org.jetbrains.kotlin.ir.backend.js.ic.*
-import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.safeModuleName
+import org.jetbrains.kotlin.ir.backend.js.ic.ModuleArtifact
+import org.jetbrains.kotlin.ir.backend.js.ic.SrcFileArtifact
 import java.io.File
 
 internal inline fun <T> File.ifExists(f: File.() -> T): T? = if (exists()) f() else null
@@ -21,15 +21,15 @@ class WasmSrcFileArtifact(
         if (fragments != null) {
             return fragments
         }
-        return astArtifact?.ifExists { readBytes() }
-            ?.let {
-                WasmIrProgramFragments(
-                    WasmDeserializer(
-                        inputStream = it.inputStream(),
-                        skipLocalNames = skipLocalNames,
-                    ).deserialize()
-                )
+        return astArtifact?.ifExists {
+            val fragment = inputStream().use {
+                WasmDeserializer(
+                    inputStream = it,
+                    skipLocalNames = skipLocalNames,
+                ).deserialize()
             }
+            WasmIrProgramFragments(mainFragment = fragment)
+        }
     }
 
     override fun isModified() = fragments != null

@@ -323,6 +323,18 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
   }
 
   @Test
+  @TestMetadata("syntheticHashCode.kt")
+  public void testSyntheticHashCode() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/syntheticHashCode.kt");
+  }
+
+  @Test
+  @TestMetadata("syntheticHashCodeWithDuplication.kt")
+  public void testSyntheticHashCodeWithDuplication() {
+    runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/syntheticHashCodeWithDuplication.kt");
+  }
+
+  @Test
   @TestMetadata("typeMismatches.kt")
   public void testTypeMismatches() {
     runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/typeMismatches.kt");
@@ -437,6 +449,58 @@ public class FirStandaloneNormalAnalysisSourceModuleCollectDiagnosticsTestGenera
     @TestMetadata("mustUseReturnValueHalfEnabledFromLibrary.kt")
     public void testMustUseReturnValueHalfEnabledFromLibrary() {
       runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/mustUseReturnValue/mustUseReturnValueHalfEnabledFromLibrary.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime")
+  @TestDataPath("$PROJECT_ROOT")
+  public class NoRuntime {
+    @Test
+    public void testAllFilesPresentInNoRuntime() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("anonymousObjectWithMissingAny.kt")
+    public void testAnonymousObjectWithMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/anonymousObjectWithMissingAny.kt");
+    }
+
+    @Test
+    @TestMetadata("companionObjectWithMissingAny.kt")
+    public void testCompanionObjectWithMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/companionObjectWithMissingAny.kt");
+    }
+
+    @Test
+    @TestMetadata("objectWithMissingAny.kt")
+    public void testObjectWithMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/objectWithMissingAny.kt");
+    }
+
+    @Test
+    @TestMetadata("objectWithResolvedSuperInterfaceAndMissingAny.kt")
+    public void testObjectWithResolvedSuperInterfaceAndMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/objectWithResolvedSuperInterfaceAndMissingAny.kt");
+    }
+
+    @Test
+    @TestMetadata("objectWithResolvedSuperclassAndMissingAny.kt")
+    public void testObjectWithResolvedSuperclassAndMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/objectWithResolvedSuperclassAndMissingAny.kt");
+    }
+
+    @Test
+    @TestMetadata("objectWithUnresolvedSuperInterfaceAndMissingAny.kt")
+    public void testObjectWithUnresolvedSuperInterfaceAndMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/objectWithUnresolvedSuperInterfaceAndMissingAny.kt");
+    }
+
+    @Test
+    @TestMetadata("objectWithUnresolvedSuperclassAndMissingAny.kt")
+    public void testObjectWithUnresolvedSuperclassAndMissingAny() {
+      runTest("analysis/analysis-api/testData/components/diagnosticsProvider/diagnostics/noRuntime/objectWithUnresolvedSuperclassAndMissingAny.kt");
     }
   }
 

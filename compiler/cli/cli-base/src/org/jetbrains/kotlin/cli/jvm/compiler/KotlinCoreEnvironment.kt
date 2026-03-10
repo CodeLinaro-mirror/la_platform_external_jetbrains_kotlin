@@ -32,9 +32,8 @@ import com.intellij.openapi.vfs.impl.ZipHandler
 import com.intellij.pom.java.InternalPersistentJavaLanguageLevelReaderService
 import com.intellij.psi.PsiElementFinder
 import com.intellij.psi.PsiManager
-import com.intellij.psi.impl.JavaClassSupersImpl
-import com.intellij.psi.impl.PsiElementFinderImpl
-import com.intellij.psi.impl.PsiTreeChangePreprocessor
+import com.intellij.psi.PsiNameHelper
+import com.intellij.psi.impl.*
 import com.intellij.psi.impl.file.impl.JavaFileManager
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.JavaClassSupers
@@ -42,15 +41,10 @@ import com.intellij.util.io.URLUtil
 import com.intellij.util.lang.UrlClassLoader
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.K1Deprecation
-import org.jetbrains.kotlin.K1_DEPRECATION_WARNING
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport
 import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
 import org.jetbrains.kotlin.asJava.finder.JavaElementFinder
-import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
-import org.jetbrains.kotlin.backend.jvm.extensions.ClassGeneratorExtension
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
-import org.jetbrains.kotlin.cli.common.CliModuleVisibilityManagerImpl
-import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
+import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.config.ContentRoot
 import org.jetbrains.kotlin.cli.common.config.KotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
@@ -59,25 +53,18 @@ import org.jetbrains.kotlin.cli.common.extensions.ShellExtension
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.testEnvironment
-import org.jetbrains.kotlin.cli.common.toBooleanLenient
+import org.jetbrains.kotlin.cli.extensionsStorage
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment.Companion.resetApplicationManager
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.index.*
-import org.jetbrains.kotlin.cli.jvm.javac.JavacWrapperRegistrar
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleFinder
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
-import org.jetbrains.kotlin.codegen.extensions.ClassFileFactoryFinalizerExtension
-import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
-import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
-import org.jetbrains.kotlin.compiler.plugin.TEST_ONLY_PLUGIN_REGISTRATION_CALLBACK
-import org.jetbrains.kotlin.compiler.plugin.registerInProject
+import org.jetbrains.kotlin.compiler.plugin.*
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.extensions.*
 import org.jetbrains.kotlin.extensions.internal.CandidateInterceptor
 import org.jetbrains.kotlin.extensions.internal.InternalNonStableExtensionPoints
 import org.jetbrains.kotlin.extensions.internal.TypeResolutionInterceptor
-import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
-import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.load.java.structure.impl.source.JavaElementSourceFactory
 import org.jetbrains.kotlin.load.java.structure.impl.source.JavaFixedElementSourceFactory
@@ -217,7 +204,9 @@ class KotlinCoreEnvironment private constructor(
 
     private val sourceFiles = mutableListOf<KtFile>()
     private val rootsIndex: JvmDependenciesDynamicCompoundIndex
-    private val packagePartProviders = mutableListOf<JvmPackagePartProvider>()
+
+    private val _packagePartProviders = mutableListOf<JvmPackagePartProvider>()
+    val packagePartProviders: List<JvmPackagePartProvider> get() = _packagePartProviders
 
     private val classpathRootsResolver: ClasspathRootsResolver
     private val initialRoots = ArrayList<JavaRoot>()
@@ -287,7 +276,7 @@ class KotlinCoreEnvironment private constructor(
 
         javaFileManager.initialize(
             rootsIndex,
-            packagePartProviders,
+            _packagePartProviders,
             SingleJavaFileRootsIndex(singleJavaFileRoots),
             configuration.getBoolean(JVMConfigurationKeys.USE_PSI_CLASS_FILES_READING),
             perfManager,
@@ -343,37 +332,8 @@ class KotlinCoreEnvironment private constructor(
     fun createPackagePartProvider(scope: GlobalSearchScope): JvmPackagePartProvider {
         return JvmPackagePartProvider(configuration.languageVersionSettings, scope).apply {
             addRoots(initialRoots, configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY))
-            packagePartProviders += this
+            _packagePartProviders += this
         }
-    }
-
-    private val VirtualFile.javaFiles: List<VirtualFile>
-        get() = mutableListOf<VirtualFile>().apply {
-            VfsUtilCore.processFilesRecursively(this@javaFiles) { file ->
-                if (file.extension == JavaFileType.DEFAULT_EXTENSION || file.fileType == JavaFileType.INSTANCE) {
-                    add(file)
-                }
-                true
-            }
-        }
-
-    private val allJavaFiles: List<File>
-        get() = configuration.javaSourceRoots
-            .mapNotNull(this::findLocalFile)
-            .flatMap { it.javaFiles }
-            .map { File(it.canonicalPath) }
-
-    fun registerJavac(
-        javaFiles: List<File> = allJavaFiles,
-        kotlinFiles: List<KtFile> = sourceFiles,
-        arguments: Array<String>? = null,
-        bootClasspath: List<File>? = null,
-        sourcePath: List<File>? = null
-    ): Boolean {
-        return JavacWrapperRegistrar.registerJavac(
-            projectEnvironment.project, configuration, javaFiles, kotlinFiles, arguments, bootClasspath, sourcePath,
-            LightClassGenerationSupport.getInstance(project), packagePartProviders
-        )
     }
 
     private val applicationEnvironment: CoreApplicationEnvironment
@@ -401,10 +361,10 @@ class KotlinCoreEnvironment private constructor(
         val newIndex = rootsIndex.addNewIndexForRoots(newRoots) ?: return null
         updateClasspathFromRootsIndex(newIndex)
 
-        if (packagePartProviders.isEmpty()) {
+        if (_packagePartProviders.isEmpty()) {
             initialRoots.addAll(newRoots)
         } else {
-            for (packagePartProvider in packagePartProviders) {
+            for (packagePartProvider in _packagePartProviders) {
                 packagePartProvider.addRoots(newRoots, configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY))
             }
         }
@@ -749,32 +709,31 @@ class KotlinCoreEnvironment private constructor(
         @Suppress("MemberVisibilityCanPrivate") // made public for CLI Android Lint
         @K1Deprecation
         fun registerPluginExtensionPoints(project: MockProject) {
+            // K1 extensions
             SyntheticResolveExtension.registerExtensionPoint(project)
             SyntheticJavaResolveExtension.registerExtensionPoint(project)
-            @Suppress("DEPRECATION_ERROR")
-            org.jetbrains.kotlin.codegen.extensions.ClassBuilderInterceptorExtension.registerExtensionPoint(project)
-            ClassGeneratorExtension.registerExtensionPoint(project)
-            ClassFileFactoryFinalizerExtension.registerExtensionPoint(project)
             AnalysisHandlerExtension.registerExtensionPoint(project)
             PackageFragmentProviderExtension.registerExtensionPoint(project)
             StorageComponentContainerContributor.registerExtensionPoint(project)
             DeclarationAttributeAltererExtension.registerExtensionPoint(project)
+            TypeResolutionInterceptor.registerExtensionPoint(project)
+            CandidateInterceptor.registerExtensionPoint(project)
+            DescriptorSerializerPlugin.registerExtensionPoint(project)
+            TypeAttributeTranslatorExtension.registerExtensionPoint(project)
+            AssignResolutionAltererExtension.registerExtensionPoint(project)
+            DiagnosticSuppressor.registerExtensionPoint(project)
+
+            // K1 extensions for removal
+            @Suppress("DEPRECATION_ERROR")
             PreprocessedVirtualFileFactoryExtension.registerExtensionPoint(project)
+
+            // K1 extensions for scripting
             CompilerConfigurationExtension.registerExtensionPoint(project)
             CollectAdditionalSourcesExtension.registerExtensionPoint(project)
             ProcessSourcesBeforeCompilingExtension.registerExtensionPoint(project)
             ExtraImportsProviderExtension.registerExtensionPoint(project)
-            IrGenerationExtension.registerExtensionPoint(project)
             ScriptEvaluationExtension.registerExtensionPoint(project)
             ShellExtension.registerExtensionPoint(project)
-            TypeResolutionInterceptor.registerExtensionPoint(project)
-            CandidateInterceptor.registerExtensionPoint(project)
-            DescriptorSerializerPlugin.registerExtensionPoint(project)
-            FirExtensionRegistrarAdapter.registerExtensionPoint(project)
-            TypeAttributeTranslatorExtension.registerExtensionPoint(project)
-            AssignResolutionAltererExtension.registerExtensionPoint(project)
-            FirAnalysisHandlerExtension.registerExtensionPoint(project)
-            DiagnosticSuppressor.registerExtensionPoint(project)
         }
 
         internal fun registerExtensionsFromPlugins(project: MockProject, configuration: CompilerConfiguration) {
@@ -801,12 +760,13 @@ class KotlinCoreEnvironment private constructor(
                 }
             }
 
-            val extensionStorage = CompilerPluginRegistrar.ExtensionStorage()
+            val extensionStorage = configuration.extensionsStorage ?: error("Extensions storage is not registered")
             for (registrar in configuration.getList(CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS)) {
                 with(registrar) { extensionStorage.registerExtensions(configuration) }
             }
+            configuration[TEST_ONLY_PLUGIN_REGISTRATION_CALLBACK]?.invoke(extensionStorage)
+            configuration[TEST_ONLY_PROJECT_CONFIGURATION_CALLBACK]?.invoke(project)
             extensionStorage.registerInProject(project) { createErrorMessage(it) }
-            configuration[TEST_ONLY_PLUGIN_REGISTRATION_CALLBACK]?.invoke(project)
         }
 
         private fun registerApplicationServicesForCLI(applicationEnvironment: KotlinCoreApplicationEnvironment) {
@@ -845,7 +805,11 @@ class KotlinCoreEnvironment private constructor(
 
         // made public for Upsource
         @JvmStatic
-        @Deprecated("Use registerProjectServices(project) instead.", ReplaceWith("registerProjectServices(projectEnvironment.project)"))
+        @Deprecated(
+            "Use registerProjectServices(project) instead.",
+            ReplaceWith("registerProjectServices(projectEnvironment.project)"),
+            level = DeprecationLevel.ERROR,
+        )
         @K1Deprecation
         fun registerProjectServices(
             projectEnvironment: JavaCoreProjectEnvironment,
@@ -860,7 +824,11 @@ class KotlinCoreEnvironment private constructor(
         fun registerProjectServices(project: MockProject) {
             with(project) {
                 registerService(JavaElementSourceFactory::class.java, JavaFixedElementSourceFactory::class.java)
+                registerService(PsiJavaModuleModificationTracker::class.java, PsiJavaModuleModificationTracker::class.java)
                 registerService(KotlinJavaPsiFacade::class.java, KotlinJavaPsiFacade(this))
+                if (getService(PsiNameHelper::class.java) == null) {
+                    registerService(PsiNameHelper::class.java, PsiNameHelperImpl::class.java)
+                }
             }
         }
 

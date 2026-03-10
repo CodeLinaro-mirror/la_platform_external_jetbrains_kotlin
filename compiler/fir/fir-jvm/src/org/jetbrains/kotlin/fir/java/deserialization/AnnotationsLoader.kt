@@ -18,7 +18,9 @@ import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.kotlin.KotlinClassFinder
 import org.jetbrains.kotlin.load.kotlin.KotlinJvmBinaryClass
 import org.jetbrains.kotlin.load.kotlin.findKotlinClass
+import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.ClassIdBasedLocality
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.resolve.constants.ClassLiteralValue
@@ -38,6 +40,7 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
             // toLookupTag will throw an exception if classId is local.
             // This should only happen in annotations of local declarations, in which we aren't interested anyway, so it should be fine
             // to just skip some of their arguments.
+            @OptIn(ClassIdBasedLocality::class)
             if (classId.isLocal) return null
 
             val resolvedClassTypeRef = classId.toLookupTag().toDefaultResolvedTypeRef()
@@ -94,7 +97,7 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                 }
 
                 override fun visitEnd() {
-                    visitExpression(name, buildArrayLiteral {
+                    visitExpression(name, buildCollectionLiteral {
                         // For the array literal type, we use `Array<Any>` as an approximation. Later FIR2IR will calculate a more precise
                         // type. See KT-62598.
                         // FIR provides no guarantees on having the exact type of deserialized array literals in annotations, including
@@ -130,12 +133,18 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
         result: MutableList<FirAnnotation>
     ): KotlinJvmBinaryClass.AnnotationArgumentVisitor {
         val lookupTag = annotationClassId.toLookupTag()
+        val annotationIsImplicitRepeatableContainer = isImplicitRepeatableContainer(annotationClassId)
 
         return object : AnnotationsLoaderVisitorImpl() {
             private val argumentMap = mutableMapOf<Name, FirExpression>()
 
             override fun visitExpression(name: Name?, expr: FirExpression) {
-                if (name != null) argumentMap[name] = expr
+                if (name == null) return
+                if (annotationIsImplicitRepeatableContainer && name == StandardClassIds.Annotations.ParameterNames.value) {
+                    (expr as? FirCollectionLiteral)?.arguments?.filterIsInstanceTo<FirAnnotation, _>(result)
+                } else {
+                    argumentMap[name] = expr
+                }
             }
 
             override val visitNullNames: Boolean = false
@@ -145,6 +154,7 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                 // Kotlin-repeatable annotation classes. Otherwise the reference to the implicit nested "Container" class cannot be
                 // resolved, since that class is only generated in the backend, and is not visible to the frontend.
                 if (isRepeatableWithImplicitContainer(lookupTag, argumentMap)) return
+                if (annotationIsImplicitRepeatableContainer) return
 
                 result += buildAnnotation {
                     annotationTypeRef = lookupTag.toDefaultResolvedTypeRef()
@@ -154,6 +164,15 @@ internal class AnnotationsLoader(private val session: FirSession, private val ko
                 }
             }
         }
+    }
+
+    private fun isImplicitRepeatableContainer(classId: ClassId): Boolean {
+        if (classId.outerClassId == null ||
+            classId.shortClassName.asString() != JvmAbi.REPEATABLE_ANNOTATION_CONTAINER_NAME
+        ) return false
+
+        val klass = kotlinClassFinder.findKotlinClass(classId, MetadataVersion.INSTANCE)
+        return klass != null && SpecialJvmAnnotations.isAnnotatedWithContainerMetaAnnotation(klass)
     }
 
     internal fun loadAnnotationMethodDefaultValue(

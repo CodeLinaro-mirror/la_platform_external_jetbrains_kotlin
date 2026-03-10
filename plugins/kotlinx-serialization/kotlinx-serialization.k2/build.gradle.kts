@@ -2,7 +2,6 @@ description = "Kotlin Serialization Compiler Plugin (K2)"
 
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
 }
 
 dependencies {
@@ -13,7 +12,8 @@ dependencies {
     compileOnly(project(":compiler:fir:resolve"))
     compileOnly(project(":compiler:fir:plugin-utils"))
     compileOnly(project(":compiler:fir:entrypoint"))
-    compileOnly(project(":compiler:cli-common"))
+    compileOnly(project(":compiler:cli-base"))
+    compileOnly(project(":native:native.config"))
 
     implementation(project(":kotlinx-serialization-compiler-plugin.common"))
 

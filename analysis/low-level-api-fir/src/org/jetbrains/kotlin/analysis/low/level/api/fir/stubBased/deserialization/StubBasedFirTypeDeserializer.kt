@@ -288,7 +288,7 @@ internal class StubBasedFirTypeDeserializer(
 
     private fun ConeAttributes.withContextParametersFunctionTypeIfNeeded(typeElement: KtTypeElement): ConeAttributes {
         if (typeElement !is KtFunctionType) return this
-        val contextParametersCount = typeElement.contextReceiverList?.contextReceivers()?.size ?: 0
+        val contextParametersCount = typeElement.contextParameterList?.contextReceivers()?.size ?: 0
         if (contextParametersCount <= 0) return this
 
         return add(CompilerConeAttributes.ContextFunctionTypeParams(contextParametersCount))
@@ -300,6 +300,8 @@ internal class StubBasedFirTypeDeserializer(
     private fun KtFunctionType.isSuspend(): Boolean {
         val parent = parent as? KtElementImplStub<*>
             ?: error("Expected parent of KtTypeElement to have type KtElementImplStub<*>, but actual $parent")
+
+        @Suppress("DEPRECATION") // KT-78356
         val modifiers = parent.getStubOrPsiChildren(KtStubElementTypes.MODIFIER_LIST, KtStubElementTypes.MODIFIER_LIST.arrayFactory)
         return modifiers.any { it.hasSuspendModifier() }
     }

@@ -55,6 +55,7 @@ class TopLevelDeclarationsGenerator(session: FirSession) : FirDeclarationGenerat
             containingFileName = containingFileName,
         ) {
             valueParameter(Name.identifier("value"), matchedClassSymbol.constructStarProjectedType())
+            withGeneratedDefaultBody()
         }
         return listOf(function.symbol)
     }
@@ -78,7 +79,7 @@ class TopLevelDeclarationsGenerator(session: FirSession) : FirDeclarationGenerat
         }
     }
 
-    object Key : GeneratedDeclarationKey()
+    data object Key : GeneratedDeclarationKey()
 
     override fun FirDeclarationPredicateRegistrar.registerPredicates() {
         register(PREDICATE)

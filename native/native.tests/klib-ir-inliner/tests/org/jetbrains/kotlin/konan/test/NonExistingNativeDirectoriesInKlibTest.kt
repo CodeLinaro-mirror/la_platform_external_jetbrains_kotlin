@@ -7,16 +7,24 @@ package org.jetbrains.kotlin.konan.test
 
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.konan.file.zipDirAs
-import org.jetbrains.kotlin.konan.library.KLIB_TARGETS_FOLDER_NAME
-import org.jetbrains.kotlin.konan.library.KonanLibrary
-import org.jetbrains.kotlin.konan.library.impl.buildLibrary
-import org.jetbrains.kotlin.konan.library.impl.createKonanLibrary
+import org.jetbrains.kotlin.konan.library.components.KlibBitcodeConstants.KLIB_BITCODE_FOLDER_NAME
+import org.jetbrains.kotlin.library.components.KlibNativeConstants.KLIB_TARGETS_FOLDER_NAME
+import org.jetbrains.kotlin.konan.library.components.KlibNativeIncludedBinariesConstants.KLIB_NATIVE_INCLUDED_BINARIES_FOLDER_NAME
+import org.jetbrains.kotlin.konan.library.components.bitcode
+import org.jetbrains.kotlin.konan.library.components.nativeIncludedBinaries
+import org.jetbrains.kotlin.konan.library.writer.includeBitcode
+import org.jetbrains.kotlin.konan.library.writer.includeNativeIncludedBinaries
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.mapToSet
+import org.jetbrains.kotlin.library.KlibConstants.KLIB_DEFAULT_COMPONENT_NAME
 import org.jetbrains.kotlin.library.KotlinAbiVersion
+import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.KotlinLibraryVersioning
 import org.jetbrains.kotlin.library.SerializedMetadata
-import org.jetbrains.kotlin.library.impl.KLIB_DEFAULT_COMPONENT_NAME
+import org.jetbrains.kotlin.library.impl.BuiltInsPlatform
+import org.jetbrains.kotlin.library.loader.KlibLoader
+import org.jetbrains.kotlin.library.writer.KlibWriter
+import org.jetbrains.kotlin.library.writer.includeMetadata
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -29,37 +37,37 @@ class NonExistingNativeDirectoriesInKlibTest {
     lateinit var tmpDir: Path
 
     @Test
-    fun `no included dir`() {
-        val includedFileNames = setOf("included1.txt", "included2.kt")
+    fun `no Native included binaries dir`() {
+        val nativeIncludedBinaryFileNames = setOf("included1.txt", "included2.kt")
 
-        val klibDir = writeLibrary(includedFileNames = includedFileNames)
+        val klibDir = writeLibrary(includedBinaryFileNames = nativeIncludedBinaryFileNames)
         val klibFile = klibDir.compressKlib()
 
-        assertTrue(klibDir.readLibrary().includedPaths.mapToSet { KFile(it).name } == includedFileNames)
-        assertTrue(klibFile.readLibrary().includedPaths.mapToSet { KFile(it).name } == includedFileNames)
+        assertTrue(klibDir.readLibrary().nativeIncludedBinaries(TEST_TARGET)?.nativeIncludedBinaryFilePaths?.mapToSet { KFile(it).name } == nativeIncludedBinaryFileNames)
+        assertTrue(klibFile.readLibrary().nativeIncludedBinaries(TEST_TARGET)?.nativeIncludedBinaryFilePaths?.mapToSet { KFile(it).name } == nativeIncludedBinaryFileNames)
 
-        klibDir.deleteNativeTargetSubdirectory("included")
+        klibDir.deleteNativeTargetSubdirectory(KLIB_NATIVE_INCLUDED_BINARIES_FOLDER_NAME)
         klibDir.compressKlib()
 
-        assertTrue(klibDir.readLibrary().includedPaths.isEmpty())
-        assertTrue(klibFile.readLibrary().includedPaths.isEmpty())
+        assertTrue(klibDir.readLibrary().nativeIncludedBinaries(TEST_TARGET)?.nativeIncludedBinaryFilePaths.isNullOrEmpty())
+        assertTrue(klibFile.readLibrary().nativeIncludedBinaries(TEST_TARGET)?.nativeIncludedBinaryFilePaths.isNullOrEmpty())
     }
 
     @Test
-    fun `no native dir`() {
+    fun `no bitcode dir`() {
         val bitcodeFileNames = setOf("bitc0de.000", "btc.123")
 
         val klibDir = writeLibrary(bitcodeFileNames = bitcodeFileNames)
         val klibFile = klibDir.compressKlib()
 
-        assertTrue(klibDir.readLibrary().bitcodePaths.mapToSet { KFile(it).name } == bitcodeFileNames)
-        assertTrue(klibFile.readLibrary().bitcodePaths.mapToSet { KFile(it).name } == bitcodeFileNames)
+        assertTrue(klibDir.readLibrary().bitcode(TEST_TARGET)?.bitcodeFilePaths?.mapToSet { KFile(it).name } == bitcodeFileNames)
+        assertTrue(klibFile.readLibrary().bitcode(TEST_TARGET)?.bitcodeFilePaths?.mapToSet { KFile(it).name } == bitcodeFileNames)
 
-        klibDir.deleteNativeTargetSubdirectory("native")
+        klibDir.deleteNativeTargetSubdirectory(KLIB_BITCODE_FOLDER_NAME)
         klibDir.compressKlib()
 
-        assertTrue(klibDir.readLibrary().bitcodePaths.isEmpty())
-        assertTrue(klibFile.readLibrary().bitcodePaths.isEmpty())
+        assertTrue(klibDir.readLibrary().bitcode(TEST_TARGET)?.bitcodeFilePaths.isNullOrEmpty())
+        assertTrue(klibFile.readLibrary().bitcode(TEST_TARGET)?.bitcodeFilePaths.isNullOrEmpty())
     }
 
     companion object {
@@ -69,7 +77,7 @@ class NonExistingNativeDirectoriesInKlibTest {
 
     private fun writeLibrary(
         bitcodeFileNames: Collection<String> = emptyList(),
-        includedFileNames: Collection<String> = emptyList(),
+        includedBinaryFileNames: Collection<String> = emptyList(),
     ): KFile {
         fun createEmptyFile(name: String): String {
             val file = KFile(tmpDir.resolve(name))
@@ -79,30 +87,28 @@ class NonExistingNativeDirectoriesInKlibTest {
 
         val klibDir = KFile(tmpDir.resolve("uncompressed")).absoluteFile
 
-        buildLibrary(
-            natives = bitcodeFileNames.map(::createEmptyFile),
-            included = includedFileNames.map(::createEmptyFile),
-            linkDependencies = emptyList(),
-            metadata = SerializedMetadata(byteArrayOf(), emptyList(), emptyList()),
-            ir = null,
-            versions = KotlinLibraryVersioning(
-                abiVersion = KotlinAbiVersion.CURRENT, // does not matter
-                compilerVersion = KotlinCompilerVersion.getVersion(), // does not matter
-                metadataVersion = MetadataVersion.INSTANCE, // does not matter
-            ),
-            target = TEST_TARGET,
-            output = klibDir.path,
-            moduleName = TEST_MODULE_NAME,
-            nopack = true,
-            shortName = null,
-            manifestProperties = null,
-        )
+        KlibWriter {
+            manifest {
+                moduleName(TEST_MODULE_NAME)
+                versions(
+                    KotlinLibraryVersioning(
+                        abiVersion = KotlinAbiVersion.CURRENT, // does not matter
+                        compilerVersion = KotlinCompilerVersion.getVersion(), // does not matter
+                        metadataVersion = MetadataVersion.INSTANCE, // does not matter
+                    )
+                )
+                platformAndTargets(BuiltInsPlatform.NATIVE, TEST_TARGET.name)
+            }
+            includeMetadata(SerializedMetadata(byteArrayOf(), emptyList(), emptyList(), MetadataVersion.INSTANCE.toArray()))
+            includeBitcode(TEST_TARGET, bitcodeFileNames.map(::createEmptyFile))
+            includeNativeIncludedBinaries(TEST_TARGET, includedBinaryFileNames.map(::createEmptyFile))
+        }.writeTo(klibDir.path)
 
         return klibDir
     }
 
-    private fun KFile.readLibrary(): KonanLibrary =
-        createKonanLibrary(libraryFilePossiblyDenormalized = this, component = KLIB_DEFAULT_COMPONENT_NAME, target = TEST_TARGET)
+    private fun KFile.readLibrary(): KotlinLibrary =
+        KlibLoader { libraryPaths(this@readLibrary.path) }.load().librariesStdlibFirst.single()
 
     private fun KFile.compressKlib(): KFile {
         val klibFile = this.parentFile.child("compressed.klib")

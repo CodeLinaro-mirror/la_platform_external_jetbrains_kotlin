@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
+import org.jetbrains.kotlin.analysis.api.scopes.KaScope
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
@@ -50,6 +51,7 @@ import org.jetbrains.kotlin.fir.backend.jvm.jvmTypeMapper
 import org.jetbrains.kotlin.fir.declarations.DirectDeclarationsAccess
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.hasAnnotation
+import org.jetbrains.kotlin.fir.declarations.utils.isLocal
 import org.jetbrains.kotlin.fir.java.MutableJavaTypeParameterStack
 import org.jetbrains.kotlin.fir.java.javaSymbolProvider
 import org.jetbrains.kotlin.fir.java.resolveIfJavaType
@@ -66,6 +68,7 @@ import org.jetbrains.kotlin.fir.types.jvm.buildJavaTypeRef
 import org.jetbrains.kotlin.light.classes.symbol.annotations.annotateByKtType
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
+import org.jetbrains.kotlin.load.java.getPropertyNamesCandidatesByAccessorName
 import org.jetbrains.kotlin.load.java.structure.impl.JavaClassImpl
 import org.jetbrains.kotlin.load.java.structure.impl.JavaTypeImpl
 import org.jetbrains.kotlin.load.java.structure.impl.JavaTypeParameterImpl
@@ -341,9 +344,41 @@ internal class KaFirJavaInteroperabilityComponent(
                 } else {
                     val name = name?.let(Name::identifier) ?: return null
                     combinedMemberScope.callables(name).firstOrNull { it.psi == this@callableSymbol }
+                        ?: findJavaAccessorMethodBySyntheticProperty(this@callableSymbol, name, combinedMemberScope)
                 }
             }
         }
+
+    /**
+     * Finds a [KaCallableSymbol] for a Java accessor method that implements a Kotlin property.
+     *
+     * When a Java class implements a Kotlin interface property via getFoo/setFoo methods,
+     * these methods are represented as a [KaSyntheticJavaPropertySymbol] in the scope.
+     * This function retrieves the underlying getter/setter symbol for such cases.
+     */
+    context(_: KaFirSession)
+    private fun findJavaAccessorMethodBySyntheticProperty(psiMember: PsiMember, name: Name, scope: KaScope): KaCallableSymbol? {
+        val nameAsString = name.asString()
+        val isGetter = JvmAbi.isGetterName(nameAsString)
+        val isSetter = JvmAbi.isSetterName(nameAsString)
+        if (!isGetter && !isSetter) return null
+
+        val propertyNames = getPropertyNamesCandidatesByAccessorName(name)
+        for (propertyName in propertyNames) {
+            for (callable in scope.callables(propertyName)) {
+                val property = callable as? KaSyntheticJavaPropertySymbol ?: continue
+
+                if (isGetter && property.javaGetterSymbol.psi == psiMember) {
+                    return property.javaGetterSymbol
+                }
+                if (isSetter && property.javaSetterSymbol?.psi == psiMember) {
+                    return property.javaSetterSymbol
+                }
+            }
+        }
+
+        return null
+    }
 
     override val KaCallableSymbol.containingJvmClassName: String?
         get() = withValidityAssertion {
@@ -487,7 +522,7 @@ private fun ConeKotlinType.needLocalTypeApproximation(
     session: FirSession,
     useSitePosition: PsiElement,
 ): Boolean {
-    if (!shouldApproximateAnonymousTypesOfNonLocalDeclaration(visibilityForApproximation, isInlineFunction)) return false
+    if (!shouldApproximateLocalTypesOfNonLocalDeclaration(visibilityForApproximation, isInlineFunction)) return false
     val localTypes: List<ConeKotlinType> = if (isLocal(session)) listOf(this) else {
         typeArguments.mapNotNull {
             if (it is ConeKotlinTypeProjection && it.type.isLocal(session)) {
@@ -566,7 +601,7 @@ private class AnonymousTypesSubstitutor(
     override fun substituteType(type: ConeKotlinType): ConeKotlinType? {
         if (type !is ConeClassLikeType) return null
 
-        val hasStableName = type.classId.isLocal
+        val hasStableName = type.classLikeLookupTagIfAny?.toSymbol(session)?.isLocal == true
         if (!hasStableName) {
             // Make sure we're not going to expand type argument over and over again.
             // If so, i.e., if there is a recursive type argument, return the current, non-null [type]

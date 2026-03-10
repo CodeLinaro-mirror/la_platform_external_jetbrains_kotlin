@@ -121,6 +121,12 @@ public class LLScriptBlackBoxTestGenerated extends AbstractLLScriptBlackBoxTest 
   }
 
   @Test
+  @TestMetadata("nameBasedDestructuring.kts")
+  public void testNameBasedDestructuring() {
+    runTest("compiler/testData/codegen/script/nameBasedDestructuring.kts");
+  }
+
+  @Test
   @TestMetadata("outerCapture.kts")
   public void testOuterCapture() {
     runTest("compiler/testData/codegen/script/outerCapture.kts");
@@ -148,6 +154,12 @@ public class LLScriptBlackBoxTestGenerated extends AbstractLLScriptBlackBoxTest 
   @TestMetadata("parameterLong.kts")
   public void testParameterLong() {
     runTest("compiler/testData/codegen/script/parameterLong.kts");
+  }
+
+  @Test
+  @TestMetadata("referenceToDelegatedProperty.kts")
+  public void testReferenceToDelegatedProperty() {
+    runTest("compiler/testData/codegen/script/referenceToDelegatedProperty.kts");
   }
 
   @Test

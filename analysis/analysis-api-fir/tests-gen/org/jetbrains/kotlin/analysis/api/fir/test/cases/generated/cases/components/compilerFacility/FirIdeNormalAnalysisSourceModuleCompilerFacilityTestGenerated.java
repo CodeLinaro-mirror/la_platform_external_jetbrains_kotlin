@@ -173,6 +173,12 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
   }
 
   @Test
+  @TestMetadata("localClassTypeArgument.kt")
+  public void testLocalClassTypeArgument() {
+    runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/localClassTypeArgument.kt");
+  }
+
+  @Test
   @TestMetadata("multipleFiles.kt")
   public void testMultipleFiles() {
     runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/multipleFiles.kt");
@@ -470,6 +476,12 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
     }
 
     @Test
+    @TestMetadata("originalIfFakeOverride.kt")
+    public void testOriginalIfFakeOverride() {
+      runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/originalIfFakeOverride.kt");
+    }
+
+    @Test
     @TestMetadata("resultNothing.kt")
     public void testResultNothing() {
       runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/resultNothing.kt");
@@ -518,18 +530,6 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
       @TestMetadata("contextParameter.kt")
       public void testContextParameter() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/contextParameter.kt");
-      }
-
-      @Test
-      @TestMetadata("contextReceiver.kt")
-      public void testContextReceiver() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/contextReceiver.kt");
-      }
-
-      @Test
-      @TestMetadata("contextReceiverExplicit.kt")
-      public void testContextReceiverExplicit() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/contextReceiverExplicit.kt");
       }
 
       @Test
@@ -737,21 +737,9 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
       }
 
       @Test
-      @TestMetadata("multipleClassAndFunctionContextReceivers.kt")
-      public void testMultipleClassAndFunctionContextReceivers() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/multipleClassAndFunctionContextReceivers.kt");
-      }
-
-      @Test
-      @TestMetadata("multipleClassContextReceivers.kt")
-      public void testMultipleClassContextReceivers() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/multipleClassContextReceivers.kt");
-      }
-
-      @Test
-      @TestMetadata("multipleFunctionContextReceivers.kt")
-      public void testMultipleFunctionContextReceivers() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/multipleFunctionContextReceivers.kt");
+      @TestMetadata("multipleFunctionContextParameters.kt")
+      public void testMultipleFunctionContextParameters() {
+        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/multipleFunctionContextParameters.kt");
       }
 
       @Test
@@ -806,18 +794,6 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
       @TestMetadata("propertyReference.kt")
       public void testPropertyReference() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/propertyReference.kt");
-      }
-
-      @Test
-      @TestMetadata("secondClassContextReceiver.kt")
-      public void testSecondClassContextReceiver() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/secondClassContextReceiver.kt");
-      }
-
-      @Test
-      @TestMetadata("singleClassContextReceiver.kt")
-      public void testSingleClassContextReceiver() {
-        runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/capturing/singleClassContextReceiver.kt");
       }
 
       @Test
@@ -882,6 +858,34 @@ public class FirIdeNormalAnalysisSourceModuleCompilerFacilityTestGenerated exten
       @TestMetadata("variousLocalReturns.kt")
       public void testVariousLocalReturns() {
         runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineLambdas/variousLocalReturns.kt");
+      }
+
+      @Nested
+      @TestMetadata("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineLambdas/defaultValues")
+      @TestDataPath("$PROJECT_ROOT")
+      public class DefaultValues {
+        @Test
+        public void testAllFilesPresentInDefaultValues() {
+          KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineLambdas/defaultValues"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+        }
+
+        @Test
+        @TestMetadata("defaultValueDownByStack.kt")
+        public void testDefaultValueDownByStack() {
+          runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineLambdas/defaultValues/defaultValueDownByStack.kt");
+        }
+
+        @Test
+        @TestMetadata("defaultValueInEnclosingFun.kt")
+        public void testDefaultValueInEnclosingFun() {
+          runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineLambdas/defaultValues/defaultValueInEnclosingFun.kt");
+        }
+
+        @Test
+        @TestMetadata("ignoredDefaultValueInEnclosingFun.kt")
+        public void testIgnoredDefaultValueInEnclosingFun() {
+          runTest("analysis/analysis-api/testData/components/compilerFacility/compilation/codeFragments/inlineLambdas/defaultValues/ignoredDefaultValueInEnclosingFun.kt");
+        }
       }
     }
 

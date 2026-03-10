@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirLocalPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeAliasSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.*
@@ -392,9 +393,9 @@ class MultiModuleHtmlFirDump(private val outputRoot: File) {
                     visitElement(valueParameter)
                 }
 
-                override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {
-                    indexDeclaration(simpleFunction)
-                    visitElement(simpleFunction)
+                override fun visitNamedFunction(namedFunction: FirNamedFunction) {
+                    indexDeclaration(namedFunction)
+                    visitElement(namedFunction)
                 }
 
                 override fun visitTypeParameter(typeParameter: FirTypeParameter) {
@@ -925,8 +926,8 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
         when (memberDeclaration) {
             is FirEnumEntry -> generate(memberDeclaration)
             is FirRegularClass -> generate(memberDeclaration)
-            is FirSimpleFunction -> generate(memberDeclaration)
-            is FirProperty -> if (memberDeclaration.isLocal) generate(memberDeclaration as FirVariable) else generate(memberDeclaration)
+            is FirNamedFunction -> generate(memberDeclaration)
+            is FirProperty -> if (memberDeclaration.symbol is FirLocalPropertySymbol) generate(memberDeclaration as FirVariable) else generate(memberDeclaration)
             is FirConstructor -> generate(memberDeclaration)
             is FirTypeAlias -> generate(memberDeclaration)
             else -> unsupported(memberDeclaration)
@@ -1047,7 +1048,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
 
     private fun FlowContent.generate(statement: FirStatement) {
         when (statement) {
-            is FirSimpleFunction -> generate(statement)
+            is FirNamedFunction -> generate(statement)
             is FirAnonymousObject -> generate(statement, isStatement = true)
             is FirAnonymousFunction -> generate(statement, isStatement = true)
             is FirWhileLoop -> generate(statement)
@@ -1180,7 +1181,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
                 }
             is FirCallableSymbol<*> -> {
                 when (val fir = symbol.fir) {
-                    is FirSimpleFunction -> {
+                    is FirNamedFunction -> {
                         declarationStatus(fir.status)
                         keyword("fun ")
                         describeVerbose(symbol, fir)
@@ -1723,7 +1724,7 @@ class HtmlFirDump internal constructor(private var linkResolver: FirLinkResolver
         }
     }
 
-    private fun FlowContent.generate(function: FirSimpleFunction) {
+    private fun FlowContent.generate(function: FirNamedFunction) {
         generateMultiLineExpression(isStatement = true) {
             iline {
                 declarationStatus(function.status)

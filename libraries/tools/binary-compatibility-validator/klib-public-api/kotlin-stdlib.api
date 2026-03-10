@@ -53,6 +53,10 @@ open annotation class kotlin.experimental/ExperimentalNativeApi : kotlin/Annotat
     constructor <init>() // kotlin.experimental/ExperimentalNativeApi.<init>|<init>(){}[0]
 }
 
+open annotation class kotlin.experimental/ExperimentalObjCEnum : kotlin/Annotation { // kotlin.experimental/ExperimentalObjCEnum|null[0]
+    constructor <init>() // kotlin.experimental/ExperimentalObjCEnum.<init>|<init>(){}[0]
+}
+
 open annotation class kotlin.experimental/ExperimentalObjCName : kotlin/Annotation { // kotlin.experimental/ExperimentalObjCName|null[0]
     constructor <init>() // kotlin.experimental/ExperimentalObjCName.<init>|<init>(){}[0]
 }
@@ -235,6 +239,10 @@ open annotation class kotlin/ExperimentalUnsignedTypes : kotlin/Annotation { // 
     constructor <init>() // kotlin/ExperimentalUnsignedTypes.<init>|<init>(){}[0]
 }
 
+open annotation class kotlin/ExperimentalVersionOverloading : kotlin/Annotation { // kotlin/ExperimentalVersionOverloading|null[0]
+    constructor <init>() // kotlin/ExperimentalVersionOverloading.<init>|<init>(){}[0]
+}
+
 open annotation class kotlin/ExposedCopyVisibility : kotlin/Annotation { // kotlin/ExposedCopyVisibility|null[0]
     constructor <init>() // kotlin/ExposedCopyVisibility.<init>|<init>(){}[0]
 }
@@ -247,9 +255,15 @@ open annotation class kotlin/IgnorableReturnValue : kotlin/Annotation { // kotli
     constructor <init>() // kotlin/IgnorableReturnValue.<init>|<init>(){}[0]
 }
 
+open annotation class kotlin/IntroducedAt : kotlin/Annotation { // kotlin/IntroducedAt|null[0]
+    constructor <init>(kotlin/String) // kotlin/IntroducedAt.<init>|<init>(kotlin.String){}[0]
+
+    final val version // kotlin/IntroducedAt.version|{}version[0]
+        final fun <get-version>(): kotlin/String // kotlin/IntroducedAt.version.<get-version>|<get-version>(){}[0]
+}
+
 open annotation class kotlin/MustUseReturnValues : kotlin/Annotation { // kotlin/MustUseReturnValues|null[0]
     constructor <init>() // kotlin/MustUseReturnValues.<init>|<init>(){}[0]
-}
 
 open annotation class kotlin/OptIn : kotlin/Annotation { // kotlin/OptIn|null[0]
     constructor <init>(kotlin/Array<out kotlin.reflect/KClass<out kotlin/Annotation>>...) // kotlin/OptIn.<init>|<init>(kotlin.Array<out|kotlin.reflect.KClass<out|kotlin.Annotation>>...){}[0]
@@ -6214,6 +6228,7 @@ final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<#A>).k
 final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<#A>).kotlin.collections/zip(kotlin/Array<out #B>): kotlin.collections/List<kotlin/Pair<#A, #B>> // kotlin.collections/zip|zip@kotlin.collections.Iterable<0:0>(kotlin.Array<out|0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<kotlin/Pair<#A, #B>>).kotlin.collections/toMap(): kotlin.collections/Map<#A, #B> // kotlin.collections/toMap|toMap@kotlin.collections.Iterable<kotlin.Pair<0:0,0:1>>(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Iterable<kotlin/Pair<#A, #B>>).kotlin.collections/unzip(): kotlin/Pair<kotlin.collections/List<#A>, kotlin.collections/List<#B>> // kotlin.collections/unzip|unzip@kotlin.collections.Iterable<kotlin.Pair<0:0,0:1>>(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map.Entry<#A, #B>).kotlin.collections/copy(): kotlin.collections/Map.Entry<#A, #B> // kotlin.collections/copy|copy@kotlin.collections.Map.Entry<0:0,0:1>(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/getOrImplicitDefault(#A): #B // kotlin.collections/getOrImplicitDefault|getOrImplicitDefault@kotlin.collections.Map<0:0,0:1>(0:0){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/getValue(#A): #B // kotlin.collections/getValue|getValue@kotlin.collections.Map<0:0,0:1>(0:0){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/withDefault(kotlin/Function1<#A, #B>): kotlin.collections/Map<#A, #B> // kotlin.collections/withDefault|withDefault@kotlin.collections.Map<0:0,0:1>(kotlin.Function1<0:0,0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
@@ -8079,22 +8094,6 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin.
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin.collections/MutableMap<in #B, kotlin.collections/MutableList<#C>>> (kotlin.sequences/Sequence<#A>).kotlin.sequences/groupByTo(#D, kotlin/Function1<#A, #B>, kotlin/Function1<#A, #C>): #D // kotlin.sequences/groupByTo|groupByTo@kotlin.sequences.Sequence<0:0>(0:3;kotlin.Function1<0:0,0:1>;kotlin.Function1<0:0,0:2>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.collections.MutableMap<in|0:1,kotlin.collections.MutableList<0:2>>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin.collections/MutableMap<in #B, kotlin.collections/MutableList<#C>>> (kotlin/Array<out #A>).kotlin.collections/groupByTo(#D, kotlin/Function1<#A, #B>, kotlin/Function1<#A, #C>): #D // kotlin.collections/groupByTo|groupByTo@kotlin.Array<out|0:0>(0:3;kotlin.Function1<0:0,0:1>;kotlin.Function1<0:0,0:2>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.collections.MutableMap<in|0:1,kotlin.collections.MutableList<0:2>>>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin.collections/MutableMap<in #C, in #B>> (kotlin.collections/Map<out #A, #B>).kotlin.collections/mapKeysTo(#D, kotlin/Function1<kotlin.collections/Map.Entry<#A, #B>, #C>): #D // kotlin.collections/mapKeysTo|mapKeysTo@kotlin.collections.Map<out|0:0,0:1>(0:3;kotlin.Function1<kotlin.collections.Map.Entry<0:0,0:1>,0:2>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.collections.MutableMap<in|0:2,in|0:1>>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?, #R: kotlin/Any?, #S: kotlin/Any?, #T: kotlin/Any?, #U: kotlin/Any?, #V: kotlin/Any?, #W: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T, #U, #V, kotlin/Function22<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T, #U, #V, #W>): #W // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;0:16;0:17;0:18;0:19;0:20;0:21;kotlin.Function22<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16,0:17,0:18,0:19,0:20,0:21,0:22>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>;17§<kotlin.Any?>;18§<kotlin.Any?>;19§<kotlin.Any?>;20§<kotlin.Any?>;21§<kotlin.Any?>;22§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?, #R: kotlin/Any?, #S: kotlin/Any?, #T: kotlin/Any?, #U: kotlin/Any?, #V: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T, #U, kotlin/Function21<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T, #U, #V>): #V // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;0:16;0:17;0:18;0:19;0:20;kotlin.Function21<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16,0:17,0:18,0:19,0:20,0:21>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>;17§<kotlin.Any?>;18§<kotlin.Any?>;19§<kotlin.Any?>;20§<kotlin.Any?>;21§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?, #R: kotlin/Any?, #S: kotlin/Any?, #T: kotlin/Any?, #U: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T, kotlin/Function20<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T, #U>): #U // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;0:16;0:17;0:18;0:19;kotlin.Function20<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16,0:17,0:18,0:19,0:20>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>;17§<kotlin.Any?>;18§<kotlin.Any?>;19§<kotlin.Any?>;20§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?, #R: kotlin/Any?, #S: kotlin/Any?, #T: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, kotlin/Function19<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S, #T>): #T // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;0:16;0:17;0:18;kotlin.Function19<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16,0:17,0:18,0:19>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>;17§<kotlin.Any?>;18§<kotlin.Any?>;19§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?, #R: kotlin/Any?, #S: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, kotlin/Function18<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R, #S>): #S // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;0:16;0:17;kotlin.Function18<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16,0:17,0:18>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>;17§<kotlin.Any?>;18§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?, #R: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, kotlin/Function17<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q, #R>): #R // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;0:16;kotlin.Function17<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16,0:17>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>;17§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?, #Q: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, kotlin/Function16<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P, #Q>): #Q // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;0:15;kotlin.Function16<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15,0:16>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>;16§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?, #P: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, kotlin/Function15<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O, #P>): #P // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;0:14;kotlin.Function15<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14,0:15>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>;15§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?, #O: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, kotlin/Function14<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N, #O>): #O // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;0:13;kotlin.Function14<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13,0:14>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>;14§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?, #N: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, kotlin/Function13<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M, #N>): #N // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;0:12;kotlin.Function13<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12,0:13>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>;13§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?, #M: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, kotlin/Function12<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L, #M>): #M // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;0:11;kotlin.Function12<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11,0:12>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>;12§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?, #L: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, kotlin/Function11<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K, #L>): #L // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;0:10;kotlin.Function11<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10,0:11>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>;11§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?, #K: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, kotlin/Function10<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J, #K>): #K // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;0:9;kotlin.Function10<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9,0:10>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>;10§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?, #J: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, #I, kotlin/Function9<#A, #B, #C, #D, #E, #F, #G, #H, #I, #J>): #J // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;0:8;kotlin.Function9<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8,0:9>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>;9§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?, #I: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, #H, kotlin/Function8<#A, #B, #C, #D, #E, #F, #G, #H, #I>): #I // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;0:7;kotlin.Function8<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7,0:8>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>;8§<kotlin.Any?>}[0]
-final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?, #H: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, #G, kotlin/Function7<#A, #B, #C, #D, #E, #F, #G, #H>): #H // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;0:6;kotlin.Function7<0:0,0:1,0:2,0:3,0:4,0:5,0:6,0:7>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>;7§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?, #G: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, #F, kotlin/Function6<#A, #B, #C, #D, #E, #F, #G>): #G // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;0:5;kotlin.Function6<0:0,0:1,0:2,0:3,0:4,0:5,0:6>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>;6§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?, #F: kotlin/Any?> kotlin/context(#A, #B, #C, #D, #E, kotlin/Function5<#A, #B, #C, #D, #E, #F>): #F // kotlin/context|context(0:0;0:1;0:2;0:3;0:4;kotlin.Function5<0:0,0:1,0:2,0:3,0:4,0:5>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>;5§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?, #C: kotlin/Any?, #D: kotlin/Any?, #E: kotlin/Any?> kotlin/context(#A, #B, #C, #D, kotlin/Function4<#A, #B, #C, #D, #E>): #E // kotlin/context|context(0:0;0:1;0:2;0:3;kotlin.Function4<0:0,0:1,0:2,0:3,0:4>){0§<kotlin.Any?>;1§<kotlin.Any?>;2§<kotlin.Any?>;3§<kotlin.Any?>;4§<kotlin.Any?>}[0]
@@ -8165,6 +8164,8 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map.Entr
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map.Entry<#A, #B>).kotlin.collections/toPair(): kotlin/Pair<#A, #B> // kotlin.collections/toPair|toPair@kotlin.collections.Map.Entry<0:0,0:1>(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/containsValue(#B): kotlin/Boolean // kotlin.collections/containsValue|containsValue@kotlin.collections.Map<0:0,0:1>(0:1){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/getOrElse(#A, kotlin/Function0<#B>): #B // kotlin.collections/getOrElse|getOrElse@kotlin.collections.Map<0:0,0:1>(0:0;kotlin.Function0<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/getOrElseIfMissing(#A, kotlin/Function0<#B>): #B // kotlin.collections/getOrElseIfMissing|getOrElseIfMissing@kotlin.collections.Map<0:0,0:1>(0:0;kotlin.Function0<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>).kotlin.collections/getOrElseIfNull(#A, kotlin/Function0<#B>): #B // kotlin.collections/getOrElseIfNull|getOrElseIfNull@kotlin.collections.Map<0:0,0:1>(0:0;kotlin.Function0<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<#A, #B>?).kotlin.collections/orEmpty(): kotlin.collections/Map<#A, #B> // kotlin.collections/orEmpty|orEmpty@kotlin.collections.Map<0:0,0:1>?(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<out #A, #B>).kotlin.collections/all(kotlin/Function1<kotlin.collections/Map.Entry<#A, #B>, kotlin/Boolean>): kotlin/Boolean // kotlin.collections/all|all@kotlin.collections.Map<out|0:0,0:1>(kotlin.Function1<kotlin.collections.Map.Entry<0:0,0:1>,kotlin.Boolean>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<out #A, #B>).kotlin.collections/any(kotlin/Function1<kotlin.collections/Map.Entry<#A, #B>, kotlin/Boolean>): kotlin/Boolean // kotlin.collections/any|any@kotlin.collections.Map<out|0:0,0:1>(kotlin.Function1<kotlin.collections.Map.Entry<0:0,0:1>,kotlin.Boolean>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
@@ -8195,6 +8196,8 @@ final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<out 
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<out #A, #B>).kotlin.collections/none(kotlin/Function1<kotlin.collections/Map.Entry<#A, #B>, kotlin/Boolean>): kotlin/Boolean // kotlin.collections/none|none@kotlin.collections.Map<out|0:0,0:1>(kotlin.Function1<kotlin.collections.Map.Entry<0:0,0:1>,kotlin.Boolean>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/Map<out #A, #B>?).kotlin.collections/isNullOrEmpty(): kotlin/Boolean // kotlin.collections/isNullOrEmpty|isNullOrEmpty@kotlin.collections.Map<out|0:0,0:1>?(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableMap<#A, #B>).kotlin.collections/getOrPut(#A, kotlin/Function0<#B>): #B // kotlin.collections/getOrPut|getOrPut@kotlin.collections.MutableMap<0:0,0:1>(0:0;kotlin.Function0<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableMap<#A, #B>).kotlin.collections/getOrPutIfMissing(#A, crossinline kotlin/Function0<#B>): #B // kotlin.collections/getOrPutIfMissing|getOrPutIfMissing@kotlin.collections.MutableMap<0:0,0:1>(0:0;kotlin.Function0<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
+final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableMap<#A, #B>).kotlin.collections/getOrPutIfNull(#A, crossinline kotlin/Function0<#B>): #B // kotlin.collections/getOrPutIfNull|getOrPutIfNull@kotlin.collections.MutableMap<0:0,0:1>(0:0;kotlin.Function0<0:1>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableMap<#A, #B>).kotlin.collections/iterator(): kotlin.collections/MutableIterator<kotlin.collections/MutableMap.MutableEntry<#A, #B>> // kotlin.collections/iterator|iterator@kotlin.collections.MutableMap<0:0,0:1>(){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableMap<#A, #B>).kotlin.collections/minusAssign(#A) // kotlin.collections/minusAssign|minusAssign@kotlin.collections.MutableMap<0:0,0:1>(0:0){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
 final inline fun <#A: kotlin/Any?, #B: kotlin/Any?> (kotlin.collections/MutableMap<#A, #B>).kotlin.collections/minusAssign(kotlin.collections/Iterable<#A>) // kotlin.collections/minusAssign|minusAssign@kotlin.collections.MutableMap<0:0,0:1>(kotlin.collections.Iterable<0:0>){0§<kotlin.Any?>;1§<kotlin.Any?>}[0]
@@ -9076,6 +9079,14 @@ open annotation class kotlin.js/JsStatic : kotlin/Annotation { // kotlin.js/JsSt
 }
 
 // Targets: [native, wasmJs, wasmWasi]
+open annotation class kotlin.js/JsSymbol : kotlin/Annotation { // kotlin.js/JsSymbol|null[1]
+    constructor <init>(kotlin/String) // kotlin.js/JsSymbol.<init>|<init>(kotlin.String){}[1]
+
+    final val name // kotlin.js/JsSymbol.name|{}name[1]
+        final fun <get-name>(): kotlin/String // kotlin.js/JsSymbol.name.<get-name>|<get-name>(){}[1]
+}
+
+// Targets: [native, wasmJs, wasmWasi]
 open annotation class kotlin.jvm/Synchronized : kotlin/Annotation { // kotlin.jvm/Synchronized|null[1]
     constructor <init>() // kotlin.jvm/Synchronized.<init>|<init>(){}[1]
 }
@@ -9743,6 +9754,16 @@ open annotation class kotlin.native.internal.objc/BindClassToObjCName : kotlin/A
 }
 
 // Targets: [native]
+open annotation class kotlin.native.internal.test/TestInitializer : kotlin/Annotation { // kotlin.native.internal.test/TestInitializer|null[0]
+    constructor <init>() // kotlin.native.internal.test/TestInitializer.<init>|<init>(){}[0]
+}
+
+// Targets: [native]
+open annotation class kotlin.native.internal.test/TestsProcessed : kotlin/Annotation { // kotlin.native.internal.test/TestsProcessed|null[0]
+    constructor <init>() // kotlin.native.internal.test/TestsProcessed.<init>|<init>(){}[0]
+}
+
+// Targets: [native]
 open annotation class kotlin.native.internal/CanBePrecreated : kotlin/Annotation { // kotlin.native.internal/CanBePrecreated|null[0]
     constructor <init>() // kotlin.native.internal/CanBePrecreated.<init>|<init>(){}[0]
 }
@@ -9843,6 +9864,16 @@ open annotation class kotlin.native/HidesFromObjC : kotlin/Annotation { // kotli
 // Targets: [native]
 open annotation class kotlin.native/NoInline : kotlin/Annotation { // kotlin.native/NoInline|null[0]
     constructor <init>() // kotlin.native/NoInline.<init>|<init>(){}[0]
+}
+
+// Targets: [native]
+open annotation class kotlin.native/ObjCEnum : kotlin/Annotation { // kotlin.native/ObjCEnum|null[0]
+    constructor <init>(kotlin/String = ..., kotlin/String = ...) // kotlin.native/ObjCEnum.<init>|<init>(kotlin.String;kotlin.String){}[0]
+
+    final val name // kotlin.native/ObjCEnum.name|{}name[0]
+        final fun <get-name>(): kotlin/String // kotlin.native/ObjCEnum.name.<get-name>|<get-name>(){}[0]
+    final val swiftName // kotlin.native/ObjCEnum.swiftName|{}swiftName[0]
+        final fun <get-swiftName>(): kotlin/String // kotlin.native/ObjCEnum.swiftName.<get-swiftName>|<get-swiftName>(){}[0]
 }
 
 // Targets: [native]
@@ -9967,6 +9998,18 @@ open annotation class kotlinx.cinterop.internal/CEnumVarTypeSize : kotlin/Annota
 
     final val size // kotlinx.cinterop.internal/CEnumVarTypeSize.size|{}size[0]
         final fun <get-size>(): kotlin/Int // kotlinx.cinterop.internal/CEnumVarTypeSize.size.<get-size>|<get-size>(){}[0]
+}
+
+// Targets: [native]
+open annotation class kotlinx.cinterop.internal/CGlobalAccess : kotlin/Annotation { // kotlinx.cinterop.internal/CGlobalAccess|null[0]
+    constructor <init>(kotlin/String) // kotlinx.cinterop.internal/CGlobalAccess.<init>|<init>(kotlin.String){}[0]
+
+    final val name // kotlinx.cinterop.internal/CGlobalAccess.name|{}name[0]
+        final fun <get-name>(): kotlin/String // kotlinx.cinterop.internal/CGlobalAccess.name.<get-name>|<get-name>(){}[0]
+
+    open annotation class Pointer : kotlin/Annotation { // kotlinx.cinterop.internal/CGlobalAccess.Pointer|null[0]
+        constructor <init>() // kotlinx.cinterop.internal/CGlobalAccess.Pointer.<init>|<init>(){}[0]
+    }
 }
 
 // Targets: [native]
@@ -12758,9 +12801,6 @@ final fun kotlin.native.internal/Kotlin_hashCode(kotlin/Any): kotlin/Int // kotl
 final fun kotlin.native.internal/Kotlin_toString(kotlin/Any): kotlin/String // kotlin.native.internal/Kotlin_toString|Kotlin_toString(kotlin.Any){}[0]
 
 // Targets: [native]
-final fun kotlin.native.internal/ThrowNullPointerException(): kotlin/Nothing // kotlin.native.internal/ThrowNullPointerException|ThrowNullPointerException(){}[0]
-
-// Targets: [native]
 final fun kotlin.native.internal/areEqualByValue(kotlin.native.internal/NativePtr, kotlin.native.internal/NativePtr): kotlin/Boolean // kotlin.native.internal/areEqualByValue|areEqualByValue(kotlin.native.internal.NativePtr;kotlin.native.internal.NativePtr){}[0]
 
 // Targets: [native]
@@ -13756,6 +13796,16 @@ open annotation class kotlin.native/HidesFromObjC : kotlin/Annotation { // kotli
 }
 
 // Targets: [js, wasmJs, wasmWasi]
+open annotation class kotlin.native/ObjCEnum : kotlin/Annotation { // kotlin.native/ObjCEnum|null[1]
+    constructor <init>(kotlin/String = ..., kotlin/String = ...) // kotlin.native/ObjCEnum.<init>|<init>(kotlin.String;kotlin.String){}[1]
+
+    final val name // kotlin.native/ObjCEnum.name|{}name[1]
+        final fun <get-name>(): kotlin/String // kotlin.native/ObjCEnum.name.<get-name>|<get-name>(){}[1]
+    final val swiftName // kotlin.native/ObjCEnum.swiftName|{}swiftName[1]
+        final fun <get-swiftName>(): kotlin/String // kotlin.native/ObjCEnum.swiftName.<get-swiftName>|<get-swiftName>(){}[1]
+}
+
+// Targets: [js, wasmJs, wasmWasi]
 open annotation class kotlin.native/ObjCName : kotlin/Annotation { // kotlin.native/ObjCName|null[1]
     constructor <init>(kotlin/String = ..., kotlin/String = ..., kotlin/Boolean = ...) // kotlin.native/ObjCName.<init>|<init>(kotlin.String;kotlin.String;kotlin.Boolean){}[1]
 
@@ -13916,6 +13966,11 @@ open annotation class kotlin.js/JsQualifier : kotlin/Annotation { // kotlin.js/J
 
     final val value // kotlin.js/JsQualifier.value|{}value[0]
         final fun <get-value>(): kotlin/String // kotlin.js/JsQualifier.value.<get-value>|<get-value>(){}[0]
+}
+
+// Targets: [js, wasmJs]
+open annotation class kotlin.js/nativeInvoke : kotlin/Annotation { // kotlin.js/nativeInvoke|null[0]
+    constructor <init>() // kotlin.js/nativeInvoke.<init>|<init>(){}[0]
 }
 
 // Targets: [js, wasmJs]
@@ -14170,13 +14225,16 @@ open annotation class kotlin.js/JsStatic : kotlin/Annotation { // kotlin.js/JsSt
 }
 
 // Targets: [js]
-open annotation class kotlin.js/nativeGetter : kotlin/Annotation { // kotlin.js/nativeGetter|null[0]
-    constructor <init>() // kotlin.js/nativeGetter.<init>|<init>(){}[0]
+open annotation class kotlin.js/JsSymbol : kotlin/Annotation { // kotlin.js/JsSymbol|null[0]
+    constructor <init>(kotlin/String) // kotlin.js/JsSymbol.<init>|<init>(kotlin.String){}[0]
+
+    final val name // kotlin.js/JsSymbol.name|{}name[0]
+        final fun <get-name>(): kotlin/String // kotlin.js/JsSymbol.name.<get-name>|<get-name>(){}[0]
 }
 
 // Targets: [js]
-open annotation class kotlin.js/nativeInvoke : kotlin/Annotation { // kotlin.js/nativeInvoke|null[0]
-    constructor <init>() // kotlin.js/nativeInvoke.<init>|<init>(){}[0]
+open annotation class kotlin.js/nativeGetter : kotlin/Annotation { // kotlin.js/nativeGetter|null[0]
+    constructor <init>() // kotlin.js/nativeGetter.<init>|<init>(){}[0]
 }
 
 // Targets: [js]
@@ -14236,6 +14294,9 @@ abstract interface kotlin.js/RegExpMatch { // kotlin.js/RegExpMatch|null[0]
     abstract val length // kotlin.js/RegExpMatch.length|{}length[0]
         abstract fun <get-length>(): kotlin/Int // kotlin.js/RegExpMatch.length.<get-length>|<get-length>(){}[0]
 }
+
+// Targets: [js]
+sealed interface <#A: out kotlin/Any> kotlin.js/JsReference // kotlin.js/JsReference|null[0]
 
 // Targets: [js]
 final class kotlin.js/Date { // kotlin.js/Date|null[0]
@@ -15061,10 +15122,10 @@ final inline fun (kotlin/Throwable).kotlin.js/asJsException(): kotlin/Throwable 
 final inline fun /withType(kotlin/String, dynamic): dynamic // /withType|withType(kotlin.String;<dynamic>){}[0]
 
 // Targets: [js]
-final inline fun <#A: kotlin/Any> (#A).kotlin.js/toJsReference(): kotlin/Any // kotlin.js/toJsReference|toJsReference@0:0(){0§<kotlin.Any>}[0]
+final inline fun <#A: kotlin/Any> (#A).kotlin.js/toJsReference(): kotlin.js/JsReference<#A> // kotlin.js/toJsReference|toJsReference@0:0(){0§<kotlin.Any>}[0]
 
 // Targets: [js]
-final inline fun <#A: kotlin/Any> (kotlin/Any).kotlin.js/get(): #A // kotlin.js/get|get@kotlin.Any(){0§<kotlin.Any>}[0]
+final inline fun <#A: kotlin/Any> (kotlin.js/JsReference<#A>).kotlin.js/get(): #A // kotlin.js/get|get@kotlin.js.JsReference<0:0>(){0§<kotlin.Any>}[0]
 
 // Targets: [js]
 final inline fun <#A: kotlin/Any> (kotlin/Any).kotlin.js/unsafeCast(): #A // kotlin.js/unsafeCast|unsafeCast@kotlin.Any(){0§<kotlin.Any>}[0]

@@ -6,17 +6,18 @@
 package org.jetbrains.kotlin.backend.wasm.export
 
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
+import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
+import org.jetbrains.kotlin.ir.backend.js.ir.getExportedIdentifier
 import org.jetbrains.kotlin.ir.backend.js.tsexport.*
+import org.jetbrains.kotlin.ir.backend.js.utils.getDeprecated
 import org.jetbrains.kotlin.ir.backend.js.utils.getFqNameWithJsNameWhenAvailable
-import org.jetbrains.kotlin.ir.backend.js.utils.isJsExport
-import org.jetbrains.kotlin.ir.backend.js.utils.isJsExportDefault
+import org.jetbrains.kotlin.ir.backend.js.utils.isExplicitlyExported
 import org.jetbrains.kotlin.ir.backend.js.utils.realOverrideTarget
-import org.jetbrains.kotlin.ir.backend.js.utils.typeScriptInnerClassReference
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
@@ -51,7 +52,7 @@ class ExportModelGenerator(val context: WasmBackendContext) {
             modules.asSequence()
                 .flatMap { it.files }
                 .flatMap { it.declarations }
-                .filter { it.isJsExport() || it.isJsExportDefault() }
+                .filter { it.isExplicitlyExported() }
                 .forEach {
                     declarationsToExport.add(it)
                     addLast(it)
@@ -129,7 +130,7 @@ class ExportModelGenerator(val context: WasmBackendContext) {
         runIf(function.correspondingPropertySymbol == null && function.realOverrideTarget.parentClassOrNull?.symbol != context.irBuiltIns.anyClass) {
             val parentClass = function.parentClassOrNull
             ExportedFunction(
-                function.getExportedIdentifier(),
+                ExportedMemberName.Identifier(function.getExportedIdentifier()),
                 returnType = exportType(function.returnType),
                 typeParameters = function.typeParameters.memoryOptimizedMap(::exportTypeParameter),
                 isMember = parentClass != null,
@@ -159,7 +160,7 @@ class ExportModelGenerator(val context: WasmBackendContext) {
                 property.getter?.returnType?.isNullable() == true
 
         return ExportedProperty(
-            name = property.getExportedIdentifier(),
+            name = ExportedMemberName.Identifier(property.getExportedIdentifier()),
             type = specializeType ?: exportType(property.getter!!.returnType),
             mutable = property.isVar,
             isMember = parentClass != null,
@@ -204,12 +205,17 @@ class ExportModelGenerator(val context: WasmBackendContext) {
             nonNullType == jsRelatedSymbols.jsAnyType -> ExportedType.Primitive.Unknown
             nonNullType.isUnit() || nonNullType == context.wasmSymbols.voidType -> ExportedType.Primitive.Unit
             nonNullType.isFunction() -> ExportedType.Function(
-                parameterTypes = nonNullType.arguments.dropLast(1).memoryOptimizedMap { exportTypeArgument(it) },
+                parameters = nonNullType.arguments.dropLast(1).memoryOptimizedMap {
+                    ExportedParameter(
+                        name = (it as? IrTypeProjection)?.type?.getAnnotationArgumentValue(StandardNames.FqNames.parameterName, "name"),
+                        type = exportTypeArgument(it),
+                    )
+                },
                 returnType = exportTypeArgument(nonNullType.arguments.last())
             )
             nonNullType.isNothing() -> ExportedType.Primitive.Nothing
 
-            classifier is IrTypeParameterSymbol -> ExportedType.TypeParameter(classifier.owner.name.identifier)
+            classifier is IrTypeParameterSymbol -> ExportedType.TypeParameterRef(ExportedTypeParameter(classifier.owner.name.identifier))
 
             classifier is IrClassSymbol -> {
                 val klass = classifier.owner
@@ -217,29 +223,22 @@ class ExportModelGenerator(val context: WasmBackendContext) {
 
                 require(klass.isExternal) { "Unexpected non-external class: ${klass.fqNameWhenAvailable}" }
 
-                val name = "$NOT_EXPORTED_NAMESPACE.${klass.getFqNameWithJsNameWhenAvailable(shouldIncludePackage = true).asString()}"
+                val name = "$NOT_EXPORTED_NAMESPACE.${klass.getFqNameWithJsNameWhenAvailable(shouldIncludePackage = true, isEsModules = true).asString()}"
+
+                val classType = ExportedType.ClassType(
+                    name = name,
+                    arguments = type.arguments.memoryOptimizedMap { exportTypeArgument(it) },
+                    classId = klass.classId,
+                )
 
                 when (klass.kind) {
                     ClassKind.OBJECT ->
-                        ExportedType.TypeOf(
-                            ExportedType.ClassType(
-                                name,
-                                emptyList(),
-                                isObject = true,
-                                isExternal = klass.isEffectivelyExternal(),
-                                classId = klass.classId,
-                            )
-                        )
+                        ExportedType.TypeOf(classType)
 
                     ClassKind.CLASS,
-                    ClassKind.INTERFACE ->
-                        ExportedType.ClassType(
-                            name,
-                            type.arguments.memoryOptimizedMap { exportTypeArgument(it) },
-                            isObject = false,
-                            isExternal = klass.isEffectivelyExternal(),
-                            classId = klass.classId,
-                        )
+                    ClassKind.INTERFACE,
+                        ->
+                        classType
                     else -> error("Unexpected class kind ${klass.kind}")
                 }
             }
@@ -261,14 +260,14 @@ class ExportModelGenerator(val context: WasmBackendContext) {
         return ExportedType.ErrorType("UnknownType ${type.render()}")
     }
 
-    private fun exportTypeParameter(typeParameter: IrTypeParameter): ExportedType.TypeParameter {
+    private fun exportTypeParameter(typeParameter: IrTypeParameter): ExportedTypeParameter {
         val constraint = typeParameter.superTypes.asSequence()
             .filter { !it.isNullable() || it.makeNotNull() != context.wasmSymbols.jsRelatedSymbols.jsAnyType }
             .map { exportType(it) }
             .filter { it !is ExportedType.ErrorType }
             .toList()
 
-        return ExportedType.TypeParameter(
+        return ExportedTypeParameter(
             typeParameter.name.identifier,
             constraint.run {
                 when (size) {
@@ -330,11 +329,10 @@ class ExportModelGenerator(val context: WasmBackendContext) {
                 members = members,
                 nestedClasses = emptyList(),
                 originalClassId = declaration.classId,
-                innerClassReference = runIf(declaration.isInner) { declaration.typeScriptInnerClassReference() },
             )
         }
 
-        val parentFqName = declaration.getFqNameWithJsNameWhenAvailable(shouldIncludePackage = true).parentOrNull()
+        val parentFqName = declaration.getFqNameWithJsNameWhenAvailable(shouldIncludePackage = true, isEsModules = true).parentOrNull()
 
         return ExportedNamespace(
             name = "$NOT_EXPORTED_NAMESPACE${parentFqName?.asString()?.takeIf { it.isNotEmpty() }?.let { ".$it" }.orEmpty()}",
@@ -345,4 +343,9 @@ class ExportModelGenerator(val context: WasmBackendContext) {
 
     private val IrClassifierSymbol.isInterface
         get() = (owner as? IrClass)?.isInterface == true
+}
+
+private fun <T : ExportedDeclaration> T.withAttributesFor(declaration: IrDeclaration): T {
+    declaration.getDeprecated()?.let { attributes.add(ExportedAttribute.DeprecatedAttribute(it)) }
+    return this
 }

@@ -46,20 +46,19 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker(MppCheckerKind.
 
     context(context: CheckerContext, reporter: DiagnosticReporter)
     override fun check(expression: FirAnnotationCall) {
-        val argumentMapping = expression.argumentMapping.mapping
         val annotationClassId = expression.toAnnotationClassId(context.session)
         val fqName = annotationClassId?.asSingleFqName()
-        for (arg in argumentMapping.values) {
+        for (arg in expression.argumentList.arguments) {
             val argExpression = (arg as? FirErrorExpression)?.expression ?: arg
             checkAnnotationArgumentWithSubElements(argExpression, context.session)
                 ?.let { reporter.reportOn(argExpression.source, it) }
         }
 
         checkAnnotationsWithVersion(fqName, expression)
-        checkDeprecatedSinceKotlin(expression.source, fqName, argumentMapping)
+        checkDeprecatedSinceKotlin(expression.source, fqName, expression.argumentMapping.mapping)
         checkAnnotationsInsideAnnotationCall(expression)
         checkNotAClass(expression)
-        checkErrorSuppression(annotationClassId, argumentMapping)
+        checkErrorSuppression(annotationClassId, expression.argumentMapping.mapping)
         checkContextFunctionTypeParams(expression.source, annotationClassId)
     }
 
@@ -91,7 +90,7 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker(MppCheckerKind.
         }
 
         when (expression) {
-            is FirArrayLiteral -> return checkArgumentList(expression.argumentList)
+            is FirCollectionLiteral -> return checkArgumentList(expression.argumentList)
             is FirVarargArgumentsExpression -> {
                 for (arg in expression.arguments) {
                     val unwrappedArg = arg.unwrapArgument()
@@ -219,7 +218,7 @@ object FirAnnotationExpressionChecker : FirAnnotationCallChecker(MppCheckerKind.
             for (ann in unwrappedErrorExpression.annotations) {
                 reporter.reportOn(ann.source, errorFactory)
             }
-            if (unwrappedErrorExpression is FirArrayLiteral) {
+            if (unwrappedErrorExpression is FirCollectionLiteral) {
                 checkAnnotationsInsideAnnotationCall(unwrappedErrorExpression)
             }
         }

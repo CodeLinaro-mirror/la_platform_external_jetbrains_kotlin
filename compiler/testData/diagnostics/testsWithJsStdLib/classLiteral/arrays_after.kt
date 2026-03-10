@@ -1,4 +1,4 @@
-// FIR_IDENTICAL
+// RUN_PIPELINE_TILL: FRONTEND
 // LANGUAGE: +BareArrayClassLiteral +ProhibitGenericArrayClassLiteral
 
 val a01 = Array::class

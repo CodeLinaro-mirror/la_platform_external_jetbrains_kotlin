@@ -5,11 +5,7 @@
 
 package org.jetbrains.kotlin.fir.session
 
-import org.jetbrains.kotlin.config.AnalysisFlags
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.JvmTarget
-import org.jetbrains.kotlin.config.LanguageVersionSettings
-import org.jetbrains.kotlin.config.jvmTarget
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.checkers.registerJvmCheckers
 import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
@@ -22,7 +18,8 @@ import org.jetbrains.kotlin.fir.java.deserialization.FirJvmClasspathBuiltinSymbo
 import org.jetbrains.kotlin.fir.java.deserialization.JvmClassFileBasedSymbolProvider
 import org.jetbrains.kotlin.fir.java.deserialization.OptionalAnnotationClassesProvider
 import org.jetbrains.kotlin.fir.resolve.providers.FirSymbolProvider
-import org.jetbrains.kotlin.fir.resolve.providers.impl.*
+import org.jetbrains.kotlin.fir.resolve.providers.impl.FirCloneableSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.impl.FirFallbackBuiltinSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.scopes.wrapScopeWithJvmMapped
 import org.jetbrains.kotlin.fir.scopes.FirKotlinScopeProvider
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectEnvironment
@@ -34,7 +31,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.addToStdlib.runUnless
 
 @OptIn(SessionConfiguration::class)
-object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.LibraryContext, FirJvmSessionFactory.SourceContext>() {
+object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Context>() {
 
     // ==================================== Shared library session ====================================
 
@@ -43,13 +40,10 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
      */
     fun createSharedLibrarySession(
         mainModuleName: Name,
-        projectEnvironment: AbstractProjectEnvironment,
         extensionRegistrars: List<FirExtensionRegistrar>,
-        packagePartProvider: PackagePartProvider,
         languageVersionSettings: LanguageVersionSettings,
-        predefinedJavaComponents: FirSharableJavaComponents?,
+        context: Context,
     ): FirSession {
-        val context = LibraryContext(predefinedJavaComponents, projectEnvironment, packagePartProvider)
         return createSharedLibrarySession(
             mainModuleName,
             context,
@@ -62,7 +56,7 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
         session: FirSession,
         moduleData: FirModuleData,
         scopeProvider: FirKotlinScopeProvider,
-        context: LibraryContext,
+        context: Context,
     ): List<FirSymbolProvider> {
         return listOf(
             FirCloneableSymbolProvider(session, moduleData, scopeProvider),
@@ -70,7 +64,7 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
                 session,
                 SingleModuleDataProvider(moduleData),
                 scopeProvider,
-                context.packagePartProvider
+                context.packagePartProviderForLibraries,
             )
         )
     }
@@ -83,15 +77,10 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
     fun createLibrarySession(
         sharedLibrarySession: FirSession,
         moduleDataProvider: ModuleDataProvider,
-        projectEnvironment: AbstractProjectEnvironment,
         extensionRegistrars: List<FirExtensionRegistrar>,
-        scope: AbstractProjectFileSearchScope,
-        packagePartProvider: PackagePartProvider,
         languageVersionSettings: LanguageVersionSettings,
-        predefinedJavaComponents: FirSharableJavaComponents?,
+        context: Context,
     ): FirSession {
-        val kotlinClassFinder = projectEnvironment.getKotlinClassFinder(scope)
-        val context = LibraryContext(predefinedJavaComponents, projectEnvironment, packagePartProvider)
         return createLibrarySession(
             context,
             sharedLibrarySession,
@@ -100,15 +89,20 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
             extensionRegistrars,
             createSeparateSharedProvidersInHmppCompilation = true,
             createProviders = { session, kotlinScopeProvider ->
+                val projectEnvironment = context.projectEnvironment
                 val moduleData = moduleDataProvider.allModuleData.last()
+                val searchScope = moduleDataProvider.getModuleDataPaths(moduleData)?.let { paths ->
+                    projectEnvironment.getSearchScopeByClassPath(paths)
+                }?.takeUnless { it.isEmpty } ?: context.librariesScope
+                val kotlinClassFinder = projectEnvironment.getKotlinClassFinder(searchScope)
                 listOfNotNull(
                     JvmClassFileBasedSymbolProvider(
                         session,
                         moduleDataProvider,
                         kotlinScopeProvider,
-                        packagePartProvider,
+                        context.packagePartProviderForLibraries,
                         kotlinClassFinder,
-                        projectEnvironment.getFirJavaFacade(session, moduleData, scope)
+                        projectEnvironment.getFirJavaFacade(session, moduleData, context.librariesScope)
                     ),
                     runUnless(languageVersionSettings.getFlag(AnalysisFlags.stdlibCompilation)) {
                         initializeBuiltinsProvider(
@@ -127,9 +121,12 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
         return FirKotlinScopeProvider(::wrapScopeWithJvmMapped)
     }
 
-    override fun FirSession.registerLibrarySessionComponents(c: LibraryContext) {
-        registerDefaultComponents()
-        registerJavaComponents(c.projectEnvironment.getJavaModuleResolver(), c.predefinedJavaComponents)
+    override fun FirSession.registerLibrarySessionComponents(c: Context) {
+        registerJavaComponents(
+            javaModuleResolver = c.projectEnvironment.getJavaModuleResolver(),
+            predefinedComponents = c.predefinedJavaComponents,
+            registerJvmDeserializationExtension = c.registerJvmDeserializationExtension,
+        )
     }
 
     // ==================================== Platform session ====================================
@@ -140,17 +137,15 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
     fun createSourceSession(
         moduleData: FirModuleData,
         javaSourcesScope: AbstractProjectFileSearchScope,
-        projectEnvironment: AbstractProjectEnvironment,
         createIncrementalCompilationSymbolProviders: (FirSession) -> FirJvmIncrementalCompilationSymbolProviders?,
         extensionRegistrars: List<FirExtensionRegistrar>,
         configuration: CompilerConfiguration,
-        predefinedJavaComponents: FirSharableJavaComponents?,
+        context: Context,
         needRegisterJavaElementFinder: Boolean,
         isForLeafHmppModule: Boolean,
         init: FirSessionConfigurator.() -> Unit,
     ): FirSession {
-        val jvmTarget = configuration.jvmTarget ?: JvmTarget.DEFAULT
-        val context = SourceContext(jvmTarget, predefinedJavaComponents, projectEnvironment)
+        val projectEnvironment = context.projectEnvironment
         return createSourceSession(
             moduleData,
             context = context,
@@ -202,38 +197,51 @@ object FirJvmSessionFactory : FirAbstractSessionFactory<FirJvmSessionFactory.Lib
         }
     }
 
-    override fun FirSessionConfigurator.registerPlatformCheckers(c: SourceContext) {
+    override fun FirSessionConfigurator.registerPlatformCheckers() {
         registerJvmCheckers()
     }
 
 
-    override fun FirSessionConfigurator.registerExtraPlatformCheckers(c: SourceContext) {
+    override fun FirSessionConfigurator.registerExtraPlatformCheckers() {
     }
 
-    override fun FirSession.registerSourceSessionComponents(c: SourceContext) {
-        registerDefaultComponents()
-        registerJavaComponents(c.projectEnvironment.getJavaModuleResolver(), c.predefinedJavaComponents)
+    override fun FirSession.registerSourceSessionComponents(c: Context) {
+        registerLibrarySessionComponents(c)
         register(FirJvmTargetProvider::class, FirJvmTargetProvider(c.jvmTarget))
     }
 
     override val requiresSpecialSetupOfSourceProvidersInHmppCompilation: Boolean
         get() = true
 
+    override val isFactoryForMetadataCompilation: Boolean
+        get() = false
+
     // ==================================== Common parts ====================================
 
     // ==================================== Utilities ====================================
 
-    class LibraryContext(
-        val predefinedJavaComponents: FirSharableJavaComponents?,
-        val projectEnvironment: AbstractProjectEnvironment,
-        val packagePartProvider: PackagePartProvider,
-    )
-
-    class SourceContext(
+    class Context(
         val jvmTarget: JvmTarget,
-        val predefinedJavaComponents: FirSharableJavaComponents?,
         val projectEnvironment: AbstractProjectEnvironment,
-    )
+        val librariesScope: AbstractProjectFileSearchScope,
+        val registerJvmDeserializationExtension: Boolean
+    ) {
+        constructor(
+            configuration: CompilerConfiguration,
+            projectEnvironment: AbstractProjectEnvironment,
+            librariesScope: AbstractProjectFileSearchScope,
+            registerJvmDeserializationExtension: Boolean = true,
+        ) : this(
+            jvmTarget = configuration.jvmTarget ?: JvmTarget.DEFAULT,
+            projectEnvironment,
+            librariesScope,
+            registerJvmDeserializationExtension = registerJvmDeserializationExtension,
+        )
+
+        val packagePartProviderForLibraries: PackagePartProvider = projectEnvironment.getPackagePartProvider(librariesScope)
+
+        val predefinedJavaComponents: FirSharableJavaComponents = FirSharableJavaComponents(firCachesFactoryForCliMode)
+    }
 
     private fun initializeForStdlibIfNeeded(
         projectEnvironment: AbstractProjectEnvironment,

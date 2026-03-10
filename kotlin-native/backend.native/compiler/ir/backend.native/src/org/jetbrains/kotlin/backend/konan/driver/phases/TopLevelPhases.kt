@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.konan.driver.phases
 import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.driver.PerformanceManagerContext
-import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
+import org.jetbrains.kotlin.backend.konan.driver.NativeBackendPhaseContext
 import org.jetbrains.kotlin.backend.konan.driver.utilities.CExportFiles
 import org.jetbrains.kotlin.backend.konan.driver.utilities.createTempFiles
 import org.jetbrains.kotlin.backend.konan.ir.konanLibrary
@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrModuleFragmentImpl
 import org.jetbrains.kotlin.ir.declarations.path
 import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.konan.TempFiles
+import org.jetbrains.kotlin.konan.config.verifyBitcode
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.Family
@@ -41,7 +42,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
-internal fun PhaseEngine<PhaseContext>.runFrontend(config: KonanConfig, environment: KotlinCoreEnvironment): FrontendPhaseOutput.Full? {
+internal fun PhaseEngine<NativeBackendPhaseContext>.runFrontend(config: KonanConfig, environment: KotlinCoreEnvironment): FrontendPhaseOutput.Full? {
     val languageVersion = config.languageVersionSettings.languageVersion
     val kotlinSourceRoots = environment.configuration.kotlinSourceRoots
     if (languageVersion.usesK2 && kotlinSourceRoots.isNotEmpty()) {
@@ -52,26 +53,11 @@ internal fun PhaseEngine<PhaseContext>.runFrontend(config: KonanConfig, environm
     return frontendOutput as? FrontendPhaseOutput.Full
 }
 
-internal fun PhaseEngine<PhaseContext>.runPsiToIr(
-        frontendOutput: FrontendPhaseOutput.Full
-): PsiToIrOutput {
-    val config = this.context.config
-    val psiToIrContext = PsiToIrContextImpl(config, frontendOutput.moduleDescriptor, frontendOutput.bindingContext)
-    val psiToIrOutput = useContext(psiToIrContext) { psiToIrEngine ->
-        val psiToIrInput = PsiToIrInput(frontendOutput.moduleDescriptor, frontendOutput.environment)
-        val output = psiToIrEngine.runPhase(PsiToIrPhase, psiToIrInput)
-        psiToIrEngine.runSpecialBackendChecks(output.irModule, output.irBuiltIns, output.symbols)
-        output
-    }
-    runPhase(CopyDefaultValuesToActualPhase, Pair(psiToIrOutput.irModule, psiToIrOutput.irBuiltIns))
-    return psiToIrOutput
-}
-
-internal fun PhaseEngine<PhaseContext>.linkKlibs(
+internal fun PhaseEngine<NativeBackendPhaseContext>.linkKlibs(
         frontendOutput: FrontendPhaseOutput.Full,
 ): LinkKlibsOutput = linkKlibs(frontendOutput, {}).first
 
-internal fun <T> PhaseEngine<PhaseContext>.linkKlibs(
+internal fun <T> PhaseEngine<NativeBackendPhaseContext>.linkKlibs(
         frontendOutput: FrontendPhaseOutput.Full,
         produceAdditionalOutput: (PhaseEngine<out LinkKlibsContext>) -> T
 ): Pair<LinkKlibsOutput, T> {
@@ -88,7 +74,7 @@ internal fun <T> PhaseEngine<PhaseContext>.linkKlibs(
     return linkKlibsOutput to additionalOutput
 }
 
-internal fun <C : PhaseContext> PhaseEngine<C>.runBackend(backendContext: Context, irModule: IrModuleFragment, performanceManager: PerformanceManager?) {
+internal fun <C : NativeBackendPhaseContext> PhaseEngine<C>.runBackend(backendContext: Context, irModule: IrModuleFragment, performanceManager: PerformanceManager?) {
     val config = context.config
     useContext(backendContext) { backendEngine ->
         backendEngine.runAndMeasurePhase(functionsWithoutBoundCheck)
@@ -164,6 +150,7 @@ internal fun <C : PhaseContext> PhaseEngine<C>.runBackend(backendContext: Contex
             // (like IR visibility checks).
             // This is what we call a 'lowering synchronization point'.
             fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, validateIrBeforeLowering) }
+            fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, checkInlineCallCyclesPhase) }
 
             run {
                 // This is a so-called "KLIB Common Lowerings Prefix".
@@ -178,7 +165,7 @@ internal fun <C : PhaseContext> PhaseEngine<C>.runBackend(backendContext: Contex
                 fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, getLoweringsUpToAndIncludingSyntheticAccessors()) }
                 fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, validateIrAfterInliningOnlyPrivateFunctions) }
                 fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, listOf(inlineAllFunctionsPhase)) }
-                fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, listOf(specialObjCValidationPhase)) }
+                fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, listOf(specialObjCValidationPhase, redundantCastsRemoverPhase)) }
             }
 
             fragmentWithState.forEach { (fragment, state) -> state.runSpecifiedLowerings(fragment, validateIrAfterInliningAllFunctions) }
@@ -284,7 +271,7 @@ internal fun <C : PhaseContext> PhaseEngine<C>.runBackend(backendContext: Contex
     }
 }
 
-internal fun <C : PhaseContext> PhaseEngine<C>.runBitcodeBackend(
+internal fun <C : NativeBackendPhaseContext> PhaseEngine<C>.runBitcodeBackend(
         context: BitcodePostProcessingContext, dependencies: DependenciesTrackingResult,
 ) {
     useContext(context) { bitcodeEngine ->
@@ -406,7 +393,7 @@ internal fun PhaseEngine<NativeGenerationState>.compileModule(
 }
 
 
-internal fun <C : PhaseContext> PhaseEngine<C>.compileAndLink(
+internal fun <C : NativeBackendPhaseContext> PhaseEngine<C>.compileAndLink(
         moduleCompilationOutput: ModuleCompilationOutput,
         linkerOutputFile: String,
         outputFiles: OutputFiles,
@@ -494,7 +481,7 @@ internal fun PhaseEngine<NativeGenerationState>.runBackendCodegen(module: IrModu
     //  Motivation: possibility to run LTO on bitcode level after separate IR compilation.
     val llvmModule = context.llvm.module
     // TODO: Consider dropping these in favor of proper phases dumping and validation.
-    if (context.config.needCompilerVerification || context.config.configuration.getBoolean(KonanConfigKeys.VERIFY_BITCODE)) {
+    if (context.config.needCompilerVerification || context.config.configuration.verifyBitcode) {
         runAndMeasurePhase(VerifyBitcodePhase, llvmModule)
     }
     if (context.shouldPrintBitCode()) {
@@ -556,7 +543,7 @@ private fun PhaseEngine<NativeGenerationState>.runCodegen(module: IrModuleFragme
 
 private fun PhaseEngine<NativeGenerationState>.findDependenciesToCompile(): List<IrModuleFragment> {
     return context.config.librariesWithDependencies()
-            .mapNotNull { context.context.irModules[it.libraryName] }
+            .mapNotNull { context.context.irModules[it.location.path] }
             .filter { context.llvmModuleSpecification.containsModule(it) }
 }
 

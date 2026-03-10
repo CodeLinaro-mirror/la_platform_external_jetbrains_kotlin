@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
 import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.backend.common.ir.ValueRemapper
+import org.jetbrains.kotlin.backend.common.lower.InnerClassesLowering
+import org.jetbrains.kotlin.backend.common.phaser.PhasePrerequisites
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrStatement
@@ -39,6 +41,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.getOrSetIfNull
 /**
  * Generates static functions for each secondary constructor.
  */
+@PhasePrerequisites(InnerClassesLowering::class)
 class SecondaryConstructorLowering(val context: JsIrBackendContext) : DeclarationTransformer {
 
     override fun transformFlat(declaration: IrDeclaration): List<IrDeclaration>? {
@@ -91,7 +94,7 @@ class SecondaryConstructorLowering(val context: JsIrBackendContext) : Declaratio
     private fun generateFactoryBody(irClass: IrClass, stub: IrSimpleFunction, delegate: IrSimpleFunction) {
         stub.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET) {
             val type = irClass.defaultType
-            val createFunctionIntrinsic = context.intrinsics.jsObjectCreateSymbol
+            val createFunctionIntrinsic = context.symbols.jsObjectCreateSymbol
             val irCreateCall = JsIrBuilder.buildCall(createFunctionIntrinsic, type, listOf(type))
             val irDelegateCall = JsIrBuilder.buildCall(delegate.symbol, type).also { call ->
                 for (i in 0 until stub.typeParameters.size) {
@@ -110,7 +113,7 @@ class SecondaryConstructorLowering(val context: JsIrBackendContext) : Declaratio
                 )
 
                 statements += tmp
-                statements += JsIrBuilder.buildCall(context.intrinsics.captureStack).also { call ->
+                statements += JsIrBuilder.buildCall(context.symbols.captureStack).also { call ->
                     call.arguments[0] = JsIrBuilder.buildGetValue(tmp.symbol)
                     call.arguments[1] =
                         IrRawFunctionReferenceImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.anyType, stub.symbol)
@@ -202,7 +205,6 @@ private fun JsIrBackendContext.buildInitDeclaration(constructor: IrConstructor, 
 }
 
 private fun JsIrBackendContext.buildFactoryDeclaration(constructor: IrConstructor, irClass: IrClass): IrSimpleFunction {
-    val type = irClass.defaultType
     val constructorName = "${irClass.name}_init"
     val functionName = "${constructorName}_\$Create\$"
 
@@ -210,17 +212,18 @@ private fun JsIrBackendContext.buildFactoryDeclaration(constructor: IrConstructo
         startOffset = constructor.startOffset
         endOffset = constructor.endOffset
         name = Name.identifier(functionName)
-        returnType = type
         visibility = constructor.visibility
         modality = Modality.FINAL
         isInline = constructor.isInline
         isExternal = constructor.isExternal
     }.also { factory ->
         factory.parent = constructor.parent
-        factory.copyTypeParametersFrom(constructor.parentAsClass)
-        factory.parameters = constructor.parameters.map { p -> p.copyTo(factory) }
+        val klass = constructor.parentAsClass
+        factory.copyTypeParametersFrom(klass)
+        val substitutionMap = makeTypeParameterSubstitutionMap(klass, factory)
+        factory.copyParametersFrom(constructor, substitutionMap)
         factory.annotations = constructor.annotations
-        factory.returnType = constructor.returnType.remapTypeParameters(constructor, factory)
+        factory.returnType = constructor.returnType.substitute(substitutionMap)
     }
 }
 
@@ -241,6 +244,7 @@ private fun JsIrBackendContext.buildConstructorFactory(constructor: IrConstructo
 /**
  * Replaces usages of secondary constructor with the corresponding static functions.
  */
+@PhasePrerequisites(InnerClassesLowering::class)
 class SecondaryFactoryInjectorLowering(val context: JsIrBackendContext) : BodyLoweringPass {
 
     override fun lower(irBody: IrBody, container: IrDeclaration) {

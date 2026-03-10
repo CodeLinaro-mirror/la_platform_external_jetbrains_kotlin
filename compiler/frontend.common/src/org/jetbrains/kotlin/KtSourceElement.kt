@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -527,6 +527,21 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     object ScriptBaseClass : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
 
     /**
+     * For repl base class.
+     */
+    object ReplBaseClass : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
+
+    /**
+     * For repl eval function.
+     */
+    object ReplEvalFunction : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
+
+    /**
+     * For repl result field.
+     */
+    object ReplResultField : KtFakeSourceElementKind(shouldSkipErrorTypeReporting = true)
+
+    /**
      * When a lambda is converted to a SAM type, the expression is wrapped in an extra node
      */
     object SamConversion : KtFakeSourceElementKind()
@@ -552,10 +567,21 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
     object PluginGenerated : KtFakeSourceElementKind()
 
     /**
+     * To store diagnostic for erroneously resolved `arrayOf` which is being transformed to array literal.
+     * Note that this may happen both with original `arrayOf` and with synthetic `arrayOf` itself created to resolve array literal.
+     */
+    object ErrorExpressionForTransformedArrayOf : KtFakeSourceElementKind()
+
+    /**
      * To store some diagnostic for erroneously resolved top-level lambda
      * See [org.jetbrains.kotlin.config.LanguageFeature.ResolveTopLevelLambdasAsSyntheticCallArgument] and its usages
      */
     object ErrorExpressionForTopLevelLambda : KtFakeSourceElementKind()
+
+    /**
+     * To store diagnostics for erroneously resolved top-level collection literals.
+     */
+    object ErrorExpressionForTopLevelCollectionLiteral : KtFakeSourceElementKind()
 
     /**
      * Arbitrary error expression for which we failed to build the real PSI.
@@ -566,6 +592,16 @@ sealed class KtFakeSourceElementKind(final override val shouldSkipErrorTypeRepor
      * When resolving ENTRY as `MyEnum.ENTRY` this is used for the `MyEnum` part
      */
     object QualifierForContextSensitiveResolution : KtFakeSourceElementKind()
+
+    /**
+     * When resolving a collection literal, a collection package qualifier or the explicit companion object added to the call as the explicit receiver.
+     */
+    object DesugaredReceiverForOperatorOfCall : KtFakeSourceElementKind()
+
+    /**
+     * When resolving a collection literal, this is used as a source for the generated callee reference.
+     */
+    object CalleeReferenceForOperatorOfCall : KtFakeSourceElementKind()
 }
 
 sealed class AbstractKtSourceElement {

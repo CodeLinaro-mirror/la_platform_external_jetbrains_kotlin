@@ -1,7 +1,9 @@
-package org.jetbrains.kotlin.codegen.forTestCompile/*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+/*
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
+
+package org.jetbrains.kotlin.codegen.forTestCompile
 
 // This file is duplicated at repo/gradle-build-conventions/project-tests-convention/src/main/kotlin/TestCompilePaths.kt
 object TestCompilePaths {
@@ -12,6 +14,7 @@ object TestCompilePaths {
     const val KOTLIN_SCRIPT_RUNTIME_PATH: String = "kotlin.script.runtime.path"
     const val KOTLIN_COMMON_STDLIB_PATH: String = "kotlin.common.stdlib.path"
     const val KOTLIN_ANNOTATIONS_PATH: String = "kotlin.annotations.path"
+    const val KOTLIN_WEB_STDLIB_KLIB_PATH: String = "kotlin.web.stdlib.path"
     const val KOTLIN_JS_STDLIB_KLIB_PATH: String = "kotlin.js.stdlib.klib.path"
     const val KOTLIN_JS_REDUCED_STDLIB_PATH: String = "kotlin.js.reduced.stdlib.path"
     const val KOTLIN_JS_KOTLIN_TEST_KLIB_PATH: String = "kotlin.js.kotlin.test.klib.path"
@@ -24,4 +27,5 @@ object TestCompilePaths {
     const val KOTLIN_THIRDPARTY_JAVA9_ANNOTATIONS_PATH = "third-party/java9-annotations"
     const val KOTLIN_THIRDPARTY_JSR305_PATH = "third-party/jsr305"
     const val KOTLIN_TESTDATA_ROOTS = "kotlin.testData.roots"
+    const val KOTLIN_WASM_JS_STDLIB_KLIB_PATH = "kotlin.wasm-js.stdlib.path"
 }

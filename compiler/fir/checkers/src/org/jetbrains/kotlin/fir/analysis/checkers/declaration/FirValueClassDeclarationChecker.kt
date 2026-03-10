@@ -24,11 +24,7 @@ import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.resolve.lookupSuperTypes
-import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
-import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirImplicitAnyTypeRef
 import org.jetbrains.kotlin.fir.unwrapFakeOverrides
@@ -211,17 +207,6 @@ sealed class FirValueClassDeclarationChecker(mppKind: MppCheckerKind) : FirRegul
                         FirErrors.VALUE_CLASS_CONSTRUCTOR_NOT_FINAL_READ_ONLY_PARAMETER
                     )
 
-                !LanguageFeature.GenericInlineClassParameter.isEnabled() &&
-                        parameterTypeRef.coneType.let {
-                            it is ConeTypeParameterType || it.isGenericArrayOfTypeParameter()
-                        } -> {
-                    reporter.reportOn(
-                        parameterTypeRef.source,
-                        FirErrors.UNSUPPORTED_FEATURE,
-                        LanguageFeature.GenericInlineClassParameter to context.languageVersionSettings
-                    )
-                }
-
                 parameterTypeRef.isInapplicableParameterType(context.session) -> {
                     reporter.reportOn(
                         parameterTypeRef.source,
@@ -300,7 +285,7 @@ sealed class FirValueClassDeclarationChecker(mppKind: MppCheckerKind) : FirRegul
         coneType.fullyExpandedType(session).let { it.isUnit || it.isNothing }
 
     private fun ConeKotlinType.isGenericArrayOfTypeParameter(): Boolean {
-        if (this.typeArguments.firstOrNull() is ConeStarProjection || !isPotentiallyArray())
+        if (this.typeArguments.firstOrNull() is ConeStarProjection || !isArrayOrPrimitiveArray())
             return false
 
         val arrayElementType = arrayElementType() ?: return false

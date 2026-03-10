@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.fir.analysis.checkers.getAnnotationFirstArgument
 import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.isTopLevel
 import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors
+import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors.EXPOSED_NOT_EXPORTED_SUPER_INTERFACE
 import org.jetbrains.kotlin.fir.analysis.js.checkers.isExportedObject
 import org.jetbrains.kotlin.fir.analysis.js.checkers.sanitizeName
 import org.jetbrains.kotlin.fir.declarations.*
@@ -182,6 +183,15 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
                 if (wrongDeclaration != null) {
                     reportWrongExportedDeclaration(wrongDeclaration)
                 }
+
+                if (declaration.isInterface) {
+                    declaration.superTypeRefs.forEach { superType ->
+                        superType.coneType
+                            .takeIf { !it.isExportable(context.session) }
+                            ?.toRegularClassSymbol()
+                            ?.let { reporter.reportOn(superType.source, EXPOSED_NOT_EXPORTED_SUPER_INTERFACE, it) }
+                    }
+                }
             }
 
             is FirTypeAlias -> {
@@ -255,6 +265,8 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
         session: FirSession,
         currentlyProcessed: MutableSet<ConeKotlinType> = hashSetOf(),
     ): Boolean {
+        // In case of other errors (like syntax error) we should not emit extra diagnostic
+        if (this is ConeErrorType) return true
         if (!currentlyProcessed.add(this)) {
             return true
         }

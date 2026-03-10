@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -267,7 +267,7 @@ object SourceElementPositioningStrategies {
     )
 
     val VARIABLE_INITIALIZER = SourceElementPositioningStrategy(
-        LightTreePositioningStrategies.LAST_CHILD,
+        LightTreePositioningStrategies.VARIABLE_INITIALIZER,
         PositioningStrategies.VARIABLE_INITIALIZER
     )
 
@@ -448,6 +448,11 @@ object SourceElementPositioningStrategies {
     val TYPE_ARGUMENT_LIST_OR_SELF = SourceElementPositioningStrategy(
         LightTreePositioningStrategies.TYPE_ARGUMENT_LIST_OR_SELF,
         PositioningStrategies.TYPE_ARGUMENT_LIST_OR_SELF,
+    )
+
+    val TYPE_ARGUMENT_LIST_OR_WITHOUT_RECEIVER = SourceElementPositioningStrategy(
+        LightTreePositioningStrategies.TYPE_ARGUMENT_LIST_OR_WITHOUT_RECEIVER,
+        PositioningStrategies.TYPE_ARGUMENT_LIST_OR_WITHOUT_RECEIVER,
     )
 
     val PACKAGE_DIRECTIVE_NAME_EXPRESSION = SourceElementPositioningStrategy(

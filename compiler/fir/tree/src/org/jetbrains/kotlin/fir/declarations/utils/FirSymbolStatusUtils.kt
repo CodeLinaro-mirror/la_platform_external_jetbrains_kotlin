@@ -72,6 +72,11 @@ inline val FirClassLikeSymbol<*>.isSealed: Boolean get() = resolvedStatus.modali
 
 // ---------------------- common classes ----------------------
 
+/**
+ * As a rule of thumb, a class / typealias is considered local if its parent is another local class,
+ * or if its parent is a callable declaration of any kind (function, property, constructor, enum entry, etc.).
+ * A local class / typealias always has Local visibility, and vice versa.
+ */
 inline val FirClassLikeSymbol<*>.isLocal: Boolean get() = fir.isLocal
 
 val FirBasedSymbol<*>?.isLocalClassLike: Boolean get() = (this as? FirClassLikeSymbol<*>)?.isLocal == true
@@ -82,6 +87,9 @@ inline val FirClassSymbol<*>.isClass: Boolean
 inline val FirClassSymbol<*>.isInterface: Boolean
     get() = classKind.isInterface
 
+inline val FirClassSymbol<*>.isAnnotationClass: Boolean
+    get() = classKind.isAnnotationClass
+
 inline val FirClassSymbol<*>.isEnumClass: Boolean
     get() = classKind.isEnumClass
 
@@ -89,5 +97,3 @@ inline val FirClassSymbol<*>.isEnumEntry: Boolean
     get() = classKind.isEnumEntry
 
 // ---------------------- specific callables ----------------------
-
-inline val FirFunctionSymbol<*>.isLocal: Boolean get() = rawStatus.visibility == Visibilities.Local

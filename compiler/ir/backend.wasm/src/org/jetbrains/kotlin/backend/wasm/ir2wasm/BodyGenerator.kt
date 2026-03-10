@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.wasm.ir2wasm
 import org.jetbrains.kotlin.backend.common.ir.returnType
 import org.jetbrains.kotlin.backend.common.lower.SYNTHETIC_CATCH_FOR_FINALLY_EXPRESSION
 import org.jetbrains.kotlin.backend.wasm.WasmBackendContext
-import org.jetbrains.kotlin.backend.wasm.WasmSymbols
+import org.jetbrains.kotlin.backend.wasm.BackendWasmSymbols
 import org.jetbrains.kotlin.backend.wasm.toCatchThrowableOrJsException
 import org.jetbrains.kotlin.backend.wasm.utils.*
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.util.isSubtypeOfClass
 import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.ir.*
 import org.jetbrains.kotlin.wasm.ir.source.location.SourceLocation
@@ -37,43 +38,49 @@ class BodyGenerator(
     private val functionContext: WasmFunctionCodegenContext,
     private val wasmModuleMetadataCache: WasmModuleMetadataCache,
     private val wasmModuleTypeTransformer: WasmModuleTypeTransformer,
-    private val inlineUnitGetter: Boolean,
+    private val locationProvider: LocationProvider,
+    val body: WasmExpressionBuilder,
 ) : IrVisitorVoid() {
-    val body: WasmExpressionBuilder = functionContext.bodyGen
+
 
     // Shortcuts
-    private val wasmSymbols: WasmSymbols = backendContext.wasmSymbols
+    private val wasmSymbols: BackendWasmSymbols = backendContext.wasmSymbols
     private val irBuiltIns: IrBuiltIns = backendContext.irBuiltIns
 
     private val unitGetInstance by lazy { backendContext.findUnitGetInstanceFunction() }
-    private val unitInstanceField by lazy { backendContext.findUnitInstanceField() }
 
     fun WasmExpressionBuilder.buildGetUnit() {
-        if (inlineUnitGetter) {
-            buildGetGlobal(
-                wasmFileCodegenContext.referenceGlobalField(unitInstanceField.symbol),
-                SourceLocation.NoLocation("GET_UNIT")
-            )
-        } else {
-            buildCall(
-                wasmFileCodegenContext.referenceFunction(unitGetInstance.symbol),
-                SourceLocation.NoLocation("GET_UNIT")
-            )
-        }
+        buildInstr(
+            WasmOp.CALL_PURE,
+            SourceLocation.NoLocation("GET_UNIT"),
+            wasmFileCodegenContext.referenceFunction(unitGetInstance.symbol)
+        )
     }
 
-    fun getStructFieldRef(field: IrField): WasmSymbol<Int> {
+    fun getStructFieldId(field: IrField): Int {
         val klass = field.parentAsClass
         val metadata = wasmModuleMetadataCache.getClassMetadata(klass.symbol)
         val fieldId = metadata.fields.indexOf(field) + 3 //Implicit vtable, itable and rtti fields
-        return WasmSymbol(fieldId)
+        return fieldId
     }
 
     // Generates code for the given IR element. Leaves something on the stack unless expression was of the type Void.
     internal fun generateExpression(expression: IrExpression) {
         expression.acceptVoid(this)
 
-        if (expression.type.isNothing()) {
+        // Checks if it is safe to assume the statement doesn't return
+        // (e.g. throws an exception or loops infinitely)
+        //
+        // Takes into account cases like `fun <T> foo(): T = Any() as
+        // T`, which could be used as `foo<Nothing>()` and terminate
+        // despite the call type `Nothing`.
+        //
+        // Assumes that only functions with explicit return type
+        // `Nothing` do not return.
+        //
+        // Also see KotlinNothingValueExceptionLowering.kt
+        if (expression.type.isNothing() &&
+                !(expression is IrCall && !expression.symbol.owner.returnType.isNothing())) {
             // TODO Ideally, we should generate unreachable only for specific cases and preferable on declaration site. 
             body.buildUnreachableAfterNothingType()
         }
@@ -82,7 +89,7 @@ class BodyGenerator(
     // Generates code for the given IR element but *never* leaves anything on the stack.
     private fun generateAsStatement(statement: IrExpression) {
         generateExpression(statement)
-        if (statement.type != wasmSymbols.voidType) {
+        if (statement.type != wasmSymbols.voidType && !statement.type.isNothing()) {
             body.buildDrop(SourceLocation.NoLocation("DROP"))
         }
     }
@@ -99,7 +106,7 @@ class BodyGenerator(
         error("Unexpected element of type ${element::class}")
     }
 
-    private fun tryGenerateConstVarargArray(irVararg: IrVararg, wasmArrayType: WasmImmediate.GcType): Boolean {
+    private fun tryGenerateConstVarargArray(irVararg: IrVararg, wasmArrayType: GcTypeSymbol): Boolean {
         if (irVararg.elements.isEmpty()) return false
 
         val kind = (irVararg.elements[0] as? IrConst)?.kind ?: return false
@@ -127,7 +134,7 @@ class BodyGenerator(
         return true
     }
 
-    private fun tryGenerateVarargArray(irVararg: IrVararg, wasmArrayType: WasmImmediate.GcType) {
+    private fun tryGenerateVarargArray(irVararg: IrVararg, wasmArrayType: GcTypeSymbol) {
         irVararg.elements.forEach {
             check(it is IrExpression)
             generateExpression(it)
@@ -145,7 +152,6 @@ class BodyGenerator(
             .firstOrNull { it.getClass()?.getWasmArrayAnnotation() != null }
             ?.getRuntimeClass(irBuiltIns)?.symbol
             ?.let(wasmFileCodegenContext::referenceGcType)
-            ?.let(WasmImmediate::GcType)
 
         check(wasmArrayType != null)
 
@@ -376,13 +382,14 @@ class BodyGenerator(
      */
     private fun buildTryWithCatchAll(aTry: IrTry, successLevel: Int, additionalCatch: (() -> WasmImmediate.Catch)? = null) {
         body.buildBlock(null, WasmExnRefType) { toCatchAll ->
-            val catches =
-                if (additionalCatch != null)
-                    arrayOf(additionalCatch(), body.createNewCatchAllRef(toCatchAll))
-                else
-                    arrayOf(body.createNewCatchAllRef(toCatchAll))
 
-            body.buildTryTable(catches = catches) {
+            val catchAll = body.createNewCatchAllRef(toCatchAll)
+            val additional = additionalCatch?.invoke()
+
+            val catch1 = additional ?: catchAll
+            val catch2 = catchAll.takeIf { additional != null }
+
+            body.buildTryTable(catch1, catch2) {
                 generateExpression(aTry.tryResult)
                 body.buildBr(
                     successLevel,
@@ -575,8 +582,8 @@ class BodyGenerator(
         body.buildInstr(
             opcode,
             location,
-            WasmImmediate.GcType(wasmFileCodegenContext.referenceGcType(field.parentAsClass.symbol)),
-            WasmImmediate.StructFieldIdx(getStructFieldRef(field))
+            wasmFileCodegenContext.referenceGcType(field.parentAsClass.symbol),
+            WasmImmediate.StructFieldIdx.get(getStructFieldId(field))
         )
         body.commentPreviousInstr { "name: ${field.name.asString()}, type: ${field.type.render()}" }
     }
@@ -592,7 +599,7 @@ class BodyGenerator(
             generateExpression(expression.value)
             body.buildStructSet(
                 struct = wasmFileCodegenContext.referenceGcType(field.parentAsClass.symbol),
-                fieldId = getStructFieldRef(field),
+                fieldId = getStructFieldId(field),
                 location
             )
             body.commentPreviousInstr { "name: ${field.name}, type: ${field.type.render()}" }
@@ -639,7 +646,7 @@ class BodyGenerator(
             "All inline class constructor calls must be lowered to static function calls"
         }
 
-        val wasmGcType: WasmSymbol<WasmTypeDeclaration> = wasmFileCodegenContext.referenceGcType(klassSymbol)
+        val wasmGcType = wasmFileCodegenContext.referenceGcType(klassSymbol)
         val location = expression.getSourceLocation()
 
         if (klass.getWasmArrayAnnotation() != null) {
@@ -648,7 +655,7 @@ class BodyGenerator(
             body.buildInstr(
                 WasmOp.ARRAY_NEW_DEFAULT,
                 location,
-                WasmImmediate.GcType(wasmGcType)
+                wasmGcType
             )
             body.commentPreviousInstr { "@WasmArrayOf ctor call: ${klass.fqNameWhenAvailable}" }
             return
@@ -758,8 +765,8 @@ class BodyGenerator(
         if (call.symbol == wasmSymbols.wasmGetRttiIntField || call.symbol == wasmSymbols.wasmGetRttiLongField) {
             val fieldIndex = (call.arguments[0] as? IrConst)?.value as? Int ?: error("Invalid field index")
             generateExpression(call.arguments[1]!!)
-            body.buildRefCastStatic(wasmFileCodegenContext.rttiType, location)
-            body.buildStructGet(wasmFileCodegenContext.rttiType, WasmSymbol(fieldIndex), location)
+            body.buildRefCastStatic(Synthetics.HeapTypes.rttiType, location)
+            body.buildStructGet(Synthetics.GcTypes.rttiType, fieldIndex, location)
             return
         }
 
@@ -802,6 +809,7 @@ class BodyGenerator(
 
             val klassSymbol = klass.symbol
             val vTableGcTypeReference = wasmFileCodegenContext.referenceVTableGcType(klassSymbol)
+            val vTableHeapTypeReference = wasmFileCodegenContext.referenceVTableHeapType(klassSymbol)
             val functionTypeReference = wasmFileCodegenContext.referenceFunctionType(function.symbol)
 
             if (!klass.isInterface) {
@@ -816,10 +824,10 @@ class BodyGenerator(
                 //TODO: check why it could be needed
                 generateRefCast(receiver.type, klass.defaultType, isRefNullCast = false, location)
 
-                body.buildStructGet(wasmFileCodegenContext.referenceGcType(klassSymbol), anyVtableFieldId, location)
-                val vTableSlotId = WasmSymbol(vfSlot + 1) //First element is always contains Special ITable
+                body.buildStructGet(wasmFileCodegenContext.referenceGcType(klassSymbol), ANY_VTABLE_FIELD_ID, location)
+                val vTableSlotId = vfSlot + 1 //First element is always contains Special ITable
                 body.buildStructGet(vTableGcTypeReference, vTableSlotId, location)
-                body.buildInstr(WasmOp.CALL_REF, location, WasmImmediate.TypeIdx(functionTypeReference))
+                body.buildInstr(WasmOp.CALL_REF, location, functionTypeReference)
             } else {
                 generateExpression(call.dispatchReceiver!!)
 
@@ -828,8 +836,8 @@ class BodyGenerator(
                     body.commentGroupStart { "Special Interface call: ${function.fqNameWhenAvailable}" }
                     generateSpecialITableFromAny(location)
                     body.buildStructGet(
-                        wasmFileCodegenContext.interfaceTableTypes.specialSlotITableType,
-                        WasmSymbol(specialITableSlot),
+                        Synthetics.GcTypes.specialSlotITableType,
+                        specialITableSlot,
                         location
                     )
                 } else if (klassSymbol.isFunction()) {
@@ -838,15 +846,15 @@ class BodyGenerator(
                     body.commentGroupStart { "Functional Interface call: ${function.fqNameWhenAvailable}" }
                     generateSpecialITableFromAny(location)
                     body.buildStructGet(
-                        wasmFileCodegenContext.interfaceTableTypes.specialSlotITableType,
-                        WasmSymbol(backendContext.specialSlotITableTypes.size),
+                        Synthetics.GcTypes.specialSlotITableType,
+                        backendContext.specialSlotITableTypes.size,
                         location
                     )
                     body.buildConstI32(functionalInterfaceSlot, location)
                     body.buildInstr(
                         WasmOp.ARRAY_GET,
                         location,
-                        WasmImmediate.TypeIdx(wasmFileCodegenContext.interfaceTableTypes.wasmAnyArrayType)
+                        Synthetics.GcTypes.wasmAnyArrayType
                     )
                 } else {
                     body.commentGroupStart { "Interface call: ${function.fqNameWhenAvailable}" }
@@ -854,15 +862,15 @@ class BodyGenerator(
                     body.buildCall(wasmFileCodegenContext.referenceFunction(wasmSymbols.reflectionSymbols.getInterfaceVTable), location)
                 }
 
-                body.buildRefCastStatic(vTableGcTypeReference, location)
+                body.buildRefCastStatic(vTableHeapTypeReference, location)
                 val vfSlot = wasmModuleMetadataCache.getInterfaceMetadata(klassSymbol).methods
                     .indexOfFirst { it.function == function }
-                body.buildStructGet(vTableGcTypeReference, WasmSymbol(vfSlot), location)
+                body.buildStructGet(vTableGcTypeReference, vfSlot, location)
 
                 body.buildInstr(
                     WasmOp.CALL_REF,
                     location,
-                    WasmImmediate.TypeIdx(functionTypeReference)
+                    functionTypeReference
                 )
             }
             body.commentGroupEnd()
@@ -886,7 +894,7 @@ class BodyGenerator(
                 body.buildUnreachable(location)
             }
             else -> {
-                val wasmToType = wasmFileCodegenContext.referenceGcType(toType.getRuntimeClass(irBuiltIns).symbol)
+                val wasmToType = wasmFileCodegenContext.referenceHeapType(toType.getRuntimeClass(irBuiltIns).symbol)
                 if (isRefNullCast) {
                     body.buildRefCastNullStatic(wasmToType, location)
                 } else {
@@ -907,7 +915,7 @@ class BodyGenerator(
             }
             else -> {
                 body.buildRefTestStatic(
-                    toType = wasmFileCodegenContext.referenceGcType(toType.getRuntimeClass(irBuiltIns).symbol),
+                    toType = wasmFileCodegenContext.referenceHeapType(toType.getRuntimeClass(irBuiltIns).symbol),
                     location
                 )
             }
@@ -930,8 +938,8 @@ class BodyGenerator(
     }
 
     private fun generateSpecialITableFromAny(location: SourceLocation) {
-        body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), anyVtableFieldId, location)
-        body.buildStructGet(wasmFileCodegenContext.referenceVTableGcType(irBuiltIns.anyClass), vTableSpecialITableFieldId, location)
+        body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), ANY_VTABLE_FIELD_ID, location)
+        body.buildStructGet(wasmFileCodegenContext.referenceVTableGcType(irBuiltIns.anyClass), VTABLE_SPECIAL_ITABLE_FIELD_ID, location)
     }
 
     // Return true if generated.
@@ -975,27 +983,39 @@ class BodyGenerator(
             }
 
             wasmSymbols.wasmGetRttiSupportedInterfaces -> {
-                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), anyRttiFieldId, location)
-                body.buildStructGet(wasmFileCodegenContext.rttiType, rttiImplementedIFacesFieldId, location)
+                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), ANY_RTTI_FIELD_ID, location)
+                body.buildStructGet(Synthetics.GcTypes.rttiType, RTTI_IMPLEMENTED_INTERFACES_FIELD_ID, location)
             }
 
             wasmSymbols.wasmGetRttiSuperClass -> {
-                body.buildRefCastStatic(wasmFileCodegenContext.rttiType, location)
-                body.buildStructGet(wasmFileCodegenContext.rttiType, rttiSuperClassFieldId, location)
+                body.buildRefCastStatic(Synthetics.HeapTypes.rttiType, location)
+                body.buildStructGet(Synthetics.GcTypes.rttiType, RTTI_SUPER_CLASS_FIELD_ID, location)
             }
 
             wasmSymbols.wasmGetQualifierImpl, wasmSymbols.wasmGetSimpleNameImpl -> {
-                body.buildRefCastStatic(wasmFileCodegenContext.rttiType, location)
+                body.buildRefCastStatic(Synthetics.HeapTypes.rttiType, location)
 
                 val fieldId =
-                    if (function.symbol == wasmSymbols.wasmGetQualifierImpl) rttiQualifierGetterFieldId else rttiSimpleNameGetterFieldId
+                    if (function.symbol == wasmSymbols.wasmGetQualifierImpl) RTTI_QUALIFIED_NAME_GETTER_FIELD_ID else RTTI_SIMPLE_NAME_GETTER_FIELD_ID
 
-                body.buildStructGet(wasmFileCodegenContext.rttiType, fieldId, location)
+                val createStringLiteralType: FunctionTypeSymbol
+                if (backendContext.isWasmJsTarget) {
+                    val globalId =
+                        if (function.symbol == wasmSymbols.wasmGetQualifierImpl) RTTI_QUALIFIED_NAME_GLOBAL_FIELD_ID else RTTI_SIMPLE_NAME_GLOBAL_FIELD_ID
+                    body.buildStructGet(Synthetics.GcTypes.rttiType, globalId, location)
+                    body.buildGetLocal(functionContext.referenceLocal(0), location)
+                    body.buildRefCastStatic(Synthetics.HeapTypes.rttiType, location)
+
+                    createStringLiteralType = Synthetics.GcTypes.stringLiteralJsStringFunctionType
+                } else {
+                    createStringLiteralType = Synthetics.GcTypes.stringLiteralFunctionType
+                }
+                body.buildStructGet(Synthetics.GcTypes.rttiType, fieldId, location)
 
                 body.buildInstr(
                     op = WasmOp.CALL_REF,
                     location = location,
-                    WasmImmediate.TypeIdx(wasmFileCodegenContext.wasmStringsElements.createStringLiteralType),
+                    createStringLiteralType,
                 )
             }
 
@@ -1003,24 +1023,24 @@ class BodyGenerator(
                 //This is implementation of getInterfaceVTable, so argument locals could be used from the call-site
                 //obj.interfacesArray
                 body.buildGetLocal(functionContext.referenceLocal(0), location) //obj
-                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), anyITableFieldId, location)
+                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), ANY_ITABLE_FIELD_ID, location)
 
                 //wasmArrayAnyIndexOfValue(obj.rtti.interfaceIds)
                 body.buildGetLocal(functionContext.referenceLocal(0), location) //obj
-                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), anyRttiFieldId, location)
-                body.buildStructGet(wasmFileCodegenContext.rttiType, rttiImplementedIFacesFieldId, location)
+                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), ANY_RTTI_FIELD_ID, location)
+                body.buildStructGet(Synthetics.GcTypes.rttiType, RTTI_IMPLEMENTED_INTERFACES_FIELD_ID, location)
                 body.buildGetLocal(functionContext.referenceLocal(1), location) //interfaceId
                 body.buildCall(wasmFileCodegenContext.referenceFunction(wasmSymbols.wasmArrayAnyIndexOfValue), location)
 
                 body.buildInstr(
                     WasmOp.ARRAY_GET,
                     location,
-                    WasmImmediate.TypeIdx(wasmFileCodegenContext.interfaceTableTypes.wasmAnyArrayType)
+                    Synthetics.GcTypes.wasmAnyArrayType
                 )
             }
 
             wasmSymbols.wasmGetObjectRtti -> {
-                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), anyRttiFieldId, location)
+                body.buildStructGet(wasmFileCodegenContext.referenceGcType(irBuiltIns.anyClass), ANY_RTTI_FIELD_ID, location)
             }
 
             wasmSymbols.wasmIsInterface -> {
@@ -1039,8 +1059,8 @@ class BodyGenerator(
 
                             body.buildBrInstr(WasmOp.BR_ON_NULL, fail, location)
                             body.buildStructGet(
-                                wasmFileCodegenContext.interfaceTableTypes.specialSlotITableType,
-                                WasmSymbol(specialSlotIndex),
+                                Synthetics.GcTypes.specialSlotITableType,
+                                specialSlotIndex,
                                 location
                             )
                             body.buildInstr(WasmOp.REF_IS_NULL, location)
@@ -1062,8 +1082,8 @@ class BodyGenerator(
 
                                 body.buildBrInstr(WasmOp.BR_ON_NULL, fail, location)
                                 body.buildStructGet(
-                                    wasmFileCodegenContext.interfaceTableTypes.specialSlotITableType,
-                                    WasmSymbol(backendContext.specialSlotITableTypes.size),
+                                    Synthetics.GcTypes.specialSlotITableType,
+                                    backendContext.specialSlotITableTypes.size,
                                     location
                                 )
                                 body.buildBrInstr(WasmOp.BR_ON_NULL, fail, location)
@@ -1083,7 +1103,7 @@ class BodyGenerator(
                                 body.buildInstr(
                                     WasmOp.ARRAY_GET,
                                     location,
-                                    WasmImmediate.TypeIdx(wasmFileCodegenContext.interfaceTableTypes.wasmAnyArrayType)
+                                    Synthetics.GcTypes.wasmAnyArrayType
                                 )
                                 body.buildInstr(WasmOp.REF_IS_NULL, location)
                                 body.buildInstr(WasmOp.I32_EQZ, location)
@@ -1144,7 +1164,7 @@ class BodyGenerator(
                         fromIsNullable = true,
                         toIsNullable = true,
                         from = WasmHeapType.Simple.Any,
-                        to = WasmHeapType.Type(wasmFileCodegenContext.referenceGcType(backendContext.irBuiltIns.anyClass)),
+                        to = wasmFileCodegenContext.referenceHeapType(backendContext.irBuiltIns.anyClass),
                         location,
                     )
 
@@ -1154,27 +1174,21 @@ class BodyGenerator(
             }
 
             wasmSymbols.wasmArrayCopy -> {
-                val immediate = WasmImmediate.GcType(
-                    wasmFileCodegenContext.referenceGcType(call.typeArguments[0]!!.getRuntimeClass(irBuiltIns).symbol)
-                )
+                val immediate = wasmFileCodegenContext.referenceGcType(call.typeArguments[0]!!.getRuntimeClass(irBuiltIns).symbol)
                 body.buildInstr(WasmOp.ARRAY_COPY, location, immediate, immediate)
             }
 
             wasmSymbols.getWasmAbiVersion -> {
-                body.buildConstI32Symbol(wasmAbiVersion, location)
+                body.buildConstI32(WASM_ABI_VERSION, location)
             }
 
             wasmSymbols.wasmArrayNewData0 -> {
-                val arrayGcType = WasmImmediate.GcType(
-                    wasmFileCodegenContext.referenceGcType(call.typeArguments[0]!!.getRuntimeClass(irBuiltIns).symbol)
-                )
+                val arrayGcType = wasmFileCodegenContext.referenceGcType(call.typeArguments[0]!!.getRuntimeClass(irBuiltIns).symbol)
                 body.buildInstr(WasmOp.ARRAY_NEW_DATA, location, arrayGcType, WasmImmediate.DataIdx(0))
             }
 
             wasmSymbols.wasmArrayNewData -> {
-                val arrayGcType = WasmImmediate.GcType(
-                    wasmFileCodegenContext.referenceGcType(call.typeArguments[0]!!.getRuntimeClass(irBuiltIns).symbol)
-                )
+                val arrayGcType = wasmFileCodegenContext.referenceGcType(call.typeArguments[0]!!.getRuntimeClass(irBuiltIns).symbol)
                 val dataIdx = (call.arguments[2] as? IrConst)?.value as? Int
                     ?: error("An argument for dataIdx should be a compile time const with type Int")
                 body.buildDrop(location)
@@ -1182,10 +1196,8 @@ class BodyGenerator(
             }
 
             wasmSymbols.wasmArrayNewData0CharArray -> {
-                val arrayGcType = WasmImmediate.GcType(
-                    wasmFileCodegenContext.referenceGcType(
-                        wasmSymbols.wasmArrayNewData0CharArray.owner.returnType.getRuntimeClass(irBuiltIns).symbol
-                    )
+                val arrayGcType = wasmFileCodegenContext.referenceGcType(
+                    wasmSymbols.wasmArrayNewData0CharArray.owner.returnType.getRuntimeClass(irBuiltIns).symbol,
                 )
                 body.buildInstr(WasmOp.ARRAY_NEW_DATA, location, arrayGcType, WasmImmediate.DataIdx(0))
             }
@@ -1194,21 +1206,20 @@ class BodyGenerator(
                 val tryGetAssociatedObjectType =
                     wasmFileCodegenContext.referenceFunctionType(backendContext.wasmSymbols.tryGetAssociatedObject)
 
-                val getterWrapperType = wasmFileCodegenContext.classAssociatedObjectsGetterWrapper
-                body.buildInstr(
-                    op = WasmOp.REF_CAST,
+                body.buildRefCastStatic(
+                    toType = Synthetics.HeapTypes.associatedObjectGetterWrapper,
                     location = location,
-                    WasmImmediate.HeapType(WasmHeapType.Type(getterWrapperType))
                 )
+
                 body.buildStructGet(
-                    struct = getterWrapperType,
-                    fieldId = classAssociatedObjectsGetterWrapperFieldId,
+                    struct = Synthetics.GcTypes.associatedObjectGetterWrapper,
+                    fieldId = CLASS_ASSOCIATED_OBJECT_GETTER_WRAPPER_FIELD_ID,
                     location = location
                 )
                 body.buildInstr(
                     op = WasmOp.CALL_REF,
                     location = location,
-                    WasmImmediate.TypeIdx(tryGetAssociatedObjectType),
+                    tryGetAssociatedObjectType,
                 )
             }
 
@@ -1354,8 +1365,7 @@ class BodyGenerator(
                 else
                     WasmHeapType.Simple.None
 
-            body.buildInstr(WasmOp.REF_CAST_NULL, location, WasmImmediate.HeapType(type))
-
+            body.buildRefCastNullStatic(type, location)
             return
         }
 
@@ -1556,29 +1566,32 @@ class BodyGenerator(
                     body.buildInstr(op, location)
                 }
                 1 -> {
-                    fun getReferenceGcType(): WasmSymbol<WasmTypeDeclaration> {
+                    fun getReferenceGcType(): GcTypeSymbol {
                         val type = function.dispatchReceiverParameter?.type ?: call.typeArguments[0]!!
                         return wasmFileCodegenContext.referenceGcType(type.classOrNull!!)
                     }
 
-                    val immediates = arrayOf(
-                        when (val imm = op.immediates[0]) {
-                            WasmImmediateKind.MEM_ARG ->
-                                WasmImmediate.MemArg(0u, 0u)
-                            WasmImmediateKind.STRUCT_TYPE_IDX ->
-                                WasmImmediate.GcType(getReferenceGcType())
-                            WasmImmediateKind.HEAP_TYPE ->
-                                WasmImmediate.HeapType(WasmHeapType.Type(getReferenceGcType()))
-                            WasmImmediateKind.TYPE_IDX ->
-                                WasmImmediate.TypeIdx(getReferenceGcType())
-                            WasmImmediateKind.MEMORY_IDX ->
-                                WasmImmediate.MemoryIdx(0)
+                    fun getReferenceHeapType(): WasmImmediate.HeapType {
+                        val type = function.dispatchReceiverParameter?.type ?: call.typeArguments[0]!!
+                        return WasmImmediate.HeapType(wasmFileCodegenContext.referenceHeapType(type.classOrNull!!))
+                    }
 
-                            else ->
-                                error("Immediate $imm is unsupported")
-                        }
-                    )
-                    body.buildInstr(op, location, *immediates)
+                    val immediate = when (val imm = op.immediates[0]) {
+                        WasmImmediateKind.MEM_ARG ->
+                            WasmImmediate.MemArg(0u, 0u)
+                        WasmImmediateKind.STRUCT_TYPE_IDX ->
+                            getReferenceGcType()
+                        WasmImmediateKind.HEAP_TYPE ->
+                            getReferenceHeapType()
+                        WasmImmediateKind.TYPE_IDX ->
+                            getReferenceGcType()
+                        WasmImmediateKind.MEMORY_IDX ->
+                            WasmImmediate.MemoryIdx(0)
+                        else ->
+                            error("Immediate $imm is unsupported")
+                    }
+
+                    body.buildInstr(op, location, immediate)
                 }
                 else ->
                     error("Op $opString is unsupported")
@@ -1589,31 +1602,29 @@ class BodyGenerator(
         return false
     }
 
-    private fun IrElement.getSourceLocation() = getSourceLocation(
-        functionContext.currentFunctionSymbol, functionContext.currentFileEntry
-    )
+    private fun IrElement.getSourceLocation(): SourceLocation =
+        locationProvider.getSourceLocation(this, functionContext.currentFunctionSymbol, functionContext.currentFileEntry)
 
-    private fun IrElement.getSourceEndLocation() = getSourceLocation(
-        functionContext.currentFunctionSymbol, functionContext.currentFileEntry, type = LocationType.END
-    )
+    private fun IrElement.getSourceEndLocation(): SourceLocation =
+        locationProvider.getSourceEndLocation(this, functionContext.currentFunctionSymbol, functionContext.currentFileEntry)
 
-    private fun IrElement.nextLocation() = when (getSourceLocation()) {
-        is SourceLocation.DefinedLocation -> SourceLocation.NextLocation
-        else -> SourceLocation.NoLocation
-    }
+    private fun IrElement.nextLocation() =
+        locationProvider.nextLocation(this, functionContext.currentFunctionSymbol, functionContext.currentFileEntry)
 
     companion object {
-        val wasmAbiVersion = WasmSymbol(1)
-        val anyVtableFieldId = WasmSymbol(0)
-        val anyITableFieldId = WasmSymbol(1)
-        val anyRttiFieldId = WasmSymbol(2)
-        val vTableSpecialITableFieldId = WasmSymbol(0)
-        val rttiImplementedIFacesFieldId = WasmSymbol(0)
-        val rttiSuperClassFieldId = WasmSymbol(1)
-        val rttiQualifierGetterFieldId = WasmSymbol(6)
-        val rttiSimpleNameGetterFieldId = WasmSymbol(7)
-        private val classAssociatedObjectsGetterWrapperFieldId = WasmSymbol(0)
+        const val WASM_ABI_VERSION = 1
+        const val ANY_VTABLE_FIELD_ID = 0
+        const val ANY_ITABLE_FIELD_ID = 1
+        const val ANY_RTTI_FIELD_ID = 2
+        const val VTABLE_SPECIAL_ITABLE_FIELD_ID = 0
+        const val RTTI_IMPLEMENTED_INTERFACES_FIELD_ID = 0
+        const val RTTI_SUPER_CLASS_FIELD_ID = 1
+        const val RTTI_QUALIFIED_NAME_GETTER_FIELD_ID = 6
+        const val RTTI_SIMPLE_NAME_GETTER_FIELD_ID = 7
+        const val RTTI_QUALIFIED_NAME_GLOBAL_FIELD_ID = 8
+        const val RTTI_SIMPLE_NAME_GLOBAL_FIELD_ID = 9
+        private const val CLASS_ASSOCIATED_OBJECT_GETTER_WRAPPER_FIELD_ID = 0
         private val exceptionTagId = WasmSymbol(0)
-        private val relativeTryLevelForRethrowInFinallyBlock = WasmImmediate.LabelIdx(0)
+        private val relativeTryLevelForRethrowInFinallyBlock = WasmImmediate.LabelIdx.get(0)
     }
 }

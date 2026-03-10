@@ -1,6 +1,5 @@
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
 }
 
 sourceSets {
@@ -20,14 +19,14 @@ dependencies {
     testImplementation(testFixtures(project(":analysis:low-level-api-fir:low-level-api-fir-native")))
 
     testImplementation(intellijCore())
-    testApi(platform(libs.junit.bom))
+    testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(testFixtures(project(":analysis:analysis-test-framework")))
 }
 
 
-val generateAnalysisApiNativeTests by generator("org.jetbrains.kotlin.generators.tests.analysis.api.konan.GenNativeTestsKt")
+val generateAnalysisApiNativeTests by generator("org.jetbrains.kotlin.generators.tests.analysis.api.konan.GenNativeTestsKt", testSourceSet)
 
 testsJar()
 

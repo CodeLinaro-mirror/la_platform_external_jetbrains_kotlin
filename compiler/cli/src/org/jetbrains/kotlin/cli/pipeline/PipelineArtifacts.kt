@@ -11,10 +11,10 @@ import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 import org.jetbrains.kotlin.cli.common.messages.GroupingMessageCollector
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.Services
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
+import org.jetbrains.kotlin.fir.pipeline.AllModulesFrontendOutput
 import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
-import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.util.PerformanceManager
 
 abstract class PipelineArtifact
@@ -30,7 +30,7 @@ data class ArgumentsPipelineArtifact<out A : CommonCompilerArguments>(
     val messageCollector: GroupingMessageCollector,
     val performanceManager: PerformanceManager,
 ) : PipelineArtifact() {
-    val diagnosticCollector: BaseDiagnosticsCollector = DiagnosticReporterFactory.createPendingReporter(messageCollector)
+    val diagnosticCollector: BaseDiagnosticsCollector = DiagnosticsCollectorImpl()
 }
 
 data class ConfigurationPipelineArtifact(
@@ -40,10 +40,11 @@ data class ConfigurationPipelineArtifact(
 ) : PipelineArtifact()
 
 abstract class FrontendPipelineArtifact : PipelineArtifact() {
-    abstract val result: FirResult
+    abstract val frontendOutput: AllModulesFrontendOutput
     abstract val diagnosticCollector: BaseDiagnosticsCollector
     abstract val configuration: CompilerConfiguration
     abstract fun withNewDiagnosticCollectorImpl(newDiagnosticsCollector: BaseDiagnosticsCollector): FrontendPipelineArtifact
+    abstract fun withNewFrontendOutputImpl(newFrontendOutput: AllModulesFrontendOutput): FrontendPipelineArtifact
 }
 
 abstract class Fir2IrPipelineArtifact : PipelineArtifact() {
@@ -54,4 +55,8 @@ abstract class Fir2IrPipelineArtifact : PipelineArtifact() {
 @Suppress("UNCHECKED_CAST")
 fun <A : FrontendPipelineArtifact> A.withNewDiagnosticCollector(newDiagnosticsCollector: BaseDiagnosticsCollector): A =
     withNewDiagnosticCollectorImpl(newDiagnosticsCollector) as A
+
+@Suppress("UNCHECKED_CAST")
+fun <A : FrontendPipelineArtifact> A.withNewFrontendOutput(newFrontendOutput: AllModulesFrontendOutput): A =
+    withNewFrontendOutputImpl(newFrontendOutput) as A
 

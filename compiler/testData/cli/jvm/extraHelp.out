@@ -20,9 +20,6 @@ where advanced options include:
                              0 means use one thread per processor core.
                              The default value is 1.
   -Xbuild-file=<path>        Path to the .xml build file to compile.
-  -Xcompile-builtins-as-part-of-stdlib
-                             Enable behaviour needed to compile builtins as part of JVM stdlib
-  -Xcompile-java             Reuse 'javac' analysis and compile Java source files.
   -Xdebug                    Enable debug mode for compilation.
                              Currently this includes spilling all variables in a suspending context regardless of whether they are alive.
                              If API Level >= 2.2 -- no-op.
@@ -38,12 +35,13 @@ where advanced options include:
   -Xfriend-paths=<path>      Paths to output directories for friend modules (modules whose internals should be visible).
   -Xgenerate-strict-metadata-version
                              Generate metadata with strict version semantics (see the KDoc entry on 'Metadata.extraInt').
+  -Xignored-annotations-for-bridges=<fq.name>|*
+                             Do not copy these annotations to the bridge methods from their targets.
   -Xindy-allow-annotated-lambdas Allow using 'invokedynamic' for lambda expressions with annotations
   -Xir-do-not-clear-binding-context
                              When using the IR backend, do not clear BindingContext between 'psi2ir' and lowerings.
   -Xjava-package-prefix      Package prefix for Java files.
   -Xjava-source-roots=<path> Paths to directories with Java source files.
-  -Xjavac-arguments=<option[,]> Java compiler arguments.
   -Xjdk-release=<version>    Compile against the specified JDK API version, similarly to javac's '-release'. This requires JDK 9 or newer.
                              The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–25.
                              This also sets the value of '-jvm-target' to be equal to the selected JDK version.
@@ -133,7 +131,6 @@ where advanced options include:
                              Use the scheme for inline class mangling from version 1.4 instead of the one from 1.4.30.
   -Xuse-fast-jar-file-system Use the fast implementation of Jar FS. This may speed up compilation time, but it is experimental.
   -Xuse-inline-scopes-numbers Use inline scopes numbers for inline marker variables.
-  -Xuse-javac                Use javac for Java source and class file analysis.
   -Xuse-old-class-files-reading Use the old implementation for reading class files. This may slow down the compilation and cause problems with Groovy interop.
                              This can be used in the event of problems with the new implementation.
   -Xuse-type-table           Use a type table in metadata serialization.
@@ -185,6 +182,7 @@ where advanced options include:
   -Xdisable-default-scripting-plugin
                              Don't enable the scripting plugin by default.
   -Xdisable-phases           Disable backend phases.
+  -Xdont-sort-source-files   Disable automatic sorting of source files.
   -Xdont-warn-on-error-suppression
                              Don't report warnings when errors are suppressed. This only affects K2.
   -Xdump-directory           Dump the backend state into this directory.
@@ -215,11 +213,22 @@ where advanced options include:
   -Xfragment-sources=<fragment name>:<path>
                              Add sources to a specific fragment of a multiplatform compilation.
   -Xfragments=<fragment name> Declare all known fragments of a multiplatform compilation.
+  -Xheader-mode              Enable header compilation mode.
+                             In this mode, the compiler produces class files that only contain the 'skeleton' of the classes to be
+                             compiled but the method bodies of all the implementations are empty.  This is used to speed up parallel compilation
+                             build systems where header libraries can be used to replace downstream dependencies for which we only need to
+                             see the type names and method signatures required to compile a given translation unit. Inline functions are still kept
+                             with bodies.
+  -Xheader-mode-type={any|compilation}
+                             Generates output based on what it is used for:
+                             -Xheader-mode-type=compilation: Skips the IR generation for modules that don't have inline functions.
+                             -Xheader-mode-type=any: Can be used for any downstream dependency which doesn't require linking.
   -Xignore-const-optimization-errors
                              Ignore all compilation exceptions while optimizing some constant expressions.
   -Xinline-classes           Enable experimental inline classes.
   -Xintellij-plugin-root=<path> Path to 'kotlin-compiler.jar' or the directory where the IntelliJ IDEA configuration files can be found.
   -Xlist-phases              List backend phases.
+  -Xlocal-type-aliases       Enable experimental language support for local type aliases.
   -Xmetadata-klib            Produce a klib that only contains the metadata of declarations.
   -Xmetadata-version         Change the metadata version of the generated binary files.
   -Xmulti-dollar-interpolation Enable experimental multi-dollar interpolation.
@@ -241,6 +250,7 @@ where advanced options include:
   -Xphases-to-validate-after Validate the backend's state after these phases.
   -Xphases-to-validate-before Validate the backend's state before these phases.
   -Xplugin=<path>            Load plugins from the given classpath.
+  -Xprint-configuration      Print compiler configuration.
   -Xprofile-phases           Profile backend phases.
   -Xrender-internal-diagnostic-names
                              Render the internal names of warnings and errors.
@@ -270,6 +280,7 @@ where advanced options include:
   -Xverbose-phases           Be verbose while performing the given backend phases.
   -Xverify-ir={none|warning|error}
                              IR verification mode (no verification by default).
+  -Xverify-ir-nested-offsets Check that offsets of nested IR elements conform to offsets of their containers. Only has effect if '-Xverify-ir' is not 'none'.
   -Xverify-ir-visibility     Check for visibility violations in IR when validating it before running any lowerings. Only has effect if '-Xverify-ir' is not 'none'.
   -Xwarning-level=<WARNING_NAME>:(error|warning|disabled)
                              Set the severity of the given warning.

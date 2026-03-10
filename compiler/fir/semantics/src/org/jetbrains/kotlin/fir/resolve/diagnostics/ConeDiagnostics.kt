@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -64,11 +65,17 @@ class ConeUnresolvedReferenceError(val name: Name) : ConeUnresolvedError {
 class ConeUnresolvedSymbolError(val classId: ClassId) : ConeUnresolvedError {
     override val qualifier: String get() = classId.asSingleFqName().asString()
     override val reason: String get() = "Symbol not found for $classId"
+
+    override val readableDescriptionAsTypeConstructor: String
+        get() = "Unresolved symbol: $classId"
 }
 
 class ConeUnresolvedTypeQualifierError(val qualifiers: List<FirQualifierPart>) : ConeUnresolvedError {
     override val qualifier: String get() = qualifiers.joinToString(separator = ".") { it.name.asString() }
     override val reason: String get() = "Symbol not found for $qualifier"
+
+    override val readableDescriptionAsTypeConstructor: String
+        get() = "Unresolved qualified name: $qualifier"
 }
 
 class ConeUnresolvedNameError(
@@ -281,7 +288,17 @@ sealed interface ConeUnmatchedTypeArgumentsError : ConeDiagnosticWithSymbol<FirC
 class ConeWrongNumberOfTypeArgumentsError(
     override val desiredCount: Int,
     override val symbol: FirClassLikeSymbol<*>,
-    source: KtSourceElement
+    source: KtSourceElement,
+    /**
+     * Right now, in LHS of callable reference, both diagnostic with this flag and without it can be encountered.
+     * If it is present, [org.jetbrains.kotlin.config.LanguageFeature.ProperSupportOfInnerClassesInCallableReferenceLHS] is checked
+     * to determine whether it is error or deprecation warning. Additionally, source positionings for errors with this flag and without it
+     * are different.
+     *
+     * In case [org.jetbrains.kotlin.config.LanguageFeature.ProperSupportOfInnerClassesInCallableReferenceLHS] is on, only
+     * diagnostics *with* this flag are left in LHSs.
+     */
+    val isDeprecationErrorForCallableReferenceLHS: Boolean = false,
 ) : ConeDiagnosticWithSource(source), ConeUnmatchedTypeArgumentsError {
     override val reason: String get() = "Wrong number of type arguments"
 }
@@ -324,10 +341,6 @@ class ConeInstanceAccessBeforeSuperCall(val target: String) : ConeDiagnostic {
 
 class ConeInaccessibleOuterClass(val symbol: FirClassSymbol<*>) : ConeDiagnostic {
     override val reason: String get() = "Cannot access outer class ''${symbol.classId}'' of non-inner class"
-}
-
-class ConeUnsupportedCallableReferenceTarget(override val candidate: AbstractCallCandidate<*>) : ConeDiagnosticWithSingleCandidate {
-    override val reason: String get() = "Unsupported declaration for callable reference: ${candidate.symbol.fir.render()}"
 }
 
 class ConeTypeParameterSupertype(val symbol: FirTypeParameterSymbol) : ConeDiagnostic {
@@ -380,8 +393,9 @@ class ConeNotFunctionAsOperator(val symbol: FirBasedSymbol<*>) : ConeDiagnostic 
     override val reason: String get() = "Cannot use not function as an operator"
 }
 
-class ConeUnknownLambdaParameterTypeDiagnostic : ConeDiagnostic {
-    override val reason: String get() = "Unknown return lambda parameter type"
+class ConeUnknownLambdaParameterTypeDiagnostic(val isReturnType: Boolean) : ConeDiagnostic {
+    override val reason: String
+        get() = if (isReturnType) "Unknown lambda return type" else "Unknown lambda parameter type"
 }
 
 private fun describeSymbol(symbol: FirBasedSymbol<*>): String {
@@ -449,4 +463,9 @@ class ConeTypeMismatch(val lowerType: ConeKotlinType, val upperType: ConeKotlinT
 object ConePostponedInferenceDiagnostic : ConeDiagnostic {
     override val reason: String
         get() = "Cone type inference has been postponed due to lambda resolution"
+}
+
+class ConeImplicitPropertyTypeMakesBehaviorOrderDependant(val property: FirPropertySymbol) : ConeDiagnostic {
+    override val reason: String
+        get() = "The resolution result with the property ${property.callableId} depends on the declaration order."
 }

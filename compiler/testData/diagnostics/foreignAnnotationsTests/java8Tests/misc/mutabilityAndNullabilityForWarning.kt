@@ -1,7 +1,7 @@
-// NULLABILITY_ANNOTATIONS: @org.jetbrains.annotations:warn
+// NULLABILITY_ANNOTATIONS: @org.jetbrains.annotations.Nullable:warn
 // DIAGNOSTICS: -UNUSED_PARAMETER
 
-// FILE: ReadOnly.java
+// FILE: org/jetbrains/annotations/ReadOnly.java
 package org.jetbrains.annotations;
 
 public @interface ReadOnly {}

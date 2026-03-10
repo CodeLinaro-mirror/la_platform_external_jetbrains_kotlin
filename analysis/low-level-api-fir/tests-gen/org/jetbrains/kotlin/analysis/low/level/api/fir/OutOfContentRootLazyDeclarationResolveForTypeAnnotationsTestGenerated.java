@@ -366,18 +366,6 @@ public class OutOfContentRootLazyDeclarationResolveForTypeAnnotationsTestGenerat
     }
 
     @Test
-    @TestMetadata("contextReceiverAsImplicitReturnType.kt")
-    public void testContextReceiverAsImplicitReturnType() {
-      runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/function/contextReceiverAsImplicitReturnType.kt");
-    }
-
-    @Test
-    @TestMetadata("contextReceiverAsImplicitReturnTypePropagation.kt")
-    public void testContextReceiverAsImplicitReturnTypePropagation() {
-      runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/function/contextReceiverAsImplicitReturnTypePropagation.kt");
-    }
-
-    @Test
     @TestMetadata("copyTypeCollisionAndAnnotations.kt")
     public void testCopyTypeCollisionAndAnnotations() {
       runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/function/copyTypeCollisionAndAnnotations.kt");
@@ -629,6 +617,24 @@ public class OutOfContentRootLazyDeclarationResolveForTypeAnnotationsTestGenerat
     @TestMetadata("contextReceiverAsImplicitReturnTypePropagation.kt")
     public void testContextReceiverAsImplicitReturnTypePropagation() {
       runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/property/contextReceiverAsImplicitReturnTypePropagation.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitBackingField.kt")
+    public void testExplicitBackingField() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/property/explicitBackingField.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitBackingFieldWithAnnotatedImplicitType.kt")
+    public void testExplicitBackingFieldWithAnnotatedImplicitType() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/property/explicitBackingFieldWithAnnotatedImplicitType.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitBackingFieldWithComplexType.kt")
+    public void testExplicitBackingFieldWithComplexType() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolveTypeAnnotations/property/explicitBackingFieldWithComplexType.kt");
     }
 
     @Test

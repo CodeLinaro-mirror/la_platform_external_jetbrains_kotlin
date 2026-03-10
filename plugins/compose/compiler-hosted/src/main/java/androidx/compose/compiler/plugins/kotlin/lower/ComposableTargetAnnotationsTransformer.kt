@@ -24,18 +24,20 @@ import androidx.compose.compiler.plugins.kotlin.analysis.StabilityInferencer
 import androidx.compose.compiler.plugins.kotlin.inference.*
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
 import org.jetbrains.kotlin.ir.interpreter.getLastOverridden
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeBuilder
 import org.jetbrains.kotlin.ir.types.impl.buildSimpleType
 import org.jetbrains.kotlin.ir.types.impl.toBuilder
 import org.jetbrains.kotlin.ir.util.*
@@ -418,7 +420,7 @@ class ComposableTargetAnnotationsTransformer(
         symbol.owner.body?.findTransformedLambda()
             ?: error("Could not find the singleton lambda for ${dump()}")
 
-    private fun Item.toAnnotation(): IrConstructorCall? =
+    private fun Item.toAnnotation(): IrAnnotation? =
         if (ComposableTargetClass != null && ComposableOpenTargetClass != null) {
             when (this) {
                 is Token -> annotation(ComposableTargetClass).also {
@@ -433,10 +435,10 @@ class ComposableTargetAnnotationsTransformer(
             }
         } else null
 
-    private fun Item.toAnnotations(): List<IrConstructorCall> =
+    private fun Item.toAnnotations(): List<IrAnnotation> =
         toAnnotation()?.let { listOf(it) } ?: emptyList()
 
-    private fun Scheme.toAnnotations(): List<IrConstructorCall> =
+    private fun Scheme.toAnnotations(): List<IrAnnotation> =
         if (ComposableInferredTargetClass != null) {
             listOf(
                 annotation(ComposableInferredTargetClass).also {
@@ -446,7 +448,7 @@ class ComposableTargetAnnotationsTransformer(
         } else emptyList()
 
     private fun annotation(classSymbol: IrClassSymbol) =
-        IrConstructorCallImpl(
+        IrAnnotationImpl(
             UNDEFINED_OFFSET,
             UNDEFINED_OFFSET,
             classSymbol.defaultType,
@@ -456,18 +458,32 @@ class ComposableTargetAnnotationsTransformer(
             origin = null
         )
 
-    private fun filteredAnnotations(annotations: List<IrConstructorCall>) = annotations
-        .filter {
-            !it.isComposableTarget &&
-                    !it.isComposableOpenTarget &&
-                    !it.isComposableInferredTarget
+    private fun filteredAnnotations(annotations: List<IrConstructorCall>): List<IrAnnotation> =
+        annotations.filterNot(::isComposableTargetAnnotation).filterIsInstance<IrAnnotation>()
+
+    private fun isComposableTargetAnnotation(it: IrConstructorCall): Boolean =
+        it.isComposableTarget || it.isComposableOpenTarget || it.isComposableInferredTarget
+
+    fun addAnnotationToType(type: IrSimpleTypeBuilder, target: Item) {
+        type.annotations = filteredAnnotations(type.annotations) + target.toAnnotations()
+    }
+
+    fun addAnnotationToDeclaration(declaration: IrDeclaration, target: Item) {
+        addMetadataVisibleAnnotations(declaration, target.toAnnotations())
+    }
+
+    fun addAnnotationToDeclaration(declaration: IrDeclaration, scheme: Scheme) {
+        addMetadataVisibleAnnotations(declaration, scheme.toAnnotations())
+    }
+
+    private fun addMetadataVisibleAnnotations(declaration: IrDeclaration, annotations: List<IrAnnotation>) {
+        declaration.annotations = filteredAnnotations(declaration.annotations) + annotations
+        if (declaration is IrMetadataSourceOwner && declaration.metadata is FirMetadataSource) {
+            val metadataVisible = context.metadataDeclarationRegistrar.getMetadataVisibleAnnotationsForElement(declaration)
+            metadataVisible.removeIf(::isComposableTargetAnnotation)
+            metadataVisible += annotations
         }
-
-    fun updatedAnnotations(annotations: List<IrConstructorCall>, target: Item) =
-        filteredAnnotations(annotations) + target.toAnnotations()
-
-    fun updatedAnnotations(annotations: List<IrConstructorCall>, scheme: Scheme) =
-        filteredAnnotations(annotations) + scheme.toAnnotations()
+    }
 
     fun inferenceFunctionOf(function: IrFunction) =
         InferenceFunctionDeclaration(this, function)
@@ -558,18 +574,6 @@ sealed class InferenceFunction(
      * unconstrained or insufficiently constrained type parameters.
      */
     open fun isOverlyWide(): Boolean = false
-
-    /**
-     * Helper routine to produce an updated annotations list.
-     */
-    fun updatedAnnotations(annotations: List<IrConstructorCall>, target: Item) =
-        transformer.updatedAnnotations(annotations, target)
-
-    /**
-     * Helper routine to produce an updated annotations list.
-     */
-    fun updatedAnnotations(annotations: List<IrConstructorCall>, scheme: Scheme) =
-        transformer.updatedAnnotations(annotations, scheme)
 }
 
 /**
@@ -598,9 +602,9 @@ class InferenceFunctionDeclaration(
 
     override fun updateScheme(scheme: Scheme) {
         if (scheme.shouldSerialize) {
-            function.annotations = updatedAnnotations(function.annotations, scheme)
+            transformer.addAnnotationToDeclaration(function, scheme)
         } else {
-            function.annotations = updatedAnnotations(function.annotations, scheme.target)
+            transformer.addAnnotationToDeclaration(function, scheme.target)
             parameters().zip(scheme.parameters) { parameter, parameterScheme ->
                 parameter.updateScheme(parameterScheme)
             }
@@ -749,7 +753,7 @@ class InferenceFunctionParameter(
         val type = parameter.type
         if (type is IrSimpleType) {
             val newType = type.toBuilder().apply {
-                annotations = updatedAnnotations(annotations, scheme.target)
+                transformer.addAnnotationToType(this, scheme.target)
             }.buildSimpleType()
             parameter.type = newType
         }

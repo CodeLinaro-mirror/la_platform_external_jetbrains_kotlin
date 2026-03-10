@@ -1,4 +1,4 @@
-// FIR_IDENTICAL
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -UNUSED_VARIABLE -NOTHING_TO_INLINE
 // LANGUAGE: +NativeJsProhibitLateinitIsInitializedIntrinsicWithoutPrivateAccess
 // FILE: stdlibInternal.kt

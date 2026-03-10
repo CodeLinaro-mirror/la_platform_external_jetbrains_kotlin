@@ -1,15 +1,11 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.components
 
-import org.jetbrains.kotlin.analysis.api.KaContextParameterApi
-import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
-import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
-import org.jetbrains.kotlin.analysis.api.KaNoContextParameterBridgeRequired
-import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.*
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
@@ -17,12 +13,14 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaClassifierSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaValueParameterSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaFlexibleType
+import org.jetbrains.kotlin.analysis.api.types.KaStarTypeProjection
 import org.jetbrains.kotlin.analysis.api.types.KaType
 import org.jetbrains.kotlin.psi.KtDoubleColonExpression
 import org.jetbrains.kotlin.psi.KtElement
 import org.jetbrains.kotlin.psi.KtTypeReference
 
-@SubclassOptInRequired(KaImplementationDetail::class)
+@KaSessionComponentImplementationDetail
+@SubclassOptInRequired(KaSessionComponentImplementationDetail::class)
 public interface KaTypeProvider : KaSessionComponent {
     /**
      * [builtinTypes] provides [KaType] instances for built-in types.
@@ -147,29 +145,30 @@ public interface KaTypeProvider : KaSessionComponent {
     }
 
     /**
-     * A [KaType] derived from the given type by taking warning-level nullability annotations into account to determine the type's
-     * nullability. If the derived type doesn't differ from the original type, the result is `null`.
+     * A [KaType] derived from the given type by enforcing warning-level nullability annotations.
+     * If the derived type doesn't differ from the original type, the original type is returned.
      *
      * In general, Java type enhancement allows the Kotlin compiler to infer a more specific nullability for a Java type based on its
-     * [nullability annotations](https://kotlinlang.org/docs/java-interop.html#nullability-annotations). Normally, only [strict][org.jetbrains.kotlin.load.java.ReportLevel.STRICT]
+     * [nullability annotations](https://kotlinlang.org/docs/java-interop.html#nullability-annotations). Normally,
+     * only [strict][org.jetbrains.kotlin.load.java.ReportLevel.STRICT]
      * nullability annotations have an impact on a resolved type's nullability.
+     * These annotations are already taken into account in [KaType].
      *
-     * However, there are also [warning-level][org.jetbrains.kotlin.load.java.ReportLevel.WARN] nullability annotations (by default), such
-     * as Android's `RecentlyNullable` and `RecentlyNonNull`. These don't affect a resolved type's nullability. [enhancedType] can be used
-     * to obtain a [KaType] which takes warning-level nullability annotations into account for its nullability.
+     * However, there are also [warning-level][org.jetbrains.kotlin.load.java.ReportLevel.WARN] nullability annotations,
+     * such as Android's `RecentlyNullable` and `RecentlyNonNull`.
+     * These annotations have weaker constraints and don't affect a resolved type's nullability.
+     * [augmentedByWarningLevelAnnotations] returns a [KaType] with weak annotations treated as strict ones.
      *
-     * See also [NULLABILITY_ANNOTATION_SETTINGS][org.jetbrains.kotlin.load.java.NULLABILITY_ANNOTATION_SETTINGS], which is a list of
-     * default report levels for different nullability annotations.
+     * See the list of default report levels for different nullability annotations in
+     * [NULLABILITY_ANNOTATION_SETTINGS][org.jetbrains.kotlin.load.java.NULLABILITY_ANNOTATION_SETTINGS]
+     *
+     * ### Examples
+     *
+     * - For `@androidx.annotation.RecentlyNullable X!` [augmentedByWarningLevelAnnotations] returns `X?`.
+     * - For `@androidx.annotation.RecentlyNonNull X!` [augmentedByWarningLevelAnnotations] returns `X`.
      */
     @KaExperimentalApi
-    public val KaType.enhancedType: KaType?
-
-    /**
-     * @see enhancedType
-     */
-    @KaExperimentalApi
-    public val KaType.enhancedTypeOrSelf: KaType?
-        get() = withValidityAssertion { enhancedType ?: this }
+    public val KaType.augmentedByWarningLevelAnnotations: KaType
 
     /**
      * Returns the representation of [this] in terms of [KaType].
@@ -179,6 +178,16 @@ public interface KaTypeProvider : KaSessionComponent {
      * @see KaTypeCreator
      */
     public val KaClassifierSymbol.defaultType: KaType
+
+    /**
+     * Returns the representation of [this] in terms of [KaType].
+     *
+     * Type parameters are substituted with [KaStarTypeProjection], e.g. `List<*>` for the `List` class.
+     *
+     * @see KaTypeCreator
+     */
+    @KaExperimentalApi
+    public val KaClassifierSymbol.defaultTypeWithStarProjections: KaType
 
     /**
      * If [this] is a [vararg](https://kotlinlang.org/docs/functions.html#variable-number-of-arguments-varargs) parameter,
@@ -401,9 +410,9 @@ public abstract class KaBuiltinTypes : KaLifetimeOwner {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val builtinTypes: KaBuiltinTypes
-    get() = with(s) { builtinTypes }
+    get() = with(session) { builtinTypes }
 
 /**
  * Approximates [KaType] to a [denotable][KaTypeInformationProvider.isDenotable] supertype.
@@ -421,10 +430,10 @@ public val builtinTypes: KaBuiltinTypes
     ReplaceWith("this.approximateToDenotableSupertype(!approximateLocalTypes)")
 )
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToSuperPublicDenotable(approximateLocalTypes: Boolean): KaType? {
     @Suppress("DEPRECATION")
-    return with(s) {
+    return with(session) {
         approximateToSuperPublicDenotable(
             approximateLocalTypes = approximateLocalTypes,
         )
@@ -444,10 +453,10 @@ public fun KaType.approximateToSuperPublicDenotable(approximateLocalTypes: Boole
     ReplaceWith("this.approximateToDenotableSupertypeOrSelf(!approximateLocalTypes)")
 )
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToSuperPublicDenotableOrSelf(approximateLocalTypes: Boolean): KaType {
     @Suppress("DEPRECATION")
-    return with(s) {
+    return with(session) {
         approximateToSuperPublicDenotableOrSelf(
             approximateLocalTypes = approximateLocalTypes,
         )
@@ -466,9 +475,9 @@ public fun KaType.approximateToSuperPublicDenotableOrSelf(approximateLocalTypes:
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToDenotableSupertype(allowLocalDenotableTypes: Boolean): KaType? {
-    return with(s) {
+    return with(session) {
         approximateToDenotableSupertype(
             allowLocalDenotableTypes = allowLocalDenotableTypes,
         )
@@ -484,9 +493,9 @@ public fun KaType.approximateToDenotableSupertype(allowLocalDenotableTypes: Bool
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToDenotableSupertypeOrSelf(allowLocalDenotableTypes: Boolean): KaType {
-    return with(s) {
+    return with(session) {
         approximateToDenotableSupertypeOrSelf(
             allowLocalDenotableTypes = allowLocalDenotableTypes,
         )
@@ -502,9 +511,9 @@ public fun KaType.approximateToDenotableSupertypeOrSelf(allowLocalDenotableTypes
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToDenotableSubtype(): KaType? {
-    return with(s) {
+    return with(session) {
         approximateToDenotableSubtype()
     }
 }
@@ -518,9 +527,9 @@ public fun KaType.approximateToDenotableSubtype(): KaType? {
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToDenotableSubtypeOrSelf(): KaType {
-    return with(s) {
+    return with(session) {
         approximateToDenotableSubtypeOrSelf()
     }
 }
@@ -556,9 +565,9 @@ public fun KaType.approximateToDenotableSubtypeOrSelf(): KaType {
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToDenotableSupertype(position: KtElement): KaType? {
-    return with(s) {
+    return with(session) {
         approximateToDenotableSupertype(
             position = position,
         )
@@ -574,9 +583,9 @@ public fun KaType.approximateToDenotableSupertype(position: KtElement): KaType? 
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.approximateToDenotableSupertypeOrSelf(position: KtElement): KaType {
-    return with(s) {
+    return with(session) {
         approximateToDenotableSupertypeOrSelf(
             position = position,
         )
@@ -584,36 +593,34 @@ public fun KaType.approximateToDenotableSupertypeOrSelf(position: KtElement): Ka
 }
 
 /**
- * A [KaType] derived from the given type by taking warning-level nullability annotations into account to determine the type's
- * nullability. If the derived type doesn't differ from the original type, the result is `null`.
+ * A [KaType] derived from the given type by enforcing warning-level nullability annotations.
+ * If the derived type doesn't differ from the original type, the original type is returned.
  *
  * In general, Java type enhancement allows the Kotlin compiler to infer a more specific nullability for a Java type based on its
- * [nullability annotations](https://kotlinlang.org/docs/java-interop.html#nullability-annotations). Normally, only [strict][org.jetbrains.kotlin.load.java.ReportLevel.STRICT]
+ * [nullability annotations](https://kotlinlang.org/docs/java-interop.html#nullability-annotations). Normally,
+ * only [strict][org.jetbrains.kotlin.load.java.ReportLevel.STRICT]
  * nullability annotations have an impact on a resolved type's nullability.
+ * These annotations are already taken into account in [KaType].
  *
- * However, there are also [warning-level][org.jetbrains.kotlin.load.java.ReportLevel.WARN] nullability annotations (by default), such
- * as Android's `RecentlyNullable` and `RecentlyNonNull`. These don't affect a resolved type's nullability. [enhancedType] can be used
- * to obtain a [KaType] which takes warning-level nullability annotations into account for its nullability.
+ * However, there are also [warning-level][org.jetbrains.kotlin.load.java.ReportLevel.WARN] nullability annotations,
+ * such as Android's `RecentlyNullable` and `RecentlyNonNull`.
+ * These annotations have weaker constraints and don't affect a resolved type's nullability.
+ * [augmentedByWarningLevelAnnotations] returns a [KaType] with weak annotations treated as strict ones.
  *
- * See also [NULLABILITY_ANNOTATION_SETTINGS][org.jetbrains.kotlin.load.java.NULLABILITY_ANNOTATION_SETTINGS], which is a list of
- * default report levels for different nullability annotations.
+ * See the list of default report levels for different nullability annotations in
+ * [NULLABILITY_ANNOTATION_SETTINGS][org.jetbrains.kotlin.load.java.NULLABILITY_ANNOTATION_SETTINGS]
+ *
+ * ### Examples
+ *
+ * - For `@androidx.annotation.RecentlyNullable X!` [augmentedByWarningLevelAnnotations] returns `X?`.
+ * - For `@androidx.annotation.RecentlyNonNull X!` [augmentedByWarningLevelAnnotations] returns `X`.
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
-public val KaType.enhancedType: KaType?
-    get() = with(s) { enhancedType }
-
-/**
- * @see enhancedType
- */
-// Auto-generated bridge. DO NOT EDIT MANUALLY!
-@KaExperimentalApi
-@KaContextParameterApi
-context(s: KaSession)
-public val KaType.enhancedTypeOrSelf: KaType?
-    get() = with(s) { enhancedTypeOrSelf }
+context(session: KaSession)
+public val KaType.augmentedByWarningLevelAnnotations: KaType
+    get() = with(session) { augmentedByWarningLevelAnnotations }
 
 /**
  * Returns the representation of [this] in terms of [KaType].
@@ -624,9 +631,23 @@ public val KaType.enhancedTypeOrSelf: KaType?
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaClassifierSymbol.defaultType: KaType
-    get() = with(s) { defaultType }
+    get() = with(session) { defaultType }
+
+/**
+ * Returns the representation of [this] in terms of [KaType].
+ *
+ * Type parameters are substituted with [KaStarTypeProjection], e.g. `List<*>` for the `List` class.
+ *
+ * @see KaTypeCreator
+ */
+// Auto-generated bridge. DO NOT EDIT MANUALLY!
+@KaExperimentalApi
+@KaContextParameterApi
+context(session: KaSession)
+public val KaClassifierSymbol.defaultTypeWithStarProjections: KaType
+    get() = with(session) { defaultTypeWithStarProjections }
 
 /**
  * If [this] is a [vararg](https://kotlinlang.org/docs/functions.html#variable-number-of-arguments-varargs) parameter,
@@ -639,9 +660,9 @@ public val KaClassifierSymbol.defaultType: KaType
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaValueParameterSymbol.varargArrayType: KaType?
-    get() = with(s) { varargArrayType }
+    get() = with(session) { varargArrayType }
 
 /**
  * Computes the common supertype of the given [KaType]s.
@@ -650,9 +671,9 @@ public val KaValueParameterSymbol.varargArrayType: KaType?
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val Iterable<KaType>.commonSupertype: KaType
-    get() = with(s) { commonSupertype }
+    get() = with(session) { commonSupertype }
 
 /**
  * Computes the common supertype of the given [KaType]s.
@@ -661,9 +682,9 @@ public val Iterable<KaType>.commonSupertype: KaType
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val Array<KaType>.commonSupertype: KaType
-    get() = with(s) { commonSupertype }
+    get() = with(session) { commonSupertype }
 
 /**
  * Resolves the given [KtTypeReference] to its corresponding [KaType].
@@ -672,9 +693,9 @@ public val Array<KaType>.commonSupertype: KaType
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KtTypeReference.type: KaType
-    get() = with(s) { type }
+    get() = with(session) { type }
 
 /**
  * Resolves the given [KtDoubleColonExpression] to the [KaType] of its receiver.
@@ -696,18 +717,18 @@ public val KtTypeReference.type: KaType
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KtDoubleColonExpression.receiverType: KaType?
-    get() = with(s) { receiverType }
+    get() = with(session) { receiverType }
 
 /**
  * Creates a new [KaType] based on the given type with the updated nullability specified by [isMarkedNullable].
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.withNullability(isMarkedNullable: Boolean): KaType {
-    return with(s) {
+    return with(session) {
         withNullability(
             isMarkedNullable = isMarkedNullable,
         )
@@ -719,9 +740,9 @@ public fun KaType.withNullability(isMarkedNullable: Boolean): KaType {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.upperBoundIfFlexible(): KaType {
-    return with(s) {
+    return with(session) {
         upperBoundIfFlexible()
     }
 }
@@ -731,9 +752,9 @@ public fun KaType.upperBoundIfFlexible(): KaType {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.lowerBoundIfFlexible(): KaType {
-    return with(s) {
+    return with(session) {
         lowerBoundIfFlexible()
     }
 }
@@ -743,9 +764,9 @@ public fun KaType.lowerBoundIfFlexible(): KaType {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.hasCommonSubtypeWith(that: KaType): Boolean {
-    return with(s) {
+    return with(session) {
         hasCommonSubtypeWith(
             that = that,
         )
@@ -758,9 +779,9 @@ public fun KaType.hasCommonSubtypeWith(that: KaType): Boolean {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun collectImplicitReceiverTypes(position: KtElement): List<KaType> {
-    return with(s) {
+    return with(session) {
         collectImplicitReceiverTypes(
             position = position,
         )
@@ -783,9 +804,9 @@ public fun collectImplicitReceiverTypes(position: KtElement): List<KaType> {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.directSupertypes(shouldApproximate: Boolean): Sequence<KaType> {
-    return with(s) {
+    return with(session) {
         directSupertypes(
             shouldApproximate = shouldApproximate,
         )
@@ -806,9 +827,9 @@ public fun KaType.directSupertypes(shouldApproximate: Boolean): Sequence<KaType>
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaType.directSupertypes: Sequence<KaType>
-    get() = with(s) { directSupertypes }
+    get() = with(session) { directSupertypes }
 
 /**
  * Returns all supertypes of the given [KaType]. The resulting sequence is ordered by a breadth-first traversal of the class hierarchy,
@@ -819,9 +840,9 @@ public val KaType.directSupertypes: Sequence<KaType>
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaType.allSupertypes(shouldApproximate: Boolean): Sequence<KaType> {
-    return with(s) {
+    return with(session) {
         allSupertypes(
             shouldApproximate = shouldApproximate,
         )
@@ -836,9 +857,9 @@ public fun KaType.allSupertypes(shouldApproximate: Boolean): Sequence<KaType> {
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaType.allSupertypes: Sequence<KaType>
-    get() = with(s) { allSupertypes }
+    get() = with(session) { allSupertypes }
 
 /**
  * This function is provided for a few use-cases where it's hard to go without it.
@@ -854,16 +875,16 @@ public val KaType.allSupertypes: Sequence<KaType>
 @Suppress("DeprecatedCallableAddReplaceWith")
 @Deprecated("Avoid using this function")
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaCallableSymbol.dispatchReceiverType: KaType?
     @Suppress("DEPRECATION")
-    get() = with(s) { dispatchReceiverType }
+    get() = with(session) { dispatchReceiverType }
 
 /**
  * The array type's element type if the given [KaType] is a primitive type array or [Array], and `null` otherwise.
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaType.arrayElementType: KaType?
-    get() = with(s) { arrayElementType }
+    get() = with(session) { arrayElementType }

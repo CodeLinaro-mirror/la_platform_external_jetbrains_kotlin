@@ -8,13 +8,15 @@ package org.jetbrains.kotlin.test.frontend.fir.handlers
 import com.intellij.openapi.util.TextRange
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.checkers.utils.TypeOfCall
-import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport
 import org.jetbrains.kotlin.cli.pipeline.metadata.MetadataFrontendPipelineArtifact
-import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.config.AnalysisFlag
+import org.jetbrains.kotlin.config.AnalysisFlags
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.diagnostics.KtDiagnosticRenderers.TO_STRING
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
-import org.jetbrains.kotlin.diagnostics.impl.SimpleDiagnosticsCollector
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.diagnostics.rendering.BaseDiagnosticRendererFactory
 import org.jetbrains.kotlin.diagnostics.rendering.Renderers
 import org.jetbrains.kotlin.fir.*
@@ -116,7 +118,7 @@ class FullDiagnosticsRenderer(private val directive: SimpleDirective) {
                         is KtDiagnosticWithSource -> it.textRanges
                         is KtDiagnosticWithoutSource -> listOf(it.firstRange)
                     },
-                    severity = AnalyzerWithCompilerReport.convertSeverity(it.severity).toString().toLowerCaseAsciiOnly(),
+                    severity = it.severity.toCompilerMessageSeverity().toString().toLowerCaseAsciiOnly(),
                     message = it.renderMessage()
                 )
             }
@@ -158,10 +160,10 @@ class FirDiagnosticsHandler(testServices: TestServices) : FirAnalysisHandler(tes
             val currentModule = part.module
             val lightTreeComparingModeEnabled = FirDiagnosticsDirectives.COMPARE_WITH_LIGHT_TREE in currentModule.directives
             val lightTreeEnabled = currentModule.directives.singleValue(FirDiagnosticsDirectives.FIR_PARSER) == FirParser.LightTree
-            val forceRenderArguments = FirDiagnosticsDirectives.RENDER_DIAGNOSTICS_MESSAGES in currentModule.directives
+            val forceRenderArguments = FirDiagnosticsDirectives.RENDER_DIAGNOSTIC_ARGUMENTS in currentModule.directives
 
             for (file in currentModule.files) {
-                val firFile = info.mainFirFiles[file] ?: continue
+                val firFile = info.mainFirFilesByTestFile[file] ?: continue
                 var diagnostics = frontendDiagnosticsPerFile[firFile]
                 if (AdditionalFilesDirectives.CHECK_TYPE in currentModule.directives) {
                     diagnostics = diagnostics.filter { it.diagnostic.factory.name != FirErrors.UNDERSCORE_USAGE_WITHOUT_BACKTICKS.name }
@@ -460,13 +462,15 @@ private class DebugDiagnosticConsumer(
                 sourceElement,
                 factory.severity,
                 factory,
-                factory.defaultPositioningStrategy
+                factory.defaultPositioningStrategy,
+                DiagnosticContext.Default,
             )
             is KtLightSourceElement -> KtLightSimpleDiagnostic(
                 sourceElement,
                 factory.severity,
                 factory,
-                factory.defaultPositioningStrategy
+                factory.defaultPositioningStrategy,
+                DiagnosticContext.Default,
             )
         }
 
@@ -495,14 +499,16 @@ private class DebugDiagnosticConsumer(
                 argumentFactory(),
                 factory.severity,
                 factory,
-                factory.defaultPositioningStrategy
+                factory.defaultPositioningStrategy,
+                DiagnosticContext.Default,
             )
             is KtLightSourceElement -> KtLightDiagnosticWithParameters1(
                 positionedElement,
                 argumentFactory(),
                 factory.severity,
                 factory,
-                factory.defaultPositioningStrategy
+                factory.defaultPositioningStrategy,
+                DiagnosticContext.Default,
             )
         }
 
@@ -623,7 +629,7 @@ enum class KmpCompilationMode {
 }
 
 open class FirDiagnosticCollectorService(val testServices: TestServices) : TestService {
-    val reporterForLTSyntaxErrors = SimpleDiagnosticsCollector(BaseDiagnosticsCollector.RawReporter.DO_NOTHING)
+    val reporterForLTSyntaxErrors = DiagnosticsCollectorImpl()
 
     private val cache: MutableMap<FirOutputArtifact, DiagnosticsMap> = mutableMapOf()
 
@@ -641,7 +647,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
     }
 
     private fun computeDiagnostics(info: FirOutputArtifact): ListMultimap<FirFile, DiagnosticWithKmpCompilationMode> {
-        val allFiles = info.partsForDependsOnModules.flatMap { it.firFiles.values }
+        val allFiles = info.partsForDependsOnModules.flatMap { it.firFilesByTestFile.values }
         val platformPart = info.partsForDependsOnModules.last()
         val lazyDeclarationResolver = platformPart.session.lazyDeclarationResolver
         val result = listMultimapOf<FirFile, DiagnosticWithKmpCompilationMode>()
@@ -673,20 +679,24 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                     processDiagnosticsFromCliPhase(diagnosticsCollector, mode)
                 }
                 else -> {
-                    result += platformPart.session.runCheckers(
-                        platformPart.scopeSession,
-                        allFiles,
-                        DiagnosticReporterFactory.createPendingReporter(messageCollector),
-                        mppCheckerKind = MppCheckerKind.Platform
-                    ).convertToTestDiagnostics(KmpCompilationMode.PLATFORM)
+                    if (!platformPart.session.languageVersionSettings.getFlag(AnalysisFlags.headerMode)) {
+                        result += platformPart.session.runCheckers(
+                            platformPart.scopeSession,
+                            allFiles,
+                            DiagnosticsCollectorImpl(),
+                            mppCheckerKind = MppCheckerKind.Platform
+                        ).convertToTestDiagnostics(KmpCompilationMode.PLATFORM)
+                    }
 
                     for (part in info.partsForDependsOnModules) {
-                        result += part.session.runCheckers(
-                            part.scopeSession,
-                            part.firFiles.values,
-                            DiagnosticReporterFactory.createPendingReporter(messageCollector),
-                            mppCheckerKind = MppCheckerKind.Common
-                        ).convertToTestDiagnostics(KmpCompilationMode.PLATFORM)
+                        if (!part.session.languageVersionSettings.getFlag(AnalysisFlags.headerMode)) {
+                            result += part.session.runCheckers(
+                                part.scopeSession,
+                                part.firFilesByTestFile.values,
+                                DiagnosticsCollectorImpl(),
+                                mppCheckerKind = MppCheckerKind.Common
+                            ).convertToTestDiagnostics(KmpCompilationMode.PLATFORM)
+                        }
                     }
 
 
@@ -700,8 +710,8 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                     part.session.turnOnMetadataCompilationAnalysisFlag {
                         result += part.session.runCheckers(
                             part.scopeSession,
-                            part.firFiles.values,
-                            DiagnosticReporterFactory.createPendingReporter(messageCollector),
+                            part.firFilesByTestFile.values,
+                            DiagnosticsCollectorImpl(),
                             mppCheckerKind = MppCheckerKind.Platform
                         ).convertToTestDiagnostics(KmpCompilationMode.METADATA)
                     }
@@ -715,7 +725,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                     platformPart.session.collectLostDiagnosticsOnFile(
                         platformPart.scopeSession,
                         file,
-                        DiagnosticReporterFactory.createPendingReporter(messageCollector)
+                        DiagnosticsCollectorImpl()
                     ).forEach { lostDiagnostics.put(file, DiagnosticWithKmpCompilationMode(it, KmpCompilationMode.PLATFORM)) }
                 }
             }
@@ -742,7 +752,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
         part: FirOutputPartForDependsOnModule,
         destination: ListMultimap<FirFile, DiagnosticWithKmpCompilationMode>,
     ) {
-        for ((testFile, firFile) in part.firFiles) {
+        for ((testFile, firFile) in part.firFilesByTestFile) {
             val syntaxErrors = if (firFile.psi != null) {
                 AnalyzingUtils.getSyntaxErrorRanges(firFile.psi!!).map {
                     @OptIn(InternalDiagnosticFactoryMethod::class)
@@ -750,7 +760,7 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
                         KtRealPsiSourceElement(it),
                         it.errorDescription,
                         positioningStrategy = null,
-                        LanguageVersionSettingsImpl.DEFAULT, // syntax errors couldn't be suppressed anyway
+                        DiagnosticContext.Default, // syntax errors couldn't be suppressed anyway
                     )!!
                 }
             } else {
@@ -769,16 +779,23 @@ open class FirDiagnosticCollectorService(val testServices: TestServices) : TestS
 @OptIn(SessionConfiguration::class)
 private fun FirSession.turnOnMetadataCompilationAnalysisFlag(body: () -> Unit) {
     val originalLv = languageVersionSettings
+    val oldIsMetadataCompilation = isMetadataCompilation
     val lv = object : LanguageVersionSettings by originalLv {
         override fun <T> getFlag(flag: AnalysisFlag<T>): T =
             @Suppress("UNCHECKED_CAST") // UNCHECKED_CAST is fine because metadataCompilation is boolean flag
             if (flag == AnalysisFlags.metadataCompilation) true as T else originalLv.getFlag(flag)
     }
-    register(FirLanguageSettingsComponent::class, FirLanguageSettingsComponent(lv))
+    register(
+        FirLanguageSettingsComponent::class,
+        FirLanguageSettingsComponent(lv, isMetadataCompilation = true)
+    )
     try {
         body()
     } finally {
-        register(FirLanguageSettingsComponent::class, FirLanguageSettingsComponent(originalLv))
+        register(
+            FirLanguageSettingsComponent::class,
+            FirLanguageSettingsComponent(originalLv, oldIsMetadataCompilation)
+        )
     }
 }
 

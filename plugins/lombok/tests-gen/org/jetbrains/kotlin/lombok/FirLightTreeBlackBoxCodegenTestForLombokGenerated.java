@@ -60,6 +60,30 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   }
 
   @Test
+  @TestMetadata("builderAndSingularAnnOnRecordField.kt")
+  public void testBuilderAndSingularAnnOnRecordField() {
+    runTest("plugins/lombok/testData/box/builderAndSingularAnnOnRecordField.kt");
+  }
+
+  @Test
+  @TestMetadata("builderAnnotationArguments.kt")
+  public void testBuilderAnnotationArguments() {
+    runTest("plugins/lombok/testData/box/builderAnnotationArguments.kt");
+  }
+
+  @Test
+  @TestMetadata("builderConfig.kt")
+  public void testBuilderConfig() {
+    runTest("plugins/lombok/testData/box/builderConfig.kt");
+  }
+
+  @Test
+  @TestMetadata("builderCtorWithParams.kt")
+  public void testBuilderCtorWithParams() {
+    runTest("plugins/lombok/testData/box/builderCtorWithParams.kt");
+  }
+
+  @Test
   @TestMetadata("builderGuava.kt")
   public void testBuilderGuava() {
     runTest("plugins/lombok/testData/box/builderGuava.kt");
@@ -69,6 +93,18 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   @TestMetadata("builderOnConstructor.kt")
   public void testBuilderOnConstructor() {
     runTest("plugins/lombok/testData/box/builderOnConstructor.kt");
+  }
+
+  @Test
+  @TestMetadata("builderOnGenericMethod.kt")
+  public void testBuilderOnGenericMethod() {
+    runTest("plugins/lombok/testData/box/builderOnGenericMethod.kt");
+  }
+
+  @Test
+  @TestMetadata("builderOnMethods.kt")
+  public void testBuilderOnMethods() {
+    runTest("plugins/lombok/testData/box/builderOnMethods.kt");
   }
 
   @Test
@@ -84,6 +120,12 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   }
 
   @Test
+  @TestMetadata("builderWithBoundedTypeParameter.kt")
+  public void testBuilderWithBoundedTypeParameter() {
+    runTest("plugins/lombok/testData/box/builderWithBoundedTypeParameter.kt");
+  }
+
+  @Test
   @TestMetadata("builderWithClashingInnerBuilder.kt")
   public void testBuilderWithClashingInnerBuilder() {
     runTest("plugins/lombok/testData/box/builderWithClashingInnerBuilder.kt");
@@ -93,6 +135,42 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   @TestMetadata("builderWithInnerBuilder.kt")
   public void testBuilderWithInnerBuilder() {
     runTest("plugins/lombok/testData/box/builderWithInnerBuilder.kt");
+  }
+
+  @Test
+  @TestMetadata("builderWithRawType.kt")
+  public void testBuilderWithRawType() {
+    runTest("plugins/lombok/testData/box/builderWithRawType.kt");
+  }
+
+  @Test
+  @TestMetadata("builderWithSuperBuilder.kt")
+  public void testBuilderWithSuperBuilder() {
+    runTest("plugins/lombok/testData/box/builderWithSuperBuilder.kt");
+  }
+
+  @Test
+  @TestMetadata("builderWithWildcardType.kt")
+  public void testBuilderWithWildcardType() {
+    runTest("plugins/lombok/testData/box/builderWithWildcardType.kt");
+  }
+
+  @Test
+  @TestMetadata("buildersOnGenericClasses.kt")
+  public void testBuildersOnGenericClasses() {
+    runTest("plugins/lombok/testData/box/buildersOnGenericClasses.kt");
+  }
+
+  @Test
+  @TestMetadata("bulderOnRecord.kt")
+  public void testBulderOnRecord() {
+    runTest("plugins/lombok/testData/box/bulderOnRecord.kt");
+  }
+
+  @Test
+  @TestMetadata("canEqualInClassWithDataAnn.kt")
+  public void testCanEqualInClassWithDataAnn() {
+    runTest("plugins/lombok/testData/box/canEqualInClassWithDataAnn.kt");
   }
 
   @Test
@@ -123,6 +201,12 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   @TestMetadata("conflictingGetter.kt")
   public void testConflictingGetter() {
     runTest("plugins/lombok/testData/box/conflictingGetter.kt");
+  }
+
+  @Test
+  @TestMetadata("constructorFromValueAndInitializingFields.kt")
+  public void testConstructorFromValueAndInitializingFields() {
+    runTest("plugins/lombok/testData/box/constructorFromValueAndInitializingFields.kt");
   }
 
   @Test
@@ -162,6 +246,24 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   }
 
   @Test
+  @TestMetadata("getterAndSetterOnJavaStaticFields.kt")
+  public void testGetterAndSetterOnJavaStaticFields() {
+    runTest("plugins/lombok/testData/box/getterAndSetterOnJavaStaticFields.kt");
+  }
+
+  @Test
+  @TestMetadata("getterSetterVisibility.kt")
+  public void testGetterSetterVisibility() {
+    runTest("plugins/lombok/testData/box/getterSetterVisibility.kt");
+  }
+
+  @Test
+  @TestMetadata("gettersClassLevel.kt")
+  public void testGettersClassLevel() {
+    runTest("plugins/lombok/testData/box/gettersClassLevel.kt");
+  }
+
+  @Test
   @TestMetadata("gettersFluent.kt")
   public void testGettersFluent() {
     runTest("plugins/lombok/testData/box/gettersFluent.kt");
@@ -183,6 +285,12 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   @TestMetadata("nullability.kt")
   public void testNullability() {
     runTest("plugins/lombok/testData/box/nullability.kt");
+  }
+
+  @Test
+  @TestMetadata("overriddenAccessors.kt")
+  public void testOverriddenAccessors() {
+    runTest("plugins/lombok/testData/box/overriddenAccessors.kt");
   }
 
   @Test
@@ -219,6 +327,24 @@ public class FirLightTreeBlackBoxCodegenTestForLombokGenerated extends AbstractF
   @TestMetadata("superBuilder.kt")
   public void testSuperBuilder() {
     runTest("plugins/lombok/testData/box/superBuilder.kt");
+  }
+
+  @Test
+  @TestMetadata("superBuilderAnnotationArguments.kt")
+  public void testSuperBuilderAnnotationArguments() {
+    runTest("plugins/lombok/testData/box/superBuilderAnnotationArguments.kt");
+  }
+
+  @Test
+  @TestMetadata("superBuilderComplexHierarchy.kt")
+  public void testSuperBuilderComplexHierarchy() {
+    runTest("plugins/lombok/testData/box/superBuilderComplexHierarchy.kt");
+  }
+
+  @Test
+  @TestMetadata("superBuilderConfig.kt")
+  public void testSuperBuilderConfig() {
+    runTest("plugins/lombok/testData/box/superBuilderConfig.kt");
   }
 
   @Test

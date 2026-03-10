@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
+    id("test-inputs-check")
 }
 
 dependencies {
@@ -9,13 +9,14 @@ dependencies {
     api(project(":compiler:ir.inline"))
     api(project(":compiler:backend.jvm"))
     compileOnly(intellijCore())
+
+    testImplementation(kotlinTest("junit"))
+    testImplementation(testFixtures(project(":compiler:ir.backend.common")))
 }
 
 optInToUnsafeDuringIrConstructionAPI()
 
 sourceSets {
-    "main" {
-        projectDefault()
-    }
-    "test" {}
+    "main" { projectDefault() }
+    "test" { projectDefault() }
 }

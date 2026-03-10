@@ -3,6 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import gradle.commonSourceSetName
 import gradle.GradlePluginVariant
 import gradle.publishGradlePluginsJavadoc
@@ -25,7 +26,6 @@ import org.gradle.api.plugins.JavaBasePlugin
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.gradle.api.plugins.JavaPlugin
 import org.gradle.api.plugins.JavaPluginExtension
-import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
@@ -35,6 +35,7 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.*
 import org.gradle.plugin.devel.GradlePluginDevelopmentExtension
@@ -199,7 +200,9 @@ fun Project.createGradleCommonSourceSet(): SourceSet {
 
     afterEvaluate {
         // The common source set compilation artifacts are never intended for runtime consumption
-        configurations.getByName(commonSourceSet.runtimeElementsConfigurationName).isCanBeConsumed = false
+        configurations.getByName(commonSourceSet.runtimeElementsConfigurationName).attributes {
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("no-op"))
+        }
 
         listOf(
             /**
@@ -412,7 +415,6 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
                 configurations.create("${originalConfiguration.name}$FIXED_CONFIGURATION_SUFFIX") {
                     isCanBeResolved = originalConfiguration.isCanBeResolved
                     isCanBeConsumed = originalConfiguration.isCanBeConsumed
-                    isVisible = originalConfiguration.isVisible
                     setExtendsFrom(originalConfiguration.extendsFrom)
 
                     artifacts {
@@ -474,8 +476,15 @@ fun Project.reconfigureMainSourcesSetForGradlePlugin(
                     }
 
                     // Make original configuration unpublishable and not visible
-                    originalConfiguration.isCanBeConsumed = false
-                    originalConfiguration.isVisible = false
+                    originalConfiguration.attributes {
+                        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named("no-op"))
+                    }
+
+                    @Suppress("DEPRECATION")
+                    if(GradleVersion.current() < GradleVersion.version("9.0.0")) {
+                        originalConfiguration.isVisible = false
+                    }
+
                     javaComponent.withVariantsFromConfiguration(originalConfiguration) {
                         skip()
                     }
@@ -621,13 +630,11 @@ private fun Project.commonVariantAttributes(): Action<Configuration> = Action<Co
  */
 fun KotlinCompile.configureGradleCompatibility() {
     compilerOptions {
-        if (!project.kotlinBuildProperties.isInJpsBuildIdeaSync) {
-            val variant = GradlePluginVariant.GRADLE_MIN
-            // we should keep control of the language version for compatibility with bundled Kotlin compiler for Gradle Kotlin scripts.
-            languageVersion.set(KotlinVersion.fromVersion(variant.bundledKotlinVersion))
-            // we should not use stdlib symbols not available in the bundled Kotlin runtime
-            apiVersion.set(KotlinVersion.fromVersion(variant.bundledKotlinVersion))
-        }
+        val variant = GradlePluginVariant.GRADLE_MIN
+        // we should keep control of the language version for compatibility with bundled Kotlin compiler for Gradle Kotlin scripts.
+        languageVersion.set(KotlinVersion.fromVersion(variant.bundledKotlinVersion))
+        // we should not use stdlib symbols not available in the bundled Kotlin runtime
+        apiVersion.set(KotlinVersion.fromVersion(variant.bundledKotlinVersion))
         freeCompilerArgs.addAll(
             listOf(
                 "-Xskip-prerelease-check",
@@ -683,9 +690,10 @@ fun Project.publishShadowedJar(
 ) {
     val jarTask = tasks.named<Jar>(sourceSet.jarTaskName)
 
-    val shadowJarTask = embeddableCompilerDummyForDependenciesRewriting(
-        taskName = "$EMBEDDABLE_COMPILER_TASK_NAME${sourceSet.jarTaskName.replaceFirstChar { it.uppercase() }}"
+    val shadowJarTask = tasks.register<ShadowJar>(
+        "$EMBEDDABLE_COMPILER_TASK_NAME${sourceSet.jarTaskName.replaceFirstChar { it.uppercase() }}"
     ) {
+        destinationDirectory.set(project.layout.buildDirectory.dir("libs"))
         setupPublicJar(
             jarTask.flatMap { it.archiveBaseName },
             jarTask.flatMap { it.archiveClassifier }
@@ -695,13 +703,7 @@ fun Project.publishShadowedJar(
         from(sourceSet.output)
         from(commonSourceSet.output)
 
-        // When Gradle traverses the inputs, reject the shaded compiler JAR,
-        // which leads to the content of that JAR being excluded as well:
-        exclude {
-            // Docstring says `file` never returns null, but it does
-            @Suppress("UNNECESSARY_SAFE_CALL")
-            it.file?.name?.startsWith("kotlin-compiler-embeddable") ?: false
-        }
+        configureEmbeddableCompilerRelocation(withJavaxInject = false)
     }
 
     // Removing artifact produced by Jar task
@@ -787,10 +789,10 @@ fun Project.registerValidatePluginTasks(
         outputFile.set(project.layout.buildDirectory.file("reports/plugin-development/validation-report-${sourceSet.name}.txt"))
         classes.from({ sourceSet.output.classesDirs })
         classpath.from({ sourceSet.compileClasspath })
-
-        val javaPluginExtension = project.extensions.getByType<JavaPluginExtension>()
         val toolchainService = project.extensions.getByType<JavaToolchainService>()
-        launcher.convention(toolchainService.launcherFor(javaPluginExtension.toolchain))
+        launcher.set(toolchainService.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(17))
+        })
     }
 
     tasks.named(JavaBasePlugin.CHECK_TASK_NAME) {

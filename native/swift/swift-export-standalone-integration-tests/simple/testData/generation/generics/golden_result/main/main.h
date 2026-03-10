@@ -7,6 +7,8 @@ void * _Nullable A_foo_get(void * self);
 
 void AnyConsumer_consume__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(void * self, void * item);
 
+void * ArrayBox_ints_get(void * self);
+
 void * _Nullable B_foo_get(void * self);
 
 void * _Nullable Box_t_get(void * self);
@@ -18,6 +20,10 @@ void Consumer_consume__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSuppo
 int32_t Demo_foo_get(void * self);
 
 void * GenericWithComparableUpperBound_t_get(void * self);
+
+void * _Nullable Holder_headOrNull(void * self);
+
+void * Holder_xs_get(void * self);
 
 void * _Nullable IdentityProcessor_process__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(void * self, void * _Nullable input);
 
@@ -35,6 +41,10 @@ void * __root___AnyConsumer_init_allocate();
 
 void __root___AnyConsumer_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
+void * __root___ArrayBox_init_allocate();
+
+void __root___ArrayBox_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
+
 void * __root___CPImpl_init_allocate();
 
 void __root___CPImpl_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
@@ -47,9 +57,17 @@ void * __root___Demo_init_allocate();
 
 void __root___Demo_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
+void * __root___FunctionalBox_init_allocate();
+
+void __root___FunctionalBox_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
+
 void * __root___GenericWithComparableUpperBound_init_allocate();
 
 void __root___GenericWithComparableUpperBound_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_anyU20ExportedKotlinPackages_kotlin_Comparable__(void * __kt, void * t);
+
+void * __root___Holder_init_allocate();
+
+void __root___Holder_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_ExportedKotlinPackages_kotlin_Array__(void * __kt, void * xs);
 
 void * __root___IdentityProcessor_init_allocate();
 
@@ -67,10 +85,12 @@ void * __root___TripleBox_init_allocate();
 
 void __root___TripleBox_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(void * __kt);
 
+void * _Nullable __root___bar__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(void * _Nullable param1, void * _Nullable param2);
+
 NSDictionary<id, id> * __root___createMap__TypesOfArguments__Swift_Array_main_Pair___(NSArray<id> * pairs);
 
 NSArray<id> * __root___customFilter__TypesOfArguments__Swift_Array_Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___U28Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable_U29202D_U20Swift_Bool__(NSArray<id> * receiver, _Bool (^predicate)(void * _Nullable ));
 
-void __root___foo__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(void * _Nullable param1, void * _Nullable param2);
+void * _Nullable __root___foo__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(void * _Nullable param1, void * _Nullable param2);
 
 NS_ASSUME_NONNULL_END

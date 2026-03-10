@@ -289,8 +289,6 @@ open class DeepCopyIrTreeWithSymbols(
             variablesFromOtherSnippets.assignFrom(declaration.variablesFromOtherSnippets) { it.transform() }
             declarationsFromOtherSnippets.assignFrom(declaration.declarationsFromOtherSnippets) { it.transform() }
             stateObject = declaration.stateObject?.let(symbolRemapper::getReferencedClass)
-            body = declaration.body.transform()
-            returnType = declaration.returnType?.remapType()
             targetClass = declaration.targetClass?.let(symbolRemapper::getReferencedClass)
             processAttributes(declaration)
         }
@@ -413,6 +411,24 @@ open class DeepCopyIrTreeWithSymbols(
             symbol = symbolRemapper.getReferencedConstructor(expression.symbol),
             source = expression.source,
             constructorTypeArgumentsCount = expression.constructorTypeArgumentsCount,
+        ).apply {
+            copyRemappedTypeArgumentsFrom(expression)
+            transformValueArguments(expression)
+            processAttributes(expression)
+        }
+
+    override fun visitAnnotation(expression: IrAnnotation): IrAnnotation =
+        IrAnnotationImpl(
+            constructorIndicator = null,
+            startOffset = expression.startOffset,
+            endOffset = expression.endOffset,
+            type = expression.type.remapType(),
+            origin = expression.origin,
+            symbol = symbolRemapper.getReferencedConstructor(expression.symbol),
+            source = expression.source,
+            constructorTypeArgumentsCount = expression.constructorTypeArgumentsCount,
+            classId = expression.classId,
+            argumentMapping = expression.argumentMapping,
         ).apply {
             copyRemappedTypeArgumentsFrom(expression)
             transformValueArguments(expression)

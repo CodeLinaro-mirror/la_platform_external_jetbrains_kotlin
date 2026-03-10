@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isExpect
 import org.jetbrains.kotlin.fir.declarations.utils.modality
+import org.jetbrains.kotlin.fir.disableCompatibilityModeForNewInference
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirSpreadArgumentExpression
@@ -69,8 +70,6 @@ class ConeOverloadConflictResolver(
     private val transformerComponents: BodyResolveComponents,
 ) : ConeCallConflictResolver() {
 
-    private val contextParametersEnabled = inferenceComponents.session.languageVersionSettings.supportsFeature(LanguageFeature.ContextParameters)
-
     override fun chooseMaximallySpecificCandidates(
         candidates: Set<Candidate>,
         discriminateAbstracts: Boolean,
@@ -100,9 +99,7 @@ class ConeOverloadConflictResolver(
 
         // The same logic as at
         val candidatesWithoutOverrides = filterOverrides(fixedCandidates)
-        val noCompatibilityMode = inferenceComponents.session.languageVersionSettings.supportsFeature(
-            LanguageFeature.DisableCompatibilityModeForNewInference
-        )
+        val noCompatibilityMode = with(transformerComponents) { disableCompatibilityModeForNewInference() }
         return chooseMaximallySpecificCandidates(
             candidatesWithoutOverrides,
             DiscriminationFlags(
@@ -394,13 +391,6 @@ class ConeOverloadConflictResolver(
             }
         }
 
-        if (contextParametersEnabled) {
-            if (call1.hasContext != call2.hasContext) return call1.hasContext
-        } else {
-            if (call1.contextReceiverCount > call2.contextReceiverCount) return true
-            if (call1.contextReceiverCount < call2.contextReceiverCount) return false
-        }
-
         return createEmptyConstraintSystem().also {
             inferenceComponents.session.inferenceLogger?.logStage("Some compareCallsByUsedArguments() call", it.constraintSystemMarker)
         }.isSignatureEquallyOrMoreSpecific(
@@ -476,7 +466,7 @@ class ConeOverloadConflictResolver(
 
     private fun createFlatSignature(call: Candidate): FlatSignature<Candidate> {
         return when (val declaration = call.symbol.fir) {
-            is FirSimpleFunction -> createFlatSignature(call, declaration)
+            is FirNamedFunction -> createFlatSignature(call, declaration)
             is FirConstructor -> createFlatSignature(call, declaration)
             is FirVariable -> createFlatSignature(call, declaration)
             is FirClass -> createFlatSignature(call, declaration)
@@ -493,12 +483,11 @@ class ConeOverloadConflictResolver(
             typeParameters = (variable as? FirProperty)?.typeParameters?.map { it.symbol.toLookupTag() }.orEmpty(),
             valueParameterTypes = computeSignatureTypes(call, variable),
             hasExtensionReceiver = variable.receiverParameter != null,
-            contextReceiverCount = if (!contextParametersEnabled) variable.contextParameters.size else 0,
+            contextReceiverCount = 0,
             hasVarargs = false,
             numDefaults = 0,
             isExpect = (variable as? FirProperty)?.isExpect == true,
             isSyntheticMember = false,
-            hasContext = variable.contextParameters.isNotEmpty(),
         )
     }
 
@@ -509,27 +498,25 @@ class ConeOverloadConflictResolver(
             valueParameterTypes = computeSignatureTypes(call, constructor),
             //constructor.receiverParameter != null,
             hasExtensionReceiver = false,
-            contextReceiverCount = if (!contextParametersEnabled) constructor.contextParameters.size else 0,
+            contextReceiverCount = 0,
             hasVarargs = constructor.valueParameters.any { it.isVararg },
             numDefaults = call.numDefaults,
             isExpect = constructor.isExpect,
             isSyntheticMember = false,
-            hasContext = constructor.contextParameters.isNotEmpty(),
         )
     }
 
-    private fun createFlatSignature(call: Candidate, function: FirSimpleFunction): FlatSignature<Candidate> {
+    private fun createFlatSignature(call: Candidate, function: FirNamedFunction): FlatSignature<Candidate> {
         return FlatSignature(
             origin = call,
             typeParameters = function.typeParameters.map { it.symbol.toLookupTag() },
             valueParameterTypes = computeSignatureTypes(call, function),
             hasExtensionReceiver = function.receiverParameter != null,
-            contextReceiverCount = if (!contextParametersEnabled) function.contextParameters.size else 0,
+            contextReceiverCount = 0,
             hasVarargs = function.valueParameters.any { it.isVararg },
             numDefaults = call.numDefaults,
             isExpect = function.isExpect,
             isSyntheticMember = false,
-            hasContext = function.contextParameters.isNotEmpty(),
         )
     }
 
@@ -562,11 +549,8 @@ class ConeOverloadConflictResolver(
                         )
                     }
             } else {
-                if (!contextParametersEnabled) {
-                    called.contextParameters.mapTo(this) { TypeWithConversion(it.returnTypeRef.coneType.prepareType(session, call)) }
-                }
                 if (call.argumentMappingInitialized) {
-                    call.argumentMapping.mapTo(this) { (argument, parameter) ->
+                    call.argumentMapping.mapNotNullTo(this) { (argument, parameter) ->
                         parameter.toTypeWithConversion(argument, session, call)
                     }
                 }

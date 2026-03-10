@@ -8,13 +8,14 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.ScopeWithIr
-import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
+import org.jetbrains.kotlin.backend.common.phaser.PhasePrerequisites
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin.JVM_STATIC_WRAPPER
 import org.jetbrains.kotlin.backend.jvm.JvmSyntheticAccessorGenerator
 import org.jetbrains.kotlin.backend.jvm.ir.IrInlineScopeResolver
 import org.jetbrains.kotlin.backend.jvm.ir.findInlineCallSites
 import org.jetbrains.kotlin.backend.jvm.ir.isAssertionsDisabledField
+import org.jetbrains.kotlin.backend.jvm.lower.IndyLambdaMetafactoryLowering.Companion.getLambdaMetafactoryIndyImplFunctionRefOrNull
 import org.jetbrains.kotlin.backend.jvm.lower.SyntheticAccessorLowering.Companion.isAccessible
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
@@ -31,10 +32,7 @@ import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.load.java.JavaDescriptorVisibilities
 import org.jetbrains.org.objectweb.asm.Opcodes
 
-@PhaseDescription(
-    name = "SyntheticAccessor",
-    prerequisite = [ObjectClassLowering::class, StaticDefaultFunctionLowering::class, InterfaceLowering::class]
-)
+@PhasePrerequisites(ObjectClassLowering::class, StaticDefaultFunctionLowering::class, InterfaceLowering::class)
 internal class SyntheticAccessorLowering(val context: JvmBackendContext) : FileLoweringPass {
     override fun lower(irFile: IrFile) {
         val pendingAccessorsToAdd = mutableSetOf<IrFunction>()
@@ -149,8 +147,8 @@ private class SyntheticAccessorTransformer(
         val generateSpecialAccessWithoutSyntheticAccessor =
             shouldGenerateSpecialAccessWithoutSyntheticAccessor(expression, withSuper, thisSymbol)
 
-        if (expression is IrCall && callee.symbol == context.symbols.indyLambdaMetafactoryIntrinsic) {
-            return super.visitExpression(handleLambdaMetafactoryIntrinsic(expression, thisSymbol))
+        if (expression is IrCall) {
+            handleIndyIntrinsic(expression, thisSymbol)?.let { return super.visitExpression(it) }
         }
 
         val accessor = when {
@@ -190,34 +188,16 @@ private class SyntheticAccessorTransformer(
     private fun IrSymbol.isDirectlyAccessible(withSuper: Boolean, thisObjReference: IrClassSymbol?): Boolean =
         isAccessible(context, currentScope, inlineScopeResolver, withSuper, thisObjReference, fromOtherClassLoader = true)
 
-    private fun handleLambdaMetafactoryIntrinsic(call: IrCall, thisSymbol: IrClassSymbol?): IrExpression {
-        // TODO change after KT-78719
-        val implFunRef = call.arguments[1] as? IrFunctionReference
-            ?: throw AssertionError("'implMethodReference' is expected to be 'IrFunctionReference': ${call.dump()}")
-        val implFunSymbol = implFunRef.symbol
+    private fun handleIndyIntrinsic(call: IrCall, thisSymbol: IrClassSymbol?): IrExpression? {
+        val implFunctionRef = getLambdaMetafactoryIndyImplFunctionRefOrNull(context.symbols, call) ?: return null
+        val implFunctionSymbol = implFunctionRef.symbol
 
-        if (implFunSymbol.isAccessibleFromSyntheticProxy(thisSymbol))
+        if (implFunctionSymbol.isAccessibleFromSyntheticProxy(thisSymbol))
             return call
 
-        val accessor = accessorGenerator.getSyntheticFunctionAccessor(implFunRef, allScopes).save()
-        val accessorRef =
-            IrFunctionReferenceImpl(
-                implFunRef.startOffset, implFunRef.endOffset, implFunRef.type,
-                accessor.symbol,
-                accessor.typeParameters.size,
-                implFunRef.reflectionTarget, implFunRef.origin
-            )
+        val accessor = accessorGenerator.getSyntheticFunctionAccessor(implFunctionSymbol, allScopes).save()
+        implFunctionRef.symbol = accessor.symbol
 
-        accessorRef.copyTypeArgumentsFrom(implFunRef)
-
-        for (implArgIndex in implFunRef.arguments.indices) {
-            accessorRef.arguments[implArgIndex] = implFunRef.arguments[implArgIndex]
-        }
-        if (accessor is IrConstructor) {
-            accessorRef.arguments[implFunRef.arguments.size] = accessorGenerator.createAccessorMarkerArgument()
-        }
-
-        call.arguments[1] = accessorRef
         return call
     }
 

@@ -1,6 +1,5 @@
 // TARGET_BACKEND: JVM_IR
 // WITH_REFLECT
-// LANGUAGE: +ValueClasses
 // JVM_DEFAULT_MODE: disable
 
 import kotlin.test.assertEquals
@@ -27,19 +26,6 @@ fun dataClass() {
 }
 
 @JvmInline
-value class VC(val x: Int, val y: Int) : I1, I2 {
-    override fun f(i1: Int, i2: Int) = x + y + i1
-}
-
-fun valueClass() {
-    val unbounded = VC::f
-    assertEquals(111, unbounded.callBy(mapOf(unbounded.instanceParameter!! to VC(10, 100))))
-
-    val bounded = VC(10, 100)::f
-    assertEquals(111, bounded.callBy(mapOf()))
-}
-
-@JvmInline
 value class IC(val x: Int) : I1, I2 {
     override fun f(i1: Int, i2: Int) = x + i1
 }
@@ -55,6 +41,5 @@ fun inlineClass() {
 fun box(): String {
     dataClass()
     inlineClass()
-    valueClass()
     return "OK"
 }

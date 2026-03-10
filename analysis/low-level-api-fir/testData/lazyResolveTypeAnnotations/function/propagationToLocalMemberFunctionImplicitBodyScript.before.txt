@@ -35,13 +35,13 @@ FILE: [ResolvedTo(IMPORTS)] propagationToLocalMemberFunctionImplicitBodyScript.k
         }
 
         public final [ResolvedTo(IMPLICIT_TYPES_BODY_RESOLVE)] [PostponedSymbolsForAnnotationResolutionKey=[FirNamedFunctionSymbol util/bar], ScriptTopLevelDeclaration=true] fun foo(): R|kotlin/Unit| {
-            ^foo R|util/lambda|(<L> = [ResolvedTo(RAW_FIR)] [MatchingParameterFunctionTypeKey=kotlin/Function0<kotlin/Unit>] lambda@fun <anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^foo R|util/lambda|(<L> = [ResolvedTo(RAW_FIR)] [MatchingParameterFunctionTypeKey=() -> kotlin/Unit] lambda@fun <anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
                 local final [ResolvedTo(RAW_FIR)] class Local : R|kotlin/Any| {
                     public [ResolvedTo(RAW_FIR)] [ContainingClassKey=Local] constructor(): R|<local>/Local| {
                         super<R|kotlin/Any|>()
                     }
 
-                    public final [ResolvedTo(RAW_FIR)] fun doo(): <ERROR TYPE REF: cycle> {
+                    public final [ResolvedTo(RAW_FIR)] fun doo(): <ERROR TYPE REF: Recursive implicit type> {
                         ^doo R|util/foo|()
                     }
 
@@ -49,7 +49,7 @@ FILE: [ResolvedTo(IMPORTS)] propagationToLocalMemberFunctionImplicitBodyScript.k
                         ^foo R|util/bar|()
                     }
 
-                    public final [ResolvedTo(RAW_FIR)] fun baz(): <ERROR TYPE REF: cycle> {
+                    public final [ResolvedTo(RAW_FIR)] fun baz(): <ERROR TYPE REF: Recursive implicit type> {
                         ^baz R|util/foo|()
                     }
 

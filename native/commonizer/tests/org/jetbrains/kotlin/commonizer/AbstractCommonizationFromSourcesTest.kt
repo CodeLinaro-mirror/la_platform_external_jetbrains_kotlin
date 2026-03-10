@@ -18,16 +18,19 @@ import org.jetbrains.kotlin.commonizer.konan.NativeManifestDataProvider
 import org.jetbrains.kotlin.commonizer.utils.*
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.copy
-import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.FirNamedFunction
 import org.jetbrains.kotlin.fir.visitors.FirVisitorVoid
 import org.jetbrains.kotlin.library.SerializedMetadata
+import org.jetbrains.kotlin.platform.TargetPlatform
+import org.jetbrains.kotlin.platform.js.JsPlatforms
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.platform.konan.NativePlatformUnspecifiedTarget
+import org.jetbrains.kotlin.platform.wasm.WasmPlatformWithTarget
+import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
 import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
-import kotlin.collections.map
-import kotlin.collections.orEmpty
-import kotlin.collections.plus
 import kotlin.contracts.ExperimentalContracts
 import kotlin.test.fail
 
@@ -286,8 +289,26 @@ private class AnalyzedModules(
                 if (isDependencyModule) "dependency-$it" else it
             }
 
+            val leafPlatforms = when (currentTarget) {
+                is LeafCommonizerTarget -> listOf(currentTarget)
+                is SharedCommonizerTarget -> currentTarget.targets
+            }
+
+            val targetPlatform = TargetPlatform(
+                leafPlatforms.map {
+                    when (it.name) {
+                        "jvm" -> JvmPlatforms.UNSPECIFIED_SIMPLE_JVM_PLATFORM
+                        "js" -> JsPlatforms.DefaultSimpleJsPlatform
+                        "wasm_js" -> WasmPlatformWithTarget(WasmTarget.JS)
+                        "wasm_wasi" -> WasmPlatformWithTarget(WasmTarget.WASI)
+                        else -> NativePlatformUnspecifiedTarget
+                    }
+                }.toSet()
+            )
+
             val (configuration, serializationArtifact) = serializeModuleToMetadata(
                 moduleName, moduleRoot.location,
+                targetPlatform = targetPlatform,
                 disposable = parentDisposable,
                 isCommon = true,
                 regularDependencies = dependencies.regularDependencies[currentTarget].orEmpty().map {
@@ -317,7 +338,7 @@ object TestPatchingPipelinePhase : PipelinePhase<MetadataFrontendPipelineArtifac
     name = "TestPatchingPipelinePhase",
 ) {
     override fun executePhase(input: MetadataFrontendPipelineArtifact) = input.also {
-        for (output in input.result.outputs) {
+        for (output in input.frontendOutput.outputs) {
             for (firFile in output.fir) {
                 firFile.accept(TestPatchingFirVisitor)
             }
@@ -330,21 +351,21 @@ private object TestPatchingFirVisitor : FirVisitorVoid() {
         element.acceptChildren(this)
     }
 
-    override fun visitSimpleFunction(simpleFunction: FirSimpleFunction) {
-        val comment = simpleFunction.source.psi?.text?.lineSequence()?.firstOrNull()?.takeIf { it.startsWith("//") }
+    override fun visitNamedFunction(namedFunction: FirNamedFunction) {
+        val comment = namedFunction.source.psi?.text?.lineSequence()?.firstOrNull()?.takeIf { it.startsWith("//") }
             ?: return
         val (key, value) = comment.substringAfter("//").split('=', limit = 2).takeIf { it.size == 2 }?.map { it.trim() }
             ?: return
 
         when (key) {
             "hasStableParameterNames" -> when {
-                !value.toBoolean() -> simpleFunction.replaceStatus(simpleFunction.status.copy(hasStableParameterNames = false))
+                !value.toBoolean() -> namedFunction.replaceStatus(namedFunction.status.copy(hasStableParameterNames = false))
             }
             else -> {
                 // more custom actions may be added here in the future
             }
         }
 
-        simpleFunction.acceptChildren(this)
+        namedFunction.acceptChildren(this)
     }
 }

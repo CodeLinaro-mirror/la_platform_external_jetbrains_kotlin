@@ -65,6 +65,26 @@ public class FirIdeNormalAnalysisScriptSourceModuleSingleSymbolByPsiTestGenerate
   }
 
   @Nested
+  @TestMetadata("analysis/analysis-api/testData/symbols/singleSymbolByPsi/annotations")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Annotations {
+    @Test
+    public void testAllFilesPresentInAnnotations() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/singleSymbolByPsi/annotations"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/analysis-api/testData/symbols/singleSymbolByPsi/collectionLiterals")
+  @TestDataPath("$PROJECT_ROOT")
+  public class CollectionLiterals {
+    @Test
+    public void testAllFilesPresentInCollectionLiterals() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/singleSymbolByPsi/collectionLiterals"), Pattern.compile("^(.+)\\.kts$"), null, true);
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/analysis-api/testData/symbols/singleSymbolByPsi/contextParameters")
   @TestDataPath("$PROJECT_ROOT")
   public class ContextParameters {
@@ -121,6 +141,26 @@ public class FirIdeNormalAnalysisScriptSourceModuleSingleSymbolByPsiTestGenerate
     @TestMetadata("scriptDestructuringDeclarationMutable.kts")
     public void testScriptDestructuringDeclarationMutable() {
       runTest("analysis/analysis-api/testData/symbols/singleSymbolByPsi/destructuring/scriptDestructuringDeclarationMutable.kts");
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/symbols/singleSymbolByPsi/destructuring/nameBased")
+    @TestDataPath("$PROJECT_ROOT")
+    public class NameBased {
+      @Test
+      public void testAllFilesPresentInNameBased() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/singleSymbolByPsi/destructuring/nameBased"), Pattern.compile("^(.+)\\.kts$"), null, true);
+      }
+    }
+
+    @Nested
+    @TestMetadata("analysis/analysis-api/testData/symbols/singleSymbolByPsi/destructuring/positionBased")
+    @TestDataPath("$PROJECT_ROOT")
+    public class PositionBased {
+      @Test
+      public void testAllFilesPresentInPositionBased() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/analysis-api/testData/symbols/singleSymbolByPsi/destructuring/positionBased"), Pattern.compile("^(.+)\\.kts$"), null, true);
+      }
     }
   }
 

@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.backend
 
+import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.UnsignedType
 import org.jetbrains.kotlin.config.AnalysisFlags
@@ -28,8 +29,8 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
+import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrTypeParameterSymbolImpl
@@ -37,6 +38,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.functions
+import org.jetbrains.kotlin.ir.util.module
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -122,16 +124,16 @@ class IrBuiltInsOverFir(
     override val longClass: IrClassSymbol get() = fir2irBuiltins.longClass
     override val longType: IrType get() = fir2irBuiltins.longType
 
-    override val ubyteClass: IrClassSymbol get() = fir2irBuiltins.ubyteClass
+    override val ubyteClass: IrClassSymbol? get() = fir2irBuiltins.ubyteClass
     override val ubyteType: IrType get() = fir2irBuiltins.ubyteType
 
-    override val ushortClass: IrClassSymbol get() = fir2irBuiltins.ushortClass
+    override val ushortClass: IrClassSymbol? get() = fir2irBuiltins.ushortClass
     override val ushortType: IrType get() = fir2irBuiltins.ushortType
 
-    override val uintClass: IrClassSymbol get() = fir2irBuiltins.uintClass
+    override val uintClass: IrClassSymbol? get() = fir2irBuiltins.uintClass
     override val uintType: IrType get() = fir2irBuiltins.uintType
 
-    override val ulongClass: IrClassSymbol get() = fir2irBuiltins.ulongClass
+    override val ulongClass: IrClassSymbol? get() = fir2irBuiltins.ulongClass
     override val ulongType: IrType get() = fir2irBuiltins.ulongType
 
     override val floatClass: IrClassSymbol get() = fir2irBuiltins.floatClass
@@ -255,6 +257,9 @@ class IrBuiltInsOverFir(
 
     override val enumClass: IrClassSymbol by lazy { fir2irBuiltins.loadClass(StandardClassIds.Enum) }
 
+    override val deprecatedSymbol: IrClassSymbol by lazy { fir2irBuiltins.loadClass(StandardClassIds.Annotations.Deprecated) }
+    override val deprecationLevelSymbol: IrClassSymbol by lazy { fir2irBuiltins.loadClass(StandardClassIds.DeprecationLevel) }
+
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override val intPlusSymbol: IrSimpleFunctionSymbol
         get() = intClass.functions.single {
@@ -279,39 +284,13 @@ class IrBuiltInsOverFir(
             it.owner.name == OperatorNameConventions.AND && it.owner.parameters[1].type == intType
         }
 
-    override val extensionToString: IrSimpleFunctionSymbol by lazy {
-        val firFunctionSymbol = symbolProvider.getTopLevelFunctionSymbols(kotlinPackage, OperatorNameConventions.TO_STRING).single {
-            it.resolvedReceiverType?.isNullableAny == true
-        }
-        fir2irBuiltins.findFunction(firFunctionSymbol)
-    }
-
-    override val memberToString: IrSimpleFunctionSymbol by lazy {
-        val firFunction = fir2irBuiltins.findFirMemberFunctions(StandardClassIds.Any, OperatorNameConventions.TO_STRING).single {
-            it.valueParameterSymbols.isEmpty()
-        }
-        fir2irBuiltins.findFunction(firFunction)
-    }
-
-    override val extensionStringPlus: IrSimpleFunctionSymbol by lazy {
-        val firFunction = symbolProvider.getTopLevelFunctionSymbols(kotlinPackage, OperatorNameConventions.PLUS).single { symbol ->
-            val isStringExtension = symbol.resolvedReceiverType?.isNullableString == true
-            isStringExtension && symbol.valueParameterSymbols.singleOrNull { it.resolvedReturnType.isNullableAny } != null
-        }
-        fir2irBuiltins.findFunction(firFunction)
-    }
-
-    override val memberStringPlus: IrSimpleFunctionSymbol by lazy {
-        val firFunction = fir2irBuiltins.findFirMemberFunctions(StandardClassIds.String, OperatorNameConventions.PLUS).single {
-            it.valueParameterSymbols.singleOrNull()?.resolvedReturnType?.isNullableAny == true
-        }
-        fir2irBuiltins.findFunction(firFunction)
-    }
-
+    @OptIn(UnsafeDuringIrConstructionAPI::class)
     override val arrayOf: IrSimpleFunctionSymbol by lazy {
         // distinct() is needed because we can get two Fir symbols for arrayOf function (from builtins and from stdlib)
         //   with the same IR symbol for them
-        fir2irBuiltins.findFunctions(CallableId(kotlinPackage, ArrayFqNames.ARRAY_OF_FUNCTION)).distinct().single()
+        fir2irBuiltins.findFunctions(CallableId(kotlinPackage, ArrayFqNames.ARRAY_OF_FUNCTION))
+            .distinct()
+            .single { !it.owner.isExpect && it.owner.module.name != KotlinBuiltIns.BUILTINS_MODULE_NAME }
     }
 
     // ------------------------------------- function types -------------------------------------
@@ -343,7 +322,7 @@ class IrBuiltInsOverFir(
 
     // ------------------------------------- intrinsic const evaluation -------------------------------------
 
-    private val intrinsicConstAnnotation: IrConstructorCall by lazy {
+    private val intrinsicConstAnnotation: IrAnnotation by lazy {
         /*
          * Old versions of stdlib may not contain @IntrinsicConstEvaluation (AV < 1.7), so in this case we should create annotation class manually
          *
@@ -366,7 +345,7 @@ class IrBuiltInsOverFir(
         val constructor = classSymbol.owner.constructors.single()
         val constructorSymbol = constructor.symbol
 
-        val annotationCall = IrConstructorCallImpl(
+        val annotationCall = IrAnnotationImpl(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             type = IrSimpleTypeImpl(
@@ -620,7 +599,4 @@ class SymbolFinderOverFir(private val fir2irBuiltins: Fir2IrBuiltinSymbolsContai
     override fun findProperties(callableId: CallableId): Iterable<IrPropertySymbol> {
         return fir2irBuiltins.findProperties(callableId)
     }
-
-    override fun findGetter(property: IrPropertySymbol): IrSimpleFunctionSymbol? =
-        property.owner.getter?.symbol
 }

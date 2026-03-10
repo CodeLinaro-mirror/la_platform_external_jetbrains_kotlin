@@ -1,8 +1,10 @@
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("test-data-manager")
 }
 
 dependencies {
@@ -35,6 +37,18 @@ kotlin {
     compilerOptions {
         optIn.add("org.jetbrains.kotlin.analysis.api.KaPlatformInterface")
     }
+
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        enabled.set(true)
+        legacyDump.referenceDumpDir = File("api-unstable")
+
+        filters {
+            exclude.annotatedWith.addAll(
+                "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",
+            )
+        }
+    }
 }
 
 sourceSets {
@@ -50,6 +64,11 @@ projectTests {
     testTask(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_11_0)) {
         dependsOn(":dist")
         workingDir = rootDir
+
+        if (!kotlinBuildProperties.isTeamcityBuild.get()) {
+            // Ensure golden tests run first
+            mustRunAfter(":analysis:analysis-api-fir:test")
+        }
     }.also { confugureFirPluginAnnotationsDependency(it) }
 
     withJvmStdlibAndReflect()

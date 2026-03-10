@@ -2,9 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("java-test-fixtures")
-    id("project-tests-convention")
 }
 
 dependencies {
@@ -12,7 +10,6 @@ dependencies {
     testFixturesImplementation(intellijCore())
     testFixturesApi(platform(libs.junit.bom))
     testFixturesImplementation(libs.junit.jupiter.api)
-    testRuntimeOnly(libs.junit.jupiter.engine)
 
     testFixturesImplementation(kotlinTest("junit"))
     testFixturesImplementation(project(":analysis:analysis-internal-utils"))
@@ -27,6 +24,7 @@ dependencies {
     testFixturesImplementation(project(":analysis:analysis-api-impl-base"))
     testFixturesImplementation(project(":analysis:decompiled:decompiler-to-psi"))
     testFixturesImplementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
+    testFixturesApi(testFixtures(project(":analysis:test-data-manager")))
 }
 
 sourceSets {
@@ -35,20 +33,12 @@ sourceSets {
     "testFixtures" { projectDefault() }
 }
 
-projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5) {
-        dependsOn(":plugins:plugin-sandbox:plugin-annotations:jar")
-        workingDir = rootDir
-    }
-}
-
-testsJar()
-
 tasks.withType<KotlinJvmCompile>().configureEach {
     compilerOptions.optIn.addAll(
         "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
         "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
         "org.jetbrains.kotlin.analysis.api.KaImplementationDetail",
         "org.jetbrains.kotlin.analysis.api.KaContextParameterApi",
+        "org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint",
     )
 }

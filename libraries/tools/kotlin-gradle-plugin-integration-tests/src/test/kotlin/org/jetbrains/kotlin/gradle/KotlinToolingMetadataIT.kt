@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle
 
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
+import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnostics
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.tooling.BuildKotlinToolingMetadataTask
 import org.jetbrains.kotlin.gradle.util.resolveRepoArtifactPath
@@ -34,7 +35,7 @@ class KotlinToolingMetadataMppIT : KGPBaseTest() {
 
     override val defaultBuildOptions: BuildOptions
         // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-        get() = super.defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
+        get() = super.defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899()
 
     @GradleTest
     @DisplayName("Check published metadata contains right data")
@@ -114,6 +115,10 @@ class KotlinToolingMetadataMppIT : KGPBaseTest() {
         ) {
             gradleProperties.appendText("\nkotlin.mpp.enableKotlinToolingMetadataArtifact=false")
             build("publish") {
+                assertHasDiagnostic(
+                    KotlinToolingDiagnostics.DeprecatedWarningGradleProperties,
+                    "kotlin.mpp.enableKotlinToolingMetadataArtifact",
+                )
                 assertFileNotExists(defaultKotlinToolingMetadataJsonPath)
                 assertTasksAreNotInTaskGraph(":$buildKotlinToolingMetadataTaskName")
             }
@@ -121,7 +126,7 @@ class KotlinToolingMetadataMppIT : KGPBaseTest() {
     }
 
     @GradleTest
-    @DisplayName("KotlinToolingMetadata tasks are avaialbe in Kotlin JS browser project")
+    @DisplayName("KotlinToolingMetadata tasks are available in Kotlin JS browser project")
     @TestMetadata("kotlin-js-browser-project")
     fun tasksAreAvailableInKotlinJsBrowser(
         gradleVersion: GradleVersion,

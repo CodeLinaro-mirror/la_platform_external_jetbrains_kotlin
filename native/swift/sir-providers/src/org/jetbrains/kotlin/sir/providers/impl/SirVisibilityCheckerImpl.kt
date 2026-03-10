@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,12 +7,11 @@ package org.jetbrains.kotlin.sir.providers.impl
 
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.KaSession
-import org.jetbrains.kotlin.analysis.api.components.DefaultTypeClassIds
+import org.jetbrains.kotlin.analysis.api.components.KaStandardTypeClassIds
 import org.jetbrains.kotlin.analysis.api.components.containingModule
 import org.jetbrains.kotlin.analysis.api.components.containingSymbol
 import org.jetbrains.kotlin.analysis.api.components.expandedSymbol
 import org.jetbrains.kotlin.analysis.api.components.fullyExpandedType
-import org.jetbrains.kotlin.analysis.api.components.isClassType
 import org.jetbrains.kotlin.analysis.api.components.isFunctionType
 import org.jetbrains.kotlin.analysis.api.components.isNothingType
 import org.jetbrains.kotlin.analysis.api.components.isPrimitive
@@ -26,7 +25,6 @@ import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
-import org.jetbrains.kotlin.name.StandardClassIds
 import org.jetbrains.kotlin.sir.SirAvailability
 import org.jetbrains.kotlin.sir.SirVisibility
 import org.jetbrains.kotlin.sir.providers.SirSession
@@ -40,9 +38,6 @@ import org.jetbrains.kotlin.sir.providers.withSessions
 import org.jetbrains.kotlin.sir.util.SirPlatformModule
 import org.jetbrains.kotlin.utils.findIsInstanceAnd
 import org.jetbrains.kotlin.utils.zipIfSizesAreEqual
-import kotlin.collections.plus
-
-private val speciallyBridgedTypes = listOf(StandardClassIds.List, StandardClassIds.Map, StandardClassIds.Set)
 
 public class SirVisibilityCheckerImpl(
     private val sirSession: SirSession,
@@ -52,6 +47,10 @@ public class SirVisibilityCheckerImpl(
     @OptIn(KaExperimentalApi::class)
     override fun KaDeclarationSymbol.sirAvailability(): SirAvailability = sirSession.withSessions {
         val ktSymbol = this@sirAvailability
+
+        if (ktSymbol is KaClassSymbol && ktSymbol.classId?.let { sirSession.isClassIdSupported(it) } == true) {
+            return@withSessions SirAvailability.Available(SirVisibility.PUBLIC)
+        }
 
         val visibility = object {
             var value: SirVisibility = SirVisibility.entries.last()
@@ -86,7 +85,7 @@ public class SirVisibilityCheckerImpl(
             return@withSessions SirAvailability.Unavailable("Callables with context parameters are not supported yet")
         }
         if (ktSymbol is KaNamedFunctionSymbol && ktSymbol.allParameters.map { it.returnType.fullyExpandedType }
-                .filter { type -> !type.isFunctionType && speciallyBridgedTypes.none { type.isClassType(it) } }
+                .filter { type -> !type.isFunctionType && !sirSession.isTypeSupported(type) }
                 .any { hasUnboundTypeParameters(it) }
         ) {
             return@withSessions SirAvailability.Unavailable("Callables with parameters unbound generic types are not supported yet")
@@ -153,8 +152,8 @@ public class SirVisibilityCheckerImpl(
             unsupportedDeclarationReporter.report(this@isExported, "suspend functions are not supported yet.")
             return@withSessions false
         }
-        if (isInline) {
-            unsupportedDeclarationReporter.report(this@isExported, "inline functions are not supported yet.")
+        if (isInline && typeParameters.any { it.isReified }) {
+            unsupportedDeclarationReporter.report(this@isExported, "inline functions with reified type parameters are not supported yet.")
             return@withSessions false
         }
         return@withSessions true
@@ -175,7 +174,7 @@ public class SirVisibilityCheckerImpl(
         }
 
         // Any is exported as a KotlinBase class.
-        if (classId == DefaultTypeClassIds.ANY) {
+        if (classId == KaStandardTypeClassIds.ANY) {
             return@withSessions SirAvailability.Unavailable("ClassId = Any")
         }
         if (classKind == KaClassKind.ANNOTATION_CLASS || classKind == KaClassKind.ANONYMOUS_OBJECT) {

@@ -50,6 +50,15 @@ interface WithTheCompanion {
     }
 }
 
+// KT-83930
+@JsExport
+interface KT83930 {
+    companion object {
+        @JsStatic
+        val hello: String = "Hello World"
+    }
+}
+
 @JsExport
 fun processOptionalInterface(a: OptionalFieldsInterface): String {
     return "${a.required}${a.notRequired ?: "unknown"}"
@@ -64,6 +73,24 @@ interface InterfaceWithCompanion {
     companion object {
         fun foo() = "String"
     }
+}
+
+// KT-82128
+@JsExport
+interface InterfaceWithNamedCompanion {
+    companion object Named {
+        fun companionFunction(): String = "FUNCTION"
+
+        @JsStatic
+        fun companionStaticFunction(): String = "STATIC FUNCTION"
+    }
+}
+
+// KT-52800
+@JsExport
+sealed interface SomeSealedInterface {
+    val x: String
+    data class SomeNestedImpl(override val x: String) : SomeSealedInterface
 }
 
 // KT-64708

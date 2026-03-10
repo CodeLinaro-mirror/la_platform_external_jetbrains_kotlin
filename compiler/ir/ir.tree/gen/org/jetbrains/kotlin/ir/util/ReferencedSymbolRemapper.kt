@@ -58,6 +58,7 @@ interface ReferencedSymbolRemapper {
     /**
      * Remaps symbols stored, e.g., in the following properties (not necessarily limited to those properties):
      * - [IrConstructorCall.symbol]
+     * - [IrAnnotation.symbol]
      * - [IrConstantObject.constructor]
      * - [IrDelegatingConstructorCall.symbol]
      * - [IrEnumConstructorCall.symbol]

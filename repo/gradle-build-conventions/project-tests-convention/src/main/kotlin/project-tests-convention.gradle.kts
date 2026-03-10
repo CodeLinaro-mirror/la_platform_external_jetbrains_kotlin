@@ -9,8 +9,14 @@ val provider = objects.newInstance<TestCompilerRuntimeArgumentProvider>().apply 
     kotlinTestJarForTests.from(extension.kotlinTestJarForTests)
     kotlinAnnotationsForTests.from(extension.kotlinAnnotationsForTests)
     scriptingPluginForTests.from(extension.scriptingPluginForTests)
+    stdlibWebRuntimeForTests.from(extension.stdlibWebRuntimeForTests)
     stdlibJsRuntimeForTests.from(extension.stdlibJsRuntimeForTests)
     testJsRuntimeForTests.from(extension.testJsRuntimeForTests)
+    stdlibJsMinimalRuntimeForTests.from(extension.stdlibJsMinimalRuntimeForTests)
+    stdlibWasmJsRuntimeForTests.from(extension.stdlibWasmJsRuntimeForTests)
+    stdlibWasmWasiRuntimeForTests.from(extension.stdlibWasmWasiRuntimeForTests)
+    testWasmJsRuntimeForTests.from(extension.testWasmJsRuntimeForTests)
+    testWasmWasiRuntimeForTests.from(extension.testWasmWasiRuntimeForTests)
     mockJdkRuntimeJar.value(extension.mockJdkRuntime)
     mockJdkRuntime.value(extension.mockJdkRuntime)
     mockJDKModifiedRuntime.value(extension.mockJDKModifiedRuntime)
@@ -26,6 +32,7 @@ val provider = objects.newInstance<TestCompilerRuntimeArgumentProvider>().apply 
 tasks.withType<Test>().configureEach {
     val disableTestsCache = providers.gradleProperty("kotlin.build.cache.tests.disabled").orElse("false")
     outputs.doNotCacheIf("Caching tests is manually disabled using `kotlin.build.cache.tests.disabled` property") { disableTestsCache.get() == "true" }
+    outputs.upToDateWhen { !disableTestsCache.orNull.toBoolean() }
     jvmArgumentProviders.add(provider)
     inputs.property("os.name", org.gradle.internal.os.OperatingSystem.current().name)
 
@@ -33,7 +40,7 @@ tasks.withType<Test>().configureEach {
     outputs.cacheIf { workingDir != rootDir }
 
     develocity.testRetry {
-        maxRetries = if (kotlinBuildProperties.isTeamcityBuild) 3 else 0
+        maxRetries.set(if (kotlinBuildProperties.isTeamcityBuild.get()) 3 else 0)
         failOnPassedAfterRetry.set(extension.allowFlaky.convention(true).map { !it })
     }
     ignoreFailures = false

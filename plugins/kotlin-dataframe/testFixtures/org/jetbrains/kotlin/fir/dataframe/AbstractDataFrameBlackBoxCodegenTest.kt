@@ -21,6 +21,8 @@ import org.jetbrains.kotlin.test.runners.codegen.AbstractFirLightTreeBlackBoxCod
 import org.jetbrains.kotlin.test.services.AdditionalSourceProvider
 import org.jetbrains.kotlin.test.services.TestModuleStructure
 import org.jetbrains.kotlin.test.services.TestServices
+import org.junit.AssumptionViolatedException
+import org.junit.jupiter.api.Assumptions
 import java.io.File
 
 open class AbstractDataFrameBlackBoxCodegenTest : AbstractFirLightTreeBlackBoxCodegenTest() {

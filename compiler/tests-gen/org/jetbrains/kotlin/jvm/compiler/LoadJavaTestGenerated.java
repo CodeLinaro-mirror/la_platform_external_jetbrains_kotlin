@@ -176,6 +176,11 @@ public class LoadJavaTestGenerated extends AbstractLoadJavaTest {
       runTest("compiler/testData/loadJava/compiledJava/MyException.java");
     }
 
+    @TestMetadata("NativeMethod.java")
+    public void testNativeMethod() {
+      runTest("compiler/testData/loadJava/compiledJava/NativeMethod.java");
+    }
+
     @TestMetadata("NestedClass.java")
     public void testNestedClass() {
       runTest("compiler/testData/loadJava/compiledJava/NestedClass.java");
@@ -1772,6 +1777,11 @@ public class LoadJavaTestGenerated extends AbstractLoadJavaTest {
       @TestMetadata("PrimitiveArrayArguments.kt")
       public void testPrimitiveArrayArguments() {
         runTest("compiler/testData/loadJava/compiledKotlin/annotations/PrimitiveArrayArguments.kt");
+      }
+
+      @TestMetadata("RepeatableAnnotation.kt")
+      public void testRepeatableAnnotation() {
+        runTest("compiler/testData/loadJava/compiledKotlin/annotations/RepeatableAnnotation.kt");
       }
 
       @TestMetadata("SelfReferentialAnnotation.kt")

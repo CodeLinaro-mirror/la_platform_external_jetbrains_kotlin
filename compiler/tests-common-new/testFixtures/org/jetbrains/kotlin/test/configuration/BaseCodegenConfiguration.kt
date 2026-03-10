@@ -32,6 +32,7 @@ import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.AdditionalSourceProvider
 import org.jetbrains.kotlin.test.services.configuration.*
+import org.jetbrains.kotlin.test.services.fir.FirSpecificParserSuppressor
 import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
 import org.jetbrains.kotlin.utils.bind
@@ -92,6 +93,8 @@ fun TestConfigurationBuilder.commonServicesConfigurationForCodegenAndDebugTest(t
         ::AdditionalDiagnosticsSourceFilesProvider,
         ::CoroutineHelpersSourceFilesProvider,
     )
+
+    useMetaTestConfigurators(::FirSpecificParserSuppressor)
 }
 
 /**
@@ -223,32 +226,24 @@ fun TestConfigurationBuilder.baseFirBlackBoxCodegenTestDirectivesConfiguration()
             +WITH_STDLIB
         }
     }
-
-    forTestsMatching("compiler/testData/codegen/box/properties/backingField/*") {
-        defaultDirectives {
-            LanguageSettingsDirectives.LANGUAGE with "+ExplicitBackingFields"
-        }
-    }
 }
 
 /**
  * Setups the backend-specific handlers and directives exclusively used by JVM box tests
  */
-fun TestConfigurationBuilder.configureJvmBoxCodegenSettings(includeAllDumpHandlers: Boolean) {
+fun TestConfigurationBuilder.configureJvmBoxCodegenSettings(includeAllDumpHandlers: Boolean, includeBytecodeTextHandler: Boolean = true) {
     configureJvmArtifactsHandlersStep {
         if (includeAllDumpHandlers) {
-            useHandlers(
-                ::BytecodeListingHandler,
-            )
+            useHandlers(::BytecodeListingHandler,)
         }
-
-        useHandlers(
-            ::BytecodeTextHandler.bind(true)
-        )
+        if (includeBytecodeTextHandler) {
+            useHandlers(::BytecodeTextHandler.bind(true))
+        }
     }
 
     defaultDirectives {
         +REPORT_ONLY_EXPLICITLY_DEFINED_DEBUG_INFO
+        +WITH_STDLIB
     }
 
     forTestsNotMatching(

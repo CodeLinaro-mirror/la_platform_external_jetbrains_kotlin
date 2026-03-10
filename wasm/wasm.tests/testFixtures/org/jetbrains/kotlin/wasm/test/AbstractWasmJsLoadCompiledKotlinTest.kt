@@ -22,21 +22,23 @@ import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerWithTargetBackend
 import org.jetbrains.kotlin.wasm.test.converters.FirWasmKlibSerializerFacade
 
 abstract class AbstractWasmJsLoadCompiledKotlinTest :
-    AbstractKotlinCompilerWithTargetBackendTest(TargetBackend.WASM)
+    AbstractKotlinCompilerWithTargetBackendTest(TargetBackend.WASM_JS)
 {
     override fun configure(builder: TestConfigurationBuilder) = with(builder) {
         commonConfigurationForWasmFirstStageTest(
             targetFrontend = FrontendKinds.FIR,
             targetPlatform = WasmPlatforms.wasmJs,
             wasmTarget = WasmTarget.JS,
-            pathToTestDir = "compiler/testData/codegen/box/",
-            testGroupOutputDirPrefix = "codegen/loadCompiledWasm/",
             frontendFacade = ::FirFrontendFacade,
             frontendToBackendConverter = ::Fir2IrResultsConverter,
             backendFacade = ::FirWasmKlibSerializerFacade,
             additionalSourceProvider = null,
             customIgnoreDirective = null,
             additionalIgnoreDirectives = null,
+        )
+        commonConfigurationForWasmSecondStageTest(
+            pathToTestDir = "compiler/testData/codegen/box/",
+            testGroupOutputDirPrefix = "codegen/loadCompiledWasm/",
         )
         builder.defaultDirectives {
             FIR_PARSER with FirParser.LightTree

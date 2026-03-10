@@ -31,12 +31,15 @@ import org.jetbrains.kotlin.test.runners.AbstractKotlinCompilerTest
 import org.jetbrains.kotlin.test.configuration.configurationForClassicAndFirTestsAlongside
 import org.jetbrains.kotlin.test.configuration.enableLazyResolvePhaseChecking
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
+import org.jetbrains.kotlin.test.directives.TestPhaseDirectives.LATEST_PHASE_IN_PIPELINE
 import org.jetbrains.kotlin.test.services.LibraryProvider
+import org.jetbrains.kotlin.test.services.PhasedPipelineChecker
+import org.jetbrains.kotlin.test.services.TestPhase
 import org.junit.jupiter.api.Assumptions
 import java.io.File
 
 abstract class AbstractDiagnosticsNativeTestBase(
-    private val parser: FirParser
+    private val parser: FirParser,
 ) : AbstractKotlinCompilerTest() {
 
     val targetFrontend: FrontendKind<FirOutputArtifact>
@@ -51,7 +54,13 @@ abstract class AbstractDiagnosticsNativeTestBase(
             targetPlatform = NativePlatforms.unspecifiedNativePlatform
             dependencyKind = DependencyKind.Source
         }
-        useAfterAnalysisCheckers(::BlackBoxCodegenSuppressor)
+        defaultDirectives {
+            LATEST_PHASE_IN_PIPELINE with TestPhase.BACKEND
+        }
+        useAfterAnalysisCheckers(
+            ::BlackBoxCodegenSuppressor,
+            ::PhasedPipelineChecker,
+        )
         baseNativeDiagnosticTestConfiguration(frontend)
 
         configureFirParser(parser)
@@ -65,6 +74,7 @@ abstract class AbstractDiagnosticsNativeTestBase(
 
         defaultDirectives {
             LANGUAGE + "+EnableDfaWarningsInK2"
+            +FirDiagnosticsDirectives.FIR_IDENTICAL
         }
     }
 
@@ -114,9 +124,6 @@ abstract class AbstractNativeDiagnosticsWithBackendWithInlinedFunInKlibTestBase 
         }
     }
 }
-
-abstract class AbstractPsiNativeDiagnosticsTest : AbstractDiagnosticsNativeTestBase(FirParser.Psi)
-abstract class AbstractLightTreeNativeDiagnosticsTest : AbstractDiagnosticsNativeTestBase(FirParser.LightTree)
 
 abstract class AbstractPsiNativeDiagnosticsWithBackendTestBase : AbstractNativeDiagnosticsWithBackendTestBase(FirParser.Psi)
 abstract class AbstractLightTreeNativeDiagnosticsWithBackendTestBase : AbstractNativeDiagnosticsWithBackendTestBase(FirParser.LightTree)

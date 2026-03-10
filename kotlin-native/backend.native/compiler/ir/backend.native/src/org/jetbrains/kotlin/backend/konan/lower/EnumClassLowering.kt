@@ -14,8 +14,8 @@ import org.jetbrains.kotlin.backend.common.lower.irBlockBody
 import org.jetbrains.kotlin.backend.konan.Context
 import org.jetbrains.kotlin.backend.konan.descriptors.synthesizedName
 import org.jetbrains.kotlin.backend.konan.ir.KonanNameConventions
-import org.jetbrains.kotlin.backend.konan.llvm.IntrinsicType
-import org.jetbrains.kotlin.backend.konan.llvm.tryGetIntrinsicType
+import org.jetbrains.kotlin.backend.konan.IntrinsicType
+import org.jetbrains.kotlin.backend.konan.ir.tryGetIntrinsicType
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -119,7 +119,7 @@ internal class EnumUsageLowering(val context: Context) : IrTransformer<IrBuilder
 
         val irClassSymbol = expression.typeArguments[0]!!.classifierOrNull as? IrClassSymbol
 
-        if (irClassSymbol == null || irClassSymbol == context.symbols.enum) {
+        if (irClassSymbol == null || irClassSymbol == context.irBuiltIns.enumClass) {
             // Either a type parameter or a type parameter erased to 'Enum'.
             return data.irCall(context.symbols.throwIllegalStateException)
         }
@@ -174,7 +174,7 @@ internal class EnumClassLowering(val context: Context) : FileLoweringPass {
     private val createUninitializedInstance = symbols.createUninitializedInstance
     private val createEnumEntries = symbols.createEnumEntries
     private val initInstance = symbols.initInstance
-    private val arrayGet = symbols.array.owner.functions.single { it.name == KonanNameConventions.getWithoutBoundCheck }.symbol
+    private val arrayGet = context.irBuiltIns.arrayClass.owner.functions.single { it.name == KonanNameConventions.getWithoutBoundCheck }.symbol
 
     override fun lower(irFile: IrFile) {
         irFile.transformChildrenVoid(object : IrElementTransformerVoid() {

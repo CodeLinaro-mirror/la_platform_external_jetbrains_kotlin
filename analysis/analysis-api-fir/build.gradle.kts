@@ -2,10 +2,10 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("generated-sources")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("test-data-manager")
 }
 
 dependencies {
@@ -36,6 +36,7 @@ dependencies {
     implementation(project(":analysis:analysis-internal-utils"))
     implementation(project(":analysis:kt-references"))
     implementation(project(":analysis:symbol-light-classes"))
+    implementation(project(":native:native.config"))
     implementation(libs.caffeine)
     implementation(libs.opentelemetry.api)
 
@@ -101,6 +102,8 @@ allprojects {
                 "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
                 "org.jetbrains.kotlin.analysis.api.permissions.KaAllowProhibitedAnalyzeFromWriteAction",
                 "org.jetbrains.kotlin.analysis.api.KaContextParameterApi",
+                "org.jetbrains.kotlin.analysis.api.components.KaSessionComponentImplementationDetail",
+                "org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint",
             )
         )
     }
@@ -109,7 +112,6 @@ allprojects {
 generatedSourcesTask(
     taskName = "generateDiagnostics",
     generatorProject = ":analysis:analysis-api-fir:analysis-api-fir-generator",
-    generatorRoot = "analysis/analysis-api-fir/analysis-api-fir-generator/src/",
     generatorMainClass = "org.jetbrains.kotlin.analysis.api.fir.generator.MainKt",
     argsProvider = { generationRoot ->
         listOf(

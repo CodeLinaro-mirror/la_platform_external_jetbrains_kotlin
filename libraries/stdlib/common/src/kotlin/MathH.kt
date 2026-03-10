@@ -173,6 +173,8 @@ public expect fun atanh(x: Double): Double
  * Special cases:
  *   - returns `+Inf` if any of arguments is infinite
  *   - returns `NaN` if any of arguments is `NaN` and the other is not infinite
+ *
+ * @sample samples.math.MathSamples.Doubles.hypot
  */
 @SinceKotlin("1.2")
 public expect fun hypot(x: Double, y: Double): Double
@@ -181,7 +183,11 @@ public expect fun hypot(x: Double, y: Double): Double
  * Computes the positive square root of the value [x].
  *
  * Special cases:
- *   - `sqrt(x)` is `NaN` when `x < 0` or `x` is `NaN`
+ *   - `sqrt(NaN)` is `NaN`
+ *   - `sqrt(-0.0)` is `-0.0`
+ *   - `sqrt(x)` is `NaN` when `x < 0`
+ *
+ * @sample samples.math.MathSamples.Doubles.sqrt
  */
 @SinceKotlin("1.2")
 public expect fun sqrt(x: Double): Double
@@ -343,6 +349,7 @@ public expect fun round(x: Double): Double
  *   - `abs(NaN)` is `NaN`
  *
  * @see absoluteValue extension property for [Double]
+ * @sample samples.math.MathSamples.Doubles.abs
  */
 @SinceKotlin("1.2")
 public expect fun abs(x: Double): Double
@@ -383,12 +390,14 @@ public expect fun max(a: Double, b: Double): Double
 /**
  * Returns the cube root of [x]. For any `x`, `cbrt(-x) == -cbrt(x)`;
  * that is, the cube root of a negative value is the negative of the cube root
- * of that value's magnitude. Special cases:
+ * of that value's magnitude.
  *
  * Special cases:
  *   - If the argument is `NaN`, then the result is `NaN`.
  *   - If the argument is infinite, then the result is an infinity with the same sign as the argument.
  *   - If the argument is zero, then the result is a zero with the same sign as the argument.
+ *
+ * @sample samples.math.MathSamples.Doubles.cbrt
  */
 @SinceKotlin("1.8")
 public expect fun cbrt(x: Double): Double
@@ -425,6 +434,7 @@ public expect fun Double.pow(n: Int): Double
  *   - `NaN.absoluteValue` is `NaN`
  *
  * @see abs function
+ * @sample samples.math.MathSamples.Doubles.absoluteValue
  */
 @SinceKotlin("1.2")
 public expect val Double.absoluteValue: Double
@@ -448,12 +458,16 @@ public expect val Double.sign: Double
  * Returns this value with the sign bit same as of the [sign] value.
  *
  * If [sign] is `NaN` the sign of the result is undefined.
+ *
+ * @sample samples.math.MathSamples.Doubles.withSignDouble
  */
 @SinceKotlin("1.2")
 public expect fun Double.withSign(sign: Double): Double
 
 /**
  * Returns this value with the sign bit same as of the [sign] value.
+ *
+ * @sample samples.math.MathSamples.Doubles.withSignInt
  */
 @SinceKotlin("1.2")
 public expect fun Double.withSign(sign: Int): Double
@@ -679,6 +693,8 @@ public expect fun atanh(x: Float): Float
  * Special cases:
  *   - returns `+Inf` if any of arguments is infinite
  *   - returns `NaN` if any of arguments is `NaN` and the other is not infinite
+ *
+ * @sample samples.math.MathSamples.Floats.hypot
  */
 @SinceKotlin("1.2")
 public expect fun hypot(x: Float, y: Float): Float
@@ -687,7 +703,11 @@ public expect fun hypot(x: Float, y: Float): Float
  * Computes the positive square root of the value [x].
  *
  * Special cases:
- *   - `sqrt(x)` is `NaN` when `x < 0` or `x` is `NaN`
+ *   - `sqrt(NaN)` is `NaN`
+ *   - `sqrt(-0.0)` is `-0.0`
+ *   - `sqrt(x)` is `NaN` when `x < 0`
+ *
+ * @sample samples.math.MathSamples.Floats.sqrt
  */
 @SinceKotlin("1.2")
 public expect fun sqrt(x: Float): Float
@@ -850,6 +870,7 @@ public expect fun round(x: Float): Float
  *   - `abs(NaN)` is `NaN`
  *
  * @see absoluteValue extension property for [Float]
+ * @sample samples.math.MathSamples.Floats.absoluteValue
  */
 @SinceKotlin("1.2")
 public expect fun abs(x: Float): Float
@@ -891,12 +912,14 @@ public expect fun max(a: Float, b: Float): Float
 /**
  * Returns the cube root of [x]. For any `x`, `cbrt(-x) == -cbrt(x)`;
  * that is, the cube root of a negative value is the negative of the cube root
- * of that value's magnitude. Special cases:
+ * of that value's magnitude.
  *
  * Special cases:
  *   - If the argument is `NaN`, then the result is `NaN`.
  *   - If the argument is infinite, then the result is an infinity with the same sign as the argument.
  *   - If the argument is zero, then the result is a zero with the same sign as the argument.
+ *
+ * @sample samples.math.MathSamples.Floats.cbrt
  */
 @SinceKotlin("1.8")
 @WasExperimental(ExperimentalStdlibApi::class)
@@ -935,6 +958,7 @@ public expect fun Float.pow(n: Int): Float
  *   - `NaN.absoluteValue` is `NaN`
  *
  * @see abs function
+ * @sample samples.math.MathSamples.Floats.absoluteValue
  */
 @SinceKotlin("1.2")
 public expect val Float.absoluteValue: Float
@@ -958,12 +982,16 @@ public expect val Float.sign: Float
  * Returns this value with the sign bit same as of the [sign] value.
  *
  * If [sign] is `NaN` the sign of the result is undefined.
+ *
+ * @sample samples.math.MathSamples.Floats.withSignFloat
  */
 @SinceKotlin("1.2")
 public expect fun Float.withSign(sign: Float): Float
 
 /**
  * Returns this value with the sign bit same as of the [sign] value.
+ *
+ * @sample samples.math.MathSamples.Floats.withSignInt
  */
 @SinceKotlin("1.2")
 public expect fun Float.withSign(sign: Int): Float
@@ -1010,6 +1038,7 @@ public expect fun Float.roundToLong(): Long
  *   - `abs(Int.MIN_VALUE)` is `Int.MIN_VALUE` due to an overflow
  *
  * @see absoluteValue extension property for [Int]
+ * @sample samples.math.MathSamples.Ints.abs
  */
 @SinceKotlin("1.2")
 public expect fun abs(n: Int): Int
@@ -1033,6 +1062,7 @@ public expect fun max(a: Int, b: Int): Int
  *   - `Int.MIN_VALUE.absoluteValue` is `Int.MIN_VALUE` due to an overflow
  *
  * @see abs function
+ * @sample samples.math.MathSamples.Ints.absoluteValue
  */
 @SinceKotlin("1.2")
 public expect val Int.absoluteValue: Int
@@ -1042,6 +1072,8 @@ public expect val Int.absoluteValue: Int
  *   - `-1` if the value is negative,
  *   - `0` if the value is zero,
  *   - `1` if the value is positive
+ *
+ * @sample samples.math.MathSamples.Ints.sign
  */
 @SinceKotlin("1.2")
 public expect val Int.sign: Int
@@ -1055,6 +1087,7 @@ public expect val Int.sign: Int
  *   - `abs(Long.MIN_VALUE)` is `Long.MIN_VALUE` due to an overflow
  *
  * @see absoluteValue extension property for [Long]
+ * @sample samples.math.MathSamples.Longs.abs
  */
 @SinceKotlin("1.2")
 public expect fun abs(n: Long): Long
@@ -1078,6 +1111,7 @@ public expect fun max(a: Long, b: Long): Long
  *   - `Long.MIN_VALUE.absoluteValue` is `Long.MIN_VALUE` due to an overflow
  *
  * @see abs function
+ * @sample samples.math.MathSamples.Longs.absoluteValue
  */
 @SinceKotlin("1.2")
 public expect val Long.absoluteValue: Long
@@ -1087,6 +1121,8 @@ public expect val Long.absoluteValue: Long
  *   - `-1` if the value is negative,
  *   - `0` if the value is zero,
  *   - `1` if the value is positive
+ *
+ * @sample samples.math.MathSamples.Longs.sign
  */
 @SinceKotlin("1.2")
 public expect val Long.sign: Int

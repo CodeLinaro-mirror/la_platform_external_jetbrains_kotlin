@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.BodyLoweringPass
 import org.jetbrains.kotlin.backend.common.compilationException
+import org.jetbrains.kotlin.backend.common.phaser.PhasePrerequisites
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.ir.JsIrBuilder
 import org.jetbrains.kotlin.ir.backend.js.utils.getVoid
@@ -23,13 +24,14 @@ import org.jetbrains.kotlin.utils.filterIsInstanceAnd
 /**
  * Links [kotlin.Throwable] and JavaScript `Error` together to provide proper interop between language and platform exceptions.
  */
+@PhasePrerequisites(CaptureStackTraceInThrowables::class)
 class ThrowableLowering(val context: JsIrBackendContext) : BodyLoweringPass {
-    private val throwableClass = context.throwableClass
+    private val throwableClass = context.symbols.throwableClass
     private val throwableConstructors = context.throwableConstructors
-    private val newThrowableFunction = context.newThrowableSymbol
-    private val extendThrowableFunction = context.extendThrowableSymbol
-    private val setupCauseParameter = context.setupCauseParameterSymbol
-    private val setPropertiesToThrowableInstanceSymbol = context.setPropertiesToThrowableInstanceSymbol
+    private val newThrowableFunction = context.symbols.newThrowableSymbol
+    private val extendThrowableFunction = context.symbols.extendThrowableSymbol
+    private val setupCauseParameter = context.symbols.setupCauseParameterSymbol
+    private val setPropertiesToThrowableInstanceSymbol = context.symbols.setPropertiesToThrowableInstanceSymbol
 
     private fun undefinedValue(): IrExpression = context.getVoid()
 

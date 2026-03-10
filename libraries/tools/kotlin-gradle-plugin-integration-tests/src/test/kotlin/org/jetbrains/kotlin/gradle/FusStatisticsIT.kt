@@ -6,11 +6,12 @@
 package org.jetbrains.kotlin.gradle
 
 import org.gradle.api.logging.LogLevel
-import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.kotlin.dsl.kotlin
 import org.gradle.kotlin.dsl.version
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
+import org.jetbrains.kotlin.buildtools.api.ExperimentalBuildToolsApi
+import org.jetbrains.kotlin.gradle.dsl.KotlinJsProjectExtension
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
@@ -19,17 +20,12 @@ import org.jetbrains.kotlin.gradle.util.filterBackwardCompatibilityKotlinFusFile
 import org.jetbrains.kotlin.gradle.util.filterKotlinFusFiles
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.gradle.util.swiftExportEmbedAndSignEnvVariables
-import org.junit.jupiter.api.Disabled
+import org.jetbrains.kotlin.statistics.metrics.StringAnonymizationPolicy
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.absolutePathString
-import kotlin.io.path.appendText
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.writeText
-import kotlin.io.path.deleteRecursively
-import kotlin.io.path.listDirectoryEntries
+import kotlin.io.path.*
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -43,7 +39,10 @@ class FusStatisticsIT : KGPBaseTest() {
         "BUILD_FINISH_TIME",
         "GRADLE_VERSION",
         "KOTLIN_STDLIB_VERSION",
+        "KOTLIN_BTA_USED",
         "KOTLIN_COMPILER_VERSION",
+        "KOTLIN_GRADLE_PLUGIN_VERSION",
+        "KOTLIN_COMPILER_EXECUTION_POLICY",
     )
 
     private val GradleProject.fusStatisticsDirectory: Path
@@ -211,11 +210,19 @@ class FusStatisticsIT : KGPBaseTest() {
     )
     fun testMetricCollectingOfApplyingKotlinJsPlugin(gradleVersion: GradleVersion) {
         project(
-            "simple-js-library",
+            "empty",
             gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
             buildOptions = defaultBuildOptions.copy(isolatedProjects = IsolatedProjectsMode.DISABLED),
         ) {
+            plugins {
+                kotlin("js")
+            }
+            buildScriptInjection {
+                (project.extensions.getByName("kotlin") as KotlinJsProjectExtension).apply {
+                    js()
+                }
+            }
             assertNoErrorFilesCreated {
                 build("assemble", "-Pkotlin.session.logger.root.path=$projectPath") {
                     assertOutputDoesNotContainFusErrors()
@@ -224,7 +231,6 @@ class FusStatisticsIT : KGPBaseTest() {
             }
         }
     }
-
 
     @JvmGradlePluginTests
     @DisplayName("Ensure that the metric are not collected if plugins were not applied to simple project")
@@ -553,7 +559,7 @@ class FusStatisticsIT : KGPBaseTest() {
             "new-mpp-wasm-test",
             gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             gradleProperties.writeText("kotlin.incremental.wasm=true")
 
@@ -739,6 +745,80 @@ class FusStatisticsIT : KGPBaseTest() {
         ) {
             build("assemble", buildOptions = defaultBuildOptions.copy(logLevel = LogLevel.DEBUG)) {
                 assertOutputContains("Fus metrics won't be collected: CI build is detected via environment variable TEAMCITY_VERSION")
+            }
+        }
+    }
+
+    @DisplayName("enabling/disabling BTA")
+    @GradleTest
+    @JvmGradlePluginTests
+    fun testBtaEnabled(gradleVersion: GradleVersion) {
+        project("empty", gradleVersion) {
+            plugins { kotlin("jvm") }
+            assertNoErrorFilesCreated {
+                build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
+                    assertOutputDoesNotContainFusErrors()
+                    fusStatisticsDirectory.assertFusReportContains("KOTLIN_BTA_USED=true")
+                }
+
+                build(
+                    "compileKotlin",
+                    "-Pkotlin.session.logger.root.path=$projectPath",
+                    buildOptions = buildOptions.copy(runViaBuildToolsApi = false)
+                ) {
+                    assertOutputDoesNotContainFusErrors()
+                    fusStatisticsDirectory.assertFusReportContains("KOTLIN_BTA_USED=false")
+                }
+            }
+        }
+    }
+
+    @DisplayName("various compiler execution settings")
+    @GradleTest
+    @JvmGradlePluginTests
+    fun testCompilerExecutionSettings(gradleVersion: GradleVersion) {
+        val kotlinVersion = StringAnonymizationPolicy.ComponentVersionAnonymizer().anonymize(KOTLIN_VERSION)
+        project("simpleProject", gradleVersion) {
+            assertNoErrorFilesCreated {
+                build("compileKotlin", "-Pkotlin.session.logger.root.path=$projectPath") {
+                    assertOutputDoesNotContainFusErrors()
+                    fusStatisticsDirectory.assertFusReportContains(
+                        "KOTLIN_GRADLE_PLUGIN_VERSION=$kotlinVersion",
+                        "KOTLIN_COMPILER_VERSION=$kotlinVersion",
+                        "KOTLIN_COMPILER_EXECUTION_POLICY=daemon",
+                    )
+                }
+
+                build(
+                    "clean",
+                    "compileKotlin",
+                    "-Pkotlin.session.logger.root.path=$projectPath",
+                    "-Pkotlin.compiler.execution.strategy=in-process",
+                ) {
+                    assertOutputDoesNotContainFusErrors()
+                    fusStatisticsDirectory.assertFusReportContains(
+                        "KOTLIN_GRADLE_PLUGIN_VERSION=$kotlinVersion",
+                        "KOTLIN_COMPILER_VERSION=$kotlinVersion",
+                        "KOTLIN_COMPILER_EXECUTION_POLICY=in-process",
+                    )
+                }
+                buildScriptInjection {
+                    @OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalBuildToolsApi::class)
+                    kotlinJvm.compilerVersion.set("2.2.20")
+                    kotlinJvm.coreLibrariesVersion = "2.2.20"
+                }
+                build(
+                    "compileKotlin",
+                    "-Pkotlin.session.logger.root.path=$projectPath",
+                    buildOptions = buildOptions.copy(runViaBuildToolsApi = true),
+                ) {
+                    assertOutputDoesNotContainFusErrors()
+                    fusStatisticsDirectory.assertFusReportContains(
+                        "KOTLIN_GRADLE_PLUGIN_VERSION=$kotlinVersion",
+                        "KOTLIN_COMPILER_VERSION=2.2.20",
+                        "KOTLIN_COMPILER_EXECUTION_POLICY=daemon",
+                    )
+                }
             }
         }
     }

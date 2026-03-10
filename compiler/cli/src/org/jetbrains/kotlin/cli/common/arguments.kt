@@ -6,11 +6,8 @@
 package org.jetbrains.kotlin.cli.common
 
 import com.intellij.ide.highlighter.JavaFileType
-import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
-import org.jetbrains.kotlin.cli.common.arguments.CommonToolArguments
-import org.jetbrains.kotlin.cli.common.arguments.ManualLanguageFeatureSetting
-import org.jetbrains.kotlin.cli.common.arguments.cliArgument
-import org.jetbrains.kotlin.cli.common.arguments.toLanguageVersionSettings
+import org.jetbrains.kotlin.cli.CliDiagnostics
+import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.config.*
@@ -43,6 +40,7 @@ fun CompilerConfiguration.setupCommonArguments(
     put(CommonConfigurationKeys.INCREMENTAL_COMPILATION, incrementalCompilationIsEnabled(arguments))
     put(CommonConfigurationKeys.ALLOW_ANY_SCRIPTS_IN_SOURCE_ROOTS, arguments.allowAnyScriptsInSourceRoots)
     put(CommonConfigurationKeys.IGNORE_CONST_OPTIMIZATION_ERRORS, arguments.ignoreConstOptimizationErrors)
+    put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, arguments.renderInternalDiagnosticNames)
 
     val irVerificationMode = arguments.verifyIr?.let { verifyIrString ->
         IrVerificationMode.resolveMode(verifyIrString).also {
@@ -63,6 +61,16 @@ fun CompilerConfiguration.setupCommonArguments(
         }
     }
 
+    if (arguments.verifyIrNestedOffsets) {
+        put(CommonConfigurationKeys.ENABLE_IR_NESTED_OFFSETS_CHECKS, true)
+        if (irVerificationMode == IrVerificationMode.NONE) {
+            messageCollector.report(
+                CompilerMessageSeverity.WARNING,
+                "'-Xverify-ir-nested-offsets' has no effect unless '-Xverify-ir=warning' or '-Xverify-ir=error' is specified"
+            )
+        }
+    }
+
     @Suppress("DEPRECATION")
     if (arguments.useFirExperimentalCheckers) {
         put(CommonConfigurationKeys.USE_FIR_EXPERIMENTAL_CHECKERS, true)
@@ -76,6 +84,9 @@ fun CompilerConfiguration.setupCommonArguments(
 
     setupLanguageVersionSettings(arguments)
 
+    // It should be called after the language version is initialized because the reporting depends on the current language version
+    checkRedundantArguments(arguments)
+
     val usesK2 = languageVersionSettings.languageVersion.usesK2
     put(CommonConfigurationKeys.USE_FIR, usesK2)
     put(CommonConfigurationKeys.USE_LIGHT_TREE, arguments.useFirLT)
@@ -85,6 +96,8 @@ fun CompilerConfiguration.setupCommonArguments(
         FlexibleTypeImpl.RUN_SLOW_ASSERTIONS = true
         AbstractTypeChecker.RUN_SLOW_ASSERTIONS = true
     }
+
+    put(CommonConfigurationKeys.DONT_SORT_SOURCE_FILES, arguments.dontSortSourceFiles)
 }
 
 fun CompilerConfiguration.setupMetadataVersion(
@@ -106,6 +119,43 @@ fun CompilerConfiguration.setupMetadataVersion(
 
 fun CompilerConfiguration.setupLanguageVersionSettings(arguments: CommonCompilerArguments) {
     languageVersionSettings = arguments.toLanguageVersionSettings(getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY))
+}
+
+private fun CompilerConfiguration.checkRedundantArguments(arguments: CommonCompilerArguments) {
+    val languageVersion = languageVersionSettings.languageVersion
+
+    propertiesLoop@ for ((explicitArgument, values) in arguments.explicitArguments) {
+        if (!explicitArgument.changesLanguageFeatures) continue@propertiesLoop
+
+        for (actualPropertyValue in values) {
+            fun checkNecessity(feature: LanguageFeature, ifValueIs: String, state: LanguageFeature.State): Boolean {
+                // At first, check if the annotation is relevant. Only Boolean and String types are allowed
+                when {
+                    // Language features can't be disabled, so it's expected if the value is changed, it's always `true`
+                    ifValueIs.isEmpty() -> require(actualPropertyValue as Boolean)
+                    else -> if (actualPropertyValue as String != ifValueIs) return false
+                }
+
+                // At second check the necessity
+                return (state == LanguageFeature.State.ENABLED) != languageVersionSettings.isEnabledByDefault(feature)
+            }
+
+            explicitArgument.enablesAnnotations.forEach {
+                if (checkNecessity(it.feature, it.ifValueIs, LanguageFeature.State.ENABLED)) continue@propertiesLoop
+            }
+            explicitArgument.disablesAnnotations.forEach {
+                if (checkNecessity(it.feature, it.ifValueIs, LanguageFeature.State.DISABLED)) continue@propertiesLoop
+            }
+
+            val argValue = if (actualPropertyValue is String) "=$actualPropertyValue" else ""
+            reportDiagnostic(
+                CliDiagnostics.REDUNDANT_CLI_ARG,
+                "The argument '${explicitArgument.argument.value}${argValue}' is redundant for the current language version $languageVersion.",
+            )
+
+            continue@propertiesLoop
+        }
+    }
 }
 
 const val KOTLIN_HOME_PROPERTY = "kotlin.home"
@@ -131,6 +181,15 @@ fun computeKotlinPaths(messageCollector: MessageCollector, arguments: CommonComp
 }
 
 fun MessageCollector.reportArgumentParseProblems(arguments: CommonToolArguments) {
+    for ((key, values) in arguments.explicitArguments) {
+        if (values.size > 1) {
+            val argName = key.argument.value
+            val valuesString = values.joinToString("', '")
+            val message = "Argument '$argName' is passed multiple times: '$valuesString'. The last value will be used."
+            report(CompilerMessageSeverity.STRONG_WARNING, message)
+        }
+    }
+
     val errors = arguments.errors ?: return
     for (flag in errors.unknownExtraFlags) {
         report(CompilerMessageSeverity.STRONG_WARNING, "Flag is not supported by this version of the compiler: $flag")
@@ -140,9 +199,6 @@ fun MessageCollector.reportArgumentParseProblems(arguments: CommonToolArguments)
             CompilerMessageSeverity.STRONG_WARNING,
             "Advanced option value is passed in an obsolete form. Please use the '=' character to specify the value: $argument=..."
         )
-    }
-    for ((key, value) in errors.duplicateArguments) {
-        report(CompilerMessageSeverity.STRONG_WARNING, "Argument $key is passed multiple times. Only the last value will be used: $value")
     }
     for ((deprecatedName, newName) in errors.deprecatedArguments) {
         report(CompilerMessageSeverity.STRONG_WARNING, "Argument $deprecatedName is deprecated. Please use $newName instead")
