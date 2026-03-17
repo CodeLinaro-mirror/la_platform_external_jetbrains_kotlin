@@ -87,6 +87,11 @@ sourceSets {
     "testFixtures" { projectDefault() }
 }
 
+// Android Studio (b/493681891): this module uses JFR APIs, but our JDK 8 build is missing JFR.
+// So, compile this module with JDK 11 instead (while keeping the JVM bytecode target at 8).
+configureJvmToolchain(JdkMajorVersion.JDK_11_0)
+updateJvmTarget("1.8")
+
 kotlin {
     compilerOptions {
         optIn.addAll(
