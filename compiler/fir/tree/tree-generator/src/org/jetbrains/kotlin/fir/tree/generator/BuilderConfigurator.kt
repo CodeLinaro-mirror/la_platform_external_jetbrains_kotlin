@@ -148,7 +148,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
             additionalImports(emptyArgumentListType, emptyAnnotationArgumentMappingType, firImplicitTypeWithoutSourceType)
         }
 
-        builder(arrayLiteral) {
+        builder(collectionLiteral) {
             parents += callBuilder
         }
 
@@ -371,7 +371,7 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
         builder(valueParameter, type = "FirDefaultSetterValueParameter") {
         }
 
-        builder(simpleFunction) {
+        builder(namedFunction) {
             parents += functionBuilder
             parents += typeParametersOwnerBuilder
             defaultNull("body", "contractDescription")
@@ -398,6 +398,11 @@ class BuilderConfigurator(model: Model) : AbstractFirBuilderConfigurator<Abstrac
         }
 
         builder(elvisExpression) {
+            default("calleeReference", "FirStubReference")
+            additionalImports(stubReferenceType)
+        }
+
+        builder(equalityOperatorCall) {
             default("calleeReference", "FirStubReference")
             additionalImports(stubReferenceType)
         }

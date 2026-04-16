@@ -394,6 +394,11 @@ public class CompilerLightClassTestGenerated extends AbstractCompilerLightClassT
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SuperTypeWithBoundKotlinCollection.kt");
   }
 
+  @TestMetadata("SuspendFunctionTypeAsAnnotationArgument.kt")
+  public void testSuspendFunctionTypeAsAnnotationArgument() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SuspendFunctionTypeAsAnnotationArgument.kt");
+  }
+
   @TestMetadata("Throws.kt")
   public void testThrows() {
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/Throws.kt");
@@ -437,6 +442,11 @@ public class CompilerLightClassTestGenerated extends AbstractCompilerLightClassT
   @TestMetadata("valueClassMembers.kt")
   public void testValueClassMembers() {
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/valueClassMembers.kt");
+  }
+
+  @TestMetadata("valueClassWithCompanion.kt")
+  public void testValueClassWithCompanion() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/valueClassWithCompanion.kt");
   }
 
   @TestMetadata("valueClassWithDelegatedSuperInterface.kt")
@@ -765,6 +775,57 @@ public class CompilerLightClassTestGenerated extends AbstractCompilerLightClassT
     @TestMetadata("ValueClassInParametersWithJvmName.kt")
     public void testValueClassInParametersWithJvmName() {
       runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/facades/ValueClassInParametersWithJvmName.kt");
+    }
+  }
+
+  @TestMetadata("compiler/testData/asJava/lightClasses/lightClassByFqName/k2")
+  @TestDataPath("$PROJECT_ROOT")
+  @RunWith(JUnit3RunnerWithInners.class)
+  public static class K2 extends AbstractCompilerLightClassTest {
+    private void runTest(String testDataFilePath) {
+      KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+    }
+
+    public void testAllFilesPresentInK2() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/asJava/lightClasses/lightClassByFqName/k2"), Pattern.compile("^([^.]+)\\.(kt|kts)$"), null, true);
+    }
+
+    @TestMetadata("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations")
+    @TestDataPath("$PROJECT_ROOT")
+    @RunWith(JUnit3RunnerWithInners.class)
+    public static class Annotations extends AbstractCompilerLightClassTest {
+      private void runTest(String testDataFilePath) {
+        KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+      }
+
+      public void testAllFilesPresentInAnnotations() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations"), Pattern.compile("^([^.]+)\\.(kt|kts)$"), null, true);
+      }
+
+      @TestMetadata("annotationConstructorProperty_all.kt")
+      public void testAnnotationConstructorProperty_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/annotationConstructorProperty_all.kt");
+      }
+
+      @TestMetadata("constructorProperty_all.kt")
+      public void testConstructorProperty_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/constructorProperty_all.kt");
+      }
+
+      @TestMetadata("custom_variable_all.kt")
+      public void testCustom_variable_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/custom_variable_all.kt");
+      }
+
+      @TestMetadata("jvmName.kt")
+      public void testJvmName() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/jvmName.kt");
+      }
+
+      @TestMetadata("variable_all.kt")
+      public void testVariable_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/variable_all.kt");
+      }
     }
   }
 

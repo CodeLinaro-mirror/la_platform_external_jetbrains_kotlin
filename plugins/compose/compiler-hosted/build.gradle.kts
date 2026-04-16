@@ -9,7 +9,7 @@ plugins {
 }
 
 repositories {
-    if (!kotlinBuildProperties.isTeamcityBuild) {
+    if (!kotlinBuildProperties.isTeamcityBuild.get()) {
         androidXMavenLocal(androidXMavenLocalPath)
     }
     androidxSnapshotRepo(composeRuntimeSnapshot.versions.snapshot.id.get())
@@ -41,6 +41,7 @@ dependencies {
     compileOnly(project(":compiler:ir.serialization.js"))
     compileOnly(project(":compiler:backend.jvm.codegen"))
     compileOnly(project(":compiler:fir:entrypoint"))
+    compileOnly(project(":native:native.config"))
 
     compileOnly(intellijCore())
 
@@ -56,7 +57,7 @@ dependencies {
     testImplementation(testFixtures(project(":analysis:low-level-api-fir")))
     testImplementation(testFixtures(project(":compiler:test-infrastructure")))
     testImplementation(testFixtures(project(":generators:analysis-api-generator")))
-    testApi(project(":compiler:plugin-api"))
+    testImplementation(project(":compiler:plugin-api"))
     testImplementation(testFixtures(project(":compiler:tests-common-new")))
     testImplementation(testFixtures(project(":js:js.tests")))
 
@@ -87,7 +88,7 @@ dependencies {
     testCompileOnly(toolsJarApi())
     testRuntimeOnly(toolsJar())
 
-    testApi(platform(libs.junit.bom))
+    testImplementation(platform(libs.junit.bom))
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
 }
@@ -138,7 +139,7 @@ projectTests {
     testGenerator("androidx.compose.compiler.plugins.kotlin.TestGeneratorKt", doNotSetFixturesSourceSetDependency = true)
 
     withJvmStdlibAndReflect()
-    withStdlibJsRuntime()
+    withJsRuntime()
 }
 
 testsJar()

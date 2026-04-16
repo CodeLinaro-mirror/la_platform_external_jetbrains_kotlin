@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 package org.jetbrains.kotlin.psi
@@ -13,6 +13,16 @@ import org.jetbrains.kotlin.psi.psiUtil.isLegacyContractPresentPsiCheck
 import org.jetbrains.kotlin.psi.stubs.KotlinPropertyAccessorStub
 
 /**
+ * Represents a property getter or setter accessor.
+ *
+ * ### Example:
+ *
+ * ```kotlin
+ * val x: Int
+ *     get() = 2
+ * //  ^_______^
+ * ```
+ *
  * Note: this class is not intended to be extended and is marked `open` solely for backward compatibility.
  */
 open class KtPropertyAccessor : KtDeclarationStub<KotlinPropertyAccessorStub>, KtDeclarationWithBody, KtModifierListOwner,
@@ -40,7 +50,9 @@ open class KtPropertyAccessor : KtDeclarationStub<KotlinPropertyAccessorStub>, K
         }
 
     open val parameterList: KtParameterList?
-        get() = getStubOrPsiChild(KtStubBasedElementTypes.VALUE_PARAMETER_LIST)
+        get() =
+            @Suppress("DEPRECATION") // KT-78356
+            getStubOrPsiChild(KtStubBasedElementTypes.VALUE_PARAMETER_LIST)
 
     open val parameter: KtParameter?
         get() = parameterList?.parameters?.firstOrNull()
@@ -82,11 +94,13 @@ open class KtPropertyAccessor : KtDeclarationStub<KotlinPropertyAccessorStub>, K
         findChildByType(KtTokens.EQ)
 
     override fun getContractDescription(): KtContractEffectList? =
+        @Suppress("DEPRECATION") // KT-78356
         getStubOrPsiChild(KtStubBasedElementTypes.CONTRACT_EFFECT_LIST)
 
     override fun hasDeclaredReturnType(): Boolean = true
 
     override fun getTypeReference(): KtTypeReference? =
+        @Suppress("DEPRECATION") // KT-78356
         getStubOrPsiChild(KtStubBasedElementTypes.TYPE_REFERENCE)
 
     open val namePlaceholder: PsiElement

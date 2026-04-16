@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.ClassLoweringPass
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
-import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.caches.StubsForCollectionClass
 import org.jetbrains.kotlin.backend.jvm.ir.isJvmInterface
@@ -44,7 +43,6 @@ import org.jetbrains.kotlin.types.TypeCheckerState
  * In the bytecode, `C` will have implementations of all mutating methods (`add`, `remove`, `clear`, ...) which throw
  * `java.lang.UnsupportedOperationException` with the message "Operation is not supported for read-only collection".
  */
-@PhaseDescription(name = "CollectionStubMethod")
 internal class CollectionStubMethodLowering(val context: JvmBackendContext) : ClassLoweringPass {
     private val collectionStubComputer = context.collectionStubComputer
 
@@ -199,9 +197,9 @@ internal class CollectionStubMethodLowering(val context: JvmBackendContext) : Cl
 
     private fun liftStubMethodReturnType(function: IrSimpleFunction): IrType {
         val klass = when (function.name.asString()) {
-            "iterator" -> context.symbols.iterator
-            "listIterator" -> context.symbols.listIterator
-            "subList" -> context.symbols.list
+            "iterator" -> context.irBuiltIns.iteratorClass
+            "listIterator" -> context.irBuiltIns.listIteratorClass
+            "subList" -> context.irBuiltIns.listClass
             else -> return function.returnType
         }
         return klass.typeWithArguments((function.returnType as IrSimpleType).arguments)

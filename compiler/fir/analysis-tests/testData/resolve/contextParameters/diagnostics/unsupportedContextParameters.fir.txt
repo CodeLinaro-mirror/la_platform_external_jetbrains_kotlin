@@ -1,7 +1,7 @@
 FILE: unsupportedContextParameters.kt
     context(<unused var>: R|kotlin/String|)
     public final class C : R|kotlin/Any| {
-        context(<unused var>: R|kotlin/String|, <unused var>: R|kotlin/String|)
+        context(<unused var>: R|kotlin/String|)
         public constructor(): R|C| {
             super<R|kotlin/Any|>()
         }
@@ -22,7 +22,6 @@ FILE: unsupportedContextParameters.kt
     }
     context(<unused var>: R|kotlin/String|)
     public final enum class E : R|kotlin/Enum<E>| {
-        context(<unused var>: R|kotlin/String|)
         private constructor(): R|E| {
             super<R|kotlin/Enum<E>|>()
         }
@@ -39,7 +38,6 @@ FILE: unsupportedContextParameters.kt
     }
     context(<unused var>: R|kotlin/String|)
     public final annotation class A : R|kotlin/Annotation| {
-        context(<unused var>: R|kotlin/String|)
         public constructor(): R|A| {
             super<R|kotlin/Any|>()
         }
@@ -47,15 +45,14 @@ FILE: unsupportedContextParameters.kt
     }
     context(<unused var>: R|kotlin/String|)
     public final object O : R|kotlin/Any| {
-        context(<unused var>: R|kotlin/String|)
         private constructor(): R|O| {
             super<R|kotlin/Any|>()
         }
 
     }
     public final typealias TA = R|kotlin/Any|
-    public final val objectExpression: <ERROR TYPE REF: Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]> = <Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>#(<Unresolved name: _>#)
-        public get(): <ERROR TYPE REF: Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>
+    public final val objectExpression: <ERROR TYPE REF: Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]> = <Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>#(<Unresolved name: _>#)
+        public get(): <ERROR TYPE REF: Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>
     public final object <no name provided> : R|kotlin/Any| {
         private constructor(): R|<no name provided>| {
             super<R|kotlin/Any|>()
@@ -111,7 +108,7 @@ FILE: unsupportedContextParameters.kt
     }
     context(R|kotlin/String|)
     public final class ClassWithContextReceiverSyntax : R|kotlin/Any| {
-        context(R|kotlin/String|, R|kotlin/String|)
+        context(R|kotlin/String|)
         public constructor(): R|ClassWithContextReceiverSyntax| {
             super<R|kotlin/Any|>()
         }
@@ -119,7 +116,6 @@ FILE: unsupportedContextParameters.kt
     }
     context(x: R|kotlin/String| = ERROR_EXPR(Context parameters cannot have default values))
     public final class ClassWithContextDefaultValue : R|kotlin/Any| {
-        context(x: R|kotlin/String| = ERROR_EXPR(Context parameters cannot have default values))
         public constructor(): R|ClassWithContextDefaultValue| {
             super<R|kotlin/Any|>()
         }
@@ -205,14 +201,21 @@ FILE: unsupportedContextParameters.kt
     public final fun runWithA(block: R|@ContextFunctionTypeParams(1) context(kotlin/String) () -> kotlin/Unit|): R|kotlin/Unit| {
     }
     public final fun localFunctionsContextParametersWithoutType(): R|kotlin/Unit| {
-        lval t2: R|@ContextFunctionTypeParams(1) context(ERROR CLASS: Symbol not found for a) () -> kotlin/Unit| = context(a@<ERROR TYPE REF: Symbol not found for a>) fun <anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        lval t2: <ERROR TYPE REF: Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]> = <Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>#(<Unresolved name: a>#)
+        fun <anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
         }
 
-        R|/runWithA|(context(a@<ERROR TYPE REF: Symbol not found for a>) fun <anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        R|/runWithA<Inapplicable(INAPPLICABLE_ARGUMENTS_MAPPING_ERROR): /runWithA>#|(<Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>#(<Unresolved name: a>#), fun <anonymous>(): R|kotlin/Unit| <inline=Unknown>  {
         }
         )
-        context(a@<ERROR TYPE REF: Symbol not found for a>)
+        <Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>#(<Unresolved name: a>#)
         local final fun contextReceiverSyntax(): R|kotlin/Unit| {
+        }
+
+    }
+    public final fun localFunctionsContextParametersDisambiguation(a: R|kotlin/Int|): R|kotlin/Unit| {
+        <Ambiguity: context, [kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context, kotlin/context]>#(R|<local>/a|)
+        local final fun localFun(): R|kotlin/Unit| {
         }
 
     }

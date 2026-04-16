@@ -16,7 +16,7 @@ import org.jetbrains.kotlin.fir.caches.FirCachesFactory
 import org.jetbrains.kotlin.fir.caches.firCachesFactory
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.FirFunctionBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunctionCopy
+import org.jetbrains.kotlin.fir.declarations.builder.buildNamedFunctionCopy
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertySetter
@@ -126,7 +126,7 @@ class JavaClassUseSiteMemberScope(
         }.symbol
     }
 
-    private fun chooseModalityForAccessor(property: FirProperty, getter: FirSimpleFunction): Modality? {
+    private fun chooseModalityForAccessor(property: FirProperty, getter: FirNamedFunction): Modality? {
         val a = property.modality
         val b = getter.modality
 
@@ -281,7 +281,7 @@ class JavaClassUseSiteMemberScope(
         }
     }
 
-    private fun FirPropertySymbol.checkValueParameters(candidate: FirSimpleFunction): Boolean {
+    private fun FirPropertySymbol.checkValueParameters(candidate: FirNamedFunction): Boolean {
         var parameterIndex = 0
         val fakeSource = source?.fakeElement(KtFakeSourceElementKind.Enhancement)
 
@@ -302,7 +302,7 @@ class JavaClassUseSiteMemberScope(
                     .computeJvmDescriptorRepresentation()
     }
 
-    private fun FirSimpleFunction.isAcceptableAsAccessorOverride(): Boolean {
+    private fun FirNamedFunction.isAcceptableAsAccessorOverride(): Boolean {
         // We don't accept here accessors with type parameters from Kotlin to avoid strange cases like KT-59038
         // However, we (temporarily, see below) accept accessors from Kotlin in general to keep K1 compatibility in cases like KT-59550
         // KT-59601: we are going to forbid accessors from Kotlin in general after some investigation and/or deprecation period
@@ -1060,7 +1060,7 @@ class JavaClassUseSiteMemberScope(
                     }
                 }
             } else {
-                buildSimpleFunctionCopy(original) {
+                buildNamedFunctionCopy(original) {
                     name = naturalName
                     symbol = newSymbol
                     dispatchReceiverType = klass.defaultType()
@@ -1140,11 +1140,11 @@ class JavaClassUseSiteMemberScope(
         }
 
         private fun buildMaybeJavaFunctionCopy(
-            original: FirSimpleFunction,
+            original: FirNamedFunction,
             newSymbol: FirNamedFunctionSymbol,
             newName: Name = original.name,
             builder: FirFunctionBuilder.() -> Unit,
-        ): FirSimpleFunction {
+        ): FirNamedFunction {
             return if (original is FirJavaMethod) {
                 buildJavaMethodCopy(original) {
                     this.symbol = newSymbol
@@ -1152,7 +1152,7 @@ class JavaClassUseSiteMemberScope(
                     builder()
                 }
             } else {
-                buildSimpleFunctionCopy(original) {
+                buildNamedFunctionCopy(original) {
                     this.symbol = newSymbol
                     name = newName
                     builder()

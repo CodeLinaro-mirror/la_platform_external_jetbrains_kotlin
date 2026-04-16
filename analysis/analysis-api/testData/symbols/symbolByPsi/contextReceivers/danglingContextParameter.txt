@@ -8,6 +8,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: true
   location: CLASS
   modality: FINAL
@@ -34,6 +35,8 @@ KaConstructorSymbol:
           isActual: false
           isExpect: false
           isExtension: false
+          isExternal: false
+          isNotDefault: false
           isVal: true
           location: PROPERTY
           modality: FINAL
@@ -68,6 +71,7 @@ KaConstructorSymbol:
           isActual: false
           isExpect: false
           isExtension: false
+          isExternal: false
           isInline: false
           isNotDefault: false
           isOverride: false
@@ -125,17 +129,18 @@ KaConstructorSymbol:
         getContainingJvmClassName: Anno
         getContainingModule: KaSourceModule "Sources of main"
         deprecationStatus: null
-        getterDeprecationStatus: null
         javaGetterName: getPosition
         javaSetterName: null
-        setterDeprecationStatus: null
         isInline: false
         importableFqName: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -209,6 +214,7 @@ KaContextParameterSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isVal: true
   location: LOCAL
   modality: FINAL
@@ -236,6 +242,7 @@ KaContextParameterSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isVal: true
   location: LOCAL
   modality: FINAL
@@ -252,7 +259,7 @@ KaContextParameterSymbol:
         ]
         type: ERROR_TYPE
     ]
-    type: kotlin/collections/List<@R|Anno|(position = String(str))  ERROR CLASS: Symbol not found for Unresolved>
+    type: kotlin/collections/List<@R|Anno|(position = String(str) [evaluated = String(str)])  ERROR CLASS: Symbol not found for Unresolved>
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(danglingContextParameter.kt)
   getContainingJvmClassName: null
@@ -303,6 +310,7 @@ KaContextParameterSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isVal: true
   location: LOCAL
   modality: FINAL
@@ -330,6 +338,7 @@ KaContextParameterSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isVal: true
   location: LOCAL
   modality: FINAL
@@ -346,7 +355,7 @@ KaContextParameterSymbol:
         ]
         type: ERROR_TYPE
     ]
-    type: kotlin/collections/List<@R|Anno|(position = String(str))  ERROR CLASS: Symbol not found for Unresolved>
+    type: kotlin/collections/List<@R|Anno|(position = String(str) [evaluated = String(str)])  ERROR CLASS: Symbol not found for Unresolved>
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(danglingContextParameter.kt)
   getContainingJvmClassName: null
@@ -423,6 +432,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: foo
 
 KaContextParameterSymbol:
@@ -436,6 +446,7 @@ KaContextParameterSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isVal: true
   location: LOCAL
   modality: FINAL
@@ -463,6 +474,7 @@ KaContextParameterSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isVal: true
   location: LOCAL
   modality: FINAL
@@ -479,7 +491,7 @@ KaContextParameterSymbol:
         ]
         type: ERROR_TYPE
     ]
-    type: kotlin/collections/List<@R|Anno|(position = String(str))  ERROR CLASS: Symbol not found for Unresolved>
+    type: kotlin/collections/List<@R|Anno|(position = String(str) [evaluated = String(str)])  ERROR CLASS: Symbol not found for Unresolved>
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(danglingContextParameter.kt)
   getContainingJvmClassName: null

@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.ModuleMapping
 import org.jetbrains.kotlin.test.MockLibraryUtil
+import org.jetbrains.kotlin.test.services.StandardLibrariesPathProviderForKotlinProject
 import org.jetbrains.kotlin.util.toJvmMetadataVersion
 import org.jetbrains.org.objectweb.asm.*
 import org.jetbrains.org.objectweb.asm.tree.ClassNode
@@ -142,7 +143,7 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
     // ------------------------------------------------------------------------------
 
     // KT-62900 K2: Expected expression to be resolved during Fir2Ir
-    fun testMissingEnumReferencedInAnnotationArgument() = muteForK2 {
+    fun testMissingEnumReferencedInAnnotationArgument() {
         doTestBrokenLibrary("library", "a/E.class")
     }
 
@@ -192,10 +193,6 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
 
     fun testMissingDependencySimple() {
         doTestBrokenLibrary("library", "a/A.class")
-    }
-
-    fun testNonTransitiveDependencyWithJavac() {
-        doTestBrokenLibrary("library", "my/Some.class", additionalOptions = listOf(K2JVMCompilerArguments::useJavac.cliArgument, K2JVMCompilerArguments::compileJava.cliArgument))
     }
 
     fun testComputeSupertypeWithMissingDependency() {
@@ -532,8 +529,13 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
     fun testInternalFromFriendModuleCommon() = muteForK1 {
         val library = compileCommonLibrary("library")
         compileKotlin(
-            "source.kt", tmpdir, listOf(library), KotlinMetadataCompiler(), listOf(
-                K2MetadataCompilerArguments::friendPaths.cliArgument(library.path)
+            fileName = "source.kt",
+            output = tmpdir,
+            classpath = listOf(library, StandardLibrariesPathProviderForKotlinProject.commonStdlibForTests()),
+            compiler = KotlinMetadataCompiler(),
+            additionalOptions = listOf(
+                K2MetadataCompilerArguments::friendPaths.cliArgument(library.path),
+                "-Xtarget-platform=JVM,JS,WasmJs,WasmWasi,Native",
             )
         )
     }
@@ -676,6 +678,36 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         }
     }
 
+    fun testUsageOfNestedTypeAliasesWhenTheyAreNotStable() {
+        val library = compileLibrary(
+            "library",
+            additionalOptions = listOf(CommonCompilerArguments::languageVersion.cliArgument, LanguageVersion.LATEST_STABLE.versionString)
+        )
+        compileKotlin(
+            "source.kt", tmpdir, listOf(library),
+            additionalOptions = listOf(CommonCompilerArguments::languageVersion.cliArgument, LanguageVersion.KOTLIN_2_2.versionString)
+        )
+    }
+
+    fun testUsageOfNestedTypeAliasesWhenTheyAreEnabled() {
+        val library = compileLibrary(
+            "library",
+            additionalOptions = listOf(
+                CommonCompilerArguments::languageVersion.cliArgument,
+                LanguageVersion.KOTLIN_2_2.versionString,
+                CommonCompilerArguments::nestedTypeAliases.cliArgument,
+            )
+        )
+        compileKotlin(
+            "source.kt", tmpdir, listOf(library),
+            additionalOptions = listOf(
+                CommonCompilerArguments::languageVersion.cliArgument,
+                LanguageVersion.KOTLIN_2_2.versionString,
+                CommonCompilerArguments::nestedTypeAliases.cliArgument,
+            )
+        )
+    }
+
     private fun doTestAnonymousObjectTypeMetadata(
         extraCommandLineArguments: List<String> = emptyList(),
         filterOutput: (String) -> String = { output -> output }
@@ -689,11 +721,11 @@ abstract class AbstractCompileKotlinAgainstCustomBinariesTest : AbstractKotlinCo
         )
 
         compileKotlin(
-            "anonymousObjectTypeMetadata.kt",
-            tmpdir,
-            listOf(library),
-            KotlinMetadataCompiler(),
-            additionalOptions = extraCommandLineArguments
+            fileName = "anonymousObjectTypeMetadata.kt",
+            output = tmpdir,
+            classpath = listOf(library, StandardLibrariesPathProviderForKotlinProject.commonStdlibForTests()),
+            compiler = KotlinMetadataCompiler(),
+            additionalOptions = extraCommandLineArguments + "-Xtarget-platform=JVM,JS,WasmJs,WasmWasi,Native",
         )
     }
 

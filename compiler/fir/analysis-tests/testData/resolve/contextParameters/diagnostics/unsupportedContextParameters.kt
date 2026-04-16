@@ -69,7 +69,7 @@ fun contextReceiverSyntax() {}
 context(<!CONTEXT_PARAMETER_WITHOUT_NAME!>String<!>, _: Int)
 fun mixedSyntax() {}
 
-<!UNSUPPORTED!>context(<!CONTEXT_PARAMETER_WITHOUT_NAME, CONTEXT_PARAMETER_WITHOUT_NAME!>String<!>)<!>
+<!UNSUPPORTED!>context(<!CONTEXT_PARAMETER_WITHOUT_NAME!>String<!>)<!>
 class ClassWithContextReceiverSyntax {
     <!UNSUPPORTED!>context(<!CONTEXT_PARAMETER_WITHOUT_NAME!>String<!>)<!>
     constructor() {}
@@ -84,8 +84,8 @@ val contextHasDefaultValue: String get() = ""
 context(<!CONTEXT_PARAMETER_WITH_DEFAULT!>x: String = ""<!>)
 fun contextHasDefaultValue() {}
 
-context(<!WRONG_MODIFIER_TARGET!>vararg<!> x: String, <!VAL_OR_VAR_ON_FUN_PARAMETER!>var<!> y: String, <!VAL_OR_VAR_ON_FUN_PARAMETER!>val<!> z: String, <!WRONG_MODIFIER_TARGET!>crossinline<!> f1: () -> Unit, <!WRONG_MODIFIER_TARGET!>noinline<!> f2: () -> Unit)
-<!NOTHING_TO_INLINE!>inline<!> fun contextHasModifier() {}
+context(<!WRONG_MODIFIER_TARGET!>vararg<!> x: String, <!VAL_OR_VAR_ON_FUN_PARAMETER!>var<!> y: String, <!VAL_OR_VAR_ON_FUN_PARAMETER!>val<!> z: String, <!CONTEXT_PARAMETER_MUST_BE_NOINLINE!>crossinline f1: () -> Unit<!>, noinline f2: () -> Unit)
+inline fun contextHasModifier() {}
 
 fun test(collection : Array<Pair<Int,Int>>) {
     <!UNSUPPORTED!>context(s: String)<!>
@@ -117,11 +117,18 @@ fun runWithA(block: context(String) () -> Unit) {
 }
 
 fun localFunctionsContextParametersWithoutType() {
-    val t2 = context(<!CONTEXT_PARAMETER_WITHOUT_NAME, UNRESOLVED_REFERENCE!>a<!>) fun () { }
-    runWithA(context(<!CONTEXT_PARAMETER_WITHOUT_NAME, UNRESOLVED_REFERENCE!>a<!>) fun () { })
+    val t2 = context(<!UNRESOLVED_REFERENCE!>a<!>)<!SYNTAX!><!> fun () { }
+    runWithA(context(<!UNRESOLVED_REFERENCE!>a<!>)<!SYNTAX!><!> <!TOO_MANY_ARGUMENTS!>fun () { }<!>)
 
-    context(<!CONTEXT_PARAMETER_WITHOUT_NAME, UNRESOLVED_REFERENCE!>a<!>)
+    context(<!UNRESOLVED_REFERENCE!>a<!>)
     fun contextReceiverSyntax() {}
+}
+
+fun localFunctionsContextParametersDisambiguation(a: Int) {
+    // `context` is a call with missing lambda argument (that's why inapplicable)
+    // `localFun` is a declaration that's not related to the context call
+    <!NONE_APPLICABLE, NO_VALUE_FOR_PARAMETER!>context<!>(a)
+    fun localFun() {}
 }
 
 /* GENERATED_FIR_TAGS: annotationDeclaration, anonymousFunction, classDeclaration, crossinline, destructuringDeclaration,

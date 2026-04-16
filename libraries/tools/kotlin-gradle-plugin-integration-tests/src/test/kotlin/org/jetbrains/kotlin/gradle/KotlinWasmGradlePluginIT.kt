@@ -35,7 +35,7 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
 
     override val defaultBuildOptions: BuildOptions
         // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-        get() = super.defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED)
+        get() = super.defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899()
 
     @DisplayName("Check wasi target")
     @GradleTest
@@ -805,6 +805,7 @@ class KotlinWasmGradlePluginIT : KGPBaseTest() {
             gradleVersion,
             dependencyManagement = dependencyManagement
         ) {
+            @Suppress("UPPER_BOUND_VIOLATED_BASED_ON_JAVA_ANNOTATIONS")
             buildScriptInjection {
                 project.plugins.withType(WasmNodeJsPlugin::class.java) {
                     project.extensions.getByType(WasmNodeJsEnvSpec::class.java).download.set(false)

@@ -115,6 +115,9 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
     @Parameter(property = "kotlin.compiler.daemon.shutdownDelayMs")
     protected Long daemonShutdownDelayMs;
 
+    @Parameter(property = "kotlin.compiler.generateCompilerRefIndex", defaultValue = "false")
+    protected boolean generateCompilerRefIndex;
+
     /**
      * The time the Kotlin daemon continues to live after the Maven build process finishes (without the Maven daemon)
      */
@@ -243,20 +246,6 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
         );
     }
 
-    @Override
-    public void execute() throws MojoExecutionException, MojoFailureException {
-        if (args != null && args.contains("-Xuse-javac")) {
-            try {
-                URL toolsJar = getJdkToolsJarURL();
-                if (toolsJar != null) {
-                    project.getClassRealm().addURL(toolsJar);
-                }
-            } catch (IOException ignored) {}
-        }
-
-        super.execute();
-    }
-
     @Inject
     private KotlinArtifactResolver kotlinArtifactResolver;
 
@@ -332,10 +321,10 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
                     usedDaemonShutdownDelay = DEFAULT_NON_MAVEN_DAEMON_SHUTDOWN_DELAY;
                 }
                 getLog().debug("Using Kotlin compiler daemon with shutdown delay " + usedDaemonShutdownDelay + " ms" + (inMavenDaemon ? " (in Maven daemon)" : " (outside Maven daemon)"));
-                ExecutionPolicy.WithDaemon daemonPolicy = kotlinToolchains.createDaemonExecutionPolicy();
+                ExecutionPolicy.WithDaemon.Builder daemonPolicy = kotlinToolchains.daemonExecutionPolicyBuilder();
                 daemonPolicy.set(ExecutionPolicy.WithDaemon.JVM_ARGUMENTS, kotlinDaemonJvmArgs);
                 daemonPolicy.set(ExecutionPolicy.WithDaemon.SHUTDOWN_DELAY_MILLIS, usedDaemonShutdownDelay.toMillis());
-                executionPolicy = daemonPolicy;
+                executionPolicy = daemonPolicy.build();
             } else {
                 getLog().debug("Using in-process Kotlin compiler");
                 executionPolicy = kotlinToolchains.createInProcessExecutionPolicy();
@@ -359,18 +348,20 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
             }
 
             Path destination = getEffectiveDestinationDirectory(arguments);
-            JvmCompilationOperation compilationOperation = jvmToolchain.createJvmCompilationOperation(allSources, destination);
+            JvmCompilationOperation.Builder compilationOperation = jvmToolchain.jvmCompilationOperationBuilder(allSources, destination);
 
             Set<Consumer<CompilationResult>> resultHandlers = new HashSet<>();
             if (isIncremental()) {
                 resultHandlers.add(configureIncrementalCompilation(compilationOperation, arguments));
             }
 
+            compilationOperation.set(JvmCompilationOperation.GENERATE_COMPILER_REF_INDEX, generateCompilerRefIndex);
+
             LegacyKotlinMavenLogger kotlinMavenLogger = new LegacyKotlinMavenLogger(messageCollector, getLog());
             try (KotlinToolchains.BuildSession buildSession = kotlinToolchains.createBuildSession()) {
                 List<String> myArguments = ArgumentUtils.convertArgumentsToStringList(arguments);
                 compilationOperation.getCompilerArguments().applyArgumentStrings(myArguments);
-                CompilationResult result = buildSession.executeOperation(compilationOperation, executionPolicy, kotlinMavenLogger);
+                CompilationResult result = buildSession.executeOperation(compilationOperation.build(), executionPolicy, kotlinMavenLogger);
                 resultHandlers.forEach(handler -> handler.accept(result));
                 switch (result) {
                     case COMPILATION_SUCCESS:
@@ -399,7 +390,7 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
     }
 
     private Consumer<CompilationResult> configureIncrementalCompilation(
-            JvmCompilationOperation compileOperation,
+            JvmCompilationOperation.Builder compileOperation,
             K2JVMCompilerArguments arguments
     ) throws IOException {
         getLog().warn("Using experimental Kotlin incremental compilation");
@@ -422,14 +413,13 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
             arguments.setClasspath(StringUtil.join(filteredClasspath, File.pathSeparator));
         }
 
-        JvmSnapshotBasedIncrementalCompilationOptions classpathSnapshotsOptions = compileOperation.createSnapshotBasedIcOptions();
-        compileOperation.set(JvmCompilationOperation.INCREMENTAL_COMPILATION, new JvmSnapshotBasedIncrementalCompilationConfiguration(
+        JvmSnapshotBasedIncrementalCompilationConfiguration classpathSnapshotsConfig = compileOperation.snapshotBasedIcConfigurationBuilder(
                 cachesDir,
                 SourcesChanges.ToBeCalculated.INSTANCE,
                 Collections.EMPTY_LIST,
-                cachesDir.resolve("shrunk-classpath-snapshot.bin"),
-                classpathSnapshotsOptions
-        ));
+                cachesDir.resolve("shrunk-classpath-snapshot.bin")
+        ).build();
+        compileOperation.set(JvmCompilationOperation.INCREMENTAL_COMPILATION, classpathSnapshotsConfig);
 
         return compilationResult -> {
             if (compilationResult == CompilationResult.COMPILATION_SUCCESS) {

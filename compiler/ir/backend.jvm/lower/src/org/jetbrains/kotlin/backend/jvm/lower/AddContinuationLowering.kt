@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.backend.common.ir.moveBodyTo
 import org.jetbrains.kotlin.backend.common.lower.LocalDeclarationsLowering
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
 import org.jetbrains.kotlin.backend.common.peek
-import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
+import org.jetbrains.kotlin.backend.common.phaser.PhasePrerequisites
 import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.jvm.*
@@ -47,10 +47,7 @@ import kotlin.contracts.contract
 /**
  * Adds continuation classes and parameters to suspend functions.
  */
-@PhaseDescription(
-    name = "AddContinuation",
-    prerequisite = [SuspendLambdaLowering::class, JvmLocalDeclarationsLowering::class, TailCallOptimizationLowering::class]
-)
+@PhasePrerequisites(SuspendLambdaLowering::class, JvmLocalDeclarationsLowering::class, TailCallOptimizationLowering::class)
 internal class AddContinuationLowering(context: JvmBackendContext) : SuspendLoweringUtils(context), FileLoweringPass {
     override fun lower(irFile: IrFile) {
         addContinuationObjectAndContinuationParameterToSuspendFunctions(irFile)
@@ -340,7 +337,6 @@ internal class AddContinuationLowering(context: JvmBackendContext) : SuspendLowe
                     result += context.irFactory.buildFun {
                         containerSource = view.containerSource
                         name = Name.identifier(context.defaultMethodSignatureMapper.mapFunctionName(view) + FOR_INLINE_SUFFIX)
-                        returnType = view.returnType
                         modality = view.modality
                         isSuspend = view.isSuspend
                         isInline = view.isInline
@@ -350,7 +346,7 @@ internal class AddContinuationLowering(context: JvmBackendContext) : SuspendLowe
                             else JvmLoweredDeclarationOrigin.FOR_INLINE_STATE_MACHINE_TEMPLATE_CAPTURES_CROSSINLINE
                     }.apply {
                         copyAnnotationsFrom(view)
-                        copyValueAndTypeParametersFrom(view)
+                        copyFunctionSignatureFrom(view)
                         context.remapMultiFieldValueClassStructure(view, this, parametersMappingOrNull = null)
                         copyAttributes(view)
                         generateErrorForInlineBody()

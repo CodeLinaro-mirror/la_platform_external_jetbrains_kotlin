@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.ir.inline
 import org.jetbrains.kotlin.backend.common.ir.isTmpForInline
 import org.jetbrains.kotlin.backend.common.lower.irCatch
-import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.jvm.*
@@ -16,7 +15,6 @@ import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements
 import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements.RemappedParameter.MultiFieldValueClassMapping
 import org.jetbrains.kotlin.backend.jvm.MemoizedMultiFieldValueClassReplacements.RemappedParameter.RegularMapping
 import org.jetbrains.kotlin.backend.jvm.ir.createJvmIrBuilder
-import org.jetbrains.kotlin.ir.util.erasedUpperBound
 import org.jetbrains.kotlin.backend.jvm.lower.BlockOrBody.Block
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
@@ -34,9 +32,11 @@ import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrAnonymousInitializerSymbolImpl
 import org.jetbrains.kotlin.ir.transformStatement
-import org.jetbrains.kotlin.ir.types.*
+import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.defaultType
+import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.visitors.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -45,7 +45,6 @@ import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 /**
  * Supports the experimental [multi-field value classes](https://github.com/Kotlin/KEEP/issues/340) feature.
  */
-@PhaseDescription(name = "MultiFieldValueClasses")
 internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : JvmValueClassAbstractLowering(context) {
     override fun lower(irFile: IrFile) {
         if (context.config.supportMultiFieldValueClasses) {
@@ -761,41 +760,43 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
                 "Expected ${replacement.render()}, got ${declarations?.map { it.render() }}"
             }
         }
-        return makeNewLambda(originalFunction, ref, makeBody = { wrapper ->
-            variablesToAdd[replacement]?.let {
-                variablesToAdd[wrapper] = it
-                variablesToAdd.remove(replacement)
-            }
-            if (replacement in possibleExtraBoxUsageGenerated) {
-                possibleExtraBoxUsageGenerated.add(wrapper)
-                possibleExtraBoxUsageGenerated.remove(replacement)
-            }
-            with(context.createJvmIrBuilder(wrapper.symbol)) {
-                irExprBody(irBlock {
-                    val newArguments: List<IrValueDeclaration> = wrapper.parameters.flatMap { parameter ->
-                        if (!parameter.type.needsMfvcFlattening()) {
-                            listOf(parameter)
-                        } else {
-                            // Old parameter value will be only used to set parameter of the lowered function,
-                            // thus it is useless to show it in debugger
-                            parameter.origin = JvmLoweredDeclarationOrigin.TEMPORARY_MULTI_FIELD_VALUE_CLASS_PARAMETER
-                            val rootNode = replacements.getRootMfvcNode(parameter.type.erasedUpperBound)
-                            rootNode.createInstanceFromBox(this, irGet(parameter), AccessType.ChooseEffective, ::variablesSaver)
-                                .makeFlattenedGetterExpressions(this, irCurrentClass, ::registerPossibleExtraBoxUsage)
-                                .mapIndexed { index, expression ->
-                                    savableStandaloneVariableWithSetter(
-                                        expression = expression,
-                                        name = "${parameter.name.asString()}-${rootNode.leaves[index].fullFieldName}",
-                                        origin = JvmLoweredDeclarationOrigin.MULTI_FIELD_VALUE_CLASS_REPRESENTATION_VARIABLE,
-                                        saveVariable = ::variablesSaver,
-                                    )
-                                }
-                        }
+        return makeNewLambdaBlock(originalFunction, ref, makeBody = { wrapper -> makeLambdaBody(wrapper, replacement) })
+    }
+
+    private fun makeLambdaBody(wrapper: IrSimpleFunction, replacement: IrFunction): IrBody {
+        variablesToAdd[replacement]?.let {
+            variablesToAdd[wrapper] = it
+            variablesToAdd.remove(replacement)
+        }
+        if (replacement in possibleExtraBoxUsageGenerated) {
+            possibleExtraBoxUsageGenerated.add(wrapper)
+            possibleExtraBoxUsageGenerated.remove(replacement)
+        }
+        return with(context.createJvmIrBuilder(wrapper.symbol)) {
+            irExprBody(irBlock {
+                val newArguments: List<IrValueDeclaration> = wrapper.parameters.flatMap { parameter ->
+                    if (!parameter.type.needsMfvcFlattening()) {
+                        listOf(parameter)
+                    } else {
+                        // Old parameter value will be only used to set parameter of the lowered function,
+                        // thus it is useless to show it in debugger
+                        parameter.origin = JvmLoweredDeclarationOrigin.TEMPORARY_MULTI_FIELD_VALUE_CLASS_PARAMETER
+                        val rootNode = replacements.getRootMfvcNode(parameter.type.erasedUpperBound)
+                        rootNode.createInstanceFromBox(this, irGet(parameter), AccessType.ChooseEffective, ::variablesSaver)
+                            .makeFlattenedGetterExpressions(this, irCurrentClass, ::registerPossibleExtraBoxUsage)
+                            .mapIndexed { index, expression ->
+                                savableStandaloneVariableWithSetter(
+                                    expression = expression,
+                                    name = "${parameter.name.asString()}-${rootNode.leaves[index].fullFieldName}",
+                                    origin = JvmLoweredDeclarationOrigin.MULTI_FIELD_VALUE_CLASS_REPRESENTATION_VARIABLE,
+                                    saveVariable = ::variablesSaver,
+                                )
+                            }
                     }
-                    +replacement.inline(wrapper.parent, newArguments)
-                })
-            }
-        })
+                }
+                +replacement.inline(wrapper.parent, newArguments)
+            })
+        }
     }
 
     override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
@@ -815,12 +816,54 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
         }.unwrapBlock()
     }
 
+    override fun visitRichFunctionReference(expression: IrRichFunctionReference): IrExpression {
+        val originalFunction = expression.invokeFunction
+        val replacement = originalFunction.getReplacement()
+        if (replacement == null) {
+            expression.invokeFunction = visitFunctionNew(originalFunction) as IrSimpleFunction
+            return expression
+        }
+        val declarations = transformFunctionFlat(originalFunction)
+        require(declarations == listOf(replacement)) {
+            "Expected ${replacement.render()}, got ${declarations?.map { it.render() }}"
+        }
+        val wrapper = makeNewLamdaFunction(originalFunction, makeBody = { wrapper -> makeLambdaBody(wrapper, replacement) })
+        expression.boundValues.transformInPlace(this, null)
+        expression.invokeFunction = wrapper
+        return expression
+    }
+
     private fun IrFunction.getReplacement(): IrFunction? = replacements.getReplacementFunction(this)
         ?: (this as? IrConstructor)?.let { replacements.getReplacementForRegularClassConstructor(it) }
 
-    private fun makeNewLambda(
+    private fun makeNewLambdaBlock(
         originalFunction: IrFunction, expression: IrFunctionReference, makeBody: (wrapper: IrSimpleFunction) -> IrBody
     ): IrContainerExpression {
+        val wrapper = makeNewLamdaFunction(originalFunction, makeBody)
+
+        val newReference = IrFunctionReferenceImpl(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            type = expression.type,
+            symbol = wrapper.symbol,
+            typeArgumentsCount = expression.typeArguments.size,
+            reflectionTarget = expression.reflectionTarget,
+            origin = expression.origin,
+        ).apply {
+            copyTypeArgumentsFrom(expression)
+            arguments.assignFrom(expression.arguments) { it?.transform(this@JvmMultiFieldValueClassLowering, null) }
+            copyAttributes(expression)
+        }
+        return context.createJvmIrBuilder(getCurrentScopeSymbol(), expression).irBlock(origin = IrStatementOrigin.LAMBDA) {
+            +wrapper
+            +newReference
+        }
+    }
+
+    private fun makeNewLamdaFunction(
+        originalFunction: IrFunction,
+        makeBody: (IrSimpleFunction) -> IrBody,
+    ): IrSimpleFunction {
         val currentDeclarationParent = currentDeclarationParent!!
         val wrapper = context.irFactory.buildFun {
             updateFrom(originalFunction)
@@ -848,24 +891,7 @@ internal class JvmMultiFieldValueClassLowering(context: JvmBackendContext) : Jvm
                 postActionAfterTransformingClassDeclaration(this)
             }
         }
-
-        val newReference = IrFunctionReferenceImpl(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            type = expression.type,
-            symbol = wrapper.symbol,
-            typeArgumentsCount = expression.typeArguments.size,
-            reflectionTarget = expression.reflectionTarget,
-            origin = expression.origin,
-        ).apply {
-            copyTypeArgumentsFrom(expression)
-            arguments.assignFrom(expression.arguments) { it?.transform(this@JvmMultiFieldValueClassLowering, null) }
-            copyAttributes(expression)
-        }
-        return context.createJvmIrBuilder(getCurrentScopeSymbol(), expression).irBlock(origin = IrStatementOrigin.LAMBDA) {
-            +wrapper
-            +newReference
-        }
+        return wrapper
     }
 
     override fun visitFunctionAccess(expression: IrFunctionAccessExpression): IrExpression {

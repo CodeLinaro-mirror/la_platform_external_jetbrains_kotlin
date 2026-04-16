@@ -16,6 +16,7 @@
 
 package androidx.compose.compiler.plugins.kotlin.k2
 
+import androidx.compose.compiler.plugins.kotlin.ComposeCallableIds
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.reportOn
@@ -28,20 +29,17 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.isInline
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
-import org.jetbrains.kotlin.fir.psi
 import org.jetbrains.kotlin.fir.references.toResolvedCallableSymbol
 import org.jetbrains.kotlin.fir.references.toResolvedFunctionSymbol
 import org.jetbrains.kotlin.fir.references.toResolvedValueParameterSymbol
 import org.jetbrains.kotlin.fir.resolve.isInvoke
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirRegularPropertySymbol
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.functionTypeKind
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.psi.KtFunction
-import org.jetbrains.kotlin.psi.KtFunctionLiteral
-import org.jetbrains.kotlin.psi.KtLambdaExpression
 
 object ComposablePropertyAccessExpressionChecker : FirPropertyAccessExpressionChecker(MppCheckerKind.Common) {
     context(context: CheckerContext, reporter: DiagnosticReporter)
@@ -101,6 +99,17 @@ private fun checkComposableCall(
     context: CheckerContext,
     reporter: DiagnosticReporter,
 ) {
+    if (calleeFunction.callableId == ComposeCallableIds.key) {
+        // If key call only has the block argument, report it
+        if (expression is FirFunctionCall && expression.arguments.size == 1) {
+            reporter.reportOn(
+                expression.calleeReference.source,
+                ComposeErrors.KEY_CALL_WITH_NO_ARGUMENTS,
+                context
+            )
+        }
+    }
+
     context.visitCurrentScope(
         visitInlineLambdaParameter = { parameter ->
             val containingDeclarationSymbol = parameter.containingDeclarationSymbol
@@ -117,10 +126,7 @@ private fun checkComposableCall(
         visitAnonymousFunction = { function ->
             if (function.typeRef.coneType.functionTypeKind(context.session) === ComposableFunction)
                 return
-            val functionPsi = function.psi
-            if (functionPsi is KtFunctionLiteral || functionPsi is KtLambdaExpression ||
-                functionPsi !is KtFunction
-            ) {
+            if (function.isLambda) {
                 return@visitCurrentScope
             }
             val nonReadOnlyCalleeReference =
@@ -230,7 +236,7 @@ private fun checkComposableFunction(
         }
         // Only local variables can be implicitly composable, for top-level or class-level
         // declarations we require an explicit annotation.
-        if (!function.propertySymbol.isLocal) {
+        if (function.propertySymbol is FirRegularPropertySymbol) {
             reporter.reportOn(
                 function.propertySymbol.source,
                 ComposeErrors.COMPOSABLE_EXPECTED,

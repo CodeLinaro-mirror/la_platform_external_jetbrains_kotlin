@@ -361,7 +361,7 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
         "compiler/fir/analysis-tests/testData",
     ) {
         fun TestGroup.TestClass.modelInit() {
-            model("resolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME.canFreezeIDE)
+            model("resolve", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME.canFreezeIDE, excludeDirs = listOf("headerMode"))
             model("resolveWithStdlib", pattern = TestGeneratorUtil.KT_WITHOUT_DOTS_IN_NAME.canFreezeIDE)
         }
 
@@ -434,6 +434,56 @@ internal fun TestGroupSuite.generateFirLowLevelApiTests() {
             testClass<AbstractLLReversedScriptWithCustomDefBlackBoxTest>() {
                 scriptCustomDefBackBoxInit()
             }
+        }
+    }
+
+    testGroup(
+        "analysis/low-level-api-fir/tests-gen",
+        "compiler/testData/diagnostics",
+    ) {
+        fun TestGroup.TestClass.modelInitWasmJs() {
+            model("wasmTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+        }
+
+        fun TestGroup.TestClass.modelInitWasmWasi() {
+            model("wasmWasiTests", excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN)
+        }
+
+        testClass<AbstractLLWasmJsDiagnosticsTest>(suiteTestClassName = "LLWasmJsDiagnosticsFe10TestGenerated") {
+            modelInitWasmJs()
+        }
+
+        testClass<AbstractLLWasmWasiDiagnosticsTest>(suiteTestClassName = "LLWasmWasiDiagnosticsFe10TestGenerated") {
+            modelInitWasmWasi()
+        }
+
+        testClass<AbstractLLReversedWasmJsDiagnosticsTest>(suiteTestClassName = "LLReversedWasmJsDiagnosticsFe10TestGenerated") {
+            modelInitWasmJs()
+        }
+
+        testClass<AbstractLLReversedWasmWasiDiagnosticsTest>(suiteTestClassName = "LLReversedWasmWasiDiagnosticsFe10TestGenerated") {
+            modelInitWasmWasi()
+        }
+    }
+
+    testGroup(
+        "analysis/low-level-api-fir/tests-gen",
+        "compiler/testData",
+    ) {
+        fun TestGroup.TestClass.modelInit() {
+            model(
+                "diagnostics/testsWithJsStdLib",
+                excludedPattern = CUSTOM_TEST_DATA_EXTENSION_PATTERN,
+                pattern = KT_OR_KTS,
+            )
+        }
+
+        testClass<AbstractLLJsDiagnosticsTest>(suiteTestClassName = "LLJsDiagnosticsFe10TestGenerated") {
+            modelInit()
+        }
+
+        testClass<AbstractLLReversedJsDiagnosticsTest>(suiteTestClassName = "LLReversedJsDiagnosticsFe10TestGenerated") {
+            modelInit()
         }
     }
 

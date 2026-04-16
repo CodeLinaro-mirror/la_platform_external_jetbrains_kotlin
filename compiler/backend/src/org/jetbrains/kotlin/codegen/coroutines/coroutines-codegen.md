@@ -1722,6 +1722,12 @@ results in a bunch of repeated ASTORE and ALOAD instructions, which can break ta
 optimization for these cases.
 
 #### Tail-Call Optimization for Functions Returning Unit
+**NOTE:** The implementation for this optimization is being changed, and some statements in this section became obsolete:
+1. There is no `ICONST_2` suspend marker anymore.
+2. There is a new `BIPUSH 11` suspend marker marking Unit-returned suspension points.
+3. Calls of non-Unit functions and lambdas from Unit-returning function are not considered tail-calls anymore.
+
+
 There are some challenges if we want to make suspending functions, returning `Unit` tail-call. Let us have a look at one of them. If the
 function returns `Unit`, `return` keyword is optional:
 ```kotlin
@@ -3247,6 +3253,11 @@ suspension points are stored; thus, line numbers are not always accurate.
 Since 2.2.20 - we store linenumbers of next statements after suspension points in the metadata annotation.
 The debugger is expected to use this information to set a breakpoint there when step-over is pressed.
 This way, step-over works even if the suspension point suspends. 
+
+Since 2.3.20 and Api Version 2.4 - the compiler generates calls to `wrapContinuation`, which by default returns its argument.
+However, the debugger is expected to replace the function with one, which wraps the continuation with fictitious one, just to hold
+`StackTraceElement` and local variables, just like usual continuation - this way, when debugging coroutines, there will be no gaps in async
+stack trace because of tail-call functions.
 
 ### Probes
 `kotlin.coroutines.jvm.internal` package contains probe functions replaced by the debugger to show current coroutines (in a broad sense)

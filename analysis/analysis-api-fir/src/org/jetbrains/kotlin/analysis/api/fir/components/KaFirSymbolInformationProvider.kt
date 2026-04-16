@@ -1,10 +1,11 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.fir.components
 
+import org.jetbrains.kotlin.analysis.api.components.KaReturnValueStatus
 import org.jetbrains.kotlin.analysis.api.components.containingDeclaration
 import org.jetbrains.kotlin.analysis.api.fir.KaFirSession
 import org.jetbrains.kotlin.analysis.api.fir.symbols.KaFirNamedClassSymbolBase
@@ -24,8 +25,10 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.calls.FirSimpleSyntheticPropertySymbol
 import org.jetbrains.kotlin.fir.resolve.calls.noJavaOrigin
 import org.jetbrains.kotlin.fir.symbols.impl.FirBackingFieldSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.resolve.ReturnValueStatus
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationLevelValue
 import org.jetbrains.kotlin.resolve.deprecation.SimpleDeprecationInfo
@@ -55,7 +58,7 @@ internal class KaFirSymbolInformationProvider(
             val firSymbol = this.firSymbol
 
             // A symbol exists for compatibility reasons and should never be referenced in user code
-            val isObsoleteSymbol = firSymbol.origin == FirDeclarationOrigin.Synthetic.FakeHiddenInPreparationForNewJdk
+            val isObsoleteSymbol = (firSymbol.fir as? FirCallableDeclaration)?.hiddenEverywhereBesideSuperCallsStatus != null
                     || (firSymbol is FirSimpleSyntheticPropertySymbol && firSymbol.noJavaOrigin)
 
             if (isObsoleteSymbol) {
@@ -63,15 +66,32 @@ internal class KaFirSymbolInformationProvider(
             }
 
             return when (firSymbol) {
-                is FirPropertySymbol -> firSymbol.getDeprecationForCallSite(analysisSession.firSession, AnnotationUseSiteTarget.PROPERTY)
-                is FirBackingFieldSymbol -> firSymbol.getDeprecationForCallSite(analysisSession.firSession, AnnotationUseSiteTarget.FIELD)
-                else -> firSymbol.getDeprecationForCallSite(analysisSession.firSession)
+                is FirPropertySymbol -> firSymbol.getDeprecationForCallSite(
+                    analysisSession.firSession,
+                    AnnotationUseSiteTarget.PROPERTY,
+                    AnnotationUseSiteTarget.ALL,
+                )
+
+                is FirBackingFieldSymbol -> firSymbol.getDeprecationForCallSite(
+                    analysisSession.firSession,
+                    AnnotationUseSiteTarget.FIELD,
+                    AnnotationUseSiteTarget.ALL,
+                )
+
+                is FirPropertyAccessorSymbol -> firSymbol.propertySymbol.getDeprecationForCallSite(
+                    analysisSession.firSession,
+                    if (firSymbol.isGetter) AnnotationUseSiteTarget.PROPERTY_GETTER else AnnotationUseSiteTarget.PROPERTY_SETTER,
+                    AnnotationUseSiteTarget.PROPERTY,
+                    AnnotationUseSiteTarget.ALL,
+                )
+
+                else -> firSymbol.getDeprecationForCallSite(analysisSession.firSession, AnnotationUseSiteTarget.ALL)
             }?.toDeprecationInfo()
         }
 
     override val KaNamedFunctionSymbol.canBeOperator: Boolean
         get() = withValidityAssertion {
-            val functionFir = this@canBeOperator.firSymbol.fir as? FirSimpleFunction ?: return false
+            val functionFir = this@canBeOperator.firSymbol.fir as? FirNamedFunction ?: return false
             return OperatorFunctionChecks.isOperator(
                 functionFir,
                 analysisSession.firSession,
@@ -101,24 +121,16 @@ internal class KaFirSymbolInformationProvider(
         }?.toDeprecationInfo()
     }
 
+    @Deprecated("Use 'deprecationStatus' directly instead", replaceWith = ReplaceWith("this.getter?.deprecationStatus"))
     override val KaPropertySymbol.getterDeprecationStatus: DeprecationInfo?
         get() = withValidityAssertion {
-            require(this is KaFirSymbol<*>)
-            return firSymbol.getDeprecationForCallSite(
-                analysisSession.firSession,
-                AnnotationUseSiteTarget.PROPERTY_GETTER,
-                AnnotationUseSiteTarget.PROPERTY,
-            )?.toDeprecationInfo()
+            this.getter?.deprecationStatus
         }
 
+    @Deprecated("Use 'deprecationStatus' directly instead", replaceWith = ReplaceWith("this.setter?.deprecationStatus"))
     override val KaPropertySymbol.setterDeprecationStatus: DeprecationInfo?
         get() = withValidityAssertion {
-            require(this is KaFirSymbol<*>)
-            return firSymbol.getDeprecationForCallSite(
-                analysisSession.firSession,
-                AnnotationUseSiteTarget.PROPERTY_SETTER,
-                AnnotationUseSiteTarget.PROPERTY,
-            )?.toDeprecationInfo()
+            this.setter?.deprecationStatus
         }
 
     private fun FirDeprecationInfo.toDeprecationInfo(): DeprecationInfo {
@@ -177,6 +189,15 @@ internal class KaFirSymbolInformationProvider(
                 }
 
                 else -> null
+            }
+        }
+
+    override val KaNamedFunctionSymbol.returnValueStatus: KaReturnValueStatus
+        get() = withValidityAssertion {
+            when (firSymbol.resolvedStatus.returnValueStatus) {
+                ReturnValueStatus.MustUse -> KaReturnValueStatus.MustUse
+                ReturnValueStatus.ExplicitlyIgnorable -> KaReturnValueStatus.ExplicitlyIgnorable
+                ReturnValueStatus.Unspecified -> KaReturnValueStatus.Unspecified
             }
         }
 }

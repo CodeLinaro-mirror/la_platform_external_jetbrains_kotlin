@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.resolve.calls.model.PostponedAtomWithRevisableExpect
 import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.jetbrains.kotlin.types.model.TypeConstructorMarker
 import org.jetbrains.kotlin.types.model.TypeVariableMarker
+import org.jetbrains.kotlin.types.model.TypeVariableTypeConstructorMarker
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
@@ -77,6 +78,15 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
             if (analyzeArgumentWithFixedParameterTypes(postponedArguments) {
                     analyzer.analyze(it, withPCLASession = false)
                 }
+            ) continue
+
+            val postponedCollectionLiterals = postponedArguments.filterIsInstance<ConeCollectionLiteralAtom>()
+
+            if (analyzeCollectionLiteralArgument(
+                    postponedCollectionLiterals,
+                    predicate = { it.typeConstructor() !is TypeVariableTypeConstructorMarker },
+                    analyze = { analyzer.analyze(it, withPCLASession = false) }
+                )
             ) continue
 
             val variableForFixation = findFirstVariableForFixation(
@@ -196,9 +206,6 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
 
             break
         }
-        if (completionMode == ConstraintSystemCompletionMode.FULL) {
-            inferenceComponents.session.inferenceLogger?.assignFixedToInFixationLogs(this)
-        }
     }
 
     private fun ConstraintSystemCompletionContext.findFirstVariableForFixation(
@@ -254,13 +261,7 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
             ?: return false
 
         when (argument) {
-            is ConeResolvedCallableReferenceAtom -> {
-                // When resolution isn't needed, reviseExpectedType changes nothing in fact
-                if (!argument.needsResolution) return false
-                // It looks like this line actually does not influence any tests.
-                // There is a suggestion it replaces the revised type just by itself. See KT-74021
-                argument.reviseExpectedType(revisedExpectedType)
-            }
+            is ConeResolvedCallableReferenceAtom -> return false
             is ConeLambdaWithTypeVariableAsExpectedTypeAtom ->
                 argument.transformToResolvedLambda(c.getBuilder(), resolutionContext, revisedExpectedType)
             else -> throw IllegalStateException("Unsupported postponed argument type of $argument")
@@ -368,7 +369,7 @@ class ConstraintSystemCompleter(components: BodyResolveComponents) {
                             postponedAtom.collectNotFixedVariables()
                         }
                     }
-                    is ConeSimpleNameForContextSensitiveResolution -> {
+                    is ConeSimpleNameForContextSensitiveResolution, is ConeCollectionLiteralAtom -> {
                         // No type variables for yet unresolved reference
                         // And after resolution, the candidate type variables are integrated into
                     }

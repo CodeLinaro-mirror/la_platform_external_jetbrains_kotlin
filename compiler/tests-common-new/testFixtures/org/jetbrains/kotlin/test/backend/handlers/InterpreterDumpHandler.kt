@@ -9,24 +9,22 @@ import com.intellij.openapi.util.text.StringUtil
 import org.jetbrains.kotlin.KtSourceElement
 import org.jetbrains.kotlin.codeMetaInfo.model.ParsedCodeMetaInfo
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.constant.AnnotationValue
 import org.jetbrains.kotlin.constant.ErrorValue
 import org.jetbrains.kotlin.constant.EvaluatedConstTracker
 import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
-import org.jetbrains.kotlin.fir.backend.ConstValueProviderImpl
+import org.jetbrains.kotlin.fir.backend.utils.shouldUseCalleeReferenceAsItsSourceInIr
+import org.jetbrains.kotlin.fir.backend.utils.startOffsetSkippingComments
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirProperty
+import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.utils.evaluatedInitializer
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
-import org.jetbrains.kotlin.fir.languageVersionSettings
-import org.jetbrains.kotlin.fir.expressions.FirExpressionEvaluator
+import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.unwrapOr
 import org.jetbrains.kotlin.fir.visitors.FirVisitor
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.evaluatedConstTrackerKey
 import org.jetbrains.kotlin.test.TargetBackend
@@ -165,15 +163,15 @@ class FirInterpreterDumpHandler(testServices: TestServices) : FirAnalysisHandler
     override fun processModule(module: TestModule, info: FirOutputArtifact) {
         val results = buildMap {
             info.partsForDependsOnModules.forEach {
-                it.firFiles.forEach { (testFile, firFile) ->
-                    putAll(processFile(testFile, firFile, it.session))
+                it.firFilesByTestFile.forEach { (testFile, firFile) ->
+                    putAll(processFile(testFile, firFile))
                 }
             }
         }
         testServices.firInterpreterResultsStorage[module] = results
     }
 
-    private fun processFile(testFile: TestFile, firFile: FirFile, session: FirSession): Map<TestFile, List<ParsedCodeMetaInfo>> {
+    private fun processFile(testFile: TestFile, firFile: FirFile): Map<TestFile, List<ParsedCodeMetaInfo>> {
         val resultMap = mutableMapOf<TestFile, MutableList<ParsedCodeMetaInfo>>()
         val rangesThatAreNotSupposedToBeRendered = testFile.extractRangesWithoutRender()
 
@@ -219,10 +217,19 @@ class FirInterpreterDumpHandler(testServices: TestServices) : FirAnalysisHandler
 
                 super.visitProperty(property, data)
                 property.evaluatedInitializer?.unwrapOr<FirExpression> { }?.let { result ->
-                    with(ConstValueProviderImpl) {
-                        val (start, end) = property.initializer?.getCorrespondingIrOffset() ?: return
-                        render(result, start, end)
-                    }
+                    val (start, end) = property.initializer?.getCorrespondingIrOffset() ?: return
+                    render(result, start, end)
+                }
+            }
+
+            override fun visitValueParameter(valueParameter: FirValueParameter, data: Options) {
+                if (valueParameter in visitedElements) return
+                visitedElements.add(valueParameter)
+
+                super.visitValueParameter(valueParameter, data)
+                valueParameter.evaluatedInitializer?.unwrapOr<FirExpression> { }?.let { result ->
+                    val (start, end) = valueParameter.defaultValue?.getCorrespondingIrOffset() ?: return
+                    render(result, start, end)
                 }
             }
 
@@ -231,8 +238,8 @@ class FirInterpreterDumpHandler(testServices: TestServices) : FirAnalysisHandler
                 visitedElements.add(annotationCall)
 
                 super.visitAnnotationCall(annotationCall, data)
-                FirExpressionEvaluator.evaluateAnnotationArguments(annotationCall, session)?.values?.forEach { evaluated ->
-                    evaluated.unwrapOr<FirExpression> { }?.accept(this, data.copy(renderLiterals = true))
+                annotationCall.argumentMapping.mapping.values.forEach { evaluated ->
+                    evaluated.accept(this, data.copy(renderLiterals = true))
                 }
             }
 
@@ -240,6 +247,19 @@ class FirInterpreterDumpHandler(testServices: TestServices) : FirAnalysisHandler
                 // Visit annotations on type arguments
                 resolvedTypeRef.delegatedTypeRef?.accept(this, data)
                 return super.visitResolvedTypeRef(resolvedTypeRef, data)
+            }
+
+            private fun FirExpression.getCorrespondingIrOffset(): Pair<Int, Int>? {
+                return if (this is FirQualifiedAccessExpression && this.shouldUseCalleeReferenceAsItsSourceInIr()) {
+                    val calleeReference = this.calleeReference
+                    val start = calleeReference.source?.startOffsetSkippingComments() ?: calleeReference.source?.startOffset ?: UNDEFINED_OFFSET
+                    val end = this.source?.endOffset ?: return null
+                    start to end
+                } else {
+                    val start = this.source?.startOffset ?: return null
+                    val end = this.source?.endOffset ?: return null
+                    start to end
+                }
             }
         }
 

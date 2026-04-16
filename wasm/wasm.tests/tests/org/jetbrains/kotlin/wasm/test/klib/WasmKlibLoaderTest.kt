@@ -11,8 +11,8 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollectorImpl
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.compilerRunner.toArgumentStrings
 import org.jetbrains.kotlin.config.Services
-import org.jetbrains.kotlin.klib.AbstractKlibLoaderTest
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.AbstractKlibLoaderTest
 import org.jetbrains.kotlin.library.KotlinAbiVersion
 import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
@@ -42,6 +42,7 @@ abstract class AbstractWasmKlibLoaderTest(private val target: WasmTarget) : Abst
             KlibPlatformChecker.Wasm(WasmTarget.entries.first { it != target }.alias),
             KlibPlatformChecker.Native(),
             KlibPlatformChecker.Native(KonanTarget.IOS_ARM64.name),
+            KlibPlatformChecker.NativeMetadata(KonanTarget.IOS_ARM64.name),
         )
 
     override fun compileKlib(

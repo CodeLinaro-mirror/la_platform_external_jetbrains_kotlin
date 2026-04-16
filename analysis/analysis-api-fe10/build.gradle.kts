@@ -2,9 +2,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("test-data-manager")
 }
 
 dependencies {
@@ -53,6 +53,8 @@ tasks.withType<KotlinJvmCompile>().configureEach {
                 "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
                 "org.jetbrains.kotlin.analysis.api.permissions.KaAllowProhibitedAnalyzeFromWriteAction",
                 "org.jetbrains.kotlin.analysis.api.KaContextParameterApi",
+                "org.jetbrains.kotlin.analysis.api.components.KaSessionComponentImplementationDetail",
+                "org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint",
             )
         )
     }
@@ -64,6 +66,11 @@ projectTests {
     testTask(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_11_0)) {
         dependsOn(":dist")
         workingDir = rootDir
+
+        if (!kotlinBuildProperties.isTeamcityBuild.get()) {
+            // Ensure golden tests run first
+            mustRunAfter(":analysis:analysis-api-fir:test")
+        }
     }
 
     withJvmStdlibAndReflect()

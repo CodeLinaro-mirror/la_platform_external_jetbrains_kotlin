@@ -6,7 +6,10 @@
 package org.jetbrains.kotlin.cli.pipeline.web
 
 import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
+import org.jetbrains.kotlin.backend.wasm.WasmPreSerializationLoweringContext
+import org.jetbrains.kotlin.backend.wasm.wasmLoweringsOfTheFirstPhase
 import org.jetbrains.kotlin.cli.common.runPreSerializationLoweringPhases
+import org.jetbrains.kotlin.cli.pipeline.CheckCompilationErrors
 import org.jetbrains.kotlin.cli.pipeline.PerformanceNotifications
 import org.jetbrains.kotlin.cli.pipeline.PipelinePhase
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -14,10 +17,10 @@ import org.jetbrains.kotlin.config.incrementalCompilation
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.phaseConfig
 import org.jetbrains.kotlin.config.phaser.PhaserState
+import org.jetbrains.kotlin.fir.pipeline.AllModulesFrontendOutput
 import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
 import org.jetbrains.kotlin.fir.pipeline.Fir2KlibMetadataSerializer
-import org.jetbrains.kotlin.backend.wasm.WasmPreSerializationLoweringContext
-import org.jetbrains.kotlin.backend.wasm.wasmLoweringsOfTheFirstPhase
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.ir.backend.js.JsPreSerializationLoweringContext
 import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
 import org.jetbrains.kotlin.ir.backend.js.jsLoweringsOfTheFirstPhase
@@ -28,23 +31,27 @@ import org.jetbrains.kotlin.progress.IncrementalNextRoundException
 object WebKlibInliningPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, JsFir2IrPipelineArtifact>(
     name = "WebKlibInliningPipelinePhase",
     preActions = setOf(PerformanceNotifications.IrPreLoweringStarted),
-    postActions = setOf(PerformanceNotifications.IrPreLoweringFinished),
+    postActions = setOf(PerformanceNotifications.IrPreLoweringFinished, CheckCompilationErrors.CheckDiagnosticCollector),
 ) {
     override fun executePhase(input: JsFir2IrPipelineArtifact): JsFir2IrPipelineArtifact {
         val (fir2IrResult, firOutput, configuration, diagnosticCollector, moduleStructure) = input
         processIncrementalCompilationRoundIfNeeded(configuration, moduleStructure, firOutput, fir2IrResult)
+        val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
+            diagnosticCollector,
+            configuration.languageVersionSettings
+        )
 
         val transformedResult = if (configuration.wasmCompilation) {
             PhaseEngine(
                 configuration.phaseConfig!!,
                 PhaserState(),
-                WasmPreSerializationLoweringContext(fir2IrResult.irBuiltIns, configuration, diagnosticCollector),
+                WasmPreSerializationLoweringContext(fir2IrResult.irBuiltIns, configuration, irDiagnosticReporter),
             ).runPreSerializationLoweringPhases(fir2IrResult, wasmLoweringsOfTheFirstPhase(configuration.languageVersionSettings))
         } else {
             PhaseEngine(
                 configuration.phaseConfig!!,
                 PhaserState(),
-                JsPreSerializationLoweringContext(fir2IrResult.irBuiltIns, configuration, diagnosticCollector),
+                JsPreSerializationLoweringContext(fir2IrResult.irBuiltIns, configuration, irDiagnosticReporter),
             ).runPreSerializationLoweringPhases(fir2IrResult, jsLoweringsOfTheFirstPhase(configuration.languageVersionSettings))
         }
 
@@ -54,7 +61,7 @@ object WebKlibInliningPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, Js
     private fun processIncrementalCompilationRoundIfNeeded(
         configuration: CompilerConfiguration,
         moduleStructure: ModulesStructure,
-        firOutput: AnalyzedFirOutput,
+        frontendOutput: AllModulesFrontendOutput,
         fir2IrResult: Fir2IrActualizedResult,
     ) {
         if (!configuration.incrementalCompilation) return
@@ -67,7 +74,7 @@ object WebKlibInliningPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, Js
         val shouldGoToNextIcRound = shouldGoToNextIcRound(moduleStructure.compilerConfiguration) {
             Fir2KlibMetadataSerializer(
                 moduleStructure.compilerConfiguration,
-                firOutput.output,
+                frontendOutput.outputs,
                 fir2IrResult,
                 exportKDoc = false,
                 produceHeaderKlib = false,

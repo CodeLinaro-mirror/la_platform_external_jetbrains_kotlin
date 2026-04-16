@@ -15,8 +15,8 @@ import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.build.DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS
 import org.jetbrains.kotlin.build.report.BuildReporter
-import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
-import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
+import org.jetbrains.kotlin.build.report.metrics.BuildPerformanceMetric
+import org.jetbrains.kotlin.build.report.metrics.BuildTimeMetric
 import org.jetbrains.kotlin.cli.common.*
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.GroupingMessageCollector
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.modules.ModuleBuilder
+import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.*
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.findMainClass
@@ -35,10 +36,11 @@ import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.*
 import org.jetbrains.kotlin.cli.jvm.compiler.writeOutputsIfNeeded
 import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
+import org.jetbrains.kotlin.compiler.plugin.getCompilerExtensions
 import org.jetbrains.kotlin.config.*
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
-import org.jetbrains.kotlin.fir.pipeline.FirResult
+import org.jetbrains.kotlin.fir.pipeline.AllModulesFrontendOutput
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.ICFileMappingTracker
@@ -50,18 +52,24 @@ import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.modules.TargetId
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
 import org.jetbrains.kotlin.progress.CompilationCanceledException
+import org.jetbrains.kotlin.progress.CompilationCanceledStatus
+import org.jetbrains.kotlin.progress.ProgressIndicatorAndCompilationCanceledStatus
 import org.jetbrains.kotlin.util.PhaseType
 import java.io.File
 
 @OptIn(LegacyK2CliPipeline::class)
 open class IncrementalFirJvmCompilerRunner(
     workingDir: File,
-    reporter: BuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
+    reporter: BuildReporter<BuildTimeMetric, BuildPerformanceMetric>,
     outputDirs: Collection<File>?,
     classpathChanges: ClasspathChanges,
     kotlinSourceFilesExtensions: Set<String> = DEFAULT_KOTLIN_SOURCE_FILES_EXTENSIONS,
     icFeatures: IncrementalCompilationFeatures = IncrementalCompilationFeatures.DEFAULT_CONFIGURATION,
+    generateCompilerRefIndex: Boolean = false,
+    val compilationCanceledStatus: CompilationCanceledStatus? = null,
+    override val lookupTrackerDelegate: LookupTracker = LookupTracker.DO_NOTHING,
 ) : IncrementalJvmCompilerRunner(
     workingDir,
     reporter,
@@ -69,6 +77,8 @@ open class IncrementalFirJvmCompilerRunner(
     classpathChanges,
     kotlinSourceFilesExtensions,
     icFeatures,
+    generateCompilerRefIndex,
+    compilationCanceledStatus = compilationCanceledStatus
 ) {
 
     override fun runCompiler(
@@ -81,6 +91,8 @@ open class IncrementalFirJvmCompilerRunner(
         isIncremental: Boolean
     ): Pair<ExitCode, Collection<File>> {
 //        val isIncremental = true // TODO
+        ProgressIndicatorAndCompilationCanceledStatus.setCompilationCanceledStatus(compilationCanceledStatus)
+
         val collector = GroupingMessageCollector(messageCollector, args.allWarningsAsErrors, args.reportAllWarnings)
         val allSourcesWithJava = allSources + args.javaSources()
         // from K2JVMCompiler (~)
@@ -99,9 +111,10 @@ open class IncrementalFirJvmCompilerRunner(
 
         try {
             // - configuration
-            val configuration = CompilerConfiguration().apply {
+            val configuration = CompilerConfiguration.create().apply {
 
                 put(CLIConfigurationKeys.ORIGINAL_MESSAGE_COLLECTOR_KEY, messageCollector)
+                this.targetPlatform = JvmPlatforms.defaultJvmPlatform
                 this.messageCollector = collector
 
                 setupCommonArguments(args) { MetadataVersion(*it) }
@@ -187,7 +200,7 @@ open class IncrementalFirJvmCompilerRunner(
                 }
             }
 
-            val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
+            val diagnosticsReporter = DiagnosticsCollectorImpl()
             val performanceManager = configuration.perfManager
             val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, diagnosticsReporter)
 
@@ -199,11 +212,11 @@ open class IncrementalFirJvmCompilerRunner(
             // !! main class - maybe from cache?
             var mainClassFqName: FqName? = null
 
-            val renderDiagnosticName = configuration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+            val renderDiagnosticName = configuration.renderDiagnosticInternalName
 
             var incrementalExcludesScope: AbstractProjectFileSearchScope? = null
 
-            fun firIncrementalCycle(): FirResult? {
+            fun firIncrementalCycle(): AllModulesFrontendOutput? {
                 while (true) {
                     val dirtySourcesByModuleName = sourcesByModuleName.mapValues { (_, sources) ->
                         sources.filterTo(mutableSetOf()) { dirtySources.any { df -> df.path == it.path } }
@@ -258,14 +271,14 @@ open class IncrementalFirJvmCompilerRunner(
                     newDirtySources.forEach {
                         dirtySources.add(KtIoFileSourceFile(it))
                     }
-                    projectEnvironment.localFileSystem.refresh(false)
+                    projectEnvironment.knownFileSystems.forEach { it.refresh(false) }
                 }
             }
 
             val cycleResult = firIncrementalCycle() ?: return ExitCode.COMPILATION_ERROR to allCompiledSources
 
             val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
-            val irGenerationExtensions = projectEnvironment.project.let { IrGenerationExtension.getInstances(it) }
+            val irGenerationExtensions = configuration.getCompilerExtensions(IrGenerationExtension)
             val (irModuleFragment, components, pluginContext, irActualizedResult, _, symbolTable) = cycleResult.convertToIrAndActualizeForJvm(
                 extensions, configuration, compilerEnvironment.diagnosticsReporter, irGenerationExtensions,
             )

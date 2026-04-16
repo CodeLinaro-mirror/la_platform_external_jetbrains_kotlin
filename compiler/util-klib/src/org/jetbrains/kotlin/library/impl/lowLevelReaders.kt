@@ -6,9 +6,9 @@
 package org.jetbrains.kotlin.library.impl
 
 import org.jetbrains.kotlin.konan.file.File
-import org.jetbrains.kotlin.library.KotlinLibraryLayout
+import org.jetbrains.kotlin.library.KlibComponentLayout
+import org.jetbrains.kotlin.library.KlibLayoutReader
 import java.nio.ByteBuffer
-
 
 /******************************************************************************/
 /** [ByteArray] readers                                                       */
@@ -21,10 +21,10 @@ fun IrArrayReader(bytes: ByteArray): IrArrayReader = IrArrayReader(ReadBuffer.Me
 fun IrArrayReader(loadBytes: () -> ByteArray): IrArrayReader = IrArrayReader(ReadBuffer.OnDemandMemoryBuffer(loadBytes))
 
 /** On-demand read from a file (potentially inside a KLIB archive file). */
-fun <L : KotlinLibraryLayout> IrArrayReader(
-    access: BaseLibraryAccess<L>,
-    getFile: L.() -> File
-): IrArrayReader = IrArrayReader { access.inPlace { it.getFile().readBytes() } }
+inline fun <KCL : KlibComponentLayout> IrArrayReader(
+    layoutReader: KlibLayoutReader<KCL>,
+    crossinline getFile: KCL.() -> File
+): IrArrayReader = IrArrayReader { layoutReader.readInPlace { it.getFile().readBytes() } }
 
 class IrArrayReader(private val buffer: ReadBuffer) {
     private val indexToOffset: IndexToOffset = buffer.readIndexToOffset(0)
@@ -40,10 +40,10 @@ fun IrMultiArrayReader(bytes: ByteArray): IrMultiArrayReader = IrMultiArrayReade
 fun IrMultiArrayReader(loadBytes: () -> ByteArray): IrMultiArrayReader = IrMultiArrayReader(ReadBuffer.OnDemandMemoryBuffer(loadBytes))
 
 /** On-demand read from a file (potentially inside a KLIB archive file). */
-fun <L : KotlinLibraryLayout> IrMultiArrayReader(
-    access: BaseLibraryAccess<L>,
-    getFile: L.() -> File
-): IrMultiArrayReader = IrMultiArrayReader { access.inPlace { it.getFile().readBytes() } }
+inline fun <KCL : KlibComponentLayout> IrMultiArrayReader(
+    layoutReader: KlibLayoutReader<KCL>,
+    crossinline getFile: KCL.() -> File
+): IrMultiArrayReader = IrMultiArrayReader { layoutReader.readInPlace { it.getFile().readBytes() } }
 
 class IrMultiArrayReader(private val buffer: ReadBuffer) {
     private val indexToOffset: IndexToOffset = buffer.readIndexToOffset(0)
@@ -69,12 +69,6 @@ fun DeclarationIdTableReader(bytes: ByteArray): DeclarationIdTableReader =
 fun DeclarationIdTableReader(loadBytes: () -> ByteArray): DeclarationIdTableReader =
     DeclarationIdTableReader(ReadBuffer.OnDemandMemoryBuffer(loadBytes))
 
-/** On-demand read from a file (potentially inside a KLIB archive file). */
-fun <L : KotlinLibraryLayout> DeclarationIdTableReader(
-    access: BaseLibraryAccess<L>,
-    getFile: L.() -> File
-): DeclarationIdTableReader = DeclarationIdTableReader { access.inPlace { it.getFile().readBytes() } }
-
 class DeclarationIdTableReader(private val buffer: ReadBuffer) {
     private val declarationIdToCoordinates: DeclarationIdToCoordinates = buffer.readDeclarationIdToCoordinates(0)
 
@@ -91,10 +85,10 @@ fun DeclarationIdMultiTableReader(loadBytes: () -> ByteArray): DeclarationIdMult
     DeclarationIdMultiTableReader(ReadBuffer.OnDemandMemoryBuffer(loadBytes))
 
 /** On-demand read from a file (potentially inside a KLIB archive file). */
-fun <L : KotlinLibraryLayout> DeclarationIdMultiTableReader(
-    access: BaseLibraryAccess<L>,
-    getFile: L.() -> File
-): DeclarationIdMultiTableReader = DeclarationIdMultiTableReader { access.inPlace { it.getFile().readBytes() } }
+inline fun <KCL : KlibComponentLayout> DeclarationIdMultiTableReader(
+    layoutReader: KlibLayoutReader<KCL>,
+    crossinline getFile: KCL.() -> File
+): DeclarationIdMultiTableReader = DeclarationIdMultiTableReader { layoutReader.readInPlace { it.getFile().readBytes() } }
 
 class DeclarationIdMultiTableReader(private val buffer: ReadBuffer) {
     private val indexToOffset: IndexToOffset = buffer.readIndexToOffset(0)

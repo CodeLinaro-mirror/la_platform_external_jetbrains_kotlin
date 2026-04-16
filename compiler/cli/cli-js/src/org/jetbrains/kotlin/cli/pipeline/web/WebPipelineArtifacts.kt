@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -13,28 +13,30 @@ import org.jetbrains.kotlin.cli.pipeline.PipelineArtifact
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
-import org.jetbrains.kotlin.fir.pipeline.FirResult
+import org.jetbrains.kotlin.fir.pipeline.AllModulesFrontendOutput
 import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
 import org.jetbrains.kotlin.ir.backend.js.transformers.irToJs.CompilationOutputs
 import java.io.File
 
 data class WebFrontendPipelineArtifact(
-    val analyzedOutput: AnalyzedFirOutput,
+    override val frontendOutput: AllModulesFrontendOutput,
     override val configuration: CompilerConfiguration,
     override val diagnosticCollector: BaseDiagnosticsCollector,
     val moduleStructure: ModulesStructure,
     val hasErrors: Boolean,
 ) : FrontendPipelineArtifact() {
-    override val result: FirResult
-        get() = FirResult(analyzedOutput.output)
+    override fun withNewDiagnosticCollectorImpl(newDiagnosticsCollector: BaseDiagnosticsCollector): WebFrontendPipelineArtifact {
+        return copy(diagnosticCollector = newDiagnosticsCollector)
+    }
 
-    override fun withNewDiagnosticCollectorImpl(newDiagnosticsCollector: BaseDiagnosticsCollector) =
-        copy(diagnosticCollector = newDiagnosticsCollector)
+    override fun withNewFrontendOutputImpl(newFrontendOutput: AllModulesFrontendOutput): FrontendPipelineArtifact {
+        return copy(frontendOutput = newFrontendOutput)
+    }
 }
 
 data class JsFir2IrPipelineArtifact(
     override val result: Fir2IrActualizedResult,
-    val analyzedFirOutput: AnalyzedFirOutput,
+    val frontendOutput: AllModulesFrontendOutput,
     val configuration: CompilerConfiguration,
     override val diagnosticCollector: BaseDiagnosticsCollector,
     val moduleStructure: ModulesStructure,
@@ -61,7 +63,7 @@ data class JsBackendPipelineArtifact(
 ) : WebBackendPipelineArtifact()
 
 data class WasmBackendPipelineArtifact(
-    val result: WasmCompilerResult,
+    val result: List<WasmCompilerResult>,
     val outputDir: File,
     val configuration: CompilerConfiguration
 ) : WebBackendPipelineArtifact()

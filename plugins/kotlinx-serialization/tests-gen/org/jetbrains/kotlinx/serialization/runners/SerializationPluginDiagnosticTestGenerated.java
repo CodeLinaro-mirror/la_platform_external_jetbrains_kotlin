@@ -42,6 +42,12 @@ public class SerializationPluginDiagnosticTestGenerated extends AbstractSerializ
   }
 
   @Test
+  @TestMetadata("directAccessOfGeneratedCompanion.kt")
+  public void testDirectAccessOfGeneratedCompanion() {
+    runTest("plugins/kotlinx-serialization/testData/diagnostics/directAccessOfGeneratedCompanion.kt");
+  }
+
+  @Test
   @TestMetadata("DuplicateSerialName.kt")
   public void testDuplicateSerialName() {
     runTest("plugins/kotlinx-serialization/testData/diagnostics/DuplicateSerialName.kt");
@@ -69,6 +75,12 @@ public class SerializationPluginDiagnosticTestGenerated extends AbstractSerializ
   @TestMetadata("GeneratedSerializerInaccessible.kt")
   public void testGeneratedSerializerInaccessible() {
     runTest("plugins/kotlinx-serialization/testData/diagnostics/GeneratedSerializerInaccessible.kt");
+  }
+
+  @Test
+  @TestMetadata("generatedSerializerViaJava.kt")
+  public void testGeneratedSerializerViaJava() {
+    runTest("plugins/kotlinx-serialization/testData/diagnostics/generatedSerializerViaJava.kt");
   }
 
   @Test
@@ -234,6 +246,12 @@ public class SerializationPluginDiagnosticTestGenerated extends AbstractSerializ
   }
 
   @Test
+  @TestMetadata("starProjections.kt")
+  public void testStarProjections() {
+    runTest("plugins/kotlinx-serialization/testData/diagnostics/starProjections.kt");
+  }
+
+  @Test
   @TestMetadata("trainsientLateinit.kt")
   public void testTrainsientLateinit() {
     runTest("plugins/kotlinx-serialization/testData/diagnostics/trainsientLateinit.kt");
@@ -255,5 +273,11 @@ public class SerializationPluginDiagnosticTestGenerated extends AbstractSerializ
   @TestMetadata("typeAliasesCustomized.kt")
   public void testTypeAliasesCustomized() {
     runTest("plugins/kotlinx-serialization/testData/diagnostics/typeAliasesCustomized.kt");
+  }
+
+  @Test
+  @TestMetadata("wrongFileLevelAnnotationArgs.kt")
+  public void testWrongFileLevelAnnotationArgs() {
+    runTest("plugins/kotlinx-serialization/testData/diagnostics/wrongFileLevelAnnotationArgs.kt");
   }
 }

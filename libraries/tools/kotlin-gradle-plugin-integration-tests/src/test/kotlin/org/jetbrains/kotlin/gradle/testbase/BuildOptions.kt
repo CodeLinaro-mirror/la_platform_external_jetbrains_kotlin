@@ -3,6 +3,8 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
+@file:Suppress("TYPEALIAS_EXPANSION_DEPRECATION")
+
 package org.jetbrains.kotlin.gradle.testbase
 
 import org.gradle.api.logging.LogLevel
@@ -10,8 +12,7 @@ import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.internal.logging.LoggingConfigurationBuildOptions.StacktraceOption
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-import org.jetbrains.kotlin.gradle.dsl.NativeCacheKind
-import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupport
+import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupportDeprecated as KmpIsolatedProjectsSupport
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
@@ -68,7 +69,7 @@ data class BuildOptions(
     val konanDataDir: Path? = konanDir, // null can be used only if you are using custom 'kotlin.native.home' or 'org.jetbrains.kotlin.native.home' property instead of konanDir
     val kotlinUserHome: Path? = testKitDir.resolve(".kotlin"),
     val compilerArgumentsLogLevel: String? = "info",
-    val kmpIsolatedProjectsSupport: KmpIsolatedProjectsSupport? = null,
+    val kmpIsolatedProjectsSupport: @Suppress("DEPRECATION") KmpIsolatedProjectsSupport? = null,
     val fileLeaksReportFile: File? = null,
     val continueAfterFailure: Boolean = false,
     /**
@@ -89,6 +90,7 @@ data class BuildOptions(
      * Note that `--continuous` *disables* `--no-daemon`.
      */
     val continuousBuild: Boolean? = null,
+    val generateCompilerRefIndex: Boolean? = null,
 ) {
     enum class ConfigurationCacheValue {
 
@@ -158,7 +160,6 @@ data class BuildOptions(
     )
 
     data class NativeOptions(
-        val cacheKind: NativeCacheKind? = NativeCacheKind.NONE,
         val cocoapodsGenerateWrapper: Boolean? = null,
         val cocoapodsPlatform: String? = null,
         val cocoapodsConfiguration: String? = null,
@@ -169,7 +170,6 @@ data class BuildOptions(
         val restrictedDistribution: Boolean? = null,
         val useXcodeMessageStyle: Boolean? = null,
         val version: String? = System.getProperty("kotlinNativeVersion"),
-        val cacheOrchestration: String? = null,
         val incremental: Boolean? = null,
         val enableKlibsCrossCompilation: Boolean? = null,
     )
@@ -336,6 +336,10 @@ data class BuildOptions(
             arguments.add("-Pkotlin.kmp.isolated-projects.support=${kmpIsolatedProjectsSupport.name.toLowerCaseAsciiOnly()}")
         }
 
+        if (generateCompilerRefIndex != null) {
+            arguments.add("-Pkotlin.compiler.generateCompilerRefIndex=$generateCompilerRefIndex")
+        }
+
         arguments.addAll(freeArgs)
 
         return arguments.toList()
@@ -344,11 +348,6 @@ data class BuildOptions(
     private fun addNativeOptionsToArguments(
         arguments: MutableList<String>,
     ) {
-
-        nativeOptions.cacheKind?.let {
-            arguments.add("-Pkotlin.native.cacheKind=${nativeOptions.cacheKind.name.lowercase()}")
-        }
-
         nativeOptions.cocoapodsGenerateWrapper?.let {
             arguments.add("-Pkotlin.native.cocoapods.generate.wrapper=${it}")
         }
@@ -378,9 +377,6 @@ data class BuildOptions(
         }
         nativeOptions.version?.let {
             arguments.add("-Pkotlin.native.version=${it}")
-        }
-        nativeOptions.cacheOrchestration?.let {
-            arguments.add("-Pkotlin.native.cacheOrchestration=${it}")
         }
         nativeOptions.incremental?.let {
             arguments.add("-Pkotlin.incremental.native=${it}")
@@ -438,10 +434,13 @@ fun BuildOptions.disableKlibsCrossCompilation() = copy(
     nativeOptions = nativeOptions.copy(enableKlibsCrossCompilation = false)
 )
 
-fun BuildOptions.disableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = KmpIsolatedProjectsSupport.DISABLE)
+fun BuildOptions.disableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = @Suppress("DEPRECATION") KmpIsolatedProjectsSupport.DISABLE)
 
 fun BuildOptions.enableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.ENABLED)
 fun BuildOptions.disableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.DISABLED)
+
+// KT-75899: Support Gradle Project Isolation in KGP JS & Wasm
+fun BuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899() = disableIsolatedProjects()
 
 /**
  * Before 8.12 Gradle fails IP CC serialization with "cannot access 'Project.group' functionality on another project"

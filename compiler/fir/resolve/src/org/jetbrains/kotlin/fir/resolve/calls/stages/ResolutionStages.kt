@@ -77,35 +77,20 @@ object CheckExtensionReceiver : ResolutionStage() {
         val expectedType = candidate.substitutor.substituteOrSelf(expectedReceiverType)
 
         // Probably, we should add an assertion here since we check consistency on the level of scope tower levels
-        if (candidate.givenExtensionReceiverOptions.isEmpty()) return
+        if (candidate.givenExtensionReceiver == null) return
 
-        val preparedReceivers = candidate.givenExtensionReceiverOptions.map {
-            prepareImplicitArgument(it, expectedType, context.session)
-        }
+        val preparedReceiver = prepareImplicitArgument(candidate.givenExtensionReceiver, expectedType, context.session)
 
-        if (preparedReceivers.size == 1) {
-            resolveExtensionReceiver(preparedReceivers, candidate, expectedType)
-            return
-        }
-
-        val successfulReceivers = preparedReceivers.filter {
-            candidate.system.isSubtypeConstraintCompatible(it.type, expectedType)
-        }
-
-        when (successfulReceivers.size) {
-            0 -> sink.yieldDiagnostic(InapplicableWrongReceiver())
-            1 -> resolveExtensionReceiver(successfulReceivers, candidate, expectedType)
-            else -> sink.yieldDiagnostic(MultipleContextReceiversApplicableForExtensionReceivers())
-        }
+        resolveExtensionReceiver(preparedReceiver, candidate, expectedType)
     }
 
     context(sink: CheckerSink, context: ResolutionContext)
     private suspend fun resolveExtensionReceiver(
-        receivers: List<ImplicitArgumentDescription>,
+        receiver: ImplicitArgumentDescription,
         candidate: Candidate,
         expectedType: ConeKotlinType
     ) {
-        val (atom, type) = receivers.single()
+        val (atom, type) = receiver
         ArgumentCheckingProcessor.resolvePlainArgumentType(
             candidate,
             atom,
@@ -204,6 +189,8 @@ object CheckDispatchReceiver : ResolutionStage() {
             )
         } else if (isReceiverNullable) {
             sink.yieldDiagnostic(InapplicableNullableReceiver(dispatchReceiverValueType))
+        } else if (isCandidateFromUnstableSmartcast) {
+            sink.yieldDiagnostic(InapplicableWrongReceiver(actualType = dispatchReceiverValueType))
         }
     }
 }
@@ -252,30 +239,36 @@ object CheckContextArguments : ResolutionStage() {
      */
     context(sink: CheckerSink, context: ResolutionContext)
     private fun Candidate.mapContextArgumentsOrNull(contextSymbols: List<FirValueParameterSymbol>): List<ConeResolutionAtom>? {
+        // With context parameters enabled, implicits are grouped by containing symbol,
+        // meaning that extension receivers and context parameters from the same declaration are in one group.
+        // See KT-74081.
         val implicitsGroupedByScope: List<List<FirExpression>> =
-            if (LanguageFeature.ContextParameters.isEnabled()) {
-                // With context parameters enabled, implicits are grouped by containing symbol,
-                // meaning that extension receivers and context parameters from the same declaration are in one group.
-                // See KT-74081.
-                context.bodyResolveContext.towerDataContext.implicitValueStorage.implicitValues
-                    .groupBy(
-                        keySelector = { it.boundSymbol.containingDeclarationIfParameter() },
-                        valueTransform = { it.computeExpression() })
-                    .values.map { it.filterNot(FirExpression::isInaccessibleFromStaticNestedClass) }
-                    .reversed()
-            } else {
-                // Old logic from context receivers where extension receivers are in a separate group from context receivers.
-                // TODO(KT-72994) Remove when context receivers are removed
-                context.bodyResolveContext.towerDataContext.towerDataElements.asReversed().mapNotNull { towerDataElement ->
-                    towerDataElement.implicitReceiver?.receiverExpression?.takeUnless(FirExpression::isInaccessibleFromStaticNestedClass)?.let(::listOf)
-                        ?: towerDataElement.implicitContextGroup?.map { it.computeExpression() }
-                }
-            }
+            context.bodyResolveContext.implicitValueStorage.implicitValues
+                .groupBy(
+                    keySelector = { it.boundSymbol.containingDeclarationIfParameter() },
+                    valueTransform = { it.computeExpression() })
+                .values.map { it.filterNot(FirExpression::isInaccessibleAndInapplicable) }
+                .reversed()
 
         val resultingContextArguments = mutableListOf<ConeResolutionAtom>()
         var errorReported = false
 
+        val contextArgumentsByParameterSymbol = buildMap {
+            for ((key, value) in argumentMapping) {
+                if (value.valueParameterKind != FirValueParameterKind.Regular) {
+                    put(value.symbol, key)
+                }
+            }
+        }
+
         for (symbol in contextSymbols) {
+            // handle context argument given using named arguments
+            val argument = contextArgumentsByParameterSymbol[symbol]
+            if (argument != null) {
+                resultingContextArguments.add(argument)
+                continue
+            }
+
             val expectedType = substitutor.substituteOrSelf(symbol.resolvedReturnType)
             val potentialContextArguments = findClosestMatchingContextArguments(expectedType, implicitsGroupedByScope)
             when (potentialContextArguments.size) {
@@ -450,6 +443,7 @@ object CheckShadowedImplicits : ResolutionStage() {
             receiverValueToCheck.expression.unwrapSmartcastExpression().implicitlyReferencedSymbolOrNull() ?: return
         // Values are sorted in a quite reversed order, so the first element is the furthest in the scope tower
         val implicitValues = context.bodyResolveContext.implicitValueStorage.implicitValues
+            .filterNot { it is InaccessibleImplicitReceiverValue }
         val memberOwnerOfReceiverToCheck = boundSymbolOfReceiverToCheck.containingDeclarationIfParameter()
 
         // Drop all the receivers/values that in the scope tower stay after ones introduced with `boundSymbolOfReceiverToCheck`.
@@ -696,7 +690,8 @@ internal object MapArguments : ResolutionStage() {
             arguments,
             function,
             candidate.originScope,
-            callSiteIsOperatorCall = (candidate.callInfo.callSite as? FirFunctionCall)?.origin == FirFunctionCallOrigin.Operator
+            callSiteIsOperatorCall = (candidate.callInfo.callSite as? FirFunctionCall)?.origin == FirFunctionCallOrigin.Operator,
+            lookInContextParameters = LanguageFeature.ExplicitContextArguments.isEnabled(),
         )
         candidate.initializeArgumentMapping(
             arguments.unwrapNamedArgumentsForDynamicCall(function),
@@ -884,7 +879,7 @@ internal object CheckLowPriorityInOverloadResolution : ResolutionStage() {
     context(sink: CheckerSink, context: ResolutionContext)
     override suspend fun check(candidate: Candidate) {
         val annotations = when (val fir = candidate.symbol.fir) {
-            is FirSimpleFunction -> fir.annotations
+            is FirNamedFunction -> fir.annotations
             is FirProperty -> fir.annotations
             is FirConstructor -> fir.annotations
             else -> return
@@ -957,7 +952,14 @@ internal object CheckCallModifiers : ResolutionStage() {
 internal object CheckHiddenDeclaration : ResolutionStage() {
     context(sink: CheckerSink, context: ResolutionContext)
     override suspend fun check(candidate: Candidate) {
-        val symbol = candidate.symbol as? FirCallableSymbol<*> ?: return
+        val symbol = candidate.symbol
+
+        if (symbol !is FirCallableSymbol<*>) {
+            if (symbol.isDeprecatedHidden(candidate.callInfo) && LanguageFeature.SkipHiddenObjectsInResolution.isEnabled()) {
+                sink.reportDiagnostic(HiddenCandidate)
+            }
+            return
+        }
 
         if (symbol.isDeprecatedHidden(candidate.callInfo) ||
             (symbol is FirConstructorSymbol && symbol.typeAliasConstructorInfo?.typeAliasSymbol?.isDeprecatedHidden(candidate.callInfo) == true) ||

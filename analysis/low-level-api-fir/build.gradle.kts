@@ -2,9 +2,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     kotlin("jvm")
-    id("jps-compatible")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("test-data-manager")
 }
 
 val scriptingTestDefinition by configurations.creating
@@ -26,10 +26,12 @@ dependencies {
     api(project(":compiler:fir:checkers:checkers.wasm"))
     api(project(":compiler:fir:fir-jvm"))
     api(project(":compiler:backend.common.jvm"))
-    api(project(":compiler:cli-common"))
+    api(project(":compiler:cli-base"))
+    implementation(project(":native:native.config"))
     implementation(project(":analysis:decompiled:decompiler-to-file-stubs"))
     implementation(project(":analysis:decompiled:decompiler-to-psi"))
     testFixturesApi(project(":analysis:analysis-api-fir"))
+    testFixturesImplementation(project(":native:native.config"))
 
     implementation(project(":compiler:frontend.common"))
     implementation(project(":compiler:fir:entrypoint"))
@@ -69,8 +71,6 @@ dependencies {
     testFixturesApi(project(":kotlin-scripting-common"))
     testFixturesImplementation(testFixtures(project(":analysis:decompiled:decompiler-to-psi")))
 
-    testRuntimeOnly(project(":core:descriptors.runtime"))
-
     // We use 'api' instead of 'implementation' because other modules might be using these jars indirectly
     testFixturesApi(project(":plugins:plugin-sandbox"))
     testFixturesApi(testFixtures(project(":plugins:plugin-sandbox")))
@@ -97,6 +97,7 @@ kotlin {
         optIn.addAll(
             "org.jetbrains.kotlin.analysis.api.KaExperimentalApi",
             "org.jetbrains.kotlin.analysis.api.KaPlatformInterface",
+            "org.jetbrains.kotlin.analysis.api.KaSpiExtensionPoint",
         )
     }
 }
@@ -110,16 +111,19 @@ projectTests {
             JdkMajorVersion.JDK_21_0  // TestsWithJava21 and others
         )
     ) {
-        dependsOn(":dist", ":plugins:scripting:test-script-definition:testJar")
+        dependsOn(":dist")
         workingDir = rootDir
 
-        val scriptingTestDefinitionClasspath = scriptingTestDefinition.asPath
-        doFirst {
-            systemProperty("kotlin.script.test.script.definition.classpath", scriptingTestDefinitionClasspath)
+        if (!kotlinBuildProperties.isTeamcityBuild.get()) {
+            // Ensure golden tests run first since some LL tests are complementary for the surface tests
+            mustRunAfter(":analysis:analysis-api-fir:test")
         }
+
+        addClasspathProperty(scriptingTestDefinition, "kotlin.script.test.script.definition.classpath")
     }
 
     withJvmStdlibAndReflect()
+    withWasmRuntime()
 }
 
 allprojects {
@@ -144,7 +148,7 @@ tasks.register("analysisLowLevelApiFirAllTests") {
         ":analysis:low-level-api-fir:test",
     )
 
-    if (kotlinBuildProperties.isKotlinNativeEnabled) {
+    if (kotlinBuildProperties.isKotlinNativeEnabled.get()) {
         dependsOn(
             ":analysis:low-level-api-fir:low-level-api-fir-native:llFirNativeTests",
         )

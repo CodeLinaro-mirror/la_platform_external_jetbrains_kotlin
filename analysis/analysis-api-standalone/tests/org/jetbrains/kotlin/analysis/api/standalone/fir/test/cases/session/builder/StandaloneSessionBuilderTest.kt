@@ -28,12 +28,12 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaNamedFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.types.KaClassType
 import org.jetbrains.kotlin.analysis.api.standalone.StandaloneAnalysisAPISession
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.StandaloneProjectFactory
+import org.jetbrains.kotlin.analysis.api.standalone.fir.test.AbstractStandaloneTest
 import org.jetbrains.kotlin.analysis.api.symbols.KaFunctionSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaSymbolOrigin
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtLibraryModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSdkModule
 import org.jetbrains.kotlin.analysis.project.structure.builder.buildKtSourceModule
-import org.jetbrains.kotlin.analysis.test.framework.TestWithDisposable
 import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
 import org.jetbrains.kotlin.asJava.toLightClass
 import org.jetbrains.kotlin.idea.references.mainReference
@@ -54,7 +54,10 @@ import java.nio.file.Paths
 import kotlin.test.assertEquals
 
 @OptIn(KaExperimentalApi::class)
-class StandaloneSessionBuilderTest : TestWithDisposable() {
+class StandaloneSessionBuilderTest : AbstractStandaloneTest() {
+    override val suiteName: String
+        get() = "sessionBuilder"
+
     @Test
     fun testJdkSessionBuilder() {
         lateinit var sourceModule: KaSourceModule
@@ -107,6 +110,25 @@ class StandaloneSessionBuilderTest : TestWithDisposable() {
         }
         val ktFiles = session.modulesWithFiles.getValue(sourceModule)
         Assertions.assertEquals(listOf("source0.kt", "source1.kt"), ktFiles.map { it.name })
+    }
+
+    @Test
+    fun testFollowingSymbolicLinks() {
+        lateinit var sourceModule: KaSourceModule
+        val session = buildStandaloneAnalysisAPISession(disposable) {
+            buildKtModuleProvider {
+                platform = JvmPlatforms.defaultJvmPlatform
+                sourceModule = addModule(
+                    buildKtSourceModule {
+                        addSourceRoot(testDataPath("symLinks").resolve("src"))
+                        platform = JvmPlatforms.defaultJvmPlatform
+                        moduleName = "source"
+                    }
+                )
+            }
+        }
+        val ktFiles = session.modulesWithFiles.getValue(sourceModule)
+        Assertions.assertEquals(listOf("source0.kt"), ktFiles.map { it.name })
     }
 
     @Test

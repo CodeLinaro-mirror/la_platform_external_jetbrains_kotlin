@@ -18,10 +18,8 @@ package kotlin.reflect.jvm.internal
 
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.resolve.descriptorUtil.declaresOrInheritsDefaultValue
-import java.lang.reflect.Type
 import kotlin.reflect.KParameter
 import kotlin.reflect.KType
-import kotlin.reflect.jvm.internal.calls.ValueClassAwareCaller
 import kotlin.reflect.jvm.internal.types.DescriptorKType
 
 internal class DescriptorKParameter(
@@ -29,7 +27,7 @@ internal class DescriptorKParameter(
     override val index: Int,
     override val kind: KParameter.Kind,
     computeDescriptor: () -> ParameterDescriptor,
-) : ReflectKParameter {
+) : ReflectKParameter() {
     private val descriptor: ParameterDescriptor by ReflectProperties.lazySoft(computeDescriptor)
 
     override val annotations: List<Annotation> by ReflectProperties.lazySoft { descriptor.computeAnnotations() }
@@ -42,58 +40,27 @@ internal class DescriptorKParameter(
             return if (name.isSpecial) null else name.asString()
         }
 
-
-    private fun compoundType(vararg types: Type): Type = when (types.size) {
-        0 -> throw KotlinReflectionNotSupportedError("Expected at least 1 type for compound type")
-        1 -> types.single()
-        else -> CompoundTypeImpl(types)
-    }
-
-    private class CompoundTypeImpl(val types: Array<out Type>) : Type {
-        private val hashCode = types.contentHashCode()
-        override fun getTypeName(): String {
-            return types.joinToString(", ", "[", "]")
-        }
-
-        override fun equals(other: Any?): Boolean =
-            other is CompoundTypeImpl && this.types contentEquals other.types
-
-        override fun hashCode(): Int = hashCode
-
-        override fun toString(): String = typeName
-    }
-
     override val type: KType
-        get() = DescriptorKType(descriptor.type) {
-            val descriptor = descriptor
+        get() {
+            val type = DescriptorKType(descriptor.type) {
+                val descriptor = descriptor
 
-            if (descriptor is ReceiverParameterDescriptor &&
-                callable.descriptor.instanceReceiverParameter == descriptor &&
-                callable.descriptor.kind == CallableMemberDescriptor.Kind.FAKE_OVERRIDE
-            ) {
-                // In case of fake overrides, dispatch receiver type should be computed manually because Caller.parameterTypes returns
-                // types from Java reflection where receiver is always the declaring class of the original declaration
-                // (not the class where the fake override is generated, which is returned by KParameter.type)
-                (callable.descriptor.containingDeclaration as ClassDescriptor).toJavaClass()
-                    ?: throw KotlinReflectionInternalError("Cannot determine receiver Java type of inherited declaration: $descriptor")
-            } else {
-                when (val caller = callable.caller) {
-                    is ValueClassAwareCaller -> {
-                        val parameterTypes = if (callable.isBound) {
-                            val slice = caller.getRealSlicesOfParameters(index + 1)
-                            val offset = caller.getRealSlicesOfParameters(0).last + 1
-                            caller.parameterTypes.slice((slice.first - offset)..(slice.last - offset))
-                        } else {
-                            val slice = caller.getRealSlicesOfParameters(index)
-                            caller.parameterTypes.slice(slice)
-                        }
-                        compoundType(*parameterTypes.toTypedArray())
-                    }
-                    is ValueClassAwareCaller.MultiFieldValueClassPrimaryConstructorCaller ->
-                        compoundType(*caller.originalParametersGroups[index].toTypedArray())
-                    else -> caller.parameterTypes[index]
+                if (descriptor is ReceiverParameterDescriptor &&
+                    callable.instanceReceiverParameter == descriptor &&
+                    (callable.overriddenStorage.isFakeOverride || callable.descriptor.kind == CallableMemberDescriptor.Kind.FAKE_OVERRIDE)
+                ) {
+                    // In case of fake overrides, dispatch receiver type should be computed manually because Caller.parameterTypes returns
+                    // types from Java reflection where receiver is always the declaring class of the original declaration
+                    // (not the class where the fake override is generated, which is returned by KParameter.type)
+                    ((callable.overriddenStorage.instanceReceiverParameter
+                        ?: callable.descriptor).containingDeclaration as ClassDescriptor).toJavaClass()
+                        ?: throw KotlinReflectionInternalError("Cannot determine receiver Java type of inherited declaration: $descriptor")
+                } else {
+                    callable.caller.parameterTypes[index]
                 }
             }
+            return callable.overriddenStorage.typeSubstitutor.substitute(type).type
+                ?: starProjectionInTopLevelTypeIsNotPossible(containerForDebug = callable)
         }
 
     override val isOptional: Boolean
@@ -102,12 +69,6 @@ internal class DescriptorKParameter(
     override val isVararg: Boolean
         get() = descriptor.let { it is ValueParameterDescriptor && it.varargElementType != null }
 
-    override fun equals(other: Any?): Boolean =
-        other is ReflectKParameter && callable == other.callable && index == other.index
-
-    override fun hashCode(): Int =
-        (callable.hashCode() * 31) + index.hashCode()
-
-    override fun toString(): String =
-        ReflectionObjectRenderer.renderParameter(this)
+    override val declaresDefaultValue: Boolean
+        get() = (descriptor as? ValueParameterDescriptor)?.declaresDefaultValue() == true
 }

@@ -17,10 +17,12 @@ import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.builders.configureFirHandlersStep
 import org.jetbrains.kotlin.test.builders.firHandlersStep
+import org.jetbrains.kotlin.test.builders.wasmArtifactsHandlersStep
 import org.jetbrains.kotlin.test.configuration.commonFirHandlersForCodegenTest
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_BACKEND_K2_MULTI_MODULE
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
+import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives
@@ -43,6 +45,7 @@ import org.jetbrains.kotlin.wasm.test.converters.WasmBackendFacade
 import org.jetbrains.kotlin.wasm.test.handlers.WasiBoxRunner
 import org.jetbrains.kotlin.wasm.test.handlers.WasmBoxRunner
 import org.jetbrains.kotlin.wasm.test.handlers.WasmDebugRunner
+import org.jetbrains.kotlin.wasm.test.handlers.WasmTypeScriptCompilationHandler
 import org.jetbrains.kotlin.wasm.test.providers.WasmJsSteppingTestAdditionalSourceProvider
 
 fun TestConfigurationBuilder.configureCodegenFirHandlerSteps() {
@@ -113,9 +116,10 @@ open class AbstractFirWasmJsTest(
 }
 
 open class AbstractFirWasmJsCodegenBoxTest(
+    pathToTestDir: String = "compiler/testData/codegen/",
     testGroupOutputDirPrefix: String = "codegen/firBox/"
 ) : AbstractFirWasmJsTest(
-    pathToTestDir = "compiler/testData/",
+    pathToTestDir = pathToTestDir,
     testGroupOutputDirPrefix = testGroupOutputDirPrefix
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
@@ -125,8 +129,10 @@ open class AbstractFirWasmJsCodegenBoxTest(
 }
 
 open class AbstractFirWasmJsCodegenBoxWithInlinedFunInKlibTest(
+    pathToTestDir: String = "compiler/testData/codegen/",
     testGroupOutputDirPrefix: String = "codegen/boxInlKlib/"
 ) : AbstractFirWasmJsCodegenBoxTest(
+    pathToTestDir = pathToTestDir,
     testGroupOutputDirPrefix = testGroupOutputDirPrefix
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
@@ -142,8 +148,16 @@ open class AbstractFirWasmJsCodegenBoxWithInlinedFunInKlibTest(
     }
 }
 
+open class AbstractFirWasmJsSyntheticAccessorsTest(
+    pathToTestDir: String = "compiler/testData/klib/syntheticAccessors",
+    testGroupOutputDirPrefix: String = "codegen/syntheticAccessors/"
+) : AbstractFirWasmJsCodegenBoxWithInlinedFunInKlibTest(
+    pathToTestDir = pathToTestDir,
+    testGroupOutputDirPrefix = testGroupOutputDirPrefix
+)
+
 open class AbstractFirWasmJsCodegenSplittingWithInlinedFunInKlibTest() : AbstractFirWasmJsCodegenBoxWithInlinedFunInKlibTest(
-    "codegen/boxSplitted/"
+    testGroupOutputDirPrefix = "codegen/boxSplitted/"
 ) {
     override val additionalIgnoreDirectives: List<ValueDirective<TargetBackend>>?
         get() = listOf(IGNORE_BACKEND_K2_MULTI_MODULE)
@@ -308,14 +322,19 @@ open class AbstractFirWasmWasiCodegenBoxWithInlinedFunInKlibTest : AbstractFirWa
     }
 }
 
-open class AbstractFirWasmTypeScriptExportTest : AbstractFirWasmJsTest(
-    "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/wasm/",
-    "typescript-export/"
-) {
+open class AbstractFirWasmTypeScriptExportTest(
+    pathToTestDir: String = "${JsEnvironmentConfigurator.TEST_DATA_DIR_PATH}/typescript-export/wasm/",
+    testGroupOutputDirPrefix: String = "typescript-export/"
+) : AbstractFirWasmJsTest(pathToTestDir, testGroupOutputDirPrefix) {
     override fun configure(builder: TestConfigurationBuilder) {
+        builder.wasmArtifactsHandlersStep {
+            useHandlers(::WasmTypeScriptCompilationHandler)
+        }
         super.configure(builder)
         builder.defaultDirectives {
             +WasmEnvironmentConfigurationDirectives.CHECK_TYPESCRIPT_DECLARATIONS
+            JsEnvironmentConfigurationDirectives.TSC_TARGET with "es2020"
+            JsEnvironmentConfigurationDirectives.TSC_MODULE with "es2020"
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -11,21 +11,17 @@ import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.cli.pipeline.CheckCompilationErrors
 import org.jetbrains.kotlin.cli.pipeline.PerformanceNotifications
 import org.jetbrains.kotlin.cli.pipeline.PipelinePhase
+import org.jetbrains.kotlin.compiler.plugin.getCompilerExtensions
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
-import org.jetbrains.kotlin.diagnostics.impl.deduplicating
 import org.jetbrains.kotlin.fir.backend.Fir2IrConfiguration
 import org.jetbrains.kotlin.fir.backend.Fir2IrExtensions
 import org.jetbrains.kotlin.fir.backend.Fir2IrVisibilityConverter
 import org.jetbrains.kotlin.fir.descriptors.FirModuleDescriptor
-import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
-import org.jetbrains.kotlin.fir.pipeline.Fir2KlibMetadataSerializer
-import org.jetbrains.kotlin.fir.pipeline.FirResult
-import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
-import org.jetbrains.kotlin.fir.pipeline.convertToIrAndActualize
+import org.jetbrains.kotlin.fir.pipeline.*
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
@@ -33,13 +29,13 @@ import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
 import org.jetbrains.kotlin.ir.backend.js.checkers.JsKlibCheckers
 import org.jetbrains.kotlin.ir.backend.js.getSerializedData
 import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.JsManglerIr
-import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.collectExportedNames
-import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.jetbrains.kotlin.ir.backend.js.lower.serialization.ir.collectJsExportNames
 import org.jetbrains.kotlin.ir.types.IrTypeSystemContextImpl
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.js.config.incrementalDataProvider
 import org.jetbrains.kotlin.js.config.wasmCompilation
-import org.jetbrains.kotlin.library.unresolvedDependencies
+import org.jetbrains.kotlin.library.isJsStdlib
+import org.jetbrains.kotlin.library.isWasmStdlib
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 
 object WebFir2IrPipelinePhase : PipelinePhase<WebFrontendPipelineArtifact, JsFir2IrPipelineArtifact>(
@@ -48,14 +44,14 @@ object WebFir2IrPipelinePhase : PipelinePhase<WebFrontendPipelineArtifact, JsFir
     postActions = setOf(PerformanceNotifications.TranslationToIrFinished, CheckCompilationErrors.CheckDiagnosticCollector)
 ) {
     override fun executePhase(input: WebFrontendPipelineArtifact): JsFir2IrPipelineArtifact? {
-        val (analyzedOutput, configuration, diagnosticsReporter, moduleStructure, hasErrors) = input
-        val fir2IrActualizedResult = transformFirToIr(moduleStructure, analyzedOutput.output, diagnosticsReporter)
+        val (firResult, configuration, diagnosticsReporter, moduleStructure, hasErrors) = input
+        val fir2IrActualizedResult = transformFirToIr(moduleStructure, firResult.outputs, diagnosticsReporter)
         if (!configuration.wasmCompilation)
-            runJsKlibCallCheckers(diagnosticsReporter, configuration, analyzedOutput.output, fir2IrActualizedResult)
+            runJsKlibCallCheckers(diagnosticsReporter, configuration, firResult.outputs, fir2IrActualizedResult)
 
         return JsFir2IrPipelineArtifact(
             fir2IrActualizedResult,
-            analyzedOutput,
+            firResult,
             configuration,
             diagnosticsReporter,
             moduleStructure,
@@ -63,9 +59,9 @@ object WebFir2IrPipelinePhase : PipelinePhase<WebFrontendPipelineArtifact, JsFir
         )
     }
 
-    fun transformFirToIr(
+    private fun transformFirToIr(
         moduleStructure: ModulesStructure,
-        firOutputs: List<ModuleCompilerAnalyzedOutput>,
+        firOutputs: List<SingleModuleFrontendOutput>,
         diagnosticsReporter: BaseDiagnosticsCollector,
     ): Fir2IrActualizedResult {
         val fir2IrExtensions = Fir2IrExtensions.Default
@@ -87,17 +83,17 @@ object WebFir2IrPipelinePhase : PipelinePhase<WebFrontendPipelineArtifact, JsFir
             dependencies += moduleDescriptor
             moduleDescriptor.setDependencies(ArrayList(dependencies))
 
-            val isBuiltIns = resolvedLibrary.unresolvedDependencies.isEmpty()
+            val isBuiltIns = resolvedLibrary.isJsStdlib || resolvedLibrary.isWasmStdlib
             if (isBuiltIns) builtInsModule = moduleDescriptor.builtIns
 
             moduleDescriptor
         }
 
-        val firResult = FirResult(firOutputs)
+        val firResult = AllModulesFrontendOutput(firOutputs)
         return firResult.convertToIrAndActualize(
             fir2IrExtensions,
             Fir2IrConfiguration.forKlibCompilation(moduleStructure.compilerConfiguration, diagnosticsReporter),
-            IrGenerationExtension.getInstances(moduleStructure.project),
+            moduleStructure.compilerConfiguration.getCompilerExtensions(IrGenerationExtension),
             irMangler = JsManglerIr,
             visibilityConverter = Fir2IrVisibilityConverter.Default,
             kotlinBuiltIns = builtInsModule ?: DefaultBuiltIns.Instance,
@@ -114,11 +110,10 @@ object WebFir2IrPipelinePhase : PipelinePhase<WebFrontendPipelineArtifact, JsFir
 private fun runJsKlibCallCheckers(
     diagnosticReporter: BaseDiagnosticsCollector,
     configuration: CompilerConfiguration,
-    firOutputs: List<ModuleCompilerAnalyzedOutput>,
+    firOutputs: List<SingleModuleFrontendOutput>,
     fir2IrActualizedResult: Fir2IrActualizedResult,
 ) {
-    val irDiagnosticReporter =
-        KtDiagnosticReporterWithImplicitIrBasedContext(diagnosticReporter.deduplicating(), configuration.languageVersionSettings)
+    val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(diagnosticReporter, configuration.languageVersionSettings)
 
     val fir2KlibMetadataSerializer = Fir2KlibMetadataSerializer(
         configuration,
@@ -138,7 +133,7 @@ private fun runJsKlibCallCheckers(
             doCheckCalls = true,
             doModuleLevelChecks = true,
             cleanFiles = cleanFilesIrData,
-            exportedNames = irModuleFragment.collectExportedNames(),
+            exportedNames = irModuleFragment.collectJsExportNames(),
         )
     )
 }

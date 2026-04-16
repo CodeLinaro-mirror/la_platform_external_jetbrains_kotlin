@@ -416,18 +416,18 @@ enum class LanguageFeature(
     // 2.3
 
     ForbidCompanionInLocalInnerClass(KOTLIN_2_3, enabledInProgressiveMode = true, "KT-47289"),
-    ForbidImplementationByDelegationWithDifferentGenericSignature(KOTLIN_2_3, enabledInProgressiveMode = true, "KT-72140"),
-    ForbidJvmSerializableLambdaOnInlinedFunctionLiterals(KOTLIN_2_3, enabledInProgressiveMode = true, "KT-71906"),
+    ForbidImplementationByDelegationWithDifferentGenericSignature(KOTLIN_2_3, enabledInProgressiveMode = true, "KTLC-267"),
+    ForbidJvmSerializableLambdaOnInlinedFunctionLiterals(KOTLIN_2_3, enabledInProgressiveMode = true, "KTLC-9"),
     ReportExposedTypeForInternalTypeParameterBounds(KOTLIN_2_3, enabledInProgressiveMode = true, "KTLC-275"),
     EnableDfaWarningsInK2(KOTLIN_2_3, "KT-50965"),
-    DontIgnoreUpperBoundViolatedOnImplicitArguments(KOTLIN_2_3, "KT-67146"),
+    DontIgnoreUpperBoundViolatedOnImplicitArguments(KOTLIN_2_3, "KTLC-287"),
     ResolveTopLevelLambdasAsSyntheticCallArgument(KOTLIN_2_3, "KT-67869"),
     DataFlowBasedExhaustiveness(sinceVersion = KOTLIN_2_3, issue = "KT-76635"),
     UnstableSmartcastOnDelegatedProperties(KOTLIN_2_3, enabledInProgressiveMode = true, "KTLC-273"),
     ForbidAnnotationsWithUseSiteTargetOnExpressions(KOTLIN_2_3, enabledInProgressiveMode = true, "KT-75242"),
     ProhibitNullableTypeThroughTypealias(KOTLIN_2_3, enabledInProgressiveMode = true, "KTLC-279"),
     ForbidObjectDelegationToItself(KOTLIN_2_3, enabledInProgressiveMode = true, "KT-17417"),
-    JvmIndyAllowLambdasWithAnnotations(KOTLIN_2_3, "KT-76606"),
+    JvmIndyAllowLambdasWithAnnotations(KOTLIN_2_3, "KTLC-278"),
     NestedTypeAliases(KOTLIN_2_3, forcesPreReleaseBinaries = true, issue = "KT-45285"),
     ProhibitIntersectionReifiedTypeParameter(KOTLIN_2_3, enabledInProgressiveMode = true, "KTLC-13"),
 
@@ -455,28 +455,55 @@ enum class LanguageFeature(
 
     // 2.4
 
+    AnnotationsInMetadata(KOTLIN_2_4, "KT-75736"),
     ForbidExposingLessVisibleTypesInInline(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-283"),
     ForbidCaptureInlinableLambdasInJsCode(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-69297"),
-    ForbidInitializationBeforeDeclarationInAnonymous(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-77156"),
+    ForbidInitializationBeforeDeclarationInAnonymous(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-290"),
     ForbidUpperBoundsViolationOnTypeOperatorAndParameterBounds(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-358"),
+    ForbidPrivateToThisUnboundCallableReferences(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-383"),
     AllowReifiedTypeInCatchClause(KOTLIN_2_4, issue = "KT-54363"),
-    ForbidGetSetValueWithTooManyParameters(KOTLIN_2_4, issue = "KT-77131"),
-    ForbidReturnInExpressionBodyWithoutExplicitTypeEdgeCases(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-288"),
+    ApproximateLocalTypesInPublicDeclarations(KOTLIN_2_4, issue = "KT-82454"),
+    LocalVariableTargetedAnnotationOnDestructuring(KOTLIN_2_4, "KT-81408"),
+    ForbidGetSetValueWithTooManyParameters(KOTLIN_2_4, enabledInProgressiveMode = true, issue = "KTLC-289"),
     ForbidInlineEnumEntries(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-361"),
     TurnTypeCheckWarningsIntoErrors(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-365"),
+    ProhibitExtendingAnnotationClasses(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-374"),
+    RefinedVarargConversionRulesForCallableReferences(KOTLIN_2_4, enabledInProgressiveMode = false, "KT-39697"), // And KT-81841
     CheckOptInOnPureEnumEntries(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-359"),
+    ProperlyCheckUpperBoundsViolationsWhenCreatingFreshVariables(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-82318"),
+    ReportUpperBoundViolatedInCallArgumentInteractions(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-373"),
     CheckPackageInfoNullnessAnnotations(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-77729"),
     ForbidTypeAliasWithMissingDependencyType(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-79781"),
     ForbidImplicitTypeAnnotationWithMissingDependency(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-80247"),
-    ProperExhaustivenessCheckForJavaOpenSealedClass(sinceVersion = KOTLIN_2_4, enabledInProgressiveMode = true,"KT-78879"),
+    ProperExhaustivenessCheckForJavaOpenSealedClass(sinceVersion = KOTLIN_2_4, enabledInProgressiveMode = true,"KTLC-366"),
+    DisableMaxTypeDepthFromInitialConstraints(sinceVersion = KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-372"),
     JsAllowExportingSuspendFunctions(sinceVersion = KOTLIN_2_4, "KT-56281"),
+    ImprovedResolutionInSecondaryConstructors(sinceVersion = KOTLIN_2_4, "KT-77275"),
+    CacheLocalVariableScopes(sinceVersion = KOTLIN_2_4, "KT-68606"),
+    OverloadResolutionSpecificityForEnhancedJvmPrimitiveWrappers(sinceVersion = KOTLIN_2_4, "KT-9182"),
     ForbidTypeAliasToCompilerRequiredAnnotation(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-79369"),
     ForbidArrayLiteralsInNonAnnotationContexts(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-369"),
-    ForbidClassLiteralWithPotentiallyNullableReifiedLhs(KOTLIN_2_4, enabledInProgressiveMode = true, "KT-81385"),
+    LexicographicVariableReadinessCalculation(KOTLIN_2_4, enabledInProgressiveMode = false, "KT-77939"),
+    ForbidClassLiteralWithPotentiallyNullableReifiedLhs(KOTLIN_2_4, enabledInProgressiveMode = true, "KTLC-370"),
+    ForbidOverriddenDefaultParametersInInline(KOTLIN_2_4, enabledInProgressiveMode = true, issue = "KT-49722"),
+    ForbidRootIdePackageInCli(KOTLIN_2_4, enabledInProgressiveMode = true, issue = "KT-81357"),
+    ReportOptInUsageOnCompanionObjectAccesses(KOTLIN_2_4, enabledInProgressiveMode = true, issue = "KT-82524"),
+    ChangedIntersectionWithRecursiveCapturedType(KOTLIN_2_4, issue = "KT-65059"),
+    SkipHiddenObjectsInResolution(KOTLIN_2_4, issue = "KT-82555"),
+    JvmEnhancedBridges(KOTLIN_2_4, "KT-82900"),
+    DiscriminateNothingAsNullabilityConstraintInInference(KOTLIN_2_4, "KT-81948"),
+    ResolveEqualsRhsInDependentContextWithCompletion(KOTLIN_2_4, "KT-81763"),
+    IrIntraModuleInlinerBeforeKlibSerialization(KOTLIN_2_4, sinceApiVersion = ApiVersion.KOTLIN_2_3, issue = "KT-79717"),
+    ImprovedExhaustivenessCheckForSubjectVariable24(KOTLIN_2_4, issue = "KT-83903"),
+    WrapContinuationForTailCallFunctions(KOTLIN_2_4, sinceApiVersion = ApiVersion.KOTLIN_2_4, "KT-74051"),
 
     // 2.5
 
     ErrorAboutDataClassCopyVisibilityChange(KOTLIN_2_5, enabledInProgressiveMode = true, "KT-11914"), // KT-11914. Deprecation phase 2
+    KlibAnnotationsInMetadata(sinceVersion = KOTLIN_2_5, "KT-81466"),
+    ForbidReturnInExpressionBodyWithoutExplicitTypeEdgeCases(sinceVersion = KOTLIN_2_5, "KTLC-288"),
+    ForbidExternalEnumEntriesAndPrimaryConstructorProperties(sinceVersion = KOTLIN_2_5, enabledInProgressiveMode = true, "KTLC-389"),
+    ProperSupportOfInnerClassesInCallableReferenceLHS(sinceVersion = KOTLIN_2_5, "KTLC-388"),
 
     // End of 2.* language features --------------------------------------------------
 
@@ -537,6 +564,7 @@ enum class LanguageFeature(
     FunctionalTypeWithExtensionAsSupertype(sinceVersion = null, NO_ISSUE_SPECIFIED),
     ContextReceivers(sinceVersion = null, NO_ISSUE_SPECIFIED),
     ContextParameters(sinceVersion = null, "KT-72222"),
+    ExplicitContextArguments(sinceVersion = null, issue = "KT-81684", testOnly = true),
     ValueClasses(sinceVersion = null, forcesPreReleaseBinaries = true, issue = NO_ISSUE_SPECIFIED),
     JavaSamConversionEqualsHashCode(sinceVersion = null, forcesPreReleaseBinaries = true, issue = NO_ISSUE_SPECIFIED),
     PropertyParamAnnotationDefaultTargetMode(sinceVersion = null, "KT-73255"),
@@ -547,6 +575,10 @@ enum class LanguageFeature(
     DeprecateNameMismatchInShortDestructuringWithParentheses(sinceVersion = null, "KT-19627"),
     EnableNameBasedDestructuringShortForm(sinceVersion = null, "KT-19627"),
     LocalTypeAliases(sinceVersion = null, forcesPreReleaseBinaries = true, issue = "KT-81404"),
+
+    // We don't want to turn it on by default (so to show an error instead of a warning) until there will be a possibility to export declarations from libraries
+    JsExposedNotExportedSuperInterfaceApiByExportedOne(sinceVersion = null, issue = "KT-83009"),
+    JsExportInterfacesInImplementableWay(sinceVersion = null, issue = "KT-65802"),
 
     // K1 support only. We keep it, as we may want to support it also in K2
     UnitConversionsOnArbitraryExpressions(sinceVersion = null, NO_ISSUE_SPECIFIED),
@@ -563,20 +595,20 @@ enum class LanguageFeature(
     DisableCheckingChangedProgressionsResolve(sinceVersion = null, "KT-49276"),
 
     DontCreateSyntheticPropertiesWithoutBaseJavaGetter(sinceVersion = null, "KT-64358"),
+    CollectionLiterals(sinceVersion = null, testOnly = true, issue = "KT-80489"),
     ProperFieldAccessGenerationForFieldAccessShadowedByKotlinProperty(sinceVersion = null, "KT-56386"),
-    IrIntraModuleInlinerBeforeKlibSerialization(sinceVersion = null, forcesPreReleaseBinaries = false, issue = "KT-79717"),
-    IrCrossModuleInlinerBeforeKlibSerialization(sinceVersion = null, forcesPreReleaseBinaries = true, issue = "KT-79717"),
+    IrCrossModuleInlinerBeforeKlibSerialization(sinceVersion = null, sinceApiVersion = ApiVersion.KOTLIN_2_3, forcesPreReleaseBinaries = true, issue = "KT-79717"),
     ForbidUsingSupertypesWithInaccessibleContentInTypeArguments(sinceVersion = null, enabledInProgressiveMode = true, "KT-66691"), // KT-66691, KT-66742
     AllowEagerSupertypeAccessibilityChecks(sinceVersion = null, enabledInProgressiveMode = true, "KT-73611"),
     UnnamedLocalVariables(sinceVersion = null, forcesPreReleaseBinaries = false, issue = "KT-74809"),
     ContextSensitiveResolutionUsingExpectedType(sinceVersion = null, "KT-16768"),
-    AnnotationsInMetadata(sinceVersion = null, "KT-57919"),
-    KlibAnnotationsInMetadata(sinceVersion = null, "KT-64237"),
     DisableWarningsForValueBasedJavaClasses(sinceVersion = null, "KT-70722"),
     DisableWarningsForIdentitySensitiveOperationsOnValueClassesAndPrimitives(sinceVersion = null, "KT-70722"),
     ExportKlibToOlderAbiVersion(sinceVersion = null, forcesPreReleaseBinaries = true, issue = "KT-76131"),
     ForbidInferOfInvisibleTypeAsReifiedVarargOrReturnType(sinceVersion = null, enabledInProgressiveMode = true, issue = "KTLC-14"),
     ForbidExposingPackagePrivateInInternal(sinceVersion = null, enabledInProgressiveMode = true, "KTLC-271"),
+    JvmLoadAnnotationsOnAnnotationProperties(sinceVersion = null, "KT-22463"),
+    TreatProvideDelegateAsConventionName(sinceVersion = null, "KT-83538"),
     ;
 
     constructor(
@@ -689,7 +721,7 @@ enum class LanguageVersion(val major: Int, val minor: Int) : DescriptionAware, L
         val FIRST_NON_DEPRECATED = KOTLIN_2_1
 
         @JvmField
-        val LATEST_STABLE = KOTLIN_2_3
+        val LATEST_STABLE = KOTLIN_2_4
     }
 }
 
@@ -711,16 +743,6 @@ interface LanguageOrApiVersion : DescriptionAware {
             else -> versionString
         }
 }
-
-// This is a public API used in IDEA kotlin plugin code, in particular in
-// community/plugins/kotlin/base/compiler-configuration-ui/src/org/jetbrains/kotlin/idea/base/compilerPreferences/configuration/KotlinCompilerConfigurableTab.java
-@Suppress("unused")
-@Deprecated(
-    message = "This function is no more actual after 2.0 release, consider replacing with isStable",
-    replaceWith = ReplaceWith("isStable")
-)
-fun LanguageVersion.isStableOrReadyForPreview(): Boolean =
-    isStable || this == KOTLIN_1_9 || this == KOTLIN_2_0
 
 fun LanguageVersion.toKotlinVersion() = KotlinVersion(major, minor)
 fun LanguageVersionSettings.toKotlinVersion() = languageVersion.toKotlinVersion()
@@ -819,5 +841,5 @@ fun LanguageVersionSettings.getCustomizedEffectivelyDisabledLanguageFeatures(): 
     }
 }
 
-private fun LanguageVersionSettings.isEnabledByDefault(languageFeature: LanguageFeature): Boolean =
+fun LanguageVersionSettings.isEnabledByDefault(languageFeature: LanguageFeature): Boolean =
     languageFeature.sinceVersion != null && languageVersion >= languageFeature.sinceVersion && apiVersion >= languageFeature.sinceApiVersion

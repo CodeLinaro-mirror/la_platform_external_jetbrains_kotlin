@@ -6,12 +6,14 @@
 package org.jetbrains.kotlin.backend.jvm
 
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.declarations.IrFunctionBuilder
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.declarations.buildProperty
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
-import org.jetbrains.kotlin.ir.expressions.impl.IrConstructorCallImpl
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
+import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
@@ -132,21 +134,21 @@ abstract class MemoizedValueClassAbstractReplacements(
     protected fun IrSimpleFunction.overridesOnlyMethodsFromJava(): Boolean = allOverridden().all { it.isFromJava() }
 }
 
-fun List<IrConstructorCall>.withoutJvmExposeBoxedAnnotation(): List<IrConstructorCall> =
+fun List<IrAnnotation>.withoutJvmExposeBoxedAnnotation(): List<IrAnnotation> =
     this.toMutableList().apply {
         removeAll {
             it.symbol.owner.returnType.classOrNull?.owner?.hasEqualFqName(JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME) == true
         }
     }
 
-fun List<IrConstructorCall>.withJvmExposeBoxedAnnotation(declaration: IrDeclaration, context: JvmBackendContext): List<IrConstructorCall> {
+fun List<IrAnnotation>.withJvmExposeBoxedAnnotation(declaration: IrDeclaration, context: JvmBackendContext): List<IrAnnotation> {
     if (hasAnnotation(JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME)) {
         val jvmExposeBoxedAnnotation = findAnnotation(JVM_EXPOSE_BOXED_ANNOTATION_FQ_NAME)
         // If name is not provided, copy the name from @JvmName annotation, if the latter is present
         if (jvmExposeBoxedAnnotation?.arguments[0] == null) {
             val jvmName = declaration.getAnnotation(JVM_NAME_ANNOTATION_FQ_NAME)?.arguments[0]
             if (jvmName != null) {
-                jvmExposeBoxedAnnotation?.arguments[0] = jvmName
+                jvmExposeBoxedAnnotation?.arguments[0] = jvmName.deepCopyWithSymbols()
             }
         }
         return this
@@ -154,10 +156,13 @@ fun List<IrConstructorCall>.withJvmExposeBoxedAnnotation(declaration: IrDeclarat
     // The declaration is not annotated with @JvmExposeBoxed - the annotation is on class
     // or -Xjvm-expose-boxed is specified. Add the annotation.
     val constructor = context.symbols.jvmExposeBoxedAnnotation.constructors.first()
-    return this + IrConstructorCallImpl.fromSymbolOwner(
+    return this + IrAnnotationImpl.fromSymbolOwner(
         constructor.owner.returnType,
         constructor
     ).apply {
-        arguments.add(null)
+        // Copy the name from @JvmName if it is present
+        val jvmName = declaration.getAnnotation(JVM_NAME_ANNOTATION_FQ_NAME)?.arguments[0]
+        arguments[0] = jvmName?.deepCopyWithSymbols()
+            ?: IrConstImpl.string(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.stringType, "")
     }
 }

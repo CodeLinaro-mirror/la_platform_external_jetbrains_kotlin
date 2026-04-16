@@ -1,16 +1,12 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.components
 
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.analysis.api.KaContextParameterApi
-import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
-import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
-import org.jetbrains.kotlin.analysis.api.KaNoContextParameterBridgeRequired
-import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.*
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeOwner
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.symbols.KaCallableSymbol
@@ -19,7 +15,8 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaFileSymbol
 import org.jetbrains.kotlin.psi.KtExpression
 
-@SubclassOptInRequired(KaImplementationDetail::class)
+@KaSessionComponentImplementationDetail
+@SubclassOptInRequired(KaSessionComponentImplementationDetail::class)
 public interface KaVisibilityChecker : KaSessionComponent {
     /**
      * Checks whether the [candidateSymbol] is visible in the [useSiteFile] from the given [position].
@@ -104,13 +101,13 @@ public interface KaUseSiteVisibilityChecker : KaLifetimeOwner {
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun createUseSiteVisibilityChecker(
     useSiteFile: KaFileSymbol,
     receiverExpression: KtExpression? = null,
     position: PsiElement,
 ): KaUseSiteVisibilityChecker {
-    return with(s) {
+    return with(session) {
         createUseSiteVisibilityChecker(
             useSiteFile = useSiteFile,
             receiverExpression = receiverExpression,
@@ -125,9 +122,9 @@ public fun createUseSiteVisibilityChecker(
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaCallableSymbol.isVisibleInClass(classSymbol: KaClassSymbol): Boolean {
-    return with(s) {
+    return with(session) {
         isVisibleInClass(
             classSymbol = classSymbol,
         )
@@ -142,9 +139,9 @@ public fun KaCallableSymbol.isVisibleInClass(classSymbol: KaClassSymbol): Boolea
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun isPublicApi(symbol: KaDeclarationSymbol): Boolean {
-    return with(s) {
+    return with(session) {
         isPublicApi(
             symbol = symbol,
         )

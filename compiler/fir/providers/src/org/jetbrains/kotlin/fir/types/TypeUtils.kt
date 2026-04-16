@@ -189,6 +189,7 @@ fun <T : ConeKotlinType> T.withArguments(arguments: Array<out ConeTypeProjection
 
 inline fun <T : ConeKotlinType> T.withArguments(replacement: (ConeTypeProjection) -> ConeTypeProjection): T {
     val typeArguments = typeArguments
+    if (typeArguments.isEmpty()) return this
     return withArguments(Array(typeArguments.size) { replacement(typeArguments[it]) })
 }
 
@@ -493,7 +494,7 @@ fun FirResolvedTypeRef.withReplacedSourceAndType(newSource: KtSourceElement?, ne
     }
 }
 
-fun shouldApproximateAnonymousTypesOfNonLocalDeclaration(containingCallableVisibility: Visibility?, isInlineFunction: Boolean): Boolean {
+fun shouldApproximateLocalTypesOfNonLocalDeclaration(containingCallableVisibility: Visibility?, isInlineFunction: Boolean): Boolean {
     // Approximate types for non-private (all but package private or private) members.
     // Also private inline functions, as per KT-33917.
     return when (containingCallableVisibility) {
@@ -806,8 +807,8 @@ private fun ConeKotlinType.hasSubtypesAboveNothingAccordingToK1(session: FirSess
         return true
     }
 
-    classSymbol.typeParameterSymbols.forEachIndexed { idx, typeParameterSymbol ->
-        val typeProjection = expandedType.typeArguments[idx]
+    expandedType.typeArguments.forEachIndexed { idx, typeProjection ->
+        val typeParameterSymbol = classSymbol.typeParameterSymbols[idx]
 
         if (typeProjection.isStarProjection) {
             return true

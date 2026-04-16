@@ -12,8 +12,7 @@ import org.jetbrains.kotlin.build.report.debug
 import org.jetbrains.kotlin.build.report.info
 import org.jetbrains.kotlin.build.report.metrics.BuildAttribute
 import org.jetbrains.kotlin.build.report.metrics.BuildAttribute.*
-import org.jetbrains.kotlin.build.report.metrics.GradleBuildPerformanceMetric
-import org.jetbrains.kotlin.build.report.metrics.GradleBuildTime
+import org.jetbrains.kotlin.build.report.metrics.*
 import org.jetbrains.kotlin.build.report.metrics.measure
 import org.jetbrains.kotlin.build.report.warn
 import org.jetbrains.kotlin.cli.common.ExitCode
@@ -32,6 +31,7 @@ import org.jetbrains.kotlin.incremental.dirtyFiles.DirtyFilesContainer
 import org.jetbrains.kotlin.incremental.dirtyFiles.DirtyFilesProvider
 import org.jetbrains.kotlin.incremental.storage.BasicFileToPathConverter
 import org.jetbrains.kotlin.incremental.storage.FileLocations
+import org.jetbrains.kotlin.incremental.storage.FileToPathConverter
 import org.jetbrains.kotlin.incremental.util.ExceptionLocation
 import org.jetbrains.kotlin.incremental.util.reportException
 import org.jetbrains.kotlin.metadata.deserialization.MetadataVersion
@@ -46,9 +46,9 @@ abstract class IncrementalCompilerRunner<
         Args : CommonCompilerArguments,
         CacheManager : IncrementalCachesManager<*>,
         >(
-    private val workingDir: File,
+    protected val workingDir: File,
     cacheDirName: String,
-    protected val reporter: BuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
+    protected val reporter: BuildReporter<BuildTimeMetric, BuildPerformanceMetric>,
     protected val buildHistoryFile: File?,
 
     /**
@@ -73,8 +73,11 @@ abstract class IncrementalCompilerRunner<
      * Non-trivial configuration should NOT be added there.
      */
     protected val icFeatures: IncrementalCompilationFeatures,
+
+    private val compilationCanceledStatus: CompilationCanceledStatus? = null,
 ) {
 
+    protected open val lookupTrackerDelegate: LookupTracker = LookupTracker.DO_NOTHING
     protected val cacheDirectory = File(workingDir, cacheDirName)
     protected val lastBuildInfoFile = File(workingDir, LAST_BUILD_INFO_FILE_NAME)
     private val abiSnapshotFile = File(workingDir, ABI_SNAPSHOT_FILE_NAME)
@@ -111,7 +114,7 @@ abstract class IncrementalCompilerRunner<
         messageCollector: MessageCollector,
         changedFiles: ChangedFiles,
         fileLocations: FileLocations? = null, // Must be not-null if the build system needs to support build cache relocatability
-    ): ExitCode = reporter.measure(GradleBuildTime.INCREMENTAL_COMPILATION_DAEMON) {
+    ): ExitCode = reporter.measure(INCREMENTAL_COMPILATION_DAEMON) {
         reporter.debug {
             "Source changes: $changedFiles"
         }
@@ -221,7 +224,7 @@ abstract class IncrementalCompilerRunner<
 
                 // Step 2: Compute files to recompile
                 val compilationMode = try {
-                    reporter.measure(GradleBuildTime.IC_CALCULATE_INITIAL_DIRTY_SET) {
+                    reporter.measure(IC_CALCULATE_INITIAL_DIRTY_SET) {
                         calculateSourcesToCompile(caches, knownChangedFiles, args, messageCollector, classpathAbiSnapshot ?: emptyMap())
                     }
                 } catch (e: Throwable) {
@@ -280,7 +283,7 @@ abstract class IncrementalCompilerRunner<
         trackChangedFiles: Boolean, // Whether we need to track changes to the source files or the build system already handles it
         messageCollector: MessageCollector,
     ): ExitCode {
-        reporter.measure(GradleBuildTime.CLEAR_OUTPUT_ON_REBUILD) {
+        reporter.measure(CLEAR_OUTPUT_ON_REBUILD) {
             val mainOutputDirs = setOf(destinationDir(args), workingDir)
             val outputDirsToClean = outputDirs?.also {
                 check(it.containsAll(mainOutputDirs)) { "outputDirs is missing classesDir and workingDir: $it" }
@@ -305,7 +308,7 @@ abstract class IncrementalCompilerRunner<
     private class AbiSnapshotData(val snapshot: AbiSnapshot, val classpathAbiSnapshot: Map<String, AbiSnapshot>)
 
     private fun getClasspathAbiSnapshot(args: Args): Map<String, AbiSnapshot> {
-        return reporter.measure(GradleBuildTime.SET_UP_ABI_SNAPSHOTS) {
+        return reporter.measure(SET_UP_ABI_SNAPSHOTS) {
             setupJarDependencies(args, reporter)
         }
     }
@@ -356,7 +359,7 @@ abstract class IncrementalCompilerRunner<
 
     protected open fun setupJarDependencies(
         args: Args,
-        reporter: BuildReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
+        reporter: BuildReporter<BuildTimeMetric, BuildPerformanceMetric>,
     ): Map<String, AbiSnapshot> = emptyMap()
 
     sealed class CompilationMode {
@@ -385,11 +388,12 @@ abstract class IncrementalCompilerRunner<
         caches: CacheManager,
         dirtySources: Set<File>,
         isIncremental: Boolean,
+        compilationCanceledStatus: CompilationCanceledStatus,
     ): Services.Builder =
         Services.Builder().apply {
             register(LookupTracker::class.java, lookupTracker)
             register(ExpectActualTracker::class.java, expectActualTracker)
-            register(CompilationCanceledStatus::class.java, EmptyCompilationCanceledStatus)
+            register(CompilationCanceledStatus::class.java, compilationCanceledStatus)
             register(ICFileMappingTracker::class.java, fileMappingTracker)
         }
 
@@ -432,13 +436,13 @@ abstract class IncrementalCompilerRunner<
     protected open fun performWorkAfterCompilation(compilationMode: CompilationMode, exitCode: ExitCode, caches: CacheManager) {}
 
     private fun collectSizeMetrics() {
-        reporter.measure(GradleBuildTime.CALCULATE_OUTPUT_SIZE) {
+        reporter.measure(CALCULATE_OUTPUT_SIZE) {
             reporter.addMetric(
-                GradleBuildPerformanceMetric.SNAPSHOT_SIZE,
+                SNAPSHOT_SIZE,
                 (buildHistoryFile?.length() ?: 0) + lastBuildInfoFile.length() + abiSnapshotFile.length()
             )
             reporter.addMetric(
-                GradleBuildPerformanceMetric.CACHE_DIRECTORY_SIZE,
+                CACHE_DIRECTORY_SIZE,
                 cacheDirectory.walk().filter { it.isFile }.sumOf { it.length() })
         }
     }
@@ -477,7 +481,7 @@ abstract class IncrementalCompilerRunner<
             caches.inputsCache.removeOutputForSourceFiles(dirtySources)
             caches.compilerPluginFilesCache.removeOutputsGeneratedByPlugins()
 
-            val lookupTracker = LookupTrackerImpl(getLookupTrackerDelegate())
+            val lookupTracker = LookupTrackerImpl(lookupTrackerDelegate)
             val expectActualTracker = ExpectActualTrackerImpl()
 
             val outputItemsCollector = OutputItemsCollectorImpl()
@@ -494,13 +498,15 @@ abstract class IncrementalCompilerRunner<
 
             val services = makeServices(
                 args, lookupTracker, expectActualTracker, fileMappingTracker, caches,
-                dirtySources.toSet(), compilationMode is CompilationMode.Incremental
+                dirtySources.toSet(),
+                compilationMode is CompilationMode.Incremental,
+                compilationCanceledStatus ?: EmptyCompilationCanceledStatus
             ).build()
 
             args.reportOutputFiles = true
             val bufferingMessageCollector = MessageCollectorImpl()
 
-            val compiledSources = reporter.measure(GradleBuildTime.COMPILATION_ROUND) {
+            val compiledSources = reporter.measure(COMPILATION_ROUND) {
                 runCompiler(
                     sourcesToCompile, args, caches, services, bufferingMessageCollector,
                     allKotlinSources, compilationMode is CompilationMode.Incremental
@@ -544,7 +550,7 @@ abstract class IncrementalCompilerRunner<
             dirtyFilesProvider.cachedHistory.clear(withTransaction = transaction)
 
             val changesCollector = ChangesCollector()
-            reporter.measure(GradleBuildTime.IC_UPDATE_CACHES) {
+            reporter.measure(IC_UPDATE_CACHES) {
                 caches.platformCache.updateComplementaryFiles(dirtySources, expectActualTracker)
                 caches.inputsCache.registerOutputForSourceFiles(generatedFiles)
                 caches.lookupCache.update(lookupTracker, sourcesToCompile, removedKotlinSources)
@@ -554,6 +560,11 @@ abstract class IncrementalCompilerRunner<
                 }
                 updateCaches(services, caches, generatedFiles, changesCollector)
             }
+
+            reporter.measure(IC_GEN_COMPILER_REF_INDEX) {
+                generateCompilerRefIndexIfNeeded(services, icContext.pathConverterForSourceFiles, compilationMode)
+            }
+
             if (compilationMode is CompilationMode.Rebuild) {
                 if (icFeatures.withAbiSnapshot) {
                     abiSnapshotData!!.snapshot.protos.putAll(changesCollector.protoDataChanges())
@@ -604,7 +615,7 @@ abstract class IncrementalCompilerRunner<
         }
 
         if (exitCode == ExitCode.OK) {
-            reporter.measure(GradleBuildTime.STORE_BUILD_INFO) {
+            reporter.measure(STORE_BUILD_INFO) {
                 BuildInfo.write(icContext, currentBuildInfo, lastBuildInfoFile)
 
                 //write abi snapshot
@@ -624,7 +635,11 @@ abstract class IncrementalCompilerRunner<
         return exitCode
     }
 
-    open fun getLookupTrackerDelegate(): LookupTracker = LookupTracker.DO_NOTHING
+    protected open fun generateCompilerRefIndexIfNeeded(
+        services: Services,
+        sourceFilesPathConverter: FileToPathConverter,
+        compilationMode: CompilationMode,
+    ): Unit = Unit
 
     open fun runWithNoDirtyKotlinSources(caches: CacheManager): Boolean = false
 
@@ -635,7 +650,7 @@ abstract class IncrementalCompilerRunner<
         dirtyData: DirtyData,
     ) {
         if (buildHistoryFile == null) return
-        reporter.measure(GradleBuildTime.IC_WRITE_HISTORY_FILE) {
+        reporter.measure(IC_WRITE_HISTORY_FILE) {
             val prevDiffs = BuildDiffsStorage.readFromFile(buildHistoryFile, reporter)?.buildDiffs ?: emptyList()
             val newDiff = if (compilationMode is CompilationMode.Incremental) {
                 BuildDifference(currentBuildInfo.startTS, true, dirtyData)

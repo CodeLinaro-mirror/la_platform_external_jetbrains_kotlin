@@ -2,7 +2,9 @@
 // MODULE: main
 // FILE: main.kt
 
-fun <T> foo(param1: T, param2: T?) {}
+fun <T> foo(param1: T, param2: T?): T = TODO()
+
+inline fun <T> bar(param1: T?, param2: T): T = TODO()
 
 // A producer interface (covariant)
 interface Producer<out T> {
@@ -67,5 +69,34 @@ class Demo: A<Int>, B<Int?> {
 abstract class Box<T>(val t: T)
 class DefaultBox<T>(t: T): Box<T>(t)
 class TripleBox: Box<Box<Box<Int>>>(DefaultBox(DefaultBox(5)))
+class FunctionalBox: Box<()->Unit>( {} )
 
 class GenericWithComparableUpperBound<T: Comparable<T>>(val t: T)
+
+// Minimal repro for KT-79105: having Array<T> in the API surface must not crash Swift export.
+
+class ArrayBox() {
+    val ints: Array<Int> = emptyArray()
+}
+
+class Holder<T>(val xs: Array<T>) {
+    fun headOrNull(): T? = if (xs.isNotEmpty()) xs[0] else null
+}
+
+// Make sure arrays appear in both public signatures and bodies.
+fun takeAndReturn(a: Array<String>): Array<String> = a
+
+// MODULE: f_bounded_type
+// EXPORT_TO_SWIFT
+// FILE: f_bounded_type.kt
+
+interface MyComparable<T> {
+    fun compareTo(other: T): Int
+}
+
+open class SelfReferencing<T : SelfReferencing<T>>: MyComparable<T> {
+    override fun compareTo(other: T): Int = TODO("Not yet implemented")
+}
+
+class ConcreteSelfReferencing() : SelfReferencing<ConcreteSelfReferencing>()
+

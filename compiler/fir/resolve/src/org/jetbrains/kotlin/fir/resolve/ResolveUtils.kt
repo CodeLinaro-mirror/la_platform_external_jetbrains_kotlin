@@ -229,7 +229,7 @@ fun FirExpression.isImplicitUnitForEmptyLambda(): Boolean =
  */
 fun FirFunction.constructFunctionType(kind: FunctionTypeKind? = null): ConeLookupTagBasedType {
     val receiverTypeRef = when (this) {
-        is FirSimpleFunction -> receiverParameter
+        is FirNamedFunction -> receiverParameter
         is FirAnonymousFunction -> receiverParameter
         else -> null
     }?.typeRef
@@ -400,7 +400,7 @@ fun BodyResolveComponents.buildResolvedQualifierForClass(
         this.resolvedToCompanionObject = symbol?.fullyExpandedClass()?.resolvedCompanionObjectSymbol != null
         this.resolvedSymbolOrigin = resolvedSymbolOrigin
     }.build().apply {
-        if (symbol?.classId?.isLocal == true) {
+        if (symbol?.isLocal == true) {
             resultType = typeForQualifierByDeclaration(symbol.fir, session, element = this@apply, file)
                 ?.also { replaceCanBeValue(true) }
                 ?: session.builtinTypes.unitType.coneType
@@ -843,7 +843,6 @@ val FirUserTypeRef.shortName: Name get() = qualifier.last().name
 val FirThisReference.referencedMemberSymbol: FirBasedSymbol<*>?
     get() = when (val boundSymbol = boundSymbol) {
         is FirReceiverParameterSymbol -> boundSymbol.containingDeclarationSymbol
-        is FirValueParameterSymbol -> boundSymbol.containingDeclarationSymbol
         is FirClassSymbol -> boundSymbol
         null -> null
         is FirTypeParameterSymbol, is FirTypeAliasSymbol -> errorWithAttachment(

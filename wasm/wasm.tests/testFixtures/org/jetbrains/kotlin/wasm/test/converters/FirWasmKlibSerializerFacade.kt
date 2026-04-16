@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,10 +7,10 @@ package org.jetbrains.kotlin.wasm.test.converters
 
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.impl.ModuleDescriptorImpl
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
 import org.jetbrains.kotlin.ir.backend.js.loadWebKlibsInTestPipeline
 import org.jetbrains.kotlin.ir.backend.js.serializeModuleIntoKlib
@@ -29,6 +29,7 @@ import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.getFriendDependencies
+import org.jetbrains.kotlin.test.services.configuration.klibEnvironmentConfigurator
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
 import org.jetbrains.kotlin.wasm.config.wasmTarget
 
@@ -52,24 +53,30 @@ class FirWasmKlibSerializerFacade(
         }
 
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
-        val diagnosticReporter = DiagnosticReporterFactory.createReporter(configuration.messageCollector)
-        val outputFile = WasmEnvironmentConfigurator.getKlibArtifactFile(testServices, module.name)
+        val diagnosticReporter = DiagnosticsCollectorImpl()
+        val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
+            diagnosticReporter,
+            configuration.languageVersionSettings
+        )
+        val outputFile = testServices.klibEnvironmentConfigurator.getKlibArtifactFile(testServices, module.name)
 
         val target = configuration.get(WasmConfigurationKeys.WASM_TARGET, WasmTarget.JS)
 
         if (firstTimeCompilation) {
+            val moduleName = configuration[CommonConfigurationKeys.MODULE_NAME]!!
             serializeModuleIntoKlib(
-                moduleName = configuration[CommonConfigurationKeys.MODULE_NAME]!!,
+                moduleName = moduleName,
                 configuration = configuration,
-                diagnosticReporter = diagnosticReporter,
+                diagnosticReporter = irDiagnosticReporter,
                 metadataSerializer = inputArtifact.metadataSerializer,
                 klibPath = outputFile.path,
-                dependencies = emptyList(), // Does not matter.
                 moduleFragment = inputArtifact.irModuleFragment,
-                irBuiltIns = inputArtifact.irPluginContext.irBuiltIns,
+                irBuiltIns = inputArtifact.irBuiltIns,
                 cleanFiles = inputArtifact.icData,
                 nopack = true,
-                jsOutputName = null,
+                jsOutputName = if (WasmEnvironmentConfigurator.isMainModule(module, testServices)) {
+                    "index"
+                } else moduleName,
                 builtInsPlatform = BuiltInsPlatform.WASM,
                 wasmTarget = target,
             )

@@ -84,6 +84,12 @@ public class SerializationIrBoxTestGenerated extends AbstractSerializationIrBoxT
   }
 
   @Test
+  @TestMetadata("customFixedNonSerializableArguments.kt")
+  public void testCustomFixedNonSerializableArguments() {
+    runTest("plugins/kotlinx-serialization/testData/boxIr/customFixedNonSerializableArguments.kt");
+  }
+
+  @Test
   @TestMetadata("delegatedInterface.kt")
   public void testDelegatedInterface() {
     runTest("plugins/kotlinx-serialization/testData/boxIr/delegatedInterface.kt");
@@ -381,6 +387,18 @@ public class SerializationIrBoxTestGenerated extends AbstractSerializationIrBoxT
   @TestMetadata("starProjections.kt")
   public void testStarProjections() {
     runTest("plugins/kotlinx-serialization/testData/boxIr/starProjections.kt");
+  }
+
+  @Test
+  @TestMetadata("starProjectionsSealed.kt")
+  public void testStarProjectionsSealed() {
+    runTest("plugins/kotlinx-serialization/testData/boxIr/starProjectionsSealed.kt");
+  }
+
+  @Test
+  @TestMetadata("suspendLambdaInDefault.kt")
+  public void testSuspendLambdaInDefault() {
+    runTest("plugins/kotlinx-serialization/testData/boxIr/suspendLambdaInDefault.kt");
   }
 
   @Test

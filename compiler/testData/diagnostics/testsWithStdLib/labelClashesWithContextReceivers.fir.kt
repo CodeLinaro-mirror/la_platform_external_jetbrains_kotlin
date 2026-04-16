@@ -9,20 +9,20 @@ class Some {
     context(Some, String)
     fun foo() {
         //this@foo
-        this<!AMBIGUOUS_LABEL!>@Some<!>
-        this@String
+        this@Some
+        this<!UNRESOLVED_LABEL!>@String<!>
     }
 
     context(Some)
     val self: Some
-        get() = this<!AMBIGUOUS_LABEL!>@Some<!>
+        get() = this@Some
 }
 
 private typealias Extension = TypedThis
 
 class TypedThis {
     fun TypedThis.baz() {
-        this<!AMBIGUOUS_LABEL!>@TypedThis<!>
+        this@TypedThis
     }
 
     fun Extension.bar() {
