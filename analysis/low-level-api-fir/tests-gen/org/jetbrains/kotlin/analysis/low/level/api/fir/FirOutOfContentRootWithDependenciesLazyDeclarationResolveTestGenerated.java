@@ -2650,6 +2650,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     }
 
     @Test
+    @TestMetadata("invokeGeneratedCompanionObject.kt")
+    public void testInvokeGeneratedCompanionObject() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled/invokeGeneratedCompanionObject.kt");
+    }
+
+    @Test
     @TestMetadata("preresolvedAliasedAnnotation.kt")
     public void testPreresolvedAliasedAnnotation() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled/preresolvedAliasedAnnotation.kt");
