@@ -8,12 +8,14 @@ package org.jetbrains.kotlin.test.frontend.fir
 import com.intellij.openapi.util.io.FileUtil
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.pipeline.ConfigurationPipelineArtifact
+import org.jetbrains.kotlin.cli.pipeline.FrontendFilesForPluginsGenerationPipelinePhase
 import org.jetbrains.kotlin.cli.pipeline.FrontendPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.PipelinePhase
 import org.jetbrains.kotlin.config.messageCollector
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
+import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.moduleData
-import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
+import org.jetbrains.kotlin.fir.pipeline.SingleModuleFrontendOutput
 import org.jetbrains.kotlin.test.cli.CliDirectives.CHECK_COMPILER_OUTPUT
 import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade.Companion.shouldRunFirFrontendFacade
 import org.jetbrains.kotlin.test.model.FrontendFacade
@@ -39,21 +41,23 @@ abstract class FirCliFacade<Phase, OutputPipelineArtifact>(
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
         val input = ConfigurationPipelineArtifact(
             configuration = configuration,
-            diagnosticCollector = DiagnosticReporterFactory.createPendingReporter(configuration.messageCollector),
+            diagnosticCollector = DiagnosticsCollectorImpl(),
             rootDisposable = testServices.compilerConfigurationProvider.testRootDisposable,
         )
 
-        val output = phase.executePhase(input)
+        var output = phase.executePhase(input)
             ?: return processErrorFromCliPhase(configuration.messageCollector, testServices)
 
-        val firOutputs = output.result.outputs
+        output = FrontendFilesForPluginsGenerationPipelinePhase<OutputPipelineArtifact>().executePhase(output)
+
+        val firOutputs = output.frontendOutput.outputs
         val testFirOutputs = getPartsForDependsOnModules(module, firOutputs)
         return FirCliBasedOutputArtifact(output, testFirOutputs)
     }
 
     open fun getPartsForDependsOnModules(
         module: TestModule,
-        firOutputs: List<ModuleCompilerAnalyzedOutput>,
+        firOutputs: List<SingleModuleFrontendOutput>,
     ): List<FirOutputPartForDependsOnModule> {
         val modulesFromTheSameStructure = module.transitiveDependsOnDependencies(includeSelf = true, reverseOrder = true)
             .associateBy { "<${it.name}>"}
@@ -67,9 +71,12 @@ abstract class FirCliFacade<Phase, OutputPipelineArtifact>(
 class FirCliBasedOutputArtifact<A : FrontendPipelineArtifact>(
     val cliArtifact: A,
     partsForDependsOnModules: List<FirOutputPartForDependsOnModule>,
-) : FirOutputArtifact(partsForDependsOnModules)
+) : FirOutputArtifact(partsForDependsOnModules) {
+    override val allFirFiles: Collection<FirFile>
+        get() = cliArtifact.frontendOutput.outputs.flatMap { it.fir }
+}
 
-fun ModuleCompilerAnalyzedOutput.toTestOutputPart(
+fun SingleModuleFrontendOutput.toTestOutputPart(
     correspondingModule: TestModule,
     testServices: TestServices,
 ): FirOutputPartForDependsOnModule {
@@ -86,7 +93,7 @@ fun ModuleCompilerAnalyzedOutput.toTestOutputPart(
         session = session,
         scopeSession = scopeSession,
         firAnalyzerFacade = null,
-        firFiles = testFilePerFirFile.toMap()
+        firFilesByTestFile = testFilePerFirFile.toMap()
     )
 }
 

@@ -53,6 +53,9 @@ object JsStandardClassIds {
         val JsName = "JsName".jsId()
 
         @JvmField
+        val JsSymbol = "JsSymbol".jsId()
+
+        @JvmField
         val JsExport = "JsExport".jsId()
 
         @JvmField
@@ -81,9 +84,6 @@ object JsStandardClassIds {
 
         @JvmField
         val JsOutlinedFunction = "JsOutlinedFunction".jsId()
-
-        @JvmField
-        val JsGenerator = "JsGenerator".jsId()
 
         @JvmField
         val DoNotIntrinsify = "DoNotIntrinsify".jsId()

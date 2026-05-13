@@ -31,9 +31,11 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.inherit
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.javaInteroperabilityComponent.AbstractDeclarationTypeAsPsiTypeTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.javaInteroperabilityComponent.AbstractExpressionTypeAsPsiTypeTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.javaInteroperabilityComponent.AbstractPsiTypeAsKaTypeTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.kdocProvider.AbstractKDocProviderTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.klibSourceFileProvider.AbstractGetKlibSourceFileNameTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.readWriteAccess.AbstractReadWriteAccessTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.relationProvider.AbstractGetExpectsForActualTest
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.relationProvider.AbstractHasConflictingSignatureWithTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.relationProvider.AbstractOriginalConstructorIfTypeAliasedTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.resolveExtensionInfoProvider.AbstractResolveExtensionInfoProviderTest
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.components.resolver.*
@@ -69,6 +71,7 @@ import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.restrictedAnalysis
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.session.*
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.symbols.*
 import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.types.*
+import org.jetbrains.kotlin.analysis.api.impl.base.test.cases.types.typeCreation.AbstractTypeCreatorDslTest
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.*
 import org.jetbrains.kotlin.generators.dsl.TestGroup
 import org.jetbrains.kotlin.generators.tests.analysis.api.dsl.*
@@ -112,6 +115,7 @@ internal fun AnalysisApiTestGroup.generateAnalysisApiTests() {
 
         test<AbstractResolveCallTest>(init = singleByPsiInit)
         test<AbstractResolveCandidatesTest>(init = singleByPsiInit)
+        test<AbstractResolveSymbolTest>(init = singleByPsiInit)
         test<AbstractResolveReferenceTest>(init = singleByPsiInit)
 
         group(filter = testModuleKindIs(TestModuleKind.Source, TestModuleKind.ScriptSource)) {
@@ -121,6 +125,7 @@ internal fun AnalysisApiTestGroup.generateAnalysisApiTests() {
 
             test<AbstractResolveCallByFileTest>(init = allByPsiInit)
             test<AbstractResolveCandidatesByFileTest>(init = allByPsiInit)
+            test<AbstractResolveSymbolByFileTest>(init = allByPsiInit)
             test<AbstractResolveReferenceByFileTest>(init = allByPsiInit)
         }
     }
@@ -227,6 +232,10 @@ private fun AnalysisApiTestGroup.generateAnalysisApiNonComponentsTests() {
             test<AbstractSymbolByReferenceTest> {
                 symbolsModel(it, "symbolByReference")
             }
+
+            test<AbstractPackageSymbolTest>(filter = frontendIs(FrontendKind.Fir)) {
+                symbolsModel(it, "packages")
+            }
         }
 
         group("annotations") {
@@ -298,6 +307,12 @@ private fun AnalysisApiTestGroup.generateAnalysisApiNonComponentsTests() {
             group("typePointers", filter = frontendIs(FrontendKind.Fir)) {
                 test<AbstractTypePointerConsistencyTest> {
                     model(it, "consistency")
+                }
+            }
+
+            group("typeCreation") {
+                test<AbstractTypeCreatorDslTest> {
+                    model(it, "byDsl")
                 }
             }
         }
@@ -657,6 +672,10 @@ private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
         test<AbstractGetExpectsForActualTest> {
             model(it, "getExpectsForActual")
         }
+
+        test<AbstractHasConflictingSignatureWithTest> {
+            model(it, "hasConflictingSignatureWith")
+        }
     }
 
     component("scopeProvider") {
@@ -739,6 +758,12 @@ private fun AnalysisApiTestGroup.generateAnalysisApiComponentsTests() {
     component("visibilityChecker", filter = frontendIs(FrontendKind.Fir)) {
         test<AbstractVisibilityCheckerTest> {
             model(it, "visibility")
+        }
+    }
+
+    component("kdocProvider") {
+        test<AbstractKDocProviderTest> {
+            model(it, "kdoc")
         }
     }
 }

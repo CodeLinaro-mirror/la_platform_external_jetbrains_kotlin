@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.backend.konan.objcexport
 import org.jetbrains.kotlin.backend.common.reportCompilationWarning
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.descriptors.isInterface
-import org.jetbrains.kotlin.backend.konan.driver.PhaseContext
+import org.jetbrains.kotlin.backend.konan.driver.NativeBackendPhaseContext
 import org.jetbrains.kotlin.backend.konan.llvm.CodeGenerator
 import org.jetbrains.kotlin.backend.konan.llvm.objcexport.ObjCExportBlockCodeGenerator
 import org.jetbrains.kotlin.backend.konan.llvm.objcexport.ObjCExportCodeGenerator
@@ -16,6 +16,8 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageUtil
 import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
 import org.jetbrains.kotlin.descriptors.*
+import org.jetbrains.kotlin.konan.config.NativeConfigurationKeys
+import org.jetbrains.kotlin.konan.config.objcGenerics
 import org.jetbrains.kotlin.konan.exec.Command
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.file.createTempFile
@@ -33,9 +35,9 @@ internal class ObjCExportedInterface(
 )
 
 internal fun produceObjCExportInterface(
-        context: PhaseContext,
-        moduleDescriptor: ModuleDescriptor,
-        frontendServices: FrontendServices,
+    context: NativeBackendPhaseContext,
+    moduleDescriptor: ModuleDescriptor,
+    frontendServices: FrontendServices,
 ): ObjCExportedInterface {
     val config = context.config
     require(config.target.family.isAppleFamily)
@@ -54,7 +56,7 @@ internal fun produceObjCExportInterface(
             unitSuspendFunctionExport = unitSuspendFunctionExport,
             entryPoints = entryPoints)
     val moduleDescriptors = listOf(moduleDescriptor) + moduleDescriptor.getExportedDependencies(config)
-    val objcGenerics = config.configuration.getBoolean(KonanConfigKeys.OBJC_GENERICS)
+    val objcGenerics = config.configuration.objcGenerics
     val disableSwiftMemberNameMangling = config.configuration.getBoolean(BinaryOptions.objcExportDisableSwiftMemberNameMangling)
     val ignoreInterfaceMethodCollisions = config.configuration.getBoolean(BinaryOptions.objcExportIgnoreInterfaceMethodCollisions)
     val reportNameCollisions = config.configuration.getBoolean(BinaryOptions.objcExportReportNameCollisions)
@@ -82,7 +84,7 @@ internal fun produceObjCExportInterface(
             explicitMethodFamily = explicitMethodFamily,
     )
     val shouldExportKDoc = context.shouldExportKDoc()
-    val additionalImports = context.config.configuration.getNotNull(KonanConfigKeys.FRAMEWORK_IMPORT_HEADERS)
+    val additionalImports = context.config.configuration.getNotNull(NativeConfigurationKeys.FRAMEWORK_IMPORT_HEADERS)
     val headerGenerator = ObjCExportHeaderGenerator.createInstance(
             moduleDescriptors, mapper, namer, problemCollector, objcGenerics, objcExportBlockExplicitParameterNames, shouldExportKDoc = shouldExportKDoc,
             additionalImports = additionalImports)
@@ -90,7 +92,7 @@ internal fun produceObjCExportInterface(
     return headerGenerator.buildInterface()
 }
 
-private class ObjCExportCompilerProblemCollector(val context: PhaseContext) : ObjCExportProblemCollector {
+private class ObjCExportCompilerProblemCollector(val context: NativeBackendPhaseContext) : ObjCExportProblemCollector {
     private val DeclarationDescriptor.psiLocation
         get() = (this@psiLocation as? DeclarationDescriptorWithSource)?.source?.getPsi()?.let { MessageUtil.psiElementToMessageLocation(it) }
 
@@ -245,5 +247,5 @@ private fun ObjCExportedInterface.generateWorkaroundForSwiftSR10177(generationSt
     }
 }
 
-internal val PhaseContext.objCExportTopLevelNamePrefix: String
+internal val NativeBackendPhaseContext.objCExportTopLevelNamePrefix: String
     get() = abbreviate(config.fullExportedNamePrefix)

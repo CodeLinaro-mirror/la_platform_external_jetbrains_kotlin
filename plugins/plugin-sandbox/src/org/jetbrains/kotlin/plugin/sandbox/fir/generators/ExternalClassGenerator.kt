@@ -99,7 +99,9 @@ class ExternalClassGenerator(session: FirSession) : FirDeclarationGenerationExte
         require(owner is FirRegularClassSymbol)
         val matchedClassId = owner.matchedClass ?: return emptyList()
         val matchedClassSymbol = session.getRegularClassSymbolByClassId(matchedClassId) ?: return emptyList()
-        val function = createMemberFunction(owner, Key, callableId.callableName, matchedClassSymbol.constructStarProjectedType())
+        val function = createMemberFunction(owner, Key, callableId.callableName, matchedClassSymbol.constructStarProjectedType()) {
+            withGeneratedDefaultBody()
+        }
         return listOf(function.symbol)
     }
 
@@ -113,7 +115,7 @@ class ExternalClassGenerator(session: FirSession) : FirDeclarationGenerationExte
 
     override fun getNestedClassifiersNames(classSymbol: FirClassSymbol<*>, context: NestedClassGenerationContext): Set<Name> {
         return if (classSymbol.classId == GENERATED_CLASS_ID) {
-            return classIdsForMatchedClasses.keys.mapTo(mutableSetOf()) { it.shortClassName }
+            classIdsForMatchedClasses.keys.mapTo(mutableSetOf()) { it.shortClassName }
         } else {
             emptySet()
         }

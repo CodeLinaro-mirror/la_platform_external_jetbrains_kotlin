@@ -35,6 +35,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaScriptModule "Script script.kts"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: foo
 
 KaKotlinPropertySymbol:
@@ -47,6 +48,8 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
+    isNotDefault: false
     isVal: true
     location: PROPERTY
     modality: FINAL
@@ -77,6 +80,7 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isInline: false
     isNotDefault: false
     isOverride: false
@@ -126,10 +130,8 @@ KaKotlinPropertySymbol:
   getContainingJvmClassName: null
   getContainingModule: KaScriptModule "Script script.kts"
   deprecationStatus: null
-  getterDeprecationStatus: null
   javaGetterName: getB
   javaSetterName: null
-  setterDeprecationStatus: null
   isInline: false
   importableFqName: b
 
@@ -174,6 +176,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaScriptModule "Script script.kts"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaKotlinPropertySymbol:
@@ -186,6 +189,8 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
+    isNotDefault: false
     isVal: true
     location: PROPERTY
     modality: FINAL
@@ -220,6 +225,7 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isInline: false
     isNotDefault: false
     isOverride: false
@@ -277,10 +283,8 @@ KaKotlinPropertySymbol:
   getContainingJvmClassName: C
   getContainingModule: KaScriptModule "Script script.kts"
   deprecationStatus: null
-  getterDeprecationStatus: null
   javaGetterName: getProp
   javaSetterName: null
-  setterDeprecationStatus: null
   isInline: false
   importableFqName: null
 
@@ -321,6 +325,7 @@ KaScriptSymbol:
   compilerVisibility: Local
   isActual: false
   isExpect: false
+  isExternal: false
   location: TOP_LEVEL
   modality: FINAL
   name: <script-script.kts>

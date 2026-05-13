@@ -75,7 +75,7 @@ class FirPCLAInferenceSession(
 
         // Integrating back would happen at FirDelegatedPropertyInferenceSession.completeSessionOrPostponeIfNonRoot
         // after all other delegation-related calls are being analyzed
-        if (resolutionMode == ResolutionMode.Delegate) return
+        if (resolutionMode is ResolutionMode.Delegate) return
 
         currentCommonSystem.replaceContentWith(candidate.system.currentStorage())
 
@@ -276,7 +276,7 @@ class FirPCLAInferenceSession(
         val callSite = callInfo.callSite
         // Annotation calls and collection literals (allowed only inside annotations)
         // should be completed independently since that can't somehow affect PCLA
-        if (callSite is FirAnnotationCall || callSite is FirArrayLiteral) return true
+        if (callSite is FirAnnotationCall || callSite is FirCollectionLiteral) return true
 
         // I'd say that this might be an assertion, but let's do an early return
         if (callSite !is FirResolvable && callSite !is FirVariableAssignment) return false
@@ -284,7 +284,7 @@ class FirPCLAInferenceSession(
         // We can't analyze independently the calls which have postponed receivers
         // Even if the calls themselves are trivial
         if (dispatchReceiver?.expression?.isReceiverPostponed() == true) return false
-        if (givenExtensionReceiverOptions.any { it.expression.isReceiverPostponed() }) return false
+        if (givenExtensionReceiver?.expression?.isReceiverPostponed() == true) return false
         // At the step of candidate's system creation, there are no chosen context receiver values, yet
         // (see org.jetbrains.kotlin.fir.resolve.calls.CheckContextArguments)
         // Thus, we just postpone everything with symbols requiring some context receivers

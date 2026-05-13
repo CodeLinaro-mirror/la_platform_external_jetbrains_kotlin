@@ -61,6 +61,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
         FirInfixFunctionDeclarationChecker,
         FirOperatorModifierChecker,
         FirTailrecFunctionChecker,
+        FirVersionOverloadsChecker,
     )
 
     override val simpleFunctionCheckers: Set<FirSimpleFunctionChecker> = setOf(
@@ -122,6 +123,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
         FirMixedFunctionalTypesInSupertypesChecker.Regular,
         FirMixedFunctionalTypesInSupertypesChecker.ForExpectClass,
         FirDelegateFieldTypeMismatchChecker,
+        FirAnnotationClassInheritanceChecker,
         FirMultipleDefaultsInheritedFromSupertypesChecker.Regular,
         FirMultipleDefaultsInheritedFromSupertypesChecker.ForExpectClass,
         FirPropertyInitializationChecker,
@@ -130,6 +132,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
     override val regularClassCheckers: Set<FirRegularClassChecker> = setOf(
         FirAnnotationClassDeclarationChecker,
         FirOptInAnnotationClassChecker,
+        FirOperatorOfChecker,
         FirCommonConstructorDelegationIssuesChecker,
         FirDelegationSuperCallInEnumConstructorChecker,
         FirDelegationInExpectClassSyntaxChecker,
@@ -163,6 +166,7 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
         FirImportsChecker,
         FirOptInImportsChecker,
         FirUnresolvedInMiddleOfImportChecker,
+        FirTooLargeFunctionImportChecker,
         FirTopLevelPropertiesChecker,
         FirPackageConflictsWithClassifierChecker,
         PlatformClassMappedToKotlinImportsChecker,

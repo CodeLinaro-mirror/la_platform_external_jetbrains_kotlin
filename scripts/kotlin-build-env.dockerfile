@@ -10,7 +10,8 @@ ENV LANG=en_US.utf8
 
 RUN apt-get install -y git \
     && apt-get install -y curl \
-    && apt-get install -y zip
+    && apt-get install -y zip \
+    && apt-get install -y libatomic1 # native library for nodejs
 
 RUN rm -rf /var/lib/apt/lists/*
 
@@ -51,7 +52,7 @@ ENV JDK_11_0=$JDK11 \
     JDK_17_0=$JDK17 \
     JDK_21_0=$JDK21
 
-ENV JAVA_HOME=$JDK_11_0
+ENV JAVA_HOME=$JDK_17_0
 ENV PATH="$PATH:$JAVA_HOME/bin"
 
 RUN curl "https://archive.apache.org/dist/maven/maven-3/3.8.1/binaries/apache-maven-3.8.1-bin.tar.gz" | tar -xz -C /usr/lib

@@ -177,6 +177,12 @@ class ComposerParamTransformer(
         }
     }
 
+    override fun visitRichFunctionReference(expression: IrRichFunctionReference): IrExpression {
+        expression.overriddenFunctionSymbol = expression.overriddenFunctionSymbol.owner.withComposerParamIfNeeded().symbol
+
+        return super.visitRichFunctionReference(expression)
+    }
+
     private fun IrFunction.findCallInBody(): IrCall? {
         var call: IrCall? = null
         body?.acceptChildrenVoid(object : IrVisitorVoid() {
@@ -199,8 +205,9 @@ class ComposerParamTransformer(
         fn: IrSimpleFunction
     ): IrExpression {
         val type = expression.type as IrSimpleType
-        val changedParamCount = changedParamCount(type.arguments.size - /* return type */ 1, 0)
-        val arity = type.arguments.size + /* composer */ 1 + changedParamCount
+        val paramCount = type.arguments.size - /* return type */ 1
+        val changedParamCount = changedParamCount(paramCount, 0)
+        val arity = paramCount + /* composer */ 1 + changedParamCount
 
         val newType = IrSimpleTypeImpl(
             classifier = if (expression.type.isKComposableFunction()) {
@@ -358,7 +365,7 @@ class ComposerParamTransformer(
     }
 
     private fun createComposableAnnotation() =
-        IrConstructorCallImpl(
+        IrAnnotationImpl(
             startOffset = SYNTHETIC_OFFSET,
             endOffset = SYNTHETIC_OFFSET,
             type = composableIrClass.defaultType,
@@ -548,11 +555,11 @@ class ComposerParamTransformer(
         return newInvoke
     }
 
-    private fun jvmNameAnnotation(name: String): IrConstructorCall {
+    private fun jvmNameAnnotation(name: String): IrAnnotation {
         val jvmName = getTopLevelClass(JvmStandardClassIds.Annotations.JvmName)
         val ctor = jvmName.constructors.first { it.owner.isPrimary }
         val type = jvmName.createType(false, emptyList())
-        return IrConstructorCallImpl(
+        return IrAnnotationImpl(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             type = type,

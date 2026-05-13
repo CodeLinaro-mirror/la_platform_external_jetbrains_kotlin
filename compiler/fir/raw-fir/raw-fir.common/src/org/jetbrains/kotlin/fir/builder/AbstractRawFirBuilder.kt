@@ -21,7 +21,10 @@ import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.declarations.utils.*
+import org.jetbrains.kotlin.fir.declarations.utils.addDeclaration
+import org.jetbrains.kotlin.fir.declarations.utils.componentFunctionSymbol
+import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
+import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.diagnostics.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.expressions.builder.*
@@ -126,7 +129,9 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
         }
     }
 
-    inline fun <R> withForcedLocalContext(block: () -> R): R {
+    inline fun <R> withForcedLocalContext(forceKeepingTheBodyInHeaderMode: Boolean = false, block: () -> R): R {
+        val oldForceKeepingTheBodyInHeaderMode = context.forceKeepingTheBodyInHeaderMode
+        context.forceKeepingTheBodyInHeaderMode = oldForceKeepingTheBodyInHeaderMode || forceKeepingTheBodyInHeaderMode
         val oldForcedLocalContext = context.inLocalContext
         context.inLocalContext = true
         val oldClassNameBeforeLocalContext = context.classNameBeforeLocalContext
@@ -141,6 +146,7 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
             context.classNameBeforeLocalContext = oldClassNameBeforeLocalContext
             context.inLocalContext = oldForcedLocalContext
             context.className = oldClassName
+            context.forceKeepingTheBodyInHeaderMode = oldForceKeepingTheBodyInHeaderMode
         }
     }
 
@@ -443,7 +449,7 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
         return when (type) {
             INTEGER_CONSTANT -> {
                 var diagnostic: DiagnosticKind = DiagnosticKind.IllegalConstExpression
-                val number: Long?
+                var number: Long?
 
                 val kind = when {
                     convertedText == null -> {
@@ -481,6 +487,11 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
                         number = convertedText
                         ConstantValueKind.IntegerLiteral
                     }
+                }
+
+                if (hasLeadingZeros(text)) {
+                    diagnostic = DiagnosticKind.IntLiteralWithLeadingZeros
+                    number = null
                 }
 
                 buildConstOrErrorExpression(
@@ -542,6 +553,10 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
                     withSourceElementEntry("literal", expression)
                 }
         }
+    }
+
+    private fun hasLeadingZeros(text: String): Boolean {
+        return text.length > 1 && text[0] == '0' && text[1].let { it.isDigit() || it == '_' }
     }
 
     protected fun ExceptionAttachmentBuilder.withSourceElementEntry(name: String, element: T?) {
@@ -1131,7 +1146,7 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
                 if (!firProperty.isVal && !firProperty.isVar) continue
                 val name = Name.identifier("component$componentIndex")
                 componentIndex++
-                val componentFunction = buildSimpleFunction {
+                val componentFunction = buildNamedFunction {
                     source = sourceNode.toFirSourceElement(KtFakeSourceElementKind.DataClassGeneratedMembers)
                     moduleData = baseModuleData
                     origin = FirDeclarationOrigin.Synthetic.DataClassMember
@@ -1140,6 +1155,7 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
                     status = FirDeclarationStatusImpl(firProperty.visibility, Modality.FINAL).apply {
                         isOperator = true
                     }
+                    isLocal = firPrimaryConstructor.isLocal
                     symbol = FirNamedFunctionSymbol(CallableId(packageFqName, classFqName, name))
                     dispatchReceiverType = currentDispatchReceiverType()
                     // Refer to FIR backend ClassMemberGenerator for body generation.
@@ -1329,12 +1345,20 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
             }
 
         return if (repSnippetConfigurator != null) {
-            convertReplSnippet(declaration, scriptSource, sourceFile.name) {
-                with(repSnippetConfigurator) {
-                    configureContainingFile(fileBuilder)
-                    configure(fileBuilder.sourceFile, context)
-                }
-            }
+            convertReplSnippet(
+                declaration, scriptSource, sourceFile.name,
+                snippetSetup = {
+                    with(repSnippetConfigurator) {
+                        configureContainingFile(fileBuilder)
+                        configure(fileBuilder.sourceFile, context)
+                    }
+                },
+                statementsSetup = {
+                    with(repSnippetConfigurator) {
+                        configure(fileBuilder.sourceFile, scriptSource, context)
+                    }
+                },
+            )
         } else {
             val scriptConfigurator =
                 baseSession.extensionService.scriptConfigurators.firstOrNull { it.accepts(fileBuilder.sourceFile, scriptSource) }
@@ -1361,7 +1385,8 @@ abstract class AbstractRawFirBuilder<T : Any>(val baseSession: FirSession, val c
         script: T,
         scriptSource: KtSourceElement,
         fileName: String,
-        setup: FirReplSnippetBuilder.() -> Unit,
+        snippetSetup: FirReplSnippetBuilder.() -> Unit,
+        statementsSetup: MutableList<FirStatement>.() -> Unit,
     ): FirReplSnippet
 
     protected fun configureScriptDestructuringDeclarationEntry(declaration: FirVariable, container: FirVariable) {
@@ -1379,7 +1404,7 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
     toFirSource: (TBase?, KtFakeSourceElementKind) -> KtSourceElement?,
     addValueParameterAnnotations: FirValueParameterBuilder.(TParameter) -> Unit,
     isVararg: (TParameter) -> Boolean,
-): FirSimpleFunction {
+): FirNamedFunction {
     fun generateComponentAccess(
         parameterSource: KtSourceElement?,
         firProperty: FirProperty,
@@ -1405,7 +1430,7 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
 
     val declarationOrigin = if (isFromLibrary) FirDeclarationOrigin.Library else FirDeclarationOrigin.Synthetic.DataClassMember
 
-    return buildSimpleFunction {
+    return buildNamedFunction {
         val classTypeRef = firConstructor.returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DataClassGeneratedMembers)
         this.source = toFirSource(sourceElement, KtFakeSourceElementKind.DataClassGeneratedMembers)
         moduleData = this@createDataClassCopyFunction.moduleData
@@ -1422,6 +1447,7 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
         } else {
             FirDeclarationStatusImpl(Visibilities.Unknown, Modality.FINAL)
         }
+        isLocal = firConstructor.isLocal
 
         for ((ktParameter, firProperty) in zippedParameters) {
             val propertyName = firProperty.name
@@ -1430,7 +1456,7 @@ fun <TBase, TSource : TBase, TParameter : TBase> FirRegularClassBuilder.createDa
             valueParameters += buildValueParameter {
                 resolvePhase = this@createDataClassCopyFunction.resolvePhase
                 source = parameterSource
-                containingDeclarationSymbol = this@buildSimpleFunction.symbol
+                containingDeclarationSymbol = this@buildNamedFunction.symbol
                 moduleData = this@createDataClassCopyFunction.moduleData
                 origin = declarationOrigin
                 returnTypeRef = propertyReturnTypeRef

@@ -6,6 +6,7 @@ KaJavaFieldSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isStatic: true
   isVal: false
   location: CLASS
@@ -60,6 +61,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: JavaClass.bar
 
 KaJavaFieldSymbol:
@@ -70,6 +72,7 @@ KaJavaFieldSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isStatic: true
   isVal: false
   location: CLASS
@@ -124,6 +127,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: SuperClass.superBar
 
 KaNamedClassSymbol:

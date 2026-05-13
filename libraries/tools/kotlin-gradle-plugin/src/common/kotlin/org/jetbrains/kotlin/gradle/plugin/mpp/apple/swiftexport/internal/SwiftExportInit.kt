@@ -70,8 +70,8 @@ internal fun KotlinNativeTarget.exportedSwiftExportApiConfiguration(
     extendConfiguration: Configuration,
 ): Configuration =
     project.configurations.maybeCreateResolvable(exportedSwiftExportApiConfigurationName(buildType)) {
+        setInvisibleIfSupported()
         description = "Swift Export dependencies configuration for $name"
-        isVisible = false
         extendsFrom(extendConfiguration)
         shouldResolveConsistentlyWith(extendConfiguration)
         usesPlatformOf(this@exportedSwiftExportApiConfiguration)

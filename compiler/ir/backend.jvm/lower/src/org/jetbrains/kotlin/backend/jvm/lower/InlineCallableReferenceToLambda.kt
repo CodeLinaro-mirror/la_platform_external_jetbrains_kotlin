@@ -8,12 +8,13 @@ package org.jetbrains.kotlin.backend.jvm.lower
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.ir.createExtensionReceiver
 import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
-import org.jetbrains.kotlin.backend.common.phaser.PhaseDescription
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
+import org.jetbrains.kotlin.backend.jvm.JvmLoweredStatementOrigin
 import org.jetbrains.kotlin.backend.jvm.ir.isInlineFunctionCall
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
@@ -42,7 +43,6 @@ private val STUB_FOR_INLINING = Name.identifier("stub_for_inlining")
  *
  * `foo(::smth)` is transformed to `foo { a -> smth(a) }`.
  */
-@PhaseDescription(name = "JvmInlineCallableReferenceToLambdaPhase")
 class JvmInlineCallableReferenceToLambdaPhase(
     val context: JvmBackendContext,
 ) : FileLoweringPass, IrTransformer<IrDeclarationParent?>() {
@@ -67,6 +67,23 @@ class JvmInlineCallableReferenceToLambdaPhase(
 
         return expression
     }
+
+    override fun visitValueParameter(declaration: IrValueParameter, data: IrDeclarationParent?): IrStatement {
+        if (declaration.isInlineParameter()) {
+            when (val defaultExpression = declaration.defaultValue?.expression) {
+                is IrCallableReference<*> -> { defaultExpression.origin = JvmLoweredStatementOrigin.DEFAULT_VALUE_OF_INLINABLE_PARAMETER }
+                is IrBlock if (defaultExpression.origin.isReferenceAdapter || defaultExpression.isSuspendLambdaBlock) ->
+                    defaultExpression.apply {
+                        val reference = statements.last() as IrFunctionReference
+                        reference.origin = JvmLoweredStatementOrigin.DEFAULT_VALUE_OF_INLINABLE_PARAMETER
+                    }
+            }
+        }
+        return super.visitValueParameter(declaration, data)
+    }
+
+    private val IrBlock.isSuspendLambdaBlock: Boolean
+        get() = origin.isLambda && (statements.last() as? IrFunctionReference)?.isSuspend == true
 
     protected fun IrExpression.transformToLambda(scope: IrDeclarationParent?) = when {
         this is IrBlock && origin.isInlinable -> apply {
@@ -204,8 +221,11 @@ class JvmInlineCallableReferenceToLambdaPhase(
         }
 }
 
+private val IrStatementOrigin?.isReferenceAdapter: Boolean
+    get() = this == IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE || this == IrStatementOrigin.SUSPEND_CONVERSION
+
 private val IrStatementOrigin?.isInlinable: Boolean
-    get() = isLambda || this == IrStatementOrigin.ADAPTED_FUNCTION_REFERENCE || this == IrStatementOrigin.SUSPEND_CONVERSION
+    get() = isLambda || isReferenceAdapter
 
 private fun IrType.convertToFunctionIfNeeded(irBuiltIns: IrBuiltIns): IrType {
     return when {

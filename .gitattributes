@@ -12,3 +12,4 @@ gradlew.bat eol=crlf
 compiler/testData/** eol=auto
 # Android Studio: disable git-lfs because Git-on-Borg does not support it.
 # *.jpg filter=lfs diff=lfs merge=lfs -text
+libraries/mvnw.cmd eol=crlf

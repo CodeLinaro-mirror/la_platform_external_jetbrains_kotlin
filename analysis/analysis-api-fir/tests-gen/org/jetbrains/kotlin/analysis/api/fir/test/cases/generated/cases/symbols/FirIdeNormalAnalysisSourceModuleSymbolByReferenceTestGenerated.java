@@ -173,6 +173,12 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByReferenceTestGenerated exte
   }
 
   @Test
+  @TestMetadata("explicitBackingFieldSmartcast.kt")
+  public void testExplicitBackingFieldSmartcast() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByReference/explicitBackingFieldSmartcast.kt");
+  }
+
+  @Test
   @TestMetadata("explicitLambdaParameter.kt")
   public void testExplicitLambdaParameter() {
     runTest("analysis/analysis-api/testData/symbols/symbolByReference/explicitLambdaParameter.kt");
@@ -308,6 +314,18 @@ public class FirIdeNormalAnalysisSourceModuleSymbolByReferenceTestGenerated exte
   @TestMetadata("javaMethodWithNotNullAnnotation.kt")
   public void testJavaMethodWithNotNullAnnotation() {
     runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaMethodWithNotNullAnnotation.kt");
+  }
+
+  @Test
+  @TestMetadata("javaNativeMethod.kt")
+  public void testJavaNativeMethod() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaNativeMethod.kt");
+  }
+
+  @Test
+  @TestMetadata("javaNativeSyntheticProperty.kt")
+  public void testJavaNativeSyntheticProperty() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByReference/javaNativeSyntheticProperty.kt");
   }
 
   @Test

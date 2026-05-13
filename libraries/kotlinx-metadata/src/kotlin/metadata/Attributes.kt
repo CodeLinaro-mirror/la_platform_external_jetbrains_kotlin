@@ -198,6 +198,22 @@ public var KmConstructor.isSecondary: Boolean by constructorBooleanFlag(FlagImpl
  */
 public var KmConstructor.hasNonStableParameterNames: Boolean by constructorBooleanFlag(FlagImpl(ProtoFlags.IS_CONSTRUCTOR_WITH_NON_STABLE_PARAMETER_NAMES))
 
+/**
+ * Indicates whether the constructor was compiled with return value status information.
+ * This status may come from `@MustUseReturnValues` annotation on one of the containing scopes, or from `-Xreturn-value-checker=full` global compilation setting.
+ * See [ReturnValueStatus] for details.
+ *
+ * Constructors cannot have [ReturnValueStatus.EXPLICITLY_IGNORABLE] status.
+ * Setting it as [KmConstructor.returnValueStatus] will result in an undefined behavior.
+ *
+ * @see [MustUseReturnValues]
+ */
+@ExperimentalMustUseStatus
+public var KmConstructor.returnValueStatus: ReturnValueStatus by returnValueStatusDelegate(
+    KmConstructor::flags,
+    ProtoFlags.RETURN_VALUE_STATUS_CTOR
+)
+
 // --- FUNCTION ---
 
 /**
@@ -267,6 +283,19 @@ public var KmFunction.isExpect: Boolean by functionBooleanFlag(FlagImpl(ProtoFla
  * This may be changed in the future.
  */
 public var KmFunction.hasNonStableParameterNames: Boolean by functionBooleanFlag(FlagImpl(ProtoFlags.IS_FUNCTION_WITH_NON_STABLE_PARAMETER_NAMES))
+
+/**
+ * Indicates whether the function was compiled with return value status information.
+ * This status may come from `@MustUseReturnValues` annotation on one of the containing scopes, or from `-Xreturn-value-checker=full` global compilation setting.
+ * See [ReturnValueStatus] for details.
+ *
+ * @see [MustUseReturnValues]
+ */
+@ExperimentalMustUseStatus
+public var KmFunction.returnValueStatus: ReturnValueStatus by returnValueStatusDelegate(
+    KmFunction::flags,
+    ProtoFlags.RETURN_VALUE_STATUS_FUNCTION
+)
 
 // --- PROPERTY ---
 
@@ -353,6 +382,23 @@ public var KmProperty.isDelegated: Boolean by propertyBooleanFlag(FlagImpl(Proto
  */
 public var KmProperty.isExpect: Boolean by propertyBooleanFlag(FlagImpl(ProtoFlags.IS_EXPECT_PROPERTY))
 
+/**
+ * Indicates whether the property was compiled with return value status information.
+ * This status may come from `@MustUseReturnValues` annotation on one of the containing scopes, or from `-Xreturn-value-checker=full` global compilation setting.
+ * See [ReturnValueStatus] for details.
+ *
+ * While `@IgnorableReturnValue` annotation is not applicable to properties,
+ * they still can have [ReturnValueStatus.EXPLICITLY_IGNORABLE] status
+ * in case this property overrides a Java callable with annotation applied.
+ *
+ * @see [MustUseReturnValues]
+ */
+@ExperimentalMustUseStatus
+public var KmProperty.returnValueStatus: ReturnValueStatus by returnValueStatusDelegate(
+    KmProperty::flags,
+    ProtoFlags.RETURN_VALUE_STATUS_PROPERTY
+)
+
 // --- PROPERTY ACCESSOR ---
 
 /**
@@ -398,6 +444,17 @@ public var KmType.isNullable: Boolean by typeBooleanFlag(FlagImpl(0, 1, 1))
 
 /**
  * Indicates that the corresponding type is `suspend`.
+ *
+ * Suspend function types are represented in Kotlin metadata as function types with an arity of 1 more, with an additional continuation
+ * parameter taking the return type, and return type replaced with `Any?`. For example, the type
+ *
+ *     suspend (Int) -> String
+ *
+ * is represented in metadata as a type with classifier `kotlin/Function2`, and 3 arguments:
+ *
+ * 1) `kotlin/Int`
+ * 2) `kotlin/coroutines/Continuation<kotlin/String>`
+ * 3) `kotlin/Any?`
  */
 public var KmType.isSuspend: Boolean by typeBooleanFlag(FlagImpl(ProtoFlags.SUSPEND_TYPE.offset + 1, ProtoFlags.SUSPEND_TYPE.bitWidth, 1))
 

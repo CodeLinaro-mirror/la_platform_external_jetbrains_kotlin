@@ -199,6 +199,7 @@ sealed interface IrFunctionSymbol : IrReturnTargetSymbol, FunctionSymbolMarker {
  * Generated from: [org.jetbrains.kotlin.ir.generator.IrSymbolTree.constructorSymbol]
  *
  * @see IrConstructorCall.symbol
+ * @see IrAnnotation.symbol
  * @see IrConstantObject.constructor
  * @see IrDelegatingConstructorCall.symbol
  * @see IrEnumConstructorCall.symbol

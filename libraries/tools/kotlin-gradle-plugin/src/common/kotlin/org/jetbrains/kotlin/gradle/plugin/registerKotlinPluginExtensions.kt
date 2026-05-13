@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.gradle.artifacts.*
 import org.jetbrains.kotlin.gradle.dsl.*
 import org.jetbrains.kotlin.gradle.internal.CustomizeKotlinDependenciesSetupAction
 import org.jetbrains.kotlin.gradle.plugin.PropertiesProvider.Companion.kotlinPropertiesProvider
-import org.jetbrains.kotlin.gradle.plugin.abi.AbiValidationSetupAction
+import org.jetbrains.kotlin.gradle.plugin.abi.internal.AbiValidationSetupAction
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinGradleProjectChecker
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.KotlinToolingDiagnosticsSetupAction
 import org.jetbrains.kotlin.gradle.plugin.diagnostics.checkers.*
@@ -52,12 +52,14 @@ import org.jetbrains.kotlin.gradle.targets.native.internal.*
 import org.jetbrains.kotlin.gradle.targets.native.tasks.artifact.KotlinArtifactsExtensionSetupAction
 import org.jetbrains.kotlin.gradle.targets.native.toolchain.NativeToolchainProjectSetupAction
 import org.jetbrains.kotlin.gradle.tooling.RegisterBuildKotlinToolingMetadataTask
+import org.jetbrains.kotlin.gradle.utils.RegisterIsAllGradleProjectsEvaluatedListener
 
 /**
  * Active Extensions (using the [KotlinGradlePluginExtensionPoint] infrastructure) will be registered here by the Kotlin Gradle Plugin.
  */
 internal fun Project.registerKotlinPluginExtensions() {
     KotlinProjectSetupAction.extensionPoint.apply {
+        register(project, RegisterIsAllGradleProjectsEvaluatedListener)
         register(project, AddNpmDependencyExtensionProjectSetupAction)
         register(project, RegisterBuildKotlinToolingMetadataTask)
         register(project, KotlinToolingDiagnosticsSetupAction)
@@ -68,9 +70,7 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, ConfigurationTimeFusMetricsCollectorAction)
         register(project, FinalizeConfigurationFusMetricAction)
 
-        if (isAbiValidationEnabled) {
-            register(project, AbiValidationSetupAction)
-        }
+        register(project, AbiValidationSetupAction)
 
         if (isJvm || isMultiplatform) {
             register(project, ScriptingGradleSubpluginSetupAction)
@@ -108,6 +108,7 @@ internal fun Project.registerKotlinPluginExtensions() {
             if (isKmpProjectIsolationEnabled) {
                 register(project, ProjectStructureMetadataForKMPSetupAction)
                 register(project, ExportCommonSourceSetsMetadataLocations)
+                register(project, ExportCrossCompilationMetadata)
                 register(project, ExportRootModuleCoordinates)
                 register(project, ExportTargetPublicationCoordinates)
             } else {
@@ -117,6 +118,7 @@ internal fun Project.registerKotlinPluginExtensions() {
             register(project, NativeToolchainProjectSetupAction)
             register(project, UklibPublicationSetupAction)
             register(project, UklibConsumptionSetupAction)
+            register(project, KotlinMetadataCompilationTargetPlatformConfiguration)
         }
 
     }
@@ -192,9 +194,11 @@ internal fun Project.registerKotlinPluginExtensions() {
         register(project, KmpPartiallyResolvedDependenciesChecker)
         register(project, TestApiDependenciesChecker)
         register(project, ConfigurationOnDemandSupportChecker)
+        register(project, KotlinCompilerExecutionStrategyOutOfProcessValueChecker)
 
         if (isMultiplatform) {
             register(project, NativeVersionChecker)
+            register(project, SupportedNativeHostChecker)
             register(project, MultipleSourceSetRootsInCompilationChecker)
             register(project, SwiftExportModuleNameChecker)
             register(project, CinteropCrossCompilationChecker)
@@ -204,8 +208,6 @@ internal fun Project.registerKotlinPluginExtensions() {
 }
 
 private val Project.isKmpProjectIsolationEnabled get() = PropertiesProvider(project).kotlinKmpProjectIsolationEnabled
-
-private val Project.isAbiValidationEnabled get() = !PropertiesProvider(project).abiValidationDisabled
 
 /* Helper functions to make configuration code above easier to read */
 

@@ -31,8 +31,11 @@ class SirFunctionalType(
     val returnType: SirType,
     override val attributes: List<SirAttribute> = emptyList(),
 ) : SirWrappedType {
-    fun copyAppendingAttributes(vararg attributes: SirAttribute): SirFunctionalType =
-        SirFunctionalType(parameterTypes, isAsync, returnType, this.attributes + attributes)
+    fun copyAppendingAttributes(vararg attributes: SirAttribute): SirFunctionalType {
+        val attributesToAdd = attributes.filter { !this.attributes.contains(it) }
+        return if (attributesToAdd.isEmpty()) this
+        else SirFunctionalType(parameterTypes, isAsync, returnType, this.attributes + attributesToAdd)
+    }
 }
 
 open class SirNominalType(
@@ -129,3 +132,10 @@ data object SirUnsupportedType : SirType {
 fun SirType.optional(): SirNominalType = SirOptionalType(this)
 
 fun SirType.implicitlyUnwrappedOptional(): SirNominalType = SirImplicitlyUnwrappedOptionalType(this)
+
+fun SirScopeDefiningDeclaration.nominalType(parameterTypes: List<SirType> = emptyList()): SirNominalType =
+    SirNominalType(
+        this,
+        parameterTypes,
+        attributes = if (this is SirTypealias && this.type is SirFunctionalType) this.type.attributes else emptyList()
+    )

@@ -123,7 +123,10 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             )
 
             build("assemble") {
-                assertOutputContainsExactlyTimes("-P plugin:blah-blah:", 3)
+                assertOutputContainsAny(
+                    "-P plugin:blah-blah:blah-blah1=1 -P plugin:blah-blah:blah-blah2=1 -P plugin:blah-blah:blah-blah3=1",
+                    "-P plugin:blah-blah:blah-blah1=1,plugin:blah-blah:blah-blah2=1,plugin:blah-blah:blah-blah3=1"
+                )
             }
         }
     }
@@ -136,7 +139,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             "new-mpp-lib-with-tests",
             gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             buildGradle.appendText(
                 //language=Gradle
@@ -166,7 +169,17 @@ internal class CompilerOptionsIT : KGPBaseTest() {
                 // we do not allow modifying free args for K/N at execution time
             )
             build(*compileTasks.toTypedArray()) {
-                assertOutputContainsExactlyTimes("-P plugin:blah-blah:", 3 * compileTasks.size) // 3 times per task
+                if (output.contains("-P plugin:blah-blah:blah-blah1=1,plugin:blah-blah:blah-blah2=1,plugin:blah-blah:blah-blah3=1")) {
+                    // output from BTA
+                    assertOutputContainsExactlyTimes(
+                        "-P plugin:blah-blah:blah-blah1=1,plugin:blah-blah:blah-blah2=1,plugin:blah-blah:blah-blah3=1",
+                        1
+                    )
+                    // output from KGP: 3 times per non-JVM compile task + 1 from JVM task (BTA)
+                    assertOutputContainsExactlyTimes("-P plugin:blah-blah:", 3 * (compileTasks.size - 1) + 1)
+                } else {
+                    assertOutputContainsExactlyTimes("-P plugin:blah-blah:", 3 * compileTasks.size) // 3 times per task
+                }
             }
         }
     }
@@ -203,7 +216,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             projectName = "new-mpp-lib-and-app/sample-lib",
             gradleVersion = gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_0)) {
                 buildScriptInjection {
@@ -247,7 +260,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             projectName = "new-mpp-lib-and-app/sample-lib",
             gradleVersion = gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             buildGradle.appendText(
                 //language=Groovy
@@ -436,7 +449,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             projectName = "new-mpp-lib-and-app/sample-lib",
             gradleVersion = gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             buildGradle.appendText(
                 //language=Groovy
@@ -481,7 +494,7 @@ internal class CompilerOptionsIT : KGPBaseTest() {
             projectName = "new-mpp-lib-and-app/sample-lib",
             gradleVersion = gradleVersion,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             buildGradle.append("base.archivesName.set(\"myNativeLib\")")
 

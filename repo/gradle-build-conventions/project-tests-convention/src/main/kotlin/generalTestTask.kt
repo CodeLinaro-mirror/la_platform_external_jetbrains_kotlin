@@ -92,11 +92,11 @@ internal fun Project.createGeneralTestTask(
 ): TaskProvider<Test> {
     if (jUnitMode == JUnitMode.JUnit5) {
         project.dependencies {
-            "testImplementation"(project(":compiler:tests-mutes:mutes-junit5"))
+            "testRuntimeOnly"(project(":compiler:tests-mutes:mutes-junit5"))
         }
     } else {
         project.dependencies {
-            "testImplementation"(project(":compiler:tests-mutes:mutes-junit4"))
+            "testRuntimeOnly"(project(":compiler:tests-mutes:mutes-junit4"))
         }
     }
     val shouldInstrument = project.providers.gradleProperty("kotlin.test.instrumentation.disable")
@@ -105,6 +105,10 @@ internal fun Project.createGeneralTestTask(
         evaluationDependsOn(":test-instrumenter")
     }
     return getOrCreateTask<Test>(taskName) {
+        if (taskName != "test") {
+            classpath = sourceSets.getByName("test").runtimeClasspath
+            testClassesDirs = sourceSets.getByName("test").output.classesDirs
+        }
         inputs.file(
             rootProject.tasks.named("createIdeaHomeForTests")
                 .map { task -> task.outputs.files.singleFile.resolve("build.txt") })
@@ -277,13 +281,14 @@ internal fun Project.createGeneralTestTask(
                     ?: forks.coerceIn(1, Runtime.getRuntime().availableProcessors())
         }
 
-        if (!kotlinBuildProperties.isTeamcityBuild) {
+        if (!kotlinBuildProperties.isTeamcityBuild.get()) {
             defineJDKEnvVariables.forEach { version ->
                 val jdkHome = project.getToolchainJdkHomeFor(version).orNull ?: error("Can't find toolchain for $version")
                 environment(version.envName, jdkHome)
             }
         }
-    }.apply { configure(body) }
+        body()
+    }
 }
 
 private val defaultMaxMemoryPerTestWorkerMb = 1600

@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.cli.common.list
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.STRONG_WARNING
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.js.K2JsCompilerImpl
 import org.jetbrains.kotlin.cli.js.initializeFinalArtifactConfiguration
 import org.jetbrains.kotlin.cli.js.moduleKindMap
 import org.jetbrains.kotlin.cli.js.targetVersion
@@ -22,8 +21,10 @@ import org.jetbrains.kotlin.cli.pipeline.SuccessfulPipelineExecutionException
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.config.phaseConfig
-import org.jetbrains.kotlin.ir.backend.js.getJsLowerings
+import org.jetbrains.kotlin.config.targetPlatform
+import org.jetbrains.kotlin.ir.backend.js.jsLowerings
 import org.jetbrains.kotlin.js.config.*
+import org.jetbrains.kotlin.platform.js.JsPlatforms
 
 object JsConfigurationUpdater : ConfigurationUpdater<K2JSCompilerArguments>() {
     override fun fillConfiguration(
@@ -38,16 +39,12 @@ object JsConfigurationUpdater : ConfigurationUpdater<K2JSCompilerArguments>() {
         // setup phase config for the second compilation stage (JS codegen)
         if (arguments.includes != null) {
             configuration.phaseConfig = createPhaseConfig(arguments).also {
-                if (arguments.listPhases) it.list(getJsLowerings(configuration))
+                if (arguments.listPhases) it.list(jsLowerings)
             }
         }
     }
 
-    /**
-     * This part of the configuration update is shared between phased K2 CLI and
-     * K1 implementation of [K2JsCompilerImpl.tryInitializeCompiler].
-     */
-    internal fun fillConfiguration(configuration: CompilerConfiguration, arguments: K2JSCompilerArguments) {
+    private fun fillConfiguration(configuration: CompilerConfiguration, arguments: K2JSCompilerArguments) {
         val messageCollector = configuration.messageCollector
         val targetVersion = initializeAndCheckTargetVersion(arguments, messageCollector)
         configuration.optimizeGeneratedJs = arguments.optimizeGeneratedJs
@@ -69,6 +66,8 @@ object JsConfigurationUpdater : ConfigurationUpdater<K2JSCompilerArguments>() {
         configuration.compileSuspendAsJsGenerator = arguments.useEsGenerators ?: isES2015
         configuration.compileLambdasAsEs6ArrowFunctions = arguments.useEsArrowFunctions ?: isES2015
         configuration.compileLongAsBigint = arguments.compileLongAsBigInt ?: false
+
+        configuration.targetPlatform = JsPlatforms.defaultJsPlatform
 
         arguments.irSafeExternalBooleanDiagnostic?.let {
             configuration.safeExternalBooleanDiagnostic = it

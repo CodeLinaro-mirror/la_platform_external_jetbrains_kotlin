@@ -15,23 +15,62 @@ import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.declarations.IrFunction
 import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.IrConstructorSymbol
-import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
-import org.jetbrains.kotlin.ir.symbols.IrPropertySymbol
-import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.types.IrDynamicType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classOrNull
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.impl.IrDynamicTypeImpl
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.*
 import org.jetbrains.kotlin.types.Variance
 
+/**
+ * This class is a container for symbols that the compiler uses on the backend.
+ *
+ * ### Hierarchy
+ * You can think of it as two separate axis: usage scope and backend kind.
+ * 1. By "usage scope" we mean either pre-serialization or backend. We have such separation for several reasons
+ *    - **Performance**: it is expensive to load all symbols, but we need only a small part on pre-serialization stage.
+ *    - **Availability**: not all symbols are present at the pre-serialization stage.
+ *    - **Validation**: symbols that are required for pre-serialization are always present and should be treated with care.
+ *      We can't rename or remove them without proper migration.
+ * 2. By "backend kind" we mean the target platform: JVM, JS, Wasm, or Native. Some symbols are backend-specific and should appear only in
+ *    the corresponding backend.
+ *
+ * The hierarchy can be represented as follows:
+ * ```
+ * PreSerializationSymbols.Impl → BackendSymbols → JvmSymbols
+ * └ PreSerializationKlibSymbols.Impl → BackendKlibSymbols
+ *   ├ PreSerializationWebSymbols.Impl → BackendWebSymbols
+ *   │ ├ PreSerializationJsSymbols.Impl → BackendJsSymbols
+ *   │ └ PreSerializationWasmSymbols.Impl → BackendWasmSymbols
+ *   └ PreSerializationNativeSymbols.Impl → BackendNativeSymbols
+ * ```
+ *
+ *  1. Pre-serialization symbols inheritance is represented from top to bottom. It also follows the general logic around backend
+ *     (for example, js and wasm are inherited from web).
+ *  2. Backend symbols also follow this pattern, but they also inherit corresponding pre-serialization symbols, so we can avoid duplication.
+ *
+ *  `JvmSymbols` are special here. They don't have corresponding pre-serialization class because we are not serializing JVM artifacts into
+ *  klib.
+ *
+ *  ### Symbols loading
+ *  All symbols loading must be done using extensions on the symbol finder. Usually the process looks as follows
+ *  1. During `*Symbols` class construction we call a method on SymbolFinder.
+ *     Depending on the implementation, we either get a symbol with the owner immediately (for pre-serialization), or the symbol is put in
+ *     the deserialization queue (for backend).
+ *  2. During the access of a symbol (later in lowerings), there shouldn't be any unbound symbols.
+ *
+ *  If we expect to have multiple symbols with the same fully qualified name, then it should be accessed using a lazy filter call.
+ *  This guarantees that the symbol will be put in the deserialization queue and properly filtered when first accessed.
+ *
+ *  Avoid using calls like `functionSymbols().single()`. While this works, it is quite hard to understand that is the problem that something
+ *  goes wrong.
+ */
 abstract class BaseSymbolsImpl(protected val irBuiltIns: IrBuiltIns) {
-    protected val symbolFinder = irBuiltIns.symbolFinder
+    private val symbolFinder = irBuiltIns.symbolFinder
 
-    // TODO KT-79436 unify backend specific functions and remove the old ones
     protected fun findSharedVariableBoxClass(primitiveType: PrimitiveType?): PreSerializationKlibSymbols.SharedVariableBoxClassInfo {
         val suffix = primitiveType?.typeName?.asString() ?: ""
         val classId = ClassId(StandardNames.KOTLIN_INTERNAL_FQ_NAME, Name.identifier("SharedVariableBox$suffix"))
@@ -39,8 +78,8 @@ abstract class BaseSymbolsImpl(protected val irBuiltIns: IrBuiltIns) {
         return PreSerializationKlibSymbols.SharedVariableBoxClassInfo(boxClass)
     }
 
-    // Native
-    protected fun ClassId.classSymbol(): IrClassSymbol = symbolFinder.findClass(this) ?: error("Class $this is not found")
+    protected fun ClassId.classSymbolOrNull(): IrClassSymbol? = symbolFinder.findClass(this)
+    protected fun ClassId.classSymbol(): IrClassSymbol = classSymbolOrNull() ?: error("Class $this is not found")
     protected fun CallableId.propertySymbols(): List<IrPropertySymbol> = symbolFinder.findProperties(this).toList()
     protected fun CallableId.functionSymbols(): List<IrSimpleFunctionSymbol> = symbolFinder.findFunctions(this).toList()
     protected fun ClassId.primaryConstructorSymbol(): Lazy<IrConstructorSymbol> {
@@ -51,6 +90,27 @@ abstract class BaseSymbolsImpl(protected val irBuiltIns: IrBuiltIns) {
     protected fun ClassId.noParametersConstructorSymbol(): Lazy<IrConstructorSymbol> {
         val clazz = classSymbol()
         return lazy { (clazz.owner.constructors.singleOrNull { it.parameters.isEmpty() } ?: error("Class ${this} has no constructor without parameters")).symbol }
+    }
+
+    protected fun ClassId.defaultType(): Lazy<IrType> {
+        val clazz = classSymbol()
+        return lazy { clazz.defaultType }
+    }
+
+    protected fun CallableId.propertySymbol(): IrPropertySymbol {
+        val elements = propertySymbols()
+        require(elements.isNotEmpty()) { "No property $this found" }
+        require(elements.size == 1) {
+            "Several properties $this found:\n${elements.joinToString("\n")}"
+        }
+        return elements.single()
+    }
+
+    protected fun CallableId.functionSymbolOrNull(): IrSimpleFunctionSymbol? {
+        val elements = functionSymbols()
+        require(elements.size <= 1) {
+            "Several functions $this found:\n${elements.joinToString("\n")}\nTry using functionSymbol(condition) instead to filter" }
+        return elements.singleOrNull()
     }
 
     protected fun CallableId.functionSymbol(): IrSimpleFunctionSymbol {
@@ -71,10 +131,14 @@ abstract class BaseSymbolsImpl(protected val irBuiltIns: IrBuiltIns) {
         }
     }
 
-    protected inline fun <K> CallableId.functionSymbolAssociatedBy(crossinline getKey: (IrSimpleFunction) -> K): Lazy<Map<K, IrSimpleFunctionSymbol>> {
+    protected inline fun <K> CallableId.functionSymbolAssociatedBy(
+        crossinline condition: (IrSimpleFunction) -> Boolean = { true },
+        crossinline getKey: (IrSimpleFunction) -> K
+    ): Lazy<Map<K, IrSimpleFunctionSymbol>> {
         val unfilteredElements = functionSymbols()
         return lazy {
-            unfilteredElements.associateBy { getKey(it.owner) }
+            val elements = unfilteredElements.filter { condition(it.owner) }
+            elements.associateBy { getKey(it.owner) }
         }
     }
 
@@ -84,6 +148,15 @@ abstract class BaseSymbolsImpl(protected val irBuiltIns: IrBuiltIns) {
         require(elements.size == 1) { "Several properties $this found:\n${elements.joinToString("\n")}" }
         return lazy {
             elements.single().owner.getter!!.symbol
+        }
+    }
+
+    protected fun CallableId.setterSymbol(): Lazy<IrSimpleFunctionSymbol> {
+        val elements = propertySymbols()
+        require(elements.isNotEmpty()) { "No properties $this found" }
+        require(elements.size == 1) { "Several properties $this found:\n${elements.joinToString("\n")}" }
+        return lazy {
+            elements.single().owner.setter!!.symbol
         }
     }
 
@@ -103,8 +176,6 @@ abstract class BaseSymbolsImpl(protected val irBuiltIns: IrBuiltIns) {
 }
 
 interface PreSerializationSymbols {
-    val arrays: List<IrClassSymbol>
-
     val throwUninitializedPropertyAccessException: IrSimpleFunctionSymbol
     val throwUnsupportedOperationException: IrSimpleFunctionSymbol
 
@@ -129,10 +200,7 @@ interface PreSerializationSymbols {
         }
     }
 
-    abstract class Impl(irBuiltIns: IrBuiltIns) : PreSerializationSymbols, BaseSymbolsImpl(irBuiltIns) {
-        override val arrays: List<IrClassSymbol>
-            get() = irBuiltIns.primitiveTypesToPrimitiveArrays.values + irBuiltIns.unsignedTypesToUnsignedArrays.values + irBuiltIns.arrayClass
-    }
+    abstract class Impl(irBuiltIns: IrBuiltIns) : PreSerializationSymbols, BaseSymbolsImpl(irBuiltIns)
 }
 
 interface PreSerializationKlibSymbols : PreSerializationSymbols {
@@ -146,12 +214,11 @@ interface PreSerializationKlibSymbols : PreSerializationSymbols {
 
     abstract class Impl(irBuiltIns: IrBuiltIns) : PreSerializationKlibSymbols, PreSerializationSymbols.Impl(irBuiltIns) {
         override val genericSharedVariableBox: SharedVariableBoxClassInfo = findSharedVariableBoxClass(null)
-        override val syntheticConstructorMarker: IrClassSymbol =
-            ClassId(StandardNames.KOTLIN_INTERNAL_FQ_NAME, Name.identifier("SyntheticConstructorMarker")).classSymbol()
+        override val syntheticConstructorMarker: IrClassSymbol = ClassIds.SyntheticConstructorMarker.classSymbol()
         override val throwUninitializedPropertyAccessException: IrSimpleFunctionSymbol =
-            THROW_UNINITIALIZED_PROPERTY_ACCESS_NAME.internalCallableId.functionSymbol()
+            CallableIds.throwUninitializedPropertyAccessException.functionSymbol()
         override val throwUnsupportedOperationException: IrSimpleFunctionSymbol =
-            THROW_UNSUPPORTED_OPERATION_NAME.internalCallableId.functionSymbol()
+            CallableIds.throwUnsupportedOperationException.functionSymbol()
     }
 
     companion object {
@@ -163,6 +230,15 @@ interface PreSerializationKlibSymbols : PreSerializationSymbols {
         private val kotlinInternalPackageFqn = FqName.fromSegments(listOf("kotlin", "internal"))
         private val String.internalCallableId: CallableId
             get() = CallableId(kotlinInternalPackageFqn, Name.identifier(this))
+
+        private object ClassIds {
+            val SyntheticConstructorMarker = ClassId(StandardNames.KOTLIN_INTERNAL_FQ_NAME, Name.identifier("SyntheticConstructorMarker"))
+        }
+
+        private object CallableIds {
+            val throwUninitializedPropertyAccessException = THROW_UNINITIALIZED_PROPERTY_ACCESS_NAME.internalCallableId
+            val throwUnsupportedOperationException = THROW_UNSUPPORTED_OPERATION_NAME.internalCallableId
+        }
     }
 }
 
@@ -221,7 +297,7 @@ interface PreSerializationWasmSymbols : PreSerializationWebSymbols {
         override val coroutineGetContext: IrSimpleFunctionSymbol = CallableIds.coroutineGetContext.functionSymbol()
 
         companion object {
-            val wasmInternalFqName = FqName.fromSegments(listOf("kotlin", "wasm", "internal"))
+            private val wasmInternalFqName = FqName.fromSegments(listOf("kotlin", "wasm", "internal"))
             private const val COROUTINE_SUSPEND_OR_RETURN_NAME = "suspendCoroutineUninterceptedOrReturn"
 
             private object CallableIds {
@@ -239,11 +315,25 @@ interface PreSerializationNativeSymbols : PreSerializationKlibSymbols {
     val asserts: Iterable<IrSimpleFunctionSymbol>
     val isAssertionArgumentEvaluationEnabled: IrSimpleFunctionSymbol
 
+    val testInitializer: IrClassSymbol? // KT-83807 Restore non-nullability of symbols not available in 2.3.0 stdlib
+    val testsProcessed: IrClassSymbol? // KT-83807 Restore non-nullability of symbols not available in 2.3.0 stdlib
+
+    val topLevelSuite: IrClassSymbol
+    val baseClassSuite: IrClassSymbol
+    val testFunctionKind: IrClassSymbol
+
     open class Impl(irBuiltIns: IrBuiltIns) : PreSerializationNativeSymbols, PreSerializationKlibSymbols.Impl(irBuiltIns) {
         override val asserts: Iterable<IrSimpleFunctionSymbol> = CallableIds.asserts.functionSymbols()
 
         override val isAssertionArgumentEvaluationEnabled: IrSimpleFunctionSymbol =
             CallableIds.isAssertionArgumentEvaluationEnabled.functionSymbol()
+
+        override val testInitializer = ClassIds.testInitializer.classSymbolOrNull()
+        override val testsProcessed = ClassIds.testsProcessed.classSymbolOrNull()
+
+        override val topLevelSuite = ClassIds.topLevelSuite.classSymbol()
+        override val baseClassSuite = ClassIds.baseClassSuite.classSymbol()
+        override val testFunctionKind = ClassIds.testFunctionKind.classSymbol()
 
         override val coroutineContextGetter: IrSimpleFunctionSymbol by CallableIds.coroutineContext.getterSymbol()
         override val suspendCoroutineUninterceptedOrReturn: IrSimpleFunctionSymbol =
@@ -270,6 +360,18 @@ interface PreSerializationNativeSymbols : PreSerializationKlibSymbols {
                     get() = CallableId(StandardNames.BUILT_INS_PACKAGE_FQ_NAME, Name.identifier(this))
                 val asserts: CallableId = "assert".builtInsCallableId
                 val isAssertionArgumentEvaluationEnabled: CallableId = "isAssertionArgumentEvaluationEnabled".builtInsCallableId
+            }
+
+            private object ClassIds {
+                val kotlinNativeInternalTestPackageName = FqName.fromSegments(listOf("kotlin", "native", "internal", "test"))
+                private val String.internalTestClassId
+                    get() = ClassId(kotlinNativeInternalTestPackageName, Name.identifier(this))
+                val testInitializer = "TestInitializer".internalTestClassId
+                val testsProcessed = "TestsProcessed".internalTestClassId
+
+                val baseClassSuite = "BaseClassSuite".internalTestClassId
+                val topLevelSuite = "TopLevelSuite".internalTestClassId
+                val testFunctionKind = "TestFunctionKind".internalTestClassId
             }
         }
     }

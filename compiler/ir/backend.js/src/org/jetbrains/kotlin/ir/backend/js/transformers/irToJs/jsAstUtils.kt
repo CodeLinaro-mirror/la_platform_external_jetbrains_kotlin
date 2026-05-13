@@ -5,20 +5,24 @@
 
 package org.jetbrains.kotlin.ir.backend.js.transformers.irToJs
 
+import org.jetbrains.kotlin.backend.common.ErrorReportingContext
 import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.backend.common.lower.BOUND_VALUE_PARAMETER
+import org.jetbrains.kotlin.backend.common.reportWarning
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrFileEntry
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
 import org.jetbrains.kotlin.ir.backend.js.JsStatementOrigins
-import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.isProxyParameterForExportedSuspendFunction
+import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.isProxyParameterWithDefaultForExportedSuspendFunction
+import org.jetbrains.kotlin.ir.backend.js.lower.coroutines.shouldBeCompiledAsGenerator
 import org.jetbrains.kotlin.ir.backend.js.lower.isBoxParameter
 import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
 import org.jetbrains.kotlin.ir.backend.js.sourceMapsInfo
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.util.isVararg
@@ -32,13 +36,24 @@ import org.jetbrains.kotlin.js.common.isValidES5Identifier
 import org.jetbrains.kotlin.js.config.JSConfigurationKeys
 import org.jetbrains.kotlin.js.config.SourceMapNamesPolicy
 import org.jetbrains.kotlin.js.config.SourceMapSourceEmbedding
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMap
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapError
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapLocationRemapper
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapParser
+import org.jetbrains.kotlin.js.parser.sourcemaps.SourceMapSuccess
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.JsStandardClassIds
 import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
+import org.jetbrains.kotlin.utils.addToStdlib.safeAs
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
+
+fun String.toWellKnownSymbolAccess(): JsExpression =
+    jsElementAccess(this, JsNameRef("Symbol"))
 
 fun jsUndefined(context: JsStaticContext): JsExpression {
     return when (val void = context.backendContext.getVoid()) {
@@ -66,8 +81,12 @@ fun jsElementAccess(name: String, receiver: JsExpression?): JsExpression =
     jsElementAccess(JsName(name, false), receiver)
 
 fun JsExpression.putIntoVariableWitName(name: JsName): JsVars {
-    return JsVars(JsVars.JsVar(name, this))
+    return JsVars(JsVars.Variant.Var, JsVars.JsVar(name, this))
 }
+
+fun jsElementAccess(name: JsName, computedName: JsExpression?, receiver: JsExpression?): JsExpression =
+    computedName?.let { JsArrayAccess(receiver, it) }
+        ?: jsElementAccess(name, receiver)
 
 fun jsElementAccess(name: JsName, receiver: JsExpression?): JsExpression =
     if (receiver == null || name.ident.isValidES5Identifier()) {
@@ -81,7 +100,7 @@ fun jsAssignment(left: JsExpression, right: JsExpression) = JsBinaryOperation(Js
 fun prototypeOf(classNameRef: JsExpression, context: JsStaticContext) =
     JsInvocation(
         context
-            .getNameForStaticFunction(context.backendContext.intrinsics.jsPrototypeOfSymbol.owner)
+            .getNameForStaticFunction(context.backendContext.symbols.jsPrototypeOfSymbol.owner)
             .makeRef(),
         classNameRef
     )
@@ -89,7 +108,7 @@ fun prototypeOf(classNameRef: JsExpression, context: JsStaticContext) =
 fun objectCreate(prototype: JsExpression, context: JsStaticContext) =
     JsInvocation(
         context
-            .getNameForStaticFunction(context.backendContext.intrinsics.jsObjectCreateSymbol.owner)
+            .getNameForStaticFunction(context.backendContext.symbols.jsObjectCreateSymbol.owner)
             .makeRef(),
         prototype
     )
@@ -104,7 +123,7 @@ fun defineProperty(
 ): JsExpression {
     return JsInvocation(
         context
-            .getNameForStaticFunction(context.backendContext.intrinsics.jsDefinePropertySymbol.owner)
+            .getNameForStaticFunction(context.backendContext.symbols.jsDefinePropertySymbol.owner)
             .makeRef(),
         listOfNotNull(
             obj,
@@ -116,10 +135,83 @@ fun defineProperty(
     )
 }
 
-fun translateFunction(declaration: IrFunction, name: JsName?, context: JsGenerationContext): JsFunction {
-    context.staticContext.backendContext.getJsCodeForFunction(declaration.symbol)?.let { function ->
-        function.name = name
-        return function
+private var IrFunction.cachedOutlinedJsCode: JsFunction? by irAttribute(copyByDefault = false)
+
+context(reportingContext: ErrorReportingContext)
+fun IrFunction.getJsCode(): JsFunction? {
+    cachedOutlinedJsCode?.let {
+        return it
+    }
+
+    parseJsFromAnnotation(this, JsStandardClassIds.Annotations.JsOutlinedFunction)
+        ?.let { (annotation, parsedJsFunction) ->
+            val sourceMap = (annotation.arguments[1] as? IrConst)?.value as? String
+            val parsedSourceMap = sourceMap?.let { parseSourceMap(it, fileOrNull, annotation) }
+            if (parsedSourceMap != null) {
+                val remapper = SourceMapLocationRemapper(parsedSourceMap)
+                remapper.remap(parsedJsFunction)
+            }
+            cachedOutlinedJsCode = parsedJsFunction
+            return parsedJsFunction
+        }
+
+    parseJsFromAnnotation(this, JsStandardClassIds.Annotations.JsFun)
+        ?.let { (_, parsedJsFunction) ->
+            cachedOutlinedJsCode = parsedJsFunction
+            return parsedJsFunction
+        }
+    return null
+}
+
+private fun parseJsFromAnnotation(declaration: IrDeclaration, annotationClassId: ClassId): Pair<IrConstructorCall, JsFunction>? {
+    val annotation = declaration.getAnnotation(annotationClassId.asSingleFqName())
+        ?: return null
+    val jsCode = annotation.arguments[0]
+        ?: compilationException("@${annotationClassId.shortClassName} annotation must contain the JS code argument", annotation)
+    val statements = translateJsCodeIntoStatementList(jsCode, declaration)
+        ?: compilationException("Could not parse JS code", annotation)
+    val parsedJsFunction = statements.singleOrNull()
+        ?.safeAs<JsExpressionStatement>()
+        ?.expression
+        ?.safeAs<JsFunction>()
+        ?: compilationException("Provided JS code is not a js function", annotation)
+    return annotation to parsedJsFunction
+}
+
+context(reportingContext: ErrorReportingContext)
+private fun parseSourceMap(sourceMap: String, file: IrFile?, annotation: IrConstructorCall): SourceMap? {
+    if (sourceMap.isEmpty()) return null
+    return when (val result = SourceMapParser.parse(sourceMap)) {
+        is SourceMapSuccess -> result.value
+        is SourceMapError -> {
+            reportingContext.reportWarning(
+                """
+                    Invalid source map in annotation:
+                    ${annotation.dumpKotlinLike()}
+                    ${result.message.replaceFirstChar(Char::uppercase)}.
+                    Some debug information may be unavailable.
+                    If you believe this is not your fault, please create an issue: https://kotl.in/issue
+                    """.trimIndent(),
+                file,
+                annotation,
+            )
+            null
+        }
+    }
+}
+
+fun translateFunction(
+    declaration: IrFunction,
+    name: JsName?,
+    computedName: JsExpression?,
+    context: JsGenerationContext
+): JsFunction {
+    with(context.staticContext.backendContext) {
+        declaration.getJsCode()?.let { function ->
+            function.name = name
+            function.computedName = computedName
+            return function
+        }
     }
 
     val localNameGenerator = context.localNames
@@ -139,14 +231,16 @@ fun translateFunction(declaration: IrFunction, name: JsName?, context: JsGenerat
     val function = JsFunction(emptyScope, body, "member function ${name ?: "annon"}")
         .apply {
             if (declaration.isEs6ConstructorReplacement) modifiers.add(JsFunction.Modifier.STATIC)
-            if (declaration.shouldBeCompiledAsGenerator()) {
+            if (declaration.shouldBeCompiledAsGenerator) {
                 name?.isGeneratorFunction = true
+                computedName?.isGeneratorFunction = true
                 modifiers.add(JsFunction.Modifier.GENERATOR)
             }
         }
         .withSource(declaration, context, useNameOf = declaration)
 
     function.name = name
+    function.computedName = computedName
 
     declaration.nonDispatchParameters.forEach { param ->
         val name = functionContext.getNameForValueDeclaration(param)
@@ -157,9 +251,6 @@ fun translateFunction(declaration: IrFunction, name: JsName?, context: JsGenerat
 
     return function
 }
-
-private fun IrFunction.shouldBeCompiledAsGenerator(): Boolean =
-    hasAnnotation(JsAnnotations.jsGeneratorFqn)
 
 private fun isFunctionTypeInvoke(receiver: JsExpression?, call: IrCall): Boolean {
     if (receiver == null || receiver is JsThisRef) return false
@@ -196,8 +287,8 @@ fun translateCall(
     val nonDispatchArguments = translateNonDispatchCallArguments(expression, context, transformer)
 
     // Transform external and interface's property accessor call
-    // @JsName-annotated external and interface's property accessors are translated as function calls
-    if (function.getJsName() == null) {
+    // @JsName-annotated and @JsSymbol-annotated external and interface's property accessors are translated as function calls
+    if (function.getJsName() == null && function.getJsSymbol() == null) {
         val property = function.correspondingPropertySymbol?.owner
         if (property != null && (property.isEffectivelyExternal() || function.isExportedMember(staticContext.backendContext) && expression.superQualifierSymbol == null)) {
             if (function.overriddenSymbols.isEmpty() || function.overriddenStableProperty(staticContext.backendContext)) {
@@ -232,8 +323,13 @@ fun translateCall(
             Pair(function, superQualifier.owner)
         }
 
+        val symbolKey = target.getJsSymbolForOverriddenDeclaration()?.toWellKnownSymbolAccess()
+        val targetName = context.getNameForMemberFunction(target)
+
         if (currentDispatchReceiver.canUseSuperRef(context, klass)) {
-            return JsInvocation(JsNameRef(context.getNameForMemberFunction(target), JsSuperRef()), nonDispatchArguments.map { it.jsArgument })
+            return JsInvocation(
+                jsElementAccess(targetName, symbolKey, JsSuperRef()),
+                nonDispatchArguments.map { it.jsArgument })
         }
 
         val callRef = if (klass.isInterface) {
@@ -242,7 +338,7 @@ fun translateCall(
         } else {
             val qualifierName = klass.getClassRef(staticContext)
             val targetName = context.getNameForMemberFunction(target)
-            val qPrototype = JsNameRef(targetName, prototypeOf(qualifierName, staticContext))
+            val qPrototype = jsElementAccess(targetName, symbolKey, prototypeOf(qualifierName, staticContext))
             JsNameRef(Namer.CALL_FUNCTION, qPrototype)
         }
 
@@ -251,17 +347,18 @@ fun translateCall(
 
     val isExternalVararg = function.isEffectivelyExternal() && function.parameters.any { it.isVararg }
 
-    val symbolName = when (jsDispatchReceiver) {
+    val symbolKey = function.getJsSymbolForOverriddenDeclaration()?.toWellKnownSymbolAccess()
+    val functionName = when (jsDispatchReceiver) {
         null -> context.getNameForStaticFunction(function)
         else -> context.getNameForMemberFunction(function)
     }
 
     val ref = when (jsDispatchReceiver) {
-        null -> JsNameRef(symbolName)
-        else -> jsElementAccess(symbolName.ident, jsDispatchReceiver)
+        null -> JsNameRef(functionName)
+        else -> jsElementAccess(functionName, symbolKey, jsDispatchReceiver)
     }
 
-    if (symbolName.isGeneratorFunction) {
+    if (functionName.isGeneratorFunction || symbolKey?.isGeneratorFunction == true) {
         (ref.commentsBeforeNode ?: mutableListOf<JsComment>().also { ref.commentsBeforeNode = it })
             .add(JsMultiLineComment("#__NOINLINE__"))
     }
@@ -271,7 +368,7 @@ fun translateCall(
         if (jsDispatchReceiver != null) {
             if (argumentsAsSingleArray is JsArrayLiteral) {
                 JsInvocation(
-                    jsElementAccess(symbolName.ident, jsDispatchReceiver),
+                    jsElementAccess(functionName, symbolKey, jsDispatchReceiver),
                     argumentsAsSingleArray.expressions
                 )
             } else {
@@ -282,10 +379,10 @@ fun translateCall(
                 val iifeFun = JsFunction(
                     emptyScope,
                     JsBlock(
-                        JsVars(JsVars.JsVar(receiverName, jsDispatchReceiver)),
+                        JsVars(JsVars.Variant.Var, JsVars.JsVar(receiverName, jsDispatchReceiver)),
                         JsReturn(
                             JsInvocation(
-                                JsNameRef("apply", jsElementAccess(symbolName.ident, receiverRef)),
+                                JsNameRef("apply", jsElementAccess(functionName.ident, receiverRef)),
                                 listOf(
                                     receiverRef,
                                     argumentsAsSingleArray
@@ -309,12 +406,12 @@ fun translateCall(
         } else {
             if (argumentsAsSingleArray is JsArrayLiteral) {
                 JsInvocation(
-                    JsNameRef(symbolName),
+                    JsNameRef(functionName),
                     argumentsAsSingleArray.expressions
                 )
             } else {
                 JsInvocation(
-                    JsNameRef("apply", JsNameRef(symbolName)),
+                    JsNameRef("apply", JsNameRef(functionName)),
                     listOf(JsNullLiteral(), argumentsAsSingleArray)
                 )
             }
@@ -352,7 +449,7 @@ internal fun argumentsWithVarargAsSingleArray(
                 is JsArrayLiteral -> jsArgument
                 is JsNew -> jsArgument.arguments.firstOrNull() as? JsArrayLiteral
                 else -> null
-            } ?: if (irArgument is IrCall && irArgument.symbol == context.staticContext.backendContext.intrinsics.arrayConcat)
+            } ?: if (irArgument is IrCall && irArgument.symbol == context.staticContext.backendContext.symbols.arrayConcat)
                 jsArgument
             else
                 JsInvocation(JsNameRef("call", JsNameRef("slice", JsArrayLiteral())), jsArgument)
@@ -409,7 +506,7 @@ internal fun translateNonDispatchCallArguments(
     return function.nonDispatchParameters
         .map { parameter ->
             val argument = expression.arguments[parameter.indexInParameters]
-            if (argument == null && !(validWithNullArgs || parameter.isBoxParameter || parameter.isProxyParameterForExportedSuspendFunction)) {
+            if (argument == null && !(validWithNullArgs || parameter.isBoxParameter || parameter.isProxyParameterWithDefaultForExportedSuspendFunction)) {
                 compilationException("Argument for parameter ${parameter.name} cannot be null", expression)
             }
             var jsArgument = when {
@@ -438,7 +535,7 @@ internal fun translateNonDispatchCallArguments(
 }
 
 private fun IrExpression.isVoidGetter(context: JsGenerationContext): Boolean = this is IrGetField &&
-        symbol.owner.correspondingPropertySymbol == context.staticContext.backendContext.intrinsics.void
+        symbol.owner.correspondingPropertySymbol == context.staticContext.backendContext.symbols.void
 
 
 private fun IrMemberAccessExpression<*>.validWithNullArgs() =
@@ -501,7 +598,7 @@ object JsAstUtils {
     }
 
     fun newVar(name: JsName, expr: JsExpression?): JsVars {
-        return JsVars(JsVars.JsVar(name, expr))
+        return JsVars(JsVars.Variant.Var, JsVars.JsVar(name, expr))
     }
 }
 
@@ -639,7 +736,7 @@ private fun IrClass?.canUseSuperRef(context: JsGenerationContext, superClass: Ir
     }
 
     fun IrFunction.isCoroutine(): Boolean =
-        parentClassOrNull?.superClass?.symbol == context.staticContext.backendContext.symbols.coroutineSymbols.coroutineImpl
+        parentClassOrNull?.superClass?.symbol == context.staticContext.backendContext.symbols.coroutineImpl
 
     return currentFunctionsIncludingParents.none { it.isEs6ConstructorReplacement || it.isCoroutine() }
 }

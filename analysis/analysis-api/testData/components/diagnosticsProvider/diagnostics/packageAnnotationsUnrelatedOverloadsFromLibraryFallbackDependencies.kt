@@ -1,3 +1,5 @@
+// LANGUAGE: -OverloadResolutionSpecificityForEnhancedJvmPrimitiveWrappers
+
 // MODULE: jspecify
 // MODULE_KIND: LibraryBinary
 // FALLBACK_DEPENDENCIES

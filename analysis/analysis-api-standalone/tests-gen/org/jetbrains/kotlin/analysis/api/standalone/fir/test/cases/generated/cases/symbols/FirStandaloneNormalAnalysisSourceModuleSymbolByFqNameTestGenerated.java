@@ -70,15 +70,21 @@ public class FirStandaloneNormalAnalysisSourceModuleSymbolByFqNameTestGenerated 
   }
 
   @Test
-  @TestMetadata("classWithContextReceiverFromLibrary.kt")
-  public void testClassWithContextReceiverFromLibrary() {
-    runTest("analysis/analysis-api/testData/symbols/symbolByFqName/classWithContextReceiverFromLibrary.kt");
-  }
-
-  @Test
   @TestMetadata("enumEntry.kt")
   public void testEnumEntry() {
     runTest("analysis/analysis-api/testData/symbols/symbolByFqName/enumEntry.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitBackingField.kt")
+  public void testExplicitBackingField() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByFqName/explicitBackingField.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitBackingFieldTopLevel.kt")
+  public void testExplicitBackingFieldTopLevel() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByFqName/explicitBackingFieldTopLevel.kt");
   }
 
   @Test
@@ -94,15 +100,15 @@ public class FirStandaloneNormalAnalysisSourceModuleSymbolByFqNameTestGenerated 
   }
 
   @Test
-  @TestMetadata("functionWithContextReceiverFromLibrary.kt")
-  public void testFunctionWithContextReceiverFromLibrary() {
-    runTest("analysis/analysis-api/testData/symbols/symbolByFqName/functionWithContextReceiverFromLibrary.kt");
-  }
-
-  @Test
   @TestMetadata("getFirst.kt")
   public void testGetFirst() {
     runTest("analysis/analysis-api/testData/symbols/symbolByFqName/getFirst.kt");
+  }
+
+  @Test
+  @TestMetadata("getFirstJdk21.kt")
+  public void testGetFirstJdk21() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByFqName/getFirstJdk21.kt");
   }
 
   @Test
@@ -211,12 +217,6 @@ public class FirStandaloneNormalAnalysisSourceModuleSymbolByFqNameTestGenerated 
   @TestMetadata("propertyWithContextParameterFromLibrary.kt")
   public void testPropertyWithContextParameterFromLibrary() {
     runTest("analysis/analysis-api/testData/symbols/symbolByFqName/propertyWithContextParameterFromLibrary.kt");
-  }
-
-  @Test
-  @TestMetadata("propertyWithContextReceiverFromLibrary.kt")
-  public void testPropertyWithContextReceiverFromLibrary() {
-    runTest("analysis/analysis-api/testData/symbols/symbolByFqName/propertyWithContextReceiverFromLibrary.kt");
   }
 
   @Test

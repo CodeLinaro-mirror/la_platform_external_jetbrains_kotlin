@@ -13,19 +13,21 @@ import org.jetbrains.kotlin.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.diagnostics.SourceElementPositioningStrategies
 import org.jetbrains.kotlin.diagnostics.reportOn
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.analysis.checkers.FirTypeRefSource
 import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirClassChecker
-import org.jetbrains.kotlin.fir.analysis.checkers.extractArgumentsTypeRefAndSource
 import org.jetbrains.kotlin.fir.analysis.checkers.isSingleFieldValueClass
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.*
 import org.jetbrains.kotlin.fir.moduleData
+import org.jetbrains.kotlin.fir.render
 import org.jetbrains.kotlin.fir.resolve.defaultType
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
 import org.jetbrains.kotlin.fir.resolve.isRealOwnerOf
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
+import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.name.ClassId
@@ -232,12 +234,12 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
             else -> {
                 val argumentsIfArray1 = when (this) {
                     is FirVarargArgumentsExpression -> arguments
-                    is FirArrayLiteral -> arguments
+                    is FirCollectionLiteral -> arguments
                     else -> return false
                 }
                 val argumentsIfArray2 = when (other) {
                     is FirVarargArgumentsExpression -> other.arguments
-                    is FirArrayLiteral -> other.arguments
+                    is FirCollectionLiteral -> other.arguments
                     else -> return false
                 }
                 argumentsIfArray1.size == argumentsIfArray2.size && argumentsIfArray1.zip(argumentsIfArray2)
@@ -252,8 +254,8 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
             reporter.reportOn(
                 classSymbol.serializableOrMetaAnnotationSource(session),
                 FirSerializationErrors.PROVIDED_RUNTIME_TOO_LOW,
-                KotlinCompilerVersion.getVersion() ?: TOO_LOW,
                 currentVersions.implementationVersion?.toString() ?: UNKNOWN,
+                KotlinCompilerVersion.getVersion() ?: TOO_LOW,
                 RuntimeVersions.MINIMAL_SUPPORTED_VERSION.toString()
             )
         }
@@ -316,7 +318,7 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
 
             // TODO should we throw error if there is no `number` argument or there is evaluation error
             val argument = annotation.findArgumentByName(Name.identifier("number")) ?: return@forEachIndexed
-            val literal = argument.evaluateAs<FirLiteralExpression>(session) ?: return@forEachIndexed
+            val literal = argument as? FirLiteralExpression ?: return@forEachIndexed
             val customNumber = literal.value as? Long ?: return@forEachIndexed
 
             // use +1 to follow the rule that fields are numbered from 1
@@ -408,16 +410,6 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
 
         if (classSymbol.isInner) {
             reporter.reportOn(classSymbol.serializableOrMetaAnnotationSource(session), FirSerializationErrors.INNER_CLASSES_NOT_SUPPORTED)
-            return false
-        }
-
-        if (classSymbol.isInlineOrValue && !session.versionReader.canSupportInlineClasses) {
-            reporter.reportOn(
-                classSymbol.serializableOrMetaAnnotationSource(session),
-                FirSerializationErrors.INLINE_CLASSES_NOT_SUPPORTED,
-                RuntimeVersions.MINIMAL_VERSION_FOR_INLINE_CLASSES.toString(),
-                session.versionReader.runtimeVersions?.implementationVersion.toString()
-            )
             return false
         }
 
@@ -617,17 +609,50 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
     private fun CheckerContext.checkTypeArguments(
         typeRef: FirTypeRef,
         fallbackSource: KtSourceElement?,
-        reporter: DiagnosticReporter
+        reporter: DiagnosticReporter,
+        skipStarProjections: Boolean = false,
     ) {
-        val argsRefs = extractArgumentsTypeRefAndSource(typeRef) ?: return
+        val argsRefs = extractArgumentsTypeRefAndSource(typeRef, skipStarProjections) ?: return
         for (typeArgument in argsRefs) {
             val argTypeRef = typeArgument.typeRef ?: continue
             checkType(argTypeRef, typeArgument.source ?: fallbackSource, reporter)
         }
     }
 
-    private fun CheckerContext.canSupportInlineClasses(): Boolean {
-        return session.versionReader.canSupportInlineClasses
+    /**
+     * Greatly simplified version of FirHelpers.extractArgumentsTypeRefAndSource:
+     *
+     * - Does not handle nested classes with type parameters (serialization does not support them)
+     * - Does not handle anything other than FirUserTypeRef
+     * - Replaces star projections with declaration-site upper bound if requested
+     *      (K1 behavior that was adopted in serialization, see IrSimpleType.argumentTypesOrUpperBounds()/StarProjectionImpl.getType())
+     *      Replacement not needed if we do not want to check them in [checkTypeArguments]
+     */
+    fun CheckerContext.extractArgumentsTypeRefAndSource(typeRef: FirTypeRef, skipStarProjections: Boolean): List<FirTypeRefSource>? {
+        if (typeRef !is FirResolvedTypeRef) error("TypeRef should be already resolved in checker: ${typeRef.render()}")
+        val result = mutableListOf<FirTypeRefSource>()
+        when (val delegatedTypeRef = typeRef.delegatedTypeRef) {
+            is FirUserTypeRef -> {
+                val qualifier = delegatedTypeRef.qualifier.last()
+
+                for ((index, typeArgument) in qualifier.typeArgumentList.typeArguments.withIndex()) {
+                    val ref = when (typeArgument) {
+                        is FirTypeProjectionWithVariance -> typeArgument.typeRef
+                        is FirStarProjection -> {
+                            if (skipStarProjections) continue
+                            val declarationClass =
+                                typeRef.coneType.classSymbolOrUpperBound(session) ?: error("Not a class typeRef: ${typeRef.render()}")
+                            declarationClass.typeParameterSymbols[index].resolvedBounds.first()
+                        }
+                        is FirPlaceholderProjection -> error("Should not be encountered in the property type")
+                    }
+                    result.add(FirTypeRefSource(ref, typeArgument.source))
+                }
+            }
+            else -> return null
+        }
+
+        return result
     }
 
     private fun ConeKotlinType.isUnsupportedInlineType(session: FirSession): Boolean = isSingleFieldValueClass(session) && !isPrimitiveOrNullablePrimitive
@@ -635,14 +660,6 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
     private fun CheckerContext.checkType(typeRef: FirTypeRef, typeSource: KtSourceElement?, reporter: DiagnosticReporter) {
         val type = typeRef.coneType.fullyExpandedType()
         if (type.lowerBoundIfFlexible().isTypeParameter) return // type parameters always have serializer stored in class' field
-        if (type.isUnsupportedInlineType(session) && !canSupportInlineClasses()) {
-            reporter.reportOn(
-                typeRef.source ?: typeSource,
-                FirSerializationErrors.INLINE_CLASSES_NOT_SUPPORTED,
-                RuntimeVersions.MINIMAL_VERSION_FOR_INLINE_CLASSES.toString(),
-                session.versionReader.runtimeVersions?.implementationVersion.toString()
-            )
-        }
 
         val serializer = findTypeSerializerOrContextUnchecked(type, this)
         if (serializer != null) {
@@ -659,8 +676,10 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
                 checkCustomSerializerNotAbstract(classSymbol, annotationElement, customSerializerType, reporter)
                 checkSerializerNullability(type, customSerializerType, typeSource, reporter)
             } else {
+                val allowStarProjections =
+                    serializer.classId == SerializersClassIds.sealedSerializerId || serializer.classId == SerializersClassIds.polymorphicSerializerId
                 // For custom serializers, this check is performed in checkCustomSerializerParameters
-                checkTypeArguments(typeRef, typeSource, reporter)
+                checkTypeArguments(typeRef, typeSource, reporter, allowStarProjections)
             }
         } else {
             if (type.classSymbolOrUpperBound(session)?.isEnumClass != true) {
@@ -778,8 +797,7 @@ object FirSerializationPluginClassChecker : FirClassChecker(MppCheckerKind.Commo
         serializerType: ConeKotlinType,
         reporter: DiagnosticReporter
     ) {
-        val serializerClassId = serializerType.classId ?: return
-        if (serializerClassId.isLocal) {
+        if (serializerType.classLikeLookupTagIfAny?.toSymbol()?.isLocal == true) {
             reporter.reportOn(
                 source ?: classSymbol.serializableOrMetaAnnotationSource(session),
                 FirSerializationErrors.LOCAL_SERIALIZER_USAGE,

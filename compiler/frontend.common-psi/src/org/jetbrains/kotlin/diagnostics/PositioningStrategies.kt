@@ -160,7 +160,7 @@ object PositioningStrategies {
     @JvmField
     val CONTEXT_KEYWORD: PositioningStrategy<PsiElement> = object : PositioningStrategy<PsiElement>() {
         override fun mark(element: PsiElement): List<TextRange> =
-            element.descendants().firstIsInstanceOrNull<KtContextReceiverList>()?.firstChild?.textRange?.let(::markRange)
+            element.descendants().firstIsInstanceOrNull<KtContextParameterList>()?.firstChild?.textRange?.let(::markRange)
                 ?: DEFAULT.mark(element)
     }
 
@@ -680,7 +680,7 @@ object PositioningStrategies {
                 is KtParameter -> markElement(element.valOrVarKeyword ?: element)
                 is KtProperty -> markElement(element.valOrVarKeyword)
                 is KtDestructuringDeclaration -> markElement(element.valOrVarKeyword ?: element)
-                else -> error("Declaration is neither a parameter nor a property: " + element.getElementTextWithContext())
+                else -> markElement(element)
             }
         }
     }
@@ -1069,18 +1069,16 @@ object PositioningStrategies {
         ModifierSetBasedPositioningStrategy(KtTokens.REIFIED_KEYWORD)
 
     val VARIABLE_INITIALIZER: PositioningStrategy<KtElement> = object : PositioningStrategy<KtElement>() {
-        override fun mark(element: KtElement): List<TextRange> {
-            return markElement(
-                when (element) {
-                    is KtProperty -> element.initializer ?: element
-                    // Type reference is used as a target for loop variable type mismatches
-                    is KtParameter -> element.defaultValue ?: element.typeReference ?: element
-                    is KtDestructuringDeclarationEntry -> element.initializer ?: element.typeReference ?: element
-                    is KtBackingField -> element.initializer ?: element
-                    else -> element
-                }
-            )
-        }
+        override fun mark(element: KtElement): List<TextRange> = markElement(
+            when (element) {
+                is KtProperty -> element.equalsToken ?: element.initializer ?: element
+                // Type reference is used as a target for loop variable type mismatches
+                is KtParameter -> element.equalsToken ?: element.defaultValue ?: element.typeReference ?: element
+                is KtDestructuringDeclarationEntry -> element.equalsToken ?: element.initializer ?: element.typeReference ?: element
+                is KtBackingField -> element.equalsToken ?: element.initializer ?: element
+                else -> element
+            }
+        )
     }
 
     val WHOLE_ELEMENT: PositioningStrategy<KtElement> = object : PositioningStrategy<KtElement>() {}
@@ -1255,6 +1253,19 @@ object PositioningStrategies {
     val TYPE_ARGUMENT_LIST_OR_SELF = object : PositioningStrategy<PsiElement>() {
         override fun mark(element: PsiElement): List<TextRange> {
             ((element as? KtQualifiedExpression)?.selectorExpression ?: element).getChildOfType<KtTypeArgumentList>()?.let {
+                return markElement(it)
+            }
+            return super.mark(element)
+        }
+    }
+
+    val TYPE_ARGUMENT_LIST_OR_WITHOUT_RECEIVER = object : PositioningStrategy<PsiElement>() {
+        override fun mark(element: PsiElement): List<TextRange> {
+            val selector = (element as? KtQualifiedExpression)?.selectorExpression
+            (selector ?: element).getChildOfType<KtTypeArgumentList>()?.let {
+                return markElement(it)
+            }
+            selector?.let {
                 return markElement(it)
             }
             return super.mark(element)

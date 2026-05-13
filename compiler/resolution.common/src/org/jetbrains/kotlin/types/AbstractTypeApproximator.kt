@@ -738,7 +738,7 @@ abstract class AbstractTypeApproximator(
                 AbstractTypeChecker.effectiveVariance(parameter.getVariance(), argument.getVariance())
                     ?: return createApproximatedResultForInconsistentArgumentVariance(type, parameter, argument, index, toSuper)
 
-            val simpleArgumentType = argumentType.lowerBoundIfFlexible().originalIfDefinitelyNotNullable()
+            val simpleArgumentType = argumentType.unwrapToSimpleTypeUsingLowerBound()
             val capturedType = simpleArgumentType.asCapturedType()
 
             fun approximateToSuperTypeWithRecursionPrevention(): ApproximationResult? {

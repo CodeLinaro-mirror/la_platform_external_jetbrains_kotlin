@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.fir.types
 
 import org.jetbrains.kotlin.builtins.PrimitiveType
 import org.jetbrains.kotlin.builtins.StandardNames
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.*
@@ -32,6 +33,7 @@ import org.jetbrains.kotlin.types.TypeCheckerState.SupertypesPolicy.LowerIfFlexi
 import org.jetbrains.kotlin.types.TypeSystemCommonBackendContext
 import org.jetbrains.kotlin.types.model.*
 import org.jetbrains.kotlin.utils.exceptions.errorWithAttachment
+import org.jetbrains.kotlin.fir.expressions.withNewTypeSince as coneWithNewTypeSince
 
 interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, TypeCheckerProviderContext, TypeSystemCommonBackendContext {
     val session: FirSession
@@ -183,8 +185,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
 
     override fun CapturedTypeMarker.lowerType(): KotlinTypeMarker? {
         require(this is ConeCapturedType)
-        if (!this.isMarkedNullable) return this.constructor.lowerType
-        return this.constructor.lowerType?.makeNullable()
+        return this.constructor.lowerType
     }
 
     override fun TypeArgumentMarker.isStarProjection(): Boolean {
@@ -387,6 +388,11 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
         return this is ConeClassLikeLookupTag && classId == StandardClassIds.Array
     }
 
+    override fun KotlinTypeMarker.withNewTypeSince(languageFeature: Any, newType: KotlinTypeMarker): KotlinTypeMarker {
+        require(this is ConeKotlinType)
+        return coneWithNewTypeSince(languageFeature as LanguageFeature, newType as ConeKotlinType)
+    }
+
     override fun RigidTypeMarker.isSingleClassifierType(): Boolean {
         if (isError()) return false
         require(this is ConeRigidType)
@@ -514,7 +520,7 @@ interface ConeTypeContext : TypeSystemContext, TypeSystemOptimizationContext, Ty
 
         val argument = when (val argument = annotationCall.argumentMapping.mapping.values.firstOrNull() ?: return null) {
             is FirVarargArgumentsExpression -> argument.arguments.firstOrNull()
-            is FirArrayLiteral -> argument.arguments.firstOrNull()
+            is FirCollectionLiteral -> argument.arguments.firstOrNull()
             is FirNamedArgumentExpression -> argument.expression
             else -> argument
         } ?: return null

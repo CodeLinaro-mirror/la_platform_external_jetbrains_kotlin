@@ -66,6 +66,12 @@ public class CompilerFacilityTestForComposeCompilerPluginGenerated extends Abstr
   }
 
   @Test
+  @TestMetadata("functionReference.kt")
+  public void testFunctionReference() {
+    runTest("plugins/compose/compiler-hosted/testData/codegen/functionReference.kt");
+  }
+
+  @Test
   @TestMetadata("inlineFuncInDependencyOfDependency.kt")
   public void testInlineFuncInDependencyOfDependency() {
     runTest("plugins/compose/compiler-hosted/testData/codegen/inlineFuncInDependencyOfDependency.kt");
@@ -81,6 +87,12 @@ public class CompilerFacilityTestForComposeCompilerPluginGenerated extends Abstr
   @TestMetadata("inlineFunctionReference.kt")
   public void testInlineFunctionReference() {
     runTest("plugins/compose/compiler-hosted/testData/codegen/inlineFunctionReference.kt");
+  }
+
+  @Test
+  @TestMetadata("inlinedLambda.kt")
+  public void testInlinedLambda() {
+    runTest("plugins/compose/compiler-hosted/testData/codegen/inlinedLambda.kt");
   }
 
   @Test
@@ -201,5 +213,11 @@ public class CompilerFacilityTestForComposeCompilerPluginGenerated extends Abstr
   @TestMetadata("valueArgumentForLibraryConstructor.kt")
   public void testValueArgumentForLibraryConstructor() {
     runTest("plugins/compose/compiler-hosted/testData/codegen/valueArgumentForLibraryConstructor.kt");
+  }
+
+  @Test
+  @TestMetadata("versionOverloads.kt")
+  public void testVersionOverloads() {
+    runTest("plugins/compose/compiler-hosted/testData/codegen/versionOverloads.kt");
   }
 }

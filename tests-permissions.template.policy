@@ -22,9 +22,14 @@ grant {
     permission java.util.PropertyPermission "java.ext.dirs", "write";
     permission java.util.PropertyPermission "platform.random.idempotence.check.rate", "write";
     permission java.util.PropertyPermission "apple.awt.UIElement", "write";
+
     // IdeaSystemPropertiesForParallelRunConfigurator
     permission java.util.PropertyPermission "java.io.tmpdir", "write";
     permission java.util.PropertyPermission "ANDROID_SDK_HOME", "write";
+    // DebugAttachDetectorArgs.findDebugArgs
+    permission java.lang.management.ManagementPermission "monitor";
+    // Prevent loading IJ coroutines
+    permission java.util.PropertyPermission "ide.enable.implicit.blocking.context", "write";
     // KotlinTestWithEnvironmentManagement
     permission java.util.PropertyPermission "java.awt.headless", "write";
     // ReplCompilerJava8Test.testIncompatibleScriptJvmTargetProperty
@@ -35,13 +40,31 @@ grant {
     permission java.io.FilePermission "/dev/random", "read";
     permission java.io.FilePermission "/dev/urandom", "read";
 
+
+    // org.jetbrains.kotlin.test.services.KotlinStandardLibrariesPathProvider
+    permission java.util.PropertyPermission "kotlin.reflect.jvm.useK1Implementation", "write";
+    permission java.util.PropertyPermission "kotlin.reflect.jvm.newFakeOverridesImplementation", "write";
+
     // Used by com.intellij.openapi.util.SystemInfo.isCrostini() to detect ChromeOs
     permission java.io.FilePermission "/dev/.cros_milestone", "read";
 
     // com.intellij.openapi.util.registry.EarlyAccessRegistryManager
     permission java.io.FilePermission "some/non/existent/path/early-access-registry.txt", "read";
 
+    // org.jetbrains.kotlin.klib.AbstractKlibLoaderTest
+    permission java.io.FilePermission "non-existing-library2", "read";
+    permission java.io.FilePermission "../non-existing-library3", "read";
+    permission java.io.FilePermission "./non-existing-library4", "read";
+
+    // org.jetbrains.kotlin.cli.klib.ZipTest
+    permission java.nio.file.LinkPermission "symbolic";
+
+    {{extra_permissions}}
+
     {{native}}
+
+    {{js}}
+    {{wasm}}
 
     // Temp directory
     {{temp_dir}}
@@ -58,4 +81,5 @@ grant {
 
     // Allow access to declared input directories
     {{inputs}}
+
 };

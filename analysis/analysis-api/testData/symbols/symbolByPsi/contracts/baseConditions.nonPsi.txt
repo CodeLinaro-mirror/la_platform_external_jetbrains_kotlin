@@ -8,6 +8,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: true
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -19,6 +20,7 @@ KaAnonymousFunctionSymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isVal: true
     location: LOCAL
     modality: FINAL
@@ -69,11 +71,14 @@ KaNamedFunctionSymbol:
                   compilerVisibility: Public
                   contextReceivers: []
                   generatedPrimaryConstructorProperty: null
+                  hasDeclaredDefaultValue: false
                   hasDefaultValue: false
+                  hasSynthesizedName: false
                   isActual: false
                   isCrossinline: false
                   isExpect: false
                   isExtension: false
+                  isExternal: false
                   isImplicitLambdaParameter: false
                   isNoinline: false
                   isVal: true
@@ -125,11 +130,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -156,6 +164,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: decode
 
 KaAnonymousFunctionSymbol:
@@ -168,6 +177,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: true
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -179,6 +189,7 @@ KaAnonymousFunctionSymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isVal: true
     location: LOCAL
     modality: FINAL
@@ -229,11 +240,14 @@ KaNamedFunctionSymbol:
                   compilerVisibility: Public
                   contextReceivers: []
                   generatedPrimaryConstructorProperty: null
+                  hasDeclaredDefaultValue: false
                   hasDefaultValue: false
+                  hasSynthesizedName: false
                   isActual: false
                   isCrossinline: false
                   isExpect: false
                   isExtension: false
+                  isExternal: false
                   isImplicitLambdaParameter: false
                   isNoinline: false
                   isVal: true
@@ -285,11 +299,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -316,6 +333,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: decodeFake
 
 KaAnonymousFunctionSymbol:
@@ -328,6 +346,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: true
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -339,6 +358,7 @@ KaAnonymousFunctionSymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isVal: true
     location: LOCAL
     modality: FINAL
@@ -389,11 +409,14 @@ KaNamedFunctionSymbol:
                   compilerVisibility: Public
                   contextReceivers: []
                   generatedPrimaryConstructorProperty: null
+                  hasDeclaredDefaultValue: false
                   hasDefaultValue: false
+                  hasSynthesizedName: false
                   isActual: false
                   isCrossinline: false
                   isExpect: false
                   isExtension: false
+                  isExternal: false
                   isImplicitLambdaParameter: false
                   isNoinline: false
                   isVal: true
@@ -450,11 +473,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -481,6 +507,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: decodeIfString
 
 KaAnonymousFunctionSymbol:
@@ -493,6 +520,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: true
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -504,6 +532,7 @@ KaAnonymousFunctionSymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isVal: true
     location: LOCAL
     modality: FINAL
@@ -554,11 +583,14 @@ KaNamedFunctionSymbol:
                   compilerVisibility: Public
                   contextReceivers: []
                   generatedPrimaryConstructorProperty: null
+                  hasDeclaredDefaultValue: false
                   hasDefaultValue: false
+                  hasSynthesizedName: false
                   isActual: false
                   isCrossinline: false
                   isExpect: false
                   isExtension: false
+                  isExternal: false
                   isImplicitLambdaParameter: false
                   isNoinline: false
                   isVal: true
@@ -615,11 +647,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -646,4 +681,5 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: decodeNotNumber

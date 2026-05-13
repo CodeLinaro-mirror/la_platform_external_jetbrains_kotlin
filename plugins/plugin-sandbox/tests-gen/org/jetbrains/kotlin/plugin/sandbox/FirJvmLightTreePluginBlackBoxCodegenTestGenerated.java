@@ -84,6 +84,12 @@ public class FirJvmLightTreePluginBlackBoxCodegenTestGenerated extends AbstractF
   }
 
   @Test
+  @TestMetadata("generatedFunctionWithDefaultParameter.kt")
+  public void testGeneratedFunctionWithDefaultParameter() {
+    runTest("plugins/plugin-sandbox/testData/box/generatedFunctionWithDefaultParameter.kt");
+  }
+
+  @Test
   @TestMetadata("inlineableFunction.kt")
   public void testInlineableFunction() {
     runTest("plugins/plugin-sandbox/testData/box/inlineableFunction.kt");
@@ -171,6 +177,12 @@ public class FirJvmLightTreePluginBlackBoxCodegenTestGenerated extends AbstractF
   @TestMetadata("topLevelCallables.kt")
   public void testTopLevelCallables() {
     runTest("plugins/plugin-sandbox/testData/box/topLevelCallables.kt");
+  }
+
+  @Test
+  @TestMetadata("topLevelCallables_multimodule.kt")
+  public void testTopLevelCallables_multimodule() {
+    runTest("plugins/plugin-sandbox/testData/box/topLevelCallables_multimodule.kt");
   }
 
   @Test

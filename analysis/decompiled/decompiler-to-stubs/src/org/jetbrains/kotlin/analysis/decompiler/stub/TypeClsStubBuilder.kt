@@ -90,14 +90,9 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
         val intersectionType = KotlinPlaceHolderStubImpl<KtIntersectionType>(parent, KtStubElementTypes.INTERSECTION_TYPE)
         val leftReference = KotlinPlaceHolderStubImpl<KtTypeReference>(intersectionType, KtStubElementTypes.TYPE_REFERENCE)
         createStubForTypeName(classId, leftReference, upperBoundFun = { upperBoundType })
-        val rightReference = KotlinPlaceHolderStubImpl<KtTypeReference>(intersectionType, KtStubElementTypes.TYPE_REFERENCE)
-        val userType = KotlinUserTypeStubImpl(
-            parent = rightReference,
-            upperBound = null,
-            abbreviatedType = null,
-        )
 
-        KotlinNameReferenceExpressionStubImpl(userType, StandardNames.FqNames.any.shortName().ref(), true)
+        val rightReference = KotlinPlaceHolderStubImpl<KtTypeReference>(intersectionType, KtStubElementTypes.TYPE_REFERENCE)
+        createStubForTypeName(StandardClassIds.Any, rightReference)
     }
 
     private fun createClassReferenceTypeStub(
@@ -413,28 +408,26 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
                 ProtoBuf.ReturnValueStatus.UNSPECIFIED,
             )
 
-            if (Flags.HAS_ANNOTATIONS.get(valueParameterProto.flags)) {
-                val parameterAnnotations = if (isContextParameter) {
-                    c.components.annotationLoader.loadContextParameterAnnotations(
-                        container = container,
-                        callableProto = callableProto,
-                        kind = callableKind,
-                        parameterIndex = index,
-                        proto = valueParameterProto,
-                    )
-                } else {
-                    c.components.annotationLoader.loadValueParameterAnnotations(
-                        container = container,
-                        callableProto = callableProto,
-                        kind = callableKind,
-                        parameterIndex = index,
-                        proto = valueParameterProto,
-                    )
-                }
+            val parameterAnnotations = if (isContextParameter) {
+                c.components.annotationLoader.loadContextParameterAnnotations(
+                    container = container,
+                    callableProto = callableProto,
+                    kind = callableKind,
+                    parameterIndex = index,
+                    proto = valueParameterProto,
+                )
+            } else {
+                c.components.annotationLoader.loadValueParameterAnnotations(
+                    container = container,
+                    callableProto = callableProto,
+                    kind = callableKind,
+                    parameterIndex = index,
+                    proto = valueParameterProto,
+                )
+            }
 
-                if (parameterAnnotations.isNotEmpty()) {
-                    createAnnotationStubs(parameterAnnotations, modifierList ?: createEmptyModifierListStub(parameterStub))
-                }
+            if (parameterAnnotations.isNotEmpty()) {
+                createAnnotationStubs(parameterAnnotations, modifierList ?: createEmptyModifierListStub(parameterStub))
             }
 
             createTypeReferenceStub(parameterStub, typeProto)
@@ -536,11 +529,13 @@ class TypeClsStubBuilder(private val c: ClsStubBuilderContext) {
 
     fun createContextReceiverStubs(parent: StubElement<*>, contextReceiverTypes: List<Type>) {
         if (contextReceiverTypes.isEmpty()) return
-        val contextReceiverListStub =
-            KotlinPlaceHolderStubImpl<KtContextReceiverList>(parent, KtStubElementTypes.CONTEXT_RECEIVER_LIST)
+        val contextReceiverListStub = KotlinPlaceHolderStubImpl<KtContextParameterList>(
+            parent,
+            KtStubElementTypes.CONTEXT_PARAMETER_LIST,
+        )
+
         for (contextReceiverType in contextReceiverTypes) {
-            val contextReceiverStub =
-                KotlinContextReceiverStubImpl(contextReceiverListStub, labelRef = null)
+            val contextReceiverStub = KotlinContextReceiverStubImpl(contextReceiverListStub, labelRef = null)
             createTypeReferenceStub(contextReceiverStub, contextReceiverType)
         }
     }

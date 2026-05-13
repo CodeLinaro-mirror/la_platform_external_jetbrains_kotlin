@@ -6,8 +6,8 @@
 package org.jetbrains.kotlin.js.testOld.klib
 
 import org.jetbrains.kotlin.js.testOld.utils.runJsCompiler
-import org.jetbrains.kotlin.klib.AbstractKlibLoaderTest
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import org.jetbrains.kotlin.library.AbstractKlibLoaderTest
 import org.jetbrains.kotlin.library.KotlinAbiVersion
 import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
@@ -31,6 +31,7 @@ class JsKlibLoaderTest : AbstractKlibLoaderTest() {
             KlibPlatformChecker.Wasm(WasmTarget.WASI.alias),
             KlibPlatformChecker.Native(),
             KlibPlatformChecker.Native(KonanTarget.IOS_ARM64.name),
+            KlibPlatformChecker.NativeMetadata(KonanTarget.IOS_ARM64.name),
         )
 
     override fun compileKlib(

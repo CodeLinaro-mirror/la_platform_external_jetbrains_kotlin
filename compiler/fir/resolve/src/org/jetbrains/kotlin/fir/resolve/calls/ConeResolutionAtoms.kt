@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.fir.resolve.inference.ConeTypeVariableForLambdaRetur
 import org.jetbrains.kotlin.fir.resolve.shouldBeResolvedInContextSensitiveMode
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.utils.exceptions.withFirEntry
+import org.jetbrains.kotlin.resolve.calls.model.CollectionLiteralAtomMarker
 import org.jetbrains.kotlin.resolve.calls.model.LambdaWithTypeVariableAsExpectedTypeMarker
 import org.jetbrains.kotlin.resolve.calls.model.PostponedAtomWithRevisableExpectedType
 import org.jetbrains.kotlin.resolve.calls.model.PostponedCallableReferenceMarker
@@ -86,7 +87,7 @@ sealed class ConeResolutionAtom : AbstractConeResolutionAtom() {
                 null -> null
                 is FirAnonymousFunctionExpression -> ConeResolutionAtomWithPostponedChild(expression)
                 is FirCallableReferenceAccess -> when {
-                    expression.isResolved -> ConeSimpleLeafResolutionAtom(expression, allowUnresolvedExpression)
+                    expression.hasResolvedType -> ConeSimpleLeafResolutionAtom(expression, allowUnresolvedExpression)
                     else -> ConeResolutionAtomWithPostponedChild(expression)
                 }
                 is FirPropertyAccessExpression if expression.shouldBeResolvedInContextSensitiveMode() -> {
@@ -95,6 +96,7 @@ sealed class ConeResolutionAtom : AbstractConeResolutionAtom() {
                         fallbackSubAtom = createRawAtomForResolvable(expression, allowUnresolvedExpression),
                     )
                 }
+                is FirCollectionLiteral -> ConeResolutionAtomWithPostponedChild(expression)
                 is FirResolvable -> createRawAtomForResolvable(expression, allowUnresolvedExpression)
                 is FirSafeCallExpression -> expression.createConeResolutionAtomWithSingleChild(
                     (expression.selector as? FirExpression)?.unwrapSmartcastExpression()
@@ -126,7 +128,7 @@ class ConeSimpleLeafResolutionAtom(override val expression: FirExpression, allow
             checkWithAttachment(
                 allowUnresolvedExpression ||
                         expression.unwrapArgument() is FirFakeArgumentForCallableReference ||
-                        expression.isResolved,
+                        expression.hasResolvedType,
                 { "ConeResolvedAtom should be created only for resolved expressions" }
             ) {
                 withFirEntry("expression", expression)
@@ -157,6 +159,13 @@ class ConeResolutionAtomWithPostponedChild(
 
     fun useFallbackSubAtom() {
         subAtom = fallbackSubAtom
+    }
+
+    fun useFallbackForDisabledCollectionLiterals() {
+        require(expression is FirCollectionLiteral) {
+            "expected atom with ${FirCollectionLiteral::class.simpleName}, got ${expression::class.simpleName}"
+        }
+        subAtom = ConeSimpleLeafResolutionAtom(expression, allowUnresolvedExpression = false)
     }
 
     fun makeFreshCopy(): ConeResolutionAtomWithPostponedChild = ConeResolutionAtomWithPostponedChild(expression, fallbackSubAtom)
@@ -298,7 +307,7 @@ class ConeResolvedCallableReferenceAtom(
 
     val isPostponedBecauseOfAmbiguity: Boolean get() = state == State.POSTPONED_BECAUSE_OF_AMBIGUITY
 
-    val needsResolution: Boolean get() = state.needsResolution
+    override val needsResolution: Boolean get() = state.needsResolution
 
     var resultingReference: FirNamedReference? = null
         private set
@@ -358,6 +367,22 @@ class ConeSimpleNameForContextSensitiveResolution(
     override val inputTypes: Collection<ConeKotlinType> = listOf(expectedType)
     override val outputType: ConeKotlinType?
         get() = null
+}
+
+class ConeCollectionLiteralAtom(
+    override val expression: FirCollectionLiteral,
+    override val expectedType: ConeKotlinType?,
+    val containingCallCandidate: Candidate,
+) : ConePostponedResolvedAtom(), CollectionLiteralAtomMarker {
+    override val inputTypes: Collection<ConeKotlinType> = listOfNotNull(expectedType)
+    override val outputType: ConeKotlinType?
+        get() = null
+
+    var subAtom: ConeAtomWithCandidate? = null
+        set(value) {
+            require(field == null) { "subAtom already initialized" }
+            field = value
+        }
 }
 
 //  -------------------------- Utils --------------------------

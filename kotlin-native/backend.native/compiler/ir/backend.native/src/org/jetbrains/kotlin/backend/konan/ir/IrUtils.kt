@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.util.isSubtypeOfClass
+import org.jetbrains.kotlin.name.NativeRuntimeNames
 
 /**
  * List of all implemented interfaces (including those which implemented by a super class)
@@ -38,9 +39,6 @@ internal val IrClass.implementedInterfaces: List<IrClass>
                 superInterfacesImplementedInterfaces +
                 superInterfaces).distinct()
     }
-
-internal val IrFunction.isTypedIntrinsic: Boolean
-    get() = annotations.hasAnnotation(KonanFqNames.typedIntrinsic)
 
 internal val IrConstructor.isConstantConstructorIntrinsic: Boolean
     get() = annotations.hasAnnotation(KonanFqNames.constantConstructorIntrinsic)
@@ -258,21 +256,6 @@ internal class BridgeDirections(private val array: Array<BridgeDirection>) {
     }
 }
 
-val IrSimpleFunction.allOverriddenFunctions: Set<IrSimpleFunction>
-    get() {
-        val result = mutableSetOf<IrSimpleFunction>()
-
-        fun traverse(function: IrSimpleFunction) {
-            if (function in result) return
-            result += function
-            function.overriddenSymbols.forEach { traverse(it.owner) }
-        }
-
-        traverse(this)
-
-        return result
-    }
-
 internal fun IrSimpleFunction.bridgeDirectionsTo(overriddenFunction: IrSimpleFunction, policy: BridgesPolicy): BridgeDirections {
     val ourDirections = BridgeDirections(this, overriddenFunction, policy)
 
@@ -308,3 +291,6 @@ private val IrFunction.longName: String
     get() = "${(parent as? IrClass)?.name?.asString() ?: "<root>"}.${(this as? IrSimpleFunction)?.name ?: "<init>"}"
 
 val IrFunction.isBuiltInOperator get() = origin == IrBuiltIns.BUILTIN_OPERATOR
+
+internal val IrClass.hasFinalizer: Boolean
+    get() = this.hasAnnotation(NativeRuntimeNames.Annotations.HasFinalizer)

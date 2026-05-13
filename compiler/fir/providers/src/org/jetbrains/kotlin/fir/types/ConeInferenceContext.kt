@@ -86,7 +86,7 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
         if (flexibleType.isTrivial) {
             return ConeFlexibleType(
-                flexibleType.lowerBound.makeConeTypeDefinitelyNotNullOrNotNull(this),
+                flexibleType.lowerBound.makeConeTypeDefinitelyNotNullOrNotNull(this, preserveAttributes = true),
                 flexibleType.upperBound,
                 isTrivial = true
             )
@@ -460,6 +460,12 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
         return false
     }
 
+    @K2Only
+    override fun KotlinTypeMarker.hasEnhancedNullability(): Boolean {
+        require(this is ConeKotlinType)
+        return hasEnhancedNullability
+    }
+
     override fun TypeConstructorMarker.isTypeVariable(): Boolean {
         return this is ConeTypeVariableTypeConstructor
     }
@@ -715,4 +721,7 @@ interface ConeInferenceContext : TypeSystemInferenceExtensionContext, ConeTypeCo
 
     override val isK2: Boolean
         get() = true
+
+    override val lexicographicVariableReadinessCalculation: Boolean
+        get() = session.languageVersionSettings.supportsFeature(LanguageFeature.LexicographicVariableReadinessCalculation)
 }

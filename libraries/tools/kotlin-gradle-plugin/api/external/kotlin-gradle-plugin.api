@@ -251,8 +251,10 @@ public abstract class org/jetbrains/kotlin/gradle/dsl/KotlinMultiplatformExtensi
 public abstract class org/jetbrains/kotlin/gradle/dsl/KotlinProjectExtension : org/gradle/api/plugins/ExtensionAware, org/jetbrains/kotlin/gradle/dsl/KotlinBaseExtension, org/jetbrains/kotlin/gradle/plugin/HasProject, org/jetbrains/kotlin/tooling/core/HasMutableExtras {
 	public field coreLibrariesVersion Ljava/lang/String;
 	public fun <init> (Lorg/gradle/api/Project;)V
+	public fun abiValidation (Lorg/gradle/api/Action;)V
 	public fun explicitApi ()V
 	public fun explicitApiWarning ()V
+	public fun getAbiValidation ()Lorg/jetbrains/kotlin/gradle/dsl/abi/AbiValidationExtension;
 	public fun getCompilerVersion ()Lorg/gradle/api/provider/Property;
 	public fun getCoreLibrariesVersion ()Ljava/lang/String;
 	public fun getExplicitApi ()Lorg/jetbrains/kotlin/gradle/dsl/ExplicitApiMode;
@@ -1037,6 +1039,8 @@ public final class org/jetbrains/kotlin/gradle/plugin/mpp/Framework : org/jetbra
 public abstract class org/jetbrains/kotlin/gradle/plugin/mpp/NativeBinary : org/gradle/api/Named {
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;Lorg/jetbrains/kotlin/gradle/plugin/mpp/NativeBuildType;Lorg/jetbrains/kotlin/gradle/plugin/mpp/KotlinNativeCompilation;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun binaryOption (Ljava/lang/String;Ljava/lang/String;)V
+	public final fun disableNativeCache (Lorg/jetbrains/kotlin/gradle/plugin/mpp/DisableCacheInKotlinVersion;Ljava/lang/String;Ljava/net/URI;)V
+	public static synthetic fun disableNativeCache$default (Lorg/jetbrains/kotlin/gradle/plugin/mpp/NativeBinary;Lorg/jetbrains/kotlin/gradle/plugin/mpp/DisableCacheInKotlinVersion;Ljava/lang/String;Ljava/net/URI;ILjava/lang/Object;)V
 	public fun getBaseName ()Ljava/lang/String;
 	public final fun getBinaryOptions ()Ljava/util/Map;
 	public final fun getBuildType ()Lorg/jetbrains/kotlin/gradle/plugin/mpp/NativeBuildType;

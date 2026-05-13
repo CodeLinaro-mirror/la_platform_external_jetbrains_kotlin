@@ -202,6 +202,7 @@ fun deserializeClassToSymbol(
                     ).apply {
                         isStatic = true
                     }
+                    isLocal = false
                     resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
                 }.apply {
                     containingClassForStaticMemberAttr = context.dispatchReceiver!!.lookupTag
@@ -298,7 +299,7 @@ fun FirRegularClassBuilder.addCloneForArrayIfNeeded(classId: ClassId, dispatchRe
             isMarkedNullable = false
         )
     }
-    declarations += buildSimpleFunction {
+    declarations += buildNamedFunction {
         moduleData = this@addCloneForArrayIfNeeded.moduleData
         origin = FirDeclarationOrigin.Library
         resolvePhase = FirResolvePhase.ANALYZED_DEPENDENCIES
@@ -321,6 +322,7 @@ fun FirRegularClassBuilder.addCloneForArrayIfNeeded(classId: ClassId, dispatchRe
         status = FirResolvedDeclarationStatusImpl(Visibilities.Public, Modality.FINAL, EffectiveVisibility.Public).apply {
             isOverride = true
         }
+        isLocal = false
         name = StandardClassIds.Callables.clone.callableName
         symbol = FirNamedFunctionSymbol(CallableId(classId, name))
         dispatchReceiverType = dispatchReceiver!!

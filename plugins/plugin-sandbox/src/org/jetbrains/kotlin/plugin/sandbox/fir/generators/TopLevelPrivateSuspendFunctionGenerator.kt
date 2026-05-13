@@ -47,6 +47,7 @@ internal class TopLevelPrivateSuspendFunctionGenerator(session: FirSession) : Fi
         val function = createTopLevelFunction(Key, callableId, session.builtinTypes.unitType.coneType) {
             visibility = Visibilities.Private
             status { isSuspend = true }
+            withGeneratedDefaultBody()
         }
         return listOf(function.symbol)
     }
@@ -55,7 +56,7 @@ internal class TopLevelPrivateSuspendFunctionGenerator(session: FirSession) : Fi
         return matchedPackageNames.map { CallableId(it, TEST_FUN_NAME) }.toSet()
     }
 
-    object Key : GeneratedDeclarationKey()
+    data object Key : GeneratedDeclarationKey()
 
     override fun FirDeclarationPredicateRegistrar.registerPredicates() {
         register(PREDICATE)

@@ -122,7 +122,6 @@ abstract class IrTreeSymbolsVisitor : IrTypeVisitorVoid(), SymbolVisitor {
         visitDeclaredReplSnippet(declaration, declaration.symbol)
         declaration.stateObject?.let { visitReferencedClass(declaration, it) }
         declaration.targetClass?.let { visitReferencedClass(declaration, it) }
-        declaration.returnType?.let { visitTypeRecursively(declaration, it) }
         visitDeclaration(declaration)
     }
 
@@ -197,6 +196,10 @@ abstract class IrTreeSymbolsVisitor : IrTypeVisitorVoid(), SymbolVisitor {
     override fun visitConstructorCall(expression: IrConstructorCall) {
         visitReferencedConstructor(expression, expression.symbol)
         visitFunctionAccess(expression)
+    }
+
+    override fun visitAnnotation(expression: IrAnnotation) {
+        visitConstructorCall(expression)
     }
 
     override fun visitSingletonReference(expression: IrGetSingletonValue) {

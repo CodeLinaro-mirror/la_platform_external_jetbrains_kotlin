@@ -21,11 +21,13 @@ package org.jetbrains.kotlin.cli.common
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
 import org.jetbrains.kotlin.analyzer.CompilationErrorException
+import org.jetbrains.kotlin.cli.CliDiagnostics
 import org.jetbrains.kotlin.cli.common.ExitCode.*
 import org.jetbrains.kotlin.cli.common.arguments.*
 import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
 import org.jetbrains.kotlin.cli.common.messages.*
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
+import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.compiler.CompileEnvironmentException
 import org.jetbrains.kotlin.cli.jvm.compiler.setupIdeaStandaloneExecution
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
@@ -95,7 +97,7 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
             performanceManager.enableExtendedStats()
         }
 
-        val configuration = CompilerConfiguration()
+        val configuration = CompilerConfiguration.create()
 
         configuration.put(CLIConfigurationKeys.ORIGINAL_MESSAGE_COLLECTOR_KEY, messageCollector)
 
@@ -208,11 +210,10 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
         val pluginOptions = arguments.pluginOptions.orEmpty().toMutableList()
         val pluginConfigurations = arguments.pluginConfigurations?.asList().orEmpty()
         val pluginOrderConstraints = arguments.pluginOrderConstraints?.asList().orEmpty()
-        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
 
         val useK2 = configuration.get(CommonConfigurationKeys.USE_FIR) == true
 
-        if (!checkPluginsArguments(messageCollector, useK2, pluginClasspaths, pluginOptions, pluginConfigurations)) {
+        if (!checkPluginsArguments(configuration, useK2, pluginClasspaths, pluginOptions, pluginConfigurations)) {
             return INTERNAL_ERROR
         }
 
@@ -235,7 +236,7 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
                 if (missingJars.isEmpty()) {
                     scriptingPluginClasspath.addAll(0, jars.map { it.canonicalPath })
                 } else {
-                    messageCollector.report(
+                    configuration.messageCollector.report(
                         LOGGING,
                         "Scripting plugin will not be loaded: not all required jars are present in the classpath (missing files: $missingJars)"
                     )
@@ -322,9 +323,11 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
 
             errStream.print(messageRenderer.renderPreamble())
 
-            val errorMessage = validateArguments(arguments.errors)
-            if (errorMessage != null) {
-                collector.report(ERROR, errorMessage, null)
+            val errorMessages = validateArgumentsAllErrors(arguments.errors)
+            if (errorMessages.isNotEmpty()) {
+                errorMessages.forEach {
+                    collector.report(ERROR, it, null)
+                }
                 collector.report(INFO, "Use -help for more information", null)
                 return COMPILATION_ERROR
             }
@@ -444,13 +447,15 @@ abstract class CLICompiler<A : CommonCompilerArguments> {
 }
 
 fun checkPluginsArguments(
-    messageCollector: MessageCollector,
+    configuration: CompilerConfiguration,
     useK2: Boolean,
     pluginClasspaths: List<String>,
     pluginOptions: List<String>,
     pluginConfigurations: List<String>
 ): Boolean {
     var hasErrors = false
+
+    val messageCollector = configuration.messageCollector
 
     for (classpath in pluginClasspaths) {
         if (!File(classpath).exists()) {
@@ -459,7 +464,8 @@ fun checkPluginsArguments(
     }
 
     if (pluginConfigurations.isNotEmpty()) {
-        messageCollector.report(WARNING, "Argument -Xcompiler-plugin is experimental")
+        configuration.reportDiagnostic(CliDiagnostics.COMPILER_PLUGIN_ARG_IS_EXPERIMENTAL, "Argument -Xcompiler-plugin is experimental")
+
         if (!useK2) {
             hasErrors = true
             messageCollector.report(
