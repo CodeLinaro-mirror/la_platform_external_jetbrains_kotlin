@@ -4570,6 +4570,18 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       public void testInPlaceAfterVararg() {
         runTest("compiler/fir/analysis-tests/testData/resolve/contracts/inPlaceAfterVararg.kt");
       }
+
+      @Test
+      @TestMetadata("substitutedFunctionWithContract.kt")
+      public void testSubstitutedFunctionWithContract() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contracts/substitutedFunctionWithContract.kt");
+      }
+
+      @Test
+      @TestMetadata("substitutedPropertyAccessorWithContract.kt")
+      public void testSubstitutedPropertyAccessorWithContract() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/contracts/substitutedPropertyAccessorWithContract.kt");
+      }
     }
 
     @Nested
@@ -4679,6 +4691,12 @@ public class LLReversedDiagnosticsFirTestGenerated extends AbstractLLReversedDia
       @TestMetadata("deprecationOfParensShortFormWithNameMismatch.kt")
       public void testDeprecationOfParensShortFormWithNameMismatch() {
         runTest("compiler/fir/analysis-tests/testData/resolve/destructuring/deprecationOfParensShortFormWithNameMismatch.kt");
+      }
+
+      @Test
+      @TestMetadata("destructuringVariableNamedValue.kt")
+      public void testDestructuringVariableNamedValue() {
+        runTest("compiler/fir/analysis-tests/testData/resolve/destructuring/destructuringVariableNamedValue.kt");
       }
 
       @Test
