@@ -90,6 +90,11 @@ class JsPrecedenceVisitor extends JsVisitor {
     }
 
     @Override
+    public void visitYieldStar(@NotNull JsYieldStar yield) {
+        answer = 2; // https://esdiscuss.org/topic/precedence-of-yield-operator
+    }
+
+    @Override
     public void visitNameRef(@NotNull JsNameRef nameRef) {
         if (nameRef.isLeaf()) {
             answer = 17; // primary
@@ -155,12 +160,27 @@ class JsPrecedenceVisitor extends JsVisitor {
     }
 
     @Override
+    public void visitTemplateString(@NotNull JsTemplateStringLiteral x) {
+        if (x.getTag() != null) {
+            answer = 2;
+        }
+        else {
+            answer = 17; // primary
+        }
+    }
+
+    @Override
     public void visitThis(@NotNull JsThisRef x) {
         answer = 17; // primary
     }
 
     @Override
     public void visitSuper(@NotNull JsSuperRef x) {
+        answer = 17; // primary
+    }
+
+    @Override
+    public void visitSpread(@NotNull JsSpread x) {
         answer = 17; // primary
     }
 

@@ -11,19 +11,24 @@ import org.jetbrains.kotlin.load.java.DescriptorsJvmAbiUtil
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.resolve.DescriptorFactory
 import org.jetbrains.kotlin.resolve.DescriptorUtils
+import org.jetbrains.kotlin.resolve.descriptorUtil.builtIns
+import org.jetbrains.kotlin.resolve.descriptorUtil.classId
+import org.jetbrains.kotlin.resolve.isInlineClass
 import org.jetbrains.kotlin.resolve.isUnderlyingPropertyOfInlineClass
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedPropertyDescriptor
 import org.jetbrains.kotlin.types.TypeUtils
-import java.lang.reflect.*
+import java.lang.reflect.Field
+import java.lang.reflect.Member
+import java.lang.reflect.Modifier
+import java.lang.reflect.Type
 import kotlin.LazyThreadSafetyMode.PUBLICATION
 import kotlin.jvm.internal.CallableReference
 import kotlin.reflect.KFunction
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KProperty
-import kotlin.reflect.full.IllegalPropertyDelegateAccessException
 import kotlin.reflect.jvm.internal.JvmPropertySignature.*
 import kotlin.reflect.jvm.internal.calls.*
-import kotlin.reflect.jvm.isAccessible
+import kotlin.reflect.jvm.internal.types.DescriptorKType
 
 internal abstract class DescriptorKProperty<out V> private constructor(
     override val container: KDeclarationContainerImpl,
@@ -31,23 +36,26 @@ internal abstract class DescriptorKProperty<out V> private constructor(
     override val signature: String,
     descriptorInitialValue: PropertyDescriptor?,
     override val rawBoundReceiver: Any?,
-) : DescriptorKCallable<V>(), ReflectKProperty<V> {
+    overriddenStorage: KCallableOverriddenStorage,
+) : DescriptorKCallable<V>(overriddenStorage), ReflectKProperty<V> {
     constructor(container: KDeclarationContainerImpl, name: String, signature: String, boundReceiver: Any?) : this(
-        container, name, signature, null, boundReceiver,
+        container, name, signature, null, boundReceiver, KCallableOverriddenStorage.EMPTY
     )
 
-    constructor(container: KDeclarationContainerImpl, descriptor: PropertyDescriptor) : this(
+    constructor(
+        container: KDeclarationContainerImpl,
+        descriptor: PropertyDescriptor,
+        overriddenStorage: KCallableOverriddenStorage,
+    ) : this(
         container,
         descriptor.name.asString(),
         RuntimeTypeMapper.mapPropertySignature(descriptor).asString(),
         descriptor,
         CallableReference.NO_RECEIVER,
+        overriddenStorage,
     )
 
-    val boundReceiver: Any?
-        get() = rawBoundReceiver.coerceToExpectedReceiverType(descriptor)
-
-    private val _javaField = lazy(PUBLICATION) {
+    override val javaField: Field? by lazy(PUBLICATION) {
         when (val jvmSignature = RuntimeTypeMapper.mapPropertySignature(descriptor)) {
             is KotlinProperty -> {
                 val descriptor = jvmSignature.descriptor
@@ -74,8 +82,6 @@ internal abstract class DescriptorKProperty<out V> private constructor(
         }
     }
 
-    override val javaField: Field? get() = _javaField.value
-
     protected fun computeDelegateSource(): Member? {
         if (!descriptor.isDelegated) return null
         val jvmSignature = RuntimeTypeMapper.mapPropertySignature(descriptor)
@@ -89,46 +95,20 @@ internal abstract class DescriptorKProperty<out V> private constructor(
         return javaField
     }
 
-    protected fun getDelegateImpl(fieldOrMethod: Member?, receiver1: Any?, receiver2: Any?): Any? =
-        try {
-            if (receiver1 === EXTENSION_PROPERTY_DELEGATE || receiver2 === EXTENSION_PROPERTY_DELEGATE) {
-                if (descriptor.extensionReceiverParameter == null) {
-                    throw RuntimeException(
-                        "'$this' is not an extension property and thus getExtensionDelegate() " +
-                                "is not going to work, use getDelegate() instead"
-                    )
-                }
-            }
-
-            val realReceiver1 = (if (isBound) boundReceiver else receiver1).takeIf { it !== EXTENSION_PROPERTY_DELEGATE }
-            val realReceiver2 = (if (isBound) receiver1 else receiver2).takeIf { it !== EXTENSION_PROPERTY_DELEGATE }
-            (fieldOrMethod as? AccessibleObject)?.isAccessible = isAccessible
-            when (fieldOrMethod) {
-                null -> null
-                is Field -> fieldOrMethod.get(realReceiver1)
-                is Method -> when (fieldOrMethod.parameterTypes.size) {
-                    0 -> fieldOrMethod.invoke(null)
-                    1 -> fieldOrMethod.invoke(null, realReceiver1 ?: defaultPrimitiveValue(fieldOrMethod.parameterTypes[0]))
-                    2 -> fieldOrMethod.invoke(null, realReceiver1, realReceiver2 ?: defaultPrimitiveValue(fieldOrMethod.parameterTypes[1]))
-                    else -> throw AssertionError("delegate method $fieldOrMethod should take 0, 1, or 2 parameters")
-                }
-                else -> throw AssertionError("delegate field/method $fieldOrMethod neither field nor method")
-            }
-        } catch (e: IllegalAccessException) {
-            throw IllegalPropertyDelegateAccessException(e)
-        }
-
     abstract override val getter: Getter<V>
 
-    private val _descriptor = ReflectProperties.lazySoft(descriptorInitialValue) {
+    override val descriptor: PropertyDescriptor by ReflectProperties.lazySoft(descriptorInitialValue) {
         container.findPropertyDescriptor(name, signature)
     }
-
-    override val descriptor: PropertyDescriptor get() = _descriptor()
 
     override val caller: Caller<*> get() = getter.caller
 
     override val defaultCaller: Caller<*>? get() = getter.defaultCaller
+
+    override fun computeReturnType(): DescriptorKType =
+        DescriptorKType(descriptor.returnType!!, if (isLocalDelegated) null else fun(): Type {
+            return caller.returnType
+        })
 
     override val isLateinit: Boolean get() = descriptor.isLateInit
 
@@ -148,7 +128,9 @@ internal abstract class DescriptorKProperty<out V> private constructor(
         ReflectionObjectRenderer.renderProperty(this)
 
     abstract class Accessor<out PropertyType, out ReturnType> :
-        DescriptorKCallable<ReturnType>(), KProperty.Accessor<PropertyType>, KFunction<ReturnType> {
+        DescriptorKCallable<ReturnType>(KCallableOverriddenStorage.EMPTY),
+        KProperty.Accessor<PropertyType>,
+        KFunction<ReturnType> {
         abstract override val property: DescriptorKProperty<PropertyType>
 
         abstract override val descriptor: PropertyAccessorDescriptor
@@ -169,14 +151,21 @@ internal abstract class DescriptorKProperty<out V> private constructor(
     abstract class Getter<out V> : Accessor<V, V>(), KProperty.Getter<V> {
         override val name: String get() = "<get-${property.name}>"
 
+        final override fun shallowCopy(overriddenStorage: KCallableOverriddenStorage): DescriptorKCallable<V> =
+            error("Property accessors can only be copied by copying the corresponding property")
+
         override val descriptor: PropertyGetterDescriptor by ReflectProperties.lazySoft {
-            // TODO: default getter created this way won't have any source information
-            property.descriptor.getter ?: DescriptorFactory.createDefaultGetter(property.descriptor, Annotations.EMPTY)
+            property.descriptor.getter ?: DescriptorFactory.createDefaultGetter(property.descriptor, Annotations.EMPTY).apply {
+                initialize(property.descriptor.type)
+            }
         }
 
         override val caller: Caller<*> by lazy(PUBLICATION) {
             computeCallerForAccessor(isGetter = true)
         }
+
+        override fun computeReturnType(): DescriptorKType =
+            property.returnType as DescriptorKType
 
         override fun toString(): String = "getter of $property"
 
@@ -190,14 +179,19 @@ internal abstract class DescriptorKProperty<out V> private constructor(
     abstract class Setter<V> : Accessor<V, Unit>(), KMutableProperty.Setter<V> {
         override val name: String get() = "<set-${property.name}>"
 
+        final override fun shallowCopy(overriddenStorage: KCallableOverriddenStorage): DescriptorKCallable<Unit> =
+            error("Property accessors can only be copied by copying the corresponding property")
+
         override val descriptor: PropertySetterDescriptor by ReflectProperties.lazySoft {
-            // TODO: default setter created this way won't have any source information
             property.descriptor.setter ?: DescriptorFactory.createDefaultSetter(property.descriptor, Annotations.EMPTY, Annotations.EMPTY)
         }
 
         override val caller: Caller<*> by lazy(PUBLICATION) {
             computeCallerForAccessor(isGetter = false)
         }
+
+        override fun computeReturnType(): DescriptorKType =
+            DescriptorKType(descriptor.builtIns.unitType) { Void.TYPE }
 
         override fun toString(): String = "setter of $property"
 
@@ -270,7 +264,7 @@ private fun DescriptorKProperty.Accessor<*, *>.computeCallerForAccessor(isGetter
                         property.descriptor.visibility == DescriptorVisibilities.INTERNAL
                     ) {
                         val unboxMethod =
-                            property.descriptor.containingDeclaration.toInlineClass()?.getInlineClassUnboxMethod(property.descriptor)
+                            property.descriptor.containingDeclaration.toInlineClass()?.getInlineClassUnboxMethod(property)
                                 ?: throw KotlinReflectionInternalError("Underlying property of inline class $property should have a field")
                         if (isBound) InternalUnderlyingValOfInlineClass.Bound(unboxMethod, boundReceiver)
                         else InternalUnderlyingValOfInlineClass.Unbound(unboxMethod)
@@ -315,8 +309,14 @@ private fun DescriptorKProperty.Accessor<*, *>.computeCallerForAccessor(isGetter
             return if (isBound) CallerImpl.Method.BoundInstance(accessor, boundReceiver)
             else CallerImpl.Method.Instance(accessor)
         }
-    }.createValueClassAwareCallerIfNeeded(descriptor)
+    }.createValueClassAwareCallerIfNeeded(this, isDefault = false, forbidUnboxingForIndices = emptyList())
 }
+
+private fun DeclarationDescriptor?.toInlineClass(): Class<*>? =
+    if (this is ClassDescriptor && isInlineClass())
+        toJavaClass() ?: throw KotlinReflectionInternalError("Class object for the class $name cannot be found (classId=$classId)")
+    else
+        null
 
 private fun PropertyDescriptor.isJvmFieldPropertyInCompanionObject(): Boolean {
     val container = containingDeclaration

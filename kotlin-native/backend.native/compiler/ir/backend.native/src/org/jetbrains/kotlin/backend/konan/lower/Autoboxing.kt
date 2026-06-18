@@ -197,7 +197,7 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
                 erasedExpectedClass.partialLinkageStatus is ClassifierPartialLinkageStatus.Unusable -> {
                     this
                 }
-                //expectedType.isNothing() -> this // TODO
+                expectedType.isNullableNothing() -> this // Work around KT-82040. Remove when K1 is deprecated.
                 insertSafeCasts && !skipTypeCheck
                         // For type parameters, actualClass is null, and we
                         // conservatively insert type check for them (due to unsafe casts).
@@ -221,7 +221,7 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
                 return it
             }
             val parameter = conversion.owner.parameters.single()
-            val argument = if (insertSafeCasts && !skipTypeCheck && expectedType.isInlinedNative())
+            val argument = if (insertSafeCasts && !skipTypeCheck && expectedType.isInlinedNative() && !actualType.isNothing())
                 this.checkedCast(actualType, conversion.owner.returnType)
             else this
 
@@ -549,7 +549,9 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
                     }
                 })
             }
-            +irReturn(genReturnValue())
+            // return Unit will be added anyway by ReturnsInsertionLowering.
+            if (!irConstructor.isPrimary)
+                +irReturn(genReturnValue())
         }
     }
 

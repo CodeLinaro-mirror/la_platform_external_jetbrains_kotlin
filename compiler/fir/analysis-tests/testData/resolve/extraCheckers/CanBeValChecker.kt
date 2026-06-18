@@ -115,7 +115,7 @@ fun foo() {
     if (bool) <!ASSIGNED_VALUE_IS_NEVER_READ!>a<!> = 4 else <!ASSIGNED_VALUE_IS_NEVER_READ!>a<!> = 42
     val <!VARIABLE_NEVER_READ!>b<!>: String
 
-    <!ASSIGNED_VALUE_IS_NEVER_READ!>b<!> = <!ASSIGNMENT_TYPE_MISMATCH!>false<!>
+    <!ASSIGNED_VALUE_IS_NEVER_READ!>b<!> <!ASSIGNMENT_TYPE_MISMATCH!>=<!> false
 }
 
 fun cycles() {
@@ -212,8 +212,8 @@ class C {
 }
 
 fun withDelegate() {
-    var <!VARIABLE_NEVER_READ!>s<!>: String by Delegates.notNull()
-    <!ASSIGNED_VALUE_IS_NEVER_READ!>s<!> = ""
+    var s: String by Delegates.notNull()
+    s = ""
 }
 
 /* GENERATED_FIR_TAGS: additiveExpression, andExpression, asExpression, assignment, classDeclaration, classReference,

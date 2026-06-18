@@ -40,6 +40,7 @@ internal class KaFe10Session(
     visibilityChecker = KaFe10VisibilityChecker(analysisSessionProvider),
     originalPsiProvider = KaFe10OriginalPsiProvider(analysisSessionProvider),
     typeCreator = KaFe10TypeCreator(analysisSessionProvider),
+    typeCreatorProvider = KaFe10TypeCreatorProvider(analysisSessionProvider),
     analysisScopeProvider = KaBaseAnalysisScopeProviderImpl(analysisSessionProvider, resolutionScope),
     signatureSubstitutor = KaFe10SignatureSubstitutor(analysisSessionProvider),
     resolveExtensionInfoProvider = KaFe10ResolveExtensionInfoProvider(analysisSessionProvider),
@@ -47,5 +48,6 @@ internal class KaFe10Session(
     compilerFacility = KaFe10CompilerFacility(analysisSessionProvider),
     substitutorProvider = KaFe10SubstitutorProvider(analysisSessionProvider),
     dataFlowProvider = KaFe10DataFlowProvider(analysisSessionProvider),
-    sourceProvider = KaFe10SourceProvider(analysisSessionProvider)
+    sourceProvider = KaFe10SourceProvider(analysisSessionProvider),
+    kDocProvider = KaFe10KDocProvider(analysisSessionProvider),
 )

@@ -1,7 +1,10 @@
-// RUN_PIPELINE_TILL: FRONTEND
+// RUN_PIPELINE_TILL: BACKEND
 // IGNORE_FIR_DIAGNOSTICS
 // LANGUAGE: +ContextParameters
 // WITH_STDLIB
+// LL_FIR_DIVERGENCE
+// Extra diagnostic in metadata compilation
+// LL_FIR_DIVERGENCE
 
 // MODULE: m1-common
 // FILE: common.kt

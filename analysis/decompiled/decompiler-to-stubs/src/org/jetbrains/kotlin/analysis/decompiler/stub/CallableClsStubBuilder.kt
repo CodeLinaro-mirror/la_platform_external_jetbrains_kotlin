@@ -25,7 +25,7 @@ import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmProtoBufUtil
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.protobuf.MessageLite
-import org.jetbrains.kotlin.psi.KtContextReceiverList
+import org.jetbrains.kotlin.psi.KtContextParameterList
 import org.jetbrains.kotlin.psi.KtParameterList
 import org.jetbrains.kotlin.psi.stubs.KotlinPropertyStub
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
@@ -57,14 +57,14 @@ fun createDeclarationsStubs(
     propertyProtos: List<ProtoBuf.Property>,
 ) {
     for (propertyProto in propertyProtos) {
-        if (mustNotBeWrittenToStubs(propertyProto.flags)) {
+        if (mustNotBeWrittenToStubs(propertyProto.flags) || Flags.IS_STATIC_PROPERTY.get(propertyProto.flags)) {
             continue
         }
 
         PropertyClsStubBuilder(parentStub, outerContext, protoContainer, propertyProto).build()
     }
     for (functionProto in functionProtos) {
-        if (mustNotBeWrittenToStubs(functionProto.flags)) {
+        if (mustNotBeWrittenToStubs(functionProto.flags) || Flags.IS_STATIC_FUNCTION.get(functionProto.flags)) {
             continue
         }
 
@@ -164,9 +164,9 @@ abstract class CallableClsStubBuilder(
             return typeStubBuilder.createContextReceiverStubs(modifierListStub, contextReceiverTypes)
         }
 
-        val contextReceiverListStub = KotlinPlaceHolderStubImpl<KtContextReceiverList>(
+        val contextReceiverListStub = KotlinPlaceHolderStubImpl<KtContextParameterList>(
             modifierListStub,
-            KtStubElementTypes.CONTEXT_RECEIVER_LIST,
+            KtStubElementTypes.CONTEXT_PARAMETER_LIST,
         )
 
         typeStubBuilder.createValueParameterStubs(
@@ -243,9 +243,6 @@ private class FunctionClsStubBuilder(
             returnValueStatus = Flags.RETURN_VALUE_STATUS_FUNCTION,
         )
 
-        // If function is marked as having no annotations, we don't create stubs for it
-        if (!Flags.HAS_ANNOTATIONS.get(flags)) return
-
         val annotations = c.components.annotationLoader.loadCallableAnnotations(
             protoContainer, functionProto, AnnotatedCallableKind.FUNCTION
         )
@@ -320,9 +317,6 @@ private class PropertyClsStubBuilder(
             returnValueStatus = Flags.RETURN_VALUE_STATUS_PROPERTY,
         )
 
-        // If field is marked as having no annotations, we don't create stubs for it
-        if (!Flags.HAS_ANNOTATIONS.get(flags)) return
-
         val propertyAnnotations =
             c.components.annotationLoader.loadCallableAnnotations(protoContainer, propertyProto, AnnotatedCallableKind.PROPERTY)
         val backingFieldAnnotations =
@@ -384,7 +378,7 @@ private class PropertyClsStubBuilder(
             getDefaultPropertyAccessorFlags(propertyFlags)
         }
 
-        val annotations = loadAccessorAnnotations(getterFlags, AnnotatedCallableKind.PROPERTY_GETTER)
+        val annotations = loadAccessorAnnotations(AnnotatedCallableKind.PROPERTY_GETTER)
         if (annotations.isEmpty() && !shouldGenerateAccessor(propertyFlags = propertyFlags, accessorFlags = getterFlags)) {
             return
         }
@@ -426,7 +420,7 @@ private class PropertyClsStubBuilder(
             getDefaultPropertyAccessorFlags(propertyFlags)
         }
 
-        val annotations = loadAccessorAnnotations(setterFlags, AnnotatedCallableKind.PROPERTY_SETTER)
+        val annotations = loadAccessorAnnotations(AnnotatedCallableKind.PROPERTY_SETTER)
         if (annotations.isEmpty() && !shouldGenerateAccessor(propertyFlags = propertyFlags, accessorFlags = setterFlags)) {
             return
         }
@@ -463,9 +457,6 @@ private class PropertyClsStubBuilder(
         }
     }
 
-    /**
-     * [Flags.HAS_ANNOTATIONS] is not used here as it is checked separately by [loadAccessorAnnotations]
-     */
     private fun shouldGenerateAccessor(propertyFlags: Int, accessorFlags: Int): Boolean = when {
         Flags.IS_NOT_DEFAULT.get(accessorFlags) -> true
         Flags.IS_INLINE_ACCESSOR.get(accessorFlags) -> true
@@ -489,17 +480,13 @@ private class PropertyClsStubBuilder(
     )
 
     private fun loadAccessorAnnotations(
-        accessorFlags: Int,
         callableKind: AnnotatedCallableKind,
-    ): List<AnnotationWithArgs> = if (Flags.HAS_ANNOTATIONS[accessorFlags]) {
+    ): List<AnnotationWithArgs> =
         c.components.annotationLoader.loadCallableAnnotations(
             protoContainer,
             propertyProto,
             callableKind,
         )
-    } else {
-        emptyList()
-    }
 
     private fun createModifierListAndAnnotationStubsForAccessor(
         accessorStub: KotlinPropertyAccessorStubImpl,
@@ -629,9 +616,6 @@ private class ConstructorClsStubBuilder(
             flagsToTranslate = listOf(VISIBILITY),
             returnValueStatus = Flags.RETURN_VALUE_STATUS_CTOR,
         )
-
-        // If constructor is marked as having no annotations, we don't create stubs for it
-        if (!Flags.HAS_ANNOTATIONS.get(flags)) return
 
         val annotationIds = c.components.annotationLoader.loadCallableAnnotations(
             protoContainer, constructorProto, AnnotatedCallableKind.FUNCTION

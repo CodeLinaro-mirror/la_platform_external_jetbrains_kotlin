@@ -1,5 +1,5 @@
-// RUN_PIPELINE_TILL: BACKEND
-// LANGUAGE: +ContextReceivers
+// RUN_PIPELINE_TILL: FRONTEND
+// LANGUAGE: +ContextReceivers, -ContextParameters
 // WITH_STDLIB
 // ISSUE: KT-55639
 

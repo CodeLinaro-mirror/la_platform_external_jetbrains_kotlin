@@ -44,6 +44,7 @@ import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.backend.js.JsFactories
 import org.jetbrains.kotlin.config.zipFileSystemAccessor
 import org.jetbrains.kotlin.library.isAnyPlatformStdlib
+import org.jetbrains.kotlin.library.loader.KlibLibraryProvider
 import org.jetbrains.kotlin.library.loader.KlibLoader
 import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.library.metadata.CurrentKlibModuleOrigin
@@ -76,7 +77,7 @@ import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
 import org.jetbrains.kotlin.test.services.configuration.JsEnvironmentConfigurator
-import org.jetbrains.kotlin.test.services.configuration.NativeEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.getDependencies
 import org.jetbrains.kotlin.test.services.configuration.nativeEnvironmentConfigurator
 import org.jetbrains.kotlin.test.util.KtTestUtil
@@ -211,7 +212,7 @@ class ClassicFrontendFacade(
 
         val moduleTrace = NoScopeRecordCliBindingTrace(project)
         if (module.dependsOnDependencies.isEmpty()) {
-            @Suppress("DEPRECATION")
+            @Suppress("DEPRECATION_ERROR")
             return TopDownAnalyzerFacadeForJVM.analyzeFilesWithJavaIntegration(
                 project,
                 files,
@@ -261,19 +262,21 @@ class ClassicFrontendFacade(
             )
         )
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION_ERROR")
         container.get<LazyTopDownAnalyzer>().analyzeDeclarations(TopDownAnalysisMode.TopLevelDeclarations, files)
 
         return AnalysisResult.success(moduleTrace.bindingContext, moduleDescriptor)
     }
 
     private fun createModuleDescriptorsForKlibs(
+        runtimeLibraryProviders: List<KlibLibraryProvider> = emptyList(),
         libraryPaths: List<String>,
         klibPlatformChecker: KlibPlatformChecker,
         factories: KlibMetadataFactories,
         configuration: CompilerConfiguration,
     ): List<ModuleDescriptorImpl> {
         val result = KlibLoader {
+            libraryProviders(runtimeLibraryProviders)
             libraryPaths(libraryPaths)
             platformChecker(klibPlatformChecker)
             configuration.zipFileSystemAccessor?.let { zipFileSystemAccessor(it) }
@@ -328,7 +331,7 @@ class ClassicFrontendFacade(
 
         val builtInModuleDescriptor = allDependencies.firstNotNullOfOrNull { it.builtIns }?.builtInsModule
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION_ERROR")
         return TopDownAnalyzerFacadeForJSIR.analyzeFiles(
             files,
             project,
@@ -358,8 +361,8 @@ class ClassicFrontendFacade(
 
         val runtimeModuleDescriptors = createModuleDescriptorsForKlibs(
             libraryPaths = listOfNotNull(
-                System.getProperty("kotlin.wasm$suffix.stdlib.path")!!,
-                System.getProperty("kotlin.wasm$suffix.kotlin.test.path")!!
+                WasmEnvironmentConfigurator.stdlibPath(wasmTarget),
+                WasmEnvironmentConfigurator.kotlinTestPath(wasmTarget),
             ),
             klibPlatformChecker = KlibPlatformChecker.Wasm(wasmTarget.alias),
             factories = JsFactories,
@@ -371,10 +374,10 @@ class ClassicFrontendFacade(
 
         val builtInModuleDescriptor = allDependencies.firstNotNullOfOrNull { it.builtIns }?.builtInsModule
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION_ERROR")
         val analyzerFacade = TopDownAnalyzerFacadeForWasm.facadeFor(wasmTarget)
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION_ERROR")
         return analyzerFacade.analyzeFiles(
             files,
             project,
@@ -398,11 +401,11 @@ class ClassicFrontendFacade(
         dependsOnDescriptors: List<ModuleDescriptorImpl>,
     ): AnalysisResult {
         val moduleTrace = NoScopeRecordCliBindingTrace(project)
-        val runtimeKlibsNames = NativeEnvironmentConfigurator.getRuntimePathsForModule(module, testServices)
         val nativeFactories = KlibMetadataFactories(::KonanBuiltIns, NullFlexibleTypeDeserializer)
 
         val runtimeModuleDescriptors = createModuleDescriptorsForKlibs(
-            libraryPaths = runtimeKlibsNames,
+            runtimeLibraryProviders = testServices.nativeEnvironmentConfigurator.getRuntimeLibraryProviders(module),
+            libraryPaths = emptyList(),
             klibPlatformChecker = KlibPlatformChecker.Native(testServices.nativeEnvironmentConfigurator.getNativeTarget(module).name),
             factories = nativeFactories,
             configuration = configuration,

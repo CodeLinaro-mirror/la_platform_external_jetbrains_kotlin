@@ -151,6 +151,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
   }
 
   @Test
+  @TestMetadata("backingFieldWithCaret.kt")
+  public void testBackingFieldWithCaret() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/backingFieldWithCaret.kt");
+  }
+
+  @Test
   @TestMetadata("classMembers.kt")
   public void testClassMembers() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/classMembers.kt");
@@ -442,6 +448,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
   @TestMetadata("functionWithWhere.kt")
   public void testFunctionWithWhere() {
     runTest("analysis/low-level-api-fir/testData/lazyResolve/functionWithWhere.kt");
+  }
+
+  @Test
+  @TestMetadata("implicitSubstitutedBackingField.kt")
+  public void testImplicitSubstitutedBackingField() {
+    runTest("analysis/low-level-api-fir/testData/lazyResolve/implicitSubstitutedBackingField.kt");
   }
 
   @Test
@@ -817,6 +829,88 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
   }
 
   @Nested
+  @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/annotations")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Annotations {
+    @Test
+    public void testAllFilesPresentInAnnotations() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/annotations"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("annotationConstructorProperty_all.kt")
+    public void testAnnotationConstructorProperty_all() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/annotationConstructorProperty_all.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationConstructorProperty_first_only.kt")
+    public void testAnnotationConstructorProperty_first_only() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/annotationConstructorProperty_first_only.kt");
+    }
+
+    @Test
+    @TestMetadata("annotationConstructorProperty_param_property.kt")
+    public void testAnnotationConstructorProperty_param_property() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/annotationConstructorProperty_param_property.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorProperty_all.kt")
+    public void testConstructorProperty_all() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/constructorProperty_all.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorProperty_first_only.kt")
+    public void testConstructorProperty_first_only() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/constructorProperty_first_only.kt");
+    }
+
+    @Test
+    @TestMetadata("constructorProperty_param_property.kt")
+    public void testConstructorProperty_param_property() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/constructorProperty_param_property.kt");
+    }
+
+    @Test
+    @TestMetadata("custom_variable_all.kt")
+    public void testCustom_variable_all() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/custom_variable_all.kt");
+    }
+
+    @Test
+    @TestMetadata("custom_variable_first_only.kt")
+    public void testCustom_variable_first_only() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/custom_variable_first_only.kt");
+    }
+
+    @Test
+    @TestMetadata("custom_variable_param_property.kt")
+    public void testCustom_variable_param_property() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/custom_variable_param_property.kt");
+    }
+
+    @Test
+    @TestMetadata("variable_all.kt")
+    public void testVariable_all() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/variable_all.kt");
+    }
+
+    @Test
+    @TestMetadata("variable_first_only.kt")
+    public void testVariable_first_only() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/variable_first_only.kt");
+    }
+
+    @Test
+    @TestMetadata("variable_param_property.kt")
+    public void testVariable_param_property() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/annotations/variable_param_property.kt");
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/classes")
   @TestDataPath("$PROJECT_ROOT")
   public class Classes {
@@ -1102,6 +1196,18 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     }
 
     @Test
+    @TestMetadata("outerTypeParameterDirectly.kt")
+    public void testOuterTypeParameterDirectly() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/outerTypeParameterDirectly.kt");
+    }
+
+    @Test
+    @TestMetadata("outerTypeParameterIndirectly.kt")
+    public void testOuterTypeParameterIndirectly() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/outerTypeParameterIndirectly.kt");
+    }
+
+    @Test
     @TestMetadata("recursiveValueClass.kt")
     public void testRecursiveValueClass() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/classes/recursiveValueClass.kt");
@@ -1251,6 +1357,136 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
   }
 
   @Nested
+  @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/collectionLiterals")
+  @TestDataPath("$PROJECT_ROOT")
+  public class CollectionLiterals {
+    @Test
+    public void testAllFilesPresentInCollectionLiterals() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/collectionLiterals"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("collectionLiteralInDifferentFile.kt")
+    public void testCollectionLiteralInDifferentFile() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/collectionLiterals/collectionLiteralInDifferentFile.kt");
+    }
+
+    @Test
+    @TestMetadata("collectionLiteralInDifferentModule.kt")
+    public void testCollectionLiteralInDifferentModule() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/collectionLiterals/collectionLiteralInDifferentModule.kt");
+    }
+
+    @Test
+    @TestMetadata("simple.kt")
+    public void testSimple() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/collectionLiterals/simple.kt");
+    }
+
+    @Test
+    @TestMetadata("simpleWithExplicitReturnType.kt")
+    public void testSimpleWithExplicitReturnType() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/collectionLiterals/simpleWithExplicitReturnType.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/danglingFile")
+  @TestDataPath("$PROJECT_ROOT")
+  public class DanglingFile {
+    @Test
+    public void testAllFilesPresentInDanglingFile() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/danglingFile"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Nested
+    @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf")
+    @TestDataPath("$PROJECT_ROOT")
+    public class IgnoreSelf {
+      @Test
+      @TestMetadata("addPackage.kt")
+      public void testAddPackage() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf/addPackage.kt");
+      }
+
+      @Test
+      public void testAllFilesPresentInIgnoreSelf() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("changePackage.kt")
+      public void testChangePackage() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf/changePackage.kt");
+      }
+
+      @Test
+      @TestMetadata("functionInsideUnnamedObject.kt")
+      public void testFunctionInsideUnnamedObject() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf/functionInsideUnnamedObject.kt");
+      }
+
+      @Test
+      @TestMetadata("regularFunction.kt")
+      public void testRegularFunction() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf/regularFunction.kt");
+      }
+
+      @Test
+      @TestMetadata("syntheticHashCode.kt")
+      public void testSyntheticHashCode() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf/syntheticHashCode.kt");
+      }
+
+      @Test
+      @TestMetadata("syntheticHashCodeWithDuplication.kt")
+      public void testSyntheticHashCodeWithDuplication() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/ignoreSelf/syntheticHashCodeWithDuplication.kt");
+      }
+    }
+
+    @Nested
+    @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf")
+    @TestDataPath("$PROJECT_ROOT")
+    public class PreferSelf {
+      @Test
+      @TestMetadata("addPackage.kt")
+      public void testAddPackage() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf/addPackage.kt");
+      }
+
+      @Test
+      public void testAllFilesPresentInPreferSelf() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("changePackage.kt")
+      public void testChangePackage() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf/changePackage.kt");
+      }
+
+      @Test
+      @TestMetadata("regularFunction.kt")
+      public void testRegularFunction() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf/regularFunction.kt");
+      }
+
+      @Test
+      @TestMetadata("syntheticHashCode.kt")
+      public void testSyntheticHashCode() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf/syntheticHashCode.kt");
+      }
+
+      @Test
+      @TestMetadata("syntheticHashCodeWithDuplication.kt")
+      public void testSyntheticHashCodeWithDuplication() {
+        runTest("analysis/low-level-api-fir/testData/lazyResolve/danglingFile/preferSelf/syntheticHashCodeWithDuplication.kt");
+      }
+    }
+  }
+
+  @Nested
   @TestMetadata("analysis/low-level-api-fir/testData/lazyResolve/errors")
   @TestDataPath("$PROJECT_ROOT")
   public class Errors {
@@ -1395,6 +1631,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     @TestMetadata("functionDuplicatedContextParameter2.kt")
     public void testFunctionDuplicatedContextParameter2() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/functionDuplicatedContextParameter2.kt");
+    }
+
+    @Test
+    @TestMetadata("functionInsideUnnamedObject.kt")
+    public void testFunctionInsideUnnamedObject() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/errors/functionInsideUnnamedObject.kt");
     }
 
     @Test
@@ -1654,6 +1896,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     }
 
     @Test
+    @TestMetadata("syntheticEqualsWithDuplication.kt")
+    public void testSyntheticEqualsWithDuplication() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/syntheticEqualsWithDuplication.kt");
+    }
+
+    @Test
     @TestMetadata("transitiveSubstitutionFakeOverride.kt")
     public void testTransitiveSubstitutionFakeOverride() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/functions/transitiveSubstitutionFakeOverride.kt");
@@ -1791,6 +2039,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     @TestMetadata("delegateWithAnnotationOnAccessorWithExplicitType.kt")
     public void testDelegateWithAnnotationOnAccessorWithExplicitType() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/delegateWithAnnotationOnAccessorWithExplicitType.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitBackingField.kt")
+    public void testExplicitBackingField() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/properties/explicitBackingField.kt");
     }
 
     @Test
@@ -1951,6 +2205,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     @Test
     public void testAllFilesPresentInSpecialAnnotations() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/lazyResolve/specialAnnotations"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("introducedAt.kt")
+    public void testIntroducedAt() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/specialAnnotations/introducedAt.kt");
     }
 
     @Test
@@ -2387,6 +2647,12 @@ public class FirOutOfContentRootWithDependenciesLazyDeclarationResolveTestGenera
     @TestMetadata("dataClassProperty.kt")
     public void testDataClassProperty() {
       runTest("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled/dataClassProperty.kt");
+    }
+
+    @Test
+    @TestMetadata("invokeGeneratedCompanionObject.kt")
+    public void testInvokeGeneratedCompanionObject() {
+      runTest("analysis/low-level-api-fir/testData/lazyResolve/withTestCompilerPluginEnabled/invokeGeneratedCompanionObject.kt");
     }
 
     @Test

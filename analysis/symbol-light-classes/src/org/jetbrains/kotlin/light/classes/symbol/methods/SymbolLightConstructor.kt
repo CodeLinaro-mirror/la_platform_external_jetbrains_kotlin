@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -169,7 +169,7 @@ internal class SymbolLightConstructor private constructor(
             return !classOrObject.hasModifier(INNER_KEYWORD) &&
                     !classOrObject.hasModifier(SEALED_KEYWORD) &&
                     !lightClass.isEnum &&
-                    primaryConstructor.valueParameters.all(KaValueParameterSymbol::hasDefaultValue) &&
+                    primaryConstructor.valueParameters.all { it.hasDeclaredDefaultValue && !it.hasIntroducedAtAnnotation() } &&
                     constructors.none { it.isEffectivelyParameterless } &&
                     primaryConstructor.visibility != KaSymbolVisibility.PRIVATE
         }
@@ -179,7 +179,7 @@ internal class SymbolLightConstructor private constructor(
          * */
         private val KaConstructorSymbol.isEffectivelyParameterless: Boolean
             get() = valueParameters.isEmpty() ||
-                    valueParameters.all(KaValueParameterSymbol::hasDefaultValue) && hasJvmOverloadsAnnotation()
+                    valueParameters.all(KaValueParameterSymbol::hasDeclaredDefaultValue) && hasJvmOverloadsAnnotation()
 
         private fun SymbolLightClassBase.defaultConstructor(): KtLightMethod {
             val classOrObject = kotlinOrigin

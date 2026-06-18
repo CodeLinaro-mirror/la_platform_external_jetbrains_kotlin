@@ -1,7 +1,6 @@
-// RUN_PIPELINE_TILL: BACKEND
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
-// FIR_IDENTICAL
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 class Session(var lastAccess: Any?)
 interface Transaction {

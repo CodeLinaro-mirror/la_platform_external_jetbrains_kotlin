@@ -463,6 +463,12 @@ public class JsSymbolLightClassesByFqNameForSourceTestGenerated extends Abstract
   }
 
   @Test
+  @TestMetadata("SuspendFunctionTypeAsAnnotationArgument.kt")
+  public void testSuspendFunctionTypeAsAnnotationArgument() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/SuspendFunctionTypeAsAnnotationArgument.kt");
+  }
+
+  @Test
   @TestMetadata("Throws.kt")
   public void testThrows() {
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/Throws.kt");
@@ -514,6 +520,12 @@ public class JsSymbolLightClassesByFqNameForSourceTestGenerated extends Abstract
   @TestMetadata("valueClassMembers.kt")
   public void testValueClassMembers() {
     runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/valueClassMembers.kt");
+  }
+
+  @Test
+  @TestMetadata("valueClassWithCompanion.kt")
+  public void testValueClassWithCompanion() {
+    runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/valueClassWithCompanion.kt");
   }
 
   @Test
@@ -949,6 +961,56 @@ public class JsSymbolLightClassesByFqNameForSourceTestGenerated extends Abstract
     @TestMetadata("OverridingProtected.kt")
     public void testOverridingProtected() {
       runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/ideRegression/OverridingProtected.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("compiler/testData/asJava/lightClasses/lightClassByFqName/k2")
+  @TestDataPath("$PROJECT_ROOT")
+  public class K2 {
+    @Test
+    public void testAllFilesPresentInK2() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/asJava/lightClasses/lightClassByFqName/k2"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+    }
+
+    @Nested
+    @TestMetadata("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations")
+    @TestDataPath("$PROJECT_ROOT")
+    public class Annotations {
+      @Test
+      public void testAllFilesPresentInAnnotations() {
+        KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+      }
+
+      @Test
+      @TestMetadata("annotationConstructorProperty_all.kt")
+      public void testAnnotationConstructorProperty_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/annotationConstructorProperty_all.kt");
+      }
+
+      @Test
+      @TestMetadata("constructorProperty_all.kt")
+      public void testConstructorProperty_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/constructorProperty_all.kt");
+      }
+
+      @Test
+      @TestMetadata("custom_variable_all.kt")
+      public void testCustom_variable_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/custom_variable_all.kt");
+      }
+
+      @Test
+      @TestMetadata("jvmName.kt")
+      public void testJvmName() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/jvmName.kt");
+      }
+
+      @Test
+      @TestMetadata("variable_all.kt")
+      public void testVariable_all() {
+        runTest("compiler/testData/asJava/lightClasses/lightClassByFqName/k2/annotations/variable_all.kt");
+      }
     }
   }
 

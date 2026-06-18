@@ -1,8 +1,8 @@
-// RUN_PIPELINE_TILL: BACKEND
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
 // FIR_IDENTICAL
 // ISSUE: KT-67699
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 interface Either<out A, out B>
 

@@ -8,6 +8,8 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
+    isNotDefault: false
     isVal: false
     location: PROPERTY
     modality: FINAL
@@ -38,6 +40,7 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isInline: false
     isNotDefault: true
     isOverride: false
@@ -89,6 +92,7 @@ KaKotlinPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isInline: true
     isNotDefault: true
     isOverride: false
@@ -101,11 +105,14 @@ KaKotlinPropertySymbol:
       compilerVisibility: Local
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -137,11 +144,14 @@ KaKotlinPropertySymbol:
         compilerVisibility: Local
         contextReceivers: []
         generatedPrimaryConstructorProperty: null
+        hasDeclaredDefaultValue: false
         hasDefaultValue: false
+        hasSynthesizedName: false
         isActual: false
         isCrossinline: false
         isExpect: false
         isExtension: false
+        isExternal: false
         isImplicitLambdaParameter: false
         isNoinline: false
         isVal: true
@@ -174,9 +184,7 @@ KaKotlinPropertySymbol:
   getContainingJvmClassName: InlineSetterKt
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
-  getterDeprecationStatus: null
   javaGetterName: getFoo
   javaSetterName: setFoo
-  setterDeprecationStatus: null
   isInline: false
   importableFqName: foo

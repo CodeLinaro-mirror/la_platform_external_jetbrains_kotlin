@@ -6,6 +6,7 @@ KaJavaFieldSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isStatic: false
   isVal: true
   location: CLASS
@@ -35,6 +36,7 @@ KaJavaFieldSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isStatic: false
   isVal: false
   location: CLASS
@@ -98,6 +100,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaJavaFieldSymbol:
@@ -108,6 +111,7 @@ KaJavaFieldSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isStatic: false
   isVal: false
   location: CLASS
@@ -145,6 +149,7 @@ KaSyntheticJavaPropertySymbol:
     isActual: false
     isExpect: false
     isExtension: false
+    isExternal: false
     isInline: false
     isNotDefault: true
     isOverride: false
@@ -202,10 +207,8 @@ KaSyntheticJavaPropertySymbol:
   getContainingJvmClassName: java.lang.String
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
-  getterDeprecationStatus: null
   javaGetterName: length
   javaSetterName: null
-  setterDeprecationStatus: null
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -249,6 +252,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -288,11 +292,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -323,6 +330,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -362,11 +370,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -397,6 +408,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -436,11 +448,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -466,11 +481,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -501,6 +519,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -540,11 +559,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -570,11 +592,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -605,6 +630,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -644,11 +670,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -673,11 +702,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -708,6 +740,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -747,11 +780,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -777,11 +813,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -807,11 +846,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -836,11 +878,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -871,6 +916,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -913,11 +959,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -943,11 +992,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -973,11 +1025,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1002,11 +1057,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1037,6 +1095,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: DeprecationInfo(deprecationLevel=WARNING, propagatesToOverrides=false, message=null)
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1075,11 +1134,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1109,6 +1171,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1147,11 +1210,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1181,6 +1247,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1223,6 +1290,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1262,11 +1330,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1297,6 +1368,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: MustUse
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1336,11 +1408,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1370,6 +1445,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1409,11 +1485,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1443,6 +1522,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1482,11 +1562,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1516,6 +1599,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1555,11 +1639,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1589,6 +1676,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: MustUse
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1628,11 +1716,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1662,6 +1753,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1701,11 +1793,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1731,11 +1826,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1760,11 +1858,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1790,11 +1891,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1825,6 +1929,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -1864,11 +1969,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1894,11 +2002,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1924,11 +2035,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1953,11 +2067,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -1983,11 +2100,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2018,6 +2138,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2057,11 +2178,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2086,11 +2210,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2121,6 +2248,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2160,11 +2288,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2194,6 +2325,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2233,11 +2365,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2267,6 +2402,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2310,6 +2446,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: MustUse
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2349,11 +2486,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2384,6 +2524,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2423,11 +2564,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2453,11 +2597,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2488,6 +2635,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2527,11 +2675,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2561,6 +2712,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2600,11 +2752,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2629,11 +2784,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2664,6 +2822,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2703,11 +2862,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2733,11 +2895,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2768,6 +2933,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2807,11 +2973,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2842,6 +3011,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2881,11 +3051,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2911,11 +3084,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -2946,6 +3122,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -2985,11 +3162,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3019,6 +3199,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3058,11 +3239,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3087,11 +3271,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3122,6 +3309,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3161,11 +3349,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3191,11 +3382,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3226,6 +3420,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3264,11 +3459,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3299,6 +3497,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3337,11 +3536,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3367,11 +3569,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3402,6 +3607,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3441,11 +3647,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3471,11 +3680,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3506,6 +3718,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: MustUse
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3544,11 +3757,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3578,6 +3794,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3616,11 +3833,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3646,11 +3866,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3681,6 +3904,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3719,11 +3943,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3748,11 +3975,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3782,6 +4012,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3821,11 +4052,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3855,6 +4089,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3894,11 +4129,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3928,6 +4166,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -3966,11 +4205,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -3995,11 +4237,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4029,6 +4274,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4067,11 +4313,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4096,11 +4345,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4130,6 +4382,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4168,11 +4421,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4197,11 +4453,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4232,6 +4491,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4270,11 +4530,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4304,6 +4567,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4342,11 +4606,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4376,6 +4643,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4418,6 +4686,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4456,11 +4725,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4490,6 +4762,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4532,6 +4805,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4574,6 +4848,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4617,6 +4892,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: MustUse
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4659,6 +4935,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4673,7 +4950,7 @@ KaNamedFunctionSymbol:
   isBuiltinFunctionInvoke: false
   isExpect: false
   isExtension: false
-  isExternal: false
+  isExternal: true
   isInfix: false
   isInline: false
   isOperator: false
@@ -4701,6 +4978,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
@@ -4740,11 +5018,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4775,6 +5056,7 @@ KaNamedFunctionSymbol:
   canBeOperator: true
   getContainingModule: KaLibraryModule "SDK jdk"
   deprecationStatus: null
+  returnValueStatus: MustUse
   importableFqName: null
 
 KaNamedClassSymbol:
@@ -4831,6 +5113,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -4859,6 +5142,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -4876,11 +5160,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4917,6 +5204,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -4934,11 +5222,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -4975,6 +5266,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -4992,11 +5284,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5021,11 +5316,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5051,11 +5349,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5093,6 +5394,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5110,11 +5412,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5139,11 +5444,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5169,11 +5477,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5214,6 +5525,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5231,11 +5543,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5260,11 +5575,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5290,11 +5608,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5320,11 +5641,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5365,6 +5689,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5382,11 +5707,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5411,11 +5739,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5453,6 +5784,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5470,11 +5802,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5499,11 +5834,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5529,11 +5867,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5559,11 +5900,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5600,6 +5944,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5617,11 +5962,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5646,11 +5994,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5676,11 +6027,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5706,11 +6060,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5747,6 +6104,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5764,11 +6122,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5793,11 +6154,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5834,6 +6198,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5851,11 +6216,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5880,11 +6248,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5921,6 +6292,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -5938,11 +6310,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5967,11 +6342,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -5997,11 +6375,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6039,6 +6420,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -6056,11 +6438,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6097,6 +6482,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -6114,11 +6500,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6155,6 +6544,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -6172,11 +6562,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6213,6 +6606,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -6230,11 +6624,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6259,11 +6656,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6304,6 +6704,7 @@ KaConstructorSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isPrimary: false
   location: CLASS
   modality: FINAL
@@ -6321,11 +6722,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6351,11 +6755,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -6381,11 +6788,14 @@ KaConstructorSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true

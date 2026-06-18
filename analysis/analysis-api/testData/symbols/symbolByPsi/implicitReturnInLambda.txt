@@ -6,6 +6,7 @@ KaLocalVariableSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isLateInit: false
   isVal: true
   location: LOCAL
@@ -34,6 +35,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -49,11 +51,14 @@ KaAnonymousFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -89,6 +94,7 @@ KaLocalVariableSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isLateInit: false
   isVal: true
   location: LOCAL
@@ -108,7 +114,7 @@ KaLocalVariableSymbol:
         typeArguments: []
         type: kotlin/Int
     ]
-    type: kotlin/Function1<kotlin/Int, kotlin/Int>
+    type: (kotlin/Int) -> kotlin/Int
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(implicitReturnInLambda.kt)
   getContainingJvmClassName: null
@@ -124,6 +130,7 @@ KaLocalVariableSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isLateInit: false
   isVal: true
   location: LOCAL
@@ -152,6 +159,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -167,11 +175,14 @@ KaAnonymousFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -207,6 +218,7 @@ KaLocalVariableSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isLateInit: false
   isVal: true
   location: LOCAL
@@ -226,7 +238,7 @@ KaLocalVariableSymbol:
         typeArguments: []
         type: kotlin/Int
     ]
-    type: kotlin/Function1<kotlin/Int, kotlin/Int>
+    type: (kotlin/Int) -> kotlin/Int
   visibility: LOCAL
   getContainingFileSymbol: KaFileSymbol(implicitReturnInLambda.kt)
   getContainingJvmClassName: null
@@ -242,6 +254,7 @@ KaLocalVariableSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   isLateInit: false
   isVal: true
   location: LOCAL
@@ -270,6 +283,7 @@ KaAnonymousFunctionSymbol:
   isActual: false
   isExpect: false
   isExtension: false
+  isExternal: false
   location: LOCAL
   modality: FINAL
   origin: SOURCE
@@ -285,11 +299,14 @@ KaAnonymousFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: true
       isNoinline: false
       isVal: true
@@ -354,6 +371,7 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: foo
 
 KaNamedFunctionSymbol:
@@ -393,11 +411,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -419,7 +440,7 @@ KaNamedFunctionSymbol:
             typeArguments: []
             type: kotlin/Int
         ]
-        type: kotlin/Function1<kotlin/Int, kotlin/Int>
+        type: (kotlin/Int) -> kotlin/Int
       visibility: PUBLIC
       getContainingFileSymbol: KaFileSymbol(implicitReturnInLambda.kt)
       getContainingJvmClassName: ImplicitReturnInLambdaKt
@@ -433,4 +454,5 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: bar

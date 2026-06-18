@@ -1,6 +1,7 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
 // DIAGNOSTICS: -UNCHECKED_CAST
+// LANGUAGE: -ContextParameters
 
 <!UNSUPPORTED_FEATURE!>context(Any)<!>
 fun f(g: <!UNSUPPORTED_FEATURE!>context(Any)<!> () -> Unit, value: Any): <!UNSUPPORTED_FEATURE!>context(A)<!> () -> Unit {
@@ -39,7 +40,7 @@ fun useWithContextReceivers() {
             f({}, 42)
             <!UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL!>sameAsFWithoutNonContextualCounterpart<!>({}, 42)
             <!UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL!>p<!>
-            val a = <!UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL!>A<!>()
+            val a = A()
             a.<!UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL!>p<!>
             a.<!UNSUPPORTED_CONTEXTUAL_DECLARATION_CALL!>m<!>()
         }

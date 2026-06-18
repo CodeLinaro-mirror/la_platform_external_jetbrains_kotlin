@@ -136,9 +136,21 @@ public class FirIdeNormalAnalysisSourceModuleContainingDeclarationProviderByPsiT
   }
 
   @Test
+  @TestMetadata("enumEntryFunction.kt")
+  public void testEnumEntryFunction() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/enumEntryFunction.kt");
+  }
+
+  @Test
   @TestMetadata("enums.kt")
   public void testEnums() {
     runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/enums.kt");
+  }
+
+  @Test
+  @TestMetadata("forLoopVariable.kt")
+  public void testForLoopVariable() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/forLoopVariable.kt");
   }
 
   @Test
@@ -157,5 +169,35 @@ public class FirIdeNormalAnalysisSourceModuleContainingDeclarationProviderByPsiT
   @TestMetadata("typeAliases.kt")
   public void testTypeAliases() {
     runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/typeAliases.kt");
+  }
+
+  @Test
+  @TestMetadata("unfinishedDefaultParameterValue.kt")
+  public void testUnfinishedDefaultParameterValue() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/unfinishedDefaultParameterValue.kt");
+  }
+
+  @Test
+  @TestMetadata("unfinishedDefaultParameterValue2.kt")
+  public void testUnfinishedDefaultParameterValue2() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/unfinishedDefaultParameterValue2.kt");
+  }
+
+  @Test
+  @TestMetadata("unfinishedDefaultParameterValue3.kt")
+  public void testUnfinishedDefaultParameterValue3() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/unfinishedDefaultParameterValue3.kt");
+  }
+
+  @Test
+  @TestMetadata("unfinishedDefaultParameterValue4.kt")
+  public void testUnfinishedDefaultParameterValue4() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/unfinishedDefaultParameterValue4.kt");
+  }
+
+  @Test
+  @TestMetadata("unfinishedDefaultParameterValue5.kt")
+  public void testUnfinishedDefaultParameterValue5() {
+    runTest("analysis/analysis-api/testData/components/containingDeclarationProvider/containingDeclarationByPsi/unfinishedDefaultParameterValue5.kt");
   }
 }

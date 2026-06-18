@@ -5,15 +5,33 @@
 
 package org.jetbrains.kotlin.backend.jvm
 
+import org.jetbrains.annotations.TestOnly
 import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.common.lower.loops.ForLoopsLowering
-import org.jetbrains.kotlin.backend.common.phaser.*
+import org.jetbrains.kotlin.backend.common.phaser.PerformByIrFilePhase
+import org.jetbrains.kotlin.backend.common.phaser.createFilePhases
+import org.jetbrains.kotlin.backend.common.phaser.createModulePhases
 import org.jetbrains.kotlin.backend.jvm.lower.*
+import org.jetbrains.kotlin.config.phaser.AnyNamedPhase
 
-private val jvmFilePhases = createFilePhases<JvmBackendContext>(
+private val jvmModulePhases1 = createModulePhases(
+    ::ExternalPackageParentPatcherLowering,
+    ::FragmentSharedVariablesLowering,
+    ::JvmK1IrValidationBeforeLoweringPhase,
+    ::ProcessOptionalAnnotations,
+    ::JvmExpectDeclarationRemover,
+    ::ConstEvaluationLowering,
+    ::SerializeIrPhase,
+    ::FileClassLowering,
+    ::JvmStaticInObjectLowering,
+    ::RepeatedAnnotationLowering,
+)
+
+private val jvmFilePhases = createFilePhases(
     ::TypeAliasAnnotationMethodsLowering,
     ::ProvisionalFunctionExpressionLowering,
 
+    ::JvmVersionOverloadsLowering,
     ::JvmOverloadsAnnotationLowering,
     ::MainMethodGenerationLowering,
 
@@ -27,6 +45,7 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
 
     ::JvmInlineCallableReferenceToLambdaPhase,
     ::DirectInvokeLowering,
+    ::JvmUpgradeCallableReferences,
     ::FunctionReferenceLowering,
 
     ::SuspendLambdaLowering,
@@ -57,9 +76,8 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
     ::AssertionLowering,
     ::JvmReturnableBlockLowering,
     ::SingletonReferencesLowering,
-    ::SharedVariablesLowering,
+    ::JvmSharedVariablesLowering,
 
-    ::JvmUpgradeCallableReferences,
     ::JvmInventNamesForLocalFunctions,
     ::JvmLocalDeclarationsLowering,
     ::JvmLocalDeclarationPopupLowering,
@@ -92,6 +110,7 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
     ::EnumClassLowering,
     ::EnumExternalEntriesLowering,
     ::ObjectClassLowering,
+    ::IndyLambdaMetafactoryLowering,
     ::StaticInitializersLowering,
     ::UniqueLoopLabelsLowering,
     ::JvmInitializersLowering,
@@ -122,19 +141,14 @@ private val jvmFilePhases = createFilePhases<JvmBackendContext>(
     ::TypeSwitchLowering,
 )
 
-val jvmLoweringPhases = createModulePhases(
-    ::ExternalPackageParentPatcherLowering,
-    ::FragmentSharedVariablesLowering,
-    ::JvmK1IrValidationBeforeLoweringPhase,
-    ::ProcessOptionalAnnotations,
-    ::JvmExpectDeclarationRemover,
-    ::ConstEvaluationLowering,
-    ::SerializeIrPhase,
-    ::FileClassLowering,
-    ::JvmStaticInObjectLowering,
-    ::RepeatedAnnotationLowering,
-) + PerformByIrFilePhase(jvmFilePhases) + createModulePhases(
+private val jvmModulePhases2 = createModulePhases(
     ::GenerateMultifileFacades,
     ::ResolveInlineCalls,
-    ::JvmIrValidationAfterLoweringPhase
+    ::JvmIrValidationAfterLoweringPhase,
 )
+
+val jvmLoweringPhases = jvmModulePhases1 + PerformByIrFilePhase(jvmFilePhases) + jvmModulePhases2
+
+@TestOnly
+internal fun getJvmLoweringPhaseListsForTests(): List<List<AnyNamedPhase>> =
+    listOf(jvmModulePhases1, jvmFilePhases, jvmModulePhases2)

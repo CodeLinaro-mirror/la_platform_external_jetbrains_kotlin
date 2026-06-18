@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED, -CONTEXT_CLASS_OR_CONSTRUCTOR
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
 // DIAGNOSTICS: -UNUSED_PARAMETER
 
 class Outer {
@@ -9,11 +9,11 @@ class Outer {
 
 context(Outer)
 class Inner(arg: Any) {
-    fun bar() = x
+    fun bar() = <!UNRESOLVED_REFERENCE!>x<!>
 }
 
 fun f(outer: Outer) {
-    <!NO_CONTEXT_ARGUMENT!>Inner<!>(1)
+    Inner(1)
     with(outer) {
         Inner(3)
     }

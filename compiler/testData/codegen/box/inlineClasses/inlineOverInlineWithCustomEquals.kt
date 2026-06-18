@@ -2,7 +2,6 @@
 // LANGUAGE: +ValueClasses, +CustomEqualsInValueClasses
 // TARGET_BACKEND: JVM_IR
 
-
 @JvmInline
 value class A(val x: Int) {
     operator fun equals(other: A) = true

@@ -10,11 +10,10 @@ import org.jetbrains.kotlin.generators.dsl.junit5.generateTestGroupSuiteWithJUni
 import org.jetbrains.kotlin.generators.model.annotation
 import org.jetbrains.kotlin.generators.tests.klibIrInliner
 import org.jetbrains.kotlin.generators.tests.provider
-import org.jetbrains.kotlin.generators.tests.standalone
+import org.jetbrains.kotlin.generators.tests.standaloneNoTR
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
 import org.jetbrains.kotlin.konan.test.blackbox.AbstractNativeCodegenBoxTest
 import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseExtTestCaseGroupProvider
-import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlinx.serialization.matrix.cases.enumsTestMatrix
 import org.jetbrains.kotlinx.serialization.matrix.testMatrix
 import org.jetbrains.kotlinx.serialization.runners.*
@@ -77,24 +76,24 @@ fun main(args: Array<String>) {
                 model("boxWithoutRuntime")
             }
 
-            testClass<AbstractSerializationFirJsBoxTest> {
+            testClass<AbstractSerializationJsBoxTest> {
                 model("boxIr")
             }
 
-            testClass<AbstractSerializationFirJsBoxWithInlinedFunInKlibTest> {
+            testClass<AbstractSerializationJsBoxWithInlinedFunInKlibTest> {
                 model("boxIr")
             }
 
             // Serialization compiler plugin native tests.
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "SerializationNativeTestGenerated",
-                annotations = listOf(*standalone(), *serializationNative(), provider<UseExtTestCaseGroupProvider>())
+                annotations = listOf(*standaloneNoTR(), *serializationNative(), provider<UseExtTestCaseGroupProvider>())
             ) {
                 model("boxIr")
             }
             testClass<AbstractNativeCodegenBoxTest>(
                 suiteTestClassName = "SerializationNativeWithInlinedFunInKlibTestGenerated",
-                annotations = listOf(*standalone(), klibIrInliner(), *serializationNative(), provider<UseExtTestCaseGroupProvider>())
+                annotations = listOf(*standaloneNoTR(), klibIrInliner(), *serializationNative(), provider<UseExtTestCaseGroupProvider>())
             ) {
                 model("boxIr")
             }

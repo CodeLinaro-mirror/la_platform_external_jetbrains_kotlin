@@ -1,7 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
-// LANGUAGE: +ContextReceivers
-// FIR_IDENTICAL
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 class A
 class B

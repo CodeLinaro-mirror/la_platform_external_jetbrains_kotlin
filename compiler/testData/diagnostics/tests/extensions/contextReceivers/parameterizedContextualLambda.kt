@@ -1,8 +1,7 @@
-// FIR_IDENTICAL
-// RUN_PIPELINE_TILL: BACKEND
+// RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
 // SKIP_TXT
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 fun <T> test(action: context(T) () -> Unit) {}
 

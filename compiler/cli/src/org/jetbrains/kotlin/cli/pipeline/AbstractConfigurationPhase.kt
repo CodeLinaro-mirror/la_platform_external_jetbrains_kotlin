@@ -12,7 +12,9 @@ import org.jetbrains.kotlin.cli.common.CLICompiler.Companion.SCRIPT_PLUGIN_COMMA
 import org.jetbrains.kotlin.cli.common.CLICompiler.Companion.SCRIPT_PLUGIN_K2_REGISTRAR_NAME
 import org.jetbrains.kotlin.cli.common.CLICompiler.Companion.SCRIPT_PLUGIN_REGISTRAR_NAME
 import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.INFO
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.LOGGING
+import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
 import org.jetbrains.kotlin.cli.plugins.extractPluginClasspathAndOptions
 import org.jetbrains.kotlin.cli.plugins.processCompilerPluginsOptions
@@ -43,11 +45,15 @@ abstract class AbstractConfigurationPhase<A : CommonCompilerArguments>(
     val configurationUpdaters: List<ConfigurationUpdater<A>>
 ) : PipelinePhase<ArgumentsPipelineArtifact<A>, ConfigurationPipelineArtifact>(name, preActions, postActions) {
     override fun executePhase(input: ArgumentsPipelineArtifact<A>): ConfigurationPipelineArtifact? {
-        val configuration = CompilerConfiguration()
+        val configuration = CompilerConfiguration.create()
         configuration.setupCommonConfiguration(input)
 
         for (filler in configurationUpdaters) {
             filler.fillConfiguration(input, configuration)
+        }
+
+        if (input.arguments.printConfiguration || input.arguments.verbose) {
+            configuration.messageCollector.report(INFO, configuration.toString())
         }
 
         return ConfigurationPipelineArtifact(configuration, input.diagnosticCollector, input.rootDisposable)
@@ -81,9 +87,8 @@ abstract class AbstractConfigurationPhase<A : CommonCompilerArguments>(
         val pluginOptions = arguments.pluginOptions.orEmpty().toMutableList()
         val pluginConfigurations = arguments.pluginConfigurations?.asList().orEmpty()
         val pluginOrderConstraints = arguments.pluginOrderConstraints?.asList().orEmpty()
-        val messageCollector = configuration.messageCollector
 
-        if (!checkPluginsArguments(messageCollector, useK2 = true, pluginClasspaths, pluginOptions, pluginConfigurations)) {
+        if (!checkPluginsArguments(configuration, useK2 = true, pluginClasspaths, pluginOptions, pluginConfigurations)) {
             return
         }
 
@@ -106,7 +111,7 @@ abstract class AbstractConfigurationPhase<A : CommonCompilerArguments>(
                 if (missingJars.isEmpty()) {
                     scriptingPluginClasspath.addAll(0, jars.map { it.canonicalPath })
                 } else {
-                    messageCollector.report(
+                    configuration.messageCollector.report(
                         LOGGING,
                         "Scripting plugin will not be loaded: not all required jars are present in the classpath (missing files: $missingJars)"
                     )
@@ -162,3 +167,4 @@ abstract class AbstractConfigurationPhase<A : CommonCompilerArguments>(
         }
     }
 }
+

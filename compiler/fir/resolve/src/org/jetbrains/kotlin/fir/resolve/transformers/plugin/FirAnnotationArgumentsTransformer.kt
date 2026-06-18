@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -222,12 +222,12 @@ private class FirDeclarationsResolveTransformerForAnnotationArguments(
         return anonymousInitializer
     }
 
-    override fun transformSimpleFunction(
-        simpleFunction: FirSimpleFunction,
+    override fun transformNamedFunction(
+        namedFunction: FirNamedFunction,
         data: ResolutionMode
-    ): FirSimpleFunction {
-        context.withSimpleFunction(simpleFunction, session) {
-            simpleFunction
+    ): FirNamedFunction {
+        context.withNamedFunction(namedFunction, session) {
+            namedFunction
                 .transformTypeParameters(transformer, data)
                 .transformReturnTypeRef(transformer, data)
                 .transformReceiverParameter(transformer, data)
@@ -238,7 +238,7 @@ private class FirDeclarationsResolveTransformerForAnnotationArguments(
                 }
         }
 
-        return simpleFunction
+        return namedFunction
     }
 
     override fun transformConstructor(constructor: FirConstructor, data: ResolutionMode): FirConstructor {
@@ -331,7 +331,10 @@ private class FirDeclarationsResolveTransformerForAnnotationArguments(
     }
 
     override fun transformBackingField(backingField: FirBackingField, data: ResolutionMode): FirBackingField {
-        backingField.transformAnnotations(transformer, data)
+        backingField
+            .transformAnnotations(transformer, data)
+            .transformReturnTypeRef(transformer, data)
+
         return backingField
     }
 

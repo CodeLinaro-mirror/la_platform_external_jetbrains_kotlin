@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 <!CONTEXT_CLASS_OR_CONSTRUCTOR!>context<!>(T) class A<T>
 
@@ -8,12 +8,12 @@
 
 fun Int.foo() {
     A<Int>()
-    <!NO_CONTEXT_ARGUMENT!>A<!><String>()
+    A<String>()
 }
 
 fun Collection<Int>.bar() {
     B<Int>()
-    <!NO_CONTEXT_ARGUMENT!>B<!><String>()
+    B<String>()
 }
 
 /* GENERATED_FIR_TAGS: classDeclaration, funWithExtensionReceiver, functionDeclaration, nullableType, typeParameter */

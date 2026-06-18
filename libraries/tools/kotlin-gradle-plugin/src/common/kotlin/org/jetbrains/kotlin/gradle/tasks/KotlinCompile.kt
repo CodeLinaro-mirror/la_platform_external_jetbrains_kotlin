@@ -124,6 +124,7 @@ abstract class KotlinCompile @Inject constructor(
 
         @get:OutputDirectory
         @get:Optional // Set if useClasspathSnapshot == true
+        @Deprecated("The classpathSnapshotDir parameter is no longer required. Scheduled for removal in Kotlin 2.5.")
         abstract val classpathSnapshotDir: DirectoryProperty
     }
 
@@ -294,9 +295,13 @@ abstract class KotlinCompile @Inject constructor(
             if (multiPlatformEnabled.get()) {
                 if (compilerOptions.usesK2.get()) {
                     args.fragmentSources = multiplatformStructure.fragmentSourcesCompilerArgs(sourcesFiles, sourceFileFilter)
-                    args.fragmentDependencies = if (separateKmpCompilation.get()) {
-                        multiplatformStructure.fragmentDependenciesCompilerArgs
-                    } else emptyArray()
+                    if (separateKmpCompilation.get()) {
+                        args.fragmentDependencies = multiplatformStructure.fragmentDependenciesCompilerArgs
+                        args.fragmentFriendDependencies = multiplatformStructure.fragmentFriendsCompilerArgs
+                    } else {
+                        args.fragmentDependencies = emptyArray()
+                        args.fragmentFriendDependencies = emptyArray()
+                    }
                 } else {
                     args.commonSources = commonSourceSet.asFileTree.toPathsArray()
                 }
@@ -456,7 +461,7 @@ abstract class KotlinCompile @Inject constructor(
             )
         } else null
 
-        @Suppress("ConvertArgumentToSet")
+        @Suppress("DEPRECATION")
         val environment = GradleCompilerEnvironment(
             defaultCompilerClasspath, gradleMessageCollector, outputItemCollector,
             // In the incremental compiler, outputFiles will be cleaned on rebuild. However, because classpathSnapshotDir is not included in
@@ -577,7 +582,7 @@ abstract class KotlinCompile @Inject constructor(
     }
 
     private fun getClasspathChanges(inputChanges: InputChanges): ClasspathChanges {
-
+        @Suppress("DEPRECATION")
         val classpathSnapshotFiles = ClasspathSnapshotFiles(
             classpathSnapshotProperties.classpathSnapshot.files.toList(),
             classpathSnapshotProperties.classpathSnapshotDir.get().asFile

@@ -47,13 +47,13 @@ import org.jetbrains.kotlin.analysis.api.standalone.base.java.KotlinStandaloneJa
 import org.jetbrains.kotlin.analysis.api.standalone.base.java.KotlinStandaloneJavaModuleAnnotationsProvider
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.StandaloneProjectFactory.findJvmRootsForJavaFiles
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.StandaloneProjectFactory.registerJavaPsiFacade
-import org.jetbrains.kotlin.analysis.api.symbols.AdditionalKDocResolutionProvider
 import org.jetbrains.kotlin.analysis.decompiler.psi.BuiltinsVirtualFileProvider
 import org.jetbrains.kotlin.analysis.decompiler.psi.BuiltinsVirtualFileProviderCliImpl
 import org.jetbrains.kotlin.analysis.decompiler.stub.file.ClsKotlinBinaryClassCache
 import org.jetbrains.kotlin.analysis.decompiler.stub.file.DummyFileAttributeService
 import org.jetbrains.kotlin.analysis.decompiler.stub.file.FileAttributeService
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
+import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.compiler.*
 import org.jetbrains.kotlin.cli.jvm.index.JavaRoot
 import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesDynamicCompoundIndex
@@ -64,7 +64,7 @@ import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
 import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.cli.jvm.modules.JavaModuleGraph
 import org.jetbrains.kotlin.config.*
-import org.jetbrains.kotlin.library.KLIB_FILE_EXTENSION
+import org.jetbrains.kotlin.library.KlibConstants.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.load.kotlin.MetadataFinderFactory
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinderFactory
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -77,7 +77,7 @@ object StandaloneProjectFactory {
     fun createProjectEnvironment(
         projectDisposable: Disposable,
         applicationEnvironmentMode: KotlinCoreApplicationEnvironmentMode,
-        compilerConfiguration: CompilerConfiguration = CompilerConfiguration(),
+        compilerConfiguration: CompilerConfiguration = CompilerConfiguration.create(),
     ): KotlinCoreProjectEnvironment {
         val applicationEnvironment = KotlinCoreEnvironment.getOrCreateApplicationEnvironment(
             projectDisposable = projectDisposable,
@@ -144,17 +144,6 @@ object StandaloneProjectFactory {
 
     private fun registerApplicationExtensionPoints(applicationEnvironment: KotlinCoreApplicationEnvironment) {
         val applicationArea = applicationEnvironment.application.extensionArea
-
-        if (!applicationArea.hasExtensionPoint(AdditionalKDocResolutionProvider.EP_NAME)) {
-            KotlinCoreEnvironment.underApplicationLock {
-                if (applicationArea.hasExtensionPoint(AdditionalKDocResolutionProvider.EP_NAME)) return@underApplicationLock
-                CoreApplicationEnvironment.registerApplicationExtensionPoint(
-                    AdditionalKDocResolutionProvider.EP_NAME,
-                    AdditionalKDocResolutionProvider::class.java
-                )
-            }
-        }
-
         if (!applicationArea.hasExtensionPoint(ClassTypePointerFactory.EP_NAME)) {
             KotlinCoreEnvironment.underApplicationLock {
                 if (applicationArea.hasExtensionPoint(ClassTypePointerFactory.EP_NAME)) return@underApplicationLock

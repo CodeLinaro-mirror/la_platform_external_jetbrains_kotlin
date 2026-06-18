@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -CONTEXT_RECEIVERS_DEPRECATED
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
 // ISSUE: KT-52002
 
 class Scope(val name: String)
@@ -32,7 +32,7 @@ fun test() {
     val scope = Scope("")
     val c = ClassBoth()
     c.foo()
-    with(scope) { c.foo() }
+    <!CANNOT_INFER_PARAMETER_TYPE!>with<!>(scope) { c.<!OVERLOAD_RESOLUTION_AMBIGUITY!>foo<!>() }
 }
 
 /* GENERATED_FIR_TAGS: classDeclaration, functionDeclaration, functionDeclarationWithContext, interfaceDeclaration,

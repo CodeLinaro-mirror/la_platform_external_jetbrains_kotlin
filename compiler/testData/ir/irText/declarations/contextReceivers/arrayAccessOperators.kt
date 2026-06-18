@@ -1,4 +1,5 @@
-// LANGUAGE: +ContextReceivers
+// LANGUAGE: +ContextReceivers, -ContextParameters
+// IGNORE_BACKEND_K2: ANY
 
 data class MyContainer(var s: String)
 

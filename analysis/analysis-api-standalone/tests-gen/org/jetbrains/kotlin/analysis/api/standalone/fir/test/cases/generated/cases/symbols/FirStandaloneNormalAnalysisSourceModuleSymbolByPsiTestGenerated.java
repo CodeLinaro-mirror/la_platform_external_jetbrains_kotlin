@@ -269,9 +269,45 @@ public class FirStandaloneNormalAnalysisSourceModuleSymbolByPsiTestGenerated ext
   }
 
   @Test
+  @TestMetadata("explicitBackingFieldAnnotations.kt")
+  public void testExplicitBackingFieldAnnotations() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/explicitBackingFieldAnnotations.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitBackingFieldCustomType.kt")
+  public void testExplicitBackingFieldCustomType() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/explicitBackingFieldCustomType.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitBackingFieldDeprecated.kt")
+  public void testExplicitBackingFieldDeprecated() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/explicitBackingFieldDeprecated.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitBackingFieldLocal.kt")
+  public void testExplicitBackingFieldLocal() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/explicitBackingFieldLocal.kt");
+  }
+
+  @Test
+  @TestMetadata("explicitBackingFieldTopLevel.kt")
+  public void testExplicitBackingFieldTopLevel() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/explicitBackingFieldTopLevel.kt");
+  }
+
+  @Test
   @TestMetadata("extensionFunction.kt")
   public void testExtensionFunction() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/extensionFunction.kt");
+  }
+
+  @Test
+  @TestMetadata("externalDeclarations.kt")
+  public void testExternalDeclarations() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/externalDeclarations.kt");
   }
 
   @Test
@@ -437,6 +473,12 @@ public class FirStandaloneNormalAnalysisSourceModuleSymbolByPsiTestGenerated ext
   }
 
   @Test
+  @TestMetadata("object.kt")
+  public void testObject() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/object.kt");
+  }
+
+  @Test
   @TestMetadata("outerAndInnerClasses.kt")
   public void testOuterAndInnerClasses() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/outerAndInnerClasses.kt");
@@ -512,6 +554,30 @@ public class FirStandaloneNormalAnalysisSourceModuleSymbolByPsiTestGenerated ext
   @TestMetadata("propertyFromDependentModule.kt")
   public void testPropertyFromDependentModule() {
     runTest("analysis/analysis-api/testData/symbols/symbolByPsi/propertyFromDependentModule.kt");
+  }
+
+  @Test
+  @TestMetadata("returnValueStatusCheck.kt")
+  public void testReturnValueStatusCheck() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/returnValueStatusCheck.kt");
+  }
+
+  @Test
+  @TestMetadata("returnValueStatusFull.kt")
+  public void testReturnValueStatusFull() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/returnValueStatusFull.kt");
+  }
+
+  @Test
+  @TestMetadata("sealedClass.kt")
+  public void testSealedClass() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/sealedClass.kt");
+  }
+
+  @Test
+  @TestMetadata("sealedInterface.kt")
+  public void testSealedInterface() {
+    runTest("analysis/analysis-api/testData/symbols/symbolByPsi/sealedInterface.kt");
   }
 
   @Test

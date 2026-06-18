@@ -147,7 +147,7 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
             gradleVersion,
             localRepoDir = localRepository,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.disableIsolatedProjects(),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             plugins {
                 kotlin("multiplatform")
@@ -244,6 +244,8 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
                     ":library:compileNativeMainKotlinMetadata",
                     ":library:exportCommonSourceSetsMetadataLocationsForMetadataApiElements",
                     ":library:exportRootPublicationCoordinatesForMetadataApiElements",
+                    ":library:exportCrossCompilationMetadataForLinuxArm64ApiElements",
+                    ":library:exportCrossCompilationMetadataForLinuxX64ApiElements",
                     ":library:generateProjectStructureMetadata",
                     ":library:generateSourceIn_commonMain_0",
                     ":library:generateSourceIn_jsMain_2",
@@ -336,6 +338,30 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
         doTestSingleTargetMetadata(gradleVersion, localRepoDir, false)
     }
 
+    @DisplayName("KT-79073 - test compilation compiles with use of internals from main code")
+    @GradleTest
+    fun `KT-79073 - friend fragment dependencies`(gradleVersion: GradleVersion) {
+        defaultProject(
+            gradleVersion = gradleVersion,
+            sourceStubs = false,
+            // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
+            additionalProjectConfiguration = {
+                project.applyMultiplatform {
+                    jvm()
+                    linuxX64()
+                    sourceSets.commonMain.get().compileSource("internal fun commonMain() = 42")
+                    // commonTest sees commonMain's internal
+                    sourceSets.commonTest.get().compileSource("fun commonTest() = commonMain()")
+                    sourceSets.jvmMain.get().compileSource("internal fun jvmMain() = commonMain()")
+                    // jvmTest should see main and test, also internals
+                    sourceSets.jvmTest.get().compileSource("internal fun jvmTest() { commonMain(); commonTest(); jvmMain(); }")
+                }
+            }) {
+            build(":compileTestKotlinJvm")
+        }
+    }
+
     private fun doTestSingleTargetMetadata(gradleVersion: GradleVersion, localRepoDir: Path, enableSeparateCompilation: Boolean) {
         project("empty", gradleVersion, localRepoDir = localRepoDir) {
             plugins {
@@ -405,7 +431,7 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
             gradleVersion,
             autoEnableSeparateKmpCompilation = false,
             // KT-75899 Support Gradle Project Isolation in KGP JS & Wasm
-            buildOptions = defaultBuildOptions.copy(isolatedProjects = BuildOptions.IsolatedProjectsMode.DISABLED),
+            buildOptions = defaultBuildOptions.disableIsolatedProjectsBecauseOfJsAndWasmKT75899(),
         ) {
             val eventPrefix = "${BooleanMetrics.KOTLIN_SEPARATE_KMP_COMPILATION_ENABLED.name}="
             assertEquals(
@@ -438,6 +464,7 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
         additionalProjectConfiguration: Project.() -> Unit = {},
         autoEnableSeparateKmpCompilation: Boolean = true,
         buildOptions: BuildOptions = defaultBuildOptions,
+        sourceStubs: Boolean = true,
         test: TestProject.() -> Unit,
     ): GradleProject = project("empty", gradleVersion, buildOptions = buildOptions) {
         plugins {
@@ -454,8 +481,10 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
                     linuxX64()
                     linuxArm64()
                     macosArm64()
-                    with(sourceSets) {
-                        commonMain.get().compileStubSourceWithSourceSetName()
+                    if (sourceStubs) {
+                        with(sourceSets) {
+                            commonMain.get().compileStubSourceWithSourceSetName()
+                        }
                     }
                 }
                 additionalProjectConfiguration(this)

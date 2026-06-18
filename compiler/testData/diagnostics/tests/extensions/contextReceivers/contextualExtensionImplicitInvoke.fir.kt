@@ -1,5 +1,5 @@
-// RUN_PIPELINE_TILL: BACKEND
-// LANGUAGE: +ContextReceivers
+// RUN_PIPELINE_TILL: FRONTEND
+// LANGUAGE: +ContextReceivers, -ContextParameters
 // ISSUE: KT-76527
 
 fun foo(f: <!CONTEXT_RECEIVERS_DEPRECATED!>context<!>(String) Int.() -> Unit) {

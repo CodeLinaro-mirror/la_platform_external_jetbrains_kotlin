@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.lower
 
 import org.jetbrains.kotlin.backend.common.DeclarationTransformer
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
+import org.jetbrains.kotlin.backend.common.phaser.PhasePrerequisites
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.constructorFactory
@@ -70,6 +71,7 @@ private var IrSimpleFunction.replacementWithoutBoxParameter: IrSimpleFunction? b
  * }
  * ```
  */
+@PhasePrerequisites(ES6CollectConstructorsWhichNeedBoxParameters::class)
 class ES6ConstructorBoxParameterOptimizationLowering(private val context: JsIrBackendContext) : FileLoweringPass {
 
     override fun lower(irFile: IrFile) {
@@ -148,8 +150,8 @@ class ES6ConstructorBoxParameterOptimizationLowering(private val context: JsIrBa
     }
 
     private val IrCall.isSuperCallWithBoxParameter: Boolean
-        get() = symbol == context.intrinsics.jsCreateThisSymbol ||
-                symbol == context.intrinsics.jsCreateExternalThisSymbol ||
+        get() = symbol == context.symbols.jsCreateThisSymbol ||
+                symbol == context.symbols.jsCreateExternalThisSymbol ||
                 symbol.owner.isEs6ConstructorReplacement && symbol.owner.boxParameter != null
 
     private fun IrCall.replaceCalleeIfNeeded(): IrCall {

@@ -65,6 +65,25 @@ public final class AnyConsumer: KotlinRuntime.KotlinBase {
         return AnyConsumer_consume__TypesOfArguments__anyU20KotlinRuntimeSupport__KotlinBridgeable__(self.__externalRCRef(), item.__externalRCRef())
     }
 }
+public final class ArrayBox: KotlinRuntime.KotlinBase {
+    public var ints: ExportedKotlinPackages.kotlin.Array {
+        get {
+            return ExportedKotlinPackages.kotlin.Array.__createClassWrapper(externalRCRef: ArrayBox_ints_get(self.__externalRCRef()))
+        }
+    }
+    public init() {
+        if Self.self != main.ArrayBox.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.ArrayBox ") }
+        let __kt = __root___ArrayBox_init_allocate()
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+        __root___ArrayBox_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+    }
+    package override init(
+        __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        options: KotlinRuntime.KotlinBaseConstructionOptions
+    ) {
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+    }
+}
 open class Box: KotlinRuntime.KotlinBase {
     public final var t: (any KotlinRuntimeSupport._KotlinBridgeable)? {
         get {
@@ -137,6 +156,20 @@ public final class Demo: KotlinRuntime.KotlinBase {
         super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
     }
 }
+public final class FunctionalBox: main.Box {
+    public init() {
+        if Self.self != main.FunctionalBox.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.FunctionalBox ") }
+        let __kt = __root___FunctionalBox_init_allocate()
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+        __root___FunctionalBox_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+    }
+    package override init(
+        __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        options: KotlinRuntime.KotlinBaseConstructionOptions
+    ) {
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+    }
+}
 public final class GenericWithComparableUpperBound: KotlinRuntime.KotlinBase {
     public var t: any ExportedKotlinPackages.kotlin.Comparable {
         get {
@@ -156,6 +189,30 @@ public final class GenericWithComparableUpperBound: KotlinRuntime.KotlinBase {
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
         super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+    }
+}
+public final class Holder: KotlinRuntime.KotlinBase {
+    public var xs: ExportedKotlinPackages.kotlin.Array {
+        get {
+            return ExportedKotlinPackages.kotlin.Array.__createClassWrapper(externalRCRef: Holder_xs_get(self.__externalRCRef()))
+        }
+    }
+    public init(
+        xs: ExportedKotlinPackages.kotlin.Array
+    ) {
+        if Self.self != main.Holder.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from main.Holder ") }
+        let __kt = __root___Holder_init_allocate()
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
+        __root___Holder_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer_ExportedKotlinPackages_kotlin_Array__(__kt, xs.__externalRCRef())
+    }
+    package override init(
+        __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
+        options: KotlinRuntime.KotlinBaseConstructionOptions
+    ) {
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+    }
+    public func headOrNull() -> (any KotlinRuntimeSupport._KotlinBridgeable)? {
+        return { switch Holder_headOrNull(self.__externalRCRef()) { case nil: .none; case let res: KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: res) as! any KotlinRuntimeSupport._KotlinBridgeable; } }()
     }
 }
 public final class IdentityProcessor: KotlinRuntime.KotlinBase {
@@ -235,6 +292,12 @@ public final class TripleBox: main.Box {
         super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
     }
 }
+public func bar(
+    param1: (any KotlinRuntimeSupport._KotlinBridgeable)?,
+    param2: (any KotlinRuntimeSupport._KotlinBridgeable)?
+) -> (any KotlinRuntimeSupport._KotlinBridgeable)? {
+    return { switch __root___bar__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(param1.map { it in it.__externalRCRef() } ?? nil, param2.map { it in it.__externalRCRef() } ?? nil) { case nil: .none; case let res: KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: res) as! any KotlinRuntimeSupport._KotlinBridgeable; } }()
+}
 public func createMap(
     pairs: [main.Pair]
 ) -> [Swift.AnyHashable?: (any KotlinRuntimeSupport._KotlinBridgeable)?] {
@@ -242,7 +305,7 @@ public func createMap(
 }
 public func customFilter(
     _ receiver: [(any KotlinRuntimeSupport._KotlinBridgeable)?],
-    predicate: @escaping (Swift.Optional<any KotlinRuntimeSupport._KotlinBridgeable>) -> Swift.Bool
+    predicate: @escaping ((any KotlinRuntimeSupport._KotlinBridgeable)?) -> Swift.Bool
 ) -> [(any KotlinRuntimeSupport._KotlinBridgeable)?] {
     return __root___customFilter__TypesOfArguments__Swift_Array_Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___U28Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable_U29202D_U20Swift_Bool__(receiver.map { it in it as! NSObject? ?? NSNull() }, {
         let originalBlock = predicate
@@ -252,8 +315,8 @@ public func customFilter(
 public func foo(
     param1: (any KotlinRuntimeSupport._KotlinBridgeable)?,
     param2: (any KotlinRuntimeSupport._KotlinBridgeable)?
-) -> Swift.Void {
-    return __root___foo__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(param1.map { it in it.__externalRCRef() } ?? nil, param2.map { it in it.__externalRCRef() } ?? nil)
+) -> (any KotlinRuntimeSupport._KotlinBridgeable)? {
+    return { switch __root___foo__TypesOfArguments__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable__Swift_Optional_anyU20KotlinRuntimeSupport__KotlinBridgeable___(param1.map { it in it.__externalRCRef() } ?? nil, param2.map { it in it.__externalRCRef() } ?? nil) { case nil: .none; case let res: KotlinRuntime.KotlinBase.__createProtocolWrapper(externalRCRef: res) as! any KotlinRuntimeSupport._KotlinBridgeable; } }()
 }
 extension main.A where Self : KotlinRuntimeSupport._KotlinBridgeable {
     public var foo: (any KotlinRuntimeSupport._KotlinBridgeable)? {

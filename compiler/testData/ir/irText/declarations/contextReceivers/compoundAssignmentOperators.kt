@@ -1,4 +1,5 @@
-// LANGUAGE: +ContextReceivers
+// IGNORE_BACKEND_K2: ANY
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 data class Result(var i: Int)
 

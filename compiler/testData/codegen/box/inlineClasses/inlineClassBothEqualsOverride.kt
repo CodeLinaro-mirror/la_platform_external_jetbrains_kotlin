@@ -3,7 +3,6 @@
 // TARGET_BACKEND: JVM_IR
 // CHECK_BYTECODE_LISTING
 
-
 interface I {
     fun getVal(): Int
 }

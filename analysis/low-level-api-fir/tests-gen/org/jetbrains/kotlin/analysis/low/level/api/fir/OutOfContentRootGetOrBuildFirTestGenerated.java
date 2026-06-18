@@ -226,6 +226,12 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
+    @TestMetadata("localBackingFieldWithAnnotatedType.kt")
+    public void testLocalBackingFieldWithAnnotatedType() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/localBackingFieldWithAnnotatedType.kt");
+    }
+
+    @Test
     @TestMetadata("localCompilerRequiredAnnotation.kt")
     public void testLocalCompilerRequiredAnnotation() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/annotations/localCompilerRequiredAnnotation.kt");
@@ -576,15 +582,39 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     }
 
     @Test
-    @TestMetadata("contextReceiverSubstitutionFunction.kt")
-    public void testContextReceiverSubstitutionFunction() {
-      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/contextReceiverSubstitutionFunction.kt");
+    @TestMetadata("explicitArgument.kt")
+    public void testExplicitArgument() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/explicitArgument.kt");
     }
 
     @Test
-    @TestMetadata("contextReceiverSubstitutionProperty.kt")
-    public void testContextReceiverSubstitutionProperty() {
-      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/contextReceiverSubstitutionProperty.kt");
+    @TestMetadata("explicitArgumentName.kt")
+    public void testExplicitArgumentName() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/explicitArgumentName.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitArgumentNameReference.kt")
+    public void testExplicitArgumentNameReference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/explicitArgumentNameReference.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitContextArgument.kt")
+    public void testExplicitContextArgument() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/explicitContextArgument.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitContextArgumentName.kt")
+    public void testExplicitContextArgumentName() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/explicitContextArgumentName.kt");
+    }
+
+    @Test
+    @TestMetadata("explicitContextArgumentNameReference.kt")
+    public void testExplicitContextArgumentNameReference() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/explicitContextArgumentNameReference.kt");
     }
 
     @Test
@@ -801,6 +831,34 @@ public class OutOfContentRootGetOrBuildFirTestGenerated extends AbstractOutOfCon
     @TestMetadata("whenConditionInRangeInverted.kt")
     public void testWhenConditionInRangeInverted() {
       runTest("analysis/low-level-api-fir/testData/getOrBuildFir/calls/whenConditionInRangeInverted.kt");
+    }
+  }
+
+  @Nested
+  @TestMetadata("analysis/low-level-api-fir/testData/getOrBuildFir/collectionLiterals")
+  @TestDataPath("$PROJECT_ROOT")
+  public class CollectionLiterals {
+    @Test
+    public void testAllFilesPresentInCollectionLiterals() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("analysis/low-level-api-fir/testData/getOrBuildFir/collectionLiterals"), Pattern.compile("^(.+)\\.(kt)$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("customGenericCollection.kt")
+    public void testCustomGenericCollection() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/collectionLiterals/customGenericCollection.kt");
+    }
+
+    @Test
+    @TestMetadata("stdlibSet.kt")
+    public void testStdlibSet() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/collectionLiterals/stdlibSet.kt");
+    }
+
+    @Test
+    @TestMetadata("stdlibSetWithoutStdlib.kt")
+    public void testStdlibSetWithoutStdlib() {
+      runTest("analysis/low-level-api-fir/testData/getOrBuildFir/collectionLiterals/stdlibSetWithoutStdlib.kt");
     }
   }
 

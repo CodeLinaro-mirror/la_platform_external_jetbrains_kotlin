@@ -22,8 +22,8 @@ import com.intellij.psi.util.PsiFormatUtil
 import org.jetbrains.kotlin.KtRealPsiSourceElement
 import org.jetbrains.kotlin.analyzer.AbstractAnalyzerWithCompilerReport
 import org.jetbrains.kotlin.analyzer.AnalysisResult
-import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
+import org.jetbrains.kotlin.cli.common.renderDiagnosticInternalName
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.diagnostics.*
 import org.jetbrains.kotlin.diagnostics.DiagnosticUtils.sortedDiagnostics
@@ -49,7 +49,7 @@ class AnalyzerWithCompilerReport(
     constructor(configuration: CompilerConfiguration) : this(
         configuration.messageCollector,
         configuration.languageVersionSettings,
-        configuration.getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
+        configuration.renderDiagnosticInternalName,
     )
 
     private fun reportIncompleteHierarchies() {
@@ -131,14 +131,6 @@ class AnalyzerWithCompilerReport(
     }
 
     companion object {
-
-        fun convertSeverity(severity: Severity): CompilerMessageSeverity = when (severity) {
-            Severity.INFO -> INFO
-            Severity.ERROR -> ERROR
-            Severity.WARNING -> WARNING
-            Severity.FIXED_WARNING -> FIXED_WARNING
-        }
-
         private val SYNTAX_ERROR_FACTORY = DiagnosticFactory0.create<PsiErrorElement>(Severity.ERROR)
 
         private fun reportDiagnostic(diagnostic: Diagnostic, reporter: DiagnosticMessageReporter, renderDiagnosticName: Boolean): Boolean {
@@ -235,7 +227,7 @@ class AnalyzerWithCompilerReport(
                     KtRealPsiSourceElement(element),
                     message,
                     positioningStrategy = null,
-                    LanguageVersionSettingsImpl.DEFAULT, // syntax errors couldn't be suppressed anyway
+                    DiagnosticContext.Default, // syntax errors couldn't be suppressed anyway
                 )
                 val context = object : DiagnosticContext {
                     override val containingFilePath: String?

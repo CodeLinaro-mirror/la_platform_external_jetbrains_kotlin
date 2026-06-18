@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirValueParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
@@ -205,6 +206,8 @@ class AmbiguousInterceptedSymbol(val pluginNames: List<String>) : ResolutionDiag
 
 class MissingInnerClassConstructorReceiver(val candidateSymbol: FirRegularClassSymbol) : ResolutionDiagnostic(INAPPLICABLE)
 
+class ImplicitPropertyTypeMakesBehaviorOrderDependant(val candidateSymbol: FirPropertySymbol) : ResolutionDiagnostic(RESOLVED)
+
 @OptIn(ApplicabilityDetail::class)
 val Collection<ResolutionDiagnostic>.allSuccessful: Boolean get() = all { it.applicability.isSuccess }
 val Collection<ResolutionDiagnostic>.anyUnsuccessful: Boolean get() = !allSuccessful
@@ -213,3 +216,5 @@ val Collection<ResolutionDiagnostic>.anyUnsuccessful: Boolean get() = !allSucces
 val ResolutionDiagnostic.isSuccess: Boolean get() = applicability.isSuccess
 
 class InaccessibleOuterClassReceiver(val symbol: FirClassSymbol<*>) : ResolutionDiagnostic(INAPPLICABLE)
+
+object InaccessibleFromClassHeader : ResolutionDiagnostic(INAPPLICABLE)

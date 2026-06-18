@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.gradle.plugin.internal.BuildIdService
 import org.jetbrains.kotlin.gradle.plugin.internal.state.TaskLoggers
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinWithJavaTarget
 import org.jetbrains.kotlin.gradle.plugin.statistics.CompilerArgumentMetrics
+import org.jetbrains.kotlin.gradle.plugin.statistics.KotlinCompilerRefIndexMetrics
 import org.jetbrains.kotlin.gradle.tasks.*
 import org.jetbrains.kotlin.gradle.utils.*
 import org.jetbrains.kotlin.incremental.IncrementalModuleEntry
@@ -63,7 +64,7 @@ internal fun createGradleCompilerRunner(
     taskProvider: GradleCompileTaskProvider,
     toolsJar: File?,
     compilerExecutionSettings: CompilerExecutionSettings,
-    buildMetricsReporter: BuildMetricsReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
+    buildMetricsReporter: BuildMetricsReporter<BuildTimeMetric, BuildPerformanceMetric>,
     workerExecutor: WorkerExecutor,
     runViaBuildToolsApi: Boolean,
     cachedClassLoadersService: Property<ClassLoadersCachingBuildService>,
@@ -74,6 +75,7 @@ internal fun createGradleCompilerRunner(
     diagnosticsReporter: UsesKotlinToolingDiagnostics,
 ): GradleCompilerRunner {
     if (runViaBuildToolsApi) {
+        @Suppress("DEPRECATION")
         if (compilerExecutionSettings.strategy != KotlinCompilerExecutionStrategy.OUT_OF_PROCESS) {
             return GradleBuildToolsApiCompilerRunner(
                 taskProvider,
@@ -90,6 +92,8 @@ internal fun createGradleCompilerRunner(
         } else {
             diagnosticsReporter.reportDiagnostic(KotlinToolingDiagnostics.UsingOutOfProcessDisablesBuildToolsApi())
         }
+    } else if (compilerExecutionSettings.generateCompilerRefIndex) {
+        diagnosticsReporter.reportDiagnostic(KotlinToolingDiagnostics.GeneratingCompilerRefIndexWithoutBuildToolsApi())
     }
     return GradleCompilerRunnerWithWorkers(
         taskProvider,
@@ -110,7 +114,7 @@ internal open class GradleCompilerRunner(
     protected val taskProvider: GradleCompileTaskProvider,
     protected val jdkToolsJar: File?,
     protected val compilerExecutionSettings: CompilerExecutionSettings,
-    protected val buildMetrics: BuildMetricsReporter<GradleBuildTime, GradleBuildPerformanceMetric>,
+    protected val buildMetrics: BuildMetricsReporter<BuildTimeMetric, BuildPerformanceMetric>,
     protected val fusMetricsConsumer: Provider<StatisticsValuesConsumer>,
 ) {
 
@@ -176,7 +180,10 @@ internal open class GradleCompilerRunner(
         }
         val argsArray = ArgumentUtils.convertArgumentsToStringList(compilerArgs).toTypedArray()
 
-        fusMetricsConsumer.orNull?.let { metricsConsumer -> CompilerArgumentMetrics.collectMetrics(compilerArgs, argsArray, metricsConsumer) }
+        fusMetricsConsumer.orNull?.let { metricsConsumer ->
+            CompilerArgumentMetrics.collectMetrics(compilerArgs, argsArray, metricsConsumer)
+            KotlinCompilerRefIndexMetrics.collectMetrics(compilerExecutionSettings.generateCompilerRefIndex, metricsConsumer)
+        }
 
         val incrementalCompilationEnvironment = environment.incrementalCompilationEnvironment
         val modulesInfo = incrementalCompilationEnvironment?.let { incrementalModuleInfoProvider.orNull?.info }
@@ -218,13 +225,13 @@ internal open class GradleCompilerRunner(
         taskOutputsBackup: TaskOutputsBackup?,
     ): WorkQueue? {
         try {
-            buildMetrics.addTimeMetric(GradleBuildPerformanceMetric.CALL_WORKER)
+            buildMetrics.addTimeMetric(CALL_WORKER)
             val kotlinCompilerRunnable = GradleKotlinCompilerWork(workArgs)
             kotlinCompilerRunnable.run()
         } catch (e: FailedCompilationException) {
             // Restore outputs only for CompilationErrorException or OOMErrorException (see GradleKotlinCompilerWorkAction.execute)
             taskOutputsBackup?.tryRestoringOnRecoverableException(e) { restoreAction ->
-                buildMetrics.measure(GradleBuildTime.RESTORE_OUTPUT_FROM_BACKUP) {
+                buildMetrics.measure(RESTORE_OUTPUT_FROM_BACKUP) {
                     restoreAction()
                 }
             }

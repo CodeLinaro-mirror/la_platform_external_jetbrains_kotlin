@@ -1,5 +1,5 @@
-// RUN_PIPELINE_TILL: BACKEND
-// LANGUAGE: +ContextReceivers
+// RUN_PIPELINE_TILL: FRONTEND
+// LANGUAGE: +ContextReceivers, -ContextParameters
 // WITH_STDLIB
 // ISSUE: KT-55639
 
@@ -26,7 +26,7 @@ interface UserContext: HasResolver {
 
 <!CONTEXT_RECEIVERS_DEPRECATED!>context<!>(UserContext, MutableMap<String, Any>)
 fun putUserDetails() {
-    put("user_id", userId)
+    <!UNRESOLVED_REFERENCE!>put<!>("user_id", <!UNRESOLVED_REFERENCE!>userId<!>)
 }
 
 /* GENERATED_FIR_TAGS: funWithExtensionReceiver, functionDeclaration, functionDeclarationWithContext, functionalType,

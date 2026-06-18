@@ -1,4 +1,5 @@
-// LANGUAGE: +ContextReceivers
+// IGNORE_BACKEND_K2: ANY
+// LANGUAGE: +ContextReceivers, -ContextParameters
 // WITH_STDLIB
 data class Counter(var i: Int = 0)
 

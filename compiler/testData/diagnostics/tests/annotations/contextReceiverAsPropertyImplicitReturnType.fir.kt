@@ -1,11 +1,11 @@
-// RUN_PIPELINE_TILL: BACKEND
-// LANGUAGE: +ContextReceivers
+// RUN_PIPELINE_TILL: FRONTEND
+// LANGUAGE: +ContextReceivers, -ContextParameters
 
 @Target(AnnotationTarget.TYPE)
 annotation class Anno(val position: String)
 
 <!CONTEXT_RECEIVERS_DEPRECATED!>context<!>(List<@Anno("context receiver type $prop") Int>)
-val foo get() = this@List
+val foo get() = this<!UNRESOLVED_LABEL!>@List<!>
 
 const val prop = "str"
 

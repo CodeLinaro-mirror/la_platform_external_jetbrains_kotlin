@@ -94,7 +94,7 @@ internal class InlineFunctionDeserializer(
         private val linker: KonanIrLinker,
 ) {
     private val inlineFunctionReferences: Map<IdSignature, SerializedInlineFunctionReference> by lazy {
-        val cache = cachedLibraries.getLibraryCache(deserializer.klib) ?: error("No cache for ${deserializer.klib.libraryName}")
+        val cache = cachedLibraries.getLibraryCache(deserializer.klib) ?: error("No cache for ${deserializer.klib.location}")
         cache.serializedInlineFunctionBodies.associateBy {
             with(deserializer) {
                 val symbolDeserializer = it.file.deserializationState.declarationDeserializer.symbolDeserializer
@@ -158,7 +158,7 @@ internal class CachedEagerInitializedFiles(
 ) {
     val eagerInitializedFiles: List<IrFile> by lazy {
         val cache = cachedLibraries.getLibraryCache(klib)
-                ?: error("No cache for ${klib.libraryName}") // KT-54668
+                ?: error("No cache for ${klib.location}") // KT-54668
         cache.serializedEagerInitializedFiles
                 .map { with(deserializer) { it.file.deserializationState.file } }
                 .distinct()
@@ -310,7 +310,7 @@ internal class ClassFieldsDeserializer(
     }
 
     private val classesFields by lazy {
-        val cache = cachedLibraries.getLibraryCache(deserializer.klib) ?: error("No cache for ${deserializer.klib.libraryName}")
+        val cache = cachedLibraries.getLibraryCache(deserializer.klib) ?: error("No cache for ${deserializer.klib.location}")
         cache.serializedClassFields.associateBy {
             it.classSignature
         }
@@ -522,7 +522,6 @@ class CacheMetadata(
         val target: KonanTarget,
         val compilerFingerprint: String,
         val runtimeFingerprint: String?, // only present in caches using the runtime (i.e. for stdlib)
-        val fullCompilerConfiguration: String,
 )
 
 object CacheMetadataSerializer {
@@ -535,7 +534,6 @@ object CacheMetadataSerializer {
                 "target" to metadata.target.toString(),
                 "compilerFingerprint" to metadata.compilerFingerprint,
                 metadata.runtimeFingerprint?.let { "runtimeFingerprint" to it },
-                "fullCompilerConfiguration" to metadata.fullCompilerConfiguration,
         ).forEach { (key, value) ->
             writer.appendLine("$key=$value")
         }
@@ -550,7 +548,6 @@ object CacheMetadataSerializer {
                     target = KonanTarget.predefinedTargets[this["target"] as String]!!,
                     compilerFingerprint = this["compilerFingerprint"] as String,
                     runtimeFingerprint = this["runtimeFingerprint"] as String?,
-                    fullCompilerConfiguration = this["fullCompilerConfiguration"] as String,
             )
         }
     }

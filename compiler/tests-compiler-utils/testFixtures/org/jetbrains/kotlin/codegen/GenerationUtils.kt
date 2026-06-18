@@ -17,20 +17,21 @@ import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
 import org.jetbrains.kotlin.cli.common.output.writeAllTo
+import org.jetbrains.kotlin.cli.jvm.compiler.AllJavaSourcesInProjectScope
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
-import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
 import org.jetbrains.kotlin.cli.jvm.compiler.legacy.pipeline.convertToIrAndActualizeForJvm
+import org.jetbrains.kotlin.cli.pipeline.jvm.JvmFrontendPipelinePhase.runAnalysisHandlerExtensions
 import org.jetbrains.kotlin.codegen.state.GenerationState
+import org.jetbrains.kotlin.compiler.plugin.getCompilerExtensions
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
+import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.fir.FirAnalyzerFacade
 import org.jetbrains.kotlin.fir.FirTestSessionFactoryHelper
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendExtension
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
-import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.ir.backend.jvm.loadJvmKlibs
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.load.kotlin.PackagePartProvider
@@ -85,12 +86,12 @@ object GenerationUtils {
     ): GenerationState {
         PsiElementFinder.EP.getPoint(project).unregisterExtension(JavaElementFinder::class.java)
 
-        if (FirAnalysisHandlerExtension.analyze(project, configuration) == false) {
+        if (runAnalysisHandlerExtensions(project, configuration) == false) {
             throw CompilationErrorException()
         }
 
         val scope = GlobalSearchScope.filesScope(project, files.map { it.virtualFile })
-            .uniteWith(TopDownAnalyzerFacadeForJVM.AllJavaSourcesInProjectScope(project))
+            .uniteWith(AllJavaSourcesInProjectScope(project))
         val librariesScope = ProjectScope.getLibrariesScope(project)
         val session = FirTestSessionFactoryHelper.createSessionForTests(
             project, scope, librariesScope, configuration, "main", getPackagePartProvider = packagePartProvider,
@@ -105,11 +106,10 @@ object GenerationUtils {
         )
 
         val fir2IrExtensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
-        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
-        val diagnosticReporter = DiagnosticReporterFactory.createReporter(messageCollector)
+        val diagnosticReporter = DiagnosticsCollectorImpl()
         firAnalyzerFacade.runResolution()
-        val irGenerationExtensions = IrGenerationExtension.Companion.getInstances(project)
-        val (moduleFragment, components, pluginContext, _, _, symbolTable) = firAnalyzerFacade.result.convertToIrAndActualizeForJvm(
+        val irGenerationExtensions = configuration.getCompilerExtensions(IrGenerationExtension)
+        val (moduleFragment, components, pluginContext, _, _, symbolTable) = firAnalyzerFacade.frontendOutput.convertToIrAndActualizeForJvm(
             fir2IrExtensions,
             configuration,
             diagnosticReporter,
@@ -139,7 +139,7 @@ object GenerationUtils {
     ): Pair<GenerationState, BindingContext> {
         val klibs: List<KotlinLibrary> = loadJvmKlibs(configuration).all
 
-        @Suppress("DEPRECATION")
+        @Suppress("DEPRECATION_ERROR")
         val analysisResult =
             JvmResolveUtil.analyzeAndCheckForErrors(
                 project, files, configuration, packagePartProvider, trace,

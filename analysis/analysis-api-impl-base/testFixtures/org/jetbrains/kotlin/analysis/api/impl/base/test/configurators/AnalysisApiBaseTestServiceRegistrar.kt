@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.analysis.api.impl.base.test.configurators
 
+import com.intellij.diagnostic.PluginException
+import com.intellij.diagnostic.PluginProblemReporter
 import com.intellij.ide.highlighter.JavaClassFileType
 import com.intellij.mock.MockApplication
 import com.intellij.mock.MockProject
@@ -51,7 +53,7 @@ import org.jetbrains.kotlin.analysis.test.framework.services.disposableProvider
 import org.jetbrains.kotlin.analysis.test.framework.services.environmentManager
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestServiceRegistrar
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.TestModuleKind
-import org.jetbrains.kotlin.library.KLIB_METADATA_FILE_EXTENSION
+import org.jetbrains.kotlin.library.components.KlibMetadataConstants.KLIB_METADATA_FILE_EXTENSION
 import org.jetbrains.kotlin.psi.KtClassOrObject
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtFileClassProvider
@@ -167,7 +169,7 @@ object AnalysisApiBaseTestServiceRegistrar : AnalysisApiTestServiceRegistrar() {
             registerService(KotlinDeclarationProviderMerger::class.java, KotlinStandaloneDeclarationProviderMerger(project))
             registerService(
                 KotlinPackageProviderFactory::class.java,
-                KotlinStandalonePackageProviderFactory(project, testKtFiles + ktFilesForBinaries)
+                KotlinStandalonePackageProviderFactory(project, testKtFiles + ktFilesForBinaries, sharedBinaryRoots),
             )
             registerService(KotlinPackageProviderMerger::class.java, KotlinStandalonePackageProviderMerger(project))
         }
@@ -205,5 +207,14 @@ object AnalysisApiBaseTestServiceRegistrar : AnalysisApiTestServiceRegistrar() {
 
             registerExtension(ClsDecompilerImpl(), LoadingOrder.FIRST, applicationDisposable)
         }
+
+        // To properly handle exceptions from the stub builder
+        @Suppress("UnstableApiUsage")
+        application.registerService(
+            PluginProblemReporter::class.java,
+            PluginProblemReporter { errorMessage, cause, _ ->
+                PluginException(errorMessage, cause, null)
+            },
+        )
     }
 }

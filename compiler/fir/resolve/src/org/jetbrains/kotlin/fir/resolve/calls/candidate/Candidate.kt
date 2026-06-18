@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
+import org.jetbrains.kotlin.fir.expressions.FirCollectionLiteral
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirSmartCastExpression
@@ -18,6 +19,7 @@ import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildPropertyAccessExpressionCopy
 import org.jetbrains.kotlin.fir.expressions.builder.buildThisReceiverExpressionCopy
 import org.jetbrains.kotlin.fir.expressions.impl.FirExpressionStub
+import org.jetbrains.kotlin.fir.expressions.unwrapArgument
 import org.jetbrains.kotlin.fir.resolve.FirSamResolver
 import org.jetbrains.kotlin.fir.resolve.calls.*
 import org.jetbrains.kotlin.fir.resolve.calls.stages.TypeArgumentMapping
@@ -42,9 +44,7 @@ class Candidate(
     // - in some cases with static entities, no matter is a use-site receiver explicit or not
     // OR we may have here a kind of ImplicitReceiverValue (non-statics only)
     override var dispatchReceiver: ConeResolutionAtom?,
-    // In most cases, it contains zero or single element
-    // More than one, only in case of context receiver group
-    val givenExtensionReceiverOptions: List<ConeResolutionAtom>,
+    val givenExtensionReceiver: ConeResolutionAtom?,
     override val explicitReceiverKind: ExplicitReceiverKind,
     private val constraintSystemFactory: InferenceComponents.ConstraintSystemFactory,
     private val baseSystem: ConstraintStorage,
@@ -223,22 +223,31 @@ class Candidate(
 
     // ------------------------ Context-sensitively resolved arguments ------------------------------------
 
-    private var _updatedArgumentsFromContextSensitiveResolution: MutableMap<FirElement, FirExpression>? =
+    private var _updatedArguments: MutableMap<FirElement, FirExpression>? =
         null
 
-    fun setUpdatedArgumentFromContextSensitiveResolution(old: FirPropertyAccessExpression, new: FirExpression) {
-        if (_updatedArgumentsFromContextSensitiveResolution == null) {
-            _updatedArgumentsFromContextSensitiveResolution = mutableMapOf()
+    private fun setUpdatedArgument(old: FirExpression, new: FirExpression) {
+        if (_updatedArguments == null) {
+            _updatedArguments = mutableMapOf()
         }
 
-        val existingValue = _updatedArgumentsFromContextSensitiveResolution!!.put(old, new)
+        val existingValue = _updatedArguments!!.put(old, new)
         check(existingValue == null) {
             "We shouldn't put the value for $old twice"
         }
     }
 
-    val contextSensitiveResolutionReplacements: Map<FirElement, FirExpression>?
-        get() = _updatedArgumentsFromContextSensitiveResolution
+    fun setUpdatedArgumentFromContextSensitiveResolution(old: FirPropertyAccessExpression, new: FirExpression) {
+        setUpdatedArgument(old, new)
+    }
+
+    fun setUpdatedCollectionLiteral(old: FirCollectionLiteral, new: FirExpression) {
+        setUpdatedArgument(old, new)
+    }
+
+    val argumentReplacements: Map<FirElement, FirExpression>?
+        get() = _updatedArguments
+
     // ---------------------------------------- PCLA-related parts ----------------------------------------
 
     val postponedPCLACalls: MutableList<ConeResolutionAtom> = mutableListOf()
@@ -283,7 +292,7 @@ class Candidate(
 
     // ---------------------------------------- Receivers ----------------------------------------
 
-    override var chosenExtensionReceiver: ConeResolutionAtom? = givenExtensionReceiverOptions.singleOrNull()
+    override var chosenExtensionReceiver: ConeResolutionAtom? = givenExtensionReceiver
 
     override var contextArguments: List<ConeResolutionAtom>? = null
 
@@ -304,7 +313,7 @@ class Candidate(
     }
 
     fun contextArguments(): List<FirExpression> {
-        return contextArguments?.map { it.expression } ?: emptyList()
+        return contextArguments?.map { it.expression.unwrapArgument() } ?: emptyList()
     }
 
     private var sourcesWereUpdated = false

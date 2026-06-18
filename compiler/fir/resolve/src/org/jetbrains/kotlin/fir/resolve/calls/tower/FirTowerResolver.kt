@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls.tower
 
+import org.jetbrains.kotlin.fir.SessionAndScopeSessionHolder
 import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
 import org.jetbrains.kotlin.fir.expressions.FirSuperReceiverExpression
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
@@ -27,15 +28,16 @@ class FirTowerResolver(
     private val components: BodyResolveComponents,
     resolutionStageRunner: ResolutionStageRunner,
     private val collector: CandidateCollector = CandidateCollector(components, resolutionStageRunner)
-) {
+) : SessionAndScopeSessionHolder by components {
     private val manager = TowerResolveManager(collector)
 
     fun runResolver(
         info: CallInfo,
         context: ResolutionContext,
-        externalCollector: CandidateCollector? = null
+        externalCollector: CandidateCollector? = null,
+        candidateFactory: CandidateFactory = CandidateFactory(context, info),
     ): CandidateCollector {
-        return runResolver(info, context, externalCollector ?: collector, manager)
+        return runResolver(info, context, externalCollector ?: collector, manager, candidateFactory)
     }
 
     fun runResolver(
@@ -102,7 +104,7 @@ class FirTowerResolver(
     ): CandidateCollector {
         val outerType = components.outerClassManager.outerType(constructedType)
         val scope =
-            constructedType.delegatingConstructorScope(components.session, components.scopeSession, derivedClassLookupTag, outerType)
+            constructedType.delegatingConstructorScope(derivedClassLookupTag, outerType)
                 ?: return collector
 
         val dispatchReceiver =
@@ -125,7 +127,7 @@ class FirTowerResolver(
                     ExplicitReceiverKind.NO_EXPLICIT_RECEIVER,
                     scope,
                     dispatchReceiver?.receiverExpression,
-                    givenExtensionReceiverOptions = emptyList()
+                    givenExtensionReceiver = null,
                 ).apply {
                     if (outerType != null && dispatchReceiver == null) {
                         val diagnostic = constructedType

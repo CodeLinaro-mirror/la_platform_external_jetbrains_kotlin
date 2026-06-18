@@ -11,6 +11,7 @@ KaNamedFunctionSymbol:
       isActual: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isVal: true
       location: LOCAL
       modality: FINAL
@@ -62,6 +63,7 @@ KaNamedFunctionSymbol:
       compilerVisibility: Local
       isActual: false
       isExpect: false
+      isExternal: false
       isReified: false
       location: LOCAL
       modality: FINAL
@@ -79,6 +81,7 @@ KaNamedFunctionSymbol:
       compilerVisibility: Local
       isActual: false
       isExpect: false
+      isExternal: false
       isReified: false
       location: LOCAL
       modality: FINAL
@@ -96,6 +99,7 @@ KaNamedFunctionSymbol:
       compilerVisibility: Local
       isActual: false
       isExpect: false
+      isExternal: false
       isReified: false
       location: LOCAL
       modality: FINAL
@@ -116,11 +120,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -154,7 +161,7 @@ KaNamedFunctionSymbol:
             typeArguments: []
             type: kotlin/Int
         ]
-        type: @ContextFunctionTypeParams(2) @ExtensionFunctionType kotlin/Function4<lib/A, lib/B, kotlin/Int, kotlin/Int, kotlin/Int>
+        type: context(lib/A, lib/B) kotlin/Int.(kotlin/Int) -> kotlin/Int
       visibility: PUBLIC
       getContainingFileSymbol: null
       getContainingJvmClassName: lib.LibKt
@@ -167,11 +174,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -208,7 +218,7 @@ KaNamedFunctionSymbol:
             typeArguments: []
             type: kotlin/Int
         ]
-        type: @ContextFunctionTypeParams(2) @ExtensionFunctionType @R|lib/MyAnnotation|()  kotlin/Function4<lib/A, lib/B, kotlin/Int, kotlin/Int, kotlin/Int>
+        type: context(lib/A, lib/B) kotlin/Int.(kotlin/Int) -> kotlin/Int
       visibility: PUBLIC
       getContainingFileSymbol: null
       getContainingJvmClassName: lib.LibKt
@@ -221,11 +231,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -259,7 +272,7 @@ KaNamedFunctionSymbol:
             typeArguments: []
             type: kotlin/Int
         ]
-        type: @ContextFunctionTypeParams(2) @ExtensionFunctionType kotlin/Function4<lib/A, lib/B, kotlin/Int, kotlin/Int, kotlin/Int>?
+        type: (context(lib/A, lib/B) kotlin/Int.(kotlin/Int) -> kotlin/Int)?
       visibility: PUBLIC
       getContainingFileSymbol: null
       getContainingJvmClassName: lib.LibKt
@@ -272,11 +285,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -310,7 +326,7 @@ KaNamedFunctionSymbol:
             typeArguments: []
             type: kotlin/Int
         ]
-        type: @ContextFunctionTypeParams(2) @ExtensionFunctionType kotlin/coroutines/SuspendFunction4<lib/A, lib/B, kotlin/Int, kotlin/Int, kotlin/Int>
+        type: suspend context(lib/A, lib/B) kotlin/Int.(kotlin/Int) -> kotlin/Int
       visibility: PUBLIC
       getContainingFileSymbol: null
       getContainingJvmClassName: lib.LibKt
@@ -323,11 +339,14 @@ KaNamedFunctionSymbol:
       compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
+      hasDeclaredDefaultValue: false
       hasDefaultValue: false
+      hasSynthesizedName: false
       isActual: false
       isCrossinline: false
       isExpect: false
       isExtension: false
+      isExternal: false
       isImplicitLambdaParameter: false
       isNoinline: false
       isVal: true
@@ -347,7 +366,7 @@ KaNamedFunctionSymbol:
             annotations: []
             type: R
         ]
-        type: @ContextFunctionTypeParams(1) kotlin/Function1<T2, R>
+        type: context(T2) () -> R
       visibility: PUBLIC
       getContainingFileSymbol: null
       getContainingJvmClassName: lib.LibKt
@@ -361,4 +380,5 @@ KaNamedFunctionSymbol:
   canBeOperator: false
   getContainingModule: KaLibraryModule "Library lib"
   deprecationStatus: null
+  returnValueStatus: Unspecified
   importableFqName: lib.myContext

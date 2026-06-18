@@ -11,6 +11,8 @@ import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinCompositeDe
 import org.jetbrains.kotlin.analysis.api.platform.declarations.KotlinDeclarationProvider
 import org.jetbrains.kotlin.analysis.api.platform.packages.KotlinCompositePackageProvider
 import org.jetbrains.kotlin.analysis.api.platform.packages.createPackageProvider
+import org.jetbrains.kotlin.analysis.api.projectStructure.analysisContextModule
+import org.jetbrains.kotlin.analysis.api.utils.errors.withKaModuleEntry
 import org.jetbrains.kotlin.analysis.api.utils.errors.withPsiEntry
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirModuleResolveComponents
 import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.llFirModuleData
@@ -37,6 +39,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.ClassIdBasedLocality
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.psi.*
@@ -122,7 +125,7 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     override fun getClassLikeSymbolByClassId(classId: ClassId, classLikeDeclaration: KtClassLikeDeclaration): FirClassLikeSymbol<*>? =
         getClassLikeSymbolByClassIdAndDeclaration(classId, classLikeDeclaration)
 
-    @OptIn(LLModuleSpecificSymbolProviderAccess::class)
+    @OptIn(LLModuleSpecificSymbolProviderAccess::class, ClassIdBasedLocality::class)
     private fun getClassLikeSymbolByClassIdAndDeclaration(
         classId: ClassId,
         classLikeDeclaration: KtClassLikeDeclaration?,
@@ -136,6 +139,7 @@ internal class LLKotlinSourceSymbolProvider private constructor(
     }
 
     @LLModuleSpecificSymbolProviderAccess
+    @OptIn(ClassIdBasedLocality::class)
     override fun getClassLikeSymbolByPsi(classId: ClassId, declaration: PsiElement): FirClassLikeSymbol<*>? {
         if (!classId.isAccepted()) return null
         return classLikeCache.getSymbolByPsi<KtClassLikeDeclaration>(
@@ -160,6 +164,10 @@ internal class LLKotlinSourceSymbolProvider private constructor(
             if (virtualFile != null) {
                 val isInContentScope = searchScope.contains(virtualFile)
                 withEntry("isContextInScope", isInContentScope.toString())
+
+                @Suppress("DEPRECATION")
+                val analysisContextModule = virtualFile.analysisContextModule
+                withKaModuleEntry("analysisContextModule", analysisContextModule)
             }
         }
 
@@ -172,6 +180,7 @@ internal class LLKotlinSourceSymbolProvider private constructor(
         return declarations.mapNotNull { getClassLikeSymbolByPsi(classId, it) }
     }
 
+    @ClassIdBasedLocality
     private fun ClassId.isAccepted(): Boolean = !isLocal && (allowKotlinPackage || !isKotlinPackage())
 
     private fun computeClassLikeSymbolByClassId(classId: ClassId, context: KtClassLikeDeclaration?): FirClassLikeSymbol<*>? {

@@ -1,15 +1,11 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.api.components
 
-import org.jetbrains.kotlin.analysis.api.KaContextParameterApi
-import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
-import org.jetbrains.kotlin.analysis.api.KaIdeApi
-import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
-import org.jetbrains.kotlin.analysis.api.KaSession
+import org.jetbrains.kotlin.analysis.api.*
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationUseSiteTarget
 import org.jetbrains.kotlin.descriptors.annotations.KotlinTarget
@@ -17,7 +13,8 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.resolve.deprecation.DeprecationInfo
 
 @KaExperimentalApi
-@SubclassOptInRequired(KaImplementationDetail::class)
+@KaSessionComponentImplementationDetail
+@SubclassOptInRequired(KaSessionComponentImplementationDetail::class)
 public interface KaSymbolInformationProvider : KaSessionComponent {
     /**
      * The deprecation status of the given symbol, or `null` if the declaration is not deprecated.
@@ -62,12 +59,20 @@ public interface KaSymbolInformationProvider : KaSessionComponent {
      * The deprecation status of the given property getter, or `null` if the getter is not deprecated.
      */
     @KaExperimentalApi
+    @Deprecated(
+        message = "Use 'deprecationStatus' directly instead",
+        replaceWith = ReplaceWith("this.getter?.deprecationStatus"),
+    )
     public val KaPropertySymbol.getterDeprecationStatus: DeprecationInfo?
 
     /**
      * The deprecation status of the given property setter, or `null` if the setter is not deprecated or doesn't exist.
      */
     @KaExperimentalApi
+    @Deprecated(
+        message = "Use 'deprecationStatus' directly instead",
+        replaceWith = ReplaceWith("this.setter?.deprecationStatus"),
+    )
     public val KaPropertySymbol.setterDeprecationStatus: DeprecationInfo?
 
     /**
@@ -89,6 +94,49 @@ public interface KaSymbolInformationProvider : KaSessionComponent {
      */
     @KaIdeApi
     public val KaSymbol.importableFqName: FqName?
+
+    /**
+     * The return value status of the function (should it be used, or can it be ignored).
+     * See the [KEEP](https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0412-unused-return-value-checker.md) for details.
+     */
+    @KaExperimentalApi
+    @KaK1Unsupported
+    public val KaNamedFunctionSymbol.returnValueStatus: KaReturnValueStatus
+}
+
+/**
+ * The return value status of the function (should it be used, or can it be ignored).
+ * @see org.jetbrains.kotlin.analysis.api.components.KaSymbolInformationProvider.returnValueStatus
+ */
+@KaExperimentalApi
+@KaK1Unsupported
+public sealed class KaReturnValueStatus(public val name: String) {
+    override fun toString(): String = name
+
+    /**
+     * The return value of the function must be checked for usage.
+     */
+    @KaExperimentalApi
+    public data object MustUse : KaReturnValueStatus("MustUse")
+
+    /**
+     * The return value of the function is declared as explicitly ignorable and should not be checked for usage.
+     */
+    @KaExperimentalApi
+    public data object ExplicitlyIgnorable : KaReturnValueStatus("ExplicitlyIgnorable")
+
+    /**
+     * The return value status of the function is unspecified.
+     */
+    @KaExperimentalApi
+    public data object Unspecified : KaReturnValueStatus("Unspecified")
+
+    /**
+     * A dummy private subclass to force 'else' branches in client code
+     */
+    @Suppress("unused")
+    @KaExperimentalApi
+    private data object Unknown : KaReturnValueStatus("Unknown")
 }
 
 /**
@@ -97,9 +145,9 @@ public interface KaSymbolInformationProvider : KaSessionComponent {
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaSymbol.deprecationStatus: DeprecationInfo?
-    get() = with(s) { deprecationStatus }
+    get() = with(session) { deprecationStatus }
 
 /**
  * Whether the function symbol meets all the requirements to be declared as an [operator function](https://kotlinlang.org/docs/operator-overloading.html).
@@ -127,9 +175,9 @@ public val KaSymbol.deprecationStatus: DeprecationInfo?
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaNamedFunctionSymbol.canBeOperator: Boolean
-    get() = with(s) { canBeOperator }
+    get() = with(session) { canBeOperator }
 
 /**
  * The deprecation status of the given symbol for the given [annotation use-site target](https://kotlinlang.org/docs/annotations.html#annotation-use-site-targets),
@@ -138,9 +186,9 @@ public val KaNamedFunctionSymbol.canBeOperator: Boolean
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public fun KaSymbol.deprecationStatus(annotationUseSiteTarget: AnnotationUseSiteTarget?): DeprecationInfo? {
-    return with(s) {
+    return with(session) {
         deprecationStatus(
             annotationUseSiteTarget = annotationUseSiteTarget,
         )
@@ -152,20 +200,30 @@ public fun KaSymbol.deprecationStatus(annotationUseSiteTarget: AnnotationUseSite
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
+@Deprecated(
+    message = "Use 'deprecationStatus' directly instead",
+    replaceWith = ReplaceWith("this.getter?.deprecationStatus"),
+)
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaPropertySymbol.getterDeprecationStatus: DeprecationInfo?
-    get() = with(s) { getterDeprecationStatus }
+    @Suppress("DEPRECATION")
+    get() = with(session) { getterDeprecationStatus }
 
 /**
  * The deprecation status of the given property setter, or `null` if the setter is not deprecated or doesn't exist.
  */
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
+@Deprecated(
+    message = "Use 'deprecationStatus' directly instead",
+    replaceWith = ReplaceWith("this.setter?.deprecationStatus"),
+)
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaPropertySymbol.setterDeprecationStatus: DeprecationInfo?
-    get() = with(s) { setterDeprecationStatus }
+    @Suppress("DEPRECATION")
+    get() = with(session) { setterDeprecationStatus }
 
 /**
  * A set of applicable targets for an annotation class symbol, or `null` if the symbol is not an annotation class.
@@ -173,9 +231,9 @@ public val KaPropertySymbol.setterDeprecationStatus: DeprecationInfo?
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaClassSymbol.annotationApplicableTargets: Set<KotlinTarget>?
-    get() = with(s) { annotationApplicableTargets }
+    get() = with(session) { annotationApplicableTargets }
 
 /**
  * Whether the property is an [inline property](https://kotlinlang.org/docs/inline-functions.html#inline-properties).
@@ -185,9 +243,9 @@ public val KaClassSymbol.annotationApplicableTargets: Set<KotlinTarget>?
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaExperimentalApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaKotlinPropertySymbol.isInline: Boolean
-    get() = with(s) { isInline }
+    get() = with(session) { isInline }
 
 /**
  * A [FqName] which can be used to import the given symbol, or `null` if the symbol cannot be imported.
@@ -195,6 +253,18 @@ public val KaKotlinPropertySymbol.isInline: Boolean
 // Auto-generated bridge. DO NOT EDIT MANUALLY!
 @KaIdeApi
 @KaContextParameterApi
-context(s: KaSession)
+context(session: KaSession)
 public val KaSymbol.importableFqName: FqName?
-    get() = with(s) { importableFqName }
+    get() = with(session) { importableFqName }
+
+/**
+ * The return value status of the function (should it be used, or can it be ignored).
+ * See the [KEEP](https://github.com/Kotlin/KEEP/blob/main/proposals/KEEP-0412-unused-return-value-checker.md) for details.
+ */
+// Auto-generated bridge. DO NOT EDIT MANUALLY!
+@KaExperimentalApi
+@KaK1Unsupported
+@KaContextParameterApi
+context(session: KaSession)
+public val KaNamedFunctionSymbol.returnValueStatus: KaReturnValueStatus
+    get() = with(session) { returnValueStatus }
