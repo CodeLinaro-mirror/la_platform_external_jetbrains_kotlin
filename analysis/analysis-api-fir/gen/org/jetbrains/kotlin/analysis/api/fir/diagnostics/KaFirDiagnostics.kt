@@ -3086,6 +3086,10 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
         override val diagnosticClass get() = ConstValWithoutInitializer::class
     }
 
+    interface ConstValWithEbf : KaFirDiagnostic<KtProperty> {
+        override val diagnosticClass get() = ConstValWithEbf::class
+    }
+
     interface ConstValWithNonConstInitializer : KaFirDiagnostic<KtExpression> {
         override val diagnosticClass get() = ConstValWithNonConstInitializer::class
     }
@@ -3129,14 +3133,6 @@ sealed interface KaFirDiagnostic<PSI : PsiElement> : KaDiagnosticWithPsi<PSI> {
 
     interface PropertyFieldDeclarationMissingInitializer : KaFirDiagnostic<KtBackingField> {
         override val diagnosticClass get() = PropertyFieldDeclarationMissingInitializer::class
-    }
-
-    interface LateinitPropertyFieldDeclarationWithInitializer : KaFirDiagnostic<KtBackingField> {
-        override val diagnosticClass get() = LateinitPropertyFieldDeclarationWithInitializer::class
-    }
-
-    interface LateinitFieldInValProperty : KaFirDiagnostic<KtBackingField> {
-        override val diagnosticClass get() = LateinitFieldInValProperty::class
     }
 
     interface LateinitNullableBackingField : KaFirDiagnostic<KtBackingField> {
