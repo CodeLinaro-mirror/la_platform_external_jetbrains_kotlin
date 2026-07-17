@@ -34,7 +34,7 @@ import java.io.File
 fun IrElement.render(options: DumpIrTreeOptions = DumpIrTreeOptions()) =
     accept(RenderIrElementVisitor(options), null)
 
-open class RenderIrElementVisitor(
+class RenderIrElementVisitor(
     private val options: DumpIrTreeOptions = DumpIrTreeOptions(),
     private var isUsedForIrDump: Boolean = false,
 ) : IrVisitor<String, Nothing?>() {
@@ -861,7 +861,8 @@ private fun IrSimpleFunction.renderSimpleFunctionFlags(renderer: FlagsRenderer):
         "expect".takeIf { isExpect },
         "fake_override".takeIf { isFakeOverride },
         "operator".takeIf { isOperator },
-        "infix".takeIf { isInfix }
+        "infix".takeIf { isInfix },
+        "companion".takeIf { isStatic },
     )
 
 private fun IrConstructor.renderConstructorFlags(renderer: FlagsRenderer) =
@@ -1041,6 +1042,15 @@ private fun StringBuilder.renderAsAnnotationArgument(irElement: IrElement?, rend
         is IrConstructorCall -> renderAsAnnotation(irElement, renderer, options)
         is IrConst -> {
             renderIrConstAsAnnotationArgument(irElement)
+        }
+        is IrClassReference -> {
+            val className = irElement.classType.classOrNull?.getOwnerIfBound()?.name ?: "<UNKNOWN>"
+            append("$className::class")
+        }
+        is IrGetEnumValue -> {
+            val className = irElement.type.classOrNull?.getOwnerIfBound()?.name ?: "<UNKNOWN>"
+            val entryName = irElement.symbol.getOwnerIfBound()?.name ?: "<UNKNOWN>"
+            append("$className.$entryName")
         }
         is IrVararg -> {
             appendIterableWith(irElement.elements, prefix = "[", postfix = "]", separator = ", ") {

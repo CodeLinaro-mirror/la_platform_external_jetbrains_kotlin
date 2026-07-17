@@ -7,10 +7,18 @@ package org.jetbrains.kotlin.buildtools.internal
 
 import org.jetbrains.kotlin.buildtools.api.*
 import org.jetbrains.kotlin.buildtools.api.ProjectId.Companion.RandomProjectUUID
+import org.jetbrains.kotlin.buildtools.api.abi.AbiValidationToolchain
 import org.jetbrains.kotlin.buildtools.api.cri.CriToolchain
 import org.jetbrains.kotlin.buildtools.api.jvm.JvmPlatformToolchain
+import org.jetbrains.kotlin.buildtools.api.js.JsPlatformToolchain
+import org.jetbrains.kotlin.buildtools.api.metadata.KotlinMetadataPlatformToolchain
+import org.jetbrains.kotlin.buildtools.api.wasm.WasmPlatformToolchain
+import org.jetbrains.kotlin.buildtools.internal.abi.AbiValidationToolchainImpl
 import org.jetbrains.kotlin.buildtools.internal.cri.CriToolchainImpl
+import org.jetbrains.kotlin.buildtools.internal.js.JsPlatformToolchainImpl
 import org.jetbrains.kotlin.buildtools.internal.jvm.JvmPlatformToolchainImpl
+import org.jetbrains.kotlin.buildtools.internal.metadata.KotlinMetadataPlatformToolchainImpl
+import org.jetbrains.kotlin.buildtools.internal.wasm.WasmPlatformToolchainImpl
 import org.jetbrains.kotlin.config.KotlinCompilerVersion
 import org.jetbrains.kotlin.incremental.clearJarCaches
 import java.io.File
@@ -24,9 +32,16 @@ internal class KotlinToolchainsImpl() : KotlinToolchains {
         @Suppress("UNCHECKED_CAST")
         return toolchains.computeIfAbsent(type) { type ->
             when (type) {
-                JvmPlatformToolchain::class.java -> JvmPlatformToolchainImpl(buildIdToSessionFlagFile)
+                JvmPlatformToolchain::class.java -> JvmPlatformToolchainImpl(getCompilerVersion(), buildIdToSessionFlagFile)
+                JsPlatformToolchain::class.java -> JsPlatformToolchainImpl(getCompilerVersion(), buildIdToSessionFlagFile)
+                WasmPlatformToolchain::class.java -> WasmPlatformToolchainImpl(getCompilerVersion(), buildIdToSessionFlagFile)
+                KotlinMetadataPlatformToolchain::class.java -> KotlinMetadataPlatformToolchainImpl(
+                    getCompilerVersion(),
+                    buildIdToSessionFlagFile
+                )
                 CriToolchain::class.java -> CriToolchainImpl()
-                else -> error("Unsupported platform toolchain type: $type. Only JVM compilation is supported for now.")
+                AbiValidationToolchain::class.java -> AbiValidationToolchainImpl()
+                else -> error("Unsupported platform toolchain type: $type.")
             }
         } as T
     }
@@ -35,9 +50,10 @@ internal class KotlinToolchainsImpl() : KotlinToolchains {
 
     @Deprecated(
         "Use jvmCompilationOperationBuilder instead",
-        replaceWith = ReplaceWith("jvmCompilationOperationBuilder(sources, destinationDirectory)")
+        replaceWith = ReplaceWith("jvmCompilationOperationBuilder(sources, destinationDirectory)"),
+        level = DeprecationLevel.HIDDEN
     )
-    override fun createDaemonExecutionPolicy(): ExecutionPolicy.WithDaemon = DaemonExecutionPolicyImpl()
+    fun createDaemonExecutionPolicy(): ExecutionPolicy.WithDaemon = DaemonExecutionPolicyImpl()
 
     override fun daemonExecutionPolicyBuilder(): ExecutionPolicy.WithDaemon.Builder = DaemonExecutionPolicyImpl()
 

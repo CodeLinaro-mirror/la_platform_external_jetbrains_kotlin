@@ -5,7 +5,9 @@
 
 package org.jetbrains.kotlin.fir.resolve.calls.overloads
 
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.fir.FirAnnotationContainer
+import org.jetbrains.kotlin.fir.OnlyForDefaultLanguageFeatureDisabled
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirResolvable
 import org.jetbrains.kotlin.fir.resolve.calls.CandidateChosenUsingOverloadResolutionByLambdaAnnotation
@@ -30,6 +32,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.same
  * Note: the resolver may modify the passed FIR (calleeReference and lambdas)
  */
 @OptIn(ExclusiveForOverloadResolutionByLambdaReturnType::class)
+@OnlyForDefaultLanguageFeatureDisabled(LanguageFeature.EagerLambdaAnalysis)
 class FirOverloadByLambdaReturnTypeResolver(
     val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents
 ) {
@@ -83,7 +86,7 @@ class FirOverloadByLambdaReturnTypeResolver(
             candidate.postponedAtoms
                 .filter { it is ConeResolvedLambdaAtom && !it.analyzed }
                 .map { candidate to it as ConeResolvedLambdaAtom }
-        }.groupBy { (_, atom) -> atom.anonymousFunction }
+        }.groupBy { [_, atom] -> atom.anonymousFunction }
             .values.singleOrNull()?.toMap() ?: return null
 
         if (!lambdas.values.same { it.parameterTypes.size }) return null
@@ -92,7 +95,7 @@ class FirOverloadByLambdaReturnTypeResolver(
         val originalCalleeReference = call.calleeReference
         try {
             val inferenceSession = components.context.inferenceSession
-            for ((candidate, lambda) in lambdas) {
+            for ([candidate, lambda] in lambdas) {
                 call.replaceCalleeReference(FirNamedReferenceWithCandidate(null, candidate.callInfo.name, candidate))
                 callCompleter.runCompletionForCall(
                     candidate,
@@ -106,16 +109,16 @@ class FirOverloadByLambdaReturnTypeResolver(
             }
 
             val semiFixedVariables = inferenceSession.semiFixedVariables
-            val inputTypesAreSame = lambdas.entries.same { (candidate, lambda) ->
+            val inputTypesAreSame = lambdas.entries.same { [candidate, lambda] ->
                 val substitutor = candidate.system.buildCurrentSubstitutor(semiFixedVariables).asCone()
                 lambda.inputTypes.map { substitutor.substituteOrSelf(it) }
             }
             if (!inputTypesAreSame) return null
-            lambdas.entries.forEach { (candidate, atom) ->
+            lambdas.entries.forEach { [candidate, atom] ->
                 callCompleter.prepareLambdaAtomForFactoryPattern(atom, candidate)
             }
             val iterator = lambdas.entries.iterator()
-            val (firstCandidate, firstAtom) = iterator.next()
+            val [firstCandidate, firstAtom] = iterator.next()
 
             val postponedArgumentsAnalyzer = callCompleter.createPostponedArgumentsAnalyzer(
                 components.transformer.resolutionContext
@@ -132,7 +135,7 @@ class FirOverloadByLambdaReturnTypeResolver(
                 allowFixationToOtherTypeVariables = semiFixedVariables.isNotEmpty()
             )
             while (iterator.hasNext()) {
-                val (candidate, atom) = iterator.next()
+                val [candidate, atom] = iterator.next()
                 call.replaceCalleeReference(FirNamedReferenceWithCandidate(null, candidate.callInfo.name, candidate))
                 val substitutor = candidate.system.buildCurrentSubstitutor(semiFixedVariables).asCone()
                 postponedArgumentsAnalyzer.applyResultsOfAnalyzedLambdaToCandidateSystem(
@@ -151,6 +154,7 @@ class FirOverloadByLambdaReturnTypeResolver(
                             else it.makeFreshCopy()
                         }
                     ),
+                    forEagerLambdaAnalysis = false,
                 ) { substitutor.substituteOrSelf(it) }
             }
 

@@ -1,2 +1,7 @@
-KtNameReferenceExpression(138,144): 'String'
-  null
+KtNameReferenceExpression(136,142): 'String'
+  isImplicitReferenceToCompanion: true
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String.Companion
+    ]

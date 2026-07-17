@@ -611,8 +611,12 @@ class Fir2IrVisitor(
         return convertToIrExpression(wrappedArgumentExpression.expression)
     }
 
-    override fun visitSamConversionExpression(samConversionExpression: FirSamConversionExpression, data: Any?): IrElement {
-        return convertToIrExpression(samConversionExpression.expression)
+    override fun visitFunctionTypeConversionExpression(
+        functionTypeConversionExpression: FirFunctionTypeConversionExpression,
+        data: Any?
+    ): IrElement = with(c.adapterGenerator) {
+        return convertToIrExpression(functionTypeConversionExpression.expression)
+            .applyFunctionTypeConversion(functionTypeConversionExpression)
     }
 
     override fun visitVarargArgumentsExpression(varargArgumentsExpression: FirVarargArgumentsExpression, data: Any?): IrElement {
@@ -623,10 +627,16 @@ class Fir2IrVisitor(
                 varargArgumentsExpression.resolvedType.toIrType(),
                 varargArgumentsExpression.coneElementTypeOrNull?.toIrType()
                     ?: error("Vararg expression has incorrect type: ${varargArgumentsExpression.render()}"),
-                varargArgumentsExpression.arguments.mapNotNull {
-                    if (isGetClassOfUnresolvedTypeInAnnotation(it)) null
-                    else it.convertToIrVarargElement()
-                }
+                varargArgumentsExpression.arguments
+                    .filter { !isGetClassOfUnresolvedTypeInAnnotation(it) }
+                    .flatMap {
+                        val varargElement = it.convertToIrVarargElement()
+                        if (!annotationMode) return@flatMap listOf(varargElement)
+                        when (val unwrapped = (varargElement as? IrSpreadElement)?.expression ?: varargElement) {
+                            is IrVararg -> unwrapped.elements
+                            else -> listOf(unwrapped)
+                        }
+                    }
             )
         }
     }
@@ -696,7 +706,7 @@ class Fir2IrVisitor(
     ): IrElement = whileAnalysing(session, safeCallExpression) {
         val explicitReceiverExpression = convertToIrExpression(safeCallExpression.receiver)
 
-        val (receiverVariable, variableSymbol) = conversionScope.createTemporaryVariableForSafeCallConstruction(
+        val [receiverVariable, variableSymbol] = conversionScope.createTemporaryVariableForSafeCallConstruction(
             explicitReceiverExpression
         )
 
@@ -994,14 +1004,23 @@ class Fir2IrVisitor(
                     is KtFakeSourceElementKind.DesugaredForLoop -> IrStatementOrigin.FOR_LOOP
                     is KtFakeSourceElementKind.DesugaredAugmentedAssign ->
                         augmentedAssignSourceKindToIrStatementOrigin[expression.source?.kind]
-                    is KtFakeSourceElementKind.DesugaredIncrementOrDecrement -> incOrDecSourceKindToIrStatementOrigin[expression.source?.kind]
+                    is KtFakeSourceElementKind.DesugaredIncrementOrDecrement ->
+                        expression.source?.kind?.incOrDecSourceKindToIrStatementOrigin()
                     else -> null
                 }
                 expression.convertToIrExpressionOrBlock(
                     origin,
-                    // We only pass the expected type if it's Unit to trigger coercion to Unit.
+                    // We only pass the expected type in 2 cases:
+                    // 1. If it's Unit to trigger coercion to Unit.
+                    // 2. If it's Nothing to propagate Nothing type from outer expression and avoid putting non-conforming Unit type to subblocks.
+                    //
                     // In all other cases, the block should have the type of the last statement, not the expected type.
-                    expectedType = if (origin == IrStatementOrigin.FOR_LOOP || expectedType?.isUnit == true) unitType else null
+                    expectedType =
+                        if (origin == IrStatementOrigin.FOR_LOOP || expectedType?.isUnit == true)
+                            unitType
+                        else if (expectedType?.isNothing == true)
+                            expectedType
+                        else null
                 )
             }
             is FirUnitExpression -> expression.convertWithOffsets { _, endOffset ->
@@ -1529,7 +1548,7 @@ class Fir2IrVisitor(
                             val firLoopVarStmt = loopBodyStatements.firstOrNull()
                                 ?: error("Unexpected shape of for loop body: missing body statements: ${whileLoop.render()}")
 
-                            val (destructuredLoopVariables, realStatements) = loopBodyStatements.drop(1).partition {
+                            val [destructuredLoopVariables, realStatements] = loopBodyStatements.drop(1).partition {
                                 it is FirProperty && it.initializer?.source?.kind is KtFakeSourceElementKind.DestructuringInitializer
                             }
                             val firBlock = realStatements.singleOrNull() as? FirBlock
@@ -1676,7 +1695,7 @@ class Fir2IrVisitor(
     override fun visitTypeOperatorCall(typeOperatorCall: FirTypeOperatorCall, data: Any?): IrElement {
         return typeOperatorCall.convertWithOffsets { startOffset, endOffset ->
             val irTypeOperand = typeOperatorCall.conversionTypeRef.toIrType()
-            val (irType, irTypeOperator) = when (typeOperatorCall.operation) {
+            val [irType, irTypeOperator] = when (typeOperatorCall.operation) {
                 FirOperation.IS -> builtins.booleanType to IrTypeOperator.INSTANCEOF
                 FirOperation.NOT_IS -> builtins.booleanType to IrTypeOperator.NOT_INSTANCEOF
                 FirOperation.AS -> irTypeOperand to IrTypeOperator.CAST

@@ -54,7 +54,7 @@ KtSuperTypeCallEntry(166,175): 'MyClass()'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(166,173): 'MyClass'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaDelegatedConstructorCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -79,7 +79,23 @@ KtUserType(166,173): 'MyClass'
   NO_CANDIDATES
 
 KtNameReferenceExpression(166,173): 'MyClass'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaDelegatedConstructorCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      kind = SUPER_CALL
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyClass
+        symbol = <constructor>(): MyClass
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
+    isInBestCandidates = true
 
 KtValueArgumentList(173,175): '()'
   NO_CANDIDATES
@@ -153,7 +169,7 @@ KtCallExpression(230,236): 'TODO()'
     isInBestCandidates = false
 
 KtNameReferenceExpression(230,234): 'TODO'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -170,7 +186,7 @@ KtNameReferenceExpression(230,234): 'TODO'
       valueArgumentMapping = {}
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -218,7 +234,7 @@ KtNameReferenceExpression(282,288): 'MyEnum'
   NO_CANDIDATES
 
 KtNameReferenceExpression(291,301): 'EnumValue1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -251,7 +267,7 @@ KtNameReferenceExpression(318,325): 'MyClass'
   NO_CANDIDATES
 
 KtNameReferenceExpression(328,343): 'InheritorObject'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

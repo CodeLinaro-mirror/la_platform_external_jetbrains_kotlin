@@ -20,7 +20,9 @@ import org.jetbrains.kotlin.backend.konan.serialization.CacheDeserializationStra
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedClassFields
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedEagerInitializedFile
 import org.jetbrains.kotlin.backend.konan.serialization.SerializedInlineFunctionReference
+import org.jetbrains.kotlin.backend.konan.serialization.SerializedTrivialGetter
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.konan.config.konanHome
 import org.jetbrains.kotlin.util.PerformanceManager
 
 internal class FileLowerState {
@@ -43,7 +45,7 @@ internal interface BitcodePostProcessingContext : NativeBackendPhaseContext, Llv
 }
 
 internal class BitcodePostProcessingContextImpl(
-        config: KonanConfig,
+        config: NativeSecondStageCompilationConfig,
         override val llvmModule: LLVMModuleRef,
         override val llvmContext: LLVMContextRef
 ) : BitcodePostProcessingContext, BasicNativeBackendPhaseContext(config) {
@@ -51,16 +53,16 @@ internal class BitcodePostProcessingContextImpl(
 }
 
 internal class NativeGenerationState(
-    config: KonanConfig,
+        config: NativeSecondStageCompilationConfig,
         // TODO: Get rid of this property completely once transition to the dynamic driver is complete.
         //  It will reduce code coupling and make it easier to create NativeGenerationState instances.
-    val context: Context,
-    val cacheDeserializationStrategy: CacheDeserializationStrategy?,
-    val dependenciesTracker: DependenciesTracker,
-    val llvmModuleSpecification: LlvmModuleSpecification,
-    val outputFiles: OutputFiles,
-    val llvmModuleName: String,
-    override val performanceManager: PerformanceManager?,
+        val context: Context,
+        val cacheDeserializationStrategy: CacheDeserializationStrategy?,
+        val dependenciesTracker: DependenciesTracker,
+        val llvmModuleSpecification: LlvmModuleSpecification,
+        val outputFiles: OutputFiles,
+        val llvmModuleName: String,
+        override val performanceManager: PerformanceManager?,
 ) : BasicNativeBackendPhaseContext(config), BackendContextHolder, LlvmIrHolder, BitcodePostProcessingContext {
     val outputFile = outputFiles.mainFileName
 
@@ -69,6 +71,7 @@ internal class NativeGenerationState(
     val inlineFunctionBodies = mutableListOf<SerializedInlineFunctionReference>()
     val classFields = mutableListOf<SerializedClassFields>()
     val eagerInitializedFiles = mutableListOf<SerializedEagerInitializedFile>()
+    val trivialGetters = mutableListOf<SerializedTrivialGetter>()
     var coroutinesLivenessAnalysisPhasePerformed = false
 
     lateinit var fileLowerState: FileLowerState
@@ -81,7 +84,10 @@ internal class NativeGenerationState(
     private val llvmDelegate = lazy { CodegenLlvmHelpers(this, LLVMModuleCreateWithNameInContext(llvmModuleName, llvmContext)!!) }
     private val debugInfoDelegate = lazy { DebugInfo(this) }
 
-    override val llvmContext = LLVMContextCreate()!!
+    override val llvmContext = run {
+        loadLLVMStubs(config.configuration.konanHome)
+        LLVMContextCreate()!!
+    }
     val runtime by runtimeDelegate
     override val llvm by llvmDelegate
     val debugInfo by debugInfoDelegate
@@ -89,6 +95,9 @@ internal class NativeGenerationState(
     lateinit var llvmDeclarations: LlvmDeclarations
 
     val virtualFunctionTrampolines = mutableMapOf<IrSimpleFunction, LlvmCallable>()
+
+    val bindClassToObjCNameClassAdapters = mutableMapOf<String, ConstPointer>()
+    val bindClassToObjCNameInterfaceAdapters = mutableMapOf<String, ConstPointer>()
 
     lateinit var objCExport: ObjCExport
 

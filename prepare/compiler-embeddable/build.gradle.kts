@@ -18,6 +18,7 @@ val testCompilerClasspath by configurations.creating {
 }
 
 dependencies {
+    api(project(":compiler:build-tools:kotlin-build-tools-api"))
     runtimeOnly(kotlinStdlib())
     runtimeOnly(project(":kotlin-script-runtime"))
     runtimeOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
@@ -36,6 +37,7 @@ sourceSets {
 val runtimeJar = runtimeJar(embeddableCompiler()) {
     exclude("com/sun/jna/**")
     exclude("org/jetbrains/annotations/**")
+    exclude("META-INF/native-image/**")
     mergeServiceFiles()
 }
 

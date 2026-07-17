@@ -38,7 +38,7 @@ private val KLIB_IR_INLINER_NAMES = KlibIrInlinerMode.entries.map { it.name }
 internal val List<TargetBackend>.containsNativeOrAny: Boolean
     get() = TargetBackend.NATIVE in this || TargetBackend.ANY in this
 
-internal fun Settings.isIgnoredTarget(registeredDirectives: RegisteredDirectives): Boolean {
+fun Settings.isIgnoredTarget(registeredDirectives: RegisteredDirectives): Boolean {
     return isIgnoredWithIGNORE_NATIVE(registeredDirectives) || isIgnoredWithIGNORE_BACKEND(registeredDirectives)
 }
 
@@ -54,14 +54,14 @@ private fun Settings.isIgnoredWithIGNORE_BACKEND(registeredDirectives: Registere
 internal fun Settings.isIgnoredWithIGNORE_NATIVE(registeredDirectives: RegisteredDirectives) =
     evaluate(registeredDirectives, TestDirectives.IGNORE_NATIVE)
 
-internal fun Settings.isDisabledNative(registeredDirectives: RegisteredDirectives) =
+fun Settings.isDisabledNative(registeredDirectives: RegisteredDirectives) =
     evaluate(registeredDirectives, TestDirectives.DISABLE_NATIVE)
 
 // Evaluation of conjunction of boolean expressions like `property1=value1 && property2=value2`.
 // Any null element makes whole result as `true`.
 internal fun Settings.evaluate(registeredDirectives: RegisteredDirectives, directive: StringDirective): Boolean {
     val directiveValues = registeredDirectives[directive]
-    if (directiveValues.isEmpty() && directive in registeredDirectives) {
+    if ((directiveValues.isEmpty() || directiveValues == listOf("")) && directive in registeredDirectives) {
         return true  // Directive without value is treated as unconditional
     }
 
@@ -71,7 +71,7 @@ internal fun Settings.evaluate(registeredDirectives: RegisteredDirectives, direc
             val matchResult = "(.+)=(.+)".toRegex().find(it.trim())
                 ?: throw AssertionError("Invalid format for IGNORE_NATIVE* directive ($it). Must be <property>=<value>")
             val propName = matchResult.groups[1]?.value
-            val (actualValue, supportedValues) = when (propName) {
+            val [actualValue, supportedValues] = when (propName) {
                 ClassLevelProperty.CACHE_MODE.shortName -> get<CacheMode>().alias.name to CACHE_MODE_NAMES
                 ClassLevelProperty.TEST_MODE.shortName -> get<TestMode>().name to TEST_MODE_NAMES
                 ClassLevelProperty.OPTIMIZATION_MODE.shortName -> get<OptimizationMode>().name to OPTIMIZATION_MODE_NAMES

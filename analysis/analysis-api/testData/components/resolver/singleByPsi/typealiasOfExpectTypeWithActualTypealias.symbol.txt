@@ -3,13 +3,28 @@ common - Common.kt:
 
 jvm - Jvm.kt:
   <caret_return>:
-    KtNameReferenceExpression(183,205): 'ExpectClassCommonAlias'
-      null
+    KtNameReferenceExpression(182,204): 'ExpectClassCommonAlias'
+      isImplicitReferenceToCompanion: false
+      usesContextSensitiveResolution: false
+      KaSymbolResolutionSuccess:
+        symbols = [
+          /ExpectClassCommonAlias
+        ]
 
   <caret_instanceCheck>:
-    KtNameReferenceExpression(226,248): 'ExpectClassCommonAlias'
-      null
+    KtNameReferenceExpression(225,247): 'ExpectClassCommonAlias'
+      isImplicitReferenceToCompanion: false
+      usesContextSensitiveResolution: false
+      KaSymbolResolutionSuccess:
+        symbols = [
+          /ExpectClassCommonAlias
+        ]
 
   <caret_typeArg>:
-    KtNameReferenceExpression(273,295): 'ExpectClassCommonAlias'
-      null
+    KtNameReferenceExpression(272,294): 'ExpectClassCommonAlias'
+      isImplicitReferenceToCompanion: false
+      usesContextSensitiveResolution: false
+      KaSymbolResolutionSuccess:
+        symbols = [
+          /ExpectClassCommonAlias
+        ]

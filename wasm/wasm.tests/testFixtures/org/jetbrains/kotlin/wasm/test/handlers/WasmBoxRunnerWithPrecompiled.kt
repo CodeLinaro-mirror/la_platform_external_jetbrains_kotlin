@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.wasm.test.handlers
 import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.model.BinaryArtifacts
 import org.jetbrains.kotlin.test.model.TestModule
+import org.jetbrains.kotlin.test.model.WasmCompilationSetsBinaryArtifact
 import org.jetbrains.kotlin.test.services.TestServices
 
 class WasmBoxRunnerWithPrecompiled(
@@ -20,7 +21,8 @@ class WasmBoxRunnerWithPrecompiled(
         outputDir.mkdirs()
 
         val debugMode = DebugMode.fromSystemProperty("kotlin.wasm.debugMode")
-        info.compilation.compilerResult.writeTo(outputDir, info.compilation.compilerResult.baseFileName, debugMode)
+        val compilation = (info as WasmCompilationSetsBinaryArtifact).compilation
+        compilation.compilerResult.writeTo(outputDir, compilation.compilerResult.baseFileName, debugMode)
     }
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
@@ -28,8 +30,7 @@ class WasmBoxRunnerWithPrecompiled(
             val outputDirBase = testServices.getWasmTestOutputDirectory()
             val exceptions = saveAdditionalFilesAndRun(
                 outputDir = outputDirBase,
-                mark = "single",
-                failsIn = emptyList(),
+                mark = "",
                 filesToIgnoreInSizeChecks = mutableSetOf()
             )
             processExceptions(exceptions)

@@ -7,9 +7,9 @@
 
 package org.jetbrains.kotlin.gradle.regressionTests
 
+import org.jetbrains.kotlin.gradle.dependencyResolutionTests.kotlinBuildDeps
 import org.jetbrains.kotlin.gradle.dependencyResolutionTests.mavenCentralCacheRedirector
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
-import org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType
 import org.jetbrains.kotlin.gradle.util.buildProjectWithMPP
 import org.jetbrains.kotlin.gradle.util.main
 import kotlin.test.Test
@@ -20,10 +20,11 @@ class KT58427ResolveJSCompilerArguments {
     @Test
     fun `test - resolve js compiler arguments with CompilerArgumentsAware`() {
         val project = buildProjectWithMPP()
-        project.repositories.mavenLocal()
+        project.repositories.kotlinBuildDeps()
         project.repositories.mavenCentralCacheRedirector()
         val kotlin = project.multiplatformExtension
-        val js = kotlin.js(KotlinJsCompilerType.IR) { nodejs() }
+        @Suppress("DEPRECATION")
+        val js = kotlin.js(org.jetbrains.kotlin.gradle.plugin.KotlinJsCompilerType.IR) { nodejs() }
 
         kotlin.sourceSets.all { sourceSet ->
             sourceSet.languageSettings.languageVersion = "1.7"
@@ -33,6 +34,7 @@ class KT58427ResolveJSCompilerArguments {
         project.evaluate()
 
         val jsCompileTask = js.compilations.main.compileTaskProvider.get()
+        @Suppress("DEPRECATION")
         val args = jsCompileTask.createCompilerArgs()
 
         /*
@@ -53,6 +55,7 @@ class KT58427ResolveJSCompilerArguments {
 
         Caused by: java.lang.NoSuchMethodException: org.gradle.internal.impldep.com.google.common.collect.RegularImmutableList.<init>()
          */
+        @Suppress("DEPRECATION")
         jsCompileTask.setupCompilerArgs(args)
 
         assertEquals("1.7", args.languageVersion)

@@ -1,5 +1,3 @@
-// FIR_IDENTICAL
-
 package callables
 
 class Foo(val list: List<*>)

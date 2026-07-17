@@ -1,2 +1,7 @@
 KtNameReferenceExpression(150,153): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val foo: T
+    ]

@@ -7,19 +7,20 @@
 package org.jetbrains.kotlin.cli.common.arguments
 
 @OptIn(org.jetbrains.kotlin.utils.IDEAPluginsCompatibilityAPI::class)
+@Suppress("DEPRECATION")
 fun copyK2WasmCompilerArguments(from: K2WasmCompilerArguments, to: K2WasmCompilerArguments): K2WasmCompilerArguments {
-    copyCommonKlibBasedCompilerArguments(from, to)
+    copyCommonJsAndWasmCompilerArguments(from, to)
 
     to.debuggerCustomFormatters = from.debuggerCustomFormatters
     to.forceDebugFriendlyCompilation = from.forceDebugFriendlyCompilation
     to.generateDwarf = from.generateDwarf
-    to.icCacheReadonly = from.icCacheReadonly
     to.includeUnavailableSourcesIntoSourceMap = from.includeUnavailableSourcesIntoSourceMap
     to.irDceDumpDeclarationIrSizesToFile = from.irDceDumpDeclarationIrSizesToFile
     to.irDceDumpReachabilityInfoToFile = from.irDceDumpReachabilityInfoToFile
-    to.preserveIcOrder = from.preserveIcOrder
+    @Suppress("DEPRECATION")
     to.wasm = from.wasm
     to.wasmDebug = from.wasmDebug
+    to.wasmDisableArrayRangeChecksSafeElimination = from.wasmDisableArrayRangeChecksSafeElimination
     to.wasmEnableArrayRangeChecks = from.wasmEnableArrayRangeChecks
     to.wasmEnableAsserts = from.wasmEnableAsserts
     to.wasmGenerateClosedWorldMultimodule = from.wasmGenerateClosedWorldMultimodule
@@ -30,6 +31,7 @@ fun copyK2WasmCompilerArguments(from: K2WasmCompilerArguments, to: K2WasmCompile
     to.wasmNoJsTag = from.wasmNoJsTag
     to.wasmTarget = from.wasmTarget
     to.wasmUseNewExceptionProposal = from.wasmUseNewExceptionProposal
+    to.wasmUseStackSwitchingProposal = from.wasmUseStackSwitchingProposal
     to.wasmUseTrapsInsteadOfExceptions = from.wasmUseTrapsInsteadOfExceptions
 
     return to

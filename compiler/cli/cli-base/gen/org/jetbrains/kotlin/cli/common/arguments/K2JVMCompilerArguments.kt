@@ -31,7 +31,7 @@ to force diagnostics to be reported.""",
         valueDescription = "<module[,]>",
         description = "Root modules to resolve in addition to the initial modules, or all modules on the module path if <module> is ALL-MODULE-PATH.",
     )
-    var additionalJavaModules: Array<String>? = null
+    var additionalJavaModules: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -110,6 +110,17 @@ The default value is 1.""",
         }
 
     @Argument(
+        value = "-Xcommon-fragments-metadata-destination",
+        description = """Specifies the destination for common fragments metadata.
+This metadata is used solely for incremental compilation and should not be used directly.""",
+    )
+    var commonFragmentsMetadataDestination: String? = null
+        set(value) {
+            checkFrozen()
+            field = if (value.isNullOrEmpty()) null else value
+        }
+
+    @Argument(
         value = "-Xdebug",
         description = """Enable debug mode for compilation.
 Currently this includes spilling all variables in a suspending context regardless of whether they are alive.
@@ -179,7 +190,7 @@ inside suspend functions and lambdas to distinguish them from user code by debug
         valueDescription = "<path>",
         description = "Paths to output directories for friend modules (modules whose internals should be visible).",
     )
-    var friendPaths: Array<String>? = null
+    var friendPaths: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -200,7 +211,7 @@ inside suspend functions and lambdas to distinguish them from user code by debug
         valueDescription = "<fq.name>|*",
         description = "Do not copy these annotations to the bridge methods from their targets.",
     )
-    var ignoredAnnotationsForBridges: Array<String>? = null
+    var ignoredAnnotationsForBridges: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -241,7 +252,7 @@ inside suspend functions and lambdas to distinguish them from user code by debug
         valueDescription = "<path>",
         description = "Paths to directories with Java source files.",
     )
-    var javaSourceRoots: Array<String>? = null
+    var javaSourceRoots: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -251,7 +262,7 @@ inside suspend functions and lambdas to distinguish them from user code by debug
         value = "-Xjdk-release",
         valueDescription = "<version>",
         description = """Compile against the specified JDK API version, similarly to javac's '-release'. This requires JDK 9 or newer.
-The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–25.
+The supported versions depend on the JDK used; for JDK 17+, the supported versions are 1.8 and 9–26.
 This also sets the value of '-jvm-target' to be equal to the selected JDK version.""",
     )
     var jdkRelease: String? = null
@@ -285,7 +296,7 @@ Modes:
 * strict (experimental; treat like other supported nullability annotations)
 * warn (report a warning)""",
     )
-    var jsr305: Array<String>? = null
+    var jsr305: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -321,7 +332,6 @@ This works like '--enable-preview' in Java. All class files are marked as compil
         value = "-Xjvm-expose-boxed",
         description = "Expose inline classes and functions, accepting and returning them, to Java.",
     )
-    @Enables(LanguageFeature.ImplicitJvmExposeBoxed)
     var jvmExposeBoxed: Boolean = false
         set(value) {
             checkFrozen()
@@ -332,6 +342,7 @@ This works like '--enable-preview' in Java. All class files are marked as compil
         value = "-Xklib",
         valueDescription = "<path>",
         description = "Paths to cross-platform libraries in the .klib format.",
+        delimiter = Argument.Delimiters.pathSeparator,
     )
     var klibLibraries: String? = null
         set(value) {
@@ -372,6 +383,7 @@ It has no effect when -language-version is 2.0 or higher.""",
         value = "-Xmodule-path",
         valueDescription = "<path>",
         description = "Paths to Java 9+ modules.",
+        delimiter = Argument.Delimiters.pathSeparator,
     )
     var javaModulePath: String? = null
         set(value) {
@@ -478,7 +490,7 @@ Modes:
 * strict
 * warn (report a warning)""",
     )
-    var nullabilityAnnotations: Array<String>? = null
+    var nullabilityAnnotations: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -499,8 +511,10 @@ Modes:
         valueDescription = "<profilerPath:command:outputDir>",
         description = """Debug option: Run the compiler with the async profiler and save snapshots to `outputDir`; `command` is passed to the async profiler on start.
 `profilerPath` is the path to libasyncProfiler.so; async-profiler.jar should be on the compiler classpath.
-If it's not on the classpath, the compiler will attempt to load async-profiler.jar from the containing directory of profilerPath.
-Example: -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfiler.so:event=cpu,interval=1ms,threads,start:<SNAPSHOT_DIR_PATH>""",
+If it's not on the classpath, the compiler will attempt to load async-profiler.jar from the containing directory of profilerPath. 
+Individual parameter values are separated by the system path separator.
+Example (Unix/Linux): -Xprofile=<PATH_TO_ASYNC_PROFILER>/async-profiler/build/libasyncProfiler.so:event=cpu,interval=1ms,threads,start:<SNAPSHOT_DIR_PATH>
+Example (Windows): -Xprofile=<PATH_TO_ASYNC_PROFILER>\async-profiler\build\libasyncProfiler.so;event=cpu,interval=1ms,threads,start;<SNAPSHOT_DIR_PATH>""",
     )
     var profileCompilerCommand: String? = null
         set(value) {
@@ -539,18 +553,7 @@ problems with parentheses in identifiers on certain platforms.""",
         valueDescription = "<key=value[,]>",
         description = "Set the script resolver environment in key-value pairs (the value can be quoted and escaped).",
     )
-    var scriptResolverEnvironment: Array<String>? = null
-        set(value) {
-            checkFrozen()
-            field = value
-        }
-
-    @Argument(
-        value = "-Xserialize-ir",
-        valueDescription = "{none|inline|all}",
-        description = "Save the IR to metadata (Experimental).",
-    )
-    var serializeIr: String = "none"
+    var scriptResolverEnvironment: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value
@@ -682,7 +685,7 @@ This can be used in the event of problems with the new implementation.""",
         value = "-Xvalue-classes",
         description = "Enable experimental value classes.",
     )
-    @Enables(LanguageFeature.ValueClasses)
+    @Enables(LanguageFeature.JvmInlineMultiFieldValueClasses)
     var valueClasses: Boolean = false
         set(value) {
             checkFrozen()
@@ -696,7 +699,7 @@ This can be used in the event of problems with the new implementation.""",
 -Xwhen-expressions=indy         Generate type-checking 'when' expressions using 'invokedynamic' with 'SwitchBootstraps.typeSwitch(..)' and 
                                 following 'tableswitch' or 'lookupswitch'. This requires '-jvm-target 21' or greater.
 -Xwhen-expressions=inline       Generate type-checking 'when' expressions as a chain of type checks.
-The default value is 'inline'.""",
+The default value is 'indy' if the JVM target version is 21 or greater, and 'inline' otherwise.""",
     )
     var whenExpressionsGeneration: String? = null
         set(value) {
@@ -709,6 +712,7 @@ The default value is 'inline'.""",
         shortName = "-cp",
         valueDescription = "<path>",
         description = "List of directories and JAR/ZIP archives to search for user class files.",
+        delimiter = Argument.Delimiters.pathSeparator,
     )
     var classpath: String? = null
         set(value) {
@@ -788,7 +792,7 @@ The default value is 'inline'.""",
     @Argument(
         value = "-jvm-target",
         valueDescription = "<version>",
-        description = "The target version of the generated JVM bytecode (1.8 and 9–25), with 1.8 as the default.",
+        description = "The target version of the generated JVM bytecode (1.8 and 9–26), with 1.8 as the default.",
     )
     var jvmTarget: String? = null
         set(value) {
@@ -842,7 +846,7 @@ The default value is 'inline'.""",
         valueDescription = "<fully qualified class name[,]>",
         description = "Script definition template classes.",
     )
-    var scriptTemplates: Array<String>? = null
+    var scriptTemplates: Array<String> = emptyArray()
         set(value) {
             checkFrozen()
             field = value

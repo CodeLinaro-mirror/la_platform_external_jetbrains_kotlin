@@ -1,5 +1,5 @@
-KtOperationReferenceExpression(151,153): '+='
-  KaSuccessCallInfo:
+KtOperationReferenceExpression(149,151): '+='
+  KaCompoundArrayAccessCallResolutionAttempt:
     call = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN

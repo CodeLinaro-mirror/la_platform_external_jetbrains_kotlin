@@ -1,2 +1,7 @@
 KtOperationReferenceExpression(58,65): 'infixOp'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /infixOp(<extension receiver>: kotlin.Int, rhs: kotlin.String): kotlin.Unit
+    ]

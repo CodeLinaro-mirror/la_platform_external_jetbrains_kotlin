@@ -23,7 +23,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.util.render
 
-@PhasePrerequisites(FunctionReferenceLowering::class, JvmInlineCallableReferenceToLambdaPhase::class)
+@PhasePrerequisites(FunctionReferenceLowering::class, PrepareCallableReferencesForInlining::class)
 internal class JvmDefaultParameterInjector(context: JvmBackendContext) : DefaultParameterInjector<JvmBackendContext>(
     context = context,
     factory = JvmDefaultArgumentFunctionFactory(context),
@@ -89,7 +89,7 @@ internal class JvmDefaultParameterInjector(context: JvmBackendContext) : Default
         return buildMap {
             putAll(mainArguments)
             val restParameters = stubFunction.parameters.filterNot { it in mainArguments }
-            for ((maskParameter, maskValue) in restParameters zip maskValues.asList()) {
+            for ([maskParameter, maskValue] in restParameters zip maskValues.asList()) {
                 put(maskParameter, IrConstImpl.int(startOffset, endOffset, maskParameter.type, maskValue))
             }
             if (restParameters.size > maskValues.size) {

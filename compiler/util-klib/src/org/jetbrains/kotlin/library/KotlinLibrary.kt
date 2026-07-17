@@ -40,6 +40,7 @@ const val KLIB_PROPERTY_SHORT_NAME = "short_name"
 const val KLIB_PROPERTY_DEPENDS = "depends"
 const val KLIB_PROPERTY_PACKAGE = "package"
 const val KLIB_PROPERTY_BUILTINS_PLATFORM = "builtins_platform"
+const val KLIB_PROPERTY_NEW_COMPANION_INITIALIZATION = "new_companion_initialization"
 
 // Native-specific:
 const val KLIB_PROPERTY_INTEROP = "interop"
@@ -104,9 +105,13 @@ val BaseKotlinLibrary.isJsStdlib: Boolean
 val BaseKotlinLibrary.isWasmStdlib: Boolean
     get() = uniqueName == KOTLIN_WASM_STDLIB_NAME && builtInsPlatform == BuiltInsPlatform.WASM
 
-/** Whether [this] is either Kotlin/Native, Kotlin/JS or Kotlin/Wasm stdlib. */
+/** Whether [this] is the jklib stdlib. */
+val BaseKotlinLibrary.isJklibStdlib: Boolean
+    get() = uniqueName == KOTLIN_JKLIB_STDLIB_NAME && builtInsPlatform == BuiltInsPlatform.JKLIB
+
+/** Whether [this] is either Kotlin/Native, Kotlin/JS, Kotlin/Wasm or jklib stdlib. */
 val BaseKotlinLibrary.isAnyPlatformStdlib: Boolean
-    get() = isNativeStdlib || isJsStdlib || isWasmStdlib
+    get() = isNativeStdlib || isJsStdlib || isWasmStdlib || isJklibStdlib
 
 /** Whether [this] is a Kotlin/JS kotlin-test. */
 val BaseKotlinLibrary.isJsKotlinTest: Boolean
@@ -163,6 +168,9 @@ val BaseKotlinLibrary.commonizerTarget: String?
 
 val BaseKotlinLibrary.builtInsPlatform: BuiltInsPlatform?
     get() = manifestProperties.getProperty(KLIB_PROPERTY_BUILTINS_PLATFORM)?.let(BuiltInsPlatform::parseFromString)
+
+val BaseKotlinLibrary.newCompanionInitializationEnabled: Boolean
+    get() = manifestProperties.getProperty(KLIB_PROPERTY_NEW_COMPANION_INITIALIZATION)?.toBoolean() == true
 
 val BaseKotlinLibrary.commonizerNativeTargets: List<String>?
     get() = if (manifestProperties.containsKey(KLIB_PROPERTY_COMMONIZER_NATIVE_TARGETS))

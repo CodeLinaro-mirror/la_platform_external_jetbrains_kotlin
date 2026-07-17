@@ -12,6 +12,12 @@ private const val syntheticFqName = "__SYNTHETIC__"
 private fun String.toSyntheticSignature() =
     IdSignature.CommonSignature(syntheticFqName, this, null, 0, null)
 
+internal fun getFunctionTypeSignature(wasmFunctionType: org.jetbrains.kotlin.wasm.ir.WasmFunctionType): IdSignature {
+    val params = wasmFunctionType.parameterTypes.joinToString("_")
+    val results = wasmFunctionType.resultTypes.joinToString("_")
+    return "wasm_func_type_\$${params}_\$${results}".toSyntheticSignature()
+}
+
 object Synthetics {
     // FUNCTIONS
     object Functions {
@@ -22,6 +28,14 @@ object Synthetics {
         val associatedObjectGetter = FuncSymbol("tryGetAssociatedObject".toSyntheticSignature())
         val startUnitTestsFunction = FuncSymbol("startUnitTestsFunction".toSyntheticSignature())
         val masterInitFunction = FuncSymbol("masterInitFunction".toSyntheticSignature())
+
+        val createStringBuiltIn = FuncSymbol("createStringBuiltInFunction".toSyntheticSignature())
+        val tryGetAssociatedObjectBuiltIn = FuncSymbol("tryGetAssociatedObjectFunction".toSyntheticSignature())
+        val jsToKotlinAnyAdapterBuiltIn = FuncSymbol("jsToKotlinAnyAdapterBuiltInFunction".toSyntheticSignature())
+        val jsToKotlinStringAdapterBuiltIn = FuncSymbol("jsToKotlinStringAdapterBuiltInFunction".toSyntheticSignature())
+        val unitGetInstanceBuiltIn = FuncSymbol("unitGetInstanceBuiltInFunction".toSyntheticSignature())
+        val runRootSuitesBuiltIn = FuncSymbol("runRootSuitesBuiltInFunction".toSyntheticSignature())
+        val registerModuleDescriptorBuiltIn = FuncSymbol("registerModuleDescriptorBuiltInFunction".toSyntheticSignature())
     }
 
     // GLOBALS
@@ -45,6 +59,9 @@ object Synthetics {
     private val parameterlessNoReturnFunctionTypeSignature = "parameterlessNoReturnFunctionTypeSignature".toSyntheticSignature()
     private val jsExceptionTagFuncTypeSignature = "jsExceptionTagFuncType".toSyntheticSignature()
 
+    private val throwableBuiltInTypeSignature = "throwableBuiltInType".toSyntheticSignature()
+    private val anyBuiltInTypeSignature = "anyBuiltInType".toSyntheticSignature()
+
     object HeapTypes {
         val wasmAnyArrayType = GcHeapTypeSymbol(wasmAnyArrayTypeSignature)
         val specialSlotITableType = GcHeapTypeSymbol(specialSlotITableTypeSignature)
@@ -55,6 +72,8 @@ object Synthetics {
         val byteArray = GcHeapTypeSymbol(byteArraySignature)
         val associatedObjectGetterType = FunctionHeapTypeSymbol(associatedObjectGetterTypeSignature)
         val associatedObjectGetterWrapper = GcHeapTypeSymbol(associatedObjectGetterWrapperSignature)
+        val throwableBuiltInType = GcHeapTypeSymbol(throwableBuiltInTypeSignature)
+        val anyBuiltInType = GcHeapTypeSymbol(anyBuiltInTypeSignature)
     }
 
     object GcTypes {
@@ -76,6 +95,8 @@ object Synthetics {
         val jsExceptionTagFuncType = FunctionHeapTypeSymbol(jsExceptionTagFuncTypeSignature)
         val parameterlessNoReturnFunctionType = FunctionHeapTypeSymbol(parameterlessNoReturnFunctionTypeSignature)
         val associatedObjectGetterType = FunctionHeapTypeSymbol(associatedObjectGetterTypeSignature)
+
+        val wasmContFunctionType = ContFunctionHeapTypeSymbol(1)
     }
 
 }

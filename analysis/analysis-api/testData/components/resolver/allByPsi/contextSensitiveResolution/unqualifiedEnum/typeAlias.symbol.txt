@@ -26,13 +26,24 @@ KtTypeAlias(102,124): 'typealias Other = Some'
   null
 
 KtTypeReference(120,124): 'Some'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Some
+    ]
 
 KtUserType(120,124): 'Some'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Some
+    ]
 
 KtNameReferenceExpression(120,124): 'Some'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Some
+    ]
 
 KtNamedFunction(126,189): 'fun foo(o: Other) = when (o) {'
   null
@@ -44,19 +55,35 @@ KtParameter(134,142): 'o: Other'
   null
 
 KtTypeReference(137,142): 'Other'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Other
+    ]
 
 KtUserType(137,142): 'Other'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Other
+    ]
 
 KtNameReferenceExpression(137,142): 'Other'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Other
+    ]
 
 KtWhenExpression(146,189): 'when (o) {'
   null
 
 KtNameReferenceExpression(152,153): 'o'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      o: {Other=} Some
+    ]
 
 KtWhenEntry(161,171): 'FIRST -> 1'
   null
@@ -65,7 +92,12 @@ KtWhenConditionWithExpression(161,166): 'FIRST'
   null
 
 KtNameReferenceExpression(161,166): 'FIRST'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Some.FIRST
+    ]
 
 KtConstantExpression(170,171): '1'
   null
@@ -77,7 +109,12 @@ KtWhenConditionWithExpression(176,182): 'SECOND'
   null
 
 KtNameReferenceExpression(176,182): 'SECOND'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Some.SECOND
+    ]
 
 KtConstantExpression(186,187): '2'
   null

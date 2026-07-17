@@ -114,7 +114,7 @@ internal class Info(output: KlibToolOutput, args: KlibToolArguments) : KlibToolC
         output.appendLine("Has LLVM bitcode: ${library.hasBitcode}")
         output.appendLine("Has ABI: ${library.hasAbi}")
         output.appendLine("Manifest properties:")
-        manifestProperties.entries.forEach { (key, value) ->
+        manifestProperties.entries.forEach { [key, value] ->
             output.appendLine("  $key=$value")
         }
         loadSizeInfo(library.libraryFile)?.renderTo(output)
@@ -166,17 +166,22 @@ internal class DumpIr(output: KlibToolOutput, args: KlibToolArguments) : KlibToo
         val typeTranslator = TypeTranslatorImpl(symbolTable, ModuleDescriptorLoader.languageVersionSettings, module)
         val irBuiltIns = IrBuiltInsOverDescriptors(module.builtIns, typeTranslator, symbolTable)
 
-        val linker = KlibToolIrLinker(output, module, irBuiltIns, symbolTable)
+        val linker = KlibToolIrLinker(output, module, symbolTable)
         module.allDependencyModules.forEach {
             linker.deserializeOnlyHeaderModule(it, it.kotlinLibrary)
-            linker.resolveModuleDeserializer(it, null).init()
         }
         val irFragment = linker.deserializeFullModule(module, library)
-        linker.resolveModuleDeserializer(module, null).init()
+        linker.init(null)
         linker.modulesWithReachableTopLevels.forEach(IrModuleDeserializer::deserializeReachableDeclarations)
 
         val dumpOptions = DumpIrTreeOptions(
             printSignatures = true,
+            filePathRenderer = { _, fullPath ->
+                // Similar to logic in IrFileEntryPathRelativizer.getRelativePath()
+                args.absolutePathPrefixes.firstNotNullOfOrNull { absolutePathPrefix ->
+                    runIf(fullPath.startsWith(absolutePathPrefix)) { fullPath.removePrefix(absolutePathPrefix) }
+                } ?: fullPath
+            },
             referenceRenderingStrategy = DumpIrReferenceRenderingAsSignatureStrategy(KonanManglerIr)
         )
 
@@ -333,7 +338,10 @@ internal class DumpIrSignatures(output: KlibToolOutput, args: KlibToolArguments)
 
         val idSignatureRenderer = args.signatureVersion.getMostSuitableSignatureRenderer() ?: return
 
-        val signatures = IrSignaturesExtractor(library).extract()
+        val signatures = with(IrSignaturesExtractor(library)) {
+            if (args.onlyTopLevelSignatures) extractOnlyTopLevelPublicSignatures() else extractAllPublicSignatures()
+        }
+
         IrSignaturesRenderer(output, idSignatureRenderer).render(signatures)
     }
 }

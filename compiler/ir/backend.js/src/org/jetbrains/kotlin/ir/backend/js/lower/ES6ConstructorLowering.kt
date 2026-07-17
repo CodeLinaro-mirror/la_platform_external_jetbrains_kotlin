@@ -38,7 +38,7 @@ import org.jetbrains.kotlin.utils.memoryOptimizedPlus
 import org.jetbrains.kotlin.utils.newHashMapWithExpectedSize
 
 val ES6_CONSTRUCTOR_REPLACEMENT by IrDeclarationOriginImpl.Regular
-val ES6_SYNTHETIC_EXPORT_CONSTRUCTOR by IrDeclarationOriginImpl.Regular
+val ES6_SYNTHETIC_INTEROP_CONSTRUCTOR by IrDeclarationOriginImpl.Regular
 val ES6_PRIMARY_CONSTRUCTOR_REPLACEMENT by IrDeclarationOriginImpl.Regular
 val ES6_INIT_FUNCTION by IrDeclarationOriginImpl.Regular
 val ES6_DELEGATING_CONSTRUCTOR_REPLACEMENT by IrStatementOriginImpl
@@ -159,11 +159,15 @@ class ES6ConstructorLowering(val context: JsIrBackendContext) : DeclarationTrans
 
         if (declaration.isSyntheticPrimaryConstructor) return null // keep existing element
         val factoryFunction = declaration.generateCreateFunction()
-        return listOfNotNull(factoryFunction, declaration.generateExportedConstructorIfNeeded(factoryFunction))
+        return listOfNotNull(factoryFunction, declaration.generateInteropPrimaryConstructor(factoryFunction))
     }
 
-    private fun IrConstructor.generateExportedConstructorIfNeeded(factoryFunction: IrSimpleFunction): IrConstructor? {
-        return runIf(isExported(context) && isPrimary) {
+    /**
+     * Generates a ES6 constructor from a Kotlin primary constructor. Used by JS code in the interop scenarios,
+     * such as passing `::class.js` reference to a JS external function.
+     */
+    private fun IrConstructor.generateInteropPrimaryConstructor(factoryFunction: IrSimpleFunction): IrConstructor? {
+        return runIf(isPrimary) {
             apply {
                 parameters = parameters.memoryOptimizedFilterNot { it.isBoxParameter }
                 body = (body as? IrBlockBody)?.let {
@@ -173,10 +177,10 @@ class ES6ConstructorLowering(val context: JsIrBackendContext) : DeclarationTrans
                                 JsIrBuilder.buildCall(context.symbols.jsNewTarget),
                                 parameters.map { parameter -> JsIrBuilder.buildGetValue(parameter.symbol) } + context.getVoid(),
                             )
-                        statements.add(JsIrBuilder.buildReturn(symbol, selfReplacedConstructorCall, returnType))
+                        statements.add(JsIrBuilder.buildReturn(symbol, selfReplacedConstructorCall, context.irBuiltIns.nothingType))
                     }
                 }
-                origin = ES6_SYNTHETIC_EXPORT_CONSTRUCTOR
+                origin = ES6_SYNTHETIC_INTEROP_CONSTRUCTOR
             }
         }
     }
@@ -252,7 +256,7 @@ class ES6ConstructorLowering(val context: JsIrBackendContext) : DeclarationTrans
                 statements.addAll(bodyCopy.statements)
 
                 if (self != null) {
-                    statements.add(JsIrBuilder.buildReturn(factory.symbol, JsIrBuilder.buildGetValue(self), irClass.defaultType))
+                    statements.add(JsIrBuilder.buildReturn(factory.symbol, JsIrBuilder.buildGetValue(self), context.irBuiltIns.nothingType))
                 }
             }
 
@@ -300,7 +304,7 @@ class ES6ConstructorLowering(val context: JsIrBackendContext) : DeclarationTrans
                         JsIrBuilder.buildReturn(
                             constructorReplacement.symbol,
                             JsIrBuilder.buildGetValue(selfParameterSymbol),
-                            irClass.defaultType
+                            context.irBuiltIns.nothingType
                         )
                     )
                 } else {

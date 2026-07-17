@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 JetBrains s.r.o.
+ * Copyright 2010-2026 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@ package org.jetbrains.kotlin.maven;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.*;
+import org.apache.maven.toolchain.Toolchain;
+import org.apache.maven.toolchain.ToolchainManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.build.SourcesUtilsKt;
@@ -85,8 +86,17 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
     @Parameter(property = "kotlin.compiler.jvmTarget")
     protected String jvmTarget;
 
+    @Parameter(property = "kotlin.compiler.jdkRelease")
+    protected String jdkRelease;
+
     @Parameter(property = "kotlin.compiler.jdkHome")
     protected String jdkHome;
+
+    @Component
+    protected ToolchainManager toolchainManager;
+
+    @Parameter
+    protected Map<String, String> jdkToolchain;
 
     @Parameter(property = "kotlin.compiler.scriptTemplates")
     protected List<String> scriptTemplates;
@@ -96,6 +106,11 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
 
     @Parameter(property = "kotlin.compiler.incremental.cache.root", defaultValue = "${project.build.directory}/kotlin-ic")
     public String incrementalCachesRoot;
+
+    // The handle is introduced to be able to disable it in case of some bugs,
+    // but overall there's no reason to disable this as it's basically required for correct IC results.
+    @Parameter(property = "kotlin.compiler.incremental.inputs.track", defaultValue = "true")
+    private boolean shouldTrackConfigurationInputs;
 
     @Parameter(property = "kotlin.compiler.javaParameters")
     protected boolean javaParameters;
@@ -220,15 +235,31 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
             getLog().info("Optimization is turned off");
         }
 
+        if (jdkRelease != null) {
+            arguments.setJdkRelease(jdkRelease);
+        }
+
         if (jvmTarget != null) {
             arguments.setJvmTarget(jvmTarget);
+        } else if (jdkRelease != null) {
+            // If jdkRelease is specified and jvmTarget is not,
+            // we still need to set up jvmTarget automatically because mismatching of versions will lead to a compiler error
+            arguments.setJvmTarget(jdkRelease);
         } else {
             arguments.setJvmTarget(JvmTarget.DEFAULT.getDescription());
         }
 
+        String toolchainJdkHome = getToolchainJdkHome();
         if (jdkHome != null) {
+            if (toolchainJdkHome != null) {
+                getLog().warn("Toolchains are ignored, overwritten by 'jdkHome' parameter");
+            }
+
             getLog().info("Overriding JDK home path with: " + jdkHome);
             arguments.setJdkHome(jdkHome);
+        } else if (toolchainJdkHome != null) {
+            getLog().info("Overriding JDK home path with toolchain JDK: " + toolchainJdkHome);
+            arguments.setJdkHome(toolchainJdkHome);
         }
 
         if (scriptTemplates != null && !scriptTemplates.isEmpty()) {
@@ -244,6 +275,34 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
                         child.getName().equals(PsiJavaModule.MODULE_INFO_FILE)
                 )
         );
+    }
+
+    private @Nullable String getToolchainJdkHome() {
+        Toolchain toolchain = getToolchain();
+        if (toolchain == null) {
+            return null;
+        }
+
+        // Toolchain doesn't offer a way to extract the JDK home
+        // directly except for casting to JavaToolchainImpl, which
+        // is an internal class.
+        String javacPath = toolchain.findTool("javac");
+        if (javacPath == null) {
+            return null;
+        }
+        File javac = new File(javacPath);
+        File bin = javac.getParentFile();
+        return bin != null ? bin.getParent() : null;
+    }
+
+    private @Nullable Toolchain getToolchain() {
+        if (jdkToolchain != null) {
+            List<Toolchain> toolchains = toolchainManager.getToolchains(session, "jdk", jdkToolchain);
+            if (toolchains != null && !toolchains.isEmpty()) {
+                return toolchains.get(0);
+            }
+        }
+        return toolchainManager.getToolchainFromBuildContext("jdk", session);
     }
 
     @Inject
@@ -359,6 +418,8 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
 
             LegacyKotlinMavenLogger kotlinMavenLogger = new LegacyKotlinMavenLogger(messageCollector, getLog());
             try (KotlinToolchains.BuildSession buildSession = kotlinToolchains.createBuildSession()) {
+                // BTA does not support -d configured like a regular argument, it's configured on operation creation
+                arguments.setDestination(null); // TODO: KT-85393 refactor setting up arguments to avoid this hack
                 List<String> myArguments = ArgumentUtils.convertArgumentsToStringList(arguments);
                 compilationOperation.getCompilerArguments().applyArgumentStrings(myArguments);
                 CompilationResult result = buildSession.executeOperation(compilationOperation.build(), executionPolicy, kotlinMavenLogger);
@@ -413,13 +474,13 @@ public class K2JVMCompileMojo extends KotlinCompileMojoBase<K2JVMCompilerArgumen
             arguments.setClasspath(StringUtil.join(filteredClasspath, File.pathSeparator));
         }
 
-        JvmSnapshotBasedIncrementalCompilationConfiguration classpathSnapshotsConfig = compileOperation.snapshotBasedIcConfigurationBuilder(
+        JvmSnapshotBasedIncrementalCompilationConfiguration.Builder classpathSnapshotsConfig = compileOperation.snapshotBasedIcConfigurationBuilder(
                 cachesDir,
                 SourcesChanges.ToBeCalculated.INSTANCE,
-                Collections.EMPTY_LIST,
-                cachesDir.resolve("shrunk-classpath-snapshot.bin")
-        ).build();
-        compileOperation.set(JvmCompilationOperation.INCREMENTAL_COMPILATION, classpathSnapshotsConfig);
+                Collections.EMPTY_LIST
+        );
+        classpathSnapshotsConfig.set(JvmSnapshotBasedIncrementalCompilationConfiguration.TRACK_CONFIGURATION_INPUTS, shouldTrackConfigurationInputs);
+        compileOperation.set(JvmCompilationOperation.INCREMENTAL_COMPILATION, classpathSnapshotsConfig.build());
 
         return compilationResult -> {
             if (compilationResult == CompilationResult.COMPILATION_SUCCESS) {

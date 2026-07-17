@@ -5,7 +5,12 @@ KtPackageDirective(30,39): 'package b'
   null
 
 KtNameReferenceExpression(38,39): 'b'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b
+    ]
 
 KtImportList(40,63): 'import a1.*'
   null
@@ -14,13 +19,23 @@ KtImportDirective(40,51): 'import a1.*'
   null
 
 KtNameReferenceExpression(47,49): 'a1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      a1
+    ]
 
 KtImportDirective(52,63): 'import a2.*'
   null
 
 KtNameReferenceExpression(59,61): 'a2'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      a2
+    ]
 
 KtClass(65,98): 'enum class MyEnum {'
   null
@@ -50,13 +65,24 @@ KtParameter(108,117): 'a: MyEnum'
   null
 
 KtTypeReference(111,117): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/MyEnum
+    ]
 
 KtUserType(111,117): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/MyEnum
+    ]
 
 KtNameReferenceExpression(111,117): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/MyEnum
+    ]
 
 KtBlockExpression(119,121): '{}'
   null
@@ -77,7 +103,12 @@ KtCallExpression(140,146): 'foo(X)'
     ]
 
 KtNameReferenceExpression(140,143): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/foo(a: b.MyEnum): kotlin.Unit
+    ]
 
 KtValueArgumentList(143,146): '(X)'
   null
@@ -86,7 +117,16 @@ KtValueArgument(144,145): 'X'
   null
 
 KtNameReferenceExpression(144,145): 'X'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionError:
+    candidateSymbols = [
+      val X: b.MyEnum,
+      val X: b.MyEnum
+    ]
+    diagnostic = ERROR<OVERLOAD_RESOLUTION_AMBIGUITY: Overload resolution ambiguity between candidates:
+    val X: MyEnum
+    val X: MyEnum>
 
 KtCallExpression(151,157): 'foo(Y)'
   KaSymbolResolutionSuccess:
@@ -95,7 +135,12 @@ KtCallExpression(151,157): 'foo(Y)'
     ]
 
 KtNameReferenceExpression(151,154): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/foo(a: b.MyEnum): kotlin.Unit
+    ]
 
 KtValueArgumentList(154,157): '(Y)'
   null
@@ -104,7 +149,16 @@ KtValueArgument(155,156): 'Y'
   null
 
 KtNameReferenceExpression(155,156): 'Y'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionError:
+    candidateSymbols = [
+      val Y: kotlin.String,
+      val Y: kotlin.String
+    ]
+    diagnostic = ERROR<OVERLOAD_RESOLUTION_AMBIGUITY: Overload resolution ambiguity between candidates:
+    val Y: String
+    val Y: String>
 
 KtCallExpression(162,168): 'foo(Z)'
   KaSymbolResolutionSuccess:
@@ -113,7 +167,12 @@ KtCallExpression(162,168): 'foo(Z)'
     ]
 
 KtNameReferenceExpression(162,165): 'foo'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/foo(a: b.MyEnum): kotlin.Unit
+    ]
 
 KtValueArgumentList(165,168): '(Z)'
   null
@@ -122,4 +181,9 @@ KtValueArgument(166,167): 'Z'
   null
 
 KtNameReferenceExpression(166,167): 'Z'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b/MyEnum.Z
+    ]

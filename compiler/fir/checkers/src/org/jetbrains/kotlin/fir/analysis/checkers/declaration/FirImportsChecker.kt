@@ -25,6 +25,7 @@ import org.jetbrains.kotlin.fir.declarations.utils.isOperator
 import org.jetbrains.kotlin.fir.declarations.utils.isStatic
 import org.jetbrains.kotlin.fir.declarations.utils.visibility
 import org.jetbrains.kotlin.fir.isDisabled
+import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.isVisible
 import org.jetbrains.kotlin.fir.resolve.providers.firProvider
 import org.jetbrains.kotlin.fir.resolve.providers.getContainingFile
@@ -36,6 +37,7 @@ import org.jetbrains.kotlin.fir.scopes.FirContainingNamesAwareScope
 import org.jetbrains.kotlin.fir.scopes.impl.declaredMemberScope
 import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.*
+import org.jetbrains.kotlin.fir.useArrayLiteralResolution
 import org.jetbrains.kotlin.fir.visibilityChecker
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -246,7 +248,7 @@ object FirImportsChecker : FirFileChecker(MppCheckerKind.Common) {
         val importedName = import.importedName ?: return
         if (!OperatorConventions.isConventionName(alias)) return
         when (alias) {
-            OperatorNameConventions.OF if LanguageFeature.CollectionLiterals.isDisabled() -> {
+            OperatorNameConventions.OF if useArrayLiteralResolution() -> {
                 return
             }
 
@@ -381,8 +383,29 @@ object FirImportsChecker : FirFileChecker(MppCheckerKind.Common) {
     private fun checkImportApiStatus(import: FirImport) {
         val importedFqName = import.importedFqName ?: return
         if (importedFqName.isRoot || importedFqName.shortName().asString().isEmpty()) return
-        val classId = (import as? FirResolvedImport)?.resolvedParentClassId ?: ClassId.topLevel(importedFqName)
-        val symbol = classId.toSymbol() ?: return
-        FirDeprecationChecker.reportApiStatusIfNeeded(import.source, symbol)
+
+        val parentClassId = (import as? FirResolvedImport)?.resolvedParentClassId
+
+        var classId: ClassId? = parentClassId ?: ClassId.topLevel(importedFqName)
+        var isPreviouslyIgnoredOuterClass = false
+
+        // When parentClassId is null, the import resolves to a top-level class (or callable declaration),
+        // and a potential deprecation will be reported on the use-site anyway.
+        if (parentClassId == null && LanguageFeature.NoDeprecationOnImportStatements.isEnabled()) {
+            classId = classId?.outerClassId
+            isPreviouslyIgnoredOuterClass = true
+        }
+
+        while (classId != null) {
+            classId.toSymbol()?.let {
+                FirDeprecationChecker.reportApiStatusIfNeeded(
+                    import.source,
+                    referencedSymbol = it,
+                    migrationLF = LanguageFeature.ReportDeprecationsOfOuterImportedClasses.takeIf { isPreviouslyIgnoredOuterClass },
+                )
+            }
+            classId = classId.outerClassId
+            isPreviouslyIgnoredOuterClass = true
+        }
     }
 }

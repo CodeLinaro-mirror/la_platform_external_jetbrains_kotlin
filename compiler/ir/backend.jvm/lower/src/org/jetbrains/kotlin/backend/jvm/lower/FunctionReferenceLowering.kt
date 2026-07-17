@@ -7,12 +7,7 @@ package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
-import org.jetbrains.kotlin.backend.common.lower.LAMBDA_EXTENSION_RECEIVER
-import org.jetbrains.kotlin.backend.common.lower.SamEqualsHashCodeMethodsGenerator
-import org.jetbrains.kotlin.backend.common.lower.VariableRemapper
-import org.jetbrains.kotlin.backend.common.lower.at
-import org.jetbrains.kotlin.backend.common.lower.createIrBuilder
-import org.jetbrains.kotlin.backend.common.lower.declarationsAtFunctionReferenceLowering
+import org.jetbrains.kotlin.backend.common.lower.*
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredDeclarationOrigin
 import org.jetbrains.kotlin.backend.jvm.JvmLoweredStatementOrigin
@@ -26,15 +21,13 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.builders.declarations.*
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.irAttribute
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.types.*
-import org.jetbrains.kotlin.ir.types.IrSimpleType
-import org.jetbrains.kotlin.ir.types.IrStarProjection
-import org.jetbrains.kotlin.ir.types.IrTypeProjection
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 import org.jetbrains.kotlin.name.JvmStandardClassIds.JVM_SERIALIZABLE_LAMBDA_ANNOTATION_FQ_NAME
@@ -93,16 +86,13 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
     private val isJavaSamConversionWithEqualsHashCode =
         context.config.languageVersionSettings.supportsFeature(LanguageFeature.JavaSamConversionEqualsHashCode)
 
-    private fun IrRichFunctionReference.isSamConversion(): Boolean =
-        !type.isFunctionOrKFunction() && !type.isSuspendFunctionOrKFunction()
-
     override fun visitRichFunctionReference(expression: IrRichFunctionReference): IrExpression {
         expression.transformChildrenVoid(this)
         if (expression.isIgnored) return expression
         for (parameter in expression.invokeFunction.parameters) {
             // this origin affects how name in bytecode would be generated. We need this change only for inline lambdas,
             // so let's drop it for everything else.
-            if (parameter.origin == LAMBDA_EXTENSION_RECEIVER) {
+            if (parameter.origin == IrDeclarationOrigin.LAMBDA_EXTENSION_RECEIVER) {
                 parameter.origin = IrDeclarationOrigin.DEFINED
             }
         }
@@ -478,38 +468,14 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                 isOperator = superFunction.isOperator
                 isSuspend = superFunction.isSuspend
             }.apply {
-                if (irFunctionReference.origin == JvmLoweredStatementOrigin.DEFAULT_VALUE_OF_INLINABLE_PARAMETER) {
-                    origin = JvmLoweredDeclarationOrigin.INVOKE_OF_DEFAULT_VALUE_OF_INLINABLE_PARAMETER
+                if (irFunctionReference.origin == JvmLoweredStatementOrigin.INLINE_SUSPEND_PARAM_DEFAULT_VALUE) {
+                    origin = JvmLoweredDeclarationOrigin.INVOKE_OF_INLINE_SUSPEND_PARAM_DEFAULT_VALUE
                 }
                 annotations = invokeFunction.annotations
                 metadata = functionReferenceClass.metadata
 
                 parameters += createDispatchReceiverParameterWithClassParent()
                 require(superFunction.typeParameters.isEmpty()) { "Fun interface abstract function can't have type parameters" }
-
-                val typeSubstitutor = if (samSuperType == null) {
-                    IrTypeSubstitutor(
-                        extractTypeParameters(irFunctionReference.type.classOrFail.owner).map { it.symbol },
-                        (irFunctionReference.type as IrSimpleType).arguments.map {
-                            when (it) {
-                                // it can be "in Nothing" in case of strange intersections
-                                // if we keep it as Nothing, this can cause CCE on java.lang.Void
-                                // this happens only in K1 in tests, so maybe it's just a K1 bug, but let's be conservative in that case–
-                                is IrTypeProjection if it.type.isNothing() -> context.irBuiltIns.anyNType
-                                is IrTypeProjection -> it.type
-                                is IrStarProjection -> context.irBuiltIns.anyNType
-                            }
-                        },
-                        allowEmptySubstitution = true
-                    )
-                } else {
-                    val typeParameters = extractTypeParameters(samSuperType.classOrFail.owner)
-                    IrTypeSubstitutor(
-                        typeParameters.map { it.symbol },
-                        typeParameters.map { it.erasedUpperBound.rawType(context) },
-                        allowEmptySubstitution = true
-                    )
-                }
 
                 val nonDispatchParameters = superFunction.nonDispatchParameters.mapIndexed { i, superParameter ->
                     val oldParameter = invokeFunction.parameters[i + irFunctionReference.boundValues.size]
@@ -519,8 +485,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                         endOffset = if (isLambda) oldParameter.endOffset else UNDEFINED_OFFSET,
                         name = oldParameter.name,
                         origin = oldParameter.origin,
-                        type = typeSubstitutor.substitute(superParameter.type)
-                            .mergeNullability(invokeFunction.parameters[i + boundValues.size].type),
+                        type = oldParameter.type,
                         defaultValue = null,
                     ).apply { copyAnnotationsFrom(oldParameter) }
                 }
@@ -530,7 +495,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                 val builder = context.createIrBuilder(symbol).applyIf(isLambda) { at(invokeFunction.body!!) }
                 body = builder.irBlockBody {
                     val variablesMapping = buildMap {
-                        for ((index, capturedValue) in boundValues.withIndex()) {
+                        for ([index, capturedValue] in boundValues.withIndex()) {
                             val invokeParameter = invokeFunction.parameters[index]
                             val capturedValueLocal = when (capturedValue) {
                                 is BoundValue.StoredInVariable -> capturedValue.symbol
@@ -546,7 +511,7 @@ internal class FunctionReferenceLowering(private val context: JvmBackendContext)
                             }
                             put(invokeParameter, capturedValueLocal)
                         }
-                        for ((index, parameter) in nonDispatchParameters.withIndex()) {
+                        for ([index, parameter] in nonDispatchParameters.withIndex()) {
                             val invokeParameter = invokeFunction.parameters[index + boundValues.size]
                             if (parameter.type != invokeParameter.type) {
                                 put(invokeParameter, irTemporary(irGet(parameter).implicitCastTo(invokeParameter.type)))

@@ -5,22 +5,11 @@
 
 package org.jetbrains.kotlin.maven.test
 
-import org.jetbrains.kotlin.maven.plugin.test.MavenTestExecutionContext
-import org.jetbrains.kotlin.maven.plugin.test.MavenTestProject
-import org.jetbrains.kotlin.maven.plugin.test.createMavenTestExecutionContextFromEnvironment
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.TestInstance
-import org.junit.jupiter.api.condition.EnabledOnOs
-import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import kotlin.io.path.ExperimentalPathApi
-import kotlin.io.path.copyTo
-import kotlin.io.path.copyToRecursively
-import kotlin.io.path.createDirectories
-import kotlin.io.path.deleteRecursively
-import kotlin.io.path.exists
+import kotlin.io.path.*
 
 @TestInstance(TestInstance.Lifecycle.PER_METHOD)
 abstract class KotlinMavenTestBase {
@@ -33,7 +22,7 @@ abstract class KotlinMavenTestBase {
 
     @BeforeEach
     fun setup() {
-        context = createMavenTestExecutionContextFromEnvironment(tmpDir)
+        context = createMavenTestExecutionContext(tmpDir)
     }
 
     fun testProject(
@@ -45,8 +34,6 @@ abstract class KotlinMavenTestBase {
         val workDir = copyProjectDir(projectDir, mavenVersion.version)
         configureMavenWrapperInProjectDirectory(workDir, mavenVersion.version)
 
-        context.verifyCommonBshLocation.copyTo(workDir.resolve("verify-common.bsh"))
-
         val settingsXml = workDir.resolve("settings.xml")
         settingsXml.checkOrWriteKotlinMavenTestSettingsXml(context.kotlinBuildRepo)
 
@@ -55,7 +42,8 @@ abstract class KotlinMavenTestBase {
             context = context,
             workDir = workDir,
             settingsFile = settingsXml,
-            buildOptions = buildOptions
+            buildOptions = buildOptions,
+            mavenVersion = mavenVersion.version
         )
 
         if (code != null) code(project)
@@ -70,8 +58,22 @@ abstract class KotlinMavenTestBase {
         copyTo.createDirectories()
 
         @OptIn(ExperimentalPathApi::class)
-        originalProjectDir.copyToRecursively(copyTo, overwrite = false, followLinks = true)
+        originalProjectDir.copyToRecursively(
+            copyTo,
+            overwrite = false, // let it fail in case something is wrong and it tries to write to the same dir
+            followLinks = true
+        )
 
         return copyTo
+    }
+
+    fun Path.replaceFirstInFile(target: String, replacement: String) {
+        val content = toFile().readText()
+        val newContent = content.replaceFirst(target, replacement)
+        toFile().writeText(newContent)
+    }
+
+    fun Path.deleteFile() {
+        toFile().delete()
     }
 }

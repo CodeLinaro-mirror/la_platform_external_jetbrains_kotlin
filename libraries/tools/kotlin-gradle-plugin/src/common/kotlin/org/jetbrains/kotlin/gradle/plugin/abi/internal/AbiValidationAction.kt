@@ -14,40 +14,34 @@ import org.jetbrains.kotlin.gradle.plugin.await
  * Sets up Application Binary Interface (ABI) validation as part of the Kotlin Gradle plugin. This was previously known as the Binary Compatibility validator.
  */
 internal val AbiValidationSetupAction = KotlinProjectSetupCoroutine {
-    val abiClasspath = prepareAbiClasspath()
-
-    kotlinExtensionOrNull?.abiValidation?.configure(project)
+    val kotlin = kotlinExtensionOrNull ?: return@KotlinProjectSetupCoroutine
+    val abiValidation = kotlin.abiValidationInternal
+    abiValidation.configure(project)
 
     // wait until all compilations are configured
-    KotlinPluginLifecycle.Stage.AfterFinaliseCompilations.await()
+    KotlinPluginLifecycle.Stage.ReadyForExecution.await()
+
+    if (!abiValidation.isActivated) return@KotlinProjectSetupCoroutine
+
+    tasks.named("check") { checkTask -> checkTask.dependsOn(abiValidation.checkTaskProvider) }
 
     when {
         kotlinJvmExtensionOrNull != null -> {
             val extension = kotlinJvmExtension
             val target = extension.target
-            finalizeJvmVariant(this, abiClasspath, target)
-
-            val abiValidation = extension.abiValidation
-            addDependencyWithCheckTask(abiValidation)
+            extension.abiValidation.finalizeJvmVariant(this, target)
         }
 
         kotlinAndroidExtensionOrNull != null -> {
             val extension = kotlinAndroidExtension
             val target = extension.target
-            finalizeAndroidVariant(this, abiClasspath, target)
-
-            val abiValidation = extension.abiValidation
-            addDependencyWithCheckTask(abiValidation)
+            extension.abiValidation.finalizeAndroidVariant(this, target)
         }
 
         multiplatformExtensionOrNull != null -> {
             val extension = multiplatformExtension
-            val abiValidation = extension.abiValidation
-
             val targets = extension.awaitTargets()
-            abiValidation.finalizeMultiplatformVariant(this, abiClasspath, targets)
-
-            addDependencyWithCheckTask(abiValidation)
+            extension.abiValidation.finalizeMultiplatformVariant(this, targets, abiValidation.keepLocallyUnsupportedTargets)
         }
     }
 }

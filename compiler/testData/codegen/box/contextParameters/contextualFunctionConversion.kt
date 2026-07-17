@@ -1,5 +1,4 @@
 // LANGUAGE: +ContextParameters
-// IGNORE_BACKEND_K1: ANY
 
 fun withContext(f: context(String) () -> String) = f("OK")
 

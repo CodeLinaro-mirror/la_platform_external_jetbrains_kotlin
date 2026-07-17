@@ -57,18 +57,18 @@ import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.compiler.*
 import org.jetbrains.kotlin.cli.jvm.index.JavaRoot
 import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesDynamicCompoundIndex
-import org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesIndexImpl
+import org.jetbrains.kotlin.analysis.api.standalone.base.declarations.KotlinStandaloneJvmDependenciesIndex
 import org.jetbrains.kotlin.cli.jvm.index.SingleJavaFileRootsIndex
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleFinder
 import org.jetbrains.kotlin.cli.jvm.modules.CliJavaModuleResolver
 import org.jetbrains.kotlin.cli.jvm.modules.CoreJrtFileSystem
 import org.jetbrains.kotlin.cli.jvm.modules.JavaModuleGraph
 import org.jetbrains.kotlin.config.*
+import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.library.KlibConstants.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.load.kotlin.MetadataFinderFactory
 import org.jetbrains.kotlin.load.kotlin.VirtualFileFinderFactory
-import org.jetbrains.kotlin.utils.addIfNotNull
-import org.jetbrains.kotlin.utils.addToStdlib.popLast
+import org.jetbrains.kotlin.utils.topologicalSort
 import org.picocontainer.PicoContainer
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -208,7 +208,7 @@ object StandaloneProjectFactory {
     ) {
         val project = environment.project
         val javaFileManager = project.getService(JavaFileManager::class.java) as KotlinCliJavaFileManagerImpl
-        val javaModuleFinder = CliJavaModuleFinder(jdkHome?.toFile(), null, javaFileManager, project, null)
+        val javaModuleFinder = CliJavaModuleFinder(jdkHome?.toFile(), createStubConfigurationForReporting(), javaFileManager, project, null)
         val javaModuleGraph = JavaModuleGraph(javaModuleFinder)
 
         val allSourceFileRoots = sourceFiles.map { JavaRoot(it.virtualFile, JavaRoot.RootType.SOURCE) }
@@ -244,7 +244,7 @@ object StandaloneProjectFactory {
             addAll(jdkRoots)
         }
 
-        val (roots, singleJavaFileRoots) =
+        val [roots, singleJavaFileRoots] =
             rootsWithSingleJavaFileRoots.partition { (file) -> file.isDirectory || file.extension != JavaFileType.DEFAULT_EXTENSION }
 
         val corePackageIndex = project.getService(PackageIndex::class.java) as CorePackageIndex
@@ -252,10 +252,10 @@ object StandaloneProjectFactory {
         /**
          * We set `shouldOnlyFindFirstClass` to `false` for the following reason: In Standalone, we have a global view on the project, and
          * thus the index may contain multiple relevant classes with the same name which later (after the index access) need to be filtered
-         * with a scope. See [org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesIndex.findClasses] for a more detailed explanation.
+         * with a scope. See [org.jetbrains.kotlin.cli.jvm.index.JvmDependenciesIndex.findClassVirtualFiles] for a more detailed explanation.
          */
         val rootsIndex = JvmDependenciesDynamicCompoundIndex(shouldOnlyFindFirstClass = false).apply {
-            addIndex(JvmDependenciesIndexImpl(roots, shouldOnlyFindFirstClass = false))
+            addIndex(KotlinStandaloneJvmDependenciesIndex(roots))
             indexedRoots.forEach { javaRoot ->
                 if (javaRoot.file.isDirectory) {
                     if (javaRoot.type == JavaRoot.RootType.SOURCE) {
@@ -298,7 +298,7 @@ object StandaloneProjectFactory {
         jdkHome: Path?,
     ): List<Path> {
         val javaFileManager = project.getService(JavaFileManager::class.java) as KotlinCliJavaFileManagerImpl
-        val javaModuleFinder = CliJavaModuleFinder(jdkHome?.toFile(), null, javaFileManager, project, null)
+        val javaModuleFinder = CliJavaModuleFinder(jdkHome?.toFile(), createStubConfigurationForReporting(), javaFileManager, project, null)
         val javaModuleGraph = JavaModuleGraph(javaModuleFinder)
 
         val javaRoots = getDefaultJdkModuleRoots(javaModuleFinder, javaModuleGraph)
@@ -498,30 +498,10 @@ object StandaloneProjectFactory {
     }
 
     private fun withAllTransitiveDependencies(ktModules: List<KaModule>): List<KaModule> {
-        val visited = hashSetOf<KaModule>()
-        val stack = ktModules.toMutableList()
-        while (stack.isNotEmpty()) {
-            val module = stack.popLast()
-            if (module in visited) continue
-            visited += module
-            for (dependency in module.allDependencies()) {
-                if (dependency !in visited) {
-                    stack += dependency
-                }
-            }
-        }
-        return visited.toList()
-    }
-
-    private fun KaModule.allDependencies(): List<KaModule> = buildList {
-        addAll(allDirectDependencies())
-        when (this) {
-            is KaLibrarySourceModule -> {
-                add(binaryLibrary)
-            }
-            is KaLibraryModule -> {
-                addIfNotNull(librarySources)
-            }
+        // here, the lists are reversed to ensure that in the result, the earlier module from `ktModules`
+        // will also appear earlier (ceteris paribus)
+        return topologicalSort(ktModules.reversed()) {
+            allDirectDependencies().asIterable().reversed()
         }
     }
 
@@ -543,7 +523,7 @@ object StandaloneProjectFactory {
             // To work with that JRT handler, a hacky workaround here is to add "modules" before the module name so that it can
             // find the actual file path.
             // See [LLFirJavaFacadeForBinaries#getBinaryPath] and [StandaloneProjectFactory#getBinaryPath] for a similar hack.
-            val (libHomePath, pathInImage) = CoreJrtFileSystem.splitPath(pathString)
+            val [libHomePath, pathInImage] = CoreJrtFileSystem.splitPath(pathString)
             libHomePath + JAR_SEPARATOR + "modules/$pathInImage"
         } else
             pathString
@@ -577,10 +557,14 @@ object StandaloneProjectFactory {
         languageVersionSettings: LanguageVersionSettings = latestLanguageVersionSettings,
     ): (GlobalSearchScope) -> JvmPackagePartProvider = { scope ->
         JvmPackagePartProvider(languageVersionSettings, scope).apply {
-            addRoots(libraryRoots, MessageCollector.NONE)
+            addRoots(libraryRoots, createStubConfigurationForReporting())
         }
     }
 
     private val latestLanguageVersionSettings: LanguageVersionSettings =
         LanguageVersionSettingsImpl(LanguageVersion.LATEST_STABLE, ApiVersion.LATEST)
+
+    private fun createStubConfigurationForReporting(): CompilerConfiguration {
+        return CompilerConfiguration.create(BaseDiagnosticsCollector.DoNothing, MessageCollector.NONE)
+    }
 }

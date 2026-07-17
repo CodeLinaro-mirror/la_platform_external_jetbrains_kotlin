@@ -38,28 +38,55 @@ KtProperty(160,190): 'val enumProp: MyEnum = Option1'
   null
 
 KtTypeReference(174,180): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(174,180): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(174,180): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(183,190): 'Option1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtProperty(199,226): 'val stringProp: String = ""'
   null
 
 KtTypeReference(215,221): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtUserType(215,221): 'String'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtNameReferenceExpression(215,221): 'String'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/String
+    ]
 
 KtStringTemplateExpression(224,226): '""'
   null
@@ -71,19 +98,37 @@ KtParameterList(248,250): '()'
   null
 
 KtNameReferenceExpression(253,260): 'Option1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtProperty(270,306): 'val EnumOptionAlias = MyEnum.Option1'
   null
 
 KtDotQualifiedExpression(292,306): 'MyEnum.Option1'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtNameReferenceExpression(292,298): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(299,306): 'Option1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtNamedFunction(308,336): 'fun fun1(): MyEnum = Option1'
   null
@@ -92,16 +137,32 @@ KtParameterList(316,318): '()'
   null
 
 KtTypeReference(320,326): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(320,326): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(320,326): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(329,336): 'Option1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtNamedFunction(337,366): 'fun fun2(): MyEnum = enumProp'
   null
@@ -110,16 +171,32 @@ KtParameterList(345,347): '()'
   null
 
 KtTypeReference(349,355): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(349,355): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(349,355): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(358,366): 'enumProp'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val enumProp: MyEnum
+    ]
 
 KtNamedFunction(367,398): 'fun fun3(): MyEnum = stringProp'
   null
@@ -128,16 +205,32 @@ KtParameterList(375,377): '()'
   null
 
 KtTypeReference(379,385): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(379,385): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(379,385): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(388,398): 'stringProp'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val stringProp: kotlin.String
+    ]
 
 KtProperty(400,450): 'val propWithGetterType'
   null
@@ -149,16 +242,32 @@ KtParameterList(430,432): '()'
   null
 
 KtTypeReference(434,440): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(434,440): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(434,440): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(443,450): 'Option1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtProperty(452,510): 'val wrongPropWithGetterType'
   null
@@ -170,16 +279,32 @@ KtParameterList(487,489): '()'
   null
 
 KtTypeReference(491,497): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(491,497): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(491,497): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(500,510): 'stringProp'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val stringProp: kotlin.String
+    ]
 
 KtNamedFunction(512,589): 'fun fun4(b: Boolean): MyEnum {'
   null
@@ -191,22 +316,44 @@ KtParameter(521,531): 'b: Boolean'
   null
 
 KtTypeReference(524,531): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtUserType(524,531): 'Boolean'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtNameReferenceExpression(524,531): 'Boolean'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Boolean
+    ]
 
 KtTypeReference(534,540): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtUserType(534,540): 'MyEnum'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtNameReferenceExpression(534,540): 'MyEnum'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum
+    ]
 
 KtBlockExpression(541,589): '{'
   null
@@ -218,7 +365,12 @@ KtContainerNode(551,552): 'b'
   null
 
 KtNameReferenceExpression(551,552): 'b'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      b: kotlin.Boolean
+    ]
 
 KtContainerNodeForControlStructureBody(554,568): 'return Option1'
   null
@@ -230,7 +382,12 @@ KtReturnExpression(554,568): 'return Option1'
     ]
 
 KtNameReferenceExpression(561,568): 'Option1'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option1
+    ]
 
 KtReturnExpression(573,587): 'return Option2'
   KaSymbolResolutionSuccess:
@@ -239,4 +396,9 @@ KtReturnExpression(573,587): 'return Option2'
     ]
 
 KtNameReferenceExpression(580,587): 'Option2'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /MyEnum.Option2
+    ]

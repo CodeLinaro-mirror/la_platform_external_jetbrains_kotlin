@@ -28,7 +28,11 @@ import org.jetbrains.kotlin.sir.providers.getSirParent
 import org.jetbrains.kotlin.sir.providers.impl.BridgeProvider.BridgeFunctionProxy
 import org.jetbrains.kotlin.sir.providers.sirDeclarationName
 import org.jetbrains.kotlin.sir.providers.source.KotlinPropertyAccessorOrigin
+import org.jetbrains.kotlin.sir.providers.utils.allRequiredOptIns
 import org.jetbrains.kotlin.sir.providers.utils.throwsAnnotation
+import org.jetbrains.kotlin.sir.util.isUnavailable
+import org.jetbrains.kotlin.sir.util.unavailableTypes
+import org.jetbrains.kotlin.sir.util.replaceOrAddPropagatedUnavailability
 import org.jetbrains.kotlin.utils.addToStdlib.ifTrue
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
 import org.jetbrains.sir.lightclasses.extensions.documentation
@@ -39,6 +43,7 @@ import org.jetbrains.sir.lightclasses.utils.OverrideStatus
 import org.jetbrains.sir.lightclasses.utils.baseBridgeName
 import org.jetbrains.sir.lightclasses.utils.computeIsOverride
 import org.jetbrains.sir.lightclasses.utils.selfType
+import org.jetbrains.sir.lightclasses.utils.translateContextParameters
 import org.jetbrains.sir.lightclasses.utils.translateExtensionParameter
 import org.jetbrains.sir.lightclasses.utils.translateParameters
 import org.jetbrains.sir.lightclasses.utils.translateReturnType
@@ -66,6 +71,10 @@ internal class SirFunctionFromKtPropertySymbol(
         }
         prefix + ktPropertySymbol.sirDeclarationName().replaceFirstChar { it.titlecase() }
     }
+    private val contextParameters: Pair<SirParameter, List<SirParameter>>? by lazy {
+        translateContextParameters()
+    }
+    override val contextParameter: SirParameter? get() = contextParameters?.first
     override val extensionReceiverParameter: SirParameter? by lazy {
         translateExtensionParameter()
     }
@@ -99,7 +108,20 @@ internal class SirFunctionFromKtPropertySymbol(
         get() = null
 
     override val attributes: List<SirAttribute> by lazy {
-        this.translatedAttributes + listOfNotNull(SirAttribute.NonOverride.takeIf { overrideStatus is OverrideStatus.Conflicts })
+        buildList {
+            addAll(this@SirFunctionFromKtPropertySymbol.translatedAttributes)
+            if (overrideStatus is OverrideStatus.Conflicts) {
+                add(SirAttribute.NonOverride)
+            }
+            replaceOrAddPropagatedUnavailability {
+                buildList {
+                    contextParameter?.type?.let(::add)
+                    extensionReceiverParameter?.type?.let(::add)
+                    addAll(parameters.map { it.type })
+                    add(returnType)
+                }.flatMap { it.unavailableTypes }
+            }
+        }
     }
 
     override val errorType: SirType get() = if (ktPropertySymbol.throwsAnnotation != null) SirType.any else SirType.never
@@ -107,6 +129,7 @@ internal class SirFunctionFromKtPropertySymbol(
     override val isAsync: Boolean get() = false
 
     private val bridgeProxy: BridgeFunctionProxy? by lazyWithSessions {
+        if (isUnavailable) return@lazyWithSessions null
         val fqName = ktPropertySymbol
             .callableId?.asSingleFqName() ?: return@lazyWithSessions null
 
@@ -117,8 +140,9 @@ internal class SirFunctionFromKtPropertySymbol(
 
         val baseName = fqName.baseBridgeName + suffix
 
+        val contextParameters = contextParameters?.second ?: emptyList()
         val extensionReceiverParameter = extensionReceiverParameter?.let {
-            SirParameter("", "receiver", it.type)
+            SirParameter(null, "receiver", it.type)
         }
 
         generateFunctionBridge(
@@ -126,12 +150,14 @@ internal class SirFunctionFromKtPropertySymbol(
             explicitParameters = listOfNotNull(extensionReceiverParameter) + parameters,
             returnType = returnType,
             kotlinFqName = fqName,
+            kotlinOptIns = ktSymbol.allRequiredOptIns,
             selfParameter = (parent !is SirModule && isInstance).ifTrue {
-                SirParameter("", "self", selfType ?: error("Only a member can have a self parameter"))
+                SirParameter(null, "self", selfType ?: error("Only a member can have a self parameter"))
             },
+            contextParameters = contextParameters,
             extensionReceiverParameter = extensionReceiverParameter,
             errorParameter = errorType.takeIf { it != SirType.never }?.let {
-                SirParameter("", "_out_error", it)
+                SirParameter(null, "_out_error", it)
             },
             isAsync = false,
         )
@@ -142,14 +168,15 @@ internal class SirFunctionFromKtPropertySymbol(
             val args = argNames
             when(ktSymbol) {
                 is KaPropertyGetterSymbol -> {
-                    val expectedParameters = if (extensionReceiverParameter != null) 1 else 0
+                    val expectedParameters = (if (extensionReceiverParameter != null) 1 else 0) + contextParameters.size
                     require(args.size == expectedParameters) { "Received an extension getter $name with ${args.size} parameters instead of a $expectedParameters, aborting" }
                     buildCall("")
                 }
                 is KaPropertySetterSymbol -> {
-                    val expectedParameters = if (extensionReceiverParameter != null) 2 else 1
+                    val contextParameterCount = contextParameters.size
+                    val expectedParameters = (if (extensionReceiverParameter != null) 2 else 1) + contextParameterCount
                     require(args.size == expectedParameters) { "Received an extension getter $name with ${args.size} parameters instead of a $expectedParameters, aborting" }
-                    buildCall(" = ${args.last()}")
+                    buildCall(" = ${args.dropLast(contextParameterCount).last()}")
                 }
             }
         }.orEmpty()
@@ -157,5 +184,5 @@ internal class SirFunctionFromKtPropertySymbol(
 
     override var body: SirFunctionBody?
         set(value) {}
-        get() = bridgeProxy?.createSwiftInvocation { "return $it" }?.let(::SirFunctionBody)
+        get() = withSessions { bridgeProxy?.createSwiftInvocation { "return $it" }?.let(::SirFunctionBody) }
 }

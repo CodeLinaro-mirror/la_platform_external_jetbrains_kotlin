@@ -29,10 +29,10 @@ class NoIrCompilationErrorsHandler(testServices: TestServices) : BackendInputHan
         get() = listOf(service(::DiagnosticsService))
 
     override fun processModule(module: TestModule, info: IrBackendInput) {
-        val diagnosticsByFilePath = info.diagnosticReporter.diagnosticsByFilePath
+        val diagnosticsByFilePath = info.diagnosticReporter.diagnosticsByFile
         val diagnosticsService = testServices.diagnosticsService
 
-        for ((file, diagnostics) in diagnosticsByFilePath) {
+        for ([file, diagnostics] in diagnosticsByFilePath) {
             for (diagnostic in diagnostics) {
                 if (
                     diagnostic.severity == Severity.ERROR &&
@@ -41,7 +41,7 @@ class NoIrCompilationErrorsHandler(testServices: TestServices) : BackendInputHan
                     val factoryName = diagnostic.factoryName
                     val severity = diagnostic.severity.toCompilerMessageSeverity().toString().toLowerCaseAsciiOnly()
                     val message = diagnostic.renderMessage()
-                    error("/$file:[$factoryName] ${diagnostic.firstRange}: $severity: $message")
+                    error("/${file?.path}:[$factoryName] ${diagnostic.firstRange}: $severity: $message")
                 }
             }
         }

@@ -23,6 +23,7 @@ dependencies {
     compileOnly(intellijCore())
     compileOnly(project(":kotlin-scripting-compiler"))
     compileOnly(commonDependency("org.jetbrains.kotlin:kotlin-reflect")) { isTransitive = false }
+    implementation(project(":kotlin-tooling-core"))
 
     runtimeOnly(project(":kotlin-compiler-embeddable"))
     runtimeOnly(project(":kotlin-compiler-runner"))
@@ -31,9 +32,18 @@ dependencies {
     embedded(project(":kotlin-scripting-common")) { isTransitive = false }
     embedded(project(":kotlin-scripting-jvm")) { isTransitive = false }
 
+    // dependencies for ABI validation
+    compileOnly(project(":libraries:tools:abi-validation:abi-tools-api"))
+    embedded(project(":libraries:tools:abi-validation:abi-tools-api")) { isTransitive = false }
+    embedded(project(":libraries:tools:abi-validation:abi-tools")) { isTransitive = false }
+    embedded(project(":kotlin-metadata-jvm")) { isTransitive = false }
+    embedded(libs.diff.utils) { isTransitive = false }
+
 
     testCompileOnly(project(":compiler:cli"))
     testCompileOnly(intellijPlatformUtil())
+    testImplementation(project(":compiler:incremental-compilation-impl"))
+    testImplementation(project(":native:kotlin-native-utils"))
     testImplementation(kotlinTest("junit"))
 }
 
@@ -53,9 +63,6 @@ tasks.named<ShadowJar>(EMBEDDABLE_COMPILER_TASK_NAME) {
     transform(DontIncludeResourceTransformer::class.java) {
         resource = "META-INF/services/org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar"
     }
-    transform(DontIncludeResourceTransformer::class.java) {
-        resource = "META-INF/services/org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar"
-    }
 }
 
 sourcesJar()
@@ -69,15 +76,15 @@ kotlin {
 }
 
 generatedSourcesTask(
-    taskName = "generateBtaArguments",
-    generatorProject = ":compiler:build-tools:kotlin-build-tools-options-generator",
-    generatorMainClass = "org.jetbrains.kotlin.buildtools.options.generator.MainKt",
+    taskName = "generateBtaSources",
+    generatorProject = ":compiler:build-tools:kotlin-build-tools-generator",
+    generatorMainClass = "org.jetbrains.kotlin.buildtools.generator.MainKt",
     argsProvider = { generationRoot ->
         listOf(
             generationRoot.toString(),
             version.toString(),
             "impl",
-            "jvmCompilerArguments",
+            "jvmCompilerArguments,wasmArguments,jsArguments,metadataArguments",
         )
     },
 )

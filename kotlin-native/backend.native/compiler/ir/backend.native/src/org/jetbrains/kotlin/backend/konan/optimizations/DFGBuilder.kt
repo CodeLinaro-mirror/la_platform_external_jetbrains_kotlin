@@ -9,27 +9,27 @@ import org.jetbrains.kotlin.backend.common.peek
 import org.jetbrains.kotlin.backend.common.pop
 import org.jetbrains.kotlin.backend.common.push
 import org.jetbrains.kotlin.backend.konan.*
-import org.jetbrains.kotlin.backend.konan.ir.*
+import org.jetbrains.kotlin.backend.konan.ir.actualCallee
+import org.jetbrains.kotlin.backend.konan.ir.tryGetIntrinsicType
+import org.jetbrains.kotlin.backend.konan.lower.liveVariablesAtSuspensionPoint
+import org.jetbrains.kotlin.backend.konan.lower.loweredConstructorFunction
+import org.jetbrains.kotlin.backend.konan.lower.visibleVariablesAtSuspensionPoint
+import org.jetbrains.kotlin.backend.konan.lower.volatileField
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
+import org.jetbrains.kotlin.ir.objcinterop.isObjCObjectType
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.ir.visitors.acceptVoid
 import org.jetbrains.kotlin.util.OperatorNameConventions
-import org.jetbrains.kotlin.backend.konan.llvm.*
-import org.jetbrains.kotlin.backend.konan.lower.liveVariablesAtSuspensionPoint
-import org.jetbrains.kotlin.backend.konan.lower.loweredConstructorFunction
-import org.jetbrains.kotlin.backend.konan.lower.visibleVariablesAtSuspensionPoint
-import org.jetbrains.kotlin.backend.konan.lower.volatileField
-import org.jetbrains.kotlin.ir.objcinterop.isObjCObjectType
-import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
 
 internal val STATEMENT_ORIGIN_PRODUCER_INVOCATION = IrStatementOriginImpl("PRODUCER_INVOCATION")
 internal val STATEMENT_ORIGIN_JOB_INVOCATION = IrStatementOriginImpl("JOB_INVOCATION")
@@ -57,7 +57,7 @@ private class VariableValues {
             elementData[variable]?.values?.addAll(elements)
 
     fun computeClosure() {
-        elementData.forEach { (key, _) ->
+        elementData.forEach { [key, _] ->
             add(key, computeValueClosure(key))
         }
     }
@@ -171,7 +171,7 @@ internal class FunctionDFGBuilder(private val generationState: NativeGenerationS
 
         context.logMultiple {
             +"FIRST PHASE"
-            visitor.variableValues.elementData.forEach { (t, u) ->
+            visitor.variableValues.elementData.forEach { [t, u] ->
                 +"VAR $t [LOOP ${u.loop}]:"
                 u.values.forEach { +"    ${ir2stringWhole(it)}" }
             }
@@ -185,7 +185,7 @@ internal class FunctionDFGBuilder(private val generationState: NativeGenerationS
 
         context.logMultiple {
             +"SECOND PHASE"
-            visitor.variableValues.elementData.forEach { (t, u) ->
+            visitor.variableValues.elementData.forEach { [t, u] ->
                 +"VAR $t [LOOP ${u.loop}]:"
                 u.values.forEach { +"    ${ir2stringWhole(it)}" }
             }
@@ -410,7 +410,7 @@ internal class FunctionDFGBuilder(private val generationState: NativeGenerationS
     private val createEmptyStringSymbol = symbols.createEmptyString
     private val initInstanceSymbol = symbols.initInstance
     private val executeImplSymbol = symbols.executeImpl
-    private val executeImplProducerClass = symbols.functionN(0).owner
+    private val executeImplProducerClass = irBuiltIns.functionN(0)
     private val executeImplProducerInvoke = executeImplProducerClass.simpleFunctions()
             .single { it.name == OperatorNameConventions.INVOKE }
     private val saveCoroutineState = symbols.saveCoroutineState
@@ -455,14 +455,14 @@ internal class FunctionDFGBuilder(private val generationState: NativeGenerationS
                 scopes[loop] = scope
                 return scope
             }
-            parentLoops.forEach { (loop, parentLoop) -> transformLoop(loop, parentLoop) }
-            expressions.forEach { (expression, loop) ->
+            parentLoops.forEach { [loop, parentLoop] -> transformLoop(loop, parentLoop) }
+            expressions.forEach { [expression, loop] ->
                 val scope = if (loop == null) rootScope else scopes[loop]!!
                 expressionsScopes[expression] = scope
             }
             expressionsScopes[expressionValuesExtractor.unit] = rootScope
 
-            variableValues.elementData.forEach { (irVariable, variable) ->
+            variableValues.elementData.forEach { [irVariable, variable] ->
                 val loop = variable.loop
                 val scope = if (loop == null) rootScope else scopes[loop]!!
                 val node = DataFlowIR.Node.Variable(
@@ -494,7 +494,7 @@ internal class FunctionDFGBuilder(private val generationState: NativeGenerationS
                     type = symbolTable.mapClassReferenceType(irBuiltIns.throwableClass.owner),
                     kind = DataFlowIR.VariableKind.Temporary
             )
-            variables.forEach { (irVariable, node) ->
+            variables.forEach { [irVariable, node] ->
                 val values = variableValues.elementData[irVariable]!!.values
                 values.forEach { node.value.values += expressionToEdge(it) }
             }
@@ -839,7 +839,7 @@ internal class ModuleDFGBuilder(val generationState: NativeGenerationState, val 
 
         context.logMultiple {
             +"SYMBOL TABLE:"
-            symbolTable.classMap.forEach { (irClass, type) ->
+            symbolTable.classMap.forEach { [irClass, type] ->
                 +"    IR CLASS: ${irClass.render()}"
                 +"    TYPE: $type"
                 +"        SUPER TYPES:"

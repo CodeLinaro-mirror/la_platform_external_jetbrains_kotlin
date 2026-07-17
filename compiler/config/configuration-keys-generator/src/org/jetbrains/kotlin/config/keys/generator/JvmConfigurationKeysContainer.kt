@@ -50,7 +50,6 @@ object JvmConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.confi
     val USE_OLD_INLINE_CLASSES_MANGLING_SCHEME by key<Boolean>("Use old, 1.4 version of inline classes mangling scheme.")
     val ENABLE_JVM_PREVIEW by key<Boolean>()
     val NO_REFLECT by key<Boolean>("Don't automatically include kotlin-reflect.jar into the output if the output is a jar.")
-    val SERIALIZE_IR by key<JvmSerializeIrMode>("Which functions to serialize as IR to class metadata.")
     val VALIDATE_BYTECODE by key<Boolean>()
     val LINK_VIA_SIGNATURES by key<Boolean>("Link JVM IR symbols via signatures, instead of by descriptors on the K1 frontend.")
     val ENABLE_DEBUG_MODE by key<Boolean>()
@@ -61,4 +60,5 @@ object JvmConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.confi
     val EXPRESSION_TO_EVALUATE by key<String>("Expression to evaluate in script mode.", throwOnNull = false)
     val WHEN_GENERATION_SCHEME by key<JvmWhenGenerationScheme>("Specifies generation scheme for type-checking 'when' expressions.")
     val IGNORED_ANNOTATIONS_FOR_BRIDGES by key<List<String>>("Annotations fqNames that shall be skipped while copying the annotations from the target to the bridge functions.")
+    val COMMON_FRAGMENTS_OUTPUT_DIR by key<File>("Path to outputs of common fragments metadata for KMP JVM IC", throwOnNull = false)
 }

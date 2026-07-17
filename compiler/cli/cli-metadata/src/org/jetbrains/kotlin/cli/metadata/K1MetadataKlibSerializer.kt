@@ -28,7 +28,7 @@ import org.jetbrains.kotlin.library.metadata.impl.KlibMetadataModuleDescriptorFa
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.CommonPlatforms
 import org.jetbrains.kotlin.platform.TargetPlatform
-import org.jetbrains.kotlin.resolve.KlibCompilerDeserializationConfiguration
+import org.jetbrains.kotlin.resolve.CommonCompilerDeserializationConfiguration
 import org.jetbrains.kotlin.resolve.PlatformDependentAnalyzerServices
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.storage.StorageManager
@@ -124,22 +124,21 @@ private class KlibMetadataDependencyContainer(
             mutableDependenciesForAllModuleDescriptors.addAll(resultValues)
         }
 
-    private val moduleInfosImpl: List<KlibModuleInfo> = mutableListOf<KlibModuleInfo>().apply {
-        addAll(
-            moduleDescriptorsForKotlinLibraries.map { (kotlinLibrary, moduleDescriptor) ->
-                KlibModuleInfo(moduleDescriptor.name, kotlinLibrary, mutableDependenciesForAllModules)
-            }
-        )
-        mutableDependenciesForAllModules.addAll(this@apply)
-    }
+    override val moduleInfos: List<ModuleInfo>
+        field = mutableListOf<KlibModuleInfo>().apply {
+            addAll(
+                moduleDescriptorsForKotlinLibraries.map { [kotlinLibrary, moduleDescriptor] ->
+                    KlibModuleInfo(moduleDescriptor.name, kotlinLibrary, mutableDependenciesForAllModules)
+                }
+            )
+            mutableDependenciesForAllModules.addAll(this@apply)
+        }
 
-    override val moduleInfos: List<ModuleInfo> get() = moduleInfosImpl
-
-    override val friendModuleInfos: List<ModuleInfo> = moduleInfosImpl.filter {
+    override val friendModuleInfos: List<ModuleInfo> = moduleInfos.filter {
         it.kotlinLibrary.libraryFile.absolutePath in friendPaths
     }
 
-    override val refinesModuleInfos: List<ModuleInfo> = moduleInfosImpl.filter {
+    override val refinesModuleInfos: List<ModuleInfo> = moduleInfos.filter {
         it.kotlinLibrary.libraryFile.absolutePath in refinesPaths
     }
 
@@ -189,11 +188,10 @@ private class KlibMetadataDependencyContainer(
 
         return klibMetadataModuleDescriptorFactory.createPackageFragmentProvider(
             library = library,
-            packageAccessHandler = null,
             customMetadataProtoLoader = null,
             storageManager = LockBasedStorageManager("KlibMetadataPackageFragmentProvider"),
             moduleDescriptor = libraryModuleDescriptor,
-            configuration = KlibCompilerDeserializationConfiguration(languageVersionSettings),
+            configuration = CommonCompilerDeserializationConfiguration(languageVersionSettings),
             compositePackageFragmentAddend = null,
             lookupTracker = LookupTracker.DO_NOTHING
         ).also {

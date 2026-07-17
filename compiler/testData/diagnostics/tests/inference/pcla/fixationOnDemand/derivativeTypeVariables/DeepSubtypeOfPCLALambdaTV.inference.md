@@ -32,9 +32,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. Choose `TypeVariable(OT)` with `Readiness(
    	 true ALLOWED
@@ -45,9 +48,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 2
@@ -56,7 +62,7 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
 R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideContainer|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -66,7 +72,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 1. `ContravariantContainer<TypeVariable(OT)> <: ContravariantContainer<TypeVariable(PNT)>` _from Argument R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideContainer|()_
     1. `TypeVariable(PNT) <: TypeVariable(OT)`
 
-#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -76,7 +82,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 1. `ContravariantContainer<TypeVariable(OT)> <: InvariantContainer<in TypeVariable(PNT)>` _from Argument R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideContainer|()_
 2. __NewConstraintError: `ContravariantContainer<TypeVariable(OT)> <: InvariantContainer<in TypeVariable(PNT)>`__
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>`
 ##### Call Completion:
 
 1. Choose `TypeVariable(PNT)` with `Readiness(
@@ -88,9 +94,12 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 3
@@ -99,7 +108,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 R?C|<local>/pntvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `ScopeOwner <: TypeVariable(PNT)` _from Argument R|/ScopeOwner.ScopeOwner|()_
@@ -112,7 +121,7 @@ R?C|<local>/pntvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 R?C|<local>/otvOwner|.provide#()
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.provide` --- `fun provide(): ScopeOwner↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.provide` --- `fun provide(): ScopeOwner`
 ##### Call Completion:
 
 1. `TypeVariable(OT) == ScopeOwner` _from Fix variable OT_
@@ -129,7 +138,7 @@ R?C|<local>/otvOwner|.provide#()
 R?C|<local>/otvOwner|.constrain#(Q|Interloper|)
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `Interloper <: TypeVariable(OT)` _from Argument Q|Interloper|_
@@ -160,9 +169,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	 true HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
     1. `TypeVariable(PNT)` is `Readiness(
        	 true ALLOWED
@@ -173,9 +185,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
        	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-       	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+       	false REIFIED
+       	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
        	 true HAS_PROPER_NON_ILT_CONSTRAINT
        	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+       	 true HAS_PROPER_EQUALITY_CONSTRAINT
+       	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
        )`
 3. `TypeVariable(OT) == ScopeOwner` _from Fix variable OT_
 4. Combine `TypeVariable(PNT) <: TypeVariable(OT)` with `TypeVariable(OT) == ScopeOwner`
@@ -189,9 +204,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	 true HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 6. `TypeVariable(PNT) == ScopeOwner` _from Fix variable PNT_
 
@@ -228,9 +246,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. Choose `TypeVariable(OT)` with `Readiness(
    	 true ALLOWED
@@ -241,9 +262,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 7
@@ -252,7 +276,7 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
 R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideContainer|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -262,7 +286,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 1. `ContravariantContainer<TypeVariable(OT)> <: ContravariantContainer<TypeVariable(PNT)>` _from Argument R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideContainer|()_
     1. `TypeVariable(PNT) <: TypeVariable(OT)`
 
-#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -272,7 +296,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 1. `ContravariantContainer<TypeVariable(OT)> <: InvariantContainer<in TypeVariable(PNT)>` _from Argument R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideContainer|()_
 2. __NewConstraintError: `ContravariantContainer<TypeVariable(OT)> <: InvariantContainer<in TypeVariable(PNT)>`__
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>`
 ##### Call Completion:
 
 1. Choose `TypeVariable(PNT)` with `Readiness(
@@ -284,9 +308,12 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 8
@@ -295,7 +322,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 R?C|<local>/otvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `ScopeOwner <: TypeVariable(OT)` _from Argument R|/ScopeOwner.ScopeOwner|()_
@@ -306,7 +333,7 @@ R?C|<local>/otvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 R?C|<local>/otvOwner|.constrain#(Q|Interloper|)
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `Interloper <: TypeVariable(OT)` _from Argument Q|Interloper|_
@@ -317,7 +344,7 @@ R?C|<local>/otvOwner|.constrain#(Q|Interloper|)
 R?C|<local>/pntvOwner|.constrain#(Q|Interloper|)
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: Interloper): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: Interloper): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `Interloper <: TypeVariable(PNT)` _from Argument Q|Interloper|_
@@ -350,9 +377,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
     1. `TypeVariable(PNT)` is `Readiness(
        	 true ALLOWED
@@ -363,9 +393,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
        	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-       	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+       	false REIFIED
+       	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
        	 true HAS_PROPER_NON_ILT_CONSTRAINT
        	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+       	false HAS_PROPER_EQUALITY_CONSTRAINT
+       	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
        )`
 3. `TypeVariable(OT) == BaseType` _from Fix variable OT_
 4. Combine `TypeVariable(PNT) <: TypeVariable(OT)` with `TypeVariable(OT) == BaseType`
@@ -379,9 +412,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 6. `TypeVariable(PNT) == Interloper` _from Fix variable PNT_
 
@@ -417,9 +453,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. Choose `TypeVariable(OT)` with `Readiness(
    	 true ALLOWED
@@ -430,9 +469,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 12
@@ -441,7 +483,7 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
 R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideProjectedContainer|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -451,7 +493,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 1. `InvariantContainer<CapturedType(in TypeVariable(OT))> <: ContravariantContainer<TypeVariable(PNT)>` _from Argument R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideProjectedContainer|()_
 2. __NewConstraintError: `InvariantContainer<CapturedType(in TypeVariable(OT))> <: ContravariantContainer<TypeVariable(PNT)>`__
 
-#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -473,9 +515,12 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 13
@@ -484,7 +529,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 R?C|<local>/pntvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `ScopeOwner <: TypeVariable(PNT)` _from Argument R|/ScopeOwner.ScopeOwner|()_
@@ -497,7 +542,7 @@ R?C|<local>/pntvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 R?C|<local>/otvOwner|.provide#()
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.provide` --- `fun provide(): ScopeOwner↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.provide` --- `fun provide(): ScopeOwner`
 ##### Call Completion:
 
 1. `TypeVariable(OT) == ScopeOwner` _from Fix variable OT_
@@ -516,7 +561,7 @@ R?C|<local>/otvOwner|.provide#()
 R?C|<local>/otvOwner|.constrain#(Q|Interloper|)
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: ScopeOwner): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `Interloper <: TypeVariable(OT)` _from Argument Q|Interloper|_
@@ -547,9 +592,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	 true HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
     1. `TypeVariable(PNT)` is `Readiness(
        	 true ALLOWED
@@ -560,9 +608,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
        	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-       	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+       	false REIFIED
+       	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
        	 true HAS_PROPER_NON_ILT_CONSTRAINT
        	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+       	 true HAS_PROPER_EQUALITY_CONSTRAINT
+       	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
        )`
 3. `TypeVariable(OT) == ScopeOwner` _from Fix variable OT_
 4. Combine `TypeVariable(PNT) <: TypeVariable(OT)` with `TypeVariable(OT) == ScopeOwner`
@@ -578,9 +629,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	 true HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 7. `TypeVariable(PNT) == ScopeOwner` _from Fix variable PNT_
 
@@ -617,9 +671,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. Choose `TypeVariable(OT)` with `Readiness(
    	 true ALLOWED
@@ -630,9 +687,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 17
@@ -641,7 +701,7 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
 R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideProjectedContainer|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: ContravariantContainer<PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -651,7 +711,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 1. `InvariantContainer<CapturedType(in TypeVariable(OT))> <: ContravariantContainer<TypeVariable(PNT)>` _from Argument R?C|<local>/otvOwner|.R?C|/TypeVariableOwner.provideProjectedContainer|()_
 2. __NewConstraintError: `InvariantContainer<CapturedType(in TypeVariable(OT))> <: ContravariantContainer<TypeVariable(PNT)>`__
 
-#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>↩`
+#### Candidate 2: `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable` --- `fun <PNT> createDerivativeTypeVariable(constrainingTypeValue: InvariantContainer<in PNT>): TypeVariableOwner<PNT>`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(PNT)` for `FirNamedFunctionSymbol /TypeVariableOwner.createDerivativeTypeVariable`s parameter 0
@@ -673,9 +733,12 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	false HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	false HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 
 ### Call 18
@@ -684,7 +747,7 @@ R?C|<local>/otvOwner|.createDerivativeTypeVariable#(R?C|<local>/otvOwner|.R?C|/T
 R?C|<local>/otvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `ScopeOwner <: TypeVariable(OT)` _from Argument R|/ScopeOwner.ScopeOwner|()_
@@ -695,7 +758,7 @@ R?C|<local>/otvOwner|.constrain#(R|/ScopeOwner.ScopeOwner|())
 R?C|<local>/pntvOwner|.provide#()
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.provide` --- `fun provide(): BaseType↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.provide` --- `fun provide(): BaseType`
 ##### Call Completion:
 
 1. `TypeVariable(OT) == TypeVariable(PNT)` _from SimpleConstraintSystemConstraintPosition_
@@ -715,7 +778,7 @@ R?C|<local>/pntvOwner|.provide#()
 R?C|<local>/otvOwner|.constrain#(Q|Interloper|)
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `Interloper <: TypeVariable(OT)` _from Argument Q|Interloper|_
@@ -728,7 +791,7 @@ R?C|<local>/otvOwner|.constrain#(Q|Interloper|)
 R?C|<local>/pntvOwner|.constrain#(Q|Interloper|)
 ```
 
-#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit↩`
+#### Candidate 1: `FirNamedFunctionSymbol /TypeVariableOwner.constrain` --- `fun constrain(subtypeValue: BaseType): Unit`
 ##### Resolution Stages > CheckArguments:
 
 1. `Interloper <: TypeVariable(PNT)` _from Argument Q|Interloper|_
@@ -759,9 +822,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
     1. `TypeVariable(PNT)` is `Readiness(
        	 true ALLOWED
@@ -772,9 +838,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
        	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
        	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-       	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+       	false REIFIED
+       	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
        	 true HAS_PROPER_NON_ILT_CONSTRAINT
        	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+       	false HAS_PROPER_EQUALITY_CONSTRAINT
+       	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
        )`
 3. `TypeVariable(OT) == BaseType` _from Fix variable OT_
 4. Combine `TypeVariable(PNT) <: TypeVariable(OT)` with `TypeVariable(OT) == BaseType`
@@ -800,9 +869,12 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
     	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
     	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
     	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-    	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+    	false REIFIED
+    	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
     	 true HAS_PROPER_NON_ILT_CONSTRAINT
     	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+    	 true HAS_PROPER_EQUALITY_CONSTRAINT
+    	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
     )`
 
 ### Call 22
@@ -811,7 +883,7 @@ pcla#(<L> = pcla@fun <implicit>.<anonymous>(otvOwner: <implicit>): <implicit> <i
 Null(null)!!
 ```
 
-#### Candidate 1: `FirSyntheticFunctionSymbol _synthetic/CHECK_NOT_NULL_CALL` --- `fun <K> CHECK_NOT_NULL_CALL(arg: K?): K & Any↩`
+#### Candidate 1: `FirSyntheticFunctionSymbol _synthetic/CHECK_NOT_NULL_CALL` --- `fun <K> CHECK_NOT_NULL_CALL(arg: K?): K & Any`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(K)` for `FirSyntheticFunctionSymbol _synthetic/CHECK_NOT_NULL_CALL`s parameter 0
@@ -837,9 +909,12 @@ Null(null)!!
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	false HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. `TypeVariable(K) == kotlin/Nothing` _from Fix variable K_
 
@@ -870,9 +945,12 @@ ContravariantContainer#()
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. `TypeVariable(CT) == T` _from Fix variable CT_
 
@@ -906,9 +984,12 @@ TypeVariableOwner#()
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	 true HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. `TypeVariable(T) == PNT` _from Fix variable T_
 
@@ -939,9 +1020,12 @@ InvariantContainer#()
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	 true HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. `TypeVariable(CT) == T` _from Fix variable CT_
 
@@ -975,9 +1059,12 @@ TypeVariableOwner#()
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	 true HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	 true HAS_PROPER_EQUALITY_CONSTRAINT
+   	 true HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. `TypeVariable(T) == PNT` _from Fix variable T_
 
@@ -987,7 +1074,7 @@ TypeVariableOwner#()
 Null(null)!!
 ```
 
-#### Candidate 1: `FirSyntheticFunctionSymbol _synthetic/CHECK_NOT_NULL_CALL` --- `fun <K> CHECK_NOT_NULL_CALL(arg: K?): K & Any↩`
+#### Candidate 1: `FirSyntheticFunctionSymbol _synthetic/CHECK_NOT_NULL_CALL` --- `fun <K> CHECK_NOT_NULL_CALL(arg: K?): K & Any`
 ##### Resolution Stages > CreateFreshTypeVariableSubstitutorStage:
 
 1. New `TypeVariable(K)` for `FirSyntheticFunctionSymbol _synthetic/CHECK_NOT_NULL_CALL`s parameter 0
@@ -1013,9 +1100,12 @@ Null(null)!!
    	 true HAS_NO_DEPENDENCIES_TO_OTHER_VARIABLES
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS
    	 true HAS_PROPER_NON_TRIVIAL_CONSTRAINTS_OTHER_THAN_INCORPORATED_FROM_DECLARED_UPPER_BOUND
-   	false HAS_PROPER_NON_NOTHING_NON_ILT_LOWER_CONSTRAINT
+   	false REIFIED
+   	false HAS_PROPER_FLEXIBLE_LOWER_CONSTRAINT
    	 true HAS_PROPER_NON_ILT_CONSTRAINT
    	false HAS_NO_EXPLICIT_LOWER_NOTHING_CONSTRAINT
+   	false HAS_PROPER_EQUALITY_CONSTRAINT
+   	false HAS_PROPER_NON_NOTHING_NON_UPPER_CONSTRAINT
    )`
 2. `TypeVariable(K) == kotlin/Nothing` _from Fix variable K_
 

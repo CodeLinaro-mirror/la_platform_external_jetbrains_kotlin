@@ -8,16 +8,16 @@ package org.jetbrains.kotlin.gradle.targets.js.testing
 import org.gradle.api.Action
 import org.gradle.api.file.FileCollection
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.internal.tasks.testing.TestExecuter
+import org.gradle.api.internal.tasks.testing.TestExecutionSpec
 import org.gradle.api.model.ObjectFactory
-import org.gradle.api.provider.ProviderFactory
 import org.gradle.api.tasks.*
 import org.gradle.process.ExecOperations
 import org.gradle.work.DisableCachingByDefault
 import org.gradle.work.NormalizeLineEndings
-import org.jetbrains.kotlin.gradle.internal.testing.TCServiceMessagesTestExecutionSpec
 import org.jetbrains.kotlin.gradle.targets.js.RequiredKotlinJsDependency
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
-import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependencies
+import org.jetbrains.kotlin.gradle.targets.js.npm.RequiresNpmDependenciesTask
 import org.jetbrains.kotlin.gradle.targets.js.testing.karma.KotlinKarma
 import org.jetbrains.kotlin.gradle.targets.js.testing.mocha.KotlinMocha
 import org.jetbrains.kotlin.gradle.tasks.KotlinTest
@@ -34,24 +34,9 @@ internal constructor(
     @Internal
     override var compilation: KotlinJsIrCompilation,
     private val objects: ObjectFactory,
-    private val providers: ProviderFactory,
     execOps: ExecOperations,
 ) : KotlinTest(execOps),
-    RequiresNpmDependencies {
-
-    @Deprecated(
-        "Extending this class is deprecated. Scheduled for removal in Kotlin 2.4.",
-        level = DeprecationLevel.ERROR,
-    )
-    @Suppress("UNUSED_PARAMETER", "UNREACHABLE_CODE")
-    constructor(
-        compilation: KotlinJsIrCompilation,
-    ) : this(
-        compilation = throw UnsupportedOperationException(),
-        objects = throw UnsupportedOperationException(),
-        providers = throw UnsupportedOperationException(),
-        execOps = throw UnsupportedOperationException(),
-    )
+    RequiresNpmDependenciesTask {
 
     @Input
     var environment = mutableMapOf<String, String>()
@@ -74,6 +59,12 @@ internal constructor(
     @Suppress("unused")
     val testFrameworkSettings: String
         @Input get() = testFramework!!.settingsState
+
+    @get:Nested
+    @get:Optional
+    @Suppress("unused")
+    internal val testFrameworkInputs: Any?
+        get() = testFramework?.frameworkTaskInputs
 
     @PathSensitive(PathSensitivity.ABSOLUTE)
     @InputFile
@@ -134,7 +125,7 @@ internal constructor(
     fun useMocha() = useMocha {}
     fun useMocha(body: KotlinMocha.() -> Unit) =
         if (compilation.wasmTarget == null) {
-            use(KotlinMocha(compilation, path, objects, providers), body)
+            use(KotlinMocha(compilation, path), body)
         } else {
             logger.warn("Mocha test framework for Wasm target is not supported. For KotlinWasmNode used")
             testFramework
@@ -149,7 +140,7 @@ internal constructor(
     fun useKarma() = useKarma {}
     fun useKarma(body: KotlinKarma.() -> Unit): KotlinKarma =
         use(
-            KotlinKarma(compilation, path, objects, providers),
+            KotlinKarma(compilation, path, objects),
             body
         )
 
@@ -170,7 +161,7 @@ internal constructor(
         return testFramework
     }
 
-    override fun createTestExecutionSpec(): TCServiceMessagesTestExecutionSpec {
+    override fun createTestExecutionSpec(): TestExecutionSpec {
         val launchOpts = objects.processLaunchOptions {
             workingDir.set(this@KotlinJsTest.testFramework!!.workingDir)
             executable.set(this@KotlinJsTest.testFramework!!.executable)
@@ -183,5 +174,10 @@ internal constructor(
             nodeJsArgs = nodeJsArgs,
             debug = debug
         )
+    }
+
+    override fun createTestExecuter(): TestExecuter<*> {
+        val testExecuter = testFramework!!.createTestExecuter() ?: super.createTestExecuter()
+        return testExecuter
     }
 }

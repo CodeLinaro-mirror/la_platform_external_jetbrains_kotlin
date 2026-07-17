@@ -7,11 +7,10 @@ package org.jetbrains.kotlin.gradle
 import com.google.gson.Gson
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
-import org.gradle.kotlin.dsl.withType
+import org.gradle.kotlin.dsl.kotlin
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.targets.js.dsl.Distribution
-import org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalMainFunctionArgumentsDsl
 import org.jetbrains.kotlin.gradle.targets.js.ir.KLIB_TYPE
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrLink
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.JsPlatformDisambiguator
@@ -21,6 +20,7 @@ import org.jetbrains.kotlin.gradle.targets.js.npm.PackageJson
 import org.jetbrains.kotlin.gradle.targets.js.npm.fromSrcPackageJson
 import org.jetbrains.kotlin.gradle.testbase.*
 import org.jetbrains.kotlin.gradle.uklibs.applyMultiplatform
+import org.jetbrains.kotlin.gradle.util.compileSources
 import org.jetbrains.kotlin.gradle.util.replaceText
 import org.jetbrains.kotlin.test.TestMetadata
 import org.junit.jupiter.api.DisplayName
@@ -394,7 +394,7 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                 """
                 |
                 |tasks.named("compileProductionExecutableKotlinJs").configure {
-                |    mode = org.jetbrains.kotlin.gradle.targets.js.dsl.KotlinJsBinaryMode.DEVELOPMENT
+                |    inputs.property("foo", 1)
                 |}
                """.trimMargin()
             )
@@ -1181,8 +1181,9 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                     .resolve("build/compileSync/js/main/developmentExecutable/kotlin/$projectName-app.js.map")
                 assertFileContains(
                     appSourceMap,
-                    "\"../../../../../../src/jsMain/kotlin/main.kt\"",
-                    "\"../../../../../../../lib/src/jsMain/kotlin/foo.kt\"",
+                    "\"sourceRoot\":\"../../../../../../\"",
+                    "\"src/jsMain/kotlin/main.kt\"",
+                    "\"../lib/src/jsMain/kotlin/foo.kt\"",
                     "\"sourcesContent\":[null",
                 )
 
@@ -1215,8 +1216,9 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                 assertFileContains(
                     projectPath
                         .resolve("build/js/packages/$projectName-app/kotlin/$projectName-app.js.map"),
-                    "\"../../../../../app/src/jsMain/kotlin/main.kt\"",
-                    "\"../../../../../lib/src/jsMain/kotlin/foo.kt\"",
+                    "\"sourceRoot\":\"../../../../../app\"",
+                    "\"src/jsMain/kotlin/main.kt\"",
+                    "\"../lib/src/jsMain/kotlin/foo.kt\"",
                     "\"sourcesContent\":[null",
                 )
             }
@@ -1229,7 +1231,8 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
     fun testCorrectSourcesPathInPerFile(gradleVersion: GradleVersion) {
         project("js-per-file", gradleVersion) {
             build("jsDevelopmentExecutableCompileSync") {
-                val mainSourceMap = projectPath
+                // In the sub-project build
+                var mainSourceMap = projectPath
                     .resolve("build/compileSync/js/main/developmentExecutable/kotlin/$projectName/org/jetbrains/kotlin/testData/Main.mjs.map")
 
                 assertFileContains(
@@ -1238,11 +1241,33 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                     "\"sourcesContent\":[null",
                 )
 
-                val someModuleSourceMap = projectPath
+                // In the root build
+                mainSourceMap = projectPath
+                    .resolve("build/js/packages/$projectName/kotlin/$projectName/org/jetbrains/kotlin/testData/Main.mjs.map")
+
+                assertFileContains(
+                    mainSourceMap,
+                    "\"../../../../../../../../../../src/jsMain/kotlin/Main.kt\"",
+                    "\"sourcesContent\":[null",
+                )
+
+                // In the sub-project build
+                var someModuleSourceMap = projectPath
                     .resolve("build/compileSync/js/main/developmentExecutable/kotlin/$projectName/SomeModule.mjs.map")
+
                 assertFileContains(
                     someModuleSourceMap,
                     "\"../../../../../../../src/jsMain/kotlin/SomeModule.kt\"",
+                    "\"sourcesContent\":[null",
+                )
+
+                // In the root build
+                someModuleSourceMap = projectPath
+                    .resolve("build/js/packages/$projectName/kotlin/$projectName/SomeModule.mjs.map")
+
+                assertFileContains(
+                    someModuleSourceMap,
+                    "\"../../../../../../src/jsMain/kotlin/SomeModule.kt\"",
                     "\"sourcesContent\":[null",
                 )
             }
@@ -1268,9 +1293,10 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
             build("compileDevelopmentExecutableKotlinJs") {
                 val mapFilePath = subProject("app").projectPath
                     .resolve("build/kotlin2js/app.js.map")
-                assertFileContains(mapFilePath, "\"../../src/jsMain/kotlin/main.kt\"")
+                assertFileContains(mapFilePath, "\"sourceRoot\":\"../../\"")
+                assertFileContains(mapFilePath, "\"src/jsMain/kotlin/main.kt\"")
                 // The IR BE generates correct paths for dependencies
-                assertFileContains(mapFilePath, "\"../../../lib/src/jsMain/kotlin/foo.kt\"")
+                assertFileContains(mapFilePath, "\"../lib/src/jsMain/kotlin/foo.kt\"")
             }
         }
     }
@@ -2262,7 +2288,7 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                     .readLines()
 
                 var startIndex = 0
-                for ((index, line) in webpackConfig.withIndex()) {
+                for ([index, line] in webpackConfig.withIndex()) {
                     if (line.contains("// source maps")) {
                         startIndex = index + 1
                         break
@@ -2319,6 +2345,74 @@ class Kotlin2JsIrGradlePluginIT : KGPBaseTest() {
                 assertFileExists(
                     subProject("app").projectPath.resolve("build/compileSync/js/main/productionExecutable/kotlin/$moduleName.mjs")
                 )
+            }
+        }
+    }
+
+    @DisplayName("KT-37105: Project is properly rebuilt when @JsModule name is changed")
+    @GradleTest
+    @TestMetadata("empty")
+    @GradleTestVersions(minVersion = TestVersions.Gradle.MAX_SUPPORTED) // Gradle version is irrelevant
+    fun testKt37105(gradleVersion: GradleVersion) {
+        project("empty", gradleVersion) {
+            plugins {
+                kotlin("multiplatform")
+            }
+            buildScriptInjection {
+                kotlinMultiplatform.apply {
+                    js {
+                        browser()
+                        binaries.executable()
+                    }
+                    sourceSets.jsMain.configure {
+                        it.dependencies {
+                            implementation(npm("decamelize", "6.0.0"))
+                        }
+                    }
+                }
+            }
+            val npmKt = kotlinSourcesDir("jsMain").resolve("npm.kt").apply {
+                createParentDirectories()
+                writeText(
+                    //language=kt
+                    """
+                    |@file:JsModule("decamelize")
+                    |@file:JsNonModule
+                    |external fun decamelize(input: String): String
+                    """.trimMargin()
+                )
+            }
+            kotlinSourcesDir("jsMain").resolve("main.kt").apply {
+                createParentDirectories()
+                writeText(
+                    //language=kt
+                    """
+                    |fun main() {
+                    |    decamelize("test")
+                    |}
+                    """.trimMargin()
+                )
+            }
+
+            fun getResultingJsFile(): String {
+                assertFileInProjectExists("build/js/packages/empty/kotlin/empty.js")
+                return projectPath.resolve("build/js/packages/empty/kotlin/empty.js").readText()
+            }
+
+            build(":compileProductionExecutableKotlinJs") {
+                val jsFileContents = getResultingJsFile()
+                assert("'decamelize'" in jsFileContents && "'decamelize-fake'" !in jsFileContents) {
+                    "Expected only 'decamelize' to be in the resulting JS file. File contents:\n$jsFileContents"
+                }
+            }
+            npmKt.modify {
+                it.replace("JsModule(\"decamelize\")", "JsModule(\"decamelize-fake\")")
+            }
+            build(":compileProductionExecutableKotlinJs") {
+                val jsFileContents = getResultingJsFile()
+                assert("'decamelize'" !in jsFileContents && "'decamelize-fake'" in jsFileContents) {
+                    "Expected only 'decamelize-fake' to be in the resulting JS file. File contents:\n$jsFileContents"
+                }
             }
         }
     }

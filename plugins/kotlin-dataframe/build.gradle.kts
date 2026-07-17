@@ -2,6 +2,7 @@ plugins {
     kotlin("jvm")
     id("java-test-fixtures")
     id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 val dataframeRuntimeClasspath by configurations.creating
@@ -33,6 +34,7 @@ dependencies {
 
 sourceSets {
     "main" { projectDefault() }
+    "test" { projectDefault() }
     "testFixtures" { projectDefault() }
 }
 
@@ -43,25 +45,14 @@ projectTests {
     withTestJar()
     withMockJdkAnnotationsJar()
 
-    testTask(jUnitMode = JUnitMode.JUnit5) {
-        val classpathProvider = objects.newInstance<DataFramePluginClasspathProvider>()
-        classpathProvider.classpath.from(dataframeRuntimeClasspath)
-        jvmArgumentProviders.add(classpathProvider)
+    testTask(jUnitMode = JUnitMode.JUnit5, defineJDKEnvVariables = listOf(JdkMajorVersion.JDK_17_0, JdkMajorVersion.JDK_1_8)) {
+        extensions.configure<TestInputsCheckExtension>("testInputsCheck") {
+            allowFlightRecorder.set(true)
+        }
+        addClasspathProperty(dataframeRuntimeClasspath, "kotlin.dataframe.plugin.test.classpath")
     }
 
     testGenerator("org.jetbrains.kotlin.fir.dataframe.TestGeneratorKt", generateTestsInBuildDirectory = true)
-}
-
-abstract class DataFramePluginClasspathProvider : CommandLineArgumentProvider {
-    @get:InputFiles
-    @get:Classpath
-    abstract val classpath: ConfigurableFileCollection
-
-    override fun asArguments(): Iterable<String> {
-        return listOf(
-            "-Dkotlin.dataframe.plugin.test.classpath=${classpath.asPath}"
-        )
-    }
 }
 
 publish {
@@ -70,6 +61,5 @@ publish {
 runtimeJar()
 sourcesJar()
 javadocJar()
-testsJar()
 
 optInToExperimentalCompilerApi()

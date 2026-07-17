@@ -8,6 +8,7 @@
 package kotlin.wasm.internal.reftypes
 
 import kotlin.wasm.internal.*
+import kotlin.internal.UsedFromCompilerGeneratedCode
 
 // These interfaces correspond to Wasm GC reference types with the same name.
 // They are not proper Kotlin interfaces and should be used with care.
@@ -19,8 +20,20 @@ import kotlin.wasm.internal.*
 //
 // Use dedicated intrinsics instead.
 
+@UsedFromCompilerGeneratedCode
 internal interface anyref
 internal interface eqref : anyref
+@UsedFromCompilerGeneratedCode
 internal interface structref : eqref
 internal interface i31ref : eqref
-internal interface funcref : anyref
+@UsedFromCompilerGeneratedCode
+internal interface funcref
+@UsedFromCompilerGeneratedCode
+internal interface typedfuncref<T : Function<*>> : funcref
+
+// typedcontref describes the wasm continuation type explicitly
+//
+// For now, supports only the following payload tag for wasm resume:
+// typedcontref<(Any?) -> Unit> (which is translated to wasm, [ref null kotlin.Any] -> [])
+@UsedFromCompilerGeneratedCode
+internal interface typedcontref<T : Function<*>>

@@ -98,7 +98,7 @@ class ConstraintInjector(
 
     context(c: Context)
     fun addInitialEqualityConstraint(a: KotlinTypeMarker, b: KotlinTypeMarker, position: ConstraintPosition) {
-        val (typeVariable, equalType) = when {
+        val [typeVariable, equalType] = when {
             a.typeConstructor(c) is TypeVariableTypeConstructorMarker -> a to b
             b.typeConstructor(c) is TypeVariableTypeConstructorMarker -> b to a
             else -> return
@@ -177,7 +177,7 @@ class ConstraintInjector(
 
     context(c: Context, typeCheckerState: TypeCheckerStateForConstraintInjector)
     private fun processGivenConstraints(constraintsToProcess: Collection<Pair<TypeVariableMarker, Constraint>>) {
-        for ((typeVariable, constraint) in constraintsToProcess) {
+        for ([typeVariable, constraint] in constraintsToProcess) {
             if (shouldWeSkipConstraint(typeVariable, constraint)) continue
 
             val typeVariableConstructor = typeVariable.freshTypeConstructor(c)
@@ -185,7 +185,7 @@ class ConstraintInjector(
                 c.notFixedTypeVariables[typeVariableConstructor] ?: typeCheckerState.fixedTypeVariable(typeVariable)
 
             // it is important, that we add constraint here(not inside TypeCheckerContext), because inside incorporation we read constraints
-            val (addedOrNonRedundantExistedConstraint, wasAdded) = constraints.addConstraint(constraint, inferenceLogger)
+            val [addedOrNonRedundantExistedConstraint, wasAdded] = constraints.addConstraint(constraint, inferenceLogger)
             val positionFrom = constraint.position.from
             val constraintToIncorporate = when {
                 wasAdded && !constraint.isNullabilityConstraint -> addedOrNonRedundantExistedConstraint
@@ -200,7 +200,14 @@ class ConstraintInjector(
             }
 
             if (constraintToIncorporate != null) {
-                constraintIncorporator.incorporate(typeVariable, constraintToIncorporate)
+                constraintIncorporator.incorporate(
+                    typeVariable,
+                    constraintToIncorporate,
+                    isCausedByFixation = constraint.position.initialConstraint.position.let {
+                        it is FixVariableConstraintPosition<*> || it is SemiFixVariableConstraintPosition ||
+                                it is ProvideDelegateFixationPosition
+                    }
+                )
             }
         }
     }
@@ -254,8 +261,7 @@ class ConstraintInjector(
         val position: IncorporationConstraintPosition
     ) : TypeCheckerStateForConstraintSystem(
         c,
-        baseState.kotlinTypePreparator,
-        baseState.kotlinTypeRefiner
+        baseState,
     ), ConstraintIncorporator.Context, TypeSystemInferenceExtensionContext by c {
         constructor(c: Context, position: IncorporationConstraintPosition) : this(
             c.newTypeCheckerState(errorTypesEqualToAnything = true, stubTypesEqualToAnything = true),
@@ -388,9 +394,6 @@ class ConstraintInjector(
                 )
 
             if (!isSubtypeOf(upperType)) {
-                // TODO: remove these additional workarounds for flexible types once
-                // LanguageFeature.DontMakeExplicitJavaTypeArgumentsFlexible and K1 are removed
-                // shouldTryUseDifferentFlexibilityForUpperType should always be false
                 if (shouldTryUseDifferentFlexibilityForUpperType && upperType.isRigidType()) {
                     /*
                      * Please don't reuse this logic.
@@ -520,7 +523,7 @@ class ConstraintInjector(
             type: KotlinTypeMarker,
             constraintContext: ConstraintContext
         ) {
-            val (kind, derivedFrom, inputTypePosition, isNullabilityConstraint, isNoInfer) = constraintContext
+            (val kind, val derivedFrom, val inputTypePosition = inputTypePositionBeforeIncorporation, val isNullabilityConstraint, val isNoInfer) = constraintContext
 
             var targetType = type
             if (targetType.isUninferredParameter()) {
@@ -573,6 +576,8 @@ class ConstraintInjector(
 
         override val allTypeVariablesWithConstraints: Collection<VariableWithConstraints>
             get() = c.notFixedTypeVariables.values
+        override val notFixedTypeVariables: Map<TypeConstructorMarker, VariableWithConstraints>
+            get() = c.notFixedTypeVariables
 
         override val approximatorCaches: TypeApproximatorCachesPerConfiguration
             get() = c.approximatorCaches

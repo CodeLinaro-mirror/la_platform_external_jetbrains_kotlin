@@ -1,2 +1,7 @@
-KtNameReferenceExpression(136,140): 'Anno'
-  null
+KtNameReferenceExpression(134,138): 'Anno'
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Anno
+    ]

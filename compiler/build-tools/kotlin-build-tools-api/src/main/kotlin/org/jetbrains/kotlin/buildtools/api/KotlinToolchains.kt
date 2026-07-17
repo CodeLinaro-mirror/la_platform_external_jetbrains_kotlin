@@ -7,10 +7,17 @@ package org.jetbrains.kotlin.buildtools.api
 
 import org.jetbrains.kotlin.buildtools.api.KotlinToolchains.Companion.loadImplementation
 import org.jetbrains.kotlin.buildtools.api.KotlinToolchains.Toolchain
+import org.jetbrains.kotlin.buildtools.api.abi.AbiValidationToolchain
 import org.jetbrains.kotlin.buildtools.api.cri.CriToolchain
 import org.jetbrains.kotlin.buildtools.api.internal.KotlinCompilerVersion
-import org.jetbrains.kotlin.buildtools.api.internal.wrappers.Kotlin230AndBelowWrapper
+import org.jetbrains.kotlin.buildtools.api.internal.wrappers.KotlinWrapperPre2_3_20
+import org.jetbrains.kotlin.buildtools.api.internal.wrappers.KotlinWrapperPre2_4_0
+import org.jetbrains.kotlin.buildtools.api.internal.wrappers.KotlinWrapperPre2_4_20
+import org.jetbrains.kotlin.buildtools.api.js.JsPlatformToolchain
 import org.jetbrains.kotlin.buildtools.api.jvm.JvmPlatformToolchain
+import org.jetbrains.kotlin.buildtools.api.wasm.WasmPlatformToolchain
+import java.net.URLClassLoader
+import java.nio.file.Path
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -22,6 +29,9 @@ import kotlin.contracts.contract
  *
  * Currently supported toolchains:
  * - [JvmPlatformToolchain] for Kotlin/JVM compilation
+ * - [WasmPlatformToolchain] for Kotlin/Wasm compilation
+ * - [JsPlatformToolchain] for Kotlin/JS compilation
+ * - [AbiValidationToolchain] for ABI validation
  * - [CriToolchain] for Compiler Reference Index operations
  *
  * This interface is not intended to be implemented by the API consumers.
@@ -70,14 +80,6 @@ public interface KotlinToolchains {
      * @see BuildSession.executeOperation
      */
     public fun createInProcessExecutionPolicy(): ExecutionPolicy.InProcess
-
-    /**
-     * Creates an [ExecutionPolicy] that allows executing operations using a Kotlin daemon.
-     *
-     * @see BuildSession.executeOperation
-     */
-    @Deprecated("Use daemonExecutionPolicyBuilder instead", ReplaceWith("daemonExecutionPolicyBuilder()"))
-    public fun createDaemonExecutionPolicy(): ExecutionPolicy.WithDaemon
 
     /**
      * Creates a builder for [ExecutionPolicy.WithDaemon] which allows executing operations using a Kotlin daemon.
@@ -159,14 +161,20 @@ public interface KotlinToolchains {
          */
         @JvmStatic
         public fun loadImplementation(classLoader: ClassLoader): KotlinToolchains = try {
-            val baseImplementation = loadImplementation(KotlinToolchains::class, classLoader)
+            var baseImplementation = loadImplementation(KotlinToolchains::class, classLoader)
             val kotlinCompilerVersion = KotlinCompilerVersion(baseImplementation.getCompilerVersion())
-            when {
-                kotlinCompilerVersion <= KotlinCompilerVersion(2, 3, 0, null) -> {
-                    Kotlin230AndBelowWrapper(baseImplementation)
-                }
-                else -> baseImplementation
+
+            if (kotlinCompilerVersion < KotlinCompilerVersion(2, 3, 20, "snapshot")) {
+                baseImplementation = KotlinWrapperPre2_3_20(baseImplementation)
             }
+            if (kotlinCompilerVersion < KotlinCompilerVersion(2, 4, 0, "snapshot")) {
+                baseImplementation = KotlinWrapperPre2_4_0(baseImplementation)
+            }
+            if (kotlinCompilerVersion < KotlinCompilerVersion(2, 4, 20, "snapshot")) {
+                baseImplementation = KotlinWrapperPre2_4_20(baseImplementation)
+            }
+
+            baseImplementation
         } catch (_: NoImplementationFoundException) {
             try {
                 classLoader.loadClass("org.jetbrains.kotlin.buildtools.internal.compat.KotlinToolchainsV1Adapter")
@@ -176,6 +184,31 @@ public interface KotlinToolchains {
                 throw NoImplementationFoundException(KotlinToolchains::class).initCause(e)
             }
         }
+
+        /**
+         * Create an instance of [KotlinToolchains] loaded in an isolated classloader with the given [classpath].
+         *
+         * The returned [KotlinToolchains] instance will be loaded by a classloader with the following properties:
+         * * BTA API classes will be loaded from the classloader that loaded the [KotlinToolchains] interface
+         * * BTA implementation classes will be loaded from a classloader with the given [classpath], which should contain all the
+         * dependencies of the BTA implementation, such as the Kotlin compiler.
+         *
+         * The obtained `KotlinToolchains` instance should be cached for future use to avoid re-loading the BTA implementation.
+         *
+         * @param classpath a list of Paths pointing to JARs containing the BTA implementation, the Kotlin compiler, and all their dependencies
+         */
+        @JvmStatic
+        public fun loadImplementation(classpath: List<Path>): KotlinToolchains =
+            loadImplementation(URLClassLoader(classpath.map { it.toUri().toURL() }.toTypedArray(), SharedApiClassesClassLoader()))
+
+        /**
+         * Returns the version of the Build Tools API library.
+         *
+         * @return A string representing the version of the library, for example `2.3.0`.
+         * @since 2.4.20
+         */
+        @JvmStatic
+        public fun getVersion(): String = BuildToolsApiVersion.get()
     }
 }
 
@@ -199,7 +232,7 @@ public inline fun <reified T : Toolchain> KotlinToolchains.getToolchain(): T {
  */
 @OptIn(ExperimentalContracts::class)
 @ExperimentalBuildToolsApi
-public inline fun KotlinToolchains.daemonExecutionPolicy(builderAction: ExecutionPolicy.WithDaemon.Builder.() -> Unit): ExecutionPolicy.WithDaemon {
+public inline fun KotlinToolchains.daemonExecutionPolicy(builderAction: ExecutionPolicy.WithDaemon.Builder.() -> Unit = {}): ExecutionPolicy.WithDaemon {
     contract {
         callsInPlace(builderAction, InvocationKind.EXACTLY_ONCE)
     }

@@ -25,7 +25,9 @@ internal class JvmClasspathSnapshottingOperationImpl private constructor(
     constructor(classpathEntry: Path) : this(
         options = Options(JvmClasspathSnapshottingOperation::class),
         classpathEntry = classpathEntry
-    )
+    ) {
+        initializeOptions(this::class, options)
+    }
 
     override fun toBuilder(): JvmClasspathSnapshottingOperation.Builder = deepCopy()
 
@@ -39,6 +41,7 @@ internal class JvmClasspathSnapshottingOperationImpl private constructor(
 
     @UseFromImplModuleRestricted
     override fun <V> set(key: JvmClasspathSnapshottingOperation.Option<V>, value: V) {
+        checkOptionIsAvailableForVersion(key)
         options[key] = value
     }
 
@@ -58,16 +61,11 @@ internal class JvmClasspathSnapshottingOperationImpl private constructor(
         options[key] = value
     }
 
-    class Option<V> : BaseOptionWithDefault<V> {
-        constructor(id: String) : super(id)
-        constructor(id: String, default: V) : super(id, default = default)
-    }
+    class Option<V>(id: String, default: V) : BaseOptionWithDefault<V>(id, defaultValue = default)
 
     companion object {
-        @JvmField
         val GRANULARITY: Option<ClassSnapshotGranularity> = Option("GRANULARITY", ClassSnapshotGranularity.CLASS_MEMBER_LEVEL)
 
-        @JvmField
         val PARSE_INLINED_LOCAL_CLASSES: Option<Boolean> = Option("PARSE_INLINED_LOCAL_CLASSES", true)
     }
 }

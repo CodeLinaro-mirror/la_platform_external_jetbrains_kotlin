@@ -5,40 +5,48 @@
 
 package org.jetbrains.kotlin.native
 
-import org.jetbrains.kotlin.analyzer.CompilationErrorException
 import org.jetbrains.kotlin.backend.common.serialization.IrSerializationSettings
 import org.jetbrains.kotlin.backend.common.serialization.SerializerOutput
 import org.jetbrains.kotlin.backend.common.serialization.serializeModuleIntoKlib
 import org.jetbrains.kotlin.backend.konan.serialization.KonanIrModuleSerializer
-import org.jetbrains.kotlin.cli.common.fir.reportToMessageCollector
-import org.jetbrains.kotlin.cli.common.renderDiagnosticInternalName
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.cli.common.diagnosticsCollector
+import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.pipeline.AllModulesFrontendOutput
 import org.jetbrains.kotlin.fir.pipeline.Fir2KlibMetadataSerializer
 import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
-import org.jetbrains.kotlin.konan.config.konanExportKdoc
 import org.jetbrains.kotlin.konan.config.konanPurgeUserLibs
-import org.jetbrains.kotlin.library.metadata.resolver.TopologicalLibraryOrder
+import org.jetbrains.kotlin.konan.library.isExplicitlySpecifiedByUserInCLIArgument
 
 internal fun NativeFirstStagePhaseContext.firSerializerBase(
+        configuration: CompilerConfiguration,
         firResult: AllModulesFrontendOutput,
         fir2IrOutput: Fir2IrOutput?,
         produceHeaderKlib: Boolean = false,
 ): SerializerOutput {
-    val configuration = config.configuration
-    val usedResolvedLibraries = fir2IrOutput?.let {
-        config.resolvedLibraries.getFullResolvedList(TopologicalLibraryOrder).filter {
-            (!it.isDefault && !configuration.konanPurgeUserLibs) || it in fir2IrOutput.usedLibraries
+    val usedLibraries = fir2IrOutput?.let {
+        config.loadedKlibs.all.filter { library ->
+            if (library.isExplicitlySpecifiedByUserInCLIArgument && !configuration.konanPurgeUserLibs) {
+                // This is the dependency explicitly specified by the user in one of the compiler's CLI arguments: -library, -Xinclude.
+                //
+                // We assume such a library as "used" even if we cannot immediately prove there are declarations belonging to it
+                // that are used in other dependencies or the current module. It might happen, such declarations exist but are
+                // used only in bodies of functions in other dependencies, which cannot be seen during the frontend phase.
+                //
+                // So, we agree to always include such libraries in the list of "used libraries".
+                true
+            } else if (library in fir2IrOutput.usedLibraries) {
+                // This dependency indeed contains some declarations that are used in other dependencies or the current module.
+                true
+            } else false
         }
     }
 
     val irModuleFragment = fir2IrOutput?.fir2irActualizedResult?.irModuleFragment
-    val diagnosticReporter = DiagnosticsCollectorImpl()
+    val diagnosticReporter = configuration.diagnosticsCollector
     val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(diagnosticReporter, configuration.languageVersionSettings)
-    val serializerOutput = serializeModuleIntoKlib(
+    return serializeModuleIntoKlib(
             moduleName = irModuleFragment?.name?.asString() ?: firResult.outputs.last().session.moduleData.name.asString(),
             irModuleFragment = irModuleFragment,
             configuration = configuration,
@@ -47,11 +55,10 @@ internal fun NativeFirstStagePhaseContext.firSerializerBase(
                 configuration,
                 firResult.outputs,
                 fir2IrOutput?.fir2irActualizedResult,
-                exportKDoc = config.configuration.konanExportKdoc,
                 produceHeaderKlib = produceHeaderKlib,
             ),
             cleanFiles = emptyList(),
-            dependencies = usedResolvedLibraries?.map { it.library }.orEmpty(),
+            dependencies = usedLibraries.orEmpty(),
             createModuleSerializer = { irDiagnosticReporter ->
                 KonanIrModuleSerializer(
                     settings = IrSerializationSettings(
@@ -63,11 +70,4 @@ internal fun NativeFirstStagePhaseContext.firSerializerBase(
                 )
             },
     )
-    val renderDiagnosticNames = configuration.renderDiagnosticInternalName
-    val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
-    diagnosticReporter.reportToMessageCollector(messageCollector, renderDiagnosticNames)
-    if (diagnosticReporter.hasErrors) {
-        throw CompilationErrorException("Compilation failed: there were errors during module serialization")
-    }
-    return serializerOutput
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.ir.backend.js.tsexport
 
 import org.jetbrains.kotlin.js.config.ModuleKind
 import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
 
 public sealed class ExportedDeclaration {
     public val attributes: MutableSet<ExportedAttribute> = mutableSetOf()
@@ -17,6 +18,7 @@ public sealed class ExportedDeclaration {
 public sealed class ExportedAttribute {
     public class DeprecatedAttribute(public val message: String) : ExportedAttribute()
     public object DefaultExport : ExportedAttribute()
+    public class Documentation(public val sections: MutableList<String>) : ExportedAttribute()
 }
 
 public data class ExportedModule(
@@ -74,7 +76,7 @@ public data class ExportedConstructSignature(
     override val isProtected: Boolean,
 ) : ExportedDeclaration()
 
-public data class ExportedProperty(
+public data class ExportedField(
     override val name: ExportedMemberName,
     val type: ExportedType,
     val mutable: Boolean = true,
@@ -82,11 +84,37 @@ public data class ExportedProperty(
     override val isStatic: Boolean = false,
     val isAbstract: Boolean = false,
     override val isProtected: Boolean = false,
-    val isField: Boolean = false,
     val isObjectGetter: Boolean = false,
     val isOptional: Boolean = false,
     val isQualified: Boolean = false,
 ) : ExportedDeclaration(), ExportedMember
+
+public sealed interface ExportedPropertyAccessor : ExportedMember {
+    public val type: ExportedType
+    public val isAbstract: Boolean
+}
+
+public data class ExportedPropertyGetter(
+    override val name: ExportedMemberName,
+    override val type: ExportedType,
+    override val isStatic: Boolean = false,
+    override val isAbstract: Boolean = false,
+    override val isProtected: Boolean = false,
+) : ExportedDeclaration(), ExportedPropertyAccessor {
+    override val isMember: Boolean
+        get() = true
+}
+
+public data class ExportedPropertySetter(
+    override val name: ExportedMemberName,
+    override val type: ExportedType,
+    override val isStatic: Boolean = false,
+    override val isAbstract: Boolean = false,
+    override val isProtected: Boolean = false,
+) : ExportedDeclaration(), ExportedPropertyAccessor {
+    override val isMember: Boolean
+        get() = true
+}
 
 // TODO: Cover all cases with frontend and disable error declarations
 public class ErrorDeclaration(public val message: String) : ExportedDeclaration()
@@ -188,7 +216,7 @@ public sealed class ExportedType {
     ) : ExportedType()
 
     public data class ClassType(
-        val name: String,
+        val name: FqName,
         val arguments: List<ExportedType>,
         val classId: ClassId? = null,
     ) : ExportedType() {
@@ -230,7 +258,13 @@ public sealed class ExportedType {
         if (implicitlyExportedType) ImplicitlyExportedType(this, exportedSupertype) else this
 }
 
-public data class ExportedTypeParameter(val name: String, var constraint: ExportedType? = null)
+public data class ExportedTypeParameter(val name: String, val variance: ExportedVariance, var constraint: ExportedType? = null)
+
+public enum class ExportedVariance(public val keyword: String) {
+    INVARIANT(""),
+    COVARIANT("out "),
+    CONTRAVARIANT("in "),
+}
 
 public enum class ExportedVisibility(public val keyword: String) {
     DEFAULT(""),

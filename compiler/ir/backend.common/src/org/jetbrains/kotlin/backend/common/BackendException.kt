@@ -6,7 +6,7 @@
 package org.jetbrains.kotlin.backend.common
 
 import org.jetbrains.kotlin.util.SourceCodeAnalysisException
-import org.jetbrains.kotlin.util.getExceptionMessage
+import org.jetbrains.kotlin.utils.exceptions.getExceptionMessage
 import org.jetbrains.kotlin.utils.KotlinExceptionWithAttachments
 import org.jetbrains.kotlin.utils.exceptions.rethrowIntellijPlatformExceptionIfNeeded
 
@@ -26,7 +26,7 @@ class BackendException(message: String, cause: Throwable?) : IllegalStateExcepti
             val locationWithLineAndOffset = location
                 ?.let { exception as? SourceCodeAnalysisException }
                 ?.let { linesMapping(it.source.startOffset) }
-                ?.let { (line, offset) -> "$location:${line + 1}:${offset + 1}" }
+                ?.let { [line, offset] -> "$location:${line + 1}:${offset + 1}" }
                 ?: location
             throw BackendException(
                 getExceptionMessage("Backend", "Exception during $phase", exception, locationWithLineAndOffset) +

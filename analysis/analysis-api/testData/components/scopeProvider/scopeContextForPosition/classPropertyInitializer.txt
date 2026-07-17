@@ -8,6 +8,8 @@ implicit values:
       type: test/Child
     ownerSymbol = KaNamedClassSymbol:
       test/Child
+    label = Child
+
 
 scopes:
   LocalScope, index = 0
@@ -17,14 +19,14 @@ scopes:
       KaValueParameterSymbol:
         annotations: []
         callableId: null
-        compilerVisibility: Public
         contextReceivers: []
         generatedPrimaryConstructorProperty: null
         hasDeclaredDefaultValue: false
         hasDefaultValue: false
-        hasSynthesizedName: false
         isActual: false
+        isCompanion: false
         isCrossinline: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -53,9 +55,10 @@ scopes:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Private
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -73,16 +76,15 @@ scopes:
             type: kotlin/Int
           visibility: PRIVATE
         callableId: test/Child.constructorProp
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           hasStableParameterNames: true
           isActual: false
+          isCompanion: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -104,8 +106,9 @@ scopes:
         hasSetter: false
         initializer: KaNonConstantInitializerValue(val constructorProp: Int)
         isActual: false
+        isCompanion: false
         isConst: false
-        isDelegatedProperty: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -129,13 +132,13 @@ scopes:
       KaNamedFunctionSymbol:
         annotations: []
         callableId: test/Child.childMember
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
         isActual: false
         isBuiltinFunctionInvoke: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -163,9 +166,10 @@ scopes:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Private
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -183,16 +187,15 @@ scopes:
             type: kotlin/Int
           visibility: PRIVATE
         callableId: test/Child.childProp
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           hasStableParameterNames: true
           isActual: false
+          isCompanion: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -214,8 +217,9 @@ scopes:
         hasSetter: false
         initializer: KaNonConstantInitializerValue(value)
         isActual: false
+        isCompanion: false
         isConst: false
-        isDelegatedProperty: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -241,9 +245,10 @@ scopes:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Private
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -261,16 +266,15 @@ scopes:
             type: kotlin/Int
           visibility: PRIVATE
         callableId: test/Base.value
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           hasStableParameterNames: true
           isActual: false
+          isCompanion: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -292,8 +296,9 @@ scopes:
         hasSetter: false
         initializer: KaNonConstantInitializerValue(val value: Int)
         isActual: false
+        isCompanion: false
         isConst: false
-        isDelegatedProperty: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -317,13 +322,13 @@ scopes:
       KaNamedFunctionSymbol:
         annotations: []
         callableId: test/Base.baseMember
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
         isActual: false
         isBuiltinFunctionInvoke: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -351,9 +356,10 @@ scopes:
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Private
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -371,16 +377,15 @@ scopes:
             type: kotlin/Int
           visibility: PRIVATE
         callableId: test/Base.baseProp
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           hasStableParameterNames: true
           isActual: false
+          isCompanion: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -402,8 +407,9 @@ scopes:
         hasSetter: false
         initializer: KaNonConstantInitializerValue(value)
         isActual: false
+        isCompanion: false
         isConst: false
-        isDelegatedProperty: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -427,13 +433,13 @@ scopes:
       KaNamedFunctionSymbol:
         annotations: []
         callableId: kotlin/Any.equals
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
         isActual: false
         isBuiltinFunctionInvoke: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -458,14 +464,14 @@ scopes:
           KaValueParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             generatedPrimaryConstructorProperty: null
             hasDeclaredDefaultValue: false
             hasDefaultValue: false
-            hasSynthesizedName: false
             isActual: false
+            isCompanion: false
             isCrossinline: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -488,13 +494,13 @@ scopes:
       KaNamedFunctionSymbol:
         annotations: []
         callableId: kotlin/Any.hashCode
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
         isActual: false
         isBuiltinFunctionInvoke: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -520,13 +526,13 @@ scopes:
       KaNamedFunctionSymbol:
         annotations: []
         callableId: kotlin/Any.toString
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         contractEffects: []
         hasStableParameterNames: true
         isActual: false
         isBuiltinFunctionInvoke: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -553,11 +559,11 @@ scopes:
       KaConstructorSymbol:
         annotations: []
         callableId: null
-        compilerVisibility: Public
         containingClassId: test/Child
         contextReceivers: []
         hasStableParameterNames: true
         isActual: false
+        isCompanion: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -575,16 +581,16 @@ scopes:
           KaValueParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             generatedPrimaryConstructorProperty: KaKotlinPropertySymbol:
               annotations: []
               backingFieldSymbol: KaBackingFieldSymbol:
                 annotations: []
                 callableId: null
-                compilerVisibility: Private
                 contextReceivers: []
                 isActual: false
+                isCompanion: false
+                isDelegated: false
                 isExpect: false
                 isExtension: false
                 isExternal: false
@@ -602,16 +608,15 @@ scopes:
                   type: kotlin/Int
                 visibility: PRIVATE
               callableId: test/Child.constructorProp
-              compilerVisibility: Public
               contextParameters: []
               contextReceivers: []
               getter: KaPropertyGetterSymbol:
                 annotations: []
                 callableId: null
-                compilerVisibility: Public
                 contextReceivers: []
                 hasStableParameterNames: true
                 isActual: false
+                isCompanion: false
                 isExpect: false
                 isExtension: false
                 isExternal: false
@@ -633,8 +638,9 @@ scopes:
               hasSetter: false
               initializer: KaNonConstantInitializerValue(val constructorProp: Int)
               isActual: false
+              isCompanion: false
               isConst: false
-              isDelegatedProperty: false
+              isDelegated: false
               isExpect: false
               isExtension: false
               isExternal: false
@@ -657,9 +663,10 @@ scopes:
               visibility: PUBLIC
             hasDeclaredDefaultValue: false
             hasDefaultValue: false
-            hasSynthesizedName: false
             isActual: false
+            isCompanion: false
             isCrossinline: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -680,14 +687,14 @@ scopes:
           KaValueParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             generatedPrimaryConstructorProperty: null
             hasDeclaredDefaultValue: false
             hasDefaultValue: false
-            hasSynthesizedName: false
             isActual: false
+            isCompanion: false
             isCrossinline: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -708,13 +715,13 @@ scopes:
         ]
         visibility: PUBLIC
 
-  ExplicitSimpleImportingScope, index = 2
+  ExplicitSimpleImportingScope, index = 3
     packages: 0
     classifiers: 0
     callables: 0
     constructors: 0
 
-  PackageMemberScope, index = 3
+  PackageMemberScope, index = 4
     packages: 0
     classifiers: 2
       KaNamedClassSymbol:
@@ -722,7 +729,6 @@ scopes:
         classId: test/Base
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -748,7 +754,6 @@ scopes:
         classId: test/Child
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -772,15 +777,14 @@ scopes:
     callables: 0
     constructors: 0
 
-  DefaultSimpleImportingScope, index = 4
-
   DefaultSimpleImportingScope, index = 5
 
-  ExplicitStarImportingScope, index = 6
+  DefaultSimpleImportingScope, index = 6
+
+  ExplicitStarImportingScope, index = 7
     packages: 0
     classifiers: 0
     callables: 0
     constructors: 0
 
-  DefaultStarImportingScope, index = 7
-
+  DefaultStarImportingScope, index = 8

@@ -20,15 +20,48 @@ data class IrValidatorConfig(
 ) {
     fun withCheckers(vararg checkers: IrChecker) = copy(checkers = this.checkers + checkers)
     fun withoutCheckers(vararg checkers: IrChecker) = copy(checkers = this.checkers - checkers.toSet())
+
+    fun withCheckersByName(include: List<String>, candidateCheckers: List<IrChecker>): IrValidatorConfig = copy(
+        checkers = this.checkers + candidateCheckers.filter { checker ->
+            include.intersect(getCheckerFilteringKeys(checker.javaClass)).isNotEmpty()
+        }
+    )
+
+    fun withoutCheckersByName(exclude: List<String>) = copy(
+        checkers = checkers.filterNot { checker ->
+            exclude.intersect(getCheckerFilteringKeys(checker.javaClass)).isNotEmpty()
+        }.toSet()
+    )
+
+    companion object {
+        private fun getCheckerFilteringKeys(checkerClass: Class<*>): Set<String> =
+            setOf(checkerClass.simpleName) + checkerClass.annotations.mapNotNull { it.annotationClass.simpleName }
+    }
 }
 
+/**
+ * Specifies a set of basic checks that are applied on the 1st stage of compilation.
+ * This should be bigger than [withBasicChecks], which are applied on 2nd stage.
+ * New basic checkers should be added here, not breaking backward klib compatibility
+ */
+fun IrValidatorConfig.withBasicFirstStageChecks() =
+    withBasicChecks().withCheckers(
+        IrOffsetsChecker,
+    )
+
+/**
+ * Specifies a set of basic checks that are applied on the 2nd stage of compilation.
+ * Extending this list will probably break backwards klib compatibility, which is checked by Custom*CompilerFirstStageTestGenerated testrunners
+ * So, consider adding new checkers to [withBasicFirstStageChecks] instead
+ */
 fun IrValidatorConfig.withBasicChecks() = withCheckers(
     IrFunctionDispatchReceiverChecker, IrConstructorReceiverChecker, IrFunctionParametersChecker,
     IrPropertyAccessorsChecker, IrFunctionPropertiesChecker,
     IrSetValueAssignabilityChecker,
     IrTypeOperatorTypeOperandChecker,
     IrPrivateDeclarationOverrideChecker,
-    IrOffsetsChecker,
+    IrPropertyCompanionExtensionChecker,
+    IrFunctionCompanionExtensionChecker,
 )
 
 fun IrValidatorConfig.withTypeChecks() = withCheckers(
@@ -54,7 +87,7 @@ fun IrValidatorConfig.withInlineFunctionCallsiteCheck(checkInlineFunctionUseSite
         withCheckers(IrNoInlineUseSitesChecker(checkInlineFunctionUseSites))
     } else this
 
-fun IrValidatorConfig.withAllChecks() = withBasicChecks()
+fun IrValidatorConfig.withAllChecks() = withBasicFirstStageChecks()
     .withVarargChecks()
     .withTypeChecks()
     .withCheckers(

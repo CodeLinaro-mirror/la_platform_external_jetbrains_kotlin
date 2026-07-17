@@ -1,6 +1,4 @@
 <idea-plugin>
-    <id>org.jetbrains.kotlin</id>
-
     <extensionPoints>
         <extensionPoint qualifiedName="org.jetbrains.kotlin.analyzeCompleteHandlerExtension"
                         interface="org.jetbrains.kotlin.resolve.jvm.extensions.AnalysisHandlerExtension"
@@ -22,9 +20,6 @@
                         area="IDEA_PROJECT" dynamic="true"/>
         <extensionPoint qualifiedName="org.jetbrains.kotlin.assignResolutionAltererExtension"
                         interface="org.jetbrains.kotlin.resolve.extensions.AssignResolutionAltererExtension"
-                        area="IDEA_PROJECT" dynamic="true"/>
-        <extensionPoint qualifiedName="org.jetbrains.kotlin.simpleNameReferenceExtension"
-                        interface="org.jetbrains.kotlin.plugin.references.SimpleNameReferenceExtension"
                         area="IDEA_PROJECT" dynamic="true"/>
         <extensionPoint qualifiedName="org.jetbrains.kotlin.packageFragmentProviderExtension"
                         interface="org.jetbrains.kotlin.resolve.jvm.extensions.PackageFragmentProviderExtension"

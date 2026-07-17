@@ -52,9 +52,7 @@ fun consume_consuming_opt_closure(arg: (((()->String)?)->Unit)?): Unit = TODO()
 // EXPORT_TO_SWIFT
 // FILE: functional_types.kt
 
-// more complex types are not supported
-// todo: current generation has some assumptions about variable names created before the bridge. Sould be reworked.
-// fun consume_block_consuming_block(block: (()->Unit) -> Unit): Unit = TODO()
+fun consume_block_consuming_block(block: (()->Unit) -> Unit): Unit = TODO()
 
 // MODULE: collections(data)
 // EXPORT_TO_SWIFT
@@ -115,3 +113,27 @@ class Bar
 inline fun foo(inlined: () -> Unit): Unit = TODO()
 
 inline fun bar(inlined: () -> Unit, noinline notInlined: () -> Unit): Unit = TODO()
+
+// MODULE: unit_param
+// EXPORT_TO_SWIFT
+// FILE: unit_param.kt
+
+fun foo(): (Unit) -> Unit = TODO()
+
+fun fooIn(block: (Unit) -> Unit): Unit = TODO()
+
+fun bar(): (String, Unit) -> Unit = TODO()
+
+fun barIn(block: (String, Unit) -> Unit): Unit = TODO()
+
+fun baz(): ((String, Unit) -> Unit) -> Unit = TODO()
+
+
+// MODULE: KT_85458
+// EXPORT_TO_SWIFT
+// FILE: KT_85458.kt
+
+typealias OnCancellationConstructor = () ->
+    () -> Unit
+
+val onCancellationConstructor: OnCancellationConstructor? = null

@@ -4,13 +4,13 @@ callables: 1
   KaNamedFunctionSymbol:
     annotations: []
     callableId: test/nested/dummyTest
-    compilerVisibility: Public
     contextParameters: []
     contextReceivers: []
     contractEffects: []
     hasStableParameterNames: true
     isActual: false
     isBuiltinFunctionInvoke: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -35,14 +35,14 @@ callables: 1
       KaValueParameterSymbol:
         annotations: []
         callableId: null
-        compilerVisibility: Public
         contextReceivers: []
         generatedPrimaryConstructorProperty: null
         hasDeclaredDefaultValue: false
         hasDefaultValue: false
-        hasSynthesizedName: false
         isActual: false
+        isCompanion: false
         isCrossinline: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false

@@ -2,6 +2,7 @@ package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.backend.konan.driver.NativeBackendPhaseContext
 import org.jetbrains.kotlin.backend.konan.util.toObsoleteKind
+import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.nativeBinaryOptions.AndroidProgramType
 import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
 import org.jetbrains.kotlin.konan.KonanExternalToolFailure
@@ -42,10 +43,10 @@ internal fun determineLinkerOutput(context: NativeBackendPhaseContext): LinkerOu
 
 // TODO: We have a Linker.kt file in the shared module.
 internal class Linker(
-        private val config: KonanConfig,
-        private val linkerOutput: LinkerOutputKind,
-        private val outputFiles: OutputFiles,
-        private val tempFiles: TempFiles,
+    private val config: NativeSecondStageCompilationConfig,
+    private val linkerOutput: LinkerOutputKind,
+    private val outputFiles: OutputFiles,
+    private val tempFiles: TempFiles,
 ) {
     private val platform = config.platform
     private val linker = platform.linker
@@ -164,22 +165,27 @@ internal fun runLinkerCommands(context: NativeBackendPhaseContext, commands: Lis
         it.execute()
     }
 } catch (e: KonanExternalToolFailure) {
-    val extraUserInfo = if (cachingInvolved)
+    val extraUserInfo = if (cachingInvolved) {
+        val incrementalCompilationEnabled = context.config.configuration[CommonConfigurationKeys.INCREMENTAL_COMPILATION] == true
+        val workaround = when {
+            incrementalCompilationEnabled ->
+                "incremental compilation (kotlin.incremental.native=false)"
+            else ->
+                "compiler caches (https://kotl.in/disable-native-cache)"
+        }
         """
-                    Please try to disable compiler caches and rerun the build.
-                    To disable compiler caches, use `disableNativeCache` in the binary declaration in the Gradle build script.
-                    See https://kotl.in/disable-native-cache for specific instructions.
+            Please try to disable $workaround and rerun the build.
 
-                    Also, consider filing an issue with full Gradle log here: https://kotl.in/issue
-                    """.trimIndent()
-    else null
+            Also, consider filing an issue with full Gradle log here: https://kotl.in/issue
+            """.trimIndent()
+    } else null
 
     val extraUserSetupInfo = run {
-        context.config.resolvedLibraries.getFullResolvedList()
-                .filter { it.library.isCInteropLibrary() }
+        context.config.resolvedLibraries.getFullList()
+                .filter { it.isCInteropLibrary() }
                 .mapNotNull { library ->
-                    library.library.manifestProperties["userSetupHint"]?.let {
-                        "From ${library.library.uniqueName}:\n$it".takeIf { it.isNotEmpty() }
+                    library.manifestProperties["userSetupHint"]?.let {
+                        "From ${library.uniqueName}:\n$it".takeIf { it.isNotEmpty() }
                     }
                 }
                 .mapIndexed { index, message -> "$index. $message" }

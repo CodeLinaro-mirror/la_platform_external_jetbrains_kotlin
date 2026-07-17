@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.jetbrains.kotlin.gradle.plugin.mpp.internal
 import org.jetbrains.kotlin.gradle.util.*
-import org.jetbrains.kotlin.gradle.utils.createConsumable
 import org.jetbrains.kotlin.util.capitalizeDecapitalize.toLowerCaseAsciiOnly
 import kotlin.test.*
 
@@ -108,7 +107,7 @@ class MppPublicationTest {
         val userAttribute = Attribute.of("userAttribute", String::class.java)
         kotlin.run {
             targets.all { target -> target.attributes { attribute(userAttribute, target.name) } }
-            js(IR)
+            js()
             linuxX64()
             @Suppress("DEPRECATION") // fixme: KT-81704 Cleanup tests after apple x64 family deprecation
             iosX64()

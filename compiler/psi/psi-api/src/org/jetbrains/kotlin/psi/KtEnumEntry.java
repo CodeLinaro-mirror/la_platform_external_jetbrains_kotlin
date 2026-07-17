@@ -10,6 +10,7 @@ import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.KtStubBasedElementTypes;
+import org.jetbrains.kotlin.lexer.KtTokens;
 import org.jetbrains.kotlin.name.ClassId;
 import org.jetbrains.kotlin.psi.psiUtil.KtPsiUtilKt;
 import org.jetbrains.kotlin.psi.stubs.KotlinClassStub;
@@ -79,6 +80,54 @@ public class KtEnumEntry extends KtClass implements KtDeclarationWithReturnType 
 
         KtClassOrObject anotherContainingClass = KtPsiUtilKt.getContainingClassOrObject(anotherEnumEntry);
         return thisContainingClass.isEquivalentTo(anotherContainingClass);
+    }
+
+    /**
+     * Get the comma token if present.
+     *
+     * @return Comma token or null.
+     */
+    @Nullable
+    public PsiElement getComma() {
+        return this.findLastChildByType(KtTokens.COMMA);
+    }
+
+    /**
+     * Get the semicolon token if present.
+     *
+     * @return Semicolon token or null.
+     */
+    @Nullable
+    public PsiElement getSemicolon() {
+        return this.findLastChildByType(KtTokens.SEMICOLON);
+    }
+
+    /**
+     * Adds a semicolon to the end of the enum entry if not already present.
+     * <p>
+     * This method might move the semicolon from its next sibling if the semicolon was
+     * previously a child of the parent {@link KtClassBody}.
+     * <p>
+     * This can happen if we called {@link KtClassOrObject#addDeclaration(KtDeclaration)}
+     * for a {@link KtFunction} before inserting the {@link KtEnumEntry} into the {@link KtClassBody},
+     * and the semicolon was previously a child of the parent {@link KtClassBody} rather than the last
+     * {@link KtEnumEntry}. Or we deleted the last {@link KtEnumEntry} (reparenting the
+     * semicolon onto the parent {@link KtClassBody}) and inserted a new {@link KtEnumEntry}.
+     *
+     * @return The added (or existing) semicolon element.
+     * @deprecated Use {@code org.jetbrains.kotlin.idea.base.psi.KotlinPsiModificationUtils.addEnumEntrySemicolon(this)}
+     * instead.
+     */
+    @KtExperimentalApi
+    @NotNull
+    @Deprecated
+    public PsiElement addSemicolon() {
+        return KtPsiMutationService.getInstance().addEnumEntrySemicolon(this);
+    }
+
+    @Override
+    public void delete() {
+        KtPsiMutationService.getInstance().deleteEnumEntry(this);
     }
 
     @Override

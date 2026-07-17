@@ -1,5 +1,4 @@
 // ISSUE: KT-80871
-// IGNORE_BACKEND_K1: ANY
 
 @Target(AnnotationTarget.TYPE)
 @Retention(AnnotationRetention.RUNTIME)

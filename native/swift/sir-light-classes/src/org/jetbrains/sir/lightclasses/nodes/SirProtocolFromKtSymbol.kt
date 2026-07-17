@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.analysis.api.symbols.KaClassSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaDeclarationSymbol
 import org.jetbrains.kotlin.analysis.api.symbols.KaNamedClassSymbol
 import org.jetbrains.kotlin.analysis.api.types.symbol
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.sir.*
 import org.jetbrains.kotlin.sir.builder.buildTypealias
 import org.jetbrains.kotlin.sir.providers.*
@@ -21,7 +22,10 @@ import org.jetbrains.kotlin.sir.providers.source.KotlinSource
 import org.jetbrains.kotlin.sir.providers.source.kaSymbolOrNull
 import org.jetbrains.kotlin.sir.providers.utils.*
 import org.jetbrains.kotlin.sir.util.SirSwiftConcurrencyModule
+import org.jetbrains.kotlin.sir.util.isUnavailable
 import org.jetbrains.kotlin.sir.util.swiftFqName
+import org.jetbrains.kotlin.sir.util.unavailableTypes
+import org.jetbrains.kotlin.sir.util.replaceOrAddPropagatedUnavailability
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
 import org.jetbrains.sir.lightclasses.extensions.documentation
@@ -31,6 +35,7 @@ import org.jetbrains.sir.lightclasses.utils.decapitalizeNameSemantically
 import org.jetbrains.sir.lightclasses.utils.objcClassSymbolName
 import org.jetbrains.sir.lightclasses.utils.relocatedDeclarationNamePrefix
 import org.jetbrains.sir.lightclasses.utils.translatedAttributes
+import org.jetbrains.sir.lightclasses.utils.translatedOptInAttributes
 
 internal open class SirProtocolFromKtSymbol(
     override val ktSymbol: KaNamedClassSymbol,
@@ -41,8 +46,8 @@ internal open class SirProtocolFromKtSymbol(
     override val documentation: String? by lazy {
         ktSymbol.documentation()
     }
-    override val name: String by lazy {
-        (this.relocatedDeclarationNamePrefix() ?: "") + ktSymbol.name.asString()
+    override val name: String by lazyWithSessions {
+        (this.relocatedDeclarationNamePrefix() ?: "") + ktSymbol.sirDeclarationName()
     }
     override var parent: SirDeclarationParent
         get() = withSessions {
@@ -55,6 +60,12 @@ internal open class SirProtocolFromKtSymbol(
     }
 
     override val protocols: List<SirProtocol> by lazyWithSessions {
+        val isUnavailable = this.isUnavailable
+        val inherited = translatedProtocols.filter { isUnavailable || !it.isUnavailable }
+        if (isUnavailable) inherited else inherited + existentialMarker
+    }
+
+    internal val translatedProtocols: List<SirProtocol> by lazyWithSessions {
         ktSymbol.superTypes
             .mapNotNull { it.symbol as? KaClassSymbol }
             .filter { it.classKind == KaClassKind.INTERFACE }
@@ -65,10 +76,9 @@ internal open class SirProtocolFromKtSymbol(
             }
             .mapNotNull {
                 it.toSir().allDeclarations.firstIsInstanceOrNull<SirProtocol>()?.also {
-                    ktSymbol.containingModule.sirModule().updateImport(SirImport(it.containingModule().name))
+                    ktSymbol.containingModule.sirModule().updateImportFor(it)
                 }
             }
-
     }
 
     override val attributes: List<SirAttribute> by lazy { this.translatedAttributes }
@@ -90,6 +100,16 @@ internal open class SirProtocolFromKtSymbol(
     internal val existentialMarker: SirProtocol by lazy {
         SirMarkerProtocolFromKtSymbol(this)
             .also { it.parent = this.parent }
+    }
+
+    /**
+     * Per-interface extension conforming [KotlinRuntimeSupportModule.kotlinExistentialPenBox] to this
+     * protocol's [existentialMarker]. This is what lets `_KotlinExistential<Wrapped>` inherit
+     * @objc marker conformances through its non-generic PenBox ancestor, sidestepping Swift's
+     * rule against generic classes conforming to @objc protocols via extensions.
+     */
+    internal val penBoxMarkerConformance: SirExtension by lazy {
+        SirPenBoxMarkerConformanceFromKtSymbol(this)
     }
 
     internal val samConverter: SirDeclaration? by lazyWithSessions {
@@ -121,18 +141,20 @@ internal class SirMarkerProtocolFromKtSymbol(
 
     override lateinit var parent: SirDeclarationParent
     override val origin: KotlinSource get() = KotlinMarkerProtocol(ktSymbol)
-    override val visibility: SirVisibility = SirVisibility.PACKAGE
+    override val visibility: SirVisibility = SirVisibility.PUBLIC
     override val documentation: String? = null
     override val attributes: List<SirAttribute> get() = listOf(SirAttribute.ObjC(this.name))
     override val name: String get() = "_${target.name}"
     override val declarations: MutableList<SirDeclaration> get() = mutableListOf()
     override val superClass: SirNominalType? get() = null
-    override val protocols: List<SirProtocol> get() = target.protocols.filterIsInstance<SirProtocolFromKtSymbol>().map { it.existentialMarker }
+    override val protocols: List<SirProtocol>
+        get() = target.translatedProtocols.filterIsInstance<SirProtocolFromKtSymbol>().map { it.existentialMarker }
 
     override val bridges: List<SirBridge> by lazyWithSessions {
         listOfNotNull(
             sirSession.generateTypeBridge(
                 ktSymbol.classId?.asSingleFqName(),
+                kotlinOptIns = ktSymbol.allRequiredOptIns,
                 swiftFqName = swiftFqName,
                 swiftSymbolName = objcClassSymbolName,
             ))
@@ -177,7 +199,11 @@ internal class SirBridgedProtocolImplementationFromKtSymbol(
         )
     }
 
-    override val attributes: List<SirAttribute> get() = emptyList()
+    override val attributes: List<SirAttribute> by lazy {
+        buildList {
+            replaceOrAddPropagatedUnavailability { extendedType.unavailableTypes }
+        }
+    }
 
     override val declarations: MutableList<SirDeclaration> by lazyWithSessions {
         ktSymbol.combinedDeclaredMemberScope
@@ -219,6 +245,7 @@ private class SirRelocatedFunction(
     override val modality: SirModality get() = SirModality.UNSPECIFIED
     override val fixity: SirFixity? get() = source.fixity
     override val attributes: List<SirAttribute> get() = source.attributes
+    override val contextParameter: SirParameter? get() = source.contextParameter
     override val extensionReceiverParameter: SirParameter? get() = source.extensionReceiverParameter
     override val parameters: List<SirParameter> get() = source.parameters
     override val errorType: SirType get() = source.errorType
@@ -322,7 +349,59 @@ internal open class SirExistentialProtocolImplementationFromKtSymbol(
         )
     }
 
-    override val attributes: List<SirAttribute> get() = emptyList()
+    override val attributes: List<SirAttribute> by lazy {
+        buildList {
+            addAll(this@SirExistentialProtocolImplementationFromKtSymbol.translatedOptInAttributes)
+            replaceOrAddPropagatedUnavailability { SirNominalType(targetProtocol).unavailableTypes }
+        }
+    }
+
+    override val declarations: MutableList<SirDeclaration> = mutableListOf()
+}
+
+/**
+ * Extension declaring that [KotlinRuntimeSupportModule.kotlinExistentialPenBox] conforms to
+ * [targetProtocol.existentialMarker]. Emitted once per exported Kotlin interface in the module that
+ * declares it, so the @objc marker metadata is registered alongside the marker protocol itself.
+ *
+ * Because PenBox is non-generic, it can legally conform to an @objc protocol in an extension —
+ * which a generic class like `_KotlinExistential<Wrapped>` cannot do directly. `_KotlinExistential`
+ * then inherits the conformance through its PenBox superclass.
+ */
+internal class SirPenBoxMarkerConformanceFromKtSymbol(
+    override val ktSymbol: KaNamedClassSymbol,
+    override val sirSession: SirSession,
+    private val targetProtocol: SirProtocolFromKtSymbol,
+) : SirExtension(), SirFromKtSymbol<KaNamedClassSymbol> {
+    constructor(protocol: SirProtocolFromKtSymbol) : this(
+        protocol.ktSymbol,
+        protocol.sirSession,
+        protocol,
+    )
+
+    override val origin: SirOrigin = KotlinSource(ktSymbol)
+
+    override val visibility: SirVisibility = SirVisibility.PACKAGE
+
+    override val documentation: String? = null
+
+    override var parent: SirDeclarationParent
+        get() = withSessions { ktSymbol.containingModule.sirModule() }
+        set(_) = Unit
+
+    override val extendedType: SirType
+        get() = SirNominalType(KotlinRuntimeSupportModule.kotlinExistentialPenBox)
+
+    override val protocols: List<SirProtocol>
+        get() = if (targetProtocol.isUnavailable) emptyList() else listOf(targetProtocol.existentialMarker)
+
+    override val constraints: List<SirTypeConstraint> = emptyList()
+
+    override val attributes: List<SirAttribute> by lazy {
+        buildList {
+            replaceOrAddPropagatedUnavailability { SirNominalType(targetProtocol).unavailableTypes }
+        }
+    }
 
     override val declarations: MutableList<SirDeclaration> = mutableListOf()
 }
@@ -365,7 +444,11 @@ internal class SirAuxiliaryProtocolDeclarationsFromKtSymbol(
 
     override val documentation: String? get() = null
 
-    override val attributes: List<SirAttribute> = emptyList()
+    override val attributes: List<SirAttribute> by lazy {
+        buildList {
+            replaceOrAddPropagatedUnavailability { extendedType.unavailableTypes }
+        }
+    }
 
     override val constraints: List<SirTypeConstraint> = emptyList()
 
@@ -378,6 +461,7 @@ internal class SirAuxiliaryProtocolDeclarationsFromKtSymbol(
             .extractDeclarations()
             .filterIsInstance<SirScopeDefiningDeclaration>()
             .filter { it.visibility == SirVisibility.PUBLIC }
+            .filter { it.origin !is KotlinMarkerProtocol }
             .map { declaration ->
                 buildTypealias {
                     origin = SirOrigin.Trampoline(declaration)
@@ -392,19 +476,43 @@ internal class SirAuxiliaryProtocolDeclarationsFromKtSymbol(
 }
 
 /**
- * An ad-hoc translation for kotlinx.coroutines.Flow
+ * An ad-hoc translation for kotlinx.coroutines.Flow/StateFlow/MutableStateFlow
  */
 internal class SirFlowFromKtSymbol(
     ktSymbol: KaNamedClassSymbol,
     sirSession: SirSession,
 ) : SirProtocolFromKtSymbol(ktSymbol, sirSession), SirFromKtSymbol<KaNamedClassSymbol> {
+
+    internal companion object {
+        val FLOW_CLASS_ID = ClassId.fromString("kotlinx/coroutines/flow/Flow")
+        val SHARED_FLOW_CLASS_ID = ClassId.fromString("kotlinx/coroutines/flow/SharedFlow")
+        val MUTABLE_SHARED_FLOW_CLASS_ID = ClassId.fromString("kotlinx/coroutines/flow/MutableSharedFlow")
+        val STATE_FLOW_CLASS_ID = ClassId.fromString("kotlinx/coroutines/flow/StateFlow")
+        val MUTABLE_STATE_FLOW_CLASS_ID = ClassId.fromString("kotlinx/coroutines/flow/MutableStateFlow")
+
+        val CLASS_IDS = listOf(
+            FLOW_CLASS_ID,
+            SHARED_FLOW_CLASS_ID, MUTABLE_SHARED_FLOW_CLASS_ID,
+            STATE_FLOW_CLASS_ID, MUTABLE_STATE_FLOW_CLASS_ID,
+        )
+    }
+
+    private val supportProtocol = when (ktSymbol.classId) {
+        FLOW_CLASS_ID -> KotlinCoroutineSupportModule.kotlinFlow
+        SHARED_FLOW_CLASS_ID -> KotlinCoroutineSupportModule.kotlinSharedFlow
+        MUTABLE_SHARED_FLOW_CLASS_ID -> KotlinCoroutineSupportModule.kotlinMutableSharedFlow
+        STATE_FLOW_CLASS_ID -> KotlinCoroutineSupportModule.kotlinStateFlow
+        MUTABLE_STATE_FLOW_CLASS_ID -> KotlinCoroutineSupportModule.kotlinMutableStateFlow
+        else -> throw IllegalArgumentException("Unsupported flow kind: ${ktSymbol.classId}")
+    }
+
     internal inner class SirExistentialProtocolImplementation : SirExistentialProtocolImplementationFromKtSymbol(this@SirFlowFromKtSymbol) {
         override val protocols: List<SirProtocol>
-            get() = super.protocols + listOf(KotlinCoroutineSupportModule.kotlinFlow, SirSwiftConcurrencyModule.asyncSequence)
+            get() = super.protocols + supportProtocol
     }
 
     override val protocols: List<SirProtocol> by lazy {
-        super.protocols + KotlinCoroutineSupportModule.kotlinFlow + SirSwiftConcurrencyModule.asyncSequence
+        super.protocols + supportProtocol
     }
 
     override val existentialExtension: SirExtension by lazy {

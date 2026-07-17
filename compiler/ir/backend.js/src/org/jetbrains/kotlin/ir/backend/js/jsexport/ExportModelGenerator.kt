@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
 import org.jetbrains.kotlin.ir.backend.js.lower.isExportedDefaultImplementation
 import org.jetbrains.kotlin.ir.backend.js.objectGetInstanceFunction
 import org.jetbrains.kotlin.ir.backend.js.tsexport.Exportability
-import org.jetbrains.kotlin.ir.backend.js.tsexport.ExportedNamespace
 import org.jetbrains.kotlin.ir.backend.js.utils.couldBeConvertedToExplicitExport
 import org.jetbrains.kotlin.ir.backend.js.utils.isJsExportDefault
 import org.jetbrains.kotlin.ir.declarations.*
@@ -127,7 +126,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
 
     private fun exportDeclarationImplicitly(klass: IrClass): ExportedDeclaration {
         val name = klass.getExportedIdentifier()
-        val (members, nestedClasses) = exportClassDeclarations(klass)
+        val [members, nestedClasses] = exportClassDeclarations(klass)
         return ExportedRegularClass(
             name = name,
             isInterface = true,
@@ -147,7 +146,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
             Exportability.Allowed -> {}
         }
 
-        val (members, nestedClasses) = exportClassDeclarations(klass)
+        val [members, nestedClasses] = exportClassDeclarations(klass)
 
         return exportClass(
             klass,
@@ -174,7 +173,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
         enumEntries
             .keysToMap(enumEntries::indexOf)
 
-        val (members, nestedClasses) = exportClassDeclarations(klass) { candidate ->
+        val [members, nestedClasses] = exportClassDeclarations(klass) { candidate ->
             val enumExportedMember = exportAsEnumMember(candidate)
             enumExportedMember
         }
@@ -224,6 +223,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val generateNamespac
                     }
 
                 is IrClass -> {
+                    if (candidate.isExternal) return@forEachExportedMember
                     val ec = exportClass(candidate)
                     if (ec is ExportedClass) {
                         nestedClasses.add(ec)

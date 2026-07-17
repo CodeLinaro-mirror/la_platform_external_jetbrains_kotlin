@@ -345,7 +345,7 @@ private fun CodeGenerator.getVirtualFunctionTrampolineImpl(irFunction: IrSimpleF
                     }
                 }
                 @Suppress("UNCHECKED_CAST") val location = diFunctionScope?.let {
-                    val (line, column) = fileEntry.lineAndColumn(offset!!)
+                    val [line, column] = fileEntry.lineAndColumn(offset!!)
                     LocationInfo(it as DIScopeOpaqueRef, line, column)
                 }
                 generateFunction(this, proto, needSafePoint = false, startLocation = location, endLocation = location) {
@@ -359,6 +359,22 @@ private fun CodeGenerator.getVirtualFunctionTrampolineImpl(irFunction: IrSimpleF
                 }
             }
         }
+
+/*
+ * If a method used to be open but is now final, previously-cached call sites in other files
+ * still reference `$name-trampoline`. Emit an LLVM alias pointing at the real implementation
+ * so those cached callers keep linking after incremental recompilation.
+ */
+internal fun CodeGenerator.emitFinalFunctionTrampolineAlias(irFunction: IrSimpleFunction) {
+    val aliasee = llvmFunctionOrNull(irFunction) ?: return
+    val targetName = if (irFunction.isExported())
+        irFunction.computeSymbolName()
+    else
+        irFunction.computePrivateSymbolName(irFunction.parentAsClass.fqNameForIrSerialization.asString())
+    val aliasName = "$targetName-trampoline"
+    val programAddressSpace = LLVMKotlinGetProgramAddressSpace(llvm.module)
+    LLVMAddAlias2(llvm.module, aliasee.functionType, programAddressSpace, aliasee.asCallback(), aliasName)
+}
 
 /**
  * There're cases when we don't need end position or it is meaningless.
@@ -507,7 +523,7 @@ internal class StackLocalsManagerImpl(
         } else {
             val info = llvmDeclarations.forClass(stackLocal.irClass)
             val type = info.bodyType.llvmBodyType
-            for ((fieldSymbol, fieldIndex) in info.fieldIndices.entries.sortedBy{ e -> e.value }) {
+            for ([fieldSymbol, fieldIndex] in info.fieldIndices.entries.sortedBy{ e -> e.value }) {
 
                 if (fieldSymbol.owner.type.binaryTypeIsReference()) {
                     val fieldPtr = structGep(type, stackLocal.stackAllocationPtr, fieldIndex, "")
@@ -1350,7 +1366,7 @@ internal abstract class FunctionGenerationContext(
             }
             addPhiIncoming(slotsPhi!!, prologueBb to slots)
             memScoped {
-                slotToVariableLocation.forEach { (slot, variable) ->
+                slotToVariableLocation.forEach { [slot, variable] ->
                     val expr = longArrayOf(DwarfOp.DW_OP_plus_uconst.value,
                             runtime.pointerSize * slot.toLong()).toCValues()
                     DIInsertDeclaration(

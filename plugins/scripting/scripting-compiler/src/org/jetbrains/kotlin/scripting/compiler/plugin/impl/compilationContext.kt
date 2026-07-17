@@ -22,14 +22,10 @@ import org.jetbrains.kotlin.cli.create
 import org.jetbrains.kotlin.cli.jvm.*
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
-import org.jetbrains.kotlin.cli.jvm.config.addJvmClasspathRoots
-import org.jetbrains.kotlin.cli.jvm.config.configureJdkClasspathRoots
-import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
-import org.jetbrains.kotlin.cli.jvm.config.jvmModularRoots
+import org.jetbrains.kotlin.cli.jvm.config.*
 import org.jetbrains.kotlin.cli.jvm.plugins.PluginCliParser
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
-import org.jetbrains.kotlin.compiler.plugin.ComponentRegistrar
+import org.jetbrains.kotlin.compiler.plugin.getCompilerExtensions
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.container.StorageComponentContainer
 import org.jetbrains.kotlin.container.useInstance
@@ -42,7 +38,6 @@ import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.jetbrains.kotlin.psi.KtModifierListOwner
 import org.jetbrains.kotlin.resolve.sam.SamWithReceiverResolver
-import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingCompilerConfigurationComponentRegistrar
 import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptingK2CompilerPluginRegistrar
 import org.jetbrains.kotlin.scripting.compiler.plugin.dependencies.ScriptsCompilationDependencies
 import org.jetbrains.kotlin.scripting.compiler.plugin.dependencies.collectScriptsCompilationDependencies
@@ -76,7 +71,7 @@ fun createIsolatedCompilationContext(
 ): SharedScriptCompilationContext {
     val ignoredOptionsReportingState = IgnoredOptionsReportingState()
 
-    val (initialScriptCompilationConfiguration, kotlinCompilerConfiguration) =
+    val [initialScriptCompilationConfiguration, kotlinCompilerConfiguration] =
         createInitialConfigurations(
             baseScriptCompilationConfiguration,
             hostConfiguration,
@@ -93,7 +88,7 @@ fun createIsolatedCompilationContext(
 
     return SharedScriptCompilationContext(
         parentDisposable, initialScriptCompilationConfiguration, environment, ignoredOptionsReportingState,
-        ScriptConfigurationsProvider.getInstance(environment.project)
+        kotlinCompilerConfiguration.getCompilerExtensions(ScriptConfigurationsProvider).firstOrNull()
     ).applyConfigure()
 }
 
@@ -114,7 +109,7 @@ internal fun createCompilationContextFromEnvironment(
 
     return SharedScriptCompilationContext(
         null, initialScriptCompilationConfiguration, environment, ignoredOptionsReportingState,
-        ScriptConfigurationsProvider.getInstance(environment.project)
+        environment.configuration.getCompilerExtensions(ScriptConfigurationsProvider).firstOrNull()
     ).applyConfigure()
 }
 
@@ -255,6 +250,7 @@ private fun createInitialCompilerConfiguration(
     reportingState.currentArguments = baseArguments
 
     return CompilerConfiguration.create().apply {
+        @OptIn(MessageCollectorAccess::class) // write access
         this.messageCollector = messageCollector
         setupCommonArguments(baseArguments)
 
@@ -293,10 +289,6 @@ private fun createInitialCompilerConfiguration(
         }
 
         add(
-            ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS,
-            ScriptingCompilerConfigurationComponentRegistrar()
-        )
-        add(
             CompilerPluginRegistrar.COMPILER_PLUGIN_REGISTRARS,
             ScriptingK2CompilerPluginRegistrar()
         )
@@ -325,10 +317,10 @@ private fun createInitialCompilerConfiguration(
             ScriptDefinition.FromConfigurations(hostConfiguration, scriptCompilationConfiguration, null)
         )
 
-        val pluginClasspaths = baseArguments.pluginClasspaths?.asList().orEmpty()
-        val pluginOptions = baseArguments.pluginOptions?.asList().orEmpty()
-        val pluginConfigurations = baseArguments.pluginConfigurations?.asList().orEmpty()
-        val pluginOrderConstraints = baseArguments.pluginOrderConstraints?.asList().orEmpty()
+        val pluginClasspaths = baseArguments.pluginClasspaths.asList()
+        val pluginOptions = baseArguments.pluginOptions.asList()
+        val pluginConfigurations = baseArguments.pluginConfigurations.asList()
+        val pluginOrderConstraints = baseArguments.pluginOrderConstraints.asList()
 
         checkPluginsArguments(this, false, pluginClasspaths, pluginOptions, pluginConfigurations)
         if (pluginClasspaths.isNotEmpty() || pluginConfigurations.isNotEmpty()) {
@@ -354,7 +346,9 @@ internal fun collectRefinedSourcesAndUpdateEnvironment(
     getScriptCompilationConfiguration: (SourceCode) -> org.jetbrains.kotlin.scripting.resolve.ScriptCompilationConfigurationResult?
 ): Pair<List<SourceCode>, List<ScriptsCompilationDependencies.SourceDependencies>> {
     val sourceFiles = arrayListOf(mainSource)
-    val (classpath, newSources, sourceDependencies) =
+    (
+        val classpath, val newSources = sources, val sourceDependencies
+    ) =
         @Suppress("DEPRECATION")
         collectScriptsCompilationDependencies(sourceFiles, getScriptCompilationConfiguration)
 

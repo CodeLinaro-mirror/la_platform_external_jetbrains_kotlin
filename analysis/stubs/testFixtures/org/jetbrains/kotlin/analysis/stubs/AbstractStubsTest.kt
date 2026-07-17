@@ -5,12 +5,15 @@
 
 package org.jetbrains.kotlin.analysis.stubs
 
+import org.jetbrains.kotlin.analysis.internal.utils.IndentedTextBuilder
+import org.jetbrains.kotlin.analysis.internal.utils.buildIndentedText
 import org.jetbrains.kotlin.analysis.test.framework.base.AbstractAnalysisApiBasedTest
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
-import org.jetbrains.kotlin.analysis.utils.printer.PrettyPrinter
-import org.jetbrains.kotlin.analysis.utils.printer.prettyPrint
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtImplementationDetail
+import org.jetbrains.kotlin.psi.stubs.KotlinStubElement
 import org.jetbrains.kotlin.psi.stubs.impl.KotlinFileStubImpl
+import org.jetbrains.kotlin.psi.stubs.impl.deepCopy
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.assertions
@@ -26,17 +29,17 @@ abstract class AbstractStubsTest : AbstractAnalysisApiBasedTest() {
         val files = mainModule.ktFiles
         val filesAndStubs = files.sortedBy(KtFile::getName).map { it to stubsTestEngine.compute(it) }
 
-        val actual = prettyPrint {
+        val actual = buildIndentedText(indentation = IndentedTextBuilder.TWO_SPACES) {
             if (filesAndStubs.isEmpty()) {
                 appendLine("NO FILES")
-                return@prettyPrint
+                return@buildIndentedText
             }
 
             val singleElement = filesAndStubs.singleOrNull()
             if (singleElement != null) {
                 printStub(singleElement.second)
             } else {
-                printCollection(filesAndStubs, separator = "\n\n") { element ->
+                appendCollection(filesAndStubs, separator = "\n\n") { element ->
                     appendLine("${element.first.name}:")
                     withIndent {
                         printStub(element.second)
@@ -47,12 +50,23 @@ abstract class AbstractStubsTest : AbstractAnalysisApiBasedTest() {
 
         testServices.assertions.assertEqualsToTestOutputFile(actual, extension = outputFileExtension)
 
-        for ((file, stub) in filesAndStubs) {
+        for ([file, stub] in filesAndStubs) {
+            assertEquality(stub)
             stubsTestEngine.validate(testServices, file, stub)
         }
     }
 
-    context(printer: PrettyPrinter)
+    @OptIn(KtImplementationDetail::class)
+    private fun assertEquality(fileStub: KotlinFileStubImpl) {
+        val deepCopy = fileStub.deepCopy()
+        fileStub.stubList.zip(deepCopy.stubList).forEach { [stub1, stub2] ->
+            stub1 as KotlinStubElement<*>
+            stub2 as KotlinStubElement<*>
+            assert(stub1.isEquivalentTo(stub2)) { "Stub is not equal to it's copy: $stub1" }
+        }
+    }
+
+    context(printer: IndentedTextBuilder)
     private fun printStub(stub: KotlinFileStubImpl) {
         val stubRepresentation = stubsTestEngine.render(stub)
         printer.append(stubRepresentation)

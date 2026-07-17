@@ -96,7 +96,7 @@ class ResultTypeResolver(
         val subType = variableWithConstraints.findSubType()
         val superType = variableWithConstraints.findSuperType()
 
-        val (preparedSubType, preparedSuperType) = if (c.isK2 && useImprovedCapturedTypeApproximation) {
+        val [preparedSubType, preparedSuperType] = if (c.isK2 && useImprovedCapturedTypeApproximation) {
             variableWithConstraints.prepareSubAndSuperTypes(subType, superType)
         } else {
             variableWithConstraints.prepareSubAndSuperTypesLegacy(subType, superType)
@@ -300,9 +300,9 @@ class ResultTypeResolver(
 
     context(c: Context)
     private fun isSuitableType(resultType: KotlinTypeMarker, variableWithConstraints: VariableWithConstraints): Boolean {
-        val filteredConstraints = variableWithConstraints.constraints.filter { it.type.isProperTypeForFixation() }
+        val filteredConstraints = variableWithConstraints.constraints.filter { it.isProperConstraint() }
 
-        // TODO(KT-68213) this loop is only used for checking of incomptible ILT approximations in K1
+        // TODO(KT-68213) this loop is only used for checking of incompatible ILT approximations in K1
         // It shouldn't be necessary in K2
         // but removing it breaks compiler/fir/analysis-tests/testData/resolve/inference/kt53494.kt
         for (constraint in filteredConstraints) {

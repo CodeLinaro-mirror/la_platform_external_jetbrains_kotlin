@@ -23,8 +23,6 @@ import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstantPrimitiveImpl
 import org.jetbrains.kotlin.ir.irAttribute
-import org.jetbrains.kotlin.ir.objcinterop.isObjCForwardDeclaration
-import org.jetbrains.kotlin.ir.objcinterop.isObjCMetaClass
 import org.jetbrains.kotlin.ir.symbols.*
 import org.jetbrains.kotlin.ir.symbols.impl.IrFieldSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrPropertySymbolImpl
@@ -139,7 +137,6 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
             is IrGetField -> this.symbol.owner.type
             is IrCall -> when (this.symbol) {
                 symbols.reinterpret -> this.typeArguments[1]!!
-                symbols.createUninitializedInstance -> this.typeArguments[0]!!
                 else -> this.type
             }
             is IrTypeOperatorCall -> when (this.operator) {
@@ -203,8 +200,34 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
                         // conservatively insert type check for them (due to unsafe casts).
                         && actualClass?.canBeAssignedTo(erasedExpectedType.getClass()!!) != true
                         && actualType.getInlinedClassNative() == null
-                        && !erasedExpectedClass.isObjCForwardDeclaration()
-                        && !erasedExpectedClass.isObjCMetaClass() // See KT-65260 for details.
+                        /*
+                        Objective-C is tricky.
+
+                        First of all, it is common to use "duck typing" in Objective-C:
+                        e.g., if an Obj-C method has an Obj-C class or protocol as the return type, the return value doesn't need to
+                        actually be of that type: it is enough to respond to the same method calls.
+                        Such mismatches happen even in Apple's own frameworks, e.g. in KT-85508.
+
+                        Next, there are forward declarations, and a cast to one shouldn't be generated as we don't have enough information
+                        for that.
+
+                        Another kind of problem is when the target type can't be found by the linker, like in KT-84678.
+
+                        Finally, sometimes cinterop translates Objective-C types wrong, e.g. in KT-56860.
+                        So, even if the Objective-C code returns a real instance of the declared type, Kotlin can get the latter wrong.
+
+                        In other words, in many cases, casts to Obj-C types shouldn't be generated here.
+                        On the other hand, we won't lose much if we don't generate casts to Obj-C types here at all:
+                        most usages of Obj-C objects in Kotlin go through dynamic Objective-C method dispatch. So, having the wrong type
+                        won't lead to heap corruption. Instead, a method call can fail with "unrecognized selector sent to instance", which
+                        is close enough to a `TypeCastException`.
+                        There are also `objc_direct` methods that use direct dispatch (and thus could lead to heap corruption if the type is
+                        wrong), but they are not widely used.
+
+                        All in all, it is safe and easier to not generate casts to Obj-C types here.
+                        Improving this is tracked in KT-85681.
+                         */
+                        && !erasedExpectedClass.isObjCClass()
                 -> {
                     this.checkedCast(actualType, erasedExpectedType)
                 }
@@ -246,6 +269,17 @@ private class AutoboxingTransformer(val context: Context) : AbstractValueUsageTr
                 expression
             }
 
+            symbols.initInstance -> {
+                val instance = expression.arguments[0]!!
+                val constructorCall = expression.arguments[1]!!
+                check(constructorCall is IrConstructorCall) { "Expected a constructor call: ${constructorCall.render()}" }
+                expression.arguments[0] = instance.transform(this, data = null).useAs(irBuiltIns.anyType)
+                // Leave the second argument of [initInstance] as is.
+                super.visitConstructorCall(constructorCall)
+
+                expression
+            }
+
             else -> super.visitCall(expression)
         }
     }
@@ -257,12 +291,12 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
     private val symbols = context.symbols
     private val irBuiltIns = context.irBuiltIns
 
-    private val builtBoxUnboxFunctions = mutableListOf<IrFunction>()
+    private val builtSpecialFunctions = mutableListOf<IrFunction>()
 
     override fun visitFile(declaration: IrFile): IrFile {
         declaration.transformChildrenVoid(this)
-        declaration.declarations.addAll(builtBoxUnboxFunctions)
-        builtBoxUnboxFunctions.clear()
+        declaration.declarations.addAll(builtSpecialFunctions)
+        builtSpecialFunctions.clear()
         return declaration
     }
 
@@ -277,6 +311,7 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
 
                 buildBoxFunction(declaration, context.getBoxFunction(declaration))
                 buildUnboxFunction(declaration, context.getUnboxFunction(declaration))
+                buildBackingFieldSetter(declaration, context.getInlineClassFieldSetter(declaration))
             }
 
             if (declaration.isNativePrimitiveType()) {
@@ -334,6 +369,26 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
             builder.lowerConstructorCallToValue(expression, constructor)
         } else {
             expression
+        }
+    }
+
+    override fun visitCall(expression: IrCall): IrExpression {
+        if (expression.symbol != symbols.initInstance)
+            return super.visitCall(expression)
+
+        val instance = expression.arguments[0]!!
+        val constructorCall = expression.arguments[1]!!
+        check(constructorCall is IrConstructorCall) { "Expected a constructor call: ${constructorCall.render()}" }
+        val constructor = constructorCall.symbol.owner
+        return if (!constructor.constructedClass.isInlined())
+            super.visitCall(expression)
+        else {
+            val backingFieldSetter = context.getInlineClassFieldSetter(constructor.constructedClass)
+            builder.at(expression).irCall(backingFieldSetter).apply {
+                arguments[0] = instance.transform(this@InlineClassTransformer, data = null)
+                constructorCall.transformChildrenVoid()
+                arguments[1] = builder.lowerConstructorCallToValue(constructorCall, constructor)
+            }
         }
     }
 
@@ -403,7 +458,7 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
             +irReturn(irGet(box))
         }
 
-        builtBoxUnboxFunctions += function
+        builtSpecialFunctions += function
     }
 
     private fun IrBuilderWithScope.irNullPointerOrReference(type: IrType): IrExpression =
@@ -429,7 +484,18 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
             +irReturn(irGetField(irGet(boxParameter), getInlineClassBackingField(irClass)))
         }
 
-        builtBoxUnboxFunctions += function
+        builtSpecialFunctions += function
+    }
+
+    private fun buildBackingFieldSetter(irClass: IrClass, function: IrFunction) {
+        val builder = context.createIrBuilder(function.symbol)
+
+        function.body = builder.irBlockBody(function) {
+            val field = getInlineClassBackingField(irClass)
+            +irSetField(irGet(function.parameters[0]), field, irGet(function.parameters[1]))
+        }
+
+        builtSpecialFunctions += function
     }
 
     private fun buildBoxField(declaration: IrClass) {
@@ -480,7 +546,7 @@ private class InlineClassTransformer(private val context: Context) : IrBuildingT
             }
             +irGet(argument)
         } else this.irCall(loweredConstructor).apply {
-            for ((idx, arg) in expression.arguments.withIndex()) {
+            for ([idx, arg] in expression.arguments.withIndex()) {
                 arguments[idx] = arg
             }
         }

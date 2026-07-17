@@ -13,6 +13,7 @@ public interface KtStubElementTypes {
     KtPropertyElementType PROPERTY = new KtPropertyElementType("PROPERTY");
     KtPropertyAccessorElementType PROPERTY_ACCESSOR = KtPropertyAccessorElementType.INSTANCE;
     KtBackingFieldElementType BACKING_FIELD = new KtBackingFieldElementType("BACKING_FIELD");
+    KtDestructuringDeclarationElementType DESTRUCTURING_DECLARATION = KtDestructuringDeclarationElementType.INSTANCE;
     KtTypeAliasElementType TYPEALIAS = new KtTypeAliasElementType("TYPEALIAS");
 
     KtEnumEntryElementType ENUM_ENTRY = KtEnumEntryElementType.INSTANCE;
@@ -41,6 +42,9 @@ public interface KtStubElementTypes {
 
     KtPlaceHolderStubElementType<KtClassBody> CLASS_BODY =
             new KtPlaceHolderStubElementType<>("CLASS_BODY", KtClassBody.class);
+
+    KtPlaceHolderStubElementType<KtCompanionBlock> COMPANION_BLOCK =
+            new KtPlaceHolderStubElementType<>("COMPANION_BLOCK", KtCompanionBlock.class);
 
     KtPlaceHolderStubElementType<KtImportList> IMPORT_LIST =
             new KtPlaceHolderStubElementType<>("IMPORT_LIST", KtImportList.class);

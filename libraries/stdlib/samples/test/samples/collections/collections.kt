@@ -709,7 +709,7 @@ class Collections {
         fun associate() {
             val names = listOf("Grace Hopper", "Jacob Bernoulli", "Johann Bernoulli")
 
-            val byLastName = names.associate { it.split(" ").let { (firstName, lastName) -> lastName to firstName } }
+            val byLastName = names.associate { it.split(" ").let { [firstName, lastName] -> lastName to firstName } }
 
             // Jacob Bernoulli does not occur in the map because only the last pair with the same key gets added
             assertPrints(byLastName, "{Hopper=Grace, Bernoulli=Johann}")
@@ -858,6 +858,10 @@ class Collections {
             val lotOfNumbers: Iterable<Int> = 1..100
             val firstNumbers = StringBuilder("First five numbers: ")
             assertPrints(lotOfNumbers.joinTo(firstNumbers, limit = 5).toString(), "First five numbers: 1, 2, 3, 4, 5, ...")
+
+            // If the receiver is empty, the result only contains prefix and postfix
+            assertTrue(emptyList<Int>().joinTo(StringBuilder()).toString().isEmpty())
+            assertPrints(emptyList<Int>().joinTo(StringBuilder(), prefix = "[", postfix = "]").toString(), "[]")
         }
 
         @Sample
@@ -869,6 +873,10 @@ class Collections {
 
             val chars = charArrayOf('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q')
             assertPrints(chars.joinToString(limit = 5, truncated = "...!") { it.uppercaseChar().toString() }, "A, B, C, D, E, ...!")
+
+            // If the receiver is empty, the result only contains prefix and postfix
+            assertTrue(emptyList<Int>().joinToString().isEmpty())
+            assertPrints(emptyList<Int>().joinToString(prefix = "[", postfix = "]"), "[]")
         }
 
         @Sample

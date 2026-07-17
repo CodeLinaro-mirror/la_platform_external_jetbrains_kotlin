@@ -1,12 +1,14 @@
 
 plugins {
     kotlin("jvm")
+    id("require-explicit-types")
 }
 
 dependencies {
     implementation(project(":core:compiler.common.jvm"))
     implementation(project(":core:metadata.jvm"))
     implementation(project(":compiler:config.jvm"))
+    implementation(project(":compiler:psi:psi-frontend-utils"))
     implementation(project(":compiler:resolution.common.jvm"))
     implementation(project(":compiler:frontend.common"))
     implementation(project(":compiler:frontend.common.jvm"))

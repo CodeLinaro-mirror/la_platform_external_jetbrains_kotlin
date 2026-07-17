@@ -11,14 +11,18 @@ import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.generators.util.GeneratorsFileUtil
+import org.jetbrains.kotlin.name.CallableId
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.typeUtil.makeNotNullable
+import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.utils.Printer
 import java.io.File
 import kotlin.reflect.full.memberFunctions
 
 val DEST_FILE: File = File("compiler/frontend.common/src/org/jetbrains/kotlin/resolve/constants/evaluate/OperationsMapGenerated.kt")
-private val EXCLUDED_FUNCTIONS: List<String> = listOf("rangeTo", "rangeUntil", "hashCode", "inc", "dec", "subSequence")
+private val EXCLUDED_FUNCTIONS: List<String> = listOf("rangeTo", "rangeUntil", "hashCode", "subSequence")
 
 fun main() {
     GeneratorsFileUtil.writeFileIfContentChanged(DEST_FILE, generate())
@@ -30,11 +34,13 @@ fun generate(): String {
 
     generateHeader(p)
 
-    val (unaryOperationsMap, binaryOperationsMap) = getOperationMaps()
+    val [unaryOperationsMap, binaryOperationsMap] = getOperationMaps()
 
     generateUnaryOp(p, unaryOperationsMap)
     generateBinaryOp(p, binaryOperationsMap)
     generateBinaryOpCheck(p, binaryOperationsMap)
+
+    generateCanEvalOpFunction(p, unaryOperationsMap + binaryOperationsMap)
 
     return sb.toString()
 }
@@ -61,8 +67,21 @@ private fun getOperationMaps(): Pair<ArrayList<Operation>, ArrayList<Operation>>
             val parametersTypes = function.getParametersTypes().map { it.typeName }
 
             when (parametersTypes.size) {
-                1 -> unaryOperationsMap.add(Operation(function.name.asString(), parametersTypes, function is FunctionDescriptor))
-                2 -> binaryOperationsMap.add(Operation(function.name.asString(), parametersTypes))
+                1 -> unaryOperationsMap.add(
+                    Operation(
+                        className = descriptor.name.asString(),
+                        name = function.name.asString(),
+                        parameterTypes = parametersTypes,
+                        isFunction = function is FunctionDescriptor
+                    )
+                )
+                2 -> binaryOperationsMap.add(
+                    Operation(
+                        className = descriptor.name.asString(),
+                        name = function.name.asString(),
+                        parameterTypes = parametersTypes
+                    )
+                )
                 else -> throw IllegalStateException(
                     "Couldn't add following method from builtins to operations map: ${function.name} in class ${descriptor.name}"
                 )
@@ -70,25 +89,51 @@ private fun getOperationMaps(): Pair<ArrayList<Operation>, ArrayList<Operation>>
         }
     }
 
-    unaryOperationsMap.add(Operation("code", listOf("Char"), false))
+    unaryOperationsMap.add(
+        Operation(
+            className = null,
+            name = "Char",
+            parameterTypes = listOf("Int"),
+            isFunction = true,
+            customExpression = "Char(value as Int)"
+        )
+    )
+    unaryOperationsMap.add(
+        Operation(
+            className = null,
+            name = "code",
+            parameterTypes = listOf("Char"),
+            isFunction = false
+        )
+    )
 
-    for (name in listOf("trimIndent", "trimMargin")) {
-        unaryOperationsMap.add(Operation(name, listOf("String")))
+    for (type in listOf("Short", "Byte")) {
+        for (name in listOf("and", "or", "xor")) {
+            binaryOperationsMap.add(Operation(className = null, packageName = "kotlin.experimental", name = name, parameterTypes = listOf(type, type)))
+        }
+        unaryOperationsMap.add(Operation(className = null, packageName = "kotlin.experimental", name = "inv", parameterTypes = listOf(type), isFunction = true))
     }
-    binaryOperationsMap.add(Operation("trimMargin", listOf("String", "String")))
+
+    unaryOperationsMap.add(Operation(className = null, packageName = "kotlin.text", name = "lowercase", parameterTypes = listOf("String")))
+    unaryOperationsMap.add(Operation(className = null, packageName = "kotlin.text", name = "uppercase", parameterTypes = listOf("String")))
+
+    for (name in listOf("trim", "trimEnd", "trimIndent", "trimMargin", "trimStart")) {
+        unaryOperationsMap.add(Operation(className = null, packageName = "kotlin.text", name = name, parameterTypes = listOf("String")))
+    }
+    binaryOperationsMap.add(Operation(className = null, packageName = "kotlin.text", name = "trimMargin", parameterTypes = listOf("String", "String")))
 
     for (type in integerTypes) {
         for (otherType in integerTypes) {
             val parameters = listOf(type, otherType).map { it.typeName }
-            binaryOperationsMap.add(Operation("mod", parameters))
-            binaryOperationsMap.add(Operation("floorDiv", parameters))
+            binaryOperationsMap.add(Operation(className = null, name = "mod", parameterTypes = parameters))
+            binaryOperationsMap.add(Operation(className = null, name = "floorDiv", parameterTypes = parameters))
         }
     }
 
     for (type in fpTypes) {
         for (otherType in fpTypes) {
             val parameters = listOf(type, otherType).map { it.typeName }
-            binaryOperationsMap.add(Operation("mod", parameters))
+            binaryOperationsMap.add(Operation(className = null, name = "mod", parameterTypes = parameters))
         }
     }
 
@@ -99,24 +144,26 @@ private fun getOperationMaps(): Pair<ArrayList<Operation>, ArrayList<Operation>>
             .forEach { function ->
                 val args = function.parameters.map { it.type.toString().removePrefix("kotlin.") }
                 when (function.parameters.size) {
-                    1 -> unaryOperationsMap.add(Operation(function.name, args ))
-                    2 -> binaryOperationsMap.add(Operation(function.name, args))
+                    1 -> unaryOperationsMap.add(Operation(className = unsignedClass.simpleName, name = function.name, parameterTypes = args))
+                    2 -> binaryOperationsMap.add(Operation(className = unsignedClass.simpleName, name = function.name, parameterTypes = args))
                 }
             }
     }
 
-    val uintConversionExtensions = mapOf(
-        "Long" to listOf("toULong", "toUInt", "toUShort", "toUByte"),
-        "Int" to listOf("toULong", "toUInt", "toUShort", "toUByte"),
-        "Short" to listOf("toULong", "toUInt", "toUShort", "toUByte"),
-        "Byte" to listOf("toULong", "toUInt", "toUShort", "toUByte"),
-        "Double" to listOf("toULong", "toUInt"),
-        "Float" to listOf("toULong", "toUInt"),
-    )
+    val uintConversionExtensions = with(OperatorNameConventions) {
+        mapOf(
+            "Long" to listOf(TO_ULONG, TO_UINT, TO_USHORT, TO_UBYTE).map { it.asString() },
+            "Int" to listOf(TO_ULONG, TO_UINT, TO_USHORT, TO_UBYTE).map { it.asString() },
+            "Short" to listOf(TO_ULONG, TO_UINT, TO_USHORT, TO_UBYTE).map { it.asString() },
+            "Byte" to listOf(TO_ULONG, TO_UINT, TO_USHORT, TO_UBYTE).map { it.asString() },
+            "Double" to listOf(TO_ULONG, TO_UINT).map { it.asString() },
+            "Float" to listOf(TO_ULONG, TO_UINT).map { it.asString() }
+        )
+    }
 
-    for ((type, extensions) in uintConversionExtensions) {
-        for (extension in extensions) {
-            unaryOperationsMap.add(Operation(extension, listOf(type)))
+    for ([type, extensions] in uintConversionExtensions) {
+        for ([extension, declaredIn] in extensions.zip(listOf("ULong", "UInt", "UShort", "UByte"))) {
+            unaryOperationsMap.add(Operation(className = null, name = extension, parameterTypes = listOf(type)))
         }
     }
 
@@ -130,8 +177,13 @@ private fun generateHeader(p: Printer) {
     p.println()
     p.println("package org.jetbrains.kotlin.resolve.constants.evaluate")
     p.println()
+    p.println("import org.jetbrains.kotlin.name.CallableId")
     p.println("import org.jetbrains.kotlin.resolve.constants.evaluate.CompileTimeType.*")
     p.println("import java.math.BigInteger")
+    p.println("import kotlin.experimental.and")
+    p.println("import kotlin.experimental.inv")
+    p.println("import kotlin.experimental.or")
+    p.println("import kotlin.experimental.xor")
     p.println()
     p.println("/** This file is generated by `./gradlew generateOperationsMap`. DO NOT MODIFY MANUALLY */")
     p.println()
@@ -145,16 +197,16 @@ private fun generateUnaryOp(
     p.pushIndent()
     p.println("when (type) {")
     p.pushIndent()
-    for ((type, operations) in unaryOperationsMap.groupBy { it.parameterTypes.single() }) {
+    for ([type, operations] in unaryOperationsMap.groupBy { it.parameterTypes.single() }) {
         p.println("${type.toCompilTimeTypeFormat()} -> when (name) {")
         p.pushIndent()
-        for ((name, _, isFunction, customExpr) in operations) {
+        for ((val _ = packageName, val _ = className, val name, val _ = parameterTypes, val isFunction, val customExpr = customExpression) in operations) {
             if (customExpr != null) {
-                p.println("\"$name\" -> return $customExpr")
+                p.println("\"${name}\" -> return ${customExpr}")
                 continue
             }
             val parenthesesOrBlank = if (isFunction) "()" else ""
-            p.println("\"$name\" -> return (value as ${type}).$name$parenthesesOrBlank")
+            p.println("\"${name}\" -> return (value as ${type}).${name}$parenthesesOrBlank")
         }
         p.popIndent()
         p.println("}")
@@ -176,15 +228,15 @@ private fun generateBinaryOp(
     p.pushIndent()
     p.println("when (leftType) {")
     p.pushIndent()
-    for ((leftType, operationsOnThisLeftType) in binaryOperationsMap.groupBy { (_, parameters) -> parameters.first() }) {
+    for ([leftType, operationsOnThisLeftType] in binaryOperationsMap.groupBy { (val parameters = parameterTypes) -> parameters.first() }) {
         p.println("${leftType.toCompilTimeTypeFormat()} -> when (rightType) {")
         p.pushIndent()
-        for ((rightType, operations) in operationsOnThisLeftType.groupBy { (_, parameters) -> parameters[1] }) {
+        for ([rightType, operations] in operationsOnThisLeftType.groupBy { (val parameters = parameterTypes) -> parameters[1] }) {
             p.println("${rightType.toCompilTimeTypeFormat()} -> when (name) {")
             p.pushIndent()
-            for ((name, _) in operations) {
+            for ((val _ = packageName, val _ = className, val name, val _ = parameterTypes, val _ = isFunction, val _ = customExpression) in operations) {
                 val castToRightType = if (rightType == "Any" || rightType == "Any?") "" else " as ${rightType}"
-                p.println("\"$name\" -> return (left as ${leftType}).$name(right$castToRightType)")
+                p.println("\"${name}\" -> return (left as ${leftType}).${name}(right$castToRightType)")
             }
             p.popIndent()
             p.println("}")
@@ -202,6 +254,31 @@ private fun generateBinaryOp(
     p.println()
 }
 
+// TODO: This function will be dropped/rewritten after KT-84626
+private fun generateCanEvalOpFunction(p: Printer, operations: List<Operation>) {
+    p.println("private val knownOps = setOf(")
+    p.pushIndent()
+    for (operation in operations) {
+        p.println("\"${operation.callableId}(${operation.parameterTypes.joinToString(", ") { it.toCompilTimeTypeFormat() }})\",")
+    }
+    p.popIndent()
+    p.println(")")
+
+    p.println("fun canEvalOp(callableId: CallableId, typeA: CompileTimeType?, typeB: CompileTimeType?): Boolean {")
+    p.pushIndent()
+    p.println("val types = when {")
+    p.pushIndent()
+    p.println("typeA != null && typeB != null -> \"\$typeA, \$typeB\"")
+    p.println("typeA != null -> typeA.toString()")
+    p.println("typeB != null -> typeB.toString()")
+    p.println("else -> return false")
+    p.popIndent()
+    p.println("}")
+    p.println("return knownOps.contains(\"\${callableId}(\$types)\")")
+    p.popIndent()
+    p.println("}")
+}
+
 // TODO, KT-75372: Can be dropped with K1
 private fun generateBinaryOpCheck(
     p: Printer,
@@ -214,14 +291,15 @@ private fun generateBinaryOpCheck(
     p.println("when (leftType) {")
     p.pushIndent()
     val checkedBinaryOperations =
-        binaryOperationsMap.filter { (name, parameters) -> getBinaryCheckerName(name, parameters[0], parameters[1]) != null }
-    for ((leftType, operationsOnThisLeftType) in checkedBinaryOperations.groupBy { (_, parameters) -> parameters.first() }) {
+        binaryOperationsMap.filter { op -> getBinaryCheckerName(op.name, op.parameterTypes[0], op.parameterTypes[1]) != null }
+    for ([leftType, operationsOnThisLeftType] in checkedBinaryOperations.groupBy { it.parameterTypes.first() }) {
         p.println("${leftType.toCompilTimeTypeFormat()} -> when (rightType) {")
         p.pushIndent()
-        for ((rightType, operations) in operationsOnThisLeftType.groupBy { (_, parameters) -> parameters[1] }) {
+        for ([rightType, operations] in operationsOnThisLeftType.groupBy { it.parameterTypes[1] }) {
             p.println("${rightType.toCompilTimeTypeFormat()} -> when (name) {")
             p.pushIndent()
-            for ((name, _) in operations) {
+            for (operation in operations) {
+                val name = operation.name
                 val checkerName = getBinaryCheckerName(name, leftType, rightType)!!
                 p.println("\"$name\" -> return left.$checkerName(right)")
             }
@@ -255,11 +333,16 @@ private fun getBinaryCheckerName(name: String, leftType: String, rightType: Stri
 }
 
 private data class Operation(
+    val packageName: String = "kotlin",
+    val className: String?,
     val name: String,
     val parameterTypes: List<String>,
     val isFunction: Boolean = true,
     val customExpression: String? = null,
-) {}
+) {
+    val callableId: CallableId
+        get() = CallableId(FqName(packageName), className?.let { FqName(it) }, Name.identifier(name))
+}
 
 private fun KotlinType.isIntegerType(): Boolean =
     KotlinBuiltIns.isInt(this) || KotlinBuiltIns.isShort(this) || KotlinBuiltIns.isByte(this) || KotlinBuiltIns.isLong(this)

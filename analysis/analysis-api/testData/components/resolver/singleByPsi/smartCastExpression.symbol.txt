@@ -1,2 +1,7 @@
 KtNameReferenceExpression(100,109): 'parameter'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      parameter: kotlin.Any
+    ]

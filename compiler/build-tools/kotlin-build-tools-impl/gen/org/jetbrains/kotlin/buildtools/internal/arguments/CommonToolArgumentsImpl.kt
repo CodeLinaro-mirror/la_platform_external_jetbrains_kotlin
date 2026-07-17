@@ -8,13 +8,22 @@ package org.jetbrains.kotlin.buildtools.`internal`.arguments
 import java.lang.IllegalStateException
 import kotlin.Any
 import kotlin.Boolean
+import kotlin.Deprecated
+import kotlin.DeprecationLevel
 import kotlin.OptIn
 import kotlin.String
 import kotlin.Suppress
+import kotlin.collections.List
+import kotlin.collections.MutableList
 import kotlin.collections.MutableMap
 import kotlin.collections.MutableSet
+import kotlin.collections.Set
+import kotlin.collections.emptyList
+import kotlin.collections.emptySet
 import kotlin.collections.mutableMapOf
 import kotlin.collections.mutableSetOf
+import kotlin.collections.toMutableList
+import kotlin.collections.toMutableSet
 import org.jetbrains.kotlin.buildtools.`internal`.UseFromImplModuleRestricted
 import org.jetbrains.kotlin.buildtools.`internal`.arguments.CommonToolArgumentsImpl.Companion.HELP
 import org.jetbrains.kotlin.buildtools.`internal`.arguments.CommonToolArgumentsImpl.Companion.NOWARN
@@ -30,28 +39,27 @@ import org.jetbrains.kotlin.cli.common.arguments.CommonToolArguments as CommonTo
 import org.jetbrains.kotlin.compilerRunner.toArgumentStrings as compilerToArgumentStrings
 import org.jetbrains.kotlin.config.KotlinCompilerVersion.VERSION as KC_VERSION
 
-internal abstract class CommonToolArgumentsImpl : ArgumentsCommonToolArguments,
+internal abstract class CommonToolArgumentsImpl(
+  private val adapter: CommonToolArgumentValueAdapter? = null,
+  argumentValidationErrors: Set<String> = emptySet(),
+  restrictedArgViolations: List<RestrictedArgViolation> = emptyList(),
+) : ArgumentsCommonToolArguments,
     ArgumentsCommonToolArguments.Builder {
   protected val internalArguments: MutableSet<String> = mutableSetOf()
 
   private val optionsMap: MutableMap<String, Any?> = mutableMapOf()
 
-  @Suppress("UNCHECKED_CAST")
-  @UseFromImplModuleRestricted
-  override operator fun <V> `get`(key: ArgumentsCommonToolArguments.CommonToolArgument<V>): V {
-    check(key.id in optionsMap) { "Argument ${key.id} is not set and has no default value" }
-    return optionsMap[key.id] as V
-  }
+  protected val _restrictedArgViolations: MutableList<RestrictedArgViolation> =
+      restrictedArgViolations.toMutableList()
 
-  @UseFromImplModuleRestricted
-  override operator fun <V> `set`(key: ArgumentsCommonToolArguments.CommonToolArgument<V>, `value`: V) {
-    if (key.availableSinceVersion > KotlinReleaseVersion(2, 4, 0)) {
-      throw IllegalStateException("${key.id} is available only since ${key.availableSinceVersion}")
-    }
-    optionsMap[key.id] = `value`
-  }
+  internal val restrictedArgViolations: List<RestrictedArgViolation>
+    get() = _restrictedArgViolations
 
-  override operator fun contains(key: ArgumentsCommonToolArguments.CommonToolArgument<*>): Boolean = key.id in optionsMap
+  protected val _argumentValidationErrors: MutableSet<String> =
+      argumentValidationErrors.toMutableSet()
+
+  internal val argumentValidationErrors: Set<String>
+    get() = _argumentValidationErrors
 
   @Suppress("UNCHECKED_CAST")
   public operator fun <V> `get`(key: CommonToolArgument<V>): V = optionsMap[key.id] as V
@@ -61,6 +69,29 @@ internal abstract class CommonToolArgumentsImpl : ArgumentsCommonToolArguments,
   }
 
   public operator fun contains(key: CommonToolArgument<*>): Boolean = key.id in optionsMap
+
+  @Suppress("UNCHECKED_CAST")
+  @UseFromImplModuleRestricted
+  override operator fun <V> `get`(key: ArgumentsCommonToolArguments.CommonToolArgument<V>): V {
+    check(key.id in optionsMap) { "Argument ${key.id} is not set and has no default value" }
+    return adapter?.mapFrom(optionsMap[key.id], key) ?: optionsMap[key.id] as V
+  }
+
+  @UseFromImplModuleRestricted
+  override operator fun <V> `set`(key: ArgumentsCommonToolArguments.CommonToolArgument<V>, `value`: V) {
+    if (key.availableSinceVersion > KotlinReleaseVersion(2, 4, 20)) {
+      throw IllegalStateException("${key.id} is available only since ${key.availableSinceVersion}")
+    }
+    optionsMap[key.id] = adapter?.mapTo(`value`, key) ?: `value`
+  }
+
+  @Deprecated(
+    message = "This method is no longer useful when compiling with Kotlin compiler 2.3.20 and above, as the arguments instance now contains default values for all arguments.",
+    level = DeprecationLevel.WARNING,
+  )
+  override operator fun contains(key: ArgumentsCommonToolArguments.CommonToolArgument<*>): Boolean = key.id in optionsMap
+
+  abstract override fun build(): CommonToolArgumentsImpl
 
   @Suppress("DEPRECATION")
   public fun toCompilerArguments(arguments: CommonToolArguments): CommonToolArguments {
@@ -79,7 +110,7 @@ internal abstract class CommonToolArgumentsImpl : ArgumentsCommonToolArguments,
   }
 
   @Suppress("DEPRECATION")
-  public fun applyCompilerArguments(arguments: CommonToolArguments) {
+  protected fun applyCompilerArguments(arguments: CommonToolArguments) {
     try { this[WERROR] = arguments.allWarningsAsErrors } catch (_: NoSuchMethodError) {  }
     try { this[WEXTRA] = arguments.extraWarnings } catch (_: NoSuchMethodError) {  }
     try { this[X] = arguments.extraHelp } catch (_: NoSuchMethodError) {  }
@@ -88,6 +119,17 @@ internal abstract class CommonToolArgumentsImpl : ArgumentsCommonToolArguments,
     try { this[VERBOSE] = arguments.verbose } catch (_: NoSuchMethodError) {  }
     try { this[VERSION] = arguments.version } catch (_: NoSuchMethodError) {  }
     internalArguments.addAll(arguments.internalArguments.map { it.stringRepresentation })
+  }
+
+  @Suppress("DEPRECATION")
+  public fun toCompilerArgumentsAffectingOutcome(arguments: CommonToolArguments): CommonToolArguments {
+    if (WERROR in this) { arguments.allWarningsAsErrors = get(WERROR)}
+    if (WEXTRA in this) { arguments.extraWarnings = get(WEXTRA)}
+    return arguments
+  }
+
+  internal open fun collectRestrictedArgViolations(compilerArgs: CommonToolArguments, defaultArgs: CommonToolArguments) {
+    _restrictedArgViolations.clear()
   }
 
   public class CommonToolArgument<V>(

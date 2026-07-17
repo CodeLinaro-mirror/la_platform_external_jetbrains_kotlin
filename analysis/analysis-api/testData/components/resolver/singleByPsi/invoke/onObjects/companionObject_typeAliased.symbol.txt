@@ -1,2 +1,7 @@
 KtNameReferenceExpression(156,164): 'FooAlias'
-  null
+  isImplicitReferenceToCompanion: true
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/FooAlias
+    ]

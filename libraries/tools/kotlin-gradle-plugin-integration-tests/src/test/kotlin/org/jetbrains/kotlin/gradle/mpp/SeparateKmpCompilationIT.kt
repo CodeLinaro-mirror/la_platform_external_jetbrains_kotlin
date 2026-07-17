@@ -57,7 +57,7 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
             }
         }) { fragmentDependencies ->
             val visitedDependencies = mutableSetOf<String>()
-            for ((_, dependencies) in fragmentDependencies) {
+            for ([_, dependencies] in fragmentDependencies) {
                 for (dependency in dependencies) {
                     assert(visitedDependencies.add(dependency)) {
                         "Duplicate dependency '$dependency' found in fragment dependencies: $fragmentDependencies"
@@ -118,10 +118,9 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
                 *targetsToRun.map { ":compileKotlin${it.capitalize()}" }.toTypedArray(),
                 configurationCache = BuildOptions.ConfigurationCacheValue.DISABLED, // otherwise we would access GMT task outputs before the task execution
             )
-            for ((targetName, particularCompileArgs) in compileArgs) {
+            for ([_, particularCompileArgs] in compileArgs) {
                 val fragmentDependencies = particularCompileArgs.fragmentDependencies
-                assert(fragmentDependencies != null) { "Fragment dependencies are not set for $targetName" }
-                val dependenciesPerFragment = fragmentDependencies!!
+                val dependenciesPerFragment = fragmentDependencies
                     .map { it.replace('\\', '/') }
                     .groupBy({ it.substringBefore(":") }) { it.substringAfter(":") }
                 assertions(dependenciesPerFragment)
@@ -310,7 +309,7 @@ class SeparateKmpCompilationIT : KGPBaseTest() {
                 )
                 val specificSourceSets = sourceSetNames - "commonMain"
                 val outputPerTask = compileTasks.associateWith { getOutputForTask(it, logLevel = LogLevel.INFO) }
-                for ((task, taskOutput) in outputPerTask) {
+                for ([task, taskOutput] in outputPerTask) {
                     assertFalse(
                         taskOutput.contains("generatedSource_commonMain_\\d+.kt:\\d+:\\d+ Unresolved reference 'commonMain'".toRegex()),
                         "$task should be able to resolve `commonMain()`\n$taskOutput"

@@ -18,9 +18,9 @@ import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.expressions.impl.toAnnotationArgumentMapping
 import org.jetbrains.kotlin.fir.resolve.diagnostics.ConeUnresolvedNameError
 import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
+import org.jetbrains.kotlin.fir.resolve.isArrayOfCall
 import org.jetbrains.kotlin.fir.resolve.scope
 import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
-import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirArrayOfCallTransformer.Companion.isArrayOfCall
 import org.jetbrains.kotlin.fir.scopes.CallableCopyTypeCalculator
 import org.jetbrains.kotlin.fir.scopes.getDeclaredConstructors
 import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
@@ -119,7 +119,7 @@ private fun FirElement.toConstantValueImpl(): ConstantValue<*>? {
 context(c: SessionAndScopeSessionHolder)
 private fun FirAnnotation.evaluateToAnnotationValue(): AnnotationValue {
     val result = buildMap {
-        for ((name, value) in argumentMapping.mapping) {
+        for ([name, value] in argumentMapping.mapping) {
             val constValue = value.toConstantValueImpl() ?: continue
             put(name, constValue)
         }

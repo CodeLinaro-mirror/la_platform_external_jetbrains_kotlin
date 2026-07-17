@@ -15,6 +15,16 @@ suspend fun suspendFun() { }
 val String.extensionProperty<!>
     get() = this.length
 
+<!WRONG_EXPORTED_DECLARATION("property with context parameters")!>@JsExport
+context(x: Int)
+val propertyWithContext<!>
+    get() = x
+
+<!WRONG_EXPORTED_DECLARATION("extension property")!>@JsExport
+context(x: Int)
+val String.extensionPropertyWithContext<!>
+    get() = this.length
+
 @JsExport
 annotation class <!WRONG_EXPORTED_DECLARATION("annotation class")!>AnnotationClass<!>
 
@@ -33,30 +43,39 @@ interface InterfaceWithCompanion {
 
 @JsExport
 interface InterfaceWithNamedCompanion {
-    companion <!NAMED_COMPANION_IN_EXPORTED_INTERFACE!>object Named<!> {
+    companion object Named {
         fun foo() = 42
     }
 }
 
 @JsExport
-interface OuterInterface {
-    class <!WRONG_EXPORTED_DECLARATION("nested class inside exported interface")!>Nested<!>
-}
+value class A(val a: Int)
 
 @JsExport
-value class <!WRONG_EXPORTED_DECLARATION("value class")!>A(val a: Int)<!>
+inline class B(val b: Int)
 
 @JsExport
-inline class <!WRONG_EXPORTED_DECLARATION("value class")!>B(val b: Int)<!>
-
-@JsExport
-<!INCOMPATIBLE_MODIFIERS("inline; value")!>inline<!> <!INCOMPATIBLE_MODIFIERS("value; inline")!>value<!> class <!WRONG_EXPORTED_DECLARATION("value class")!>C(val c: Int)<!>
+<!INCOMPATIBLE_MODIFIERS("inline; value")!>inline<!> <!INCOMPATIBLE_MODIFIERS("value; inline")!>value<!> class C(val c: Int)
 
 <!MULTIPLE_JS_EXPORT_DEFAULT_IN_ONE_FILE!>@JsExport.Default
-<!INCOMPATIBLE_MODIFIERS("value; inline")!>value<!> <!INCOMPATIBLE_MODIFIERS("inline; value")!>inline<!> class <!WRONG_EXPORTED_DECLARATION("value class")!>D(val d: Int)<!><!>
+<!INCOMPATIBLE_MODIFIERS("value; inline")!>value<!> <!INCOMPATIBLE_MODIFIERS("inline; value")!>inline<!> class D(val d: Int)<!>
 
 @JsExport
 external interface ExternalInterface
+
+@JsExport
+external interface ExternalInterfaceWithCompanion {
+    companion <!WRONG_EXPORTED_DECLARATION("external companion object")!>object<!> {
+        fun foo(): String
+    }
+}
+
+@JsExport
+sealed external interface SealedExternalInterfaceWithCompanion {
+    companion <!WRONG_EXPORTED_DECLARATION("external companion object")!>object<!> {
+        val left: SealedExternalInterfaceWithCompanion
+    }
+}
 
 <!MULTIPLE_JS_EXPORT_DEFAULT_IN_ONE_FILE!>@JsExport.Default
 external interface DefaultExternalInterface<!>

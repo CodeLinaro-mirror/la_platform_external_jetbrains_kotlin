@@ -5,10 +5,11 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure
 
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibrarySourceModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionCache
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.cache.LLFirSessionCache
 import org.jetbrains.kotlin.fir.FirElementWithResolveState
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirSession
@@ -18,21 +19,26 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isCommon
 
+@KaImplementationDetail
 val FirElementWithResolveState.llFirModuleData: LLFirModuleData
     get() = moduleData as LLFirModuleData
 
+@KaImplementationDetail
 val FirSession.llFirModuleData: LLFirModuleData
     get() = moduleData as LLFirModuleData
 
+@KaImplementationDetail
 val LLFirSession.moduleData: LLFirModuleData
     get() = llFirModuleData
 
+@KaImplementationDetail
 val FirBasedSymbol<*>.llFirModuleData: LLFirModuleData
     get() = fir.llFirModuleData
 
 /**
  * The [FirModuleData] for FIR elements managed by the Analysis API. In Analysis API mode, all FIR elements must have [LLFirModuleData].
  */
+@KaImplementationDetail
 open class LLFirModuleData internal constructor(val ktModule: KaModule) : FirModuleData() {
     constructor(session: LLFirSession) : this(session.ktModule) {
         bindSession(session)

@@ -39,7 +39,7 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.protobuf.MessageLite
 import org.jetbrains.kotlin.serialization.deserialization.descriptors.DeserializedContainerSource
 import org.jetbrains.kotlin.types.ConstantValueKind
-import org.jetbrains.kotlin.util.toJvmMetadataVersion
+import org.jetbrains.kotlin.util.toMetadataVersion
 import org.jetbrains.kotlin.utils.addToStdlib.runIf
 
 class JvmBinaryAnnotationDeserializer(
@@ -55,8 +55,8 @@ class JvmBinaryAnnotationDeserializer(
 
     private val annotationInfoForDefaultImpls by lazy(LazyThreadSafetyMode.PUBLICATION) {
         val defaultImplsClassId = kotlinBinaryClass.classId.createNestedClassId(Name.identifier(JvmAbi.DEFAULT_IMPLS_CLASS_NAME))
-        val (defaultImplsClass, defaultImplsByteContent) = kotlinClassFinder.findKotlinClassOrContent(
-            defaultImplsClassId, session.languageVersionSettings.languageVersion.toJvmMetadataVersion()
+        val [defaultImplsClass, defaultImplsByteContent] = kotlinClassFinder.findKotlinClassOrContent(
+            defaultImplsClassId, session.languageVersionSettings.languageVersion.toMetadataVersion()
         ) as? KotlinClassFinder.Result.KotlinClass ?: return@lazy null
         session.loadMemberAnnotations(defaultImplsClass, defaultImplsByteContent, kotlinClassFinder)
     }

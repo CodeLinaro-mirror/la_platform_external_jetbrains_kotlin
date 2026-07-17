@@ -91,7 +91,7 @@ dependencies {
     api(project(":gradle-plugins-common"))
 
     implementation(kotlin("stdlib", embeddedKotlinVersion))
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion.get()}")
+    implementation(kotlinBuildHelpers())
     implementation(libs.gradle.pluginPublish.gradlePlugin)
     implementation(libs.dokka.gradlePlugin)
     implementation(libs.spdx.gradlePlugin)
@@ -133,3 +133,5 @@ project.configurations.named(org.jetbrains.kotlin.gradle.plugin.PLUGIN_CLASSPATH
         }
     }
 }
+
+kotlin.compilerOptions.moduleName.value(project.name)

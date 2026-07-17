@@ -5,12 +5,12 @@
 
 package org.jetbrains.kotlin.backend.konan.objcexport
 
-import org.jetbrains.kotlin.backend.common.descriptors.allParameters
 import org.jetbrains.kotlin.backend.konan.*
 import org.jetbrains.kotlin.backend.konan.descriptors.enumEntries
 import org.jetbrains.kotlin.backend.konan.descriptors.isArray
 import org.jetbrains.kotlin.backend.konan.descriptors.isInterface
 import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerDesc
+import org.jetbrains.kotlin.descriptors.konan.allParameters
 import org.jetbrains.kotlin.builtins.*
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
@@ -298,10 +298,12 @@ class ObjCExportTranslatorImpl(
                                 swiftName = nsEnumTypeName.swiftName,
                                 origin = ObjCExportStubOrigin(descriptor),
                                 entries = descriptor.enumEntries.mapIndexed { ordinal, entry ->
+                                    val objcEnumEntryName = entry.getObjCEnumEntryName()
+                                    val objCName = objcEnumEntryName.getName(forSwift = false) ?: namer.getEnumEntrySelector(entry)
+                                    val swiftName = objcEnumEntryName.getName(forSwift = true) ?: namer.getEnumEntrySwiftName(entry)
                                     ObjCNSEnum.Entry(
-                                        objCName = nsEnumTypeName.objCName + namer.getEnumEntrySelector(entry)
-                                            .replaceFirstChar { it.uppercaseChar() },
-                                        swiftName = namer.getEnumEntrySwiftName(entry),
+                                        objCName = nsEnumTypeName.objCName + objCName.replaceFirstChar { it.uppercaseChar() },
+                                        swiftName = swiftName,
                                         value = ordinal
                                     )
                                 }
@@ -640,7 +642,7 @@ class ObjCExportTranslatorImpl(
 
             val usedNames = mutableSetOf<String>()
 
-            valueParametersAssociated.forEach { (bridge: MethodBridgeValueParameter, p: ParameterDescriptor?) ->
+            valueParametersAssociated.forEach { [bridge: MethodBridgeValueParameter, p: ParameterDescriptor?] ->
                 val candidateName: String = when (bridge) {
                     is MethodBridgeValueParameter.Mapped -> {
                         p!!

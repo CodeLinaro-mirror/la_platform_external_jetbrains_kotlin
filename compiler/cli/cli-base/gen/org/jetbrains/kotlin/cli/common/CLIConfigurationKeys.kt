@@ -19,6 +19,8 @@ import org.jetbrains.kotlin.cli.common.modules.ModuleChunk
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.CompilerConfigurationKey
+import org.jetbrains.kotlin.config.MessageCollectorAccess
+import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.utils.KotlinPaths
 
 object CLIConfigurationKeys {
@@ -33,6 +35,7 @@ object CLIConfigurationKeys {
         DeprecationLevel.ERROR,
     )
     @JvmField
+    @MessageCollectorAccess
     val MESSAGE_COLLECTOR_KEY = CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY
 
     // Used by compiler plugins to access delegated message collector in GroupingMessageCollector.
@@ -40,14 +43,16 @@ object CLIConfigurationKeys {
     val ORIGINAL_MESSAGE_COLLECTOR_KEY = CompilerConfigurationKey.create<MessageCollector>("ORIGINAL_MESSAGE_COLLECTOR_KEY")
 
     @JvmField
+    val DIAGNOSTICS_COLLECTOR = CompilerConfigurationKey.create<BaseDiagnosticsCollector>("DIAGNOSTICS_COLLECTOR")
+
+    @JvmField
     val RENDER_DIAGNOSTIC_INTERNAL_NAME = CompilerConfigurationKey.create<Boolean>("RENDER_DIAGNOSTIC_INTERNAL_NAME")
 
     @JvmField
-    val ALLOW_KOTLIN_PACKAGE = CompilerConfigurationKey.create<Boolean>("ALLOW_KOTLIN_PACKAGE")
+    val TREAT_WARNINGS_AS_ERRORS = CompilerConfigurationKey.create<Boolean>("TREAT_WARNINGS_AS_ERRORS")
 
-    // Used in Eclipse plugin (see KotlinCLICompiler).
     @JvmField
-    val INTELLIJ_PLUGIN_ROOT = CompilerConfigurationKey.create<String>("INTELLIJ_PLUGIN_ROOT")
+    val ALLOW_KOTLIN_PACKAGE = CompilerConfigurationKey.create<Boolean>("ALLOW_KOTLIN_PACKAGE")
 
     // See K2MetadataCompilerArguments.
     @JvmField
@@ -99,17 +104,21 @@ var CompilerConfiguration.originalMessageCollectorKey: MessageCollector?
     get() = get(CLIConfigurationKeys.ORIGINAL_MESSAGE_COLLECTOR_KEY)
     set(value) { put(CLIConfigurationKeys.ORIGINAL_MESSAGE_COLLECTOR_KEY, requireNotNull(value) { "nullable values are not allowed" }) }
 
+var CompilerConfiguration.diagnosticsCollector: BaseDiagnosticsCollector
+    get() = getOrDefault(CLIConfigurationKeys.DIAGNOSTICS_COLLECTOR) { error("diagnostic collector is not initialized") }
+    set(value) { put(CLIConfigurationKeys.DIAGNOSTICS_COLLECTOR, value) }
+
 var CompilerConfiguration.renderDiagnosticInternalName: Boolean
     get() = getBoolean(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME)
     set(value) { put(CLIConfigurationKeys.RENDER_DIAGNOSTIC_INTERNAL_NAME, value) }
 
+var CompilerConfiguration.treatWarningsAsErrors: Boolean
+    get() = getBoolean(CLIConfigurationKeys.TREAT_WARNINGS_AS_ERRORS)
+    set(value) { put(CLIConfigurationKeys.TREAT_WARNINGS_AS_ERRORS, value) }
+
 var CompilerConfiguration.allowKotlinPackage: Boolean
     get() = getBoolean(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE)
     set(value) { put(CLIConfigurationKeys.ALLOW_KOTLIN_PACKAGE, value) }
-
-var CompilerConfiguration.intellijPluginRoot: String?
-    get() = get(CLIConfigurationKeys.INTELLIJ_PLUGIN_ROOT)
-    set(value) { put(CLIConfigurationKeys.INTELLIJ_PLUGIN_ROOT, requireNotNull(value) { "nullable values are not allowed" }) }
 
 var CompilerConfiguration.metadataDestinationDirectory: File?
     get() = get(CLIConfigurationKeys.METADATA_DESTINATION_DIRECTORY)

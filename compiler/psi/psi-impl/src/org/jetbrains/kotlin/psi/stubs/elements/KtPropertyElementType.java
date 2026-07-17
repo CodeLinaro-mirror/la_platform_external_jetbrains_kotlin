@@ -81,7 +81,8 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStubI
                 KtPsiUtilKt.safeFqNameForLazyResolve(psi),
                 /* constantInitializer = */ null,
                 /* origin = */ null,
-                /* hasBackingField = */ null
+                /* hasBackingField = */ null,
+                /* kdocText = */ null
         );
     }
 
@@ -104,7 +105,8 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStubI
 
         KotlinStubOrigin.serialize(stub.getOrigin(), dataStream);
 
-        StubUtils.writeNullableBoolean$psi_impl(dataStream, stub.getHasBackingField());
+        StubUtils.writeNullableBoolean$org_jetbrains_kotlin_psi_impl(dataStream, stub.getHasBackingField());
+        StubUtils.serializeKdocText(dataStream, stub.getKdocText());
     }
 
     @NotNull
@@ -124,7 +126,8 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStubI
 
         ConstantValue<?> constantInitializer = KotlinConstantValueKt.deserializeConstantValue(dataStream);
         KotlinStubOrigin stubOrigin = KotlinStubOrigin.deserialize(dataStream);
-        Boolean hasBackingFiled = StubUtils.readNullableBoolean$psi_impl(dataStream);
+        Boolean hasBackingFiled = StubUtils.readNullableBoolean$org_jetbrains_kotlin_psi_impl(dataStream);
+        String kdocText = StubUtils.deserializeKdocText(dataStream);
         return new KotlinPropertyStubImpl(
                 (StubElement<?>) parentStub,
                 name,
@@ -138,7 +141,8 @@ public class KtPropertyElementType extends KtStubElementType<KotlinPropertyStubI
                 fqName,
                 constantInitializer,
                 stubOrigin,
-                hasBackingFiled
+                hasBackingFiled,
+                kdocText
         );
     }
 

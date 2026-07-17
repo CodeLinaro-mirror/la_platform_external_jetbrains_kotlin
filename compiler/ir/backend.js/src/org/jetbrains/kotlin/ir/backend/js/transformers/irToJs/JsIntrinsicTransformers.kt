@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.backend.common.compilationException
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.lower.ES6ConstructorLowering
 import org.jetbrains.kotlin.ir.backend.js.lower.ES6PrimaryConstructorOptimizationLowering
+import org.jetbrains.kotlin.ir.backend.js.lower.exportedValueClassBoxFunction
 import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -21,7 +22,10 @@ import org.jetbrains.kotlin.ir.symbols.IrFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
 import org.jetbrains.kotlin.ir.symbols.IrSymbol
 import org.jetbrains.kotlin.ir.types.classifierOrFail
+import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.getInlineClassBackingField
+import org.jetbrains.kotlin.ir.util.isFunctionOrKFunction
+import org.jetbrains.kotlin.ir.util.isThrowable
 import org.jetbrains.kotlin.js.backend.ast.*
 import org.jetbrains.kotlin.js.backend.ast.metadata.isInlineClassBoxing
 import org.jetbrains.kotlin.js.backend.ast.metadata.isInlineClassUnboxing
@@ -96,11 +100,21 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
             add(symbols.jsIsEs6) { _, _ -> JsBooleanLiteral(backendContext.es6mode) }
 
             add(symbols.jsYieldFunctionSymbol) { call, context ->
-                JsYield(translateCallArguments(call, context).single())
+                val argument = translateCallArguments(call, context).single()
+                if (backendContext.configuration.compileSuspendAsJsGenerator) {
+                    JsYield(argument)
+                } else {
+                    argument
+                }
             }
 
             add(symbols.jsYieldStarFunctionSymbol) { call, context ->
-                JsYieldStar(translateCallArguments(call, context).single())
+                val argument = translateCallArguments(call, context).single()
+                if (backendContext.configuration.compileSuspendAsJsGenerator) {
+                    JsYieldStar(argument)
+                } else {
+                    argument
+                }
             }
 
             add(symbols.jsGenerateInterfaceSymbol) { _, context ->
@@ -115,15 +129,6 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
                 val classToCreate = call.typeArguments[0]!!.classifierOrFail.owner as IrClass
                 val className = classToCreate.getClassRef(context.staticContext)
                 objectCreate(prototypeOf(className, context.staticContext), context.staticContext)
-            }
-
-            add(symbols.jsClass) { call, context ->
-                val typeArgument = call.typeArguments[0]
-                typeArgument?.getClassRef(context.staticContext)
-                    ?: compilationException(
-                        "Type argument of jsClass must be statically known class",
-                        typeArgument
-                    )
             }
 
             add(symbols.jsNewTarget) { _, _ ->
@@ -189,6 +194,10 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
                 JsInvocation(JsNameRef(Namer.SLICE_FUNCTION, translateCallArguments(call, context).single()))
             }
 
+            add(symbols.isLongCompiledToBigInt) { _, _ ->
+                JsBooleanLiteral(backendContext.configuration.compileLongAsBigint)
+            }
+
             add(symbols.longCopyOfRange) { call, context ->
                 val args = translateCallArguments(call, context)
 
@@ -199,7 +208,7 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
                 }
             }
 
-            for ((type, prefix) in symbols.primitiveToTypedArrayMap) {
+            for ([type, prefix] in symbols.primitiveToTypedArrayMap) {
                 add(symbols.primitiveToSizeConstructor[type]!!) { call, context ->
                     JsNew(JsNameRef("${prefix}Array"), translateCallArguments(call, context))
                 }
@@ -212,6 +221,12 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
                 val arg = translateCallArguments(call, context).single()
                 val inlineClass = call.typeArguments[0]?.let { icUtils.getRuntimeClassFor(it) }
                     ?: compilationException("Unexpected type argument in box intrinsic", call)
+
+                inlineClass.exportedValueClassBoxFunction?.let {
+                    return@add JsInvocation(context.getNameForStaticFunction(it).makeRef(), arg)
+                        .apply { isInlineClassBoxing = true }
+                }
+
                 val constructor = inlineClass.declarations.filterIsInstance<IrConstructor>().single { it.isPrimary }
 
                 JsNew(constructor.getConstructorRef(context.staticContext), listOf(arg))
@@ -220,7 +235,7 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
 
             add(symbols.jsUnboxIntrinsic) { call, context ->
                 val arg = translateCallArguments(call, context).single()
-                val inlineClass = icUtils.getInlinedClass(call.typeArguments[1]!!)!!
+                val inlineClass = icUtils.getInlinedClass(call.typeArguments[1]!!, includingExported = true)!!
                 val field = getInlineClassBackingField(inlineClass)
                 val fieldName = context.getNameForField(field)
                 JsNameRef(fieldName, arg).apply { isInlineClassUnboxing = true }
@@ -339,6 +354,49 @@ class JsIntrinsicTransformers(backendContext: JsIrBackendContext) {
             add(symbols.void.owner.getter!!.symbol) { _, context ->
                 val backingField = context.getNameForField(symbols.void.owner.backingField!!)
                 JsNameRef(backingField)
+            }
+
+            add(symbols.signatureIdSymbol) { call, _ ->
+                val signatureString = call.arguments[0] as? IrConst ?: compilationException(
+                    "Call of the signatureId doesn't contain first argument representing a signature string literal",
+                    call
+                )
+
+                if (backendContext.incrementalCacheEnabled) {
+                    JsStringLiteral(signatureString.value as String)
+                } else {
+                    JsIntLiteral(backendContext.signaturesPool.getSignatureId(signatureString.value as String))
+                }
+            }
+
+            add(symbols.jsClass) { call, context ->
+                val typeArgument =
+                    call.typeArguments[0]?.type ?: compilationException("Type argument of jsClass must be statically known class", call)
+
+                when {
+                    typeArgument.isAny() -> JsNameRef("Object")
+                    typeArgument.isBoolean() -> JsNameRef("Boolean")
+                    typeArgument.isLong() && backendContext.configuration.compileLongAsBigint -> JsNameRef("BigInt")
+                    typeArgument.isArray() ||
+                            typeArgument.isBooleanArray() -> JsNameRef("Array")
+                    typeArgument.isString() -> JsNameRef("String")
+                    typeArgument.isThrowable() -> JsNameRef("Error")
+                    typeArgument.isCharArray() -> JsNameRef("Uint16Array")
+                    typeArgument.isByteArray() -> JsNameRef("Int8Array")
+                    typeArgument.isShortArray() -> JsNameRef("Int16Array")
+                    typeArgument.isIntArray() -> JsNameRef("Int32Array")
+                    typeArgument.isFloatArray() -> JsNameRef("Float32Array")
+                    typeArgument.isDoubleArray() -> JsNameRef("Float64Array")
+                    typeArgument.isLongArray() -> if (backendContext.configuration.compileLongAsBigint) JsNameRef("BigInt64Array") else JsNameRef("Array")
+                    typeArgument.isNumber() ||
+                            typeArgument.isByte() ||
+                            typeArgument.isShort() ||
+                            typeArgument.isInt() ||
+                            typeArgument.isFloat() ||
+                            typeArgument.isDouble() -> JsNameRef("Number")
+                    typeArgument.isFunctionOrKFunction() -> JsNameRef("Function")
+                    else -> typeArgument.getClassRef(context.staticContext)
+                }
             }
         }
     }

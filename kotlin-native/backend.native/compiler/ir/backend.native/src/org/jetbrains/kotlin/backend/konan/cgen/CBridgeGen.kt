@@ -35,7 +35,6 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.ir.util.isSubtypeOfClass
 import org.jetbrains.kotlin.konan.ForeignExceptionMode
-import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.KonanTarget
 import org.jetbrains.kotlin.library.metadata.isCInteropLibrary
 import org.jetbrains.kotlin.library.uniqueName
@@ -877,7 +876,7 @@ private fun CBridgeGenState.mapBlockType(
         location: IrElement
 ): ObjCBlockPointerValuePassing = with(stubs) {
     require(type is IrSimpleType) { renderCompilerError(location) }
-    require(type.classifier == symbols.functionN(type.arguments.size - 1)) { renderCompilerError(location) }
+    require(type.classifier == irBuiltIns.functionN(type.arguments.size - 1).symbol) { renderCompilerError(location) }
 
     val returnTypeArgument = type.arguments.last()
     require(returnTypeArgument is IrTypeProjection) { renderCompilerError(location) }
@@ -1515,7 +1514,7 @@ private class ObjCBlockPointerValuePassing(
         val kotlinFunctionHolder = "kotlinFunctionHolder"
 
         callbackBuilder.cBridgeCallBuilder.arguments += kotlinFunctionHolder
-        val (kotlinFunctionHolderParameter, _) =
+        val [kotlinFunctionHolderParameter, _] =
                 callbackBuilder.bridgeBuilder.addParameter(symbols.nativePtrType, CTypes.id)
 
         callbackBuilder.kotlinCallBuilder.arguments += with(callbackBuilder.bridgeBuilder.kotlinIrBuilder) {

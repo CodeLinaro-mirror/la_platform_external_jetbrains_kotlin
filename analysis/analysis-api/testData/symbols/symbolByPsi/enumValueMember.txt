@@ -1,11 +1,11 @@
 KaConstructorSymbol:
   annotations: []
   callableId: null
-  compilerVisibility: Private
   containingClassId: Style
   contextReceivers: []
   hasStableParameterNames: true
   isActual: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -23,16 +23,16 @@ KaConstructorSymbol:
     KaValueParameterSymbol:
       annotations: []
       callableId: null
-      compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: KaKotlinPropertySymbol:
         annotations: []
         backingFieldSymbol: KaBackingFieldSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Private
           contextReceivers: []
           isActual: false
+          isCompanion: false
+          isDelegated: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -56,19 +56,18 @@ KaConstructorSymbol:
           getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
           getContainingJvmClassName: Style
           getContainingModule: KaSourceModule "Sources of main"
-          deprecationStatus: null
+          deprecation: null
           importableFqName: null
         callableId: /Style.value
-        compilerVisibility: Public
         contextParameters: []
         contextReceivers: []
         getter: KaPropertyGetterSymbol:
           annotations: []
           callableId: null
-          compilerVisibility: Public
           contextReceivers: []
           hasStableParameterNames: true
           isActual: false
+          isCompanion: false
           isExpect: false
           isExtension: false
           isExternal: false
@@ -92,15 +91,16 @@ KaConstructorSymbol:
           getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
           getContainingJvmClassName: Style
           getContainingModule: KaSourceModule "Sources of main"
-          deprecationStatus: null
+          deprecation: null
           importableFqName: null
         hasBackingField: true
         hasGetter: true
         hasSetter: false
         initializer: KaNonConstantInitializerValue(val value: String)
         isActual: false
+        isCompanion: false
         isConst: false
-        isDelegatedProperty: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -128,16 +128,17 @@ KaConstructorSymbol:
         getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
         getContainingJvmClassName: Style
         getContainingModule: KaSourceModule "Sources of main"
-        deprecationStatus: null
+        deprecation: null
         javaGetterName: getValue
         javaSetterName: null
         isInline: false
         importableFqName: null
       hasDeclaredDefaultValue: false
       hasDefaultValue: false
-      hasSynthesizedName: false
       isActual: false
+      isCompanion: false
       isCrossinline: false
+      isDelegated: false
       isExpect: false
       isExtension: false
       isExternal: false
@@ -158,14 +159,14 @@ KaConstructorSymbol:
       getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
       getContainingJvmClassName: Style
       getContainingModule: KaSourceModule "Sources of main"
-      deprecationStatus: null
+      deprecation: null
       importableFqName: null
   ]
   visibility: PRIVATE
   getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
   getContainingJvmClassName: Style
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: Style
 
 KaKotlinPropertySymbol:
@@ -173,9 +174,10 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Private
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -199,19 +201,18 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
     getContainingJvmClassName: null
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   callableId: null
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -231,15 +232,16 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
     getContainingJvmClassName: null
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   hasBackingField: false
   hasGetter: true
   hasSetter: false
   initializer: null
   isActual: false
+  isCompanion: false
   isConst: false
-  isDelegatedProperty: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -267,7 +269,7 @@ KaKotlinPropertySymbol:
   getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
   getContainingJvmClassName: null
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   javaGetterName: getExitAnimation
   javaSetterName: null
   isInline: false
@@ -276,10 +278,11 @@ KaKotlinPropertySymbol:
 KaEnumEntrySymbol:
   annotations: []
   callableId: /Style.SHEET
-  compilerVisibility: Public
   contextReceivers: []
   enumEntryInitializer: KaAnonymousObjectSymbol(<local>/<no name provided>)
   isActual: false
+  isCompanion: true
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -297,7 +300,7 @@ KaEnumEntrySymbol:
   getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
   getContainingJvmClassName: Style
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: Style.SHEET
 
 KaKotlinPropertySymbol:
@@ -305,9 +308,10 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Private
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -331,19 +335,18 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
     getContainingJvmClassName: Style
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   callableId: /Style.exitAnimation
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -367,15 +370,16 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
     getContainingJvmClassName: Style
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   hasBackingField: false
   hasGetter: true
   hasSetter: false
   initializer: null
   isActual: false
+  isCompanion: false
   isConst: false
-  isDelegatedProperty: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -403,7 +407,7 @@ KaKotlinPropertySymbol:
   getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
   getContainingJvmClassName: Style
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   javaGetterName: getExitAnimation
   javaSetterName: null
   isInline: false
@@ -414,7 +418,6 @@ KaNamedClassSymbol:
   classId: Style
   classKind: ENUM_CLASS
   companionObject: null
-  compilerVisibility: Public
   contextReceivers: []
   isActual: false
   isData: false
@@ -442,6 +445,6 @@ KaNamedClassSymbol:
   visibility: PUBLIC
   getContainingFileSymbol: KaFileSymbol(enumValueMember.kt)
   getContainingModule: KaSourceModule "Sources of main"
-  annotationApplicableTargets: null
-  deprecationStatus: null
+  applicableAnnotationTargets: null
+  deprecation: null
   importableFqName: Style

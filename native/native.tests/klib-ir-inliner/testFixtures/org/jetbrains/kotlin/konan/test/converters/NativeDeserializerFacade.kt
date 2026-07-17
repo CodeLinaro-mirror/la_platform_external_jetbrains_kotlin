@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -7,10 +7,6 @@ package org.jetbrains.kotlin.konan.test.converters
 
 import org.jetbrains.kotlin.backend.common.IrModuleDependencies
 import org.jetbrains.kotlin.backend.common.IrModuleInfo
-import org.jetbrains.kotlin.backend.common.linkage.issues.UserVisibleIrModulesSupport
-import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageConfig
-import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageLogLevel
-import org.jetbrains.kotlin.backend.common.linkage.partial.PartialLinkageMode
 import org.jetbrains.kotlin.backend.common.linkage.partial.createPartialLinkageSupportForLinker
 import org.jetbrains.kotlin.backend.common.serialization.DescriptorByIdSignatureFinderImpl
 import org.jetbrains.kotlin.backend.common.serialization.DeserializationStrategy
@@ -21,15 +17,13 @@ import org.jetbrains.kotlin.backend.konan.KonanStubGeneratorExtensions
 import org.jetbrains.kotlin.backend.konan.serialization.CInteropModuleDeserializerFactory
 import org.jetbrains.kotlin.backend.konan.serialization.KonanIrLinker
 import org.jetbrains.kotlin.backend.konan.serialization.KonanManglerDesc
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.languageVersionSettings
-import org.jetbrains.kotlin.config.messageCollector
+import org.jetbrains.kotlin.cli.common.diagnosticsCollector
+import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.impl.IrFactoryImpl
-import org.jetbrains.kotlin.ir.descriptors.IrDescriptorBasedFunctionFactory
 import org.jetbrains.kotlin.ir.objcinterop.IrObjCOverridabilityCondition
 import org.jetbrains.kotlin.ir.util.ExternalDependenciesGenerator
 import org.jetbrains.kotlin.ir.util.SymbolTable
@@ -37,11 +31,12 @@ import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.isNativeStdlib
 import org.jetbrains.kotlin.library.metadata.impl.isForwardDeclarationModule
 import org.jetbrains.kotlin.library.uniqueName
+import org.jetbrains.kotlin.native.pipeline.NativeLoadedIrArtifact
 import org.jetbrains.kotlin.psi2ir.descriptors.IrBuiltInsOverDescriptors
 import org.jetbrains.kotlin.psi2ir.generators.DeclarationStubGeneratorImpl
 import org.jetbrains.kotlin.psi2ir.generators.TypeTranslatorImpl
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
-import org.jetbrains.kotlin.test.backend.ir.IrBackendInput.NativeDeserializedFromKlibBackendInput
+import org.jetbrains.kotlin.test.backend.ir.DeserializedFromKlibBackendInput
 import org.jetbrains.kotlin.test.frontend.classic.ModuleDescriptorProvider
 import org.jetbrains.kotlin.test.frontend.classic.moduleDescriptorProvider
 import org.jetbrains.kotlin.test.model.*
@@ -51,6 +46,7 @@ import org.jetbrains.kotlin.test.services.configuration.klibEnvironmentConfigura
 
 class NativeDeserializerFacade(
     testServices: TestServices,
+    private val partialLinkageLogLevel: PartialLinkageLogLevel = PartialLinkageLogLevel.ERROR, // Use the ERROR log level by default to fail any tests where PL detected any incompatibilities.
 ) : DeserializerFacade<BinaryArtifacts.KLib, IrBackendInput>(testServices, ArtifactKinds.KLib, BackendKinds.IrBackend) {
 
     override val additionalServices: List<ServiceRegistrationData>
@@ -60,16 +56,18 @@ class NativeDeserializerFacade(
         return testServices.defaultsProvider.backendKind == outputKind
     }
 
-    override fun transform(module: TestModule, inputArtifact: BinaryArtifacts.KLib): NativeDeserializedFromKlibBackendInput? {
+    override fun transform(
+        module: TestModule,
+        inputArtifact: BinaryArtifacts.KLib,
+    ): DeserializedFromKlibBackendInput<NativeLoadedIrArtifact> {
         val configuration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module)
 
         val moduleInfo = loadIrFromKlib(module, configuration)
 
-        return NativeDeserializedFromKlibBackendInput(moduleInfo, klib = inputArtifact.outputFile)
+        return DeserializedFromKlibBackendInput(NativeLoadedIrArtifact(moduleInfo, configuration), klib = inputArtifact.outputFile)
     }
 
     private fun loadIrFromKlib(module: TestModule, configuration: CompilerConfiguration): IrModuleInfo {
-        val messageCollector = configuration.messageCollector
         val symbolTable = SymbolTable(IdSignatureDescriptor(KonanManglerDesc), IrFactoryImpl)
 
         val moduleDescriptor = testServices.moduleDescriptorProvider.getModuleDescriptor(module)
@@ -84,7 +82,6 @@ class NativeDeserializerFacade(
             friendModules,
             configuration,
             symbolTable,
-            messageCollector,
         ) { if (it == mainModuleLib) moduleDescriptor else testServices.libraryProvider.getDescriptorByCompiledLibrary(it) }
     }
 
@@ -95,12 +92,15 @@ class NativeDeserializerFacade(
         friendModules: Map<String, List<String>>,
         configuration: CompilerConfiguration,
         symbolTable: SymbolTable,
-        messageCollector: MessageCollector,
         mapping: (KotlinLibrary) -> ModuleDescriptor,
     ): IrModuleInfo {
         val mainModuleLib = sortedDependencies.last()
         val typeTranslator = TypeTranslatorImpl(symbolTable, configuration.languageVersionSettings, moduleDescriptor)
         val irBuiltIns = IrBuiltInsOverDescriptors(moduleDescriptor.builtIns, typeTranslator, symbolTable)
+        val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
+            configuration.diagnosticsCollector,
+            configuration.languageVersionSettings,
+        )
 
         val forwardDeclarationsModuleDescriptor = moduleDescriptor.allDependencyModules.firstOrNull { it.isForwardDeclarationModule }
         val stubGenerator = DeclarationStubGeneratorImpl(
@@ -112,40 +112,24 @@ class NativeDeserializerFacade(
 
         val irLinker = KonanIrLinker(
             currentModule = moduleDescriptor,
-            messageCollector = messageCollector,
-            builtIns = irBuiltIns,
+            configuration = configuration,
             symbolTable = symbolTable,
             friendModules = friendModules,
             forwardModuleDescriptor = forwardDeclarationsModuleDescriptor,
             stubGenerator = stubGenerator,
             cInteropModuleDeserializerFactory = CInteropModuleDeserializerFactoryMock,
             exportedDependencies = emptyList(),
-            partialLinkageSupport = createPartialLinkageSupportForLinker(
-                // TODO KT-77493: Disable PL after all tests for invisible references would be migrated to diagnostic tests
-                partialLinkageConfig = PartialLinkageConfig(PartialLinkageMode.ENABLE, PartialLinkageLogLevel.ERROR),
-                builtIns = irBuiltIns,
-                messageCollector = messageCollector,
-            ),
+            partialLinkageConfig = PartialLinkageConfig(partialLinkageLogLevel),
+            irDiagnosticReporter = irDiagnosticReporter,
             libraryBeingCached = null,
-            userVisibleIrModulesSupport = UserVisibleIrModulesSupport(externalDependenciesLoader = UserVisibleIrModulesSupport.ExternalDependenciesLoader.EMPTY),
-            externalOverridabilityConditions = listOf(IrObjCOverridabilityCondition)
+            externalOverridabilityConditions = listOf(IrObjCOverridabilityCondition),
         )
 
         val moduleDependencies: IrModuleDependencies = deserializeDependencies(sortedDependencies, irLinker, mainModuleLib, mapping)
 
-        // TODO: If tests fail due to fictitious synthetic functions, consider passing an instance of
-        //  BuiltInFictitiousFunctionIrClassFactory here.
-        irBuiltIns.functionFactory = IrDescriptorBasedFunctionFactory(
-            irBuiltIns,
-            symbolTable,
-            typeTranslator,
-            getPackageFragment = null,
-            true
-        )
-
         irLinker.init(null)
         ExternalDependenciesGenerator(symbolTable, listOf(irLinker)).generateUnboundSymbolsAsDependencies()
-        irLinker.postProcess(inOrAfterLinkageStep = true)
+        irLinker.postProcess(irBuiltIns, inOrAfterLinkageStep = true)
 
         return IrModuleInfo(
             module = moduleDependencies.included!!,
@@ -196,8 +180,8 @@ object CInteropModuleDeserializerFactoryMock : CInteropModuleDeserializerFactory
     override fun createIrModuleDeserializer(
         moduleDescriptor: ModuleDescriptor,
         klib: KotlinLibrary,
-        moduleDependencies: Collection<IrModuleDeserializer>,
+        linker: KonanIrLinker,
     ): IrModuleDeserializer {
-        TODO("Not yet implemented")
+        TODO("TODO (KT-85312): Implement IR deserialization for C-interop libraries in tests")
     }
 }

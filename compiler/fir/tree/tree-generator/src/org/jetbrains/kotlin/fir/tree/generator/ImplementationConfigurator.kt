@@ -429,9 +429,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
             additionalImports(standardTypes)
         }
 
-        impl(typeOperatorCall) {
-            defaultFalse("argFromStubType")
-        }
+        impl(typeOperatorCall)
 
         impl(augmentedAssignment)
 
@@ -450,7 +448,7 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
         }
 
         impl(resolvedQualifier) {
-            isMutable("packageFqName", "relativeClassFqName", "isNullableLHSForCallableReference")
+            isMutable("packageFqName", "relativeClassFqName", "isNullableLhsForCallableReference")
             defaultClassIdFromRelativeClassName()
             additionalImports(regularClass)
         }
@@ -534,6 +532,10 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
                 "contextParameters", "typeParameters",
                 withGetter = true
             )
+            default("deprecationsProvider") {
+                value = "EmptyDeprecationsProvider"
+                withGetter = true
+            }
         }
 
         impl(whenSubjectExpression) {
@@ -702,6 +704,10 @@ object ImplementationConfigurator : AbstractFirTreeImplementationConfigurator() 
 
         impl(valueParameter) {
             configureCommonValueParameter()
+            default("deprecationsProvider") {
+                value = "EmptyDeprecationsProvider"
+                withGetter = true
+            }
         }
 
         impl(valueParameter, "FirDefaultSetterValueParameter") {

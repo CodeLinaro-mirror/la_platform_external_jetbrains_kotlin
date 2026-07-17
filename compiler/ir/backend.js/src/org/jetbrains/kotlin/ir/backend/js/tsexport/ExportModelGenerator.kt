@@ -1,13 +1,12 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.ir.backend.js.tsexport
 
-import org.jetbrains.kotlin.backend.common.report
+import org.jetbrains.kotlin.backend.common.getCompilerMessageLocation
 import org.jetbrains.kotlin.builtins.StandardNames
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.descriptors.ClassKind
@@ -16,12 +15,13 @@ import org.jetbrains.kotlin.descriptors.DescriptorVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.backend.js.JsIrBackendContext
 import org.jetbrains.kotlin.ir.backend.js.JsLoweredDeclarationOrigin
+import org.jetbrains.kotlin.ir.backend.js.checkers.JsKlibErrors
 import org.jetbrains.kotlin.ir.backend.js.correspondingEnumEntry
 import org.jetbrains.kotlin.ir.backend.js.ir.*
 import org.jetbrains.kotlin.ir.backend.js.lower.ES6_BOX_PARAMETER
 import org.jetbrains.kotlin.ir.backend.js.lower.isBoxParameter
-import org.jetbrains.kotlin.ir.backend.js.lower.isExportedDefaultImplementation
 import org.jetbrains.kotlin.ir.backend.js.lower.isEs6ConstructorReplacement
+import org.jetbrains.kotlin.ir.backend.js.lower.isExportedDefaultImplementation
 import org.jetbrains.kotlin.ir.backend.js.utils.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -29,10 +29,11 @@ import org.jetbrains.kotlin.ir.symbols.IrClassifierSymbol
 import org.jetbrains.kotlin.ir.symbols.IrTypeParameterSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
-import org.jetbrains.kotlin.ir.util.isInterface
 import org.jetbrains.kotlin.ir.util.isNullable
 import org.jetbrains.kotlin.js.common.makeValidES5Identifier
 import org.jetbrains.kotlin.js.config.compileLongAsBigint
+import org.jetbrains.kotlin.js.config.compileSuspendAsJsGenerator
+import org.jetbrains.kotlin.js.util.NameTable
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.utils.*
 import org.jetbrains.kotlin.utils.addToStdlib.butIf
@@ -43,24 +44,24 @@ private const val notImplementablePropertyName = "__doNotUseOrImplementIt"
 
 class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boolean) {
     private val transitiveExportCollector = TransitiveExportCollector(context)
+    private val allowExportSuspendLambdas = context.configuration.languageVersionSettings.supportsFeature(
+        LanguageFeature.JsExportingSuspendLambdas
+    )
     private val allowImplementingInterfaces = context.configuration.languageVersionSettings.supportsFeature(
         LanguageFeature.JsExportInterfacesInImplementableWay
     )
 
-    // Some declarations are exported in a special form that even with [LanguageFeature.JsExportInterfacesInImplementableWay]
-    // can't be implementable. As for example, any exported Kotlin collections right now can't be implemented on the JS / TS side
-    private val packagesThatAreNotImplementable: Set<FqName> = hashSetOf(StandardNames.COLLECTIONS_PACKAGE_FQ_NAME)
+    private fun IrClass.shouldContainImplementableSymbolProperty(hasNotExportedAbstractMember: Boolean): Boolean =
+        !hasNotExportedAbstractMember && allowImplementingInterfaces && isInterface && !isExternal && !isJsImplicitExport() && !isJsNoRuntime()
 
-    private fun IrClass.shouldContainImplementableSymbolProperty(): Boolean =
-        allowImplementingInterfaces && isInterface && !isExternal && !isJsImplicitExport() && fileOrNull?.packageFqName !in packagesThatAreNotImplementable
-
-    private fun IrClass.shouldContainNotImplementableProperty(): Boolean =
-        isJsImplicitExport() || fileOrNull?.packageFqName in packagesThatAreNotImplementable || !allowImplementingInterfaces && isInterface && !isExternal
+    private fun IrClass.shouldContainNotImplementableProperty(hasNotExportedAbstractMember: Boolean): Boolean =
+        hasNotExportedAbstractMember || isJsImplicitExport() ||
+                (!allowImplementingInterfaces && isInterface && !isExternal && !isJsNoRuntime())
 
     fun generateExport(file: IrPackageFragment): List<ExportedDeclaration> {
         val namespaceFqName = file.packageFqName
-        val exports = file.declarations.memoryOptimizedMapNotNull { declaration ->
-            declaration.takeIf { it.couldBeConvertedToExplicitExport() != true }?.let(::exportDeclaration)
+        val exports = file.declarations.memoryOptimizedFlatMap { declaration ->
+            declaration.takeIf { it.couldBeConvertedToExplicitExport() != true }?.let(::exportDeclaration).orEmpty()
         }
 
         return when {
@@ -70,19 +71,19 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         }
     }
 
-    private fun exportDeclaration(declaration: IrDeclaration): ExportedDeclaration? {
-        val candidate = getExportCandidate(declaration) ?: return null
-        if (!shouldDeclarationBeExportedImplicitlyOrExplicitly(candidate, context, declaration)) return null
+    private fun exportDeclaration(declaration: IrDeclaration): List<ExportedDeclaration> {
+        val candidate = getExportCandidate(declaration) ?: return emptyList()
+        if (!shouldDeclarationBeExportedImplicitlyOrExplicitly(candidate, context, declaration)) return emptyList()
 
         return when (candidate) {
-            is IrSimpleFunction -> exportFunction(candidate, emptyMap())
+            is IrSimpleFunction -> listOfNotNull(exportFunction(candidate, emptyMap()))
             is IrProperty -> exportProperty(candidate, emptyMap())
-            is IrClass -> exportClass(candidate, emptyMap())
-            is IrField -> null
+            is IrClass -> listOfNotNull(exportClass(candidate, emptyMap()))
+            is IrField -> emptyList()
             else -> irError("Can't export declaration") {
                 withIrEntry("candidate", candidate)
             }
-        }?.withAttributesFor(candidate)
+        }.memoryOptimizedMap { it.withAttributesFor(candidate) }
     }
 
     private fun exportClass(candidate: IrClass, outerClassTypeParameterScope: TypeParameterScope): ExportedDeclaration? {
@@ -110,6 +111,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                 val parent = function.parent
                 val realOverrideTarget = function.realOverrideTargetOrNull
                 val isStatic = function.isStaticMethod
+                val inlineClassesShouldBeUnboxed = function.isExternal
                 val isExportedDefaultImplementation = function.isExportedDefaultImplementation
                 val isInnerClassMember = parent is IrClass && parent.isInner
                 if (isStatic && isInnerClassMember && !isFactoryPropertyForInnerClass) {
@@ -124,7 +126,12 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                             ?.getJsSymbolForOverriddenDeclaration()
                             ?.let(ExportedMemberName::WellKnownSymbol)
                         ?: ExportedMemberName.Identifier(function.getExportedIdentifier()),
-                    returnType = specializedType ?: exportType(function.returnType, functionTypeParameterScope, function),
+                    returnType = specializedType ?: exportType(
+                        function.returnType,
+                        functionTypeParameterScope,
+                        function,
+                        inlineClassesShouldBeUnboxed = inlineClassesShouldBeUnboxed
+                    ),
                     typeParameters = function.typeParameters.map { functionTypeParameterScope[it.symbol]!! },
                     isMember = parent is IrClass && !isExportedDefaultImplementation,
                     isStatic = isStatic && !isFactoryPropertyForInnerClass && !isExportedDefaultImplementation,
@@ -141,6 +148,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                                 it,
                                 it.hasDefaultValue || realOverrideTarget?.parameters?.get(it.indexInParameters)?.hasDefaultValue == true,
                                 functionTypeParameterScope,
+                                inlineClassesShouldBeUnboxed
                             )
                         }
                 )
@@ -155,6 +163,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
     ): ExportedConstructor? {
         if (!constructor.isPrimary) return null
         val constructedClass = constructor.constructedClass
+        val inlineClassesShouldBeUnboxed = constructor.isExternal
         val visibility = when {
             constructedClass.isInner && !isFactoryPropertyForInnerClass -> when (constructedClass.modality) {
                 // Inner classes should be constructed as `new outerClassValue.Inner()`
@@ -175,7 +184,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         } else {
             constructor.nonDispatchParameters
                 .filterNot { it.isBoxParameter }
-                .memoryOptimizedMap { exportParameter(it, it.hasDefaultValue, typeParameterScope) }
+                .memoryOptimizedMap { exportParameter(it, it.hasDefaultValue, typeParameterScope, inlineClassesShouldBeUnboxed) }
         }
         return ExportedConstructor(
             parameters = parameters,
@@ -187,6 +196,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         parameter: IrValueParameter,
         hasDefaultValue: Boolean,
         typeParameterScope: TypeParameterScope,
+        inlineClassesShouldBeUnboxed: Boolean
     ): ExportedParameter {
         // Parameter names do not matter in d.ts files. They can be renamed as we like
         var parameterName = makeValidES5Identifier(parameter.name.asString(), withHash = false)
@@ -195,7 +205,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
         return ExportedParameter(
             parameterName,
-            exportType(parameter.type, typeParameterScope, parameter),
+            exportType(parameter.type, typeParameterScope, parameter, inlineClassesShouldBeUnboxed = inlineClassesShouldBeUnboxed),
             hasDefaultValue
         )
     }
@@ -207,14 +217,14 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         property: IrProperty,
         classTypeParameterScope: TypeParameterScope,
         isFactoryPropertyForInnerClass: Boolean = false,
-    ): ExportedDeclaration? {
+    ): List<ExportedDeclaration> {
         for (accessor in listOfNotNull(property.getter, property.setter)) {
             // Frontend will report an error on an attempt to export an extension property.
             // Just to be safe, filter out such properties here as well.
             if (accessor.parameters.any { it.kind == IrParameterKind.ExtensionReceiver })
-                return null
+                return emptyList()
             if (accessor.isFakeOverride && !accessor.isAllowedFakeOverriddenDeclaration(context)) {
-                return null
+                return emptyList()
             }
         }
 
@@ -226,17 +236,18 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         classTypeParameterScope: TypeParameterScope,
         specializeType: ExportedType? = null,
         isFactoryPropertyForInnerClass: Boolean = false,
-    ): ExportedDeclaration? {
+    ): List<ExportedDeclaration> {
         val parentClass = property.parent as? IrClass
         val isOptional = property.isEffectivelyExternal() &&
                 property.parent is IrClass &&
                 property.getter?.returnType?.isNullable() == true
 
         val isStatic = property.isStaticProperty
+        val inlineClassesShouldBeUnboxed = property.isExternal
         val isExportedDefaultImplementation = property.isExportedDefaultImplementation
         if (isStatic && property.parentClassOrNull?.isInner == true && !isFactoryPropertyForInnerClass) {
             // Static members of inner classes should only be generated in the corresponding factory property of the outer class
-            return null
+            return emptyList()
         }
 
         val isPropertyAMember = parentClass != null && !isExportedDefaultImplementation
@@ -259,23 +270,56 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                                 ?.copy(isMember = true),
                         ))
                 }
-            } ?: exportType(property.getter!!.returnType, classTypeParameterScope, property)
+            } ?: exportType(
+                property.getter!!.returnType,
+                classTypeParameterScope,
+                property,
+                inlineClassesShouldBeUnboxed = inlineClassesShouldBeUnboxed
+            )
 
-        return ExportedProperty(
-            name = ExportedMemberName.Identifier(property.getExportedIdentifier()),
-            type = propertyType,
-            mutable = property.isVar && !shouldBeExportedAsObjectWithAccessorsInside,
-            isMember = parentClass != null && !isExportedDefaultImplementation,
-            isStatic = shouldPropertyBeStatic,
-            isAbstract = parentClass?.isInterface == false && property.modality == Modality.ABSTRACT,
-            isProtected = property.visibility == DescriptorVisibilities.PROTECTED,
-            isField = parentClass?.isInterface == true,
-            isObjectGetter = isObjectGetter,
-            isOptional = isOptional,
-        )
+        val isAbstract = parentClass?.isInterface == false && property.modality == Modality.ABSTRACT
+        val isProtected = property.visibility == DescriptorVisibilities.PROTECTED
+        if (!isPropertyAMember || parentClass.isInterface) {
+            return listOf(
+                ExportedField(
+                    name = ExportedMemberName.Identifier(property.getExportedIdentifier()),
+                    type = propertyType,
+                    mutable = property.isVar && !shouldBeExportedAsObjectWithAccessorsInside,
+                    isMember = isPropertyAMember,
+                    isStatic = shouldPropertyBeStatic,
+                    isAbstract = isAbstract,
+                    isProtected = isProtected,
+                    isObjectGetter = isObjectGetter,
+                    isOptional = isOptional,
+                )
+            )
+        } else {
+            val name = ExportedMemberName.Identifier(property.getExportedIdentifier())
+            val accessors: MutableList<ExportedDeclaration> = SmartList(
+                ExportedPropertyGetter(
+                    name = name,
+                    type = propertyType,
+                    isStatic = shouldPropertyBeStatic,
+                    isAbstract = isAbstract,
+                    isProtected = isProtected,
+                ).withAttributesFor(property.getter)
+            )
+            if (property.isVar) {
+                accessors.add(
+                    ExportedPropertySetter(
+                        name = name,
+                        type = propertyType,
+                        isStatic = shouldPropertyBeStatic,
+                        isAbstract = isAbstract,
+                        isProtected = isProtected,
+                    ).withAttributesFor(property.setter)
+                )
+            }
+            return accessors
+        }
     }
 
-    private fun exportEnumEntry(field: IrField, enumEntries: Map<IrEnumEntry, Int>): ExportedProperty {
+    private fun exportEnumEntry(field: IrField, enumEntries: Map<IrEnumEntry, Int>): ExportedPropertyGetter {
         val irEnumEntry = field.correspondingEnumEntry
             ?: irError("Unable to find enum entry") {
                 withIrEntry("field", field)
@@ -286,7 +330,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         val ordinal = enumEntries.getValue(irEnumEntry)
 
         fun fakeProperty(name: String, type: ExportedType) =
-            ExportedProperty(name = ExportedMemberName.Identifier(name), type = type, mutable = false, isMember = true)
+            ExportedPropertyGetter(ExportedMemberName.Identifier(name), type)
 
         val nameProperty = fakeProperty(
             name = "name",
@@ -302,11 +346,9 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             listOf(nameProperty, ordinalProperty)
         )
 
-        return ExportedProperty(
+        return ExportedPropertyGetter(
             name = ExportedMemberName.Identifier(irEnumEntry.getExportedIdentifier()),
             type = ExportedType.IntersectionType(exportType(parentClass.defaultType, emptyMap()), type),
-            mutable = false,
-            isMember = true,
             isStatic = true,
             isProtected = parentClass.visibility == DescriptorVisibilities.PROTECTED,
         ).withAttributesFor(irEnumEntry)
@@ -323,7 +365,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             .filter { (it.classifierOrFail.owner as? IrDeclaration)?.isExportedImplicitlyOrExplicitly(context) ?: false }
             .map { exportType(it, typeParameterScope) }
             .memoryOptimizedFilter { it !is ExportedType.ErrorType }
-        val (members, nestedClasses) = exportClassDeclarations(klass, superTypes, typeParameterScope)
+        val [members, nestedClasses] = exportClassDeclarations(klass, superTypes, typeParameterScope)
         return ExportedRegularClass(
             name = name,
             isInterface = true,
@@ -353,7 +395,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         }
 
         val typeParameterScope = newTypeParameterScope(klass, outerClassTypeParameterScope, renameOuterTypeParameters = true)
-        val (members, nestedClasses) = exportClassDeclarations(klass, superTypes, typeParameterScope)
+        val [members, nestedClasses] = exportClassDeclarations(klass, superTypes, typeParameterScope)
         return exportClass(
             klass,
             superTypes,
@@ -382,7 +424,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             enumEntries
                 .keysToMap(enumEntries::indexOf)
 
-        val (members, nestedClasses) = exportClassDeclarations(klass, superTypes, emptyMap()) { candidate ->
+        val [members, nestedClasses] = exportClassDeclarations(klass, superTypes, emptyMap()) { candidate ->
             val enumExportedMember = exportAsEnumMember(candidate, enumEntriesToOrdinal)
             enumExportedMember
         }
@@ -405,7 +447,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         klass: IrClass,
         superTypes: Iterable<IrType>,
         typeParameterScope: TypeParameterScope,
-        specialProcessing: (IrDeclarationWithName) -> ExportedDeclaration? = { null }
+        specialProcessing: (IrDeclarationWithName) -> List<ExportedDeclaration> = { emptyList() }
     ): ExportedClassDeclarationsInfo {
         val members = mutableListOf<ExportedDeclaration>()
         val specialMembers = mutableListOf<ExportedDeclaration>()
@@ -414,8 +456,8 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
         klass.forEachExportedMember(context) { candidate, declaration ->
             val processingResult = specialProcessing(candidate)
-            if (processingResult != null) {
-                specialMembers.add(processingResult)
+            if (processingResult.isNotEmpty()) {
+                specialMembers.addAll(processingResult)
                 return@forEachExportedMember
             }
 
@@ -442,12 +484,12 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
                 is IrProperty ->
                     exportProperty(candidate, typeParameterScope)
-                        ?.withAttributesFor(candidate)
-                        ?.let {
+                        .map { it.withAttributesFor(candidate) }
+                        .let {
                             if (candidate.isExportedDefaultImplementation) {
-                                defaultImplementations.add(it)
+                                defaultImplementations.addAll(it)
                             } else {
-                                members.add(it)
+                                members.addAll(it)
                             }
                         }
 
@@ -478,13 +520,15 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             }
         }
 
-        if (klass.shouldContainImplementableSymbolProperty()) {
+        val klassHasNotExportedAbstractMember = klass.hasNotExportedAbstractMembers()
+
+        if (klass.shouldContainImplementableSymbolProperty(klassHasNotExportedAbstractMember)) {
             members.addOwnJsSymbolDeclaration()
             members.addImplementableSymbolProperty(klass)
         }
 
         if (!klass.isExternal) {
-            members.addSuperTypesSpecialProperties(klass, superTypes, typeParameterScope)
+            members.addSuperTypesSpecialProperties(klass, superTypes, typeParameterScope, klassHasNotExportedAbstractMember)
         }
 
         if (defaultImplementations.isNotEmpty()) {
@@ -505,7 +549,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
     /**
      * Generates a property in the outer class that can be used to construct an instance of an inner class using Kotlin-like syntax.
      */
-    private fun IrClass.toFactoryPropertyForInnerClass(outerClassTypeParameterScope: TypeParameterScope): ExportedProperty {
+    private fun IrClass.toFactoryPropertyForInnerClass(outerClassTypeParameterScope: TypeParameterScope): ExportedPropertyGetter {
         val innerClassReference = typeScriptInnerClassReference()
         val typeMembers: List<ExportedDeclaration> = buildList {
             forEachExportedMember(context) { candidate, _ ->
@@ -513,45 +557,43 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                     is IrConstructor -> {
                         val constructorTypeParameterScope =
                             newTypeParameterScope(this@toFactoryPropertyForInnerClass, outerClassTypeParameterScope)
-                        exportConstructor(candidate, constructorTypeParameterScope, isFactoryPropertyForInnerClass = true)
-                            ?.let { constructor ->
-                                ExportedConstructSignature(
-                                    parameters = constructor.parameters.drop(1),
-                                    returnType = ExportedType.ClassType(
-                                        name = innerClassReference,
-                                        arguments = constructorTypeParameterScope.values.map(ExportedType::TypeParameterRef)
-                                    ),
-                                    typeParameters = typeParameters.map { constructorTypeParameterScope[it.symbol]!! },
-                                    isProtected = constructor.isProtected,
-                                )
-                            }
+                        listOfNotNull(
+                            exportConstructor(candidate, constructorTypeParameterScope, isFactoryPropertyForInnerClass = true)
+                                ?.let { constructor ->
+                                    ExportedConstructSignature(
+                                        parameters = constructor.parameters.drop(1),
+                                        returnType = ExportedType.ClassType(
+                                            name = FqName(innerClassReference),
+                                            arguments = constructorTypeParameterScope.values.map(ExportedType::TypeParameterRef)
+                                        ),
+                                        typeParameters = typeParameters.map { constructorTypeParameterScope[it.symbol]!! },
+                                        isProtected = constructor.isProtected,
+                                    )
+                                }
+                                ?.withAttributesFor(candidate)
+                        )
                     }
-                    is IrSimpleFunction if candidate.isStaticMethod -> exportFunction(
-                        candidate,
-                        outerClassTypeParameterScope,
-                        isFactoryPropertyForInnerClass = true
+                    is IrSimpleFunction if candidate.isStaticMethod -> listOfNotNull(
+                        exportFunction(candidate, outerClassTypeParameterScope, isFactoryPropertyForInnerClass = true)
+                            ?.withAttributesFor(candidate)
                     )
                     is IrProperty if candidate.isStaticProperty -> exportProperty(
                         candidate,
                         outerClassTypeParameterScope,
                         isFactoryPropertyForInnerClass = true
-                    )
-                    else -> null
-                }?.withAttributesFor(candidate)
-
-                if (exported != null && !exported.isProtected) {
-                    add(exported)
+                    ).map { it.withAttributesFor(candidate) }
+                    else -> emptyList()
                 }
+
+                exported.filterTo(this) { !it.isProtected }
             }
         }
 
         val name = getExportedIdentifier()
 
-        return ExportedProperty(
+        return ExportedPropertyGetter(
             name = ExportedMemberName.Identifier(name),
             type = ExportedType.InlineInterfaceType(typeMembers),
-            mutable = false,
-            isMember = true,
         )
     }
 
@@ -561,24 +603,22 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
     private fun MutableList<ExportedDeclaration>.addOwnJsSymbolDeclaration() =
         add(
-            ExportedProperty(
+            ExportedField(
                 name = ExportedMemberName.Identifier(ownImplementableSymbolName),
                 type = ExportedType.Primitive.UniqueSymbol,
                 mutable = false,
                 isMember = false,
                 isStatic = true,
-                isField = true
             )
         )
 
     private fun MutableList<ExportedDeclaration>.addNotImplementableProperty(klass: IrClass) {
         add(
-            ExportedProperty(
+            ExportedField(
                 name = ExportedMemberName.Identifier(notImplementablePropertyName),
                 type = klass.generateNotImplementableBrandType(),
                 mutable = false,
                 isMember = true,
-                isField = true
             )
         )
     }
@@ -586,7 +626,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
     private fun MutableList<ExportedDeclaration>.addImplementableSymbolProperty(klass: IrClass) =
         add(
-            ExportedProperty(
+            ExportedField(
                 name = ExportedMemberName.SymbolReference(
                     "${
                         klass.getFqNameWithJsNameWhenAvailable(
@@ -599,7 +639,6 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                 mutable = false,
                 isMember = true,
                 isStatic = false,
-                isField = true
             )
         )
 
@@ -607,11 +646,12 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         klass: IrClass,
         superTypes: Iterable<IrType>,
         typeParameterScope: TypeParameterScope,
+        klassHasNotExportedAbstractMember: Boolean
     ) {
         val allSuperTypesWithBrandProperty = klass.collectAllImplementableAndNotImplementableInterfaces(superTypes)
-        val typeItselfShouldNotBeImplemented = klass.shouldContainNotImplementableProperty()
+        val typeItselfShouldNotBeImplemented = klass.shouldContainNotImplementableProperty(klassHasNotExportedAbstractMember)
 
-        val (implementableSuperTypes, notImplementableSuperTypes) = allSuperTypesWithBrandProperty.partition { it is InterfaceSuperType.ImplementableInterface }
+        val [implementableSuperTypes, notImplementableSuperTypes] = allSuperTypesWithBrandProperty.partition { it is InterfaceSuperType.ImplementableInterface }
 
         implementableSuperTypes.forEach { superType ->
             addImplementableSymbolProperty(superType.irClass)
@@ -640,12 +680,11 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             }
 
         add(
-            ExportedProperty(
+            ExportedField(
                 name = ExportedMemberName.Identifier(notImplementablePropertyName),
                 type = intersectionOfTypes,
                 mutable = false,
                 isMember = true,
-                isField = true
             )
         )
     }
@@ -653,7 +692,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
     private fun IrClass.generateNotImplementableBrandType(): ExportedType {
         return ExportedType.InlineInterfaceType(
             listOf(
-                ExportedProperty(
+                ExportedField(
                     name = ExportedMemberName.Identifier(
                         getFqNameWithJsNameWhenAvailable(
                             shouldIncludePackage = true,
@@ -663,7 +702,6 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                     type = ExportedType.Primitive.UniqueSymbol,
                     mutable = false,
                     isMember = true,
-                    isField = true,
                 )
             )
         )
@@ -727,7 +765,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
     private fun exportAsEnumMember(
         candidate: IrDeclarationWithName,
         enumEntriesToOrdinal: Map<IrEnumEntry, Int>
-    ): ExportedDeclaration? {
+    ): List<ExportedDeclaration> {
         val enumEntries = enumEntriesToOrdinal.keys
         return when (candidate) {
             is IrSimpleFunction if candidate.origin == IrDeclarationOrigin.ENUM_CLASS_SPECIAL_MEMBER -> {
@@ -740,7 +778,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                                         name = it.getFqNameWithJsNameWhenAvailable(
                                             shouldIncludePackage = !isEsModules,
                                             isEsModules = isEsModules,
-                                        ).asString(),
+                                        ),
                                         arguments = emptyList()
                                     )
                                 )
@@ -749,7 +787,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                     StandardNames.ENUM_VALUE_OF if enumEntriesToOrdinal.isEmpty() -> ExportedType.Primitive.Nothing
                     else -> null
                 }
-                exportFunction(candidate, emptyMap(), specializedType)
+                listOfNotNull(exportFunction(candidate, emptyMap(), specializedType))
             }
             is IrProperty -> {
                 if (candidate.isAllowedFakeOverriddenDeclaration(context)) {
@@ -760,28 +798,28 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                             .reduceOrNull { acc: ExportedType, s: ExportedType -> ExportedType.UnionType(acc, s) }
                             ?: ExportedType.Primitive.Nothing
                         "ordinal" -> enumEntriesToOrdinal
-                            .map { (_, ordinal) -> ExportedType.LiteralType.NumberLiteralType(ordinal) }
+                            .map { [_, ordinal] -> ExportedType.LiteralType.NumberLiteralType(ordinal) }
                             .reduceOrNull { acc: ExportedType, s: ExportedType -> ExportedType.UnionType(acc, s) }
                             ?: ExportedType.Primitive.Nothing
-                        else -> return null
+                        else -> return emptyList()
                     }
                     exportPropertyUnsafely(
                         property = candidate,
                         classTypeParameterScope = emptyMap(),
                         specializeType = type,
                     )
-                } else null
+                } else emptyList()
             }
 
             is IrField -> {
                 if (candidate.origin == IrDeclarationOrigin.FIELD_FOR_ENUM_ENTRY) {
-                    exportEnumEntry(candidate, enumEntriesToOrdinal)
+                    listOf(exportEnumEntry(candidate, enumEntriesToOrdinal))
                 } else {
-                    null
+                    emptyList()
                 }
             }
 
-            else -> null
+            else -> emptyList()
         }
     }
 
@@ -790,12 +828,11 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
                 classifierOrNull != context.irBuiltIns.enumClass &&
                 (classifierOrNull?.owner as? IrDeclaration)?.isJsImplicitExport() != true
 
-    private fun exportTypeArgument(type: IrTypeArgument, typeOwner: IrDeclaration?, typeParameterScope: TypeParameterScope): ExportedType {
-        if (type is IrTypeProjection)
-            return exportType(type.type, typeParameterScope, typeOwner)
-
-        return ExportedType.ErrorType("UnknownType ${type.render()}")
-    }
+    private fun exportTypeArgument(type: IrTypeArgument, typeOwner: IrDeclaration?, typeParameterScope: TypeParameterScope): ExportedType =
+        when (type) {
+            is IrTypeProjection -> exportType(type.type, typeParameterScope, typeOwner)
+            is IrStarProjection -> ExportedType.Primitive.Any
+        }
 
     private typealias TypeParameterScope = Map<IrTypeParameterSymbol, ExportedTypeParameter>
 
@@ -843,7 +880,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
         val nameTable = NameTable<IrTypeParameterSymbol>()
         if (shouldIncludeOuterScope && !renameOuterTypeParameters) {
-            for ((irTypeParameter, exported) in outerScope) {
+            for ([irTypeParameter, exported] in outerScope) {
                 nameTable.declareStableName(irTypeParameter, exported.name)
             }
         }
@@ -851,13 +888,13 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         // First, create all the exported type parameters without constraints, because constraints may reference a type parameter
         // that we haven't yet met.
         for (tp in newTypeParameters) {
-            this[tp.symbol] = ExportedTypeParameter(nameTable.declareFreshName(tp.symbol, tp.name.identifier))
+            this[tp.symbol] = ExportedTypeParameter(nameTable.declareFreshName(tp.symbol, tp.name.identifier), tp.variance.exportedVariance)
         }
 
         var shouldRecomputeOuterConstraints = false
         if (shouldIncludeOuterScope) {
             if (renameOuterTypeParameters) {
-                for ((irTypeParameter, exported) in outerScope) {
+                for ([irTypeParameter, exported] in outerScope) {
                     shouldRecomputeOuterConstraints = true
                     val disambiguatedName = irTypeParameter.owner.parentDeclarationsWithSelf.joinToString(separator = "\$") {
                         (it as IrDeclarationWithName).getExportedIdentifier()
@@ -871,7 +908,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
 
         // Then compute the constraints
         var i = 0
-        for ((tp, exported) in this) {
+        for ([tp, exported] in this) {
             if (!shouldRecomputeOuterConstraints && i == newTypeParameters.size) {
                 // Don't compute constraints for type parameters from the `outerScope` map, they should already be computed at this point.
                 // Unless we've renamed those type parameters, in which case we have to compute the constraints for them again.
@@ -908,6 +945,7 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         typeParameterScope: TypeParameterScope,
         typeOwner: IrDeclaration? = null,
         shouldCalculateExportedSupertypeForImplicit: Boolean = true,
+        inlineClassesShouldBeUnboxed: Boolean = false,
     ): ExportedType {
         if (type is IrDynamicType || type in currentlyProcessedTypes)
             return ExportedType.Primitive.Any
@@ -925,11 +963,10 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             nonNullType.isBoolean() -> ExportedType.Primitive.Boolean
             nonNullType.isLong() || nonNullType.isULong() -> {
                 if (!context.configuration.compileLongAsBigint) {
-                    context.report(
-                        CompilerMessageSeverity.ERROR,
-                        typeOwner,
-                        typeOwner?.file,
-                        "Long can't be exported without using of the bigint type. Add -Xes-long-as-bigint compiler argument or set target to 'es2015'"
+                    context.diagnosticReporter.report(
+                        JsKlibErrors.JS_LONG_EXPORT_ERROR,
+                        "",
+                        typeOwner?.getCompilerMessageLocation(typeOwner.file)
                     )
                 }
                 ExportedType.Primitive.BigInt
@@ -957,56 +994,87 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             nonNullType.isUnit() -> ExportedType.Primitive.Unit
             nonNullType.isNothing() -> ExportedType.Primitive.Nothing
             nonNullType.isArray() -> ExportedType.Array(exportTypeArgument(nonNullType.arguments[0], typeOwner, typeParameterScope))
-            nonNullType.isSuspendFunction() -> ExportedType.ErrorType("Suspend functions are not supported")
-            nonNullType.isFunction() -> ExportedType.Function(
-                parameters = nonNullType.arguments.dropLast(1).memoryOptimizedMap {
-                    ExportedParameter(
-                        name = (it as? IrTypeProjection)?.type?.getAnnotationArgumentValue(StandardNames.FqNames.parameterName, "name"),
-                        type = exportTypeArgument(it, typeOwner, typeParameterScope),
+            nonNullType.isFunction() ->
+                ExportedType.Function(
+                    parameters = nonNullType.exportFunctionTypeArguments(typeOwner, typeParameterScope),
+                    returnType = nonNullType.exportFunctionTypeReturnType(typeOwner, typeParameterScope)
+                )
+
+            nonNullType.isSuspendFunction() -> when {
+                !allowExportSuspendLambdas -> ExportedType.ErrorType("Suspend functions are not supported")
+                else -> {
+                    if (!context.configuration.compileSuspendAsJsGenerator) {
+                        context.diagnosticReporter.report(
+                            JsKlibErrors.JS_SUSPEND_LAMBDA_EXPORT_ERROR,
+                            "",
+                            typeOwner?.getCompilerMessageLocation(typeOwner.file)
+                        )
+                    }
+
+                    ExportedType.Function(
+                        parameters = nonNullType.exportFunctionTypeArguments(typeOwner, typeParameterScope),
+                        returnType = ExportedType.ClassType(
+                            name = FqName("Promise"),
+                            arguments = listOf(nonNullType.exportFunctionTypeReturnType(typeOwner, typeParameterScope))
+                        )
                     )
-                },
-                returnType = exportTypeArgument(nonNullType.arguments.last(), typeOwner, typeParameterScope)
-            )
+                }
+            }
 
             classifier is IrTypeParameterSymbol -> typeParameterScope[classifier]?.let(ExportedType::TypeParameterRef)
                 ?: error("Type parameter '${classifier.owner.render()}' is not in scope")
 
             classifier is IrClassSymbol -> {
-                val klass = classifier.owner
-                val isExported = klass.isExportedImplicitlyOrExplicitly(context)
-                val isImplicitlyExported = !isExported && !klass.isExternal
-                val isNonExportedExternal = klass.isExternal && !isExported
-                val name = klass.getFqNameWithJsNameWhenAvailable(
-                    shouldIncludePackage = !isNonExportedExternal && !isEsModules,
-                    isEsModules = isEsModules,
-                ).asString()
+                if (inlineClassesShouldBeUnboxed && !isMarkedNullable && classifier.owner.isSingleFieldValueClass) {
+                    val underlyingType = context.inlineClassesUtils.getInlineClassUnderlyingType(classifier.owner)
+                    val substitutedType = underlyingType.substitute(
+                        classifier.owner.typeParameters,
+                        type.arguments.map { it.typeOrNull ?: context.dynamicType }
+                    )
+                    exportType(
+                        substitutedType,
+                        typeParameterScope,
+                        typeOwner,
+                        shouldCalculateExportedSupertypeForImplicit,
+                        underlyingType.classOrNull?.owner?.isSingleFieldValueClass == true
+                    )
+                } else {
+                    val klass = classifier.owner
+                    val isExported = klass.isExportedImplicitlyOrExplicitly(context)
+                    val isImplicitlyExported = !isExported && !klass.isExternal
+                    val isNonExportedExternal = klass.isExternal && !isExported
+                    val name = klass.getFqNameWithJsNameWhenAvailable(
+                        shouldIncludePackage = !isNonExportedExternal && !isEsModules,
+                        isEsModules = isEsModules,
+                    )
 
-                val exportedSupertype = runIf(shouldCalculateExportedSupertypeForImplicit && isImplicitlyExported) {
-                    val transitiveExportedType = nonNullType.collectSuperTransitiveHierarchy()
-                    if (transitiveExportedType.isEmpty()) return@runIf null
-                    transitiveExportedType
-                        .memoryOptimizedMap { exportType(it, typeParameterScope, typeOwner) }
-                        .reduce(ExportedType::IntersectionType)
-                } ?: ExportedType.Primitive.Any
+                    val exportedSupertype = runIf(shouldCalculateExportedSupertypeForImplicit && isImplicitlyExported) {
+                        val transitiveExportedType = nonNullType.collectSuperTransitiveHierarchy()
+                        if (transitiveExportedType.isEmpty()) return@runIf null
+                        transitiveExportedType
+                            .memoryOptimizedMap { exportType(it, typeParameterScope, typeOwner) }
+                            .reduce(ExportedType::IntersectionType)
+                    } ?: ExportedType.Primitive.Any
 
-                val classType = ExportedType.ClassType(
-                    name = name,
-                    arguments = type.arguments.memoryOptimizedMap { exportTypeArgument(it, typeOwner, typeParameterScope) },
-                    classId = klass.classId,
-                )
+                    val classType = ExportedType.ClassType(
+                        name = name,
+                        arguments = type.arguments.memoryOptimizedMap { exportTypeArgument(it, typeOwner, typeParameterScope) },
+                        classId = klass.classId,
+                    )
 
-                when (klass.kind) {
-                    ClassKind.ANNOTATION_CLASS,
-                    ClassKind.ENUM_ENTRY,
-                        -> ExportedType.ErrorType("Class $name with kind: ${klass.kind}")
+                    when (klass.kind) {
+                        ClassKind.ANNOTATION_CLASS,
+                        ClassKind.ENUM_ENTRY,
+                            -> ExportedType.ErrorType("Class $name with kind: ${klass.kind}")
 
-                    ClassKind.OBJECT -> ExportedType.TypeOf(classType)
+                        ClassKind.OBJECT -> ExportedType.TypeOf(classType)
 
-                    ClassKind.CLASS,
-                    ClassKind.ENUM_CLASS,
-                    ClassKind.INTERFACE,
-                        -> classType
-                }.withImplicitlyExported(isImplicitlyExported, exportedSupertype)
+                        ClassKind.CLASS,
+                        ClassKind.ENUM_CLASS,
+                        ClassKind.INTERFACE,
+                            -> classType
+                    }.withImplicitlyExported(isImplicitlyExported, exportedSupertype)
+                }
             }
 
             else -> irError("Unexpected classifier") {
@@ -1018,6 +1086,18 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
             .also { currentlyProcessedTypes.remove(type) }
     }
 
+    private fun IrSimpleType.exportFunctionTypeArguments(typeOwner: IrDeclaration?, typeParameterScope: TypeParameterScope): List<ExportedParameter> {
+        return arguments.dropLast(1).memoryOptimizedMap {
+            ExportedParameter(
+                name = (it as? IrTypeProjection)?.type?.getAnnotationArgumentValue(StandardNames.FqNames.parameterName, "name"),
+                type = exportTypeArgument(it, typeOwner, typeParameterScope),
+            )
+        }
+    }
+
+    private fun IrSimpleType.exportFunctionTypeReturnType(typeOwner: IrDeclaration?, typeParameterScope: TypeParameterScope): ExportedType {
+        return exportTypeArgument(arguments.last(), typeOwner, typeParameterScope)
+    }
 
     /**
      * With this method we're collecting all the super types that may contain either implementable or non-implementable properties
@@ -1142,14 +1222,19 @@ class ExportModelGenerator(val context: JsIrBackendContext, val isEsModules: Boo
         while (stack.isNotEmpty()) {
             val processedClass = stack.removeLast().takeIf { it !in result } ?: continue
 
-            if (processedClass.isJsImplicitExport()) {
+            if (processedClass.couldBeConvertedToExplicitExport() == false) {
                 result[processedClass] = InterfaceSuperType.NotImplementableInterface(processedClass)
                 continue
             }
 
             if (!processedClass.isExported(context) || processedClass.isExternal) continue
 
-            if (processedClass.isInterface) {
+            if (processedClass.hasNotExportedAbstractMembers()) {
+                result[processedClass] = InterfaceSuperType.NotImplementableInterface(processedClass)
+                continue
+            }
+
+            if (processedClass.isInterface && !processedClass.isJsNoRuntime()) {
                 if (allowImplementingInterfaces) {
                     if (!shouldCopySymbolsOfTransitiveParents) continue
                     result[processedClass] = InterfaceSuperType.ImplementableInterface(processedClass)
@@ -1203,10 +1288,12 @@ fun DescriptorVisibility.toExportedVisibility() =
         else -> ExportedVisibility.DEFAULT
     }
 
-private fun <T : ExportedDeclaration> T.withAttributesFor(declaration: IrDeclaration): T {
-    declaration.getDeprecated()?.let { attributes.add(ExportedAttribute.DeprecatedAttribute(it)) }
+private fun <T : ExportedDeclaration> T.withAttributesFor(declaration: IrDeclaration?): T {
+    if (this is ExportedConstructor && visibility == ExportedVisibility.PRIVATE) return this
 
-    if (declaration.isJsExportDefault()) {
+    declaration?.getDeprecated()?.let { attributes.add(ExportedAttribute.DeprecatedAttribute(it)) }
+
+    if (declaration?.isJsExportDefault() == true) {
         attributes.add(ExportedAttribute.DefaultExport)
     }
 

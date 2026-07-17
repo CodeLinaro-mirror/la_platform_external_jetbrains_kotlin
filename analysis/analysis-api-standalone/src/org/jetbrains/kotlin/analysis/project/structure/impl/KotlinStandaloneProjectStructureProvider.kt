@@ -11,16 +11,12 @@ import com.intellij.psi.PsiFileSystemItem
 import com.intellij.psi.PsiJavaFile
 import org.jetbrains.kotlin.analysis.api.KaExperimentalApi
 import org.jetbrains.kotlin.analysis.api.platform.projectStructure.asDebugString
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaBuiltinsModule
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaLibraryModule
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaNotUnderContentRootModule
-import org.jetbrains.kotlin.analysis.api.projectStructure.KaSourceModule
-import org.jetbrains.kotlin.analysis.api.projectStructure.allDirectDependencies
+import org.jetbrains.kotlin.analysis.api.projectStructure.*
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.KotlinStaticProjectStructureProvider
 import org.jetbrains.kotlin.analysis.api.standalone.base.projectStructure.StandaloneProjectFactory.findJvmRootsForJavaFiles
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirInternals
-import org.jetbrains.kotlin.analysis.low.level.api.fir.projectStructure.LLFirBuiltinsSessionFactory
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.factory.LLFirBuiltinsSessionFactory
+import org.jetbrains.kotlin.analysis.project.structure.builder.KaModuleContainer
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.serialization.deserialization.builtins.BuiltInSerializerProtocol
 import org.jetbrains.kotlin.utils.KotlinExceptionWithAttachments
@@ -28,7 +24,7 @@ import org.jetbrains.kotlin.utils.KotlinExceptionWithAttachments
 internal class KotlinStandaloneProjectStructureProvider(
     private val platform: TargetPlatform,
     private val project: Project,
-    override val allModules: List<KaModule>,
+    private val moduleContainer: KaModuleContainer,
 ) : KotlinStaticProjectStructureProvider() {
     private val ktNotUnderContentRootModuleWithoutPsiFile by lazy {
         KaNotUnderContentRootModuleImpl(
@@ -87,6 +83,9 @@ internal class KotlinStandaloneProjectStructureProvider(
             .flatMap { it.allDirectDependencies() }
             .filterIsInstance<KaLibraryModule>()
     }
+
+    override val allModules: List<KaModule>
+        get() = moduleContainer.allModules
 
     @OptIn(KaExperimentalApi::class)
     override val allSourceFiles: List<PsiFileSystemItem> by lazy {

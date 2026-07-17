@@ -731,6 +731,9 @@ val hostAssemble by tasks.registering {
 
 tasks.named("clean", Delete::class) {
     this.delete(layout.buildDirectory)
+
+    // Make sure `clean` always run, when requested.
+    this.outputs.upToDateWhen { false }
 }
 
 // region: Stdlib
@@ -757,25 +760,28 @@ val stdlibBuildTask by tasks.registering(KonanCompileTask::class) {
             "-Xexpect-actual-classes",
             "-Xklib-ir-inliner=intra-module",
             "-Xcontext-parameters",
+            "-Xname-based-destructuring=complete",
             "-module-name", KOTLIN_NATIVE_STDLIB_NAME,
             "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=kotlin.contracts.ExperimentalContracts",
             "-opt-in=kotlin.ExperimentalMultiplatform",
             "-opt-in=kotlin.native.internal.InternalForKotlinNative",
-            "-language-version",
-            "2.3",
-            "-api-version",
-            "2.3",
             "-Xdont-warn-on-error-suppression",
             "-Xstdlib-compilation",
             "-Xklib-relative-path-base=${rootDir.canonicalPath}",
-            "-Xklib-normalize-absolute-path",
 
             // See addReturnValueCheckerInfo() in libraries/stdlib/build.gradle.kts:
             "-Xreturn-value-checker=full",
 
             "-Xfragment-refines=nativeMain:nativeWasm,nativeMain:nativeWasmWasi,nativeMain:common,nativeWasmWasi:nativeWasm,nativeWasm:common,nativeWasm:commonNonJvm,commonNonJvm:common",
             "-Xmanifest-native-targets=${platformManager.targetValues.joinToString(separator = ",") { it.visibleName }}",
+
+            // Between making a language feature stable and the next bootstrap, we need to keep providing the compiler argument.
+            // But this produces a warning
+            // "The argument ... is redundant for the current language version ..."
+            // in the bootstrap test and fails because of -Werror.
+            // To work around it, we suppress the warning.
+            "-Xwarning-level=REDUNDANT_CLI_ARG:disabled",
     ))
 
     val common by sourceSets.creating {
@@ -825,8 +831,10 @@ cacheableTargetNames.forEach { targetName ->
 
         this.klib.fileProvider(nativeStdlib.map { it.destinationDir })
         this.target.set(targetName)
+        this.makePerFileCache.set(true)
         // This path is used in `:kotlin-native:${targetName}StdlibCache`
-        this.outputDirectory.set(layout.buildDirectory.dir("cache/$targetName/$targetName-gSTATIC-system/$KOTLIN_NATIVE_STDLIB_NAME-cache"))
+        this.cacheDirectory.set(layout.buildDirectory.dir("cache/$targetName/$targetName-gSTATIC-system"))
+        this.cacheName.set(KOTLIN_NATIVE_STDLIB_NAME)
     }
 }
 

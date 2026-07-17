@@ -48,7 +48,11 @@ open class TypeCheckerState(
         return kotlinTypePreparator.prepareType(type)
     }
 
-    open fun customIsSubtypeOf(subType: KotlinTypeMarker, superType: KotlinTypeMarker): Boolean = true
+    /**
+     * `null` returned means that the regular algorithm should be used.
+     */
+    fun customIsSubtypeOf(subType: KotlinTypeMarker, superType: KotlinTypeMarker): Boolean? =
+        typeSystemContext.customSubtypingCallback?.invoke(subType, superType)
 
     protected var argumentsDepth = 0
 
@@ -271,7 +275,7 @@ object AbstractTypeChecker {
     ): Boolean {
         if (subType === superType) return true
 
-        if (!state.customIsSubtypeOf(subType, superType)) return false
+        state.customIsSubtypeOf(subType, superType)?.let { return it }
 
         return with(state) {
             with(state.typeSystemContext) {
@@ -657,8 +661,6 @@ object AbstractTypeChecker {
 
         val superTypeConstructor = superType.typeConstructor()
         if (superTypeConstructor.isIntersection()) {
-            assert(!superType.isMarkedNullable()) { "Intersection type should not be marked nullable!: $superType" }
-
             return superTypeConstructor.supertypes().all { isSubtypeOf(state, subType, it) }
         }
 

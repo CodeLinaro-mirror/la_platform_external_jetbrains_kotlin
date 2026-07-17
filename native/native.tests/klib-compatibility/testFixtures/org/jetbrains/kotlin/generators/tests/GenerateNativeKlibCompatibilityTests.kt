@@ -6,12 +6,16 @@
 package org.jetbrains.kotlin.generators.tests
 
 import org.jetbrains.kotlin.generators.dsl.junit5.generateTestGroupSuiteWithJUnit5
-import org.jetbrains.kotlin.generators.model.AnnotationModel
 import org.jetbrains.kotlin.generators.model.annotation
+import org.jetbrains.kotlin.konan.test.blackbox.support.group.UseDummyTestCaseGroupProvider
 import org.jetbrains.kotlin.konan.test.klib.AbstractCustomNativeCompilerFirstStageTest
 import org.jetbrains.kotlin.konan.test.klib.AbstractCustomNativeCompilerSecondStageTest
 import org.jetbrains.kotlin.test.HeavyTest
 import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
+import org.junit.jupiter.api.parallel.ResourceLock
+import org.junit.jupiter.api.parallel.Resources
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
@@ -25,13 +29,19 @@ fun main(args: Array<String>) {
     generateTestGroupSuiteWithJUnit5(args) {
         testGroup(testsRoot, "compiler/testData/codegen", testRunnerMethodName = "runTest") {
             testClass<AbstractCustomNativeCompilerFirstStageTest>(
-                annotations = listOf(annotation(HeavyTest::class.java))
+                annotations = listOf(
+                    provider<UseDummyTestCaseGroupProvider>(),
+                    annotation(HeavyTest::class.java),
+                )
             ) {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir, excludedPattern = CUSTOM_FIRST_STAGE_EXCLUSION_PATTERN)
                 model("boxInline")
             }
             testClass<AbstractCustomNativeCompilerSecondStageTest>(
-                annotations = listOf(annotation(HeavyTest::class.java))
+                annotations = listOf(
+                    provider<UseDummyTestCaseGroupProvider>(),
+                    annotation(HeavyTest::class.java),
+                )
             ) {
                 model("box", excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
                 model("boxInline")
@@ -41,7 +51,8 @@ fun main(args: Array<String>) {
                 suiteTestClassName = "CustomNativeAggregateFirstStageTestGenerated",
                 annotations = listOf(
                     annotation(HeavyTest::class.java),
-                    aggregate(),
+                    annotation(Tag::class.java, "aggregate-first-stage"),
+                    provider<UseDummyTestCaseGroupProvider>(),
                 )
             ) {
                 model("boxInline")
@@ -50,13 +61,38 @@ fun main(args: Array<String>) {
                 suiteTestClassName = "CustomNativeAggregateSecondStageTestGenerated",
                 annotations = listOf(
                     annotation(HeavyTest::class.java),
-                    aggregate(),
+                    annotation(Tag::class.java, "aggregate-second-stage"),
+                    provider<UseDummyTestCaseGroupProvider>(),
                 )
             ) {
                 model("boxInline")
             }
         }
+
+        // Native-specific codegen/box tests based on Compiler Core testinfra
+        testGroup(testsRoot, "native/native.tests/testData/codegen") {
+            testClass<AbstractCustomNativeCompilerFirstStageTest>(
+                suiteTestClassName = "CustomNativeSpecificFirstStageTestGenerated",
+                annotations = listOf(
+                    annotation(HeavyTest::class.java),
+                    provider<UseDummyTestCaseGroupProvider>(),
+                )
+            ) {
+                model()
+            }
+            testClass<AbstractCustomNativeCompilerSecondStageTest>(
+                suiteTestClassName = "CustomNativeSpecificSecondStageTestGenerated",
+                annotations = listOf(
+                    annotation(HeavyTest::class.java),
+                    provider<UseDummyTestCaseGroupProvider>(),
+                )
+            ) {
+                model(
+                    // only on Linux/x86: ld.lld: error: undefined symbol: stat unsupported: function is defined in a header file
+                    excludedPattern = "^(1|statbuf)\\.kt\$",
+                )
+            }
+        }
     }
 }
 
-private fun aggregate(): AnnotationModel = annotation(Tag::class.java, "aggregate")

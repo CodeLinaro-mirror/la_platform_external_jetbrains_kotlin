@@ -64,23 +64,6 @@ fun Project.kotlinStdlib(suffix: String? = null, classifier: String? = null): An
 }
 
 /**
- * If some MPP project depends on kotlin stdlib and it is included in JPS build, then it will depend
- *   on kotlin-stdlib-jdk7/8 of the bootstrap version during import (without JPS it will be the snapshot stdlib).
- * And since no other project actually doesn't depend on these specific version of the stdlib, they won't be
- *   added to the `verification-metadata.xml` during bootstrap update, which will cause JPS import to fail.
- * So to workaround this problem, these artifacts are referenced manually in all required projects
- */
-fun DependencyHandler.implicitDependenciesOnJdkVariantsOfBootstrapStdlib(project: Project) {
-    implicitDependencies(project.jdkVariantsOfBootstrapStdlib(7))
-    implicitDependencies(project.jdkVariantsOfBootstrapStdlib(8))
-}
-
-private fun Project.jdkVariantsOfBootstrapStdlib(variant: Int): Any {
-    require(variant == 7 || variant == 8) { "There are only jdk7 and jdk8 stdlib, but jdk$variant passed"}
-    return kotlinDep(listOfNotNull("stdlib", "jdk$variant").joinToString("-"), bootstrapKotlinVersion)
-}
-
-/**
  * Use this function to declare a dependency on kotlin-test project artifacts.
  *
  * It creates either a project dependency or a binary dependency on bootstrap artifacts when JPS build is imported.
@@ -205,26 +188,6 @@ val Project.nodejsVersion: String get() = property("versions.nodejs") as String
 val Project.nodejsLtsVersion: String get() = property("versions.nodejs.lts") as String
 val Project.nodejsVersionForBuildingWasmDebugBrowsers: String get() = property("versions.nodejs.for.building.wasm.debug.browsers") as String
 
-fun File.matchMaybeVersionedArtifact(baseName: String) = name.matches(baseName.toMaybeVersionedJarRegex())
-
-private val wildcardsRe = """[^*?]+|(\*)|(\?)""".toRegex()
-
-private fun String.wildcardsToEscapedRegexString(): String = buildString {
-    wildcardsRe.findAll(this@wildcardsToEscapedRegexString).forEach {
-        when {
-            it.groups[1] != null -> append(".*")
-            it.groups[2] != null -> append(".")
-            else -> append("\\Q${it.groups[0]!!.value}\\E")
-        }
-    }
-}
-
-private fun String.toMaybeVersionedJarRegex(): Regex {
-    val hasJarExtension = endsWith(".jar")
-    val escaped = this.wildcardsToEscapedRegexString()
-    return Regex(if (hasJarExtension) escaped else "$escaped(-\\d.*)?\\.jar") // TODO: consider more precise version part of the regex
-}
-
 fun Project.firstFromJavaHomeThatExists(
     vararg paths: String,
     jdkHome: File = File((this.property("JDK_1_8") ?: this.property("JDK_18") ?: error("Can't find JDK_1_8 property")) as String)
@@ -246,10 +209,6 @@ fun Project.toolsJar(): FileCollection = files(
 val compilerManifestClassPath
     get() = "annotations-13.0.jar kotlin-stdlib.jar kotlin-reflect.jar kotlin-script-runtime.jar kotlinx-coroutines-core-jvm.jar"
 
-object EmbeddedComponents {
-    const val CONFIGURATION_NAME = "embedded"
-}
-
 fun RepositoryHandler.githubTag(ghUser: String, repo: String, revisionPrefix: String = "v", groupAlias: String? = null) {
     exclusiveContent {
         forRepository {
@@ -267,6 +226,7 @@ fun RepositoryHandler.githubTag(ghUser: String, repo: String, revisionPrefix: St
         }
     }
 }
+
 fun RepositoryHandler.githubRelease(ghUser: String, repo: String, revisionPrefix: String = "v", groupAlias: String? = null) {
     exclusiveContent {
         forRepository {
@@ -284,14 +244,15 @@ fun RepositoryHandler.githubRelease(ghUser: String, repo: String, revisionPrefix
         }
     }
 }
+
 fun RepositoryHandler.githubCommit(ghUser: String, repo: String, groupAlias: String? = null) {
     exclusiveContent {
         forRepository {
             ivy {
                 name = "Github Commit: $ghUser/$repo"
-                url = URI("https://github.com/$ghUser/$repo/zipball/")
+                url = URI("https://github.com/$ghUser/$repo/archive/")
                 patternLayout {
-                    artifact("[revision]")
+                    artifact("[revision].[ext]")
                 }
                 metadataSources { artifact() }
             }

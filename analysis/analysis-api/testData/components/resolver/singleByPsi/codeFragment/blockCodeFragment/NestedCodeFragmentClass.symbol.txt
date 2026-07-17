@@ -1,2 +1,7 @@
-KtNameReferenceExpression(152,157): 'Local'
-  null
+KtNameReferenceExpression(149,154): 'Local'
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      Local
+    ]

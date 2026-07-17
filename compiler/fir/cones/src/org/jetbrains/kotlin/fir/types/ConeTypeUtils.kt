@@ -49,7 +49,7 @@ val ConeKotlinType.isMarkedNullable: Boolean
         is ConeIntegerLiteralType -> isMarkedNullable
         is ConeTypeVariableType -> isMarkedNullable
         is ConeDefinitelyNotNullType -> false
-        is ConeIntersectionType -> false
+        is ConeIntersectionType -> intersectedTypes.all { it.isMarkedNullable }
         is ConeStubType -> isMarkedNullable
     }
 
@@ -80,6 +80,7 @@ inline fun ConeKotlinType.forEachType(
         val next = stack.popLast().let(prepareType)
         action(next)
 
+        @Suppress("SuspiciousWhenOverConeKotlinType")
         when (next) {
             is ConeFlexibleType -> {
                 stack.add(next.lowerBound)
@@ -104,6 +105,7 @@ private fun ConeKotlinType.contains(predicate: (ConeKotlinType) -> Boolean, visi
     if (predicate(this)) return true
     visited += this
 
+    @Suppress("SuspiciousWhenOverConeKotlinType")
     return when (this) {
         is ConeFlexibleType -> lowerBound.contains(predicate, visited) || !isTrivial && upperBound.contains(predicate, visited)
         is ConeDefinitelyNotNullType -> original.contains(predicate, visited)
@@ -138,10 +140,12 @@ fun ConeKotlinType.lowerBoundIfFlexible(): ConeRigidType {
     }
 }
 
-fun ConeIntersectionType.withUpperBound(upperBound: ConeKotlinType): ConeIntersectionType {
+@OptIn(DelicateIntersectionConstructor::class)
+fun ConeIntersectionType.withUpperBound(upperBound: ConeKotlinType?): ConeIntersectionType {
     return ConeIntersectionType(intersectedTypes, upperBoundForApproximation = upperBound)
 }
 
+@OptIn(DelicateIntersectionConstructor::class)
 inline fun ConeIntersectionType.mapTypes(func: (ConeKotlinType) -> ConeKotlinType): ConeIntersectionType {
     return ConeIntersectionType(intersectedTypes.map(func), upperBoundForApproximation?.let(func))
 }
@@ -205,7 +209,7 @@ fun ConeKotlinType.hasError(): Boolean = contains { it is ConeErrorType }
 
 fun ConeKotlinType.hasCapture(): Boolean = contains { it is ConeCapturedType }
 
-fun ConeRigidType.getConstructor(): TypeConstructorMarker {
+fun ConeRigidType.getConstructor(): ConeTypeConstructorMarker {
     return when (this) {
         is ConeLookupTagBasedType -> this.lookupTag
         is ConeCapturedType -> this.constructor

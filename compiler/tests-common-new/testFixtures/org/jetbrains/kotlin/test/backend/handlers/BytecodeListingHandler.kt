@@ -12,13 +12,10 @@ import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.CHECK_BYTECODE
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.DONT_SORT_DECLARATIONS
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.IGNORE_ANNOTATIONS
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives.WITH_SIGNATURES
-import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives.FIR_DUMP
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.model.BinaryArtifacts
-import org.jetbrains.kotlin.test.model.FrontendKinds
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.TestServices
-import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.moduleStructure
 import org.jetbrains.kotlin.test.utils.MultiModuleInfoDumper
 import org.jetbrains.kotlin.test.utils.withExtension
@@ -32,10 +29,8 @@ class BytecodeListingHandler(testServices: TestServices) : JvmBinaryArtifactHand
 
     private val multiModuleInfoDumper = MultiModuleInfoDumper()
 
-    private var firDumpEnabled = false
-
     override fun processModule(module: TestModule, info: BinaryArtifacts.Jvm) {
-        firDumpEnabled = firDumpEnabled || FIR_DUMP in module.directives
+        checkArtifact(info)
         if (CHECK_BYTECODE_LISTING !in module.directives) return
 
         val classes = info.classFileFactory.getClassFiles()
@@ -63,27 +58,13 @@ class BytecodeListingHandler(testServices: TestServices) : JvmBinaryArtifactHand
     }
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
-        val sourceFile = testServices.moduleStructure.originalTestDataFiles.first()
-        val defaultTxtFile = sourceFile.withExtension(".txt")
-        val firTxtFile = sourceFile.withExtension(".fir.txt")
-
-        val isFir = testServices.defaultsProvider.frontendKind == FrontendKinds.FIR
-
-        val actualFile = firTxtFile.takeIf { isFir && it.exists() } ?: defaultTxtFile
+        val dumpFile = testServices.moduleStructure.originalTestDataFiles.first().withExtension(".txt")
 
         if (multiModuleInfoDumper.isEmpty()) {
-            if (actualFile == defaultTxtFile || (!firDumpEnabled && actualFile == firTxtFile)) {
-                assertions.assertFileDoesntExist(actualFile, CHECK_BYTECODE_LISTING)
-            }
+            assertions.assertFileDoesntExist(dumpFile, CHECK_BYTECODE_LISTING)
             return
         }
 
-        assertions.assertEqualsToFile(actualFile, multiModuleInfoDumper.generateResultingDump())
-
-        if (isFir && actualFile == firTxtFile) {
-            if (firTxtFile.readText().trim() == defaultTxtFile.readText().trim()) assertions.fail {
-                "K1 and FIR golden files are identical. Remove $firTxtFile."
-            }
-        }
+        assertions.assertEqualsToFile(dumpFile, multiModuleInfoDumper.generateResultingDump())
     }
 }

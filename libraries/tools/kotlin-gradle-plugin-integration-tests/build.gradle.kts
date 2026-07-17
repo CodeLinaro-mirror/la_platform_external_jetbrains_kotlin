@@ -55,6 +55,7 @@ fun createConfigurationToBeConsumedInTests(name: String, dependencyProject: Stri
 
 createConfigurationToBeConsumedInTests("applePrivacyManifestPlugin", ":kotlin-privacy-manifests-plugin")
 createConfigurationToBeConsumedInTests("sandboxPlugin", ":plugins:plugin-sandbox")
+createConfigurationToBeConsumedInTests("composeCompilerRuntimeTestUtils", ":plugins:compose-compiler-plugin:compiler-hosted:runtime-test-utils")
 
 dependencies {
     testImplementation(testFixtures(project(":kotlin-gradle-plugin"))) {
@@ -228,7 +229,9 @@ val gradleVersions = listOf(
     "9.0.0",
     "9.1.0",
     "9.2.1",
-    "9.3.0",
+    "9.3.1",
+    "9.4.1",
+    "9.5.1",
 )
 
 // Keep in sync with testTags.kt
@@ -241,10 +244,11 @@ enum class JunitTag {
     AndroidKGP,
     OtherKGP,
     SwiftExportKGP,
+    SwiftPMImportKGP
 }
 
 if (project.kotlinBuildProperties.isTeamcityBuild.get()) {
-    val junitTags = JunitTag.values().filter { it != JunitTag.SwiftExportKGP }.map { it.name }
+    val junitTags = JunitTag.values().filter { it !in setOf(JunitTag.SwiftExportKGP, JunitTag.SwiftPMImportKGP) }.map { it.name }
     val gradleVersionTaskGroup = "Kotlin Gradle Plugin Verification grouped by Gradle version"
 
     junitTags.forEach { junitTag ->
@@ -308,6 +312,10 @@ val perTagJunitTasks = JunitTag.values().map { junitTag ->
         JunitTag.SwiftExportKGP -> junitTag.taskConfiguration(
             "Run Swift Export Kotlin Gradle plugin tests",
             "kgpSwiftExportTests",
+        )
+        JunitTag.SwiftPMImportKGP -> junitTag.taskConfiguration(
+            "Run SwiftPM import Kotlin Gradle plugin tests",
+            "kgpSwiftPMImportTests",
         )
         JunitTag.JsKGP -> junitTag.taskConfiguration(
             "Run tests for Kotlin/JS part of Gradle plugin",
@@ -423,7 +431,7 @@ tasks.withType<Test>().configureEach {
 
     systemProperty("kotlinVersion", rootProject.extra["kotlinVersion"] as String)
     systemProperty("runnerGradleVersion", gradle.gradleVersion)
-    systemProperty("composeSnapshotVersion", composeRuntimeSnapshot.versions.snapshot.version.get())
+    systemProperty("composeVersion", composeRuntimeSnapshot.versions.runtime.version.get())
     systemProperty("composeSnapshotId", composeRuntimeSnapshot.versions.snapshot.id.get())
 
     val classpathVariables = configurationToBeConsumedInTests

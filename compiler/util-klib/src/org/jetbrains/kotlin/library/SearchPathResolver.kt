@@ -1,7 +1,7 @@
 package org.jetbrains.kotlin.library
 
 import org.jetbrains.kotlin.konan.file.File
-import org.jetbrains.kotlin.konan.library.isFromKotlinNativeDistribution
+import org.jetbrains.kotlin.konan.library.isImplicitlyLoadedFromKotlinNativeDistribution
 import org.jetbrains.kotlin.library.KlibConstants.KLIB_FILE_EXTENSION
 import org.jetbrains.kotlin.library.KlibConstants.KLIB_FILE_EXTENSION_WITH_DOT
 import org.jetbrains.kotlin.library.SearchPathResolver.LookupResult
@@ -15,6 +15,7 @@ import java.nio.file.Paths
 const val KOTLIN_NATIVE_STDLIB_NAME: String = "stdlib"
 const val KOTLIN_JS_STDLIB_NAME: String = "kotlin"
 const val KOTLIN_WASM_STDLIB_NAME: String = "kotlin"
+const val KOTLIN_JKLIB_STDLIB_NAME: String = "kotlin-stdlib"
 const val KOTLINTEST_MODULE_NAME: String = "kotlin-test"
 
 interface SearchPathResolver<L : KotlinLibrary> : WithLogger {
@@ -226,7 +227,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
                 .filterNot { it.name.removeSuffixIfPresent(KLIB_FILE_EXTENSION_WITH_DOT) == KOTLIN_NATIVE_STDLIB_NAME }
                 .map { RequiredUnresolvedLibrary(it.absolutePath) }
                 .map { resolve(it) }
-                .onEach { it.isFromKotlinNativeDistribution = true }
+                .onEach { it.isImplicitlyLoadedFromKotlinNativeDistribution = true }
         } else emptySequence()
 
     override fun defaultLinks(noStdLib: Boolean, noDefaultLibs: Boolean, noEndorsedLibs: Boolean): List<L> {
@@ -235,7 +236,7 @@ abstract class KotlinLibrarySearchPathResolver<L : KotlinLibrary>(
 
         if (!noStdLib) {
             val library = resolve(RequiredUnresolvedLibrary(KOTLIN_NATIVE_STDLIB_NAME))
-            library.isFromKotlinNativeDistribution = true
+            library.isImplicitlyLoadedFromKotlinNativeDistribution = true
             result.add(library)
         }
 

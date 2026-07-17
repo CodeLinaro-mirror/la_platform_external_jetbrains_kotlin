@@ -157,6 +157,7 @@ public class Flags {
             boolean isSuspend,
             boolean isExpect,
             boolean hasStableParameterNames,
+            boolean isStatic,
             ProtoBuf.ReturnValueStatus returnValueStatus
     ) {
         return HAS_ANNOTATIONS.toFlags(hasAnnotations)
@@ -172,6 +173,7 @@ public class Flags {
                | IS_EXPECT_FUNCTION.toFlags(isExpect)
                | IS_FUNCTION_WITH_NON_STABLE_PARAMETER_NAMES.toFlags(!hasStableParameterNames)
                | RETURN_VALUE_STATUS_FUNCTION.toFlags(returnValueStatus)
+               | IS_STATIC_FUNCTION.toFlags(isStatic)
                 ;
     }
 
@@ -189,6 +191,7 @@ public class Flags {
             boolean isExternal,
             boolean isDelegated,
             boolean isExpect,
+            boolean isStatic,
             ProtoBuf.ReturnValueStatus returnValueStatus
     ) {
         return HAS_ANNOTATIONS.toFlags(hasAnnotations)
@@ -205,6 +208,7 @@ public class Flags {
                | IS_DELEGATED.toFlags(isDelegated)
                | IS_EXPECT_PROPERTY.toFlags(isExpect)
                | RETURN_VALUE_STATUS_PROPERTY.toFlags(returnValueStatus)
+               | IS_STATIC_PROPERTY.toFlags(isStatic)
                 ;
     }
 

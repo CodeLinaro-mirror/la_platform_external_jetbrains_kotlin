@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.gradle.util.mockGenerateProjectStructureMetadataTask
 import org.gradle.api.Project
 import org.gradle.api.plugins.JavaLibraryPlugin
 import org.jetbrains.kotlin.gradle.dependencyResolutionTests.mavenCentralCacheRedirector
+import org.jetbrains.kotlin.gradle.dependencyResolutionTests.kotlinBuildDeps
 import org.jetbrains.kotlin.gradle.dsl.multiplatformExtension
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinBinaryDependency
 import org.jetbrains.kotlin.gradle.idea.tcs.IdeaKotlinResolvedBinaryDependency
@@ -37,11 +38,10 @@ class IdeJvmAndAndroidDependencyResolutionTest {
     private fun Project.configureAndroidAndMultiplatform(enableDefaultStdlib: Boolean = false) {
         enableDefaultStdlibDependency(enableDefaultStdlib)
         enableDependencyVerification(false)
-        setMultiplatformAndroidSourceSetLayoutVersion(2)
         applyMultiplatformPlugin()
         plugins.apply("com.android.library")
         androidExtension.configureDefaults()
-        if (enableDefaultStdlib) repositories.mavenLocal()
+        repositories.kotlinBuildDeps()
         repositories.mavenCentralCacheRedirector()
 
         project.multiplatformExtension.applyHierarchyTemplate {
@@ -95,7 +95,7 @@ class IdeJvmAndAndroidDependencyResolutionTest {
 
     @Test
     fun `test - project to multiplatform project dependency`() {
-        val root = buildProject { setMultiplatformAndroidSourceSetLayoutVersion(2) }
+        val root = buildProject { }
         val producer = buildProject({ withParent(root).withName("producer") }) { configureAndroidAndMultiplatform() }
         val consumer = buildProject({ withParent(root).withName("consumer") }) { configureAndroidAndMultiplatform() }
 
@@ -106,8 +106,8 @@ class IdeJvmAndAndroidDependencyResolutionTest {
         producer.mockGenerateProjectStructureMetadataTaskOutputs()
 
         root.allprojects { project ->
-            project.repositories.mavenLocal()
-            project.repositories.mavenCentral()
+            project.repositories.kotlinBuildDeps()
+            project.repositories.mavenCentralCacheRedirector()
         }
 
         consumer.multiplatformExtension.sourceSets.getByName("commonMain").dependencies {
@@ -179,7 +179,7 @@ class IdeJvmAndAndroidDependencyResolutionTest {
 
     @Test
     fun `test - KT-59020 - transitive project dependency to self`() {
-        val root = buildProject { setMultiplatformAndroidSourceSetLayoutVersion(2) }
+        val root = buildProject { }
         val a = buildProject({ withParent(root).withName("a") }) { configureAndroidAndMultiplatform() }
         val b = buildProject({ withParent(root).withName("b") }) { configureAndroidAndMultiplatform() }
 

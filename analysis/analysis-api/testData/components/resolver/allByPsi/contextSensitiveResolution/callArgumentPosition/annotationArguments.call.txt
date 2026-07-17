@@ -86,7 +86,7 @@ KtAnnotationEntry(157,163): '@A1(X)'
       }
 
 KtConstructorCalleeExpression(158,160): 'A1'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -125,7 +125,37 @@ KtUserType(158,160): 'A1'
   null
 
 KtNameReferenceExpression(158,160): 'A1'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = A1
+        symbol = <constructor>(value: MyEnum): A1
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = MyEnum
+            symbol = value: MyEnum
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        X -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = MyEnum
+          symbol = value: MyEnum
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(160,163): '(X)'
   null
@@ -134,7 +164,7 @@ KtValueArgument(161,162): 'X'
   null
 
 KtNameReferenceExpression(161,162): 'X'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -233,7 +263,7 @@ KtAnnotationEntry(233,242): '@A2(X, Y)'
       }
 
 KtConstructorCalleeExpression(234,236): 'A2'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -279,7 +309,44 @@ KtUserType(234,236): 'A2'
   null
 
 KtNameReferenceExpression(234,236): 'A2'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = A2
+        symbol = <constructor>(vararg value: MyEnum): A2
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = MyEnum
+            symbol = vararg value: MyEnum
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        X -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = MyEnum
+          symbol = vararg value: MyEnum
+          contextParameters = []
+          callableId = null),
+        Y -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = MyEnum
+          symbol = vararg value: MyEnum
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(236,242): '(X, Y)'
   null
@@ -288,7 +355,7 @@ KtValueArgument(237,238): 'X'
   null
 
 KtNameReferenceExpression(237,238): 'X'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -311,7 +378,7 @@ KtValueArgument(240,241): 'Y'
   null
 
 KtNameReferenceExpression(240,241): 'Y'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -376,7 +443,7 @@ KtAnnotationEntry(259,271): '@A2(*[X, Y])'
       }
 
 KtConstructorCalleeExpression(260,262): 'A2'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -415,7 +482,37 @@ KtUserType(260,262): 'A2'
   null
 
 KtNameReferenceExpression(260,262): 'A2'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = A2
+        symbol = <constructor>(vararg value: MyEnum): A2
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = MyEnum
+            symbol = vararg value: MyEnum
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        [X, Y] -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = MyEnum
+          symbol = vararg value: MyEnum
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(262,271): '(*[X, Y])'
   null
@@ -466,7 +563,7 @@ KtCollectionLiteralExpression(264,270): '[X, Y]'
       }
 
 KtNameReferenceExpression(265,266): 'X'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -486,7 +583,7 @@ KtNameReferenceExpression(265,266): 'X'
       typeArgumentsMapping = {}
 
 KtNameReferenceExpression(268,269): 'Y'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -590,7 +687,7 @@ KtAnnotationEntry(342,350): '@A3([X])'
       }
 
 KtConstructorCalleeExpression(343,345): 'A3'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -629,7 +726,37 @@ KtUserType(343,345): 'A3'
   null
 
 KtNameReferenceExpression(343,345): 'A3'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = A3
+        symbol = <constructor>(value: kotlin.Array<MyEnum>): A3
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = kotlin.Array<MyEnum>
+            symbol = value: kotlin.Array<MyEnum>
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        [X] -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = kotlin.Array<MyEnum>
+          symbol = value: kotlin.Array<MyEnum>
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(345,350): '([X])'
   null
@@ -673,7 +800,7 @@ KtCollectionLiteralExpression(346,349): '[X]'
       }
 
 KtNameReferenceExpression(347,348): 'X'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -738,7 +865,7 @@ KtAnnotationEntry(367,382): '@A3(arrayOf(X))'
       }
 
 KtConstructorCalleeExpression(368,370): 'A3'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -777,7 +904,37 @@ KtUserType(368,370): 'A3'
   null
 
 KtNameReferenceExpression(368,370): 'A3'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = A3
+        symbol = <constructor>(value: kotlin.Array<MyEnum>): A3
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = kotlin.Array<MyEnum>
+            symbol = value: kotlin.Array<MyEnum>
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        arrayOf(X) -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = kotlin.Array<MyEnum>
+          symbol = value: kotlin.Array<MyEnum>
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(370,382): '(arrayOf(X))'
   null
@@ -821,7 +978,7 @@ KtCallExpression(371,381): 'arrayOf(X)'
       }
 
 KtNameReferenceExpression(371,378): 'arrayOf'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -862,7 +1019,7 @@ KtValueArgument(379,380): 'X'
   null
 
 KtNameReferenceExpression(379,380): 'X'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -951,7 +1108,7 @@ KtAnnotationEntry(443,457): '@A4(MAX_VALUE)'
       }
 
 KtConstructorCalleeExpression(444,446): 'A4'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -990,7 +1147,37 @@ KtUserType(444,446): 'A4'
   null
 
 KtNameReferenceExpression(444,446): 'A4'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = A4
+        symbol = <constructor>(value: kotlin.Int): A4
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = value: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        MAX_VALUE -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = value: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(446,457): '(MAX_VALUE)'
   null
@@ -999,7 +1186,7 @@ KtValueArgument(447,456): 'MAX_VALUE'
   null
 
 KtNameReferenceExpression(447,456): 'MAX_VALUE'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1064,7 +1251,7 @@ KtAnnotationEntry(473,492): '@Retention(RUNTIME)'
       }
 
 KtConstructorCalleeExpression(474,483): 'Retention'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1103,7 +1290,37 @@ KtUserType(474,483): 'Retention'
   null
 
 KtNameReferenceExpression(474,483): 'Retention'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.annotation.Retention
+        symbol = <constructor>(value: kotlin.annotation.AnnotationRetention): kotlin.annotation.Retention
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = kotlin.annotation.AnnotationRetention
+            symbol = value: kotlin.annotation.AnnotationRetention
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        RUNTIME -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = kotlin.annotation.AnnotationRetention
+          symbol = value: kotlin.annotation.AnnotationRetention
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(483,492): '(RUNTIME)'
   null
@@ -1112,7 +1329,7 @@ KtValueArgument(484,491): 'RUNTIME'
   null
 
 KtNameReferenceExpression(484,491): 'RUNTIME'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1172,7 +1389,7 @@ KtAnnotationEntry(493,517): '@Target(CLASS, PROPERTY)'
       }
 
 KtConstructorCalleeExpression(494,500): 'Target'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1218,7 +1435,44 @@ KtUserType(494,500): 'Target'
   null
 
 KtNameReferenceExpression(494,500): 'Target'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.annotation.Target
+        symbol = <constructor>(vararg allowedTargets: kotlin.annotation.AnnotationTarget): kotlin.annotation.Target
+        valueParameters = [
+          KaVariableSignature:
+            name = allowedTargets
+            receiverType = null
+            returnType = kotlin.annotation.AnnotationTarget
+            symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        CLASS -> (KaVariableSignature:
+          name = allowedTargets
+          receiverType = null
+          returnType = kotlin.annotation.AnnotationTarget
+          symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+          contextParameters = []
+          callableId = null),
+        PROPERTY -> (KaVariableSignature:
+          name = allowedTargets
+          receiverType = null
+          returnType = kotlin.annotation.AnnotationTarget
+          symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+          contextParameters = []
+          callableId = null)
+      }
 
 KtValueArgumentList(500,517): '(CLASS, PROPERTY)'
   null
@@ -1227,7 +1481,7 @@ KtValueArgument(501,506): 'CLASS'
   null
 
 KtNameReferenceExpression(501,506): 'CLASS'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1250,7 +1504,7 @@ KtValueArgument(508,516): 'PROPERTY'
   null
 
 KtNameReferenceExpression(508,516): 'PROPERTY'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -1293,7 +1547,7 @@ KtAnnotationEntry(549,562): '@MyAnnotation'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(550,562): 'MyAnnotation'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1316,7 +1570,21 @@ KtUserType(550,562): 'MyAnnotation'
   null
 
 KtNameReferenceExpression(550,562): 'MyAnnotation'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyAnnotation
+        symbol = <constructor>(): MyAnnotation
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtTypeReference(570,573): 'Int'
   null
@@ -1354,7 +1622,7 @@ KtAnnotationEntry(579,592): '@MyAnnotation'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(580,592): 'MyAnnotation'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1377,7 +1645,21 @@ KtUserType(580,592): 'MyAnnotation'
   null
 
 KtNameReferenceExpression(580,592): 'MyAnnotation'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyAnnotation
+        symbol = <constructor>(): MyAnnotation
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtNamedFunction(608,641): '@MyAnnotation'
   null
@@ -1403,7 +1685,7 @@ KtAnnotationEntry(608,621): '@MyAnnotation'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(609,621): 'MyAnnotation'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1426,7 +1708,21 @@ KtUserType(609,621): 'MyAnnotation'
   null
 
 KtNameReferenceExpression(609,621): 'MyAnnotation'
-  null
+  KaCallResolutionSuccess:
+    call = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyAnnotation
+        symbol = <constructor>(): MyAnnotation
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtParameterList(636,638): '()'
   null

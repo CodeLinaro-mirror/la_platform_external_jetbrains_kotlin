@@ -6,19 +6,14 @@
 package org.jetbrains.kotlin.scripting.compiler.plugin.extensions
 
 import com.intellij.ide.highlighter.JavaFileType
-import com.intellij.mock.MockProject
-import com.intellij.openapi.project.Project
 import org.jetbrains.kotlin.backend.common.IrElementTransformerVoidWithContext
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.backend.common.lower.irComposite
-import org.jetbrains.kotlin.backend.jvm.ir.getKtFile
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.compiler.plugin.getCompilerExtensions
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.LanguageFeature
-import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.extensions.ProcessSourcesBeforeCompilingExtension
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.ir.IrStatement
@@ -41,7 +36,6 @@ import org.jetbrains.kotlin.powerassert.diagram.irExplain
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.scripting.compiler.plugin.irLowerings.scriptCompilationConfiguration
 import org.jetbrains.kotlin.scripting.definitions.ScriptDefinitionProvider
-import org.jetbrains.kotlin.scripting.definitions.findScriptDefinition
 import org.jetbrains.kotlin.scripting.resolve.KtFileScriptSource
 import org.jetbrains.kotlin.utils.addToStdlib.firstIsInstanceOrNull
 import kotlin.script.experimental.api.ScriptCompilationConfiguration
@@ -171,8 +165,24 @@ class KotlinScriptExpressionExplainTransformer(
             explainWithFallBack(statement, declaration, statementName, builder, explanationsProp)
         }
         is IrBlock -> {
-            statement.statements.transformInPlace { explainStatement(it, builder, explanationsProp, declaration, "") }
-            statement
+            if (statement.origin == IrStatementOrigin.OBJECT_LITERAL) {
+                // Object literals need to be explained as a whole.
+                explainWithFallBack(statement, declaration, statementName, builder, explanationsProp)
+            } else {
+                statement.statements.transformInPlace { explainStatement(it, builder, explanationsProp, declaration, "") }
+                statement
+            }
+        }
+        is IrComposite -> {
+            if (statement.origin == IrStatementOrigin.DESTRUCTURING_DECLARATION) {
+                // Only the first statement of a destructing declaration should be transformed. Otherwise, the backend got confused.
+                // The first statement is the assignment to the destructuring var anyway, so we don't lose information here.
+                statement.statements[0] = explainStatement(statement.statements[0], builder, explanationsProp, declaration, "")
+                statement
+            } else {
+                statement.statements.transformInPlace { explainStatement(it, builder, explanationsProp, declaration, "") }
+                statement
+            }
         }
         is IrExpression -> {
             if (statement is IrTypeOperatorCall && statement.operator == IrTypeOperator.IMPLICIT_COERCION_TO_UNIT) {
@@ -188,26 +198,23 @@ class KotlinScriptExpressionExplainTransformer(
 }
 
 
-class ScriptingIrExplainGenerationExtension(val project: MockProject) : IrGenerationExtension {
+class ScriptingIrExplainGenerationExtension : IrGenerationExtension {
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
         for (file in moduleFragment.files) {
             val scriptCompilationConfiguration = file.declarations.firstIsInstanceOrNull<IrScript>()?.scriptCompilationConfiguration
-                ?: file.getKtFile()?.findScriptDefinition()?.compilationConfiguration
             val explainFieldName =
                 scriptCompilationConfiguration?.get(ScriptCompilationConfiguration.explainField) ?: return
-            KotlinScriptExpressionExplainTransformer(SourceFile(file), pluginContext, explainFieldName).visitFile(file)
+            val source = SourceFile.findSource(file) ?: return
+            KotlinScriptExpressionExplainTransformer(source, pluginContext, explainFieldName).visitFile(file)
         }
     }
 }
 
-class ScriptingProcessSourcesBeforeCompilingExtension(val project: Project) : ProcessSourcesBeforeCompilingExtension {
+class ScriptingProcessSourcesBeforeCompilingExtension : ProcessSourcesBeforeCompilingExtension {
 
     override fun processSources(sources: Collection<KtFile>, configuration: CompilerConfiguration): Collection<KtFile> {
-        val versionSettings = configuration.languageVersionSettings
-        val shouldSkipStandaloneScripts = versionSettings.supportsFeature(LanguageFeature.SkipStandaloneScriptsInSourceRoots)
-        val definitionProvider by lazy(LazyThreadSafetyMode.NONE) { ScriptDefinitionProvider.getInstance(project) }
-        val messageCollector = configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+        val definitionProvider by lazy(LazyThreadSafetyMode.NONE) { configuration.getCompilerExtensions(ScriptDefinitionProvider).firstOrNull() }
 
         fun KtFile.isStandaloneScript(): Boolean {
             val scriptDefinition = definitionProvider?.findDefinition(KtFileScriptSource(this))
@@ -222,15 +229,7 @@ class ScriptingProcessSourcesBeforeCompilingExtension(val project: Project) : Pr
             when {
                 nonScriptFilenameSuffixes.any { ktFile.virtualFilePath.endsWith(it) } -> true
                 !ktFile.isStandaloneScript() -> true
-                else -> {
-                    if (!shouldSkipStandaloneScripts) {
-                        messageCollector.report(
-                            CompilerMessageSeverity.WARNING,
-                            "Script '${ktFile.name}' is not supposed to be used along with regular Kotlin sources, and will be ignored in the future versions by default. (Use -Xallow-any-scripts-in-source-roots command line option to opt-in for the old behavior.)"
-                        )
-                    }
-                    !shouldSkipStandaloneScripts
-                }
+                else -> false
             }
         }
     }

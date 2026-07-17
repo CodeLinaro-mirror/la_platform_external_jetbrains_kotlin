@@ -14,9 +14,11 @@ import org.jetbrains.kotlin.backend.common.serialization.deserializeFileEntryNam
 import org.jetbrains.kotlin.backend.common.serialization.fileEntry
 import org.jetbrains.kotlin.backend.common.serialization.proto.IrFile
 import org.jetbrains.kotlin.backend.konan.driver.NativeCompilerDriver
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.cli.CliDiagnostics
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
+import org.jetbrains.kotlin.cli.common.prohibitExportKlibToOlderAbiVersionAtSecondStage
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
+import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.moduleName
 import org.jetbrains.kotlin.config.zipFileSystemAccessor
@@ -42,7 +44,6 @@ import org.jetbrains.kotlin.util.PhaseType
 private val softDeprecatedTargets = setOf(
         KonanTarget.LINUX_ARM32_HFP,
         KonanTarget.MACOS_X64,
-        KonanTarget.IOS_X64,
         KonanTarget.TVOS_X64,
         KonanTarget.WATCHOS_X64,
 )
@@ -67,7 +68,7 @@ class KonanDriver(
 
         if (isCompilingFromBitcode && hasSourceRoots) {
             configuration.report(
-                    CompilerMessageSeverity.WARNING,
+                    CliDiagnostics.KONAN_ARGUMENT_WARNING,
                     "Source files will be ignored by the compiler when compiling from bitcode"
             )
         }
@@ -102,61 +103,66 @@ class KonanDriver(
             configuration.filesToCache = fileNames
         }
 
-        var konanConfig = KonanConfig(project, configuration)
+        var config = NativeSecondStageCompilationConfig(project, configuration)
 
         if (configuration.listTargets) {
-            konanConfig.targetManager.list()
+            config.targetManager.list()
         }
 
         val hasIncludedLibraries = configuration.konanIncludedLibraries.isNotEmpty()
-        val isProducingExecutableFromLibraries = konanConfig.produce == CompilerOutputKind.PROGRAM
+        val isProducingExecutableFromLibraries = config.produce == CompilerOutputKind.PROGRAM
                 && configuration.konanLibraries.isNotEmpty() && !hasIncludedLibraries
         val hasCompilerInput = configuration.kotlinSourceRoots.isNotEmpty()
                 || hasIncludedLibraries
                 || configuration.exportedLibraries.isNotEmpty()
-                || konanConfig.libraryToCache != null
-                || konanConfig.compileFromBitcode?.isNotEmpty() == true
+                || config.compileFromBitcode?.isNotEmpty() == true
                 || isProducingExecutableFromLibraries
 
-        if (!hasCompilerInput) return
+        // Return early if no input was provided.
+        if (!hasCompilerInput && config.libraryToCache == null) return
 
         if (isProducingExecutableFromLibraries && configuration.generateTestRunner != TestRunnerKind.NONE) {
-            configuration.report(CompilerMessageSeverity.STRONG_WARNING,
+            configuration.report(CliDiagnostics.KONAN_ARGUMENT_STRONG_WARNING,
                     "Use `-Xinclude=<path-to-klib>` to pass libraries that contain tests.")
         }
 
         // Avoid showing warning twice in 2-phase compilation.
-        if (konanConfig.produce != CompilerOutputKind.LIBRARY && konanConfig.target in softDeprecatedTargets) {
-            configuration.report(CompilerMessageSeverity.STRONG_WARNING,
-                    "target ${konanConfig.target} is deprecated and will be removed soon. See: $DEPRECATION_LINK")
+        if (config.produce != CompilerOutputKind.LIBRARY && config.target in softDeprecatedTargets) {
+            configuration.report(CliDiagnostics.KONAN_ARGUMENT_STRONG_WARNING,
+                    "target ${config.target} is deprecated and will be removed soon. See: $DEPRECATION_LINK")
         }
 
-        ensureModuleName(konanConfig)
+        configuration.prohibitExportKlibToOlderAbiVersionAtSecondStage()
+
+        ensureModuleName(config)
 
         val sourcesFiles = environment.getSourceFiles()
         performanceManager?.apply {
-            targetDescription = konanConfig.moduleId
-            this.outputKind = konanConfig.produce.name
+            targetDescription = config.moduleId
+            this.outputKind = config.produce.name
             addSourcesStats(sourcesFiles.size, environment.countLinesOfCode(sourcesFiles))
             // Finishing initialization phase before cache setup. Otherwise, cache building time will be counted as initialization phase.
             // Since cache builders use PerformanceManager to report precise phases, the only timing we lose is "calculating what to cache".
             notifyPhaseFinished(PhaseType.Initialization)
         }
 
-        val cacheBuilder = CacheBuilder(konanConfig, compilationSpawner)
+        val cacheBuilder = CacheBuilder(config, compilationSpawner)
         if (cacheBuilder.needToBuild()) {
             cacheBuilder.build()
-            konanConfig = KonanConfig(project, configuration) // TODO: Just set freshly built caches.
+            config = NativeSecondStageCompilationConfig(project, configuration) // TODO: Just set freshly built caches.
+            // Parallel cache build might have already built our asked-to-build cache. Check for that and return early if true.
+            if (!hasCompilerInput && config.libraryToCache == null)
+                return
         }
 
-        if (!konanConfig.produce.isHeaderCache) {
-            konanConfig.cacheSupport.checkConsistency()
+        if (!config.produce.isHeaderCache) {
+            config.cacheSupport.checkConsistency()
         }
 
-        NativeCompilerDriver(performanceManager).run(konanConfig, environment)
+        NativeCompilerDriver(performanceManager).run(config, environment)
     }
 
-    private fun ensureModuleName(config: KonanConfig) {
+    private fun ensureModuleName(config: NativeSecondStageCompilationConfig) {
         if (environment.getSourceFiles().isEmpty()) {
             val libraries = config.resolvedLibraries.getFullList()
             val moduleName = config.moduleId

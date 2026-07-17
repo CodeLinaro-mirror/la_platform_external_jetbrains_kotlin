@@ -29,9 +29,11 @@ object JsDeclarationCheckers : DeclarationCheckers() {
             FirJsExportAnnotationChecker,
             FirJsExportDeclarationChecker,
             FirJsExportedActualMatchExpectChecker,
+            FirJsActualExternalInterfaceSuggestJsNoRuntimeChecker,
             FirJsBuiltinNameClashChecker,
             FirJsNameCharsChecker,
-            FirJsStaticChecker
+            FirJsStaticChecker,
+            FirJsNoRuntimeDeclarationChecker
         )
 
     override val classCheckers: Set<FirClassChecker>
@@ -47,7 +49,7 @@ object JsDeclarationCheckers : DeclarationCheckers() {
             FirJsNameClashClassMembersChecker.ForExpectClass,
         )
 
-    override val simpleFunctionCheckers: Set<FirSimpleFunctionChecker>
+    override val namedFunctionCheckers: Set<FirNamedFunctionChecker>
         get() = setOf(
             FirJsNativeInvokeChecker,
             FirJsNativeGetterChecker,

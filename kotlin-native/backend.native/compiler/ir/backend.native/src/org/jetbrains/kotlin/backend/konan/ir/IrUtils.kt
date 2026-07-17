@@ -51,23 +51,6 @@ internal val IrClass.isArrayWithFixedSizeItems: Boolean
 
 fun IrClass.isAbstract() = this.modality == Modality.SEALED || this.modality == Modality.ABSTRACT
 
-private fun IrStatement.isConst(): Boolean = when (this) {
-    is IrConst, is IrConstantValue -> true
-    is IrBlock -> {
-        if (statements.isEmpty())
-            true
-        else {
-            // This might happen after the local declarations lowering where local declarations are replaced with an empty composite.
-            statements.take(statements.size - 1).all { it is IrComposite && it.statements.isEmpty() }
-                    && statements.last().isConst()
-        }
-    }
-    else -> false
-}
-
-internal val IrField.hasNonConstInitializer: Boolean
-    get() = initializer?.expression?.isConst() == false
-
 private enum class TypeKind {
     ABSENT,
     VOID,
@@ -181,7 +164,7 @@ private val Cast: BridgeDirectionBuilder = { index, from, to ->
     if (from == null || to == null) {
         BridgeDirection.NONE
     } else {
-        val (superClass, subType) =
+        val [superClass, subType] =
                 if (index == ParameterIndex.RETURN_INDEX)
                     Pair(to.classOrFail, from) // <from> as <to>
                 else Pair(from.classOrFail, to) // <to> as <from>
@@ -201,8 +184,8 @@ private val bridgeDirectionBuilders = arrayOf(
 )
 
 private fun IrFunction.bridgeDirectionToAt(overriddenFunction: IrFunction, index: ParameterIndex, policy: BridgesPolicy): BridgeDirection {
-    val (fromErasedType, fromKind) = typeWithKindAt(index)
-    val (toErasedType, toKind) = overriddenFunction.typeWithKindAt(index)
+    (val fromErasedType = erasedType, val fromKind = kind) = typeWithKindAt(index)
+    (val toErasedType = erasedType, val toKind = kind) = overriddenFunction.typeWithKindAt(index)
     val bridgeDirectionsBuilder = bridgeDirectionBuilders[fromKind.ordinal][toKind.ordinal]
             ?: error("Invalid combination of (fromKind, toKind): ($fromKind, $toKind)\n" +
                     "from = ${render()}\nto = ${overriddenFunction.render()}")
@@ -274,6 +257,8 @@ fun IrFunctionSymbol.isComparisonFunction(map: Map<IrClassifierSymbol, IrSimpleF
         this in map.values
 
 fun IrFunction.externalSymbolOrThrow(): String? {
+    annotations.findAnnotation(RuntimeNames.importedBridge)?.let { return it.getAnnotationStringValue("bridgeName") }
+
     annotations.findAnnotation(RuntimeNames.symbolNameAnnotation)?.let { return it.getAnnotationStringValue() }
 
     annotations.findAnnotation(KonanFqNames.gcUnsafeCall)?.let { return it.getAnnotationStringValue("callee") }
@@ -284,7 +269,7 @@ fun IrFunction.externalSymbolOrThrow(): String? {
 
     if (this.isCFunctionOrGlobalAccessor()) return null
 
-    throw Error("external function ${this.longName} must have @TypedIntrinsic, @SymbolName, @GCUnsafeCall or @ObjCMethod annotation")
+    throw Error("external function ${this.longName} must have @TypedIntrinsic, @SymbolName, @GCUnsafeCall, @ImportedBridge or @ObjCMethod annotation")
 }
 
 private val IrFunction.longName: String

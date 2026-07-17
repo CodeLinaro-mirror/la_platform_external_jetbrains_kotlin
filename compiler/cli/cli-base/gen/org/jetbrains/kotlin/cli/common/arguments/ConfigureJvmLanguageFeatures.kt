@@ -15,15 +15,11 @@ internal fun MutableMap<LanguageFeature, LanguageFeature.State>.configureJvmLang
         put(LanguageFeature.ProhibitUsingNullableTypeParameterAgainstNotNullAnnotated, LanguageFeature.State.ENABLED)
     }
 
-    if (arguments.jvmExposeBoxed) {
-        put(LanguageFeature.ImplicitJvmExposeBoxed, LanguageFeature.State.ENABLED)
-    }
-
     if (arguments.typeEnhancementImprovementsInStrictMode) {
         put(LanguageFeature.TypeEnhancementImprovementsInStrictMode, LanguageFeature.State.ENABLED)
     }
 
     if (arguments.valueClasses) {
-        put(LanguageFeature.ValueClasses, LanguageFeature.State.ENABLED)
+        put(LanguageFeature.JvmInlineMultiFieldValueClasses, LanguageFeature.State.ENABLED)
     }
 }

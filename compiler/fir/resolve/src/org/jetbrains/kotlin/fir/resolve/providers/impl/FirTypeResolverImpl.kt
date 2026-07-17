@@ -121,7 +121,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         )
 
         if (collector.applicability != CandidateApplicability.RESOLVED) {
-            qualifierResolver.resolveFullyQualifiedSymbol(qualifier)?.let { (symbol, resolvedSymbolOrigin) ->
+            qualifierResolver.resolveFullyQualifiedSymbol(qualifier)?.let { [symbol, resolvedSymbolOrigin] ->
                 collector.processCandidate(symbol, substitutor = null, resolvedSymbolOrigin)
             }
         }
@@ -190,7 +190,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         topContainer: FirDeclaration?,
         isOperandOfIsOperator: Boolean
     ): ConeKotlinType {
-        val (symbol, substitutor) = when (result) {
+        val [symbol, substitutor] = when (result) {
             is TypeResolutionResult.Resolved -> {
                 result.typeCandidate.symbol to result.typeCandidate.substitutor
             }
@@ -198,14 +198,20 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             TypeResolutionResult.Unresolved -> null to null
         }
 
-        val qualifier = typeRef.qualifier
-        val allTypeArguments =
-            qualifier.reversed().flatMap { it.typeArgumentList.typeArguments }.mapTo(mutableListOf()) { it.toConeTypeProjection() }
+        val allTypeArguments = buildList {
+            val qualifier = typeRef.qualifier
+            val isPossibleBareType = areBareTypesAllowed && qualifier.all { it.typeArgumentList.typeArguments.isEmpty() }
 
-        if (symbol is FirClassLikeSymbol<*> && !isPossibleBareType(areBareTypesAllowed, allTypeArguments)) {
-            matchQualifierPartsAndClasses(symbol, qualifier)?.let { return ConeErrorType(it) }
-            allTypeArguments.addImplicitTypeArguments(symbol, topContainer, substitutor)
-                ?.let { return ConeErrorType(it) }
+            if (symbol is FirClassLikeSymbol<*> && !isPossibleBareType) {
+                initExplicitTypeArguments(symbol, qualifier)?.let { return ConeErrorType(it) }
+                addImplicitTypeArguments(symbol, topContainer, substitutor)
+                    ?.let { return ConeErrorType(it) }
+            } else {
+                // In this case, type arguments are not allowed, but we would like to store them in the error type
+                qualifier.asReversed().forEach { part ->
+                    addAll(part.typeArgumentList.typeArguments.map { it.toConeTypeProjection() })
+                }
+            }
         }
 
         val resultingArguments = allTypeArguments.toTypedArray()
@@ -266,10 +272,10 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         }
     }
 
-    private fun isPossibleBareType(areBareTypesAllowed: Boolean, allTypeArguments: List<ConeTypeProjection>): Boolean =
-        areBareTypesAllowed && allTypeArguments.isEmpty()
-
-    private fun matchQualifierPartsAndClasses(symbol: FirClassLikeSymbol<*>, qualifier: List<FirQualifierPart>): ConeDiagnostic? {
+    private fun MutableList<ConeTypeProjection>.initExplicitTypeArguments(
+        symbol: FirClassLikeSymbol<*>,
+        qualifier: List<FirQualifierPart>,
+    ): ConeDiagnostic? {
         var currentDeclaration: FirClassLikeDeclaration? = symbol.fir
         var areTypeArgumentsAllowed = true
 
@@ -278,10 +284,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             val qualifierPartArgsCount = typeArgumentList.typeArguments.size
 
             if (currentDeclaration == null) {
-                // It's a package name
-                if (qualifierPartArgsCount > 0) {
-                    return ConeTypeArgumentsNotAllowedOnPackageError(typeArgumentList.source!!)
-                }
+                // it's a package name; type arguments in packages are reported in checker separately
                 break
             }
 
@@ -294,6 +297,8 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             } else if (qualifierPartArgsCount > 0) {
                 return ConeTypeArgumentsForOuterClassWhenNestedReferencedError(typeArgumentList.source!!)
             }
+
+            addAll(typeArgumentList.typeArguments.map { it.toConeTypeProjection() })
 
             // Inner class can't contain non-inner class
             // No more arguments are allowed after first static/non-inner class
@@ -339,7 +344,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             }
         }
 
-        for ((typeParameterIndex, typeParameter) in symbol.fir.typeParameters.withIndex()) {
+        for ([typeParameterIndex, typeParameter] in symbol.fir.typeParameters.withIndex()) {
             if (typeParameterIndex < explicitTypeArgumentsNumber) {
                 // Ignore explicit type parameters since only outer type parameters are relevant
                 continue
@@ -393,10 +398,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         )
     }
 
-    private val FirResolvedQualifier.ownTypeArguments: List<FirTypeProjection>
-        get() = typeArguments.subList(0, typeArguments.size - (explicitParent?.typeArguments?.size ?: 0))
-
-    private fun FirTypeProjection.toConeTypeProjectionInLHS(): ConeTypeProjection = when (this) {
+    private fun FirTypeProjection.toConeTypeProjectionInLhs(): ConeTypeProjection = when (this) {
         is FirTypeProjectionWithVariance -> typeRef.coneType.toTypeProjection(variance)
 
         is FirPlaceholderProjection, // reported separately in the checker
@@ -406,11 +408,11 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
 
     private fun MutableList<ConeTypeProjection>.addOwnTypeArguments(qualifier: FirResolvedQualifier) {
         for (typeArgument in qualifier.ownTypeArguments) {
-            add(typeArgument.toConeTypeProjectionInLHS())
+            add(typeArgument.toConeTypeProjectionInLhs())
         }
     }
 
-    private fun matchQualifierPartsAndClassesForLHS(
+    private fun matchQualifierPartsAndClassesForLhs(
         qualifier: FirResolvedQualifier,
         classSymbol: FirClassLikeSymbol<*>,
     ): Pair<List<ConeTypeProjection>, ConeDiagnostic?> {
@@ -426,7 +428,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                         currentClass.ownTypeParameterSymbols.size,
                         currentClass,
                         currentQualifier.source!!,
-                        isDeprecationErrorForCallableReferenceLHS = true,
+                        isDeprecationErrorForCallableReferenceLhs = true,
                     )
                 }
 
@@ -444,7 +446,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         return arguments to diagnostic
     }
 
-    private fun computeSubstitutorForLHS(
+    private fun computeSubstitutorForLhs(
         qualifier: FirResolvedQualifier,
         configuration: TypeResolutionConfiguration,
     ): ConeSubstitutor? {
@@ -465,10 +467,10 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
         return result
     }
 
-    override fun resolveTypeOnDoubleColonLHS(
+    override fun resolveTypeOnDoubleColonLhs(
         qualifier: FirResolvedQualifier,
         configuration: TypeResolutionConfiguration,
-    ): DoubleColonLHS.Type? {
+    ): CallableReferenceLhsAsType? {
         val classSymbol = qualifier.symbol ?: return null
 
         val allTypeArguments: MutableList<ConeTypeProjection> = mutableListOf()
@@ -482,7 +484,7 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
 
             classSymbol.typeParameterSymbols.forEachIndexed { index, typeParameter ->
                 val typeArgumentOrNull = qualifier.typeArguments.getOrNull(index)
-                val coneTypeArgument = typeArgumentOrNull?.toConeTypeProjectionInLHS()
+                val coneTypeArgument = typeArgumentOrNull?.toConeTypeProjectionInLhs()
                     ?: typeParameter.defaultType.takeIf {
                         classSymbol.isLocal && typeParameter.containingDeclarationSymbol !is FirClassLikeSymbol
                     }
@@ -490,15 +492,15 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
                 allTypeArguments.add(coneTypeArgument)
             }
 
-            val (_, diagnosticFromMatching) = matchQualifierPartsAndClassesForLHS(qualifier, classSymbol)
+            val [_, diagnosticFromMatching] = matchQualifierPartsAndClassesForLhs(qualifier, classSymbol)
             if (diagnostic == null) diagnostic = diagnosticFromMatching
         } else {
-            matchQualifierPartsAndClassesForLHS(qualifier, classSymbol).let { (arguments, diagnosticFromMatching) ->
+            matchQualifierPartsAndClassesForLhs(qualifier, classSymbol).let { [arguments, diagnosticFromMatching] ->
                 allTypeArguments.addAll(arguments)
                 diagnostic = diagnosticFromMatching
             }
             if (allTypeArguments.size != classSymbol.typeParameterSymbols.size) {
-                val substitutor = computeSubstitutorForLHS(qualifier, configuration)
+                val substitutor = computeSubstitutorForLhs(qualifier, configuration)
                 allTypeArguments.addImplicitTypeArguments(
                     classSymbol,
                     configuration.topContainer ?: configuration.containingClassDeclarations.lastOrNull(),
@@ -509,13 +511,15 @@ class FirTypeResolverImpl(private val session: FirSession) : FirTypeResolver() {
             }
         }
 
-        return DoubleColonLHS.Type(
+        return CallableReferenceLhsAsType(
             ConeClassLikeTypeImpl(
                 classSymbol.toLookupTag(),
                 allTypeArguments.take(classSymbol.typeParameterSymbols.size).toTypedArray(),
-                qualifier.isNullableLHSForCallableReference,
+                qualifier.isNullableLhsForCallableReference,
             ),
             diagnostic,
+            hasNullableMark = qualifier.isNullableLhsForCallableReference,
+            hasExplicitTypeArguments = qualifier.typeArguments.isNotEmpty(),
         )
     }
 

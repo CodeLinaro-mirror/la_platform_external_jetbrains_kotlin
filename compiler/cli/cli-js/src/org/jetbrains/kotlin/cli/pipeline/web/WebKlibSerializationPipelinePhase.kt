@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.cli.pipeline.web
 
+import org.jetbrains.kotlin.cli.common.diagnosticsCollector
 import org.jetbrains.kotlin.cli.pipeline.PipelinePhase
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -20,29 +21,28 @@ import org.jetbrains.kotlin.library.impl.BuiltInsPlatform
 import org.jetbrains.kotlin.library.loadSizeInfo
 import org.jetbrains.kotlin.wasm.config.wasmTarget
 
-object WebKlibSerializationPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, JsSerializedKlibPipelineArtifact>(
-    name = "JsKlibSerializationPipelinePhase",
+object WebKlibSerializationPipelinePhase : PipelinePhase<WebFir2IrPipelineArtifact, WebSerializedKlibPipelineArtifact>(
+    name = "WebKlibSerializationPipelinePhase",
 ) {
-    override fun executePhase(input: JsFir2IrPipelineArtifact): JsSerializedKlibPipelineArtifact {
-        val (fir2IrResult, firResult, configuration, diagnosticCollector, moduleStructure) = input
+    override fun executePhase(input: WebFir2IrPipelineArtifact): WebSerializedKlibPipelineArtifact {
+        (val fir2IrResult = result, val firResult = frontendOutput, val configuration) = input
         val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
-            diagnosticCollector,
+            configuration.diagnosticsCollector,
             configuration.languageVersionSettings
         )
 
         val outputKlibPath = configuration.computeOutputKlibPath()
         val fir2KlibMetadataSerializer = Fir2KlibMetadataSerializer(
-            moduleStructure.compilerConfiguration,
+            configuration,
             firOutputs = firResult.outputs,
             fir2IrActualizedResult = fir2IrResult,
-            exportKDoc = false,
             produceHeaderKlib = false,
         )
         val icData =
-            moduleStructure.compilerConfiguration.incrementalDataProvider?.getSerializedData(fir2KlibMetadataSerializer.sourceFiles)
+            configuration.incrementalDataProvider?.getSerializedData(fir2KlibMetadataSerializer.sourceFiles)
         serializeModuleIntoKlib(
-            moduleName = moduleStructure.compilerConfiguration[CommonConfigurationKeys.MODULE_NAME]!!,
-            configuration = moduleStructure.compilerConfiguration,
+            moduleName = configuration[CommonConfigurationKeys.MODULE_NAME]!!,
+            configuration = configuration,
             diagnosticReporter = irDiagnosticReporter,
             metadataSerializer = fir2KlibMetadataSerializer,
             klibPath = outputKlibPath,
@@ -53,16 +53,15 @@ object WebKlibSerializationPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifac
             jsOutputName = configuration.perModuleOutputName,
             builtInsPlatform = if (configuration.wasmCompilation) BuiltInsPlatform.WASM else BuiltInsPlatform.JS,
             wasmTarget = configuration.wasmTarget,
-            performanceManager = moduleStructure.compilerConfiguration.perfManager,
+            performanceManager = configuration.perfManager,
         )
 
         loadSizeInfo(File(outputKlibPath))?.flatten()?.let { stats ->
             configuration.perfManager?.registerKlibElementStats(stats)
         }
 
-        return JsSerializedKlibPipelineArtifact(
+        return WebSerializedKlibPipelineArtifact(
             outputKlibPath,
-            diagnosticCollector,
             configuration
         )
     }

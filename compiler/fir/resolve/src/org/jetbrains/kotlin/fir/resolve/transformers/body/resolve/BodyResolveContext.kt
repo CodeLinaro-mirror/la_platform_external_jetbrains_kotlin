@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,17 +10,11 @@ import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
-import org.jetbrains.kotlin.fir.declarations.utils.effectiveVisibility
-import org.jetbrains.kotlin.fir.declarations.utils.isCompanion
-import org.jetbrains.kotlin.fir.declarations.utils.isInline
-import org.jetbrains.kotlin.fir.declarations.utils.isInner
-import org.jetbrains.kotlin.fir.declarations.utils.isReplSnippetDeclaration
-import org.jetbrains.kotlin.fir.declarations.utils.isScriptTopLevelDeclaration
+import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirCallableReferenceAccess
 import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
 import org.jetbrains.kotlin.fir.expressions.InaccessibleReceiverKind
-import org.jetbrains.kotlin.fir.extensions.extensionService
-import org.jetbrains.kotlin.fir.extensions.replSnippetResolveExtensions
+import org.jetbrains.kotlin.fir.extensions.replSnippetResolveExtension
 import org.jetbrains.kotlin.fir.extensions.scriptResolutionHacksComponent
 import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.resolve.calls.*
@@ -38,7 +32,10 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularPropertySymbol
-import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.FirImplicitTypeRef
+import org.jetbrains.kotlin.fir.types.classId
+import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.SpecialNames.UNDERSCORE_FOR_UNUSED_VAR
 import org.jetbrains.kotlin.util.PrivateForInline
@@ -107,6 +104,25 @@ class BodyResolveContext(
         }
     }
 
+    /**
+     * Inside an annotation call or in a default value of an annotation parameter.
+     */
+    @set:PrivateForInline
+    @ArrayLiteralResolution
+    var isInsideAnnotationContext: Boolean = false
+
+    @OptIn(PrivateForInline::class)
+    @ArrayLiteralResolution
+    inline fun <R> withAnnotationContext(block: () -> R): R {
+        val oldMode = this.isInsideAnnotationContext
+        this.isInsideAnnotationContext = true
+        return try {
+            block()
+        } finally {
+            this.isInsideAnnotationContext = oldMode
+        }
+    }
+
     @OptIn(PrivateForInline::class)
     inline fun withClassHeader(clazz: FirRegularClass, action: () -> Unit) {
         withSwitchedTowerDataModeForStaticNestedClass(clazz) {
@@ -124,13 +140,13 @@ class BodyResolveContext(
     val outerLocalClassForNested: MutableMap<FirClassLikeSymbol<*>, FirClassLikeSymbol<*>> = hashMapOf()
 
     @OptIn(PrivateForInline::class)
-    inline fun <T> withTowerDataContexts(newContexts: FirRegularTowerDataContexts, f: () -> T): T {
+    inline fun <T> withTowerDataContexts(newContexts: FirRegularTowerDataContexts?, f: () -> T): T {
         val old = regularTowerDataContexts
-        regularTowerDataContexts = newContexts
+        if (newContexts != null) regularTowerDataContexts = newContexts
         return try {
             f()
         } finally {
-            regularTowerDataContexts = old
+            if (newContexts != null) regularTowerDataContexts = old
         }
     }
 
@@ -234,6 +250,14 @@ class BodyResolveContext(
     }
 
     @PrivateForInline
+    inline fun <T> withCompanionBlockIf(condition: Boolean, f: () -> T): T {
+        return withTowerDataContexts(
+            newContexts = runIf(condition) { regularTowerDataContexts.forCompanionBlock() },
+            f
+        )
+    }
+
+    @PrivateForInline
     inline fun <R> withTowerDataModeCleanup(l: () -> R): R {
         val initialMode = towerDataMode
         return try {
@@ -309,13 +333,23 @@ class BodyResolveContext(
         replaceTowerDataContext(towerDataContext.addContextGroups(contextParameters))
 
         if (type != null) {
-            val receiver = ImplicitExtensionReceiverValue(
-                owner.receiverParameter!!.symbol,
-                type,
-                holder.session,
-                holder.scopeSession
-            )
-            addReceiver(labelName, receiver)
+            if (owner.isCompanionExtension) {
+                context(holder) {
+                    val classSymbol = type.fullyExpandedType().toRegularClassSymbol()
+                    val staticScope = classSymbol?.staticScope(holder)
+                    if (classSymbol != null) {
+                        addNonLocalTowerDataElement(classSymbol.asTowerDataElementForStaticScope(staticScope))
+                    }
+                }
+            } else {
+                val receiver = ImplicitExtensionReceiverValue(
+                    owner.receiverParameter!!.symbol,
+                    type,
+                    holder.session,
+                    holder.scopeSession
+                )
+                addReceiver(labelName, receiver)
+            }
         }
 
         f()
@@ -423,7 +457,7 @@ class BodyResolveContext(
 
     @PrivateForInline
     inline fun <T> withTemporaryRegularContext(newContext: PostponedAtomsResolutionContext?, f: () -> T): T {
-        val (towerDataContext, newInferenceSession) = newContext ?: return f()
+        val [towerDataContext, newInferenceSession] = newContext ?: return f()
 
         return withTowerDataModeCleanup {
             withTowerDataContexts(regularTowerDataContexts.replaceAndSetActiveRegularContext(towerDataContext)) {
@@ -576,14 +610,13 @@ class BodyResolveContext(
 
         val base = towerDataContext.addNonLocalTowerDataElements(towerElementsForClass.superClassesStaticsAndCompanionReceivers)
 
-        val statics = base
-            .addNonLocalScopesIfNotNull(towerElementsForClass.companionStaticScope, towerElementsForClass.staticScope)
+        val statics = base.addCompanionAndStaticScopes(towerElementsForClass)
 
         val staticsAndCompanion = when (val companionReceiver = towerElementsForClass.companionReceiver) {
             null -> statics
             else -> base
                 .addReceiver(null, companionReceiver)
-                .addNonLocalScopesIfNotNull(towerElementsForClass.companionStaticScope, towerElementsForClass.staticScope)
+                .addCompanionAndStaticScopes(towerElementsForClass)
         }
 
         val typeParameterScope = (owner as? FirRegularClass)?.typeParameterScope()
@@ -595,7 +628,7 @@ class BodyResolveContext(
             towerDataContext
                 .addNonLocalTowerDataElements(towerElementsForClass.superClassesStaticsAndCompanionReceivers)
                 .addReceiverIfNotNull(null, towerElementsForClass.companionReceiver)
-                .addNonLocalScopesIfNotNull(towerElementsForClass.companionStaticScope, towerElementsForClass.staticScope)
+                .addCompanionAndStaticScopes(towerElementsForClass)
                 // Note: scopes here are in reverse order, so type parameter scope is the most prioritized
                 .addNonLocalScope(typeParameterScope)
         } else {
@@ -636,7 +669,7 @@ class BodyResolveContext(
             }
 
         val constructor = (owner as? FirRegularClass)?.declarations?.firstOrNull { it is FirConstructor } as? FirConstructor
-        val (primaryConstructorPureParametersScope, primaryConstructorAllParametersScope) =
+        val [primaryConstructorPureParametersScope, primaryConstructorAllParametersScope] =
             if (constructor?.isPrimary == true) {
                 constructor.scopesWithPrimaryConstructorParameters(holder.session)
             } else {
@@ -659,7 +692,7 @@ class BodyResolveContext(
                 .addReceiver(labelName, inaccessibleThisInHeader)
                 .addNonLocalTowerDataElements(towerElementsForClass.superClassesStaticsAndCompanionReceivers)
                 .addReceiverIfNotNull(null, towerElementsForClass.companionReceiver)
-                .addNonLocalScopesIfNotNull(towerElementsForClass.companionStaticScope, towerElementsForClass.staticScope)
+                .addCompanionAndStaticScopes(towerElementsForClass)
                 .addNonLocalScopeIfNotNull(typeParameterScope)
         } else {
             withTypeParameters
@@ -669,6 +702,7 @@ class BodyResolveContext(
             regular = forMembersResolution,
             forNestedClasses = newTowerDataContextForStaticNestedClasses,
             forCompanionObject = statics,
+            forCompanionBlock = staticsAndCompanion,
             forConstructorHeaders = forConstructorHeader,
             forEnumEntries = scopeForEnumEntries,
             primaryConstructorPureParametersScope = primaryConstructorPureParametersScope,
@@ -748,12 +782,8 @@ class BodyResolveContext(
                 }
 
                 // TODO: robuster matching and error reporting on no extension (KT-72969)
-                for (resolveExt in holder.session.extensionService.replSnippetResolveExtensions) {
-                    val scope = resolveExt.getSnippetScope(replSnippet, holder.session)
-                    if (scope != null) {
-                        addNonLocalTowerDataElement(scope.asTowerDataElement(isLocal = false))
-                        break
-                    }
+                holder.session.replSnippetResolveExtension?.getSnippetScope(replSnippet, holder.session)?.let {
+                    addNonLocalTowerDataElement(it.asTowerDataElement(isLocal = false))
                 }
 
                 f()
@@ -766,8 +796,13 @@ class BodyResolveContext(
         val codeFragmentContext = codeFragment.codeFragmentContext ?: error("Context is not set for a code fragment")
         val towerDataContext = codeFragmentContext.towerDataContext
 
-        val fragmentImportTowerDataElements = computeImportingScopes(file, holder.session, holder.scopeSession)
-            .map { it.asTowerDataElement(isLocal = false) }
+        val fragmentImportTowerDataElements = computeImportingScopes(
+            file,
+            holder.session,
+            holder.scopeSession,
+            includeDefaultImports = false,
+            includePackageImport = false,
+        ).map { it.asTowerDataElement(isLocal = false) }
 
         val base = towerDataContext
             .addNonLocalTowerDataElements(towerDataContext.nonLocalTowerDataElements)
@@ -812,9 +847,11 @@ class BodyResolveContext(
             storeFunction(namedFunction, session)
         }
 
-        return withTypeParametersOf(namedFunction) {
-            withPublicApiInlineFunctionIfApplicable(namedFunction) {
-                withContainer(namedFunction, f)
+        return withCompanionBlockIf(namedFunction.isCompanionBlockMember) {
+            withTypeParametersOf(namedFunction) {
+                withPublicApiInlineFunctionIfApplicable(namedFunction) {
+                    withContainer(namedFunction, f)
+                }
             }
         }
     }
@@ -987,10 +1024,12 @@ class BodyResolveContext(
     @OptIn(PrivateForInline::class)
     inline fun <T> withProperty(
         property: FirProperty,
-        f: () -> T
+        f: () -> T,
     ): T {
-        return withTypeParametersOf(property) {
-            withContainer(property, f)
+        return withCompanionBlockIf(property.isCompanionBlockMember) {
+            withTypeParametersOf(property) {
+                withContainer(property, f)
+            }
         }
     }
 

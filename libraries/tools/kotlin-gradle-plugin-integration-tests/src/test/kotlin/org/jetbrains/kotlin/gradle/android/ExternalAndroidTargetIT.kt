@@ -31,8 +31,6 @@ import kotlin.test.fail
 @AndroidTestVersions(
     maxVersion = TestVersions.AGP.AGP_813,
     additionalVersions = [
-        TestVersions.AGP.AGP_83,
-        TestVersions.AGP.AGP_84,
         TestVersions.AGP.AGP_85,
         TestVersions.AGP.AGP_86,
         TestVersions.AGP.AGP_87,
@@ -45,6 +43,10 @@ import kotlin.test.fail
 )
 @AndroidGradlePluginTests
 class ExternalAndroidTargetIT : KGPBaseTest() {
+
+    // Uses `com.android.kotlin.multiplatform.library`, requires AGP new DSL.
+    override val defaultBuildOptions: BuildOptions
+        get() = super.defaultBuildOptions.copy(enableLegacyAgpDsl = false)
 
     @GradleAndroidTest
     fun `test - simple project - build`(
@@ -219,7 +221,7 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
     }
 
     @GradleAndroidTest
-    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_811)
+    @AndroidTestVersions(minVersion = TestVersions.AGP.AGP_90)
     fun `KT-81060_transform_metadata_dependencies_doesnt_fail_on_configuration_cache_deserialization`(
         gradleVersion: GradleVersion, androidVersion: String, jdkVersion: JdkVersions.ProvidedJdk,
     ) {
@@ -241,7 +243,7 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
                 .enableIsolatedProjects(),
             buildJdk = jdkVersion.location,
         ) {
-            subProject("composeApp").buildScriptInjection {
+            subProject("composeShared").buildScriptInjection {
                 val vs = project.providers.of(ClassLoaderHashCode::class.java) {}
                 // this will make value source part of Configuration Cache key -> it will be always executed
                 vs.get()
@@ -249,7 +251,7 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
         }
 
         var hashCode = ""
-        testProject.build(":composeApp:transformCommonMainDependenciesMetadata", "--dry-run") {
+        testProject.build(":composeShared:transformCommonMainDependenciesMetadata", "--dry-run") {
             hashCode = output.substringAfter("ClassLoader hash code: #").substringBefore(".")
             assertConfigurationCacheStored()
         }
@@ -260,7 +262,7 @@ class ExternalAndroidTargetIT : KGPBaseTest() {
             build("help")
         }
 
-        testProject.build(":composeApp:transformCommonMainDependenciesMetadata", "--dry-run") {
+        testProject.build(":composeShared:transformCommonMainDependenciesMetadata", "--dry-run") {
             val newHashCode = output.substringAfter("ClassLoader hash code: #").substringBefore(".")
             if (hashCode == newHashCode) {
                 fail("ClassLoader hash code is not changed. It seems that Gradle Daemon didn't drop the Classloader Cache, and Heuristic didn't work. Please find another way to verify this issue.")

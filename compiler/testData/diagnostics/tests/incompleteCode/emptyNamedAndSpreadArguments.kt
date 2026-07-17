@@ -16,7 +16,7 @@ fun test() {
     val b = B()
     val c = C()
 
-    one<!NO_VALUE_FOR_PARAMETER!>()<!>
+    <!NO_VALUE_FOR_PARAMETER!>one<!>()
     one(<!SYNTAX!><!>,)
     one(a =<!SYNTAX!><!>)
     one(a =<!SYNTAX!><!>,)
@@ -34,13 +34,13 @@ fun test() {
     many(*<!SYNTAX!><!>,)
     many(aa=*<!SYNTAX!><!>)
     many(aa=*<!SYNTAX!><!>,)
-    many(<!SYNTAX!><!>, <!ARGUMENT_PASSED_TWICE!>aa<!>=<!SYNTAX!><!>,)
-    many(<!SYNTAX!><!>, <!ARGUMENT_PASSED_TWICE!>aa<!>=<!SYNTAX!><!>, <!SYNTAX!><!>,)
-    many(<!SYNTAX!><!>, <!ARGUMENT_PASSED_TWICE!>aa<!>=<!SYNTAX!><!>, )
+    many(<!SYNTAX!><!>, aa=<!SYNTAX!><!>,)
+    many(<!SYNTAX!><!>, aa=<!SYNTAX!><!>, <!SYNTAX!><!>,)
+    many(<!SYNTAX!><!>, aa=<!SYNTAX!><!>, )
     many(<!SYNTAX!><!>,<!SYNTAX!><!>,)
     many(<!SYNTAX!><!>,)
-    many(<!NAMED_PARAMETER_NOT_FOUND!>bb<!>=*<!SYNTAX!><!>)
-    many(<!NAMED_PARAMETER_NOT_FOUND!>bb<!>=<!SYNTAX!><!>)
+    many(bb=*<!SYNTAX!><!>)
+    many(bb=<!SYNTAX!><!>)
 }
 
 /* GENERATED_FIR_TAGS: classDeclaration, functionDeclaration, localProperty, propertyDeclaration, vararg */

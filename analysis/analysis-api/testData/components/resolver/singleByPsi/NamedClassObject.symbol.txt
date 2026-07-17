@@ -1,2 +1,7 @@
 KtNameReferenceExpression(120,125): 'Named'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      a/A.Named
+    ]

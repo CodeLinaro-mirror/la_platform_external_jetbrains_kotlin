@@ -18,6 +18,7 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.fir.utils.KaFirCacheCleaner
 import org.jetbrains.kotlin.analysis.api.impl.base.sessions.KaBaseSessionProvider
+import org.jetbrains.kotlin.analysis.api.impl.base.util.withKaModuleEntry
 import org.jetbrains.kotlin.analysis.api.lifetime.KaLifetimeToken
 import org.jetbrains.kotlin.analysis.api.permissions.KaAnalysisPermissionRegistry
 import org.jetbrains.kotlin.analysis.api.platform.KotlinAnalysisInWriteActionListener
@@ -28,14 +29,13 @@ import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinProject
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaModule
 import org.jetbrains.kotlin.analysis.api.projectStructure.isStable
-import org.jetbrains.kotlin.analysis.api.utils.errors.withKaModuleEntry
 import org.jetbrains.kotlin.analysis.low.level.api.fir.LLFirInternals
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.getResolutionFacade
 import org.jetbrains.kotlin.analysis.low.level.api.fir.file.structure.LLFirDeclarationModificationService
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionCache
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionInvalidationListener
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionInvalidationTopics
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.cache.LLFirSessionCache
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.cache.LLFirSessionInvalidationListener
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.cache.LLFirSessionInvalidationTopics
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.structure.LLSessionStructureWriter
 import org.jetbrains.kotlin.analysis.low.level.api.fir.statistics.LLStatisticsService
 import org.jetbrains.kotlin.analysis.low.level.api.fir.statistics.domains.LLAnalysisSessionStatistics
@@ -190,7 +190,7 @@ internal class KaFirSessionProvider(project: Project) : KaBaseSessionProvider(pr
      * Schedules cache removal on a low-memory event.
      *
      * We ask the cache cleaner to schedule a global cache cleanup. It has to wait until there is no ongoing analysis as
-     * [LLFirSessionCleaner][org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionCleaner] called from [LLFirSessionCache]
+     * [LLFirSessionCleaner][org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.cache.LLFirSessionCleaner] called from [LLFirSessionCache]
      * marks sessions invalid (and analyses in progress will be very surprised). [KaFirSession]s will also be invalidated during this step.
      */
     private fun handleLowMemoryEvent() {
@@ -271,7 +271,6 @@ internal class KaFirSessionProvider(project: Project) : KaBaseSessionProvider(pr
 private fun KClass<out KaLifetimeToken>.handleEnteringAnalysisInWriteAction(project: Project) {
     if (isAnalysisInWriteAction(this)) {
         // As we are inside a write action, we must flush deferred modifications to materialize its effects up to this point.
-        @OptIn(LLFirInternals::class)
         LLFirDeclarationModificationService.getInstance(project).flushDeferredModifications()
 
         project.analysisMessageBus.syncPublisher(KotlinAnalysisInWriteActionListener.TOPIC).onEnteringAnalysisInWriteAction()

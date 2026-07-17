@@ -1,5 +1,4 @@
 // LANGUAGE: +AllowReifiedTypeInCatchClause
-// IGNORE_BACKEND_K1: ANY
 
 // FILE: lib.kt
 inline fun <reified E : Throwable?> throwAndCatch(): String {

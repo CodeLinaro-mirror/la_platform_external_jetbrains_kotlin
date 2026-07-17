@@ -158,10 +158,6 @@ object NativeConfigurationKeys {
     @JvmField
     val ALLOCATION_MODE = CompilerConfigurationKey.create<AllocationMode>("ALLOCATION_MODE")
 
-    // Export KDoc into klib and framework.
-    @JvmField
-    val KONAN_EXPORT_KDOC = CompilerConfigurationKey.create<Boolean>("KONAN_EXPORT_KDOC")
-
     @JvmField
     val KONAN_PRINT_BITCODE = CompilerConfigurationKey.create<Boolean>("KONAN_PRINT_BITCODE")
 
@@ -232,7 +228,7 @@ object NativeConfigurationKeys {
     @JvmField
     val PROPERTY_LAZY_INITIALIZATION = CompilerConfigurationKey.create<Boolean>("PROPERTY_LAZY_INITIALIZATION")
 
-    // Use external dependencies to enhance IR linker error messages.
+    // The file with the graph of dependencies (libraries) collected by the build system.
     @JvmField
     val EXTERNAL_DEPENDENCIES = CompilerConfigurationKey.create<String>("EXTERNAL_DEPENDENCIES")
 
@@ -443,10 +439,6 @@ var CompilerConfiguration.overrideClangOptions: List<String>
 var CompilerConfiguration.allocationMode: AllocationMode?
     get() = get(NativeConfigurationKeys.ALLOCATION_MODE)
     set(value) { put(NativeConfigurationKeys.ALLOCATION_MODE, requireNotNull(value) { "nullable values are not allowed" }) }
-
-var CompilerConfiguration.konanExportKdoc: Boolean
-    get() = getBoolean(NativeConfigurationKeys.KONAN_EXPORT_KDOC)
-    set(value) { put(NativeConfigurationKeys.KONAN_EXPORT_KDOC, value) }
 
 var CompilerConfiguration.konanPrintBitcode: Boolean
     get() = getBoolean(NativeConfigurationKeys.KONAN_PRINT_BITCODE)

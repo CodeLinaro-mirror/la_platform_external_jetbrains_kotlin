@@ -13,12 +13,14 @@ import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.JsStandardClassIds
 import org.jetbrains.kotlin.name.Name
 
 object JsAnnotations {
     val jsModuleFqn = FqName("kotlin.js.JsModule")
     val jsNonModuleFqn = FqName("kotlin.js.JsNonModule")
     val jsNameFqn = FqName("kotlin.js.JsName")
+    val jsStatic = FqName("kotlin.js.JsStatic")
     val jsSymbolFqn = FqName("kotlin.js.JsSymbol")
     val jsFileNameFqn = FqName("kotlin.js.JsFileName")
     val jsQualifierFqn = FqName("kotlin.js.JsQualifier")
@@ -71,6 +73,9 @@ fun IrAnnotationContainer.isExplicitlyExported(): Boolean =
 fun IrAnnotationContainer.isJsImplicitExport(): Boolean =
     hasAnnotation(JsAnnotations.jsImplicitExportFqn)
 
+fun IrAnnotationContainer.isJsNoRuntime(): Boolean =
+    hasAnnotation(JsStandardClassIds.Annotations.JsNoRuntime)
+
 fun IrAnnotationContainer.couldBeConvertedToExplicitExport(): Boolean? =
     getAnnotation(JsAnnotations.jsImplicitExportFqn)?.getSingleConstBooleanArgument()
 
@@ -78,14 +83,14 @@ fun IrAnnotationContainer.isJsExportDefault(): Boolean =
     annotations.any {
         // Using `IrSymbol.hasEqualFqName(FqName)` instead of a usual `hasAnnotation` call, because `JsExport.Default` is a nested class,
         // whose FQ name cannot be computed by traversing IR tree parents because it lacks `JsExport` for some reason.
-        it.symbol.owner.parentAsClass.symbol.hasEqualFqName(JsAnnotations.jsExportDefaultFqn)
+        it.classSymbol.hasEqualFqName(JsAnnotations.jsExportDefaultFqn)
     }
 
 fun IrAnnotationContainer.isJsExportIgnore(): Boolean =
     annotations.any {
         // Using `IrSymbol.hasEqualFqName(FqName)` instead of a usual `hasAnnotation` call, because `JsExport.Ignore` is a nested class,
         // whose FQ name cannot be computed by traversing IR tree parents because it lacks `JsExport` for some reason.
-        it.symbol.owner.parentAsClass.symbol.hasEqualFqName(JsAnnotations.jsExportIgnoreFqn)
+        it.classSymbol.hasEqualFqName(JsAnnotations.jsExportIgnoreFqn)
     }
 
 fun IrAnnotationContainer.isJsNativeGetter(): Boolean = hasAnnotation(JsAnnotations.jsNativeGetter)
@@ -142,7 +147,7 @@ fun IrDeclarationWithName.getJsSymbolForOverriddenDeclaration(): String? {
 private val associatedObjectKeyAnnotationFqName = FqName("kotlin.reflect.AssociatedObjectKey")
 
 val IrClass.isAssociatedObjectAnnotatedAnnotation: Boolean
-    get() = isAnnotationClass && annotations.any { it.symbol.owner.constructedClass.fqNameWhenAvailable == associatedObjectKeyAnnotationFqName }
+    get() = isAnnotationClass && annotations.any { it.isAnnotationWithEqualFqName(associatedObjectKeyAnnotationFqName) }
 
 fun IrConstructorCall.associatedObject(): IrClass? {
     if (!symbol.owner.constructedClass.isAssociatedObjectAnnotatedAnnotation) return null

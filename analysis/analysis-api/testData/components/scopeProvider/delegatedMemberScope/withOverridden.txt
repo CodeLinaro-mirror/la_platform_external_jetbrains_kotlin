@@ -1,13 +1,13 @@
 KaNamedFunctionSymbol:
   annotations: []
   callableId: /B.bar
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -38,6 +38,6 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: B
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: null

@@ -9,8 +9,10 @@ import org.jetbrains.kotlin.backend.wasm.WasmCompilerResult
 import org.jetbrains.kotlin.backend.wasm.writeCompilationResult
 import org.jetbrains.kotlin.test.DebugMode
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
-import org.jetbrains.kotlin.test.model.BinaryArtifacts
+import org.jetbrains.kotlin.test.model.WasmCompilationSet
+import org.jetbrains.kotlin.test.model.WasmCompilationSetsBinaryArtifact
 import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.configuration.WasmEnvironmentConfigurator.Companion.WASM_BASE_FILE_NAME
 import org.jetbrains.kotlin.test.services.moduleStructure
 import java.io.File
 
@@ -25,9 +27,10 @@ internal fun WasmCompilerResult.writeTo(outputDir: File, outputFilenameBase: Str
     }
 }
 
-class WasmBoxRunner(
-    testServices: TestServices
-) : WasmBoxRunnerBase(testServices) {
+open class WasmBoxRunner(
+    testServices: TestServices,
+    executeWithV8Only: Boolean = false,
+) : WasmBoxRunnerBase(testServices, executeWithV8Only) {
 
     override fun processAfterAllModules(someAssertionWasFailed: Boolean) {
         if (!someAssertionWasFailed) {
@@ -36,18 +39,17 @@ class WasmBoxRunner(
     }
 
     private fun runWasmCode() {
-        val artifacts = modulesToArtifact.values.single()
+        val artifacts = modulesToArtifact.values.single() as WasmCompilationSetsBinaryArtifact
         val debugMode = DebugMode.fromSystemProperty("kotlin.wasm.debugMode")
 
         val originalFile = testServices.moduleStructure.originalTestDataFiles.first()
         val testFileText = originalFile.readText()
-        val failsIn = InTextDirectivesUtils.findListWithPrefixes(testFileText, "// WASM_FAILS_IN: ")
 
-        fun writeToFilesAndRunTest(mode: String, result: BinaryArtifacts.WasmCompilationSet): List<Throwable> {
+        fun writeToFilesAndRunTest(mode: String, result: WasmCompilationSet): List<Throwable> {
             val outputDir = testServices.getWasmTestOutputDirectoryForMode(mode)
             outputDir.mkdirs()
 
-            result.compilerResult.writeTo(outputDir, "index", debugMode, mode)
+            result.compilerResult.writeTo(outputDir, WASM_BASE_FILE_NAME, debugMode, mode)
             result.compilationDependencies.forEach {
                 it.compilerResult.writeTo(outputDir, it.compilerResult.baseFileName, debugMode, mode)
             }
@@ -56,7 +58,6 @@ class WasmBoxRunner(
             val exceptions = saveAdditionalFilesAndRun(
                 outputDir = outputDir,
                 mark = mode,
-                failsIn = failsIn,
                 filesToIgnoreInSizeChecks = filesToIgnoreInSizeChecks
             )
 
@@ -83,3 +84,7 @@ class WasmBoxRunner(
         processExceptions(allExceptions)
     }
 }
+
+class WasmStackSwitchingRunner(
+    testServices: TestServices,
+) : WasmBoxRunner(testServices, executeWithV8Only = true)

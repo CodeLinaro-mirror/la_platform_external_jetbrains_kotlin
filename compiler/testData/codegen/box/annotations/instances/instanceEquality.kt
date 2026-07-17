@@ -1,5 +1,4 @@
 // WITH_STDLIB
-// IGNORE_BACKEND_K1: ANY
 
 annotation class A1
 annotation class A2

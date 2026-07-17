@@ -1,7 +1,7 @@
 type Nullable<T> = T | null | undefined
 declare function KtSingleton<T>(): T & (abstract new() => any);
 export declare namespace kotlin.collections {
-    interface KtList<E> /* extends kotlin.collections.Collection<E> */ {
+    interface KtList<out E> /* extends kotlin.collections.Collection<E> */ {
         asJsReadonlyArrayView(): ReadonlyArray<E>;
         readonly __doNotUseOrImplementIt: {
             readonly "kotlin.collections.KtList": unique symbol;
@@ -12,7 +12,7 @@ export declare namespace kotlin.collections {
     }
 }
 export declare namespace kotlin {
-    class Pair<A, B> /* implements kotlin.io.Serializable */ {
+    class Pair<out A, out B> /* implements kotlin.io.Serializable */ {
         constructor(first: A, second: B);
         get first(): A;
         get second(): B;
@@ -39,6 +39,25 @@ export declare namespace foo {
         /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
         namespace $metadata$ {
             const constructor: abstract new () => C;
+        }
+    }
+    interface InterfaceWithCompanionWithStaticFun {
+        readonly __doNotUseOrImplementIt: {
+            readonly "foo.InterfaceWithCompanionWithStaticFun": unique symbol;
+        };
+    }
+    namespace InterfaceWithCompanionWithStaticFun {
+        function bar(): string;
+        abstract class Companion extends KtSingleton<Companion.$metadata$.constructor>() {
+            private constructor();
+        }
+        namespace Companion {
+            /** @deprecated $metadata$ is used for internal purposes, please don't use it in your code, because it can be removed at any moment */
+            namespace $metadata$ {
+                abstract class constructor {
+                    private constructor();
+                }
+            }
         }
     }
     function box(): string;

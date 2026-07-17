@@ -7,7 +7,7 @@ scopes:
     callables: 0
     constructors: 0
 
-  StaticMemberScope, index = 1
+  StaticMemberScope, index = 2
     packages: 0
     classifiers: 2
       KaNamedClassSymbol:
@@ -15,7 +15,6 @@ scopes:
         classId: test/Base.NestedFromClass
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -41,7 +40,6 @@ scopes:
         classId: test/Base.InnerFromClass
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -65,13 +63,13 @@ scopes:
     callables: 0
     constructors: 0
 
-  ExplicitSimpleImportingScope, index = 2
+  ExplicitSimpleImportingScope, index = 3
     packages: 0
     classifiers: 0
     callables: 0
     constructors: 0
 
-  PackageMemberScope, index = 3
+  PackageMemberScope, index = 4
     packages: 0
     classifiers: 3
       KaNamedClassSymbol:
@@ -79,7 +77,6 @@ scopes:
         classId: test/BaseInterface
         classKind: INTERFACE
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -105,7 +102,6 @@ scopes:
         classId: test/Base
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -131,7 +127,6 @@ scopes:
         classId: test/Child
         classKind: CLASS
         companionObject: null
-        compilerVisibility: Public
         contextReceivers: []
         isActual: false
         isData: false
@@ -155,15 +150,14 @@ scopes:
     callables: 0
     constructors: 0
 
-  DefaultSimpleImportingScope, index = 4
-
   DefaultSimpleImportingScope, index = 5
 
-  ExplicitStarImportingScope, index = 6
+  DefaultSimpleImportingScope, index = 6
+
+  ExplicitStarImportingScope, index = 7
     packages: 0
     classifiers: 0
     callables: 0
     constructors: 0
 
-  DefaultStarImportingScope, index = 7
-
+  DefaultStarImportingScope, index = 8

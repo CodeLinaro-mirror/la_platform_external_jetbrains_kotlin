@@ -362,7 +362,7 @@ KtCallExpression(395,440): 'unnamed/*explicit regular*/(regular = "str2")'
     isInBestCandidates = false
 
 KtNameReferenceExpression(395,402): 'unnamed'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -417,7 +417,7 @@ KtNameReferenceExpression(395,402): 'unnamed'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -590,7 +590,7 @@ KtCallExpression(445,488): 'named/*explicit regular*/(regular = "str2")'
     isInBestCandidates = false
 
 KtNameReferenceExpression(445,450): 'named'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -645,7 +645,7 @@ KtNameReferenceExpression(445,450): 'named'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -835,7 +835,7 @@ KtCallExpression(494,558): 'unnamed/*all explicit*/(explicit = Explicit(), regul
     isInBestCandidates = false
 
 KtNameReferenceExpression(494,501): 'unnamed'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -899,7 +899,7 @@ KtNameReferenceExpression(494,501): 'unnamed'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -987,7 +987,7 @@ KtCallExpression(529,539): 'Explicit()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(529,537): 'Explicit'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1145,7 +1145,7 @@ KtCallExpression(563,625): 'named/*all explicit*/(explicit = Explicit(), regular
     isInBestCandidates = false
 
 KtNameReferenceExpression(563,568): 'named'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -1209,7 +1209,7 @@ KtNameReferenceExpression(563,568): 'named'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -1297,7 +1297,7 @@ KtCallExpression(596,606): 'Explicit()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(596,604): 'Explicit'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1405,7 +1405,7 @@ KtCallExpression(664,794): 'with(Explicit()) {'
     isInBestCandidates = true
 
 KtNameReferenceExpression(664,668): 'with'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1483,7 +1483,7 @@ KtCallExpression(669,679): 'Explicit()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(669,677): 'Explicit'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1524,9 +1524,10 @@ KtCallExpression(691,736): 'unnamed/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1547,9 +1548,10 @@ KtCallExpression(691,736): 'unnamed/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1661,7 +1663,7 @@ KtCallExpression(691,736): 'unnamed/*explicit regular*/(regular = "str2")'
     isInBestCandidates = false
 
 KtNameReferenceExpression(691,698): 'unnamed'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -1669,9 +1671,10 @@ KtNameReferenceExpression(691,698): 'unnamed'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1692,9 +1695,10 @@ KtNameReferenceExpression(691,698): 'unnamed'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1756,7 +1760,7 @@ KtNameReferenceExpression(691,698): 'unnamed'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1832,9 +1836,10 @@ KtCallExpression(745,788): 'named/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1855,9 +1860,10 @@ KtCallExpression(745,788): 'named/*explicit regular*/(regular = "str2")'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -1969,7 +1975,7 @@ KtCallExpression(745,788): 'named/*explicit regular*/(regular = "str2")'
     isInBestCandidates = false
 
 KtNameReferenceExpression(745,750): 'named'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = [
@@ -1977,9 +1983,10 @@ KtNameReferenceExpression(745,750): 'named'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -2000,9 +2007,10 @@ KtNameReferenceExpression(745,750): 'named'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -2064,7 +2072,7 @@ KtNameReferenceExpression(745,750): 'named'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2148,9 +2156,10 @@ KtCallExpression(800,864): 'unnamed/*all explicit*/(explicit = Explicit(), regul
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -2274,7 +2283,7 @@ KtCallExpression(800,864): 'unnamed/*all explicit*/(explicit = Explicit(), regul
     isInBestCandidates = false
 
 KtNameReferenceExpression(800,807): 'unnamed'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -2290,9 +2299,10 @@ KtNameReferenceExpression(800,807): 'unnamed'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -2358,7 +2368,7 @@ KtNameReferenceExpression(800,807): 'unnamed'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -2446,7 +2456,7 @@ KtCallExpression(835,845): 'Explicit()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(835,843): 'Explicit'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -2498,9 +2508,10 @@ KtCallExpression(869,931): 'named/*all explicit*/(explicit = Explicit(), regular
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -2624,7 +2635,7 @@ KtCallExpression(869,931): 'named/*all explicit*/(explicit = Explicit(), regular
     isInBestCandidates = false
 
 KtNameReferenceExpression(869,874): 'named'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -2640,9 +2651,10 @@ KtNameReferenceExpression(869,874): 'named'
           symbol = KaReceiverParameterSymbol:
             annotations: []
             callableId: null
-            compilerVisibility: Public
             contextReceivers: []
             isActual: false
+            isCompanion: false
+            isDelegated: false
             isExpect: false
             isExtension: false
             isExternal: false
@@ -2708,7 +2720,7 @@ KtNameReferenceExpression(869,874): 'named'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {
         Explicit() -> (KaVariableSignature:
@@ -2796,7 +2808,7 @@ KtCallExpression(902,912): 'Explicit()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(902,910): 'Explicit'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

@@ -21,6 +21,7 @@ package org.jetbrains.kotlin.library.abi.parser
 
 import kotlin.text.dropLast
 import org.jetbrains.kotlin.library.abi.AbiClassKind
+import org.jetbrains.kotlin.library.abi.AbiClassifierReference
 import org.jetbrains.kotlin.library.abi.AbiCompoundName
 import org.jetbrains.kotlin.library.abi.AbiModality
 import org.jetbrains.kotlin.library.abi.AbiPropertyKind
@@ -73,6 +74,7 @@ internal fun Cursor.hasPropertyKind(): Boolean {
     val subCursor = copy()
     subCursor.skipInlineWhitespace()
     subCursor.parseAbiModality()
+    subCursor.parseSymbol("companion")
     return subCursor.parsePropertyKind() != null
 }
 
@@ -137,13 +139,7 @@ internal fun Cursor.parseValidIdentifierAndMaybeTrim(peek: Boolean = false, allo
     when {
         allowDot -> parseSymbol(validIdentifierWithDotRegex, peek)
         else -> parseValidIdentifier(peek)
-    }?.let {
-        if (parseSymbol(symbolsFollowingIdentifiersWithSpaces, peek = true) != null) {
-            it.dropLast(1)
-        } else {
-            it
-        }
-    }
+    }?.let { maybeTrim(it) }
 
 internal fun Cursor.parseAbiQualifiedName(peek: Boolean = false): AbiQualifiedName? {
     val cursor = subCursor(peek)
@@ -321,6 +317,13 @@ internal fun Cursor.parseVarargSymbol() = parseSymbol(varargSymbol)
 
 internal fun Cursor.parseDefaultArg() = parseSymbol(defaultArgSymbolRegex)
 
+internal fun Cursor.parseCompanionExtensionsClass(): AbiClassifierReference.ClassReference? {
+    parseSymbol("(") ?: return null
+    val klass = parseAbiQualifiedName() ?: return null
+    parseSymbol(").") ?: return null
+    return ClassReferenceImpl(klass)
+}
+
 internal fun Cursor.parseContextAndReceiverParams(): List<AbiValueParameter> {
     val contextAndReceiverParams = mutableListOf<AbiValueParameter>()
     var inOpenParen = parseSymbol(openParenSymbol) != null
@@ -383,7 +386,7 @@ internal fun Cursor.parseSignatureVersion(): AbiSignatureVersion? {
 internal fun Cursor.parseEnumEntryKind(peek: Boolean = false) =
     parseSymbol(enumEntryKindSymbol, peek)
 
-internal fun Cursor.parseEnumEntryName() = parseSymbol(anythingButSlashRegex)
+internal fun Cursor.parseEnumEntryName() = parseSymbol(anythingButSlashRegex)?.let { maybeTrim(it) }
 
 internal fun Cursor.parseCommentMarker() = parseSymbol(commentSymbol)
 
@@ -399,12 +402,13 @@ internal fun Cursor.parseCloseClassBody(peek: Boolean = false) =
 private fun Cursor.hasPropertyAccessor(type: GetterOrSetter): Boolean {
     val subCursor = copy()
     subCursor.parseAbiModality()
-    subCursor.parseFunctionModifiers()
+    val modifiers = subCursor.parseFunctionModifiers()
     subCursor.parseFunctionKind() ?: return false // if it's not a function it's not a getter/setter
     val mightHaveTypeParams = subCursor.parseGetterOrSetterName(peek = true) == null
     if (mightHaveTypeParams) {
         subCursor.parseTypeParams()
     }
+    if (modifiers.contains("companion")) subCursor.parseCompanionExtensionsClass()
     subCursor.parseContextAndReceiverParams()
     return when (type) {
         GetterOrSetter.GETTER -> subCursor.parseGetterName() != null
@@ -450,6 +454,13 @@ private fun Cursor.parsePropertyKindString(peek: Boolean = false) =
 private fun Cursor.parseClassKindString(peek: Boolean = false) =
     parseSymbol(classKindSymbols, peek)?.uppercase()?.replace(" ", "_")
 
+private fun Cursor.maybeTrim(value: String) =
+    if (parseSymbol(symbolsFollowingIdentifiersWithSpaces, peek = true) != null) {
+        value.dropLast(1)
+    } else {
+        value
+    }
+
 private enum class GetterOrSetter() {
     GETTER,
     SETTER,
@@ -483,7 +494,7 @@ private val getterOrSetterSymbols = listOf(getterNamePrefix, setterNamePrefix)
 private val propertyKindSymbols = listOf("const val", "val", "var")
 private val classModifierSymbols = listOf("inner", "value", "fun", "open")
 private val functionKindSymbols = listOf("constructor", "fun")
-private val functionModifierSymbols = listOf("inline", "suspend")
+private val functionModifierSymbols = listOf("inline", "suspend", "companion")
 private val abiVarianceSymbols = listOf("out", "in")
 private val valueParameterModifierSymbols = listOf("crossinline", "noinline")
 private val abiModalitySymbols = listOf("final", "open", "abstract", "sealed")

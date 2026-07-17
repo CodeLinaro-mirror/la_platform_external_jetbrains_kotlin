@@ -8,7 +8,9 @@ package org.jetbrains.kotlin.config.keys.generator
 import org.jetbrains.kotlin.cli.common.config.ContentRoot
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.modules.ModuleChunk
+import org.jetbrains.kotlin.config.MessageCollectorAccess
 import org.jetbrains.kotlin.config.keys.generator.model.KeysContainer
+import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.utils.KotlinPaths
 import java.io.File
 
@@ -24,18 +26,20 @@ object CLIConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.cli.c
             DeprecationLevel.ERROR,
         ),
         comment = "Used by kotest, Realm, Dokka, KSP compiler plugins.",
-        importsToAdd = listOf("org.jetbrains.kotlin.config.CommonConfigurationKeys")
+        importsToAdd = listOf("org.jetbrains.kotlin.config.CommonConfigurationKeys"),
+        annotations = listOf(MessageCollectorAccess())
     )
 
     val ORIGINAL_MESSAGE_COLLECTOR_KEY by key<MessageCollector>(
         "Used by compiler plugins to access delegated message collector in GroupingMessageCollector."
     )
 
+    val DIAGNOSTICS_COLLECTOR by key<BaseDiagnosticsCollector>(lazyDefaultValue = """error("diagnostic collector is not initialized")""")
+
     val RENDER_DIAGNOSTIC_INTERNAL_NAME by key<Boolean>()
+    val TREAT_WARNINGS_AS_ERRORS by key<Boolean>()
 
     val ALLOW_KOTLIN_PACKAGE by key<Boolean>()
-
-    val INTELLIJ_PLUGIN_ROOT by key<String>("Used in Eclipse plugin (see KotlinCLICompiler).")
 
     val METADATA_DESTINATION_DIRECTORY by key<File>("See K2MetadataCompilerArguments.")
 

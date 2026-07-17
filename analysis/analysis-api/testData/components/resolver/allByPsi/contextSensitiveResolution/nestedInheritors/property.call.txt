@@ -62,7 +62,7 @@ KtSuperTypeCallEntry(165,174): 'MyClass()'
       valueArgumentMapping = {}
 
 KtConstructorCalleeExpression(165,172): 'MyClass'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaDelegatedConstructorCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -86,7 +86,22 @@ KtUserType(165,172): 'MyClass'
   null
 
 KtNameReferenceExpression(165,172): 'MyClass'
-  null
+  KaCallResolutionSuccess:
+    call = KaDelegatedConstructorCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      kind = SUPER_CALL
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = MyClass
+        symbol = <constructor>(): MyClass
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
 
 KtValueArgumentList(172,174): '()'
   null
@@ -200,7 +215,7 @@ KtCallExpression(372,532): 'receiveMyClass('
       }
 
 KtNameReferenceExpression(372,386): 'receiveMyClass'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -248,7 +263,7 @@ KtContainerNode(400,406): 'i == 0'
   null
 
 KtBinaryExpression(400,406): 'i == 0'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -284,7 +299,7 @@ KtBinaryExpression(400,406): 'i == 0'
       }
 
 KtNameReferenceExpression(400,401): 'i'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -301,7 +316,7 @@ KtNameReferenceExpression(400,401): 'i'
       typeArgumentsMapping = {}
 
 KtOperationReferenceExpression(402,404): '=='
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -355,7 +370,7 @@ KtContainerNode(441,447): 'i == 1'
   null
 
 KtBinaryExpression(441,447): 'i == 1'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -391,7 +406,7 @@ KtBinaryExpression(441,447): 'i == 1'
       }
 
 KtNameReferenceExpression(441,442): 'i'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -408,7 +423,7 @@ KtNameReferenceExpression(441,442): 'i'
       typeArgumentsMapping = {}
 
 KtOperationReferenceExpression(443,445): '=='
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -450,7 +465,7 @@ KtContainerNodeForControlStructureBody(449,460): 'myClassProp'
   null
 
 KtNameReferenceExpression(449,460): 'myClassProp'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -479,7 +494,7 @@ KtContainerNode(478,484): 'i == 2'
   null
 
 KtBinaryExpression(478,484): 'i == 2'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -515,7 +530,7 @@ KtBinaryExpression(478,484): 'i == 2'
       }
 
 KtNameReferenceExpression(478,479): 'i'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -532,7 +547,7 @@ KtNameReferenceExpression(478,479): 'i'
       typeArgumentsMapping = {}
 
 KtOperationReferenceExpression(480,482): '=='
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -574,7 +589,7 @@ KtContainerNodeForControlStructureBody(486,496): 'stringProp'
   null
 
 KtNameReferenceExpression(486,496): 'stringProp'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -597,7 +612,7 @@ KtContainerNodeForControlStructureBody(510,526): 'ClassMemberAlias'
   null
 
 KtNameReferenceExpression(510,526): 'ClassMemberAlias'
-  KaSuccessCallInfo:
+  KaCallResolutionSuccess:
     call = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null

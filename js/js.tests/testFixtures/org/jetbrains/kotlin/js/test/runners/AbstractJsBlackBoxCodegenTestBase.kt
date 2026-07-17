@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -10,10 +10,6 @@ import org.jetbrains.kotlin.js.test.converters.*
 import org.jetbrains.kotlin.js.test.converters.incremental.RecompileModuleJsIrBackendFacade
 import org.jetbrains.kotlin.js.test.handlers.*
 import org.jetbrains.kotlin.js.test.runners.AbstractJsBlackBoxCodegenTestBase.JsBackendFacades
-import org.jetbrains.kotlin.js.test.runners.AbstractJsBlackBoxCodegenTestBase.JsBackendFacades.WithRecompilation.deserializerAndLoweringFacade
-import org.jetbrains.kotlin.js.test.runners.AbstractJsBlackBoxCodegenTestBase.JsBackendFacades.WithRecompilation.recompileFacade
-import org.jetbrains.kotlin.js.test.runners.AbstractJsBlackBoxCodegenTestBase.JsBackendFacades.WithSeparatedDeserialization.postDeserializationHandler
-import org.jetbrains.kotlin.js.test.runners.AbstractJsBlackBoxCodegenTestBase.JsBackendFacades.WithSeparatedDeserialization.preSerializationHandler
 import org.jetbrains.kotlin.platform.js.JsPlatforms
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
@@ -22,6 +18,8 @@ import org.jetbrains.kotlin.test.backend.handlers.*
 import org.jetbrains.kotlin.test.backend.ir.IrBackendInput
 import org.jetbrains.kotlin.test.backend.ir.IrDiagnosticsHandler
 import org.jetbrains.kotlin.test.builders.*
+import org.jetbrains.kotlin.test.configuration.commonCodegenConfiguration
+import org.jetbrains.kotlin.test.configuration.commonIrHandlersForCodegenTest
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.DiagnosticsDirectives.DIAGNOSTICS
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
@@ -36,6 +34,7 @@ import org.jetbrains.kotlin.test.services.configuration.JsFirstStageEnvironmentC
 import org.jetbrains.kotlin.test.services.configuration.JsSecondStageEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.sourceProviders.AdditionalDiagnosticsSourceFilesProvider
 import org.jetbrains.kotlin.test.services.sourceProviders.CoroutineHelpersSourceFilesProvider
+import org.jetbrains.kotlin.utils.addToStdlib.runIf
 import org.jetbrains.kotlin.utils.bind
 import java.lang.Boolean.getBoolean
 
@@ -56,7 +55,7 @@ abstract class AbstractJsBlackBoxCodegenTestBase(
          * and a recompilation facade [recompileFacade].
          *
          * The output artifact of [deserializerAndLoweringFacade] is [BinaryArtifacts.Js], which helps to avoid re-registering
-         * [IrBackendInput] for the module from [IrBackendInput.JsIrAfterFrontendBackendInput] to
+         * [IrBackendInput] for the module from [org.jetbrains.kotlin.test.backend.ir.JsIrAfterFrontendBackendInput] to
          * [IrBackendInput.JsIrDeserializedFromKlibBackendInput], which is essential for [recompileFacade].
          */
         object WithRecompilation : JsBackendFacades {
@@ -102,6 +101,7 @@ abstract class AbstractJsBlackBoxCodegenTestBase(
     }
 
     protected fun TestConfigurationBuilder.commonConfigurationForJsBlackBoxCodegenTest() {
+        commonCodegenConfiguration()
         commonConfigurationForJsBackendFirstStageTest(
             customIgnoreDirective = customIgnoreDirective,
             additionalIgnoreDirectives = additionalIgnoreDirectives,
@@ -118,18 +118,6 @@ abstract class AbstractJsBlackBoxCodegenTestBase(
         ) {
             defaultDirectives {
                 DIAGNOSTICS with "-warnings"
-            }
-        }
-
-        forTestsMatching("compiler/testData/codegen/box/involvesIrInterpreter/*") {
-            configureFirHandlersStep {
-                useHandlers(::FirInterpreterDumpHandler)
-            }
-            configureKlibArtifactsHandlersStep {
-                useHandlers(::JsKlibInterpreterDumpHandler)
-            }
-            configureJsArtifactsHandlersStep {
-                useHandlers(::JsIrInterpreterDumpHandler)
             }
         }
     }
@@ -186,22 +174,29 @@ fun <FO : ResultingArtifact.FrontendOutput<FO>> TestConfigurationBuilder.commonC
         )
     }
 
-    useAfterAnalysisCheckers(
-        ::JsArtifactsDumpHandler
-    )
+    useFailureSuppressors(JsArtifactsDumpHandler::Suppressor)
+    useAfterAnalysisCheckers(JsArtifactsDumpHandler::Checker)
 }
 
 /**
  * Configures handlers for JS box testing
  */
-fun TestConfigurationBuilder.configureJsBoxHandlers() {
+fun TestConfigurationBuilder.configureJsBoxHandlers(
+    verifyJsAst: Boolean = true,
+    verifySourceMap: Boolean = true,
+) {
     configureJsArtifactsHandlersStep {
         useHandlers(
             ::JsTypeScriptCompilationHandler,
             ::NodeJsGeneratorHandler,
             ::JsBoxRunner,
-            ::JsAstHandler
         )
+        runIf(verifyJsAst) {
+            useHandlers(::JsAstHandler)
+        }
+        runIf(verifySourceMap) {
+            useHandlers(::JsSourceMapValidator)
+        }
     }
 }
 
@@ -263,7 +258,7 @@ fun TestConfigurationBuilder.commonConfigurationForJsTest() {
     facadeStep(::JsIrPreSerializationLoweringFacade)
     loweredIrHandlersStep()
 
-    facadeStep(::FirKlibSerializerCliWebFacade)
+    facadeStep(::FirKlibSerializerCliJsFacade)
     klibArtifactsHandlersStep()
 }
 
@@ -276,21 +271,20 @@ fun TestConfigurationBuilder.setupCommonHandlersForJsTest(
     }
 
     configureIrHandlersStep {
+        commonIrHandlersForCodegenTest()
         useHandlers(::FirJsKlibAbiDumpBeforeInliningSavingHandler)
-        useHandlers(::NoIrCompilationErrorsHandler)
-        useHandlers(::IrMangledNameAndSignatureDumpHandler)
         useHandlers(::IrDiagnosticsHandler)
     }
 
     configureLoweredIrHandlersStep {
-        useHandlers(::NoIrCompilationErrorsHandler)
+        commonIrHandlersForCodegenTest()
     }
 
     configureKlibArtifactsHandlersStep {
-        useHandlers(::KlibBackendDiagnosticsHandler, ::KlibAbiDumpAfterInliningVerifyingHandler)
+        useHandlers(::KlibBackendDiagnosticsHandler, ::KlibAbiDumpAfterInliningVerifyingHandler, ::KlibAbiDumpHandler)
     }
 
-    useAfterAnalysisCheckers(
+    useFailureSuppressors(
         ::BlackBoxCodegenSuppressor.bind(customIgnoreDirective, additionalIgnoreDirectives),
     )
 

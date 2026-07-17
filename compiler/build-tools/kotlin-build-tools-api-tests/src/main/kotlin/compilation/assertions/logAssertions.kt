@@ -59,11 +59,13 @@ fun CompilationOutcome.assertLogDoesNotContainPatterns(logLevel: LogLevel, varar
 
 fun CompilationOutcome.assertLogDoesNotContainPatterns(logLevel: LogLevel, expectedLines: Set<Regex>) {
     requireLogLevel(logLevel)
-    val absentLines = expectedLines.filter { regex -> logLines.getValue(logLevel).any { line -> regex.matches(line) } }
-    assert(absentLines.isEmpty()) {
+    val presentLines = expectedLines
+        .associateWith { regex -> logLines.getValue(logLevel).filter { line -> regex.matches(line) } }
+        .filter { [_, lines] -> lines.isNotEmpty() }
+    assert(presentLines.isEmpty()) {
         """
         |The following lines were not expected to be printed on $logLevel level, however they were:
-        |${absentLines.joinToString("\n")}
+        |${presentLines.entries.joinToString("\n\n\n") { [regex, lines] -> "Pattern $regex:\n${lines.joinToString("\n")}" }}
         """.trimMargin()
     }
 }
@@ -74,5 +76,13 @@ fun CompilationOutcome.assertLogContainsSubstringExactlyTimes(logLevel: LogLevel
     val count = logLines.getValue(logLevel).sumOf { line -> regex.findAll(line).count() }
     assert(count == expectedCount) {
         "Expected '$substring' to occur $expectedCount times on $logLevel, but found $count"
+    }
+}
+
+fun CompilationOutcome.assertNoWarnings() {
+    requireLogLevel(LogLevel.WARN)
+    val warnings = logLines.getValue(LogLevel.WARN)
+    assert(warnings.isEmpty()) {
+        "Expected no warnings, but found: $warnings"
     }
 }

@@ -51,33 +51,6 @@ fun IrReturnTarget.returnType(context: CommonBackendContext) =
         else -> error("Unknown ReturnTarget: $this")
     }
 
-@DeprecatedForRemovalCompilerApi(
-    deprecatedSince = CompilerVersionOfApiDeprecation._2_1_20,
-    replaceWith = "org.jetbrains.kotlin.ir.builders.declarations.buildReceiverParameter",
-)
-inline fun IrSimpleFunction.addDispatchReceiver(builder: IrValueParameterBuilder.() -> Unit): IrValueParameter =
-    IrValueParameterBuilder().run {
-        builder()
-        name = "this".synthesizedName
-        factory.buildValueParameter(this, this@addDispatchReceiver).also { receiver ->
-            dispatchReceiverParameter = receiver
-        }
-    }
-
-@DeprecatedForRemovalCompilerApi(
-    deprecatedSince = CompilerVersionOfApiDeprecation._2_1_20,
-    replaceWith = "org.jetbrains.kotlin.backend.common.ir.createExtensionReceiver",
-)
-fun IrSimpleFunction.addExtensionReceiver(type: IrType, origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED): IrValueParameter =
-    IrValueParameterBuilder().run {
-        this.type = type
-        this.origin = origin
-        this.name = "receiver".synthesizedName
-        factory.buildValueParameter(this, this@addExtensionReceiver).also { receiver ->
-            extensionReceiverParameter = receiver
-        }
-    }
-
 fun IrSimpleFunction.createExtensionReceiver(type: IrType, origin: IrDeclarationOrigin = IrDeclarationOrigin.DEFINED): IrValueParameter =
     IrValueParameterBuilder().run {
         this.type = type
@@ -178,7 +151,7 @@ fun IrFunction.wrapWithLambdaCall(parent: IrDeclarationParent, context: Lowering
         val builder = context.createIrBuilder(this@apply.symbol).at(this@wrapWithLambdaCall)
         body = builder.irBlockBody {
             +irReturn(irCall(this@wrapWithLambdaCall).apply {
-                for ((index, param) in parameters.withIndex()) {
+                for ([index, param] in parameters.withIndex()) {
                     arguments[index] = irGet(param)
                 }
             })

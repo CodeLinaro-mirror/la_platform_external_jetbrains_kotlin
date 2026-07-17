@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtClass
 import org.jetbrains.kotlin.psi.KtImplementationDetail
 import org.jetbrains.kotlin.psi.stubs.KotlinClassStub
+import org.jetbrains.kotlin.psi.stubs.KotlinStubElement
 import org.jetbrains.kotlin.psi.stubs.elements.KotlinValueClassRepresentation
 import org.jetbrains.kotlin.psi.stubs.elements.KtStubElementTypes
 
@@ -26,6 +27,7 @@ class KotlinClassStubImpl(
     override val isClsStubCompiledToJvmDefaultImplementation: Boolean,
     override val isLocal: Boolean,
     override val isTopLevel: Boolean,
+    override val kdocText: String?,
     val valueClassRepresentation: KotlinValueClassRepresentation?,
 ) : KotlinStubBaseImpl<KtClass>(
     parent = parent,
@@ -51,5 +53,20 @@ class KotlinClassStubImpl(
         isLocal = isLocal,
         isTopLevel = isTopLevel,
         valueClassRepresentation = valueClassRepresentation,
+        kdocText = kdocText,
     )
+
+    @KtImplementationDetail
+    override fun isEquivalentTo(other: KotlinStubElement<*>): Boolean =
+        other is KotlinClassStubImpl &&
+                other.name == name &&
+                other.classId == classId &&
+                other.isClsStubCompiledToJvmDefaultImplementation == isClsStubCompiledToJvmDefaultImplementation &&
+                other.isLocal == isLocal &&
+                other.isTopLevel == isTopLevel &&
+                other.qualifiedName == qualifiedName &&
+                other.isInterface == isInterface &&
+                other.kdocText == kdocText &&
+                other.valueClassRepresentation == valueClassRepresentation &&
+                other.superNameRefs.contentEquals(superNameRefs)
 }

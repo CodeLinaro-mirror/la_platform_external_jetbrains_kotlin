@@ -14,7 +14,7 @@ import org.jetbrains.org.objectweb.asm.tree.AnnotationNode
 import org.jetbrains.org.objectweb.asm.tree.ClassNode
 import org.jetbrains.org.objectweb.asm.tree.FieldNode
 import org.jetbrains.org.objectweb.asm.tree.MethodNode
-import java.io.File
+import java.io.InputStream
 import kotlin.metadata.ExperimentalContextReceivers
 import kotlin.metadata.KmAnnotation
 import kotlin.metadata.KmAnnotationArgument
@@ -64,25 +64,23 @@ internal class ForeignClassUsageProcessor(nonPublicMarkers: Set<String>, private
         return collectedUsages[className].orEmpty()
     }
 
-    fun process(classFile: File) {
-        classFile.inputStream().buffered().use { inputStream ->
-            val classReader = ClassReader(inputStream)
-            val classNode = ClassNode()
+    fun process(inputStream: InputStream) {
+        val classReader = ClassReader(inputStream)
+        val classNode = ClassNode()
 
-            classReader.accept(classNode, ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG)
+        classReader.accept(classNode, ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG)
 
-            visitedClassNames.add(classNode.name)
-            currentClassName = classNode.name
+        visitedClassNames.add(classNode.name)
+        currentClassName = classNode.name
 
-            val kotlinMetadataAnnotation = classNode.visibleAnnotations.orEmpty().find { it.desc == KOTLIN_METADATA_DESCRIPTOR }
-            if (kotlinMetadataAnnotation != null) {
-                val kotlinMetadata = readMetadata(kotlinMetadataAnnotation)
-                if (kotlinMetadata != null) {
-                    processKotlinMetadata(kotlinMetadata, classNode)
-                }
-            } else {
-                processJavaClass(classNode)
+        val kotlinMetadataAnnotation = classNode.visibleAnnotations.orEmpty().find { it.desc == KOTLIN_METADATA_DESCRIPTOR }
+        if (kotlinMetadataAnnotation != null) {
+            val kotlinMetadata = readMetadata(kotlinMetadataAnnotation)
+            if (kotlinMetadata != null) {
+                processKotlinMetadata(kotlinMetadata, classNode)
             }
+        } else {
+            processJavaClass(classNode)
         }
     }
 
@@ -209,8 +207,34 @@ internal class ForeignClassUsageProcessor(nonPublicMarkers: Set<String>, private
     }
 
     private fun hasNonPublicMarker(visibleAnnotations: List<AnnotationNode>?, invisibleAnnotations: List<AnnotationNode>?): Boolean {
-        return visibleAnnotations.orEmpty().any { it.desc in nonPublicAnnotationDescriptors }
+        return visibleAnnotations.orEmpty().any { it.desc in nonPublicAnnotationDescriptors || it.isDeprecatedHidden() }
                 || invisibleAnnotations.orEmpty().any { it.desc in nonPublicAnnotationDescriptors }
+    }
+
+    private fun AnnotationNode.isDeprecatedHidden(): Boolean {
+        if (desc != "Lkotlin/Deprecated;") {
+            return false
+        }
+
+        val values = this.values ?: return false
+        var index = 0
+
+        while (index < values.size) {
+            val name = values[index] as String
+            if (name == "level") {
+                @Suppress("UNCHECKED_CAST")
+                val value = values[index + 1] as Array<String>
+                return value[0] == "Lkotlin/DeprecationLevel;" && value[1] == "HIDDEN"
+            }
+
+            /**
+             * Skip both the annotation parameter name and the value.
+             * @see [AnnotationNode.values].
+             */
+            index += 2
+        }
+
+        return false
     }
 
     fun processKotlinMetadata(metadata: KotlinClassMetadata, classNode: ClassNode) {
@@ -288,7 +312,10 @@ internal class ForeignClassUsageProcessor(nonPublicMarkers: Set<String>, private
 
         doProcessJavaMethod(methodNode)
 
+        @Suppress("DEPRECATION_ERROR")
         kmFunction.receiverParameterType?.let(::processKotlinType)
+
+        @Suppress("DEPRECATION_ERROR")
         kmFunction.contextReceiverTypes.forEach(::processKotlinType)
         processKotlinType(kmFunction.returnType)
     }
@@ -313,6 +340,7 @@ internal class ForeignClassUsageProcessor(nonPublicMarkers: Set<String>, private
         kmProperty.getterSignature?.let { classNode.findMethod(it) }?.let(::doProcessJavaMethod)
         kmProperty.setterSignature?.let { classNode.findMethod(it) }?.let(::doProcessJavaMethod)
 
+        @Suppress("DEPRECATION_ERROR")
         kmProperty.contextReceiverTypes.forEach(::processKotlinType)
         kmProperty.receiverParameterType?.let(::processKotlinType)
         processKotlinType(kmProperty.returnType)
@@ -372,6 +400,16 @@ internal class ForeignClassUsageProcessor(nonPublicMarkers: Set<String>, private
             val descriptor = "L" + annotation.className.replace('.', '/') + ";"
             if (descriptor in nonPublicAnnotationDescriptors) {
                 return true
+            }
+
+            if (descriptor == "Lkotlin/Deprecated;") {
+                val level = annotation.arguments["level"]
+                if (level is KmAnnotationArgument.EnumValue
+                    && level.enumClassName == "kotlin/DeprecationLevel"
+                    && level.enumEntryName == "HIDDEN"
+                ) {
+                    return true
+                }
             }
         }
 

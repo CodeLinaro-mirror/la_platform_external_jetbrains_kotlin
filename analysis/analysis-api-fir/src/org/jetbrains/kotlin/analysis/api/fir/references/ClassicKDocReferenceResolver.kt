@@ -6,15 +6,16 @@
 package org.jetbrains.kotlin.analysis.api.fir.references
 
 import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.util.parentOfType
+import com.intellij.psi.util.parentsOfType
 import org.jetbrains.kotlin.analysis.api.KaSession
 import org.jetbrains.kotlin.analysis.api.components.KaScopeContext
 import org.jetbrains.kotlin.analysis.api.components.KaScopeKind
+import org.jetbrains.kotlin.analysis.api.components.KaUnificationSubstitutorPolicy
 import org.jetbrains.kotlin.analysis.api.fir.references.ClassicKDocReferenceResolver.getTypeQualifiedExtensions
 import org.jetbrains.kotlin.analysis.api.scopes.KaScope
 import org.jetbrains.kotlin.analysis.api.symbols.*
 import org.jetbrains.kotlin.analysis.api.symbols.markers.KaDeclarationContainerSymbol
-import org.jetbrains.kotlin.analysis.utils.printer.parentOfType
-import org.jetbrains.kotlin.analysis.utils.printer.parentsOfType
 import org.jetbrains.kotlin.load.java.possibleGetMethodNames
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -366,10 +367,17 @@ internal object ClassicKDocReferenceResolver {
         if (!possibleExtensionsLayers.any() || !possibleReceiversLayers.any()) return emptyList()
 
         return possibleReceiversLayers.first().flatMap { receiverClassSymbol ->
-            val receiverType = receiverClassSymbol.defaultType
+            val actualReceiverType = receiverClassSymbol.defaultType
             possibleExtensionsLayers.map { extensionSymbolsLayer ->
-                extensionSymbolsLayer.filter { it.canBeCalledAsExtensionOn(receiverType) }
-                    .map { it.toResolveResult(receiverClassReference = receiverClassSymbol) }
+                extensionSymbolsLayer.filter { callable ->
+                    if (!callable.isExtension) return@filter false
+                    val expectedReceiverType = callable.receiverType ?: return@filter false
+                    createUnificationSubstitutor(
+                        actualReceiverType,
+                        expectedReceiverType,
+                        KaUnificationSubstitutorPolicy.EXISTENTIAL
+                    ) != null
+                }.map { it.toResolveResult(receiverClassReference = receiverClassSymbol) }
             }.firstOrNull {
                 it.isNotEmpty()
             } ?: emptyList()

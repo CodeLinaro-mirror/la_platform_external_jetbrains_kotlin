@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.cli.pipeline.web
 import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
 import org.jetbrains.kotlin.backend.wasm.WasmPreSerializationLoweringContext
 import org.jetbrains.kotlin.backend.wasm.wasmLoweringsOfTheFirstPhase
+import org.jetbrains.kotlin.cli.common.diagnosticsCollector
 import org.jetbrains.kotlin.cli.common.runPreSerializationLoweringPhases
 import org.jetbrains.kotlin.cli.pipeline.CheckCompilationErrors
 import org.jetbrains.kotlin.cli.pipeline.PerformanceNotifications
@@ -22,22 +23,21 @@ import org.jetbrains.kotlin.fir.pipeline.Fir2IrActualizedResult
 import org.jetbrains.kotlin.fir.pipeline.Fir2KlibMetadataSerializer
 import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.ir.backend.js.JsPreSerializationLoweringContext
-import org.jetbrains.kotlin.ir.backend.js.ModulesStructure
 import org.jetbrains.kotlin.ir.backend.js.jsLoweringsOfTheFirstPhase
 import org.jetbrains.kotlin.ir.backend.js.shouldGoToNextIcRound
 import org.jetbrains.kotlin.js.config.wasmCompilation
 import org.jetbrains.kotlin.progress.IncrementalNextRoundException
 
-object WebKlibInliningPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, JsFir2IrPipelineArtifact>(
+object WebKlibInliningPipelinePhase : PipelinePhase<WebFir2IrPipelineArtifact, WebFir2IrPipelineArtifact>(
     name = "WebKlibInliningPipelinePhase",
     preActions = setOf(PerformanceNotifications.IrPreLoweringStarted),
     postActions = setOf(PerformanceNotifications.IrPreLoweringFinished, CheckCompilationErrors.CheckDiagnosticCollector),
 ) {
-    override fun executePhase(input: JsFir2IrPipelineArtifact): JsFir2IrPipelineArtifact {
-        val (fir2IrResult, firOutput, configuration, diagnosticCollector, moduleStructure) = input
-        processIncrementalCompilationRoundIfNeeded(configuration, moduleStructure, firOutput, fir2IrResult)
+    override fun executePhase(input: WebFir2IrPipelineArtifact): WebFir2IrPipelineArtifact {
+        (val fir2IrResult = result, val firOutput = frontendOutput, val configuration) = input
+        processIncrementalCompilationRoundIfNeeded(configuration, firOutput, fir2IrResult)
         val irDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
-            diagnosticCollector,
+            configuration.diagnosticsCollector,
             configuration.languageVersionSettings
         )
 
@@ -60,7 +60,6 @@ object WebKlibInliningPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, Js
 
     private fun processIncrementalCompilationRoundIfNeeded(
         configuration: CompilerConfiguration,
-        moduleStructure: ModulesStructure,
         frontendOutput: AllModulesFrontendOutput,
         fir2IrResult: Fir2IrActualizedResult,
     ) {
@@ -71,12 +70,11 @@ object WebKlibInliningPipelinePhase : PipelinePhase<JsFir2IrPipelineArtifact, Js
         //  This happens because we check the next round before compilation errors.
         //  Test reproducer:  testFileWithConstantRemoved
         //  Issue: https://youtrack.jetbrains.com/issue/KT-58824/
-        val shouldGoToNextIcRound = shouldGoToNextIcRound(moduleStructure.compilerConfiguration) {
+        val shouldGoToNextIcRound = shouldGoToNextIcRound(configuration) {
             Fir2KlibMetadataSerializer(
-                moduleStructure.compilerConfiguration,
+                configuration,
                 frontendOutput.outputs,
                 fir2IrResult,
-                exportKDoc = false,
                 produceHeaderKlib = false,
             )
         }

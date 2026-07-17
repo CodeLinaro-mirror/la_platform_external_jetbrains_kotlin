@@ -30,7 +30,7 @@ internal class ImplementationPrinter(
     printer: ImportCollectingPrinter
 ) : AbstractImplementationPrinter<Implementation, Element, Field>(printer) {
 
-    override val implementationOptInAnnotation: ClassRef<*>
+    override val implementationOptInAnnotation: PrintableAnnotation
         get() = firImplementationDetailType
 
 
@@ -137,6 +137,7 @@ internal class ImplementationPrinter(
                                 // For most of the cases dispatch/extension receivers are handled with the `explicitReceiver` case above
                                 in setOf("dispatchReceiver", "extensionReceiver") if (walkableFields.any { it.name == "explicitReceiver" }) -> {}
                                 "companionObject" -> {}
+                                "contextSensitiveAlternative" -> {}
 
                                 else -> {
                                     when (field) {
@@ -200,6 +201,7 @@ internal class ImplementationPrinter(
                                 // But FirSuperReceiverExpressionImpl doesn't have explicitReceiver
                                 field.name == "dispatchReceiver" && this.typeName != "FirSuperReceiverExpressionImpl" -> {}
                                 field.name == "extensionReceiver" -> {}
+                                field.name == "contextSensitiveAlternative" -> {}
 
                                 field.withTransform -> {
                                     if (!(element.needTransformOtherChildren && field.needTransformInOtherChildren)) {
@@ -281,7 +283,7 @@ internal class ImplementationPrinter(
             ) {
                 println()
                 if (field.name == "source") {
-                    println("@${firImplementationDetailType.render()}")
+                    println(firImplementationDetailType.render())
                 }
                 replaceFunctionDeclaration(field, override = true, kind!!, overridenType, forceNullable)
                 if (isInterface || isAbstract) {

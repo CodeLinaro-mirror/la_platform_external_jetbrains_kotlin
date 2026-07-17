@@ -1,2 +1,7 @@
 KtNameReferenceExpression(99,104): 'coreR'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/pkg/R
+    ]

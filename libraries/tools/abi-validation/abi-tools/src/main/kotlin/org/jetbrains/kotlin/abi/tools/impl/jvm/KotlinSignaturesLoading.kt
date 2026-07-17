@@ -17,21 +17,11 @@ import java.io.*
 import java.util.*
 import kotlin.metadata.KmProperty
 
-internal fun Sequence<InputStream>.loadApiFromJvmClasses(): List<ClassBinarySignature> {
-    val classNodes = mapNotNull {
-        val node = it.use { stream ->
-            val classNode = ClassNode()
-            ClassReader(stream.readBytes()).accept(classNode, ClassReader.SKIP_CODE)
-            classNode
-        }
-        // Skip module-info.java from processing
-        if (node.name == "module-info") null else node
-    }
-
+internal fun Sequence<ClassNode>.loadApiFromJvmClasses(): List<ClassBinarySignature> {
     val packageCache = mutableMapOf<String, String>()
 
     // Note: map is sorted, so the dump will produce stable result
-    val classNodeMap = classNodes.associateByTo(TreeMap()) { it.name }
+    val classNodeMap = this.associateByTo(TreeMap()) { it.name }
     val visibilityMap = classNodeMap.readKotlinVisibilities()
     return classNodeMap
         .values
@@ -46,17 +36,29 @@ internal fun Sequence<InputStream>.loadApiFromJvmClasses(): List<ClassBinarySign
                     .map { it.buildFieldSignature(mVisibility, this, classNodeMap) }
                     .filter { it.field.isEffectivelyPublic(classAccess, mVisibility) }
                     .filter {
-                        /*
-                         * Filter out 'public static final Companion' field that doesn't constitute public API.
-                         * For that we first check if field corresponds to the 'Companion' class and then
-                         * if companion is effectively public by itself, so the 'Companion' field has the same visibility.
-                         */
-                        val companionClass = when (it) {
-                            is BasicFieldBinarySignature -> return@filter true
-                            is CompanionFieldBinarySignature -> it.companion
+                        when (it) {
+                            is BasicFieldBinarySignature -> {
+                                // locate a companion
+                                val companionClass = it.companion ?: return@filter true
+                                // find a visibility for the companion
+                                val visibility = visibilityMap[companionClass.name] ?: return@filter true
+                                // check field is actually defined in the companion
+                                visibility.findMember(it.field.jvmMember) ?: return@filter true
+                                // check the companion is effectively public
+                                companionClass.isEffectivelyPublic(visibility)
+                            }
+                            is CompanionFieldBinarySignature -> {
+                                /*
+                                 * Filter out 'public static final Companion' field that doesn't constitute public API.
+                                 * For that we first check if field corresponds to the 'Companion' class and then
+                                 * if companion is effectively public by itself, so the 'Companion' field has the same visibility.
+                                 */
+                                val companionClass = it.companion
+                                val visibility = visibilityMap[companionClass.name] ?: return@filter true
+                                companionClass.isEffectivelyPublic(visibility)
+                            }
                         }
-                        val visibility = visibilityMap[companionClass.name] ?: return@filter true
-                        companionClass.isEffectivelyPublic(visibility)
+
                     }.map { it.field }
 
                 // NB: this 'map' is O(methods + properties * methods) which may accidentally be quadratic
@@ -87,6 +89,16 @@ internal fun Sequence<InputStream>.loadApiFromJvmClasses(): List<ClassBinarySign
         }
 }
 
+internal fun InputStream.readClassNode(): ClassNode? {
+    val node = use { stream ->
+        val classNode = ClassNode()
+        ClassReader(stream.readBytes()).accept(classNode, ClassReader.SKIP_CODE)
+        classNode
+    }
+    // Skip module-info.java from processing
+    return if (node.name == "module-info") null else node
+}
+
 /**
  * Wraps a [FieldBinarySignature] along with additional information.
  */
@@ -95,7 +107,7 @@ private sealed class FieldBinarySignatureWrapper(val field: FieldBinarySignature
 /**
  * Wraps a regular field's binary signature.
  */
-private class BasicFieldBinarySignature(field: FieldBinarySignature) : FieldBinarySignatureWrapper(field)
+private class BasicFieldBinarySignature(field: FieldBinarySignature, val companion: ClassNode?) : FieldBinarySignatureWrapper(field)
 
 /**
  * Wraps a binary signature for a field referencing a companion object.
@@ -114,6 +126,7 @@ private fun FieldNode.buildFieldSignature(
     foundAnnotations.addAll(ownerClass.methods.annotationsFor(annotationHolders?.method))
 
     var companionClass: ClassNode? = null
+    var companionClassCandidate: ClassNode? = null
     if (isCompanionField(ownerClass.kotlinMetadata)) {
         /*
          * If the field was generated to hold the reference to a companion class's instance,
@@ -127,7 +140,7 @@ private fun FieldNode.buildFieldSignature(
         foundAnnotations.addAll(companionClass?.visibleAnnotations.orEmpty())
         foundAnnotations.addAll(companionClass?.invisibleAnnotations.orEmpty())
     } else if (isStatic(access) && isFinal(access)) {
-        val companionClassCandidate = ownerClass.companionName(ownerClass.kotlinMetadata)?.let {
+        companionClassCandidate = ownerClass.companionName(ownerClass.kotlinMetadata)?.let {
             classes[it]
         }
 
@@ -151,7 +164,7 @@ private fun FieldNode.buildFieldSignature(
     return if (companionClass != null) {
         CompanionFieldBinarySignature(fieldSignature, companionClass)
     } else {
-        BasicFieldBinarySignature(fieldSignature)
+        BasicFieldBinarySignature(fieldSignature, companionClassCandidate)
     }
 }
 
@@ -388,7 +401,7 @@ private class PackageAnnotationsHolder {
     }
 
     private fun fill(parentPackage: Packages) {
-        parentPackage.subpackages.forEach { (_, childPackage) ->
+        parentPackage.subpackages.forEach { [_, childPackage] ->
             childPackage.annotations.addAll(parentPackage.annotations)
             fill(childPackage)
         }

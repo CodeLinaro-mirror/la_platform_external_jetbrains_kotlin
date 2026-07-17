@@ -5,7 +5,7 @@
 
 package org.jetbrains.kotlin.analysis.api.standalone.fir.test
 
-import org.jetbrains.kotlin.analysis.test.framework.TestWithDisposable
+import org.jetbrains.kotlin.TestWithDisposable
 import java.nio.file.Path
 import java.nio.file.Paths
 
@@ -13,6 +13,6 @@ abstract class AbstractStandaloneTest : TestWithDisposable() {
     abstract val suiteName: String
 
     protected fun testDataPath(path: String): Path {
-        return Paths.get("analysis/analysis-api-standalone/testData/$suiteName").resolve(path)
+        return Paths.get("testData/$suiteName").resolve(path)
     }
 }

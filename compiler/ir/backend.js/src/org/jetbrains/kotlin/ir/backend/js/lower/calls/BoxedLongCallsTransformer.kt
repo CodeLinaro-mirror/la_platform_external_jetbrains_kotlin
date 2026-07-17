@@ -38,14 +38,14 @@ internal class BoxedLongCallsTransformer(context: JsIrBackendContext) : CallsTra
         if (call.symbol == symbols.jsLongToString) {
             return irCall(call, symbols.longToStringImpl)
         }
-        if (longAsBigInt && call.symbol == irBuiltIns.longClass.owner.primaryConstructor?.symbol) {
-            return irCall(call, symbols.longFromTwoInts!!)
-        }
         if (longAsBigInt && call.symbol == irBuiltIns.longClass.owner.primaryConstructorReplacement?.symbol) {
             return irCall(call, symbols.longFromTwoInts!!).apply {
                 // The first parameter of the primary constructor replacement function is actually `this`.
                 arguments.assignFrom(call.arguments.drop(1))
             }
+        }
+        if (longAsBigInt && call.symbol == irBuiltIns.longClass.owner.primaryConstructor?.symbol) {
+            return irCall(call, symbols.longFromTwoInts!!)
         }
         if (longAsBigInt && call.symbol == longLowGetter) {
             return irCall(call, symbols.longLowBits!!)
@@ -84,13 +84,15 @@ internal class BoxedLongCallsTransformer(context: JsIrBackendContext) : CallsTra
     }
 
     override fun transformFieldAccess(access: IrFieldAccessExpression): IrExpression {
-        if (symbols.longLowBits != null && access.symbol == longLowField) {
-            return IrCallImpl(access.startOffset, access.endOffset, longLowField.owner.type, symbols.longLowBits).apply {
+        val longLowBits = symbols.longLowBits
+        if (longLowBits != null && access.symbol == longLowField) {
+            return IrCallImpl(access.startOffset, access.endOffset, longLowField.owner.type, longLowBits).apply {
                 arguments[0] = access.receiver
             }
         }
-        if (symbols.longHighBits != null && access.symbol == longHighField) {
-            return IrCallImpl(access.startOffset, access.endOffset, longHighField.owner.type, symbols.longHighBits).apply {
+        val longHighBits = symbols.longHighBits
+        if (longHighBits != null && access.symbol == longHighField) {
+            return IrCallImpl(access.startOffset, access.endOffset, longHighField.owner.type, longHighBits).apply {
                 arguments[0] = access.receiver
             }
         }

@@ -2,11 +2,11 @@ Resolved constructor:
   KaConstructorSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     containingClassId: test/MyTypeAliasSecond
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -36,7 +36,6 @@ Resolved constructor:
     typeParameters: [
       KaTypeParameterSymbol:
         annotations: []
-        compilerVisibility: Local
         isActual: false
         isExpect: false
         isExternal: false
@@ -50,21 +49,21 @@ Resolved constructor:
         visibility: LOCAL
         getContainingFileSymbol: KaFileSymbol(withTypeParametersChanged_chained.kt)
         getContainingModule: KaSourceModule "Sources of main"
-        deprecationStatus: null
+        deprecation: null
         importableFqName: null
     ]
     valueParameters: [
       KaValueParameterSymbol:
         annotations: []
         callableId: null
-        compilerVisibility: Public
         contextReceivers: []
         generatedPrimaryConstructorProperty: null
         hasDeclaredDefaultValue: false
         hasDefaultValue: false
-        hasSynthesizedName: false
         isActual: false
+        isCompanion: false
         isCrossinline: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -94,25 +93,25 @@ Resolved constructor:
         getContainingFileSymbol: KaFileSymbol(withTypeParametersChanged_chained.kt)
         getContainingJvmClassName: null
         getContainingModule: KaSourceModule "Sources of main"
-        deprecationStatus: null
+        deprecation: null
         importableFqName: null
     ]
     visibility: PUBLIC
     getContainingFileSymbol: KaFileSymbol(withTypeParametersChanged_chained.kt)
     getContainingJvmClassName: null
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: test.MyTypeAliasSecond
 
 Original constructor if type aliased:
   KaConstructorSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     containingClassId: test/MyClass
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -132,7 +131,6 @@ Original constructor if type aliased:
     typeParameters: [
       KaTypeParameterSymbol:
         annotations: []
-        compilerVisibility: Local
         isActual: false
         isExpect: false
         isExternal: false
@@ -146,21 +144,21 @@ Original constructor if type aliased:
         visibility: LOCAL
         getContainingFileSymbol: KaFileSymbol(withTypeParametersChanged_chained.kt)
         getContainingModule: KaSourceModule "Sources of main"
-        deprecationStatus: null
+        deprecation: null
         importableFqName: null
     ]
     valueParameters: [
       KaValueParameterSymbol:
         annotations: []
         callableId: null
-        compilerVisibility: Public
         contextReceivers: []
         generatedPrimaryConstructorProperty: null
         hasDeclaredDefaultValue: false
         hasDefaultValue: false
-        hasSynthesizedName: false
         isActual: false
+        isCompanion: false
         isCrossinline: false
+        isDelegated: false
         isExpect: false
         isExtension: false
         isExternal: false
@@ -180,12 +178,12 @@ Original constructor if type aliased:
         getContainingFileSymbol: KaFileSymbol(withTypeParametersChanged_chained.kt)
         getContainingJvmClassName: test.MyClass
         getContainingModule: KaSourceModule "Sources of main"
-        deprecationStatus: null
+        deprecation: null
         importableFqName: null
     ]
     visibility: PUBLIC
     getContainingFileSymbol: KaFileSymbol(withTypeParametersChanged_chained.kt)
     getContainingJvmClassName: test.MyClass
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: test.MyClass

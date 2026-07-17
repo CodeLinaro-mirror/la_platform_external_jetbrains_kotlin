@@ -1,2 +1,7 @@
 KtNameReferenceExpression(96,102): 'Helper'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /Foo.Helper
+    ]

@@ -12,7 +12,6 @@ import org.gradle.api.logging.configuration.WarningMode
 import org.gradle.internal.logging.LoggingConfigurationBuildOptions.StacktraceOption
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
-import org.jetbrains.kotlin.gradle.plugin.mpp.KmpIsolatedProjectsSupportDeprecated as KmpIsolatedProjectsSupport
 import org.jetbrains.kotlin.gradle.report.BuildReportType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilerExecutionStrategy
 import org.jetbrains.kotlin.gradle.testbase.BuildOptions.IsolatedProjectsMode
@@ -50,7 +49,10 @@ data class BuildOptions(
     val buildCacheEnabled: Boolean = false,
     val kaptOptions: KaptOptions? = null,
     val androidVersion: String? = null,
+    /** Sets `android.newDsl=false` + `android.builtInKotlin=false` so AGP 9+ keeps the legacy DSL KGP integrates with. */
+    val enableLegacyAgpDsl: Boolean = true,
     val jsOptions: JsOptions? = JsOptions(),
+    val wasmOptions: WasmOptions? = WasmOptions(),
     val buildReport: List<BuildReportType> = emptyList(),
     val usePreciseJavaTracking: Boolean? = null,
     val useFirJvmRunner: Boolean? = null,
@@ -69,7 +71,6 @@ data class BuildOptions(
     val konanDataDir: Path? = konanDir, // null can be used only if you are using custom 'kotlin.native.home' or 'org.jetbrains.kotlin.native.home' property instead of konanDir
     val kotlinUserHome: Path? = testKitDir.resolve(".kotlin"),
     val compilerArgumentsLogLevel: String? = "info",
-    val kmpIsolatedProjectsSupport: @Suppress("DEPRECATION") KmpIsolatedProjectsSupport? = null,
     val fileLeaksReportFile: File? = null,
     val continueAfterFailure: Boolean = false,
     /**
@@ -157,6 +158,10 @@ data class BuildOptions(
         val incrementalJsKlib: Boolean? = null,
         val incrementalJsIr: Boolean? = null,
         val yarn: Boolean? = null,
+    )
+
+    data class WasmOptions(
+        val perModule: Boolean? = null,
     )
 
     data class NativeOptions(
@@ -257,9 +262,17 @@ data class BuildOptions(
             jsOptions.yarn?.let { arguments.add("-Pkotlin.js.yarn=$it") }
         }
 
+        if (wasmOptions != null) {
+            wasmOptions.perModule?.let { arguments.add("-Pkotlin.internal.wasm.perModule=$it") }
+        }
+
         if (androidVersion != null) {
             arguments.add("-Dandroid_tools_version=${androidVersion}")
             arguments.add("-Pandroid_tools_version=${androidVersion}")
+        }
+        if (enableLegacyAgpDsl) {
+            arguments.add("-Pandroid.newDsl=false")
+            arguments.add("-Pandroid.builtInKotlin=false")
         }
         arguments.add("-Ptest_fixes_version=${TestVersions.Kotlin.CURRENT}")
 
@@ -306,6 +319,9 @@ data class BuildOptions(
 
         if (runViaBuildToolsApi != null) {
             arguments.add("-Pkotlin.compiler.runViaBuildToolsApi=$runViaBuildToolsApi")
+            arguments.add("-Pkotlin.js.runViaBuildToolsApi=$runViaBuildToolsApi")
+            arguments.add("-Pkotlin.wasm.runViaBuildToolsApi=$runViaBuildToolsApi")
+            arguments.add("-Pkotlin.metadata.runViaBuildToolsApi=$runViaBuildToolsApi")
         }
 
         if (showDiagnosticsStacktrace != null) {
@@ -332,9 +348,6 @@ data class BuildOptions(
             arguments.add("-Pkotlin.internal.compiler.arguments.log.level=$compilerArgumentsLogLevel")
         }
 
-        if (kmpIsolatedProjectsSupport != null) {
-            arguments.add("-Pkotlin.kmp.isolated-projects.support=${kmpIsolatedProjectsSupport.name.toLowerCaseAsciiOnly()}")
-        }
 
         if (generateCompilerRefIndex != null) {
             arguments.add("-Pkotlin.compiler.generateCompilerRefIndex=$generateCompilerRefIndex")
@@ -434,7 +447,6 @@ fun BuildOptions.disableKlibsCrossCompilation() = copy(
     nativeOptions = nativeOptions.copy(enableKlibsCrossCompilation = false)
 )
 
-fun BuildOptions.disableKmpIsolatedProjectSupport() = copy(kmpIsolatedProjectsSupport = @Suppress("DEPRECATION") KmpIsolatedProjectsSupport.DISABLE)
 
 fun BuildOptions.enableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.ENABLED)
 fun BuildOptions.disableIsolatedProjects() = copy(isolatedProjects = IsolatedProjectsMode.DISABLED)
@@ -451,6 +463,17 @@ fun BuildOptions.disableIsolatedProjectsBecauseOfSubprojectGroupAccessInPublicat
     isolatedProjects =
         if (currentGradleVersion > GradleVersion.version(TestVersions.Gradle.G_8_11)) isolatedProjects
         else IsolatedProjectsMode.DISABLED
+)
+
+// KMP dependencies checker does not work with Gradle isolated projects feature in older Gradle releases
+fun BuildOptions.disableIsolatedProjectsForKmpDependenciesChecker(
+    gradleVersion: GradleVersion
+) = copy(
+    isolatedProjects = if (gradleVersion < GradleVersion.version(TestVersions.Gradle.G_8_12)) {
+        IsolatedProjectsMode.DISABLED
+    } else {
+        isolatedProjects
+    }
 )
 
 fun BuildOptions.suppressWarningForOldKotlinVersion(

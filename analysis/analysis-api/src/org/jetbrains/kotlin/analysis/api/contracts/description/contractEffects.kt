@@ -25,7 +25,40 @@ public sealed interface KaContractEffectDeclaration : KaLifetimeOwner
 @SubclassOptInRequired(KaImplementationDetail::class)
 public interface KaContractCallsInPlaceContractEffectDeclaration : KaContractEffectDeclaration {
     public val valueParameterReference: KaContractParameterValue
+
+    @Deprecated("Use 'invocationKind' instead", level = DeprecationLevel.HIDDEN)
     public val occurrencesRange: EventOccurrencesRange
+
+    /**
+     * Describes how many times the [valueParameterReference] is invoked by a function.
+     *
+     * @see KaContractInvocationKind
+     */
+    public val invocationKind: KaContractInvocationKind
+}
+
+/**
+ * Describes how many times a callable parameter is invoked by a function with a `callsInPlace` contract.
+ */
+@KaExperimentalApi
+public enum class KaContractInvocationKind {
+    /** The parameter is never invoked. */
+    ZERO,
+
+    /** The parameter is invoked at most once. */
+    AT_MOST_ONCE,
+
+    /** The parameter is invoked exactly once. */
+    EXACTLY_ONCE,
+
+    /** The parameter is invoked at least once. */
+    AT_LEAST_ONCE,
+
+    /** The parameter is invoked more than once. */
+    MORE_THAN_ONCE,
+
+    /** The invocation count is unknown. */
+    UNKNOWN,
 }
 
 /**
@@ -45,6 +78,15 @@ public interface KaContractConditionalContractEffectDeclaration : KaContractEffe
 @SubclassOptInRequired(KaImplementationDetail::class)
 public interface KaContractHoldsInEffectDeclaration : KaContractEffectDeclaration {
     public val condition: KaContractBooleanExpression
+    public val valueParameterReference: KaContractParameterValue
+}
+
+/**
+ * Represents [kotlin.contracts.ContractBuilder.returnsResultOf].
+ */
+@KaExperimentalApi
+@SubclassOptInRequired(KaImplementationDetail::class)
+public interface KaContractReturnsResultOfEffectDeclaration : KaContractEffectDeclaration {
     public val valueParameterReference: KaContractParameterValue
 }
 

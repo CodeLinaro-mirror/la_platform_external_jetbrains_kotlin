@@ -35,7 +35,7 @@ internal fun TestModule.wasmTargetOrNull(testServices: TestServices, compilation
     }
 
 /**
- * Note: To be used only internally in [CustomWebCompilerFirstStageFacade] and [CustomWebCompilerSecondStageEnvironmentConfigurator].
+ * Note: To be used only internally in [CustomWebCompilerFirstStageFacade].
  */
 internal fun TestModule.customWebCompilerSettings(testServices: TestServices): CustomWebCompilerSettings =
     if (isWasmModule(testServices)) customWasmJsCompilerSettings else customJsCompilerSettings
@@ -43,7 +43,7 @@ internal fun TestModule.customWebCompilerSettings(testServices: TestServices): C
 /**
  * Note: To be used only internally in [CustomWebCompilerFirstStageFacade] and [CustomJsCompilerSecondStageFacade].
  */
-internal fun TestModule.collectDependencies(
+fun TestModule.collectDependencies(
     testServices: TestServices,
     compilationStage: CompilationStage,
 ): Pair<Set<String>, Set<String>> {
@@ -65,7 +65,7 @@ internal fun TestModule.collectDependencies(
         WasmTarget.WASI -> error("WASI target is not yet supported in the first phase of ${CustomWebCompilerFirstStageFacade::class.simpleName}")
     }
 
-    val (transitiveLibraries: List<File>, friendLibraries: List<File>) = getTransitivesAndFriends(module = this, testServices)
+    val [transitiveLibraries: List<File>, friendLibraries: List<File>] = getTransitivesAndFriends(module = this, testServices)
 
     val regularDependencies: Set<String> = buildSet {
         runtimeLibraries.mapTo(this) { it.absolutePath }

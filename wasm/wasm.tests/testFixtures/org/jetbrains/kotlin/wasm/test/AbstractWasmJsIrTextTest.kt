@@ -1,11 +1,14 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.wasm.test
 
 import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.js.test.converters.Fir2IrCliWebFacade
+import org.jetbrains.kotlin.js.test.converters.FirCliWebFacade
+import org.jetbrains.kotlin.js.test.converters.FirKlibSerializerCliWasmFacade
 import org.jetbrains.kotlin.platform.wasm.WasmPlatforms
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.test.Constructor
@@ -18,20 +21,14 @@ import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.configuration.additionalK2ConfigurationForIrTextTest
 import org.jetbrains.kotlin.test.directives.KlibAbiConsistencyDirectives.CHECK_SAME_ABI_AFTER_INLINING
 import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE
-import org.jetbrains.kotlin.test.frontend.fir.Fir2IrResultsConverter
-import org.jetbrains.kotlin.test.frontend.fir.FirFrontendFacade
 import org.jetbrains.kotlin.test.frontend.fir.FirOutputArtifact
-import org.jetbrains.kotlin.test.model.Frontend2BackendConverter
-import org.jetbrains.kotlin.test.model.FrontendFacade
-import org.jetbrains.kotlin.test.model.FrontendKind
-import org.jetbrains.kotlin.test.model.FrontendKinds
-import org.jetbrains.kotlin.test.model.IrPreSerializationLoweringFacade
+import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.runners.ir.AbstractNonJvmIrTextTest
 import org.jetbrains.kotlin.test.services.LibraryProvider
 import org.jetbrains.kotlin.test.services.configuration.CommonEnvironmentConfigurator
 import org.jetbrains.kotlin.test.services.configuration.WasmFirstStageEnvironmentConfigurator
+import org.jetbrains.kotlin.test.services.configuration.WasmSecondStageEnvironmentConfigurator
 import org.jetbrains.kotlin.utils.bind
-import org.jetbrains.kotlin.wasm.test.converters.FirWasmKlibSerializerFacade
 import org.jetbrains.kotlin.wasm.test.converters.WasmDeserializerFacade
 import org.jetbrains.kotlin.wasm.test.converters.WasmPreSerializationLoweringFacade
 import org.jetbrains.kotlin.wasm.test.handlers.FirWasmJsKlibAbiDumpBeforeInliningSavingHandler
@@ -42,10 +39,10 @@ abstract class AbstractWasmJsIrTextTest :
         get() = FrontendKinds.FIR
 
     override val frontendFacade: Constructor<FrontendFacade<FirOutputArtifact>>
-        get() = ::FirFrontendFacade // TODO Change for ::FirCliWebFacade in scope of KT-74671
+        get() = ::FirCliWebFacade
 
     override val converter: Constructor<Frontend2BackendConverter<FirOutputArtifact, IrBackendInput>>
-        get() = ::Fir2IrResultsConverter // TODO Change for ::Fir2IrCliWebFacade in scope of KT-74671
+        get() = ::Fir2IrCliWebFacade
 
     override val preSerializerFacade: Constructor<IrPreSerializationLoweringFacade<IrBackendInput>>
         get() = ::WasmPreSerializationLoweringFacade
@@ -55,7 +52,7 @@ abstract class AbstractWasmJsIrTextTest :
 
     override val klibFacades: KlibFacades
         get() = KlibFacades(
-            serializerFacade = ::FirWasmKlibSerializerFacade, // TODO Change for ::FirKlibSerializerCliWebFacade in scope of KT-74671
+            serializerFacade = ::FirKlibSerializerCliWasmFacade,
             deserializerFacade = ::WasmDeserializerFacade,
         )
 
@@ -63,6 +60,7 @@ abstract class AbstractWasmJsIrTextTest :
         useConfigurators(
             ::CommonEnvironmentConfigurator,
             ::WasmFirstStageEnvironmentConfigurator.bind(WasmTarget.JS),
+            ::WasmSecondStageEnvironmentConfigurator.bind(WasmTarget.JS),
         )
 
         useAdditionalService(::LibraryProvider)

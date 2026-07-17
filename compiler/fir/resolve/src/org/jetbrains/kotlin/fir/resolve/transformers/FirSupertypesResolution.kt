@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -203,7 +203,9 @@ open class FirSupertypeResolverVisitor(
 
     @PrivateForInline
     val classDeclarationsStack: ArrayDeque<FirClass> = ArrayDeque()
-    private var replSnippet: FirReplSnippet? = null
+
+    @PrivateForInline
+    var replSnippet: FirReplSnippet? = null
 
     init {
         containingDeclarations.forEach {
@@ -244,10 +246,7 @@ open class FirSupertypeResolverVisitor(
             if (file != null) addAll(prepareFileScopes(file))
 
             // TODO: robuster matching and error reporting on no extension (KT-72969)
-            for (resolveExt in session.extensionService.replSnippetResolveExtensions) {
-                val scope = resolveExt.getSnippetScope(replSnippet, session)
-                if (scope != null) add(scope)
-            }
+            session.replSnippetResolveExtension?.getSnippetScope(replSnippet, session)?.let(::add)
         }.toPersistentList()
     }
 
@@ -310,6 +309,7 @@ open class FirSupertypeResolverVisitor(
         }
     }
 
+    @OptIn(PrivateForInline::class)
     private fun prepareScopes(classLikeDeclaration: FirClassLikeDeclaration, forStaticNestedClass: Boolean): PersistentList<FirScope> {
         val classId = classLikeDeclaration.symbol.classId
         val classModuleSession = classLikeDeclaration.moduleData.session
@@ -412,13 +412,20 @@ open class FirSupertypeResolverVisitor(
         }
     }
 
-    override fun visitReplSnippet(replSnippet: FirReplSnippet, data: Any?) {
+    @OptIn(PrivateForInline::class)
+    inline fun <T> withReplSnippet(replSnippet: FirReplSnippet, body: () -> T): T {
         val original = this.replSnippet
         this.replSnippet = replSnippet
-        try {
-            visitDeclarationContent(replSnippet, data)
+        return try {
+            body()
         } finally {
             this.replSnippet = original
+        }
+    }
+
+    override fun visitReplSnippet(replSnippet: FirReplSnippet, data: Any?) {
+        withReplSnippet(replSnippet) {
+            visitDeclarationContent(replSnippet, data)
         }
     }
 
@@ -481,7 +488,7 @@ open class FirSupertypeResolverVisitor(
         for (extension in supertypeGenerationExtensions) {
             if (extension.needTransformSupertypes(klass)) {
                 extension.computeAdditionalSupertypes(klass, supertypeRefs, typeResolveService).mapTo(supertypeRefs) {
-                    it.toFirResolvedTypeRef(klass.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated))
+                    it.toFirResolvedTypeRef(klass.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated.Default))
                 }
             }
         }
@@ -519,7 +526,7 @@ open class FirSupertypeResolverVisitor(
                     if (newSupertypes.isNotEmpty()) {
                         someTypesWereGenerated = true
                         superTypes += newSupertypes.map {
-                            it.toFirResolvedTypeRef(klass.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated))
+                            it.toFirResolvedTypeRef(klass.source?.fakeElement(KtFakeSourceElementKind.PluginGenerated.Default))
                         }
                     }
                 }

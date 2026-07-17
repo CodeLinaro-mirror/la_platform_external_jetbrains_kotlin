@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -162,3 +162,6 @@ internal fun isCharSequence(value: dynamic): Boolean =
 @UsedFromCompilerGeneratedCode
 internal fun isExternalObject(value: dynamic, ktExternalObject: dynamic) =
     jsEqeqeq(value, ktExternalObject) || (jsTypeOf(ktExternalObject) == "function" && jsInstanceOf(value, ktExternalObject))
+
+internal fun isCallableReference(value: dynamic): Boolean =
+    jsTypeOf(value) == "function" && value.`$flags` != null && value.`$arity` != null

@@ -131,7 +131,25 @@ KtDestructuringDeclaration(148,249): 'val (left: @Anno(0 + constant) List<@Anno(
   NO_CANDIDATES
 
 KtDestructuringDeclarationEntry(153,234): 'left: @Anno(0 + constant) List<@Anno(1 + constant) List<@Anno(2 + constant) Int>>'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaSimpleFunctionCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = KaExplicitReceiverValue:
+        expression = left: @Anno(0 + constant) List<@Anno(1 + constant) List<@Anno(2 + constant) Int>>
+        isSafeNavigation = false
+        type = util.MyPair
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.collections.List<kotlin.collections.List<kotlin.Int>>
+        symbol = util/MyPair.component1(<dispatch receiver>: util.MyPair): kotlin.collections.List<kotlin.collections.List<kotlin.Int>>
+        valueParameters = []
+        contextParameters = []
+        callableId = util/MyPair.component1
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
+    isInBestCandidates = true
 
 KtTypeReference(159,234): '@Anno(0 + constant) List<@Anno(1 + constant) List<@Anno(2 + constant) Int>>'
   NO_CANDIDATES
@@ -175,7 +193,7 @@ KtAnnotationEntry(159,178): '@Anno(0 + constant)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(160,164): 'Anno'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -216,7 +234,39 @@ KtUserType(160,164): 'Anno'
   NO_CANDIDATES
 
 KtNameReferenceExpression(160,164): 'Anno'
-  NO_CANDIDATES
+  KaInapplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = util.Anno
+        symbol = <constructor>(str: kotlin.String): util.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = str
+            receiverType = null
+            returnType = kotlin.String
+            symbol = str: kotlin.String
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        0 + constant -> (KaVariableSignature:
+          name = str
+          receiverType = null
+          returnType = kotlin.String
+          symbol = str: kotlin.String
+          contextParameters = []
+          callableId = null)
+      }
+    diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'String' was expected.>
+    isInBestCandidates = true
 
 KtValueArgumentList(164,178): '(0 + constant)'
   NO_CANDIDATES
@@ -225,7 +275,7 @@ KtValueArgument(165,177): '0 + constant'
   NO_CANDIDATES
 
 KtBinaryExpression(165,177): '0 + constant'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -262,7 +312,7 @@ KtBinaryExpression(165,177): '0 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -299,7 +349,7 @@ KtBinaryExpression(165,177): '0 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -336,7 +386,7 @@ KtBinaryExpression(165,177): '0 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -372,7 +422,7 @@ KtBinaryExpression(165,177): '0 + constant'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -409,7 +459,7 @@ KtBinaryExpression(165,177): '0 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -450,7 +500,7 @@ KtConstantExpression(165,166): '0'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(167,168): '+'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -487,7 +537,7 @@ KtOperationReferenceExpression(167,168): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -524,7 +574,7 @@ KtOperationReferenceExpression(167,168): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -561,7 +611,7 @@ KtOperationReferenceExpression(167,168): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -597,7 +647,7 @@ KtOperationReferenceExpression(167,168): '+'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -634,7 +684,7 @@ KtOperationReferenceExpression(167,168): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -672,7 +722,7 @@ KtOperationReferenceExpression(167,168): '+'
     isInBestCandidates = false
 
 KtNameReferenceExpression(169,177): 'constant'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -743,7 +793,7 @@ KtAnnotationEntry(184,203): '@Anno(1 + constant)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(185,189): 'Anno'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -784,7 +834,39 @@ KtUserType(185,189): 'Anno'
   NO_CANDIDATES
 
 KtNameReferenceExpression(185,189): 'Anno'
-  NO_CANDIDATES
+  KaInapplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = util.Anno
+        symbol = <constructor>(str: kotlin.String): util.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = str
+            receiverType = null
+            returnType = kotlin.String
+            symbol = str: kotlin.String
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        1 + constant -> (KaVariableSignature:
+          name = str
+          receiverType = null
+          returnType = kotlin.String
+          symbol = str: kotlin.String
+          contextParameters = []
+          callableId = null)
+      }
+    diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'String' was expected.>
+    isInBestCandidates = true
 
 KtValueArgumentList(189,203): '(1 + constant)'
   NO_CANDIDATES
@@ -793,7 +875,7 @@ KtValueArgument(190,202): '1 + constant'
   NO_CANDIDATES
 
 KtBinaryExpression(190,202): '1 + constant'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -830,7 +912,7 @@ KtBinaryExpression(190,202): '1 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -867,7 +949,7 @@ KtBinaryExpression(190,202): '1 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -904,7 +986,7 @@ KtBinaryExpression(190,202): '1 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -940,7 +1022,7 @@ KtBinaryExpression(190,202): '1 + constant'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -977,7 +1059,7 @@ KtBinaryExpression(190,202): '1 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1018,7 +1100,7 @@ KtConstantExpression(190,191): '1'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(192,193): '+'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1055,7 +1137,7 @@ KtOperationReferenceExpression(192,193): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1092,7 +1174,7 @@ KtOperationReferenceExpression(192,193): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1129,7 +1211,7 @@ KtOperationReferenceExpression(192,193): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1165,7 +1247,7 @@ KtOperationReferenceExpression(192,193): '+'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1202,7 +1284,7 @@ KtOperationReferenceExpression(192,193): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1240,7 +1322,7 @@ KtOperationReferenceExpression(192,193): '+'
     isInBestCandidates = false
 
 KtNameReferenceExpression(194,202): 'constant'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1311,7 +1393,7 @@ KtAnnotationEntry(209,228): '@Anno(2 + constant)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(210,214): 'Anno'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1352,7 +1434,39 @@ KtUserType(210,214): 'Anno'
   NO_CANDIDATES
 
 KtNameReferenceExpression(210,214): 'Anno'
-  NO_CANDIDATES
+  KaInapplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = util.Anno
+        symbol = <constructor>(str: kotlin.String): util.Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = str
+            receiverType = null
+            returnType = kotlin.String
+            symbol = str: kotlin.String
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        2 + constant -> (KaVariableSignature:
+          name = str
+          receiverType = null
+          returnType = kotlin.String
+          symbol = str: kotlin.String
+          contextParameters = []
+          callableId = null)
+      }
+    diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'String' was expected.>
+    isInBestCandidates = true
 
 KtValueArgumentList(214,228): '(2 + constant)'
   NO_CANDIDATES
@@ -1361,7 +1475,7 @@ KtValueArgument(215,227): '2 + constant'
   NO_CANDIDATES
 
 KtBinaryExpression(215,227): '2 + constant'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1398,7 +1512,7 @@ KtBinaryExpression(215,227): '2 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1435,7 +1549,7 @@ KtBinaryExpression(215,227): '2 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1472,7 +1586,7 @@ KtBinaryExpression(215,227): '2 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1508,7 +1622,7 @@ KtBinaryExpression(215,227): '2 + constant'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1545,7 +1659,7 @@ KtBinaryExpression(215,227): '2 + constant'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1586,7 +1700,7 @@ KtConstantExpression(215,216): '2'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(217,218): '+'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1623,7 +1737,7 @@ KtOperationReferenceExpression(217,218): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1660,7 +1774,7 @@ KtOperationReferenceExpression(217,218): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1697,7 +1811,7 @@ KtOperationReferenceExpression(217,218): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1733,7 +1847,7 @@ KtOperationReferenceExpression(217,218): '+'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1770,7 +1884,7 @@ KtOperationReferenceExpression(217,218): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1808,7 +1922,7 @@ KtOperationReferenceExpression(217,218): '+'
     isInBestCandidates = false
 
 KtNameReferenceExpression(219,227): 'constant'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1832,10 +1946,28 @@ KtNameReferenceExpression(229,232): 'Int'
   NO_CANDIDATES
 
 KtDestructuringDeclarationEntry(236,241): 'right'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaSimpleFunctionCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = KaExplicitReceiverValue:
+        expression = right
+        isSafeNavigation = false
+        type = util.MyPair
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.Int
+        symbol = util/MyPair.component2(<dispatch receiver>: util.MyPair): kotlin.Int
+        valueParameters = []
+        contextParameters = []
+        callableId = util/MyPair.component2
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
+    isInBestCandidates = true
 
 KtNameReferenceExpression(245,249): 'pair'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null

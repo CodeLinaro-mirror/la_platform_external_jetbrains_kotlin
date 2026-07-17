@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: BACKEND
-// FIR_IDENTICAL
 // FILE: A.kt
 @file:Suppress("OPT_IN_USAGE")
 package a
@@ -12,4 +11,4 @@ package b
 
 import kotlin.wasm.*
 
-<!EXPORTING_JS_NAME_WASM_EXPORT_CLASH!>@WasmExport fun foo(x: Boolean) = 2<!>
+<!WASM_EXPORT_EXPORTING_JS_NAME_CLASH!>@WasmExport fun foo(x: Boolean) = 2<!>

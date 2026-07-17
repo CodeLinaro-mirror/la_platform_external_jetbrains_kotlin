@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
     id("project-tests-convention")
+    id("test-inputs-check")
 }
 
 description = "Printer for SIR"
@@ -29,15 +30,11 @@ sourceSets {
     "test" { projectDefault() }
 }
 
-val testDataDir = projectDir.resolve("testData")
-
 projectTests {
-    testTask(jUnitMode = JUnitMode.JUnit5) {
-        inputs.dir(testDataDir)
-    }
-}
+    testData(isolated, "testData")
 
-testsJar()
+    testTask(jUnitMode = JUnitMode.JUnit5)
+}
 
 publish()
 

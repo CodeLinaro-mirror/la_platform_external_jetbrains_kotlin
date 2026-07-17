@@ -9,11 +9,13 @@ import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.cli.extensionsStorage
 import org.jetbrains.kotlin.codegen.ClassBuilderMode
 import org.jetbrains.kotlin.codegen.GenerationUtils
-import org.jetbrains.kotlin.codegen.OriginCollectingClassBuilderFactory
 import org.jetbrains.kotlin.fir.backend.Fir2IrComponentsStorage
+import org.jetbrains.kotlin.fir.backend.Fir2IrSyntheticIrBuiltinsSymbolsContainer
+import org.jetbrains.kotlin.fir.backend.IrBuiltInsOverFir
 import org.jetbrains.kotlin.fir.backend.jvm.FirJvmBackendClassResolver
 import org.jetbrains.kotlin.kapt.KaptContextForStubGeneration
-import org.jetbrains.kotlin.kapt.util.MessageCollectorBackedKaptLogger
+import org.jetbrains.kotlin.kapt.stubs.OriginCollectingClassBuilderFactory
+import org.jetbrains.kotlin.kapt.util.CompilerConfigurationBackedKaptLogger
 import org.jetbrains.kotlin.test.model.*
 import org.jetbrains.kotlin.test.services.*
 
@@ -28,7 +30,7 @@ class JvmCompilerWithKaptFacade(
         get() = KaptContextBinaryArtifact.Kind
 
     override val additionalServices: List<ServiceRegistrationData>
-        get() = listOf(service(::KaptMessageCollectorProvider))
+        get() = emptyList()
 
     override fun transform(module: TestModule, inputArtifact: ResultingArtifact.Source): KaptContextBinaryArtifact {
         val configurationProvider = testServices.compilerConfigurationProvider
@@ -41,19 +43,18 @@ class JvmCompilerWithKaptFacade(
         }
         val ktFiles = testServices.sourceFileProvider.getKtFilesForSourceFiles(module.files, project, findViaVfs = true).values.toList()
         val classBuilderFactory = OriginCollectingClassBuilderFactory(ClassBuilderMode.KAPT3)
-        val (generationState, bindingContext) = GenerationUtils.compileFiles(
+        val generationState = GenerationUtils.compileFiles(
             ktFiles,
             compilerConfiguration,
             classBuilderFactory,
             configurationProvider.getPackagePartProviderFactory(module)
         )
-        val logger = MessageCollectorBackedKaptLogger(
+        val logger = CompilerConfigurationBackedKaptLogger(
             isVerbose = true,
             isInfoAsWarnings = false,
-            messageCollector = testServices.messageCollectorProvider.getCollector(module)
+            configuration = compilerConfiguration,
         )
-        val firFiles =
-            ((generationState.jvmBackendClassResolver as? FirJvmBackendClassResolver)?.components as? Fir2IrComponentsStorage)?.fir.orEmpty()
+        val components = (generationState.jvmBackendClassResolver as FirJvmBackendClassResolver).components as Fir2IrComponentsStorage
         val kaptContext = KaptContextForStubGeneration(
             testServices.kaptOptionsProvider[module],
             withJdk = true,
@@ -61,8 +62,8 @@ class JvmCompilerWithKaptFacade(
             classBuilderFactory.compiledClasses,
             classBuilderFactory.origins,
             generationState,
-            bindingContext,
-            firFiles,
+            components.fir,
+            IrBuiltInsOverFir(components, Fir2IrSyntheticIrBuiltinsSymbolsContainer()),
         )
         return KaptContextBinaryArtifact(kaptContext)
     }

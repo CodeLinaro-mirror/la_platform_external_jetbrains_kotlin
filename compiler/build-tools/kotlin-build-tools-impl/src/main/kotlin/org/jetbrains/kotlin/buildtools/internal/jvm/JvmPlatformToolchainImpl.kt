@@ -15,28 +15,33 @@ import org.jetbrains.kotlin.buildtools.internal.jvm.operations.JvmCompilationOpe
 import java.io.File
 import java.nio.file.Path
 
-internal class JvmPlatformToolchainImpl(private val buildIdToSessionFlagFile: MutableMap<ProjectId, File>) : JvmPlatformToolchain {
+internal class JvmPlatformToolchainImpl(
+    private val compilerVersion: String,
+    private val buildIdToSessionFlagFile: MutableMap<ProjectId, File>,
+) : JvmPlatformToolchain {
     @Deprecated(
         "Use jvmCompilationOperationBuilder instead",
-        replaceWith = ReplaceWith("jvmCompilationOperationBuilder(sources, destinationDirectory)")
+        replaceWith = ReplaceWith("jvmCompilationOperationBuilder(sources, destinationDirectory)"),
+        level = DeprecationLevel.HIDDEN
     )
-    override fun createJvmCompilationOperation(
+    fun createJvmCompilationOperation(
         sources: List<Path>,
         destinationDirectory: Path,
     ): JvmCompilationOperation =
-        JvmCompilationOperationImpl(sources, destinationDirectory, buildIdToSessionFlagFile = buildIdToSessionFlagFile)
+        JvmCompilationOperationImpl(sources, destinationDirectory, buildIdToSessionFlagFile = buildIdToSessionFlagFile, compilerVersion = compilerVersion)
 
     override fun jvmCompilationOperationBuilder(
         sources: List<Path>,
         destinationDirectory: Path,
     ): JvmCompilationOperation.Builder =
-        JvmCompilationOperationImpl(sources, destinationDirectory, buildIdToSessionFlagFile = buildIdToSessionFlagFile)
+        JvmCompilationOperationImpl(sources, destinationDirectory, buildIdToSessionFlagFile = buildIdToSessionFlagFile, compilerVersion = compilerVersion)
 
     @Deprecated(
         "Use `classpathSnapshottingOperationBuilder` instead",
-        replaceWith = ReplaceWith("classpathSnapshottingOperationBuilder(classpathEntry)")
+        replaceWith = ReplaceWith("classpathSnapshottingOperationBuilder(classpathEntry)"),
+        level = DeprecationLevel.HIDDEN
     )
-    override fun createClasspathSnapshottingOperation(classpathEntry: Path): JvmClasspathSnapshottingOperation {
+    fun createClasspathSnapshottingOperation(classpathEntry: Path): JvmClasspathSnapshottingOperation {
         return JvmClasspathSnapshottingOperationImpl(classpathEntry)
     }
 

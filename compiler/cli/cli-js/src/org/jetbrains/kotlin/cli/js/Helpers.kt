@@ -6,15 +6,12 @@
 package org.jetbrains.kotlin.cli.js
 
 import com.intellij.util.ExceptionUtil
+import org.jetbrains.kotlin.cli.CliDiagnostics
+import org.jetbrains.kotlin.cli.common.arguments.CommonJsAndWasmCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JsArgumentConstants
-import org.jetbrains.kotlin.cli.common.fir.FirDiagnosticsCompilerResultsReporter
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.ERROR
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.cli.common.renderDiagnosticInternalName
+import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.config.moduleName
-import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.js.config.*
 import org.jetbrains.kotlin.library.loader.KlibPlatformChecker
 import org.jetbrains.kotlin.wasm.config.wasmTarget
@@ -29,20 +26,6 @@ val K2JSCompilerArguments.targetVersion: EcmaVersion?
             targetString != null -> EcmaVersion.entries.firstOrNull { it.name == targetString }
             else -> EcmaVersion.defaultVersion()
         }
-    }
-
-val K2JSCompilerArguments.granularity: JsGenerationGranularity
-    get() = when {
-        this.irPerFile -> JsGenerationGranularity.PER_FILE
-        this.irPerModule -> JsGenerationGranularity.PER_MODULE
-        else -> JsGenerationGranularity.WHOLE_PROGRAM
-    }
-
-val K2JSCompilerArguments.dtsStrategy: TsCompilationStrategy
-    get() = when {
-        !this.generateDts -> TsCompilationStrategy.NONE
-        this.irPerFile -> TsCompilationStrategy.EACH_FILE
-        else -> TsCompilationStrategy.MERGED
     }
 
 internal val sourceMapContentEmbeddingMap: Map<String, SourceMapSourceEmbedding> = mapOf(
@@ -76,8 +59,8 @@ private fun String.splitByPathSeparator(): List<String> {
 }
 
 internal fun calculateSourceMapSourceRoot(
-    messageCollector: MessageCollector,
-    arguments: K2JSCompilerArguments,
+    configuration: CompilerConfiguration,
+    arguments: CommonJsAndWasmCompilerArguments,
 ): String {
     var commonPath: File? = null
     val pathToRoot = mutableListOf<File>()
@@ -116,32 +99,22 @@ internal fun calculateSourceMapSourceRoot(
         }
     } catch (e: IOException) {
         val text = ExceptionUtil.getThrowableText(e)
-        messageCollector.report(ERROR, "IO error occurred calculating source root:\n$text", location = null)
+        configuration.report(CliDiagnostics.IO_ERROR, "IO error occurred calculating source root:\n$text")
         return "."
     }
 
     return commonPath?.path ?: "."
 }
 
-fun reportCollectedDiagnostics(
-    compilerConfiguration: CompilerConfiguration,
-    diagnosticsReporter: BaseDiagnosticsCollector,
-    messageCollector: MessageCollector
-) {
-    val renderName = compilerConfiguration.renderDiagnosticInternalName
-    FirDiagnosticsCompilerResultsReporter.reportToMessageCollector(diagnosticsReporter, messageCollector, renderName)
-}
-
 internal val CompilerConfiguration.platformChecker: KlibPlatformChecker
     get() = if (wasmCompilation) KlibPlatformChecker.Wasm(wasmTarget.alias) else KlibPlatformChecker.JS
 
-internal fun initializeFinalArtifactConfiguration(configuration: CompilerConfiguration, arguments: K2JSCompilerArguments) {
-    configuration.artifactConfiguration = WebArtifactConfiguration(
-        moduleKind = configuration.moduleKind ?: return,
-        moduleName = configuration.moduleName ?: return,
-        outputDirectory = configuration.outputDir ?: return,
-        outputName = configuration.outputName ?: return,
-        granularity = arguments.granularity,
-        tsCompilationStrategy = arguments.dtsStrategy,
-    )
+internal fun initializeFinalArtifactConfiguration(configuration: CompilerConfiguration, arguments: CommonJsAndWasmCompilerArguments) {
+    val artifactConfiguration = WebArtifactConfiguration.fromFlags(
+        configuration,
+        isPerFile = arguments is K2JSCompilerArguments && arguments.irPerFile,
+        isPerModule = arguments is K2JSCompilerArguments && arguments.irPerModule,
+        generateDts = arguments.generateDts,
+    ) ?: return
+    configuration.artifactConfigurations = listOf(artifactConfiguration)
 }

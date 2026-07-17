@@ -41,7 +41,7 @@ KtAnnotationEntry(36,41): '@Anno'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(37,41): 'Anno'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -65,7 +65,22 @@ KtUserType(37,41): 'Anno'
   NO_CANDIDATES
 
 KtNameReferenceExpression(37,41): 'Anno'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = one.Anno
+        symbol = <constructor>(): one.Anno
+        valueParameters = []
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {}
+    isInBestCandidates = true
 
 KtParameterList(49,51): '()'
   NO_CANDIDATES

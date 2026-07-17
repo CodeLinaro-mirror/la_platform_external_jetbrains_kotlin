@@ -7,11 +7,12 @@ package org.jetbrains.kotlin.backend.konan
 
 import kotlinx.cinterop.*
 import llvm.*
+import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.config.LoggingContext
-import org.jetbrains.kotlin.backend.common.reportCompilationWarning
 import org.jetbrains.kotlin.backend.konan.driver.NativeBackendPhaseContext
 import org.jetbrains.kotlin.backend.konan.llvm.*
 import org.jetbrains.kotlin.config.nativeBinaryOptions.StackProtectorMode
+import org.jetbrains.kotlin.konan.config.saveLlvmIr
 import org.jetbrains.kotlin.konan.target.*
 import org.jetbrains.kotlin.util.PerformanceManager
 import java.io.Closeable
@@ -49,13 +50,47 @@ data class LlvmPipelineConfig(
         val modulePasses: String? = null,
         val ltoPasses: String? = null,
         val sspMode: StackProtectorMode = StackProtectorMode.NO,
-)
+        val saveIrAfterPasses: List<String> = emptyList(),
+        val saveIrDirectory: java.io.File? = null,
+        val runLLVMPassesInCompiler: Boolean,
+) {
+    /**
+     * Create a copy of [LlvmPipelineConfig] setting up options to dump IR
+     */
+    internal fun copyConfiguringSaveIr(context: NativeBackendPhaseContext, phase: String): LlvmPipelineConfig {
+        val passes = context.config.configuration.saveLlvmIr.mapNotNull {
+            val llvmPassPrefix = "$phase:"
+            if (it.startsWith(llvmPassPrefix)) {
+                it.removePrefix(llvmPassPrefix)
+            } else {
+                null
+            }
+        }
+        val saveIrDirectory = run {
+            if (passes.isEmpty()) {
+                null
+            } else {
+                val dir = context.config.saveLlvmIrDirectory
+                if (dir.exists()) {
+                    dir.resolve(phase) // This subdirectory does not have to exist: llvm will create it itself
+                } else {
+                    context.diagnosticReporter.report(
+                            NativeBackendDiagnostics.LLVM_WARNING,
+                            "Cannot dump LLVM IR to non-existent location: ${dir.absolutePath}")
+                    null
+                }
+            }
+        }
+        val saveIrAfterPasses = if (saveIrDirectory == null) emptyList() else passes
+        return copy(saveIrAfterPasses = saveIrAfterPasses, saveIrDirectory = saveIrDirectory)
+    }
+}
 
 private fun getCpuModel(context: NativeBackendPhaseContext): String {
     val target = context.config.target
     val configurables: Configurables = context.config.platform.configurables
     return configurables.targetCpu ?: run {
-        context.reportCompilationWarning("targetCpu for target $target was not set. Targeting `generic` cpu.")
+        context.diagnosticReporter.report(NativeBackendDiagnostics.LLVM_WARNING, "targetCpu for target $target was not set. Targeting `generic` cpu.")
         "generic"
     }
 }
@@ -67,7 +102,7 @@ private fun tryGetInlineThreshold(context: NativeBackendPhaseContext): Int? {
     val configurables: Configurables = context.config.platform.configurables
     return configurables.llvmInlineThreshold?.let {
         it.toIntOrNull() ?: run {
-            context.reportCompilationWarning(
+            context.diagnosticReporter.report(NativeBackendDiagnostics.LLVM_WARNING,
                     "`llvmInlineThreshold` should be an integer. Got `$it` instead. Using default value."
             )
             null
@@ -101,6 +136,7 @@ internal fun createLTOPipelineConfigForRuntime(generationState: NativeGeneration
             modulePasses = config.llvmModulePasses,
             ltoPasses = config.llvmLTOPasses,
             sspMode = config.stackProtectorMode,
+            runLLVMPassesInCompiler = config.runLLVMPassesInCompiler,
     )
 }
 
@@ -178,6 +214,7 @@ internal fun createLTOFinalPipelineConfig(
             modulePasses = config.llvmModulePasses,
             ltoPasses = config.llvmLTOPasses,
             sspMode = config.stackProtectorMode,
+            runLLVMPassesInCompiler = config.runLLVMPassesInCompiler,
     )
 }
 
@@ -230,13 +267,18 @@ abstract class LlvmOptimizationPipeline(
             """.trimIndent()
         }
         if (passDescription.isEmpty()) return
-        val (errorCode, profile) = withLLVMPassesProfile(performanceManager != null || config.timePasses, pipelineName) {
+        val [errorCode, profile] = withLLVMPassesProfile(performanceManager != null || config.timePasses, pipelineName) {
+            // NOTE: This call is not thread-safe in general, because it may write into global memory,
+            //       when configuring CLI-defined options.
+            //       See `LLVMKotlinRunPasses` declaration in the header file for the details.
             LLVMKotlinRunPasses(
                     llvmModule,
                     passDescription,
                     targetMachine,
                     InlinerThreshold = config.inlineThreshold ?: -1,
                     Profile = it,
+                    SaveIRAfterPasses = config.saveIrAfterPasses.joinToString(",").takeIf { it.isNotEmpty() },
+                    SaveIRDirectory = config.saveIrDirectory?.absolutePath,
             )
         }
         require(errorCode == null) {
@@ -280,6 +322,9 @@ class MandatoryOptimizationPipeline(config: LlvmPipelineConfig, performanceManag
         LlvmOptimizationPipeline(config, performanceManager, logger) {
     override val pipelineName = "llvm-mandatory"
     override val passes = buildList {
+        if (!config.runLLVMPassesInCompiler && config.makeDeclarationsHidden) {
+            add("kotlin-hide-symbols")
+        }
         if (config.objCPasses) {
             // Lower ObjC ARC intrinsics (e.g. `@llvm.objc.clang.arc.use(...)`).
             // While Kotlin/Native codegen itself doesn't produce these intrinsics, they might come
@@ -291,7 +336,7 @@ class MandatoryOptimizationPipeline(config: LlvmPipelineConfig, performanceManag
     }
 
     override fun executeCustomPreprocessing(config: LlvmPipelineConfig, module: LLVMModuleRef) {
-        if (config.makeDeclarationsHidden) {
+        if (config.runLLVMPassesInCompiler && config.makeDeclarationsHidden) {
             makeVisibilityHiddenLikeLlvmInternalizePass(module)
         }
     }
@@ -325,9 +370,17 @@ class LTOOptimizationPipeline(config: LlvmPipelineConfig, performanceManager: Pe
 class ThreadSanitizerPipeline(config: LlvmPipelineConfig, performanceManager: PerformanceManager?, logger: LoggingContext? = null) :
         LlvmOptimizationPipeline(config, performanceManager, logger) {
     override val pipelineName = "llvm-tsan"
-    override val passes = listOf("tsan-module,function(tsan)")
+    override val passes = buildList {
+        if (!config.runLLVMPassesInCompiler) {
+            add("function(kotlin-tsan)")
+        }
+        add("tsan-module")
+        add("function(tsan)")
+    }
 
     override fun executeCustomPreprocessing(config: LlvmPipelineConfig, module: LLVMModuleRef) {
+        if (!config.runLLVMPassesInCompiler)
+            return
         getFunctions(module)
                 .filter { LLVMIsDeclaration(it) == 0 }
                 .forEach { addLlvmFunctionEnumAttribute(it, LlvmFunctionAttribute.SanitizeThread) }

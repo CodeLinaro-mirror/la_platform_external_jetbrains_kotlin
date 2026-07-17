@@ -107,6 +107,23 @@ fun Task.dependsOnKotlinGradlePluginInstall() {
     }
 }
 
+/**
+ * Wires this task to `publishAllPublicationsToMavenRepository` for every module in
+ * [kotlinGradlePluginAndItsRequired] that has such a task. Unlike [dependsOnKotlinGradlePluginInstall],
+ * this writes to `<rootProject>/build/repo` (via `KotlinBuildPublishingPlugin`'s `"Maven"` repository)
+ * rather than `~/.m2`, so nothing touches `maven.repo.local`.
+ *
+ * Modules without `KotlinBuildPublishingPlugin` (e.g. `:examples:annotation-processor-example`)
+ * have no `publishAllPublicationsToMavenRepository` task and are skipped silently.
+ */
+fun Task.dependsOnKotlinGradlePluginPublishToBuildRepo() {
+    kotlinGradlePluginAndItsRequired.forEach { dependency ->
+        project.rootProject.tasks.findByPath("${dependency}:publishAllPublicationsToMavenRepository")?.let { task ->
+            dependsOn(task)
+        }
+    }
+}
+
 fun Task.dependsOnKotlinGradlePluginPublish() {
     kotlinGradlePluginAndItsRequired
         .filter {
@@ -122,31 +139,6 @@ fun Task.dependsOnKotlinGradlePluginPublish() {
 
 fun Test.enableJunit5ExtensionsAutodetection() {
     systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
-}
-
-fun Project.confugureFirPluginAnnotationsDependency(testTask: TaskProvider<Test>) {
-    val firPluginJvmAnnotations: Configuration by configurations.creating
-    val firPluginJsAnnotations: Configuration by configurations.creating {
-        attributes {
-            attribute(Usage.USAGE_ATTRIBUTE, objects.named(org.jetbrains.kotlin.gradle.plugin.mpp.KotlinUsages.KOTLIN_RUNTIME))
-            attribute(KotlinPlatformType.attribute, KotlinPlatformType.js)
-        }
-    }
-
-    dependencies {
-        firPluginJvmAnnotations(project(":plugins:plugin-sandbox:plugin-annotations")) { isTransitive = false }
-        firPluginJsAnnotations(project(":plugins:plugin-sandbox:plugin-annotations")) { isTransitive = false }
-    }
-
-    testTask.configure {
-        dependsOn(firPluginJvmAnnotations, firPluginJsAnnotations)
-        val localFirPluginJvmAnnotations: FileCollection = firPluginJvmAnnotations
-        val localFirPluginJsAnnotations: FileCollection = firPluginJsAnnotations
-        doFirst {
-            systemProperty("firPluginAnnotations.jvm.path", localFirPluginJvmAnnotations.singleFile.canonicalPath)
-            systemProperty("firPluginAnnotations.js.path", localFirPluginJsAnnotations.singleFile.canonicalPath)
-        }
-    }
 }
 
 fun Project.optInTo(annotationFqName: String) {

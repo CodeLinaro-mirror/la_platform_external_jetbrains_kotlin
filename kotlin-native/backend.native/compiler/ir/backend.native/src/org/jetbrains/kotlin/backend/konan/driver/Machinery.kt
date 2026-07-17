@@ -5,15 +5,18 @@
 
 package org.jetbrains.kotlin.backend.konan.driver
 
-import org.jetbrains.kotlin.config.phaser.PhaseConfig
 import org.jetbrains.kotlin.backend.common.phaser.PhaseEngine
-import org.jetbrains.kotlin.config.phaser.PhaserState
-import org.jetbrains.kotlin.config.phaser.NamedCompilerPhase
 import org.jetbrains.kotlin.backend.konan.ConfigChecks
-import org.jetbrains.kotlin.backend.konan.KonanConfig
-import org.jetbrains.kotlin.cli.common.messages.MessageCollector
-import org.jetbrains.kotlin.config.CommonConfigurationKeys
+import org.jetbrains.kotlin.backend.konan.NativeSecondStageCompilationConfig
+import org.jetbrains.kotlin.cli.common.diagnosticsCollector
+import org.jetbrains.kotlin.cli.reportLog
+import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.perfManager
+import org.jetbrains.kotlin.config.phaser.NamedCompilerPhase
+import org.jetbrains.kotlin.config.phaser.PhaseConfig
+import org.jetbrains.kotlin.config.phaser.PhaserState
+import org.jetbrains.kotlin.ir.IrDiagnosticReporter
+import org.jetbrains.kotlin.ir.KtDiagnosticReporterWithImplicitIrBasedContext
 import org.jetbrains.kotlin.util.PerformanceManager
 
 /**
@@ -22,12 +25,18 @@ import org.jetbrains.kotlin.util.PerformanceManager
 internal interface NativeBackendPhaseContext : NativePhaseContext, ConfigChecks
 
 internal open class BasicNativeBackendPhaseContext(
-        override val config: KonanConfig,
+        override val config: NativeSecondStageCompilationConfig,
 ) : NativeBackendPhaseContext {
     override var inVerbosePhase = false
 
-    override val messageCollector: MessageCollector
-        get() = config.configuration.getNotNull(CommonConfigurationKeys.MESSAGE_COLLECTOR_KEY)
+    override val diagnosticReporter: IrDiagnosticReporter = KtDiagnosticReporterWithImplicitIrBasedContext(
+            config.configuration.diagnosticsCollector,
+            config.configuration.languageVersionSettings
+    )
+
+    override fun log(message: String) {
+        config.configuration.reportLog(message)
+    }
 
     override fun dispose() {
 
@@ -37,7 +46,7 @@ internal open class BasicNativeBackendPhaseContext(
         get() = config.configuration.perfManager
 }
 
-internal fun PhaseEngine.Companion.startTopLevel(config: KonanConfig, body: (PhaseEngine<NativeBackendPhaseContext>) -> Unit) {
+internal fun PhaseEngine.Companion.startTopLevel(config: NativeSecondStageCompilationConfig, body: (PhaseEngine<NativeBackendPhaseContext>) -> Unit) {
     val phaserState = PhaserState()
     val phaseConfig = config.phaseConfig
     val context = BasicNativeBackendPhaseContext(config)

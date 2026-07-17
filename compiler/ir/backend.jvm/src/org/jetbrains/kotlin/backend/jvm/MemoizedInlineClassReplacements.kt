@@ -13,11 +13,14 @@ import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.builders.declarations.addValueParameter
+import org.jetbrains.kotlin.ir.builders.declarations.buildConstructor
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.irAttribute
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.impl.IrSimpleTypeImpl
 import org.jetbrains.kotlin.ir.types.impl.IrStarProjectionImpl
+import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.InlineClassDescriptorResolver
@@ -40,7 +43,7 @@ class MemoizedInlineClassReplacements(
     /**
      * Get a replacement for a function or a constructor.
      */
-    override val getReplacementFunctionImpl: (IrFunction) -> IrSimpleFunction? =
+    override val getReplacementFunctionImpl: (IrFunction) -> IrFunction? =
         storageManager.createMemoizedFunctionWithNullableValues {
             when {
                 // Don't mangle anonymous or synthetic functions, except for generated SAM wrapper methods
@@ -76,6 +79,12 @@ class MemoizedInlineClassReplacements(
                             createStaticReplacement(it)
                     }
 
+                it is IrConstructor &&
+                        !it.constructedClass.isSingleFieldValueClass &&
+                        it.parameters.any { parameter -> parameter.type.isInlineClassType() } &&
+                        !it.isFromJava() ->
+                    getReplacementForRegularClassConstructor(it)
+
                 // Otherwise, mangle functions with mangled parameters, ignoring constructors
                 it is IrSimpleFunction && it.needsReplacement -> createMethodReplacement(it)
 
@@ -86,7 +95,8 @@ class MemoizedInlineClassReplacements(
 
     private val IrSimpleFunction.needsReplacement: Boolean
         get() {
-            if (!(shouldBeExposedByAnnotationOrFlag(context.config.languageVersionSettings) || hasMangledParameters(includeMFVC = false) ||
+            if (!(shouldBeExposedByAnnotationOrFlag(context) ||
+                        hasMangledParameters(includeMFVC = false) ||
                         mangleReturnTypes && hasMangledReturnType)
             ) return false
             if (isFromJava()) return mangleCallsToJavaMethodsWithValueClasses && !overridesOnlyMethodsFromJava()
@@ -181,7 +191,6 @@ class MemoizedInlineClassReplacements(
         buildReplacement(function, JvmLoweredDeclarationOrigin.STATIC_INLINE_CLASS_REPLACEMENT, noFakeOverride = true) {
             this.originalFunctionOfStaticInlineClassReplacement = function
 
-            var nextContextReceiverIndex = 0
             parameters += function.parameters.map { parameter ->
                 when (parameter.kind) {
                     IrParameterKind.DispatchReceiver -> {
@@ -264,7 +273,30 @@ class MemoizedInlineClassReplacements(
         name = InlineClassAbi.mangledNameFor(context, function, mangleReturnTypes, useOldManglingScheme)
     }
 
-    override fun getReplacementForRegularClassConstructor(constructor: IrConstructor): IrConstructor? = null
+    // When we expose regular class constructors, we add another constructor with BoxingMarker parameter
+    // to be called from Kotlin, while original constructor is to be called from Java.
+    override fun getReplacementForRegularClassConstructor(constructor: IrConstructor): IrConstructor? {
+        if (constructor.isFromJava()) return null
+        if (constructor.constructedClass.isSingleFieldValueClass) return null
+        if (constructor.parameters.none { it.type.isInlineClassType() }) return null
+        if (!constructor.shouldBeExposedByAnnotationOrFlag(context)) return null
+
+        return constructor.factory.buildConstructor {
+            updateFrom(constructor)
+            isPrimary = constructor.isPrimary
+        }.apply {
+            parent = constructor.parent
+            copyFunctionSignatureFrom(constructor)
+            annotations = constructor.annotations.withoutJvmExposeBoxedAnnotation()
+            body = constructor.body?.patchDeclarationParents(this)
+
+            addValueParameter {
+                name = Name.identifier("\$boxingMarker")
+                origin = JvmLoweredDeclarationOrigin.NON_EXPOSED_CONSTRUCTOR_SYNTHETIC_PARAMETER
+                type = context.symbols.boxingConstructorMarkerClass.defaultType.makeNullable()
+            }
+        }
+    }
 }
 
 // In some scenarios, compiler mangles calls to stdlib using new mangling scheme, however, stdlib is compiled using the old mangling scheme.

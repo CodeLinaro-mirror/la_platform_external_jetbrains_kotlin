@@ -5,7 +5,12 @@ KtPackageDirective(58,70): 'package test'
   null
 
 KtNameReferenceExpression(66,70): 'test'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test
+    ]
 
 KtImportList(70,70): ''
   null
@@ -38,22 +43,44 @@ KtParameter(133,142): 's: Sample'
   null
 
 KtTypeReference(136,142): 'Sample'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtUserType(136,142): 'Sample'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtNameReferenceExpression(136,142): 'Sample'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtTypeReference(145,148): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(145,148): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(145,148): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(149,238): '{'
   null
@@ -68,7 +95,12 @@ KtWhenExpression(162,236): 'when (s) {'
   null
 
 KtNameReferenceExpression(168,169): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: test.Sample
+    ]
 
 KtWhenEntry(181,191): 'FIRST -> 1'
   null
@@ -77,7 +109,12 @@ KtWhenConditionWithExpression(181,186): 'FIRST'
   null
 
 KtNameReferenceExpression(181,186): 'FIRST'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.FIRST
+    ]
 
 KtConstantExpression(190,191): '1'
   null
@@ -89,7 +126,12 @@ KtWhenConditionWithExpression(200,206): 'SECOND'
   null
 
 KtNameReferenceExpression(200,206): 'SECOND'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.SECOND
+    ]
 
 KtConstantExpression(210,211): '2'
   null
@@ -101,7 +143,12 @@ KtWhenConditionWithExpression(220,225): 'THIRD'
   null
 
 KtNameReferenceExpression(220,225): 'THIRD'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.THIRD
+    ]
 
 KtConstantExpression(229,230): '3'
   null
@@ -116,22 +163,44 @@ KtParameter(258,267): 's: Sample'
   null
 
 KtTypeReference(261,267): 'Sample'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtUserType(261,267): 'Sample'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtNameReferenceExpression(261,267): 'Sample'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtTypeReference(270,273): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(270,273): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(270,273): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(274,392): '{'
   null
@@ -152,16 +221,34 @@ KtWhenConditionWithExpression(302,312): 's == FIRST'
   null
 
 KtBinaryExpression(302,312): 's == FIRST'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Enum.equals(<dispatch receiver>: kotlin.Enum<E>, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(302,303): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: test.Sample
+    ]
 
 KtOperationReferenceExpression(304,306): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Enum.equals(<dispatch receiver>: kotlin.Enum<E>, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(307,312): 'FIRST'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.FIRST
+    ]
 
 KtConstantExpression(316,317): '1'
   null
@@ -173,16 +260,34 @@ KtWhenConditionWithExpression(326,337): 's == SECOND'
   null
 
 KtBinaryExpression(326,337): 's == SECOND'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Enum.equals(<dispatch receiver>: kotlin.Enum<E>, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(326,327): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: test.Sample
+    ]
 
 KtOperationReferenceExpression(328,330): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Enum.equals(<dispatch receiver>: kotlin.Enum<E>, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(331,337): 'SECOND'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.SECOND
+    ]
 
 KtConstantExpression(341,342): '2'
   null
@@ -194,16 +299,34 @@ KtWhenConditionWithExpression(351,361): 's == THIRD'
   null
 
 KtBinaryExpression(351,361): 's == THIRD'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Enum.equals(<dispatch receiver>: kotlin.Enum<E>, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(351,352): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: test.Sample
+    ]
 
 KtOperationReferenceExpression(353,355): '=='
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Enum.equals(<dispatch receiver>: kotlin.Enum<E>, other: kotlin.Any?): kotlin.Boolean
+    ]
 
 KtNameReferenceExpression(356,361): 'THIRD'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: true
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.THIRD
+    ]
 
 KtConstantExpression(365,366): '3'
   null
@@ -224,19 +347,37 @@ KtProperty(416,447): 'val SECOND = test.Sample.SECOND'
   null
 
 KtDotQualifiedExpression(429,447): 'test.Sample.SECOND'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.SECOND
+    ]
 
 KtDotQualifiedExpression(429,440): 'test.Sample'
   null
 
 KtNameReferenceExpression(429,433): 'test'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test
+    ]
 
 KtNameReferenceExpression(434,440): 'Sample'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtNameReferenceExpression(441,447): 'SECOND'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.SECOND
+    ]
 
 KtNamedFunction(453,667): 'fun priority(s: Sample): Int {'
   null
@@ -248,22 +389,44 @@ KtParameter(466,475): 's: Sample'
   null
 
 KtTypeReference(469,475): 'Sample'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtUserType(469,475): 'Sample'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtNameReferenceExpression(469,475): 'Sample'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtTypeReference(478,481): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtUserType(478,481): 'Int'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtNameReferenceExpression(478,481): 'Int'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      kotlin/Int
+    ]
 
 KtBlockExpression(482,667): '{'
   null
@@ -272,19 +435,37 @@ KtProperty(492,521): 'val FIRST = test.Sample.THIRD'
   null
 
 KtDotQualifiedExpression(504,521): 'test.Sample.THIRD'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.THIRD
+    ]
 
 KtDotQualifiedExpression(504,515): 'test.Sample'
   null
 
 KtNameReferenceExpression(504,508): 'test'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test
+    ]
 
 KtNameReferenceExpression(509,515): 'Sample'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtNameReferenceExpression(516,521): 'THIRD'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.THIRD
+    ]
 
 KtReturnExpression(530,661): 'return when (s) {'
   KaSymbolResolutionSuccess:
@@ -296,7 +477,12 @@ KtWhenExpression(537,661): 'when (s) {'
   null
 
 KtNameReferenceExpression(543,544): 's'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      s: test.Sample
+    ]
 
 KtWhenEntry(560,570): 'FIRST -> 3'
   null
@@ -305,7 +491,12 @@ KtWhenConditionWithExpression(560,565): 'FIRST'
   null
 
 KtNameReferenceExpression(560,565): 'FIRST'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val FIRST: test.Sample
+    ]
 
 KtConstantExpression(569,570): '3'
   null
@@ -317,7 +508,12 @@ KtWhenConditionWithExpression(583,589): 'SECOND'
   null
 
 KtNameReferenceExpression(583,589): 'SECOND'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      val SECOND: test.Sample
+    ]
 
 KtConstantExpression(593,594): '2'
   null
@@ -329,19 +525,37 @@ KtWhenConditionWithExpression(607,624): 'test.Sample.FIRST'
   null
 
 KtDotQualifiedExpression(607,624): 'test.Sample.FIRST'
-  null
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.FIRST
+    ]
 
 KtDotQualifiedExpression(607,618): 'test.Sample'
   null
 
 KtNameReferenceExpression(607,611): 'test'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test
+    ]
 
 KtNameReferenceExpression(612,618): 'Sample'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample
+    ]
 
 KtNameReferenceExpression(619,624): 'FIRST'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/Sample.FIRST
+    ]
 
 KtConstantExpression(628,629): '1'
   null

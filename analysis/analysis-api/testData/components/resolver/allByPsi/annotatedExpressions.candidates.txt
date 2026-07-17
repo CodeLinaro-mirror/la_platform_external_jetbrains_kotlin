@@ -57,7 +57,7 @@ KtAnnotationEntry(38,74): '@Target(AnnotationTarget.EXPRESSION)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(39,45): 'Target'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -97,7 +97,38 @@ KtUserType(39,45): 'Target'
   NO_CANDIDATES
 
 KtNameReferenceExpression(39,45): 'Target'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.annotation.Target
+        symbol = <constructor>(vararg allowedTargets: kotlin.annotation.AnnotationTarget): kotlin.annotation.Target
+        valueParameters = [
+          KaVariableSignature:
+            name = allowedTargets
+            receiverType = null
+            returnType = kotlin.annotation.AnnotationTarget
+            symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        AnnotationTarget.EXPRESSION -> (KaVariableSignature:
+          name = allowedTargets
+          receiverType = null
+          returnType = kotlin.annotation.AnnotationTarget
+          symbol = vararg allowedTargets: kotlin.annotation.AnnotationTarget
+          contextParameters = []
+          callableId = null)
+      }
+    isInBestCandidates = true
 
 KtValueArgumentList(45,74): '(AnnotationTarget.EXPRESSION)'
   NO_CANDIDATES
@@ -106,7 +137,7 @@ KtValueArgument(46,73): 'AnnotationTarget.EXPRESSION'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(46,73): 'AnnotationTarget.EXPRESSION'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -127,7 +158,7 @@ KtDotQualifiedExpression(46,73): 'AnnotationTarget.EXPRESSION'
     isInBestCandidates = true
 
 KtNameReferenceExpression(46,62): 'AnnotationTarget'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -146,7 +177,7 @@ KtNameReferenceExpression(46,62): 'AnnotationTarget'
     isInBestCandidates = false
 
 KtNameReferenceExpression(63,73): 'EXPRESSION'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -201,7 +232,7 @@ KtAnnotationEntry(75,113): '@Retention(AnnotationRetention.SOURCE)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(76,85): 'Retention'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -241,7 +272,38 @@ KtUserType(76,85): 'Retention'
   NO_CANDIDATES
 
 KtNameReferenceExpression(76,85): 'Retention'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.annotation.Retention
+        symbol = <constructor>(value: kotlin.annotation.AnnotationRetention): kotlin.annotation.Retention
+        valueParameters = [
+          KaVariableSignature:
+            name = value
+            receiverType = null
+            returnType = kotlin.annotation.AnnotationRetention
+            symbol = value: kotlin.annotation.AnnotationRetention
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        AnnotationRetention.SOURCE -> (KaVariableSignature:
+          name = value
+          receiverType = null
+          returnType = kotlin.annotation.AnnotationRetention
+          symbol = value: kotlin.annotation.AnnotationRetention
+          contextParameters = []
+          callableId = null)
+      }
+    isInBestCandidates = true
 
 KtValueArgumentList(85,113): '(AnnotationRetention.SOURCE)'
   NO_CANDIDATES
@@ -250,7 +312,7 @@ KtValueArgument(86,112): 'AnnotationRetention.SOURCE'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(86,112): 'AnnotationRetention.SOURCE'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -271,7 +333,7 @@ KtDotQualifiedExpression(86,112): 'AnnotationRetention.SOURCE'
     isInBestCandidates = true
 
 KtNameReferenceExpression(86,105): 'AnnotationRetention'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -290,7 +352,7 @@ KtNameReferenceExpression(86,105): 'AnnotationRetention'
     isInBestCandidates = false
 
 KtNameReferenceExpression(106,112): 'SOURCE'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = KaExplicitReceiverValue:
@@ -375,7 +437,7 @@ KtAnnotationEntry(172,190): '@Anno(0 + integer)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(173,177): 'Anno'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -415,7 +477,38 @@ KtUserType(173,177): 'Anno'
   NO_CANDIDATES
 
 KtNameReferenceExpression(173,177): 'Anno'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = Anno
+        symbol = <constructor>(number: kotlin.Int): Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = number
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = number: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        0 + integer -> (KaVariableSignature:
+          name = number
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = number: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
+    isInBestCandidates = true
 
 KtValueArgumentList(177,190): '(0 + integer)'
   NO_CANDIDATES
@@ -424,7 +517,7 @@ KtValueArgument(178,189): '0 + integer'
   NO_CANDIDATES
 
 KtBinaryExpression(178,189): '0 + integer'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -461,7 +554,7 @@ KtBinaryExpression(178,189): '0 + integer'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -498,7 +591,7 @@ KtBinaryExpression(178,189): '0 + integer'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -535,7 +628,7 @@ KtBinaryExpression(178,189): '0 + integer'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -571,7 +664,7 @@ KtBinaryExpression(178,189): '0 + integer'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -608,7 +701,7 @@ KtBinaryExpression(178,189): '0 + integer'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -649,7 +742,7 @@ KtConstantExpression(178,179): '0'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(180,181): '+'
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -686,7 +779,7 @@ KtOperationReferenceExpression(180,181): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Double' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -723,7 +816,7 @@ KtOperationReferenceExpression(180,181): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Float' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -760,7 +853,7 @@ KtOperationReferenceExpression(180,181): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Byte' was expected.>
     isInBestCandidates = false
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -796,7 +889,7 @@ KtOperationReferenceExpression(180,181): '+'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -833,7 +926,7 @@ KtOperationReferenceExpression(180,181): '+'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Short' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -871,7 +964,7 @@ KtOperationReferenceExpression(180,181): '+'
     isInBestCandidates = false
 
 KtNameReferenceExpression(182,189): 'integer'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -889,7 +982,7 @@ KtNameReferenceExpression(182,189): 'integer'
     isInBestCandidates = true
 
 KtDotQualifiedExpression(191,226): '(@Anno(integer) usage()).toString()'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -909,7 +1002,7 @@ KtDotQualifiedExpression(191,226): '(@Anno(integer) usage()).toString()'
       valueArgumentMapping = {}
     isInBestCandidates = true
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -970,7 +1063,7 @@ KtAnnotationEntry(192,206): '@Anno(integer)'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(193,197): 'Anno'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1010,7 +1103,38 @@ KtUserType(193,197): 'Anno'
   NO_CANDIDATES
 
 KtNameReferenceExpression(193,197): 'Anno'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = Anno
+        symbol = <constructor>(number: kotlin.Int): Anno
+        valueParameters = [
+          KaVariableSignature:
+            name = number
+            receiverType = null
+            returnType = kotlin.Int
+            symbol = number: kotlin.Int
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        integer -> (KaVariableSignature:
+          name = number
+          receiverType = null
+          returnType = kotlin.Int
+          symbol = number: kotlin.Int
+          contextParameters = []
+          callableId = null)
+      }
+    isInBestCandidates = true
 
 KtValueArgumentList(197,206): '(integer)'
   NO_CANDIDATES
@@ -1019,7 +1143,7 @@ KtValueArgument(198,205): 'integer'
   NO_CANDIDATES
 
 KtNameReferenceExpression(198,205): 'integer'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1055,7 +1179,7 @@ KtCallExpression(207,214): 'usage()'
     isInBestCandidates = true
 
 KtNameReferenceExpression(207,212): 'usage'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1117,7 +1241,7 @@ KtCallExpression(216,226): 'toString()'
     isInBestCandidates = false
 
 KtNameReferenceExpression(216,224): 'toString'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1137,7 +1261,7 @@ KtNameReferenceExpression(216,224): 'toString'
       valueArgumentMapping = {}
     isInBestCandidates = true
 
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []

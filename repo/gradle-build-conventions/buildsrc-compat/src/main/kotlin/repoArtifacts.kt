@@ -81,9 +81,10 @@ fun Project.testsJarToBeUsedAlongWithFixtures() {
 fun Project.setPublishableArtifact(
     jarTask: TaskProvider<out Jar>
 ) {
+    noDefaultJar()
     addArtifact("runtimeElements", jarTask)
     addArtifact("apiElements", jarTask)
-    addArtifact("archives", jarTask)
+    tasks.named("assemble").configure { dependsOn(jarTask) }
 }
 
 fun removeJarTaskArtifact(
@@ -134,7 +135,7 @@ fun Project.runtimeJarWithRelocation(body: ShadowJar.() -> Unit = {}): TaskProvi
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     }
 
-    project.addArtifact("archives", runtimeJarTask, runtimeJarTask)
+    tasks.named("assemble").configure { dependsOn(runtimeJarTask) }
     project.addArtifact("runtimeElements", runtimeJarTask, runtimeJarTask)
     project.addArtifact("apiElements", runtimeJarTask, runtimeJarTask)
 
@@ -152,7 +153,7 @@ fun Project.runtimeJar(task: TaskProvider<ShadowJar>, body: ShadowJar.() -> Unit
         body()
     }
 
-    project.addArtifact("archives", task, task)
+    tasks.named("assemble").configure { dependsOn(task) }
     project.addArtifact("runtimeElements", task, task)
     project.addArtifact("apiElements", task, task)
 
@@ -175,7 +176,7 @@ fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
         body()
     }
 
-    addArtifact("archives", sourcesJar)
+    tasks.named("assemble").configure { dependsOn(sourcesJar) }
     addArtifact("sources", sourcesJar)
 
     configurePublishedComponent {
@@ -183,6 +184,26 @@ fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
     }
 
     return sourcesJar
+}
+
+/**
+ * Empty jar, no public sources
+ */
+fun Project.emptySourcesJar() {
+    sourcesJar {
+        includeEmptyDirs = false
+        eachFile { exclude() }
+    }
+}
+
+/**
+ * Empty jar, no public Javadoc
+ */
+fun Project.emptyJavadocJar() {
+    javadocJar {
+        includeEmptyDirs = false
+        eachFile { exclude() }
+    }
 }
 
 /**
@@ -237,7 +258,7 @@ fun Project.javadocJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
         body()
     }
 
-    addArtifact("archives", javadocTask)
+    tasks.named("assemble").configure { dependsOn(javadocTask) }
 
     configurePublishedComponent {
         addVariantsFromConfiguration(configurations[JAVADOC_ELEMENTS_CONFIGURATION_NAME]) { }
@@ -292,8 +313,16 @@ fun Project.publish(moduleMetadata: Boolean = false, sbom: Boolean = true, confi
     }
 }
 
-fun Project.idePluginDependency(block: () -> Unit) {
-    val shouldActivate = rootProject.findProperty("publish.ide.plugin.dependencies")?.toString()?.toBoolean() == true
+fun Project.idePluginPublishingLatch(block: () -> Unit) {
+    specialPublishingLatch("publish.ide.plugin.dependencies", block)
+}
+
+fun Project.analysisApiPublishingLatch(block: () -> Unit) {
+    specialPublishingLatch("publish.analysis.api", block)
+}
+
+private fun Project.specialPublishingLatch(latchPropertyName: String, block: () -> Unit) {
+    val shouldActivate = rootProject.findProperty(latchPropertyName)?.toString()?.toBoolean() == true
     if (shouldActivate) {
         block()
     }
@@ -304,15 +333,15 @@ fun Project.publishJarsForIde(
     libraryDependencies: List<String> = emptyList(),
     jarTaskConfiguration: Jar.() -> Unit = {},
 ) {
-    val projectsUsedInIntelliJKotlinPlugin: Array<String> by rootProject.extra
+    val projectsDependingOnStableStdlib: Array<String> by rootProject.extra
 
     for (projectName in projects) {
-        check(projectName in projectsUsedInIntelliJKotlinPlugin) {
-            "`$projectName` is used in IntelliJ Kotlin Plugin, it should be added to `extra[\"projectsUsedInIntelliJKotlinPlugin\"]`"
+        check(projectName in projectsDependingOnStableStdlib) {
+            "`$projectName` is used in IntelliJ Kotlin Plugin, it should be added to `extra[\"projectsDependingOnStableStdlib\"]`"
         }
     }
 
-    idePluginDependency {
+    idePluginPublishingLatch {
         publishProjectJars(projects, libraryDependencies, jarTaskConfiguration)
     }
     configurations.all {
@@ -340,7 +369,7 @@ fun Project.publishTestJarsForIde(
     projectWithFixturesNames: List<String> = emptyList(),
     projectWithRenamedTestJarNames: List<String> = emptyList(),
 ) {
-    idePluginDependency {
+    idePluginPublishingLatch {
         // Compiler test infrastructure should not affect test running in IDE.
         // If required, the components should be registered on the IDE plugin side.
         val excludedPaths = listOf("junit-platform.properties", "META-INF/services/**/*")

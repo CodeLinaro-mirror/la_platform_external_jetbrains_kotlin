@@ -5,6 +5,7 @@
 
 package org.jetbrains.sir.lightclasses.nodes
 
+import org.jetbrains.kotlin.analysis.api.components.containingDeclaration
 import org.jetbrains.kotlin.analysis.api.components.containingSymbol
 import org.jetbrains.kotlin.analysis.api.components.defaultType
 import org.jetbrains.kotlin.analysis.api.components.isArrayOrPrimitiveArray
@@ -23,12 +24,16 @@ import org.jetbrains.kotlin.sir.providers.source.InnerInitSource
 import org.jetbrains.kotlin.sir.providers.source.KotlinSource
 import org.jetbrains.kotlin.sir.providers.source.kaSymbolOrNull
 import org.jetbrains.kotlin.sir.providers.translateType
+import org.jetbrains.kotlin.sir.providers.utils.allRequiredOptIns
 import org.jetbrains.kotlin.sir.providers.utils.isAbstract
 import org.jetbrains.kotlin.sir.providers.utils.throwsAnnotation
 import org.jetbrains.kotlin.sir.util.SirSwiftModule
+import org.jetbrains.kotlin.sir.util.isUnavailable
 import org.jetbrains.kotlin.sir.util.name
 import org.jetbrains.kotlin.sir.util.returnType
 import org.jetbrains.kotlin.sir.util.swiftFqName
+import org.jetbrains.kotlin.sir.util.unavailableTypes
+import org.jetbrains.kotlin.sir.util.replaceOrAddPropagatedUnavailability
 import org.jetbrains.sir.lightclasses.SirFromKtSymbol
 import org.jetbrains.sir.lightclasses.extensions.documentation
 import org.jetbrains.sir.lightclasses.extensions.lazyWithSessions
@@ -41,7 +46,7 @@ import org.jetbrains.sir.lightclasses.utils.translatedAttributes
 import kotlin.lazy
 
 private val obj = SirParameter(
-    "", "__kt", SirNominalType(SirSwiftModule.unsafeMutableRawPointer)
+    null, "__kt", SirNominalType(SirSwiftModule.unsafeMutableRawPointer)
 )
 
 internal sealed class SirInitFromKtSymbol(
@@ -83,7 +88,13 @@ internal sealed class SirInitFromKtSymbol(
         set(_) = Unit
 
     override val attributes: List<SirAttribute> by lazy {
-        this.translatedAttributes + listOfNotNull(SirAttribute.NonOverride.takeIf { overrideStatus is OverrideStatus.Conflicts })
+        buildList {
+            addAll(this@SirInitFromKtSymbol.translatedAttributes)
+            if (overrideStatus is OverrideStatus.Conflicts) {
+                add(SirAttribute.NonOverride)
+            }
+            replaceOrAddPropagatedUnavailability { parameters.flatMap { it.type.unavailableTypes } }
+        }
     }
 
     override val errorType: SirType get() = if (ktSymbol.throwsAnnotation != null) SirType.any else SirType.never
@@ -95,6 +106,11 @@ internal sealed class SirInitFromKtSymbol(
             (parent as? SirClass)?.kaSymbolOrNull<KaClassSymbol>()?.let {
                 !it.modality.isAbstract() && !it.defaultType.isArrayOrPrimitiveArray && !it.hasFBoundedTypeParameters()
             } ?: false
+        }
+
+    protected val isAbstractClass: Boolean
+        get() = withSessions {
+            (parent as? SirClass)?.kaSymbolOrNull<KaClassSymbol>()?.modality?.isAbstract() ?: false
         }
 
 }
@@ -138,7 +154,9 @@ internal class SirRegularInitFromKtSymbol(
                             producingType,
                             SirTypeNamer.KotlinNameType.PARAMETRIZED
                         )
-                    }>(${args.joinToString()})"
+                    }>(${args.joinToString()})${
+                        if ((ktSymbol.containingDeclaration as KaNamedClassSymbol).isInline) " as Any?" else ""
+                    }"
                 }.orEmpty()
             )
             if (origin is InnerInitSource) {
@@ -178,20 +196,22 @@ internal class SirRegularInitFromKtSymbol(
 
     override var body: SirFunctionBody?
         set(_) {}
-        get() {
-            val initDescriptor = bridgeInitProxy ?: return null
-            val allocDescriptor = bridgeAllocProxy ?: return null
+        get() = withSessions {
+            val initDescriptor = bridgeInitProxy ?: return@withSessions null
+            val allocDescriptor = bridgeAllocProxy ?: return@withSessions null
 
-            return SirFunctionBody(buildList {
-                (parent as? SirScopeDefiningDeclaration)?.let {
-                    add("if Self.self != ${it.swiftFqName}.self { fatalError(\"Inheritance from exported Kotlin classes is not supported yet: \\(String(reflecting: Self.self)) inherits from ${it.swiftFqName} \") }")
+            return@withSessions SirFunctionBody(buildList {
+                if (isAbstractClass) {
+                    (parent as? SirScopeDefiningDeclaration)?.let {
+                        add("if Self.self == ${it.swiftFqName}.self { fatalError(\"Abstract class ${it.swiftFqName} cannot be instantiated directly\") }")
+                    }
                 }
 
                 addAll(allocDescriptor.createSwiftInvocation {
                     "let ${obj.name} = $it"
                 })
 
-                add("super.init(__externalRCRefUnsafe: ${obj.name}, options: .asBoundBridge)")
+                add("super.init(__externalRCRefUnsafe: ${obj.name}, options: .asBoundBridge);")
 
                 addAll(initDescriptor.createSwiftInvocation(resultTransformer = null))
             })
@@ -212,7 +232,9 @@ internal class SirRegularInitFromKtSymbol(
             explicitParameters = emptyList(),
             returnType = obj.type,
             kotlinFqName = fqName,
+            kotlinOptIns = ktSymbol.containingDeclaration?.allRequiredOptIns ?: emptyList(),
             selfParameter = null,
+            contextParameters = emptyList(),
             extensionReceiverParameter = null,
             errorParameter = null,
             isAsync = false,
@@ -221,6 +243,7 @@ internal class SirRegularInitFromKtSymbol(
 
     private val bridgeInitProxy: BridgeFunctionProxy? by lazyWithSessions {
         if (!isBridged) return@lazyWithSessions null
+        if (isUnavailable) return@lazyWithSessions null
 
         val fqName = ktSymbol.containingClassId?.asSingleFqName()
             ?: return@lazyWithSessions null
@@ -234,10 +257,12 @@ internal class SirRegularInitFromKtSymbol(
             explicitParameters = listOf(obj) + parameters,
             returnType = returnType,
             kotlinFqName = fqName,
+            kotlinOptIns = ktSymbol.allRequiredOptIns,
             selfParameter = null,
+            contextParameters = emptyList(),
             extensionReceiverParameter = null,
             errorParameter = errorType.takeIf { it != SirType.never }?.let {
-                SirParameter("", "__error", it)
+                SirParameter(null, "__error", it)
             },
             isAsync = false,
         )

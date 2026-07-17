@@ -43,14 +43,20 @@ import java.io.File
 @OptIn(ExperimentalLibraryAbiReader::class)
 abstract class AbstractNativeCInteropLibraryAbiReaderTest : AbstractNativeSimpleTest() {
     fun runTest(localPath: String) {
-        val (sourceFile, dumpFiles) = computeTestFiles(localPath)
+        val [sourceFile, dumpFiles] = computeTestFiles(localPath)
         val (moduleName, filters, klibAbiLevel) = parseDirectives(sourceFile)
 
         val customDependencies: List<ExistingDependency<TestCompilationArtifact.KLIB>> =
             produceCustomDependencies(sourceFile, klibAbiLevel).map(TestCompilationArtifact.KLIB::asLibraryDependency)
 
         val compilerArgs = klibAbiLevel?.let { abiLevel ->
-            TestCompilerArgs(listOf("-XXLanguage:+ExportKlibToOlderAbiVersion", "-language-version", abiLevel.toString()))
+            TestCompilerArgs(
+                compilerArgs = listOf(
+                    "-XXLanguage:+ExportKlibToOlderAbiVersion",
+                    "-language-version", abiLevel.toString(),
+                    "-Xskip-library-special-compatibility-checks",
+                )
+            )
         } ?: TestCompilerArgs.EMPTY
 
         val library = compileToLibrary(
@@ -64,7 +70,7 @@ abstract class AbstractNativeCInteropLibraryAbiReaderTest : AbstractNativeSimple
 
         val libraryAbi = LibraryAbiReader.readAbiInfo(library, filters)
 
-        dumpFiles.entries.forEach { (signatureVersion, dumpFile) ->
+        dumpFiles.entries.forEach { [signatureVersion, dumpFile] ->
             val abiDump = LibraryAbiRenderer.render(
                 libraryAbi,
                 AbiRenderingSettings(signatureVersion)
@@ -81,7 +87,13 @@ abstract class AbstractNativeCInteropLibraryAbiReaderTest : AbstractNativeSimple
         assertTrue(defFile.isFile) { "Def file does not exist: $defFile" }
 
         val compilerArgs = klibAbiLevel?.let { abiLevel ->
-            TestCompilerArgs(compilerArgs = emptyList(), cinteropArgs = listOf("-Xklib-abi-compatibility-level", abiLevel.toString()))
+            TestCompilerArgs(
+                compilerArgs = emptyList(),
+                cinteropArgs = listOf(
+                    "-Xklib-abi-compatibility-level", abiLevel.toString(),
+                    "-Xccall-mode", "direct",
+                )
+            )
         } ?: TestCompilerArgs.EMPTY
 
         return listOf(

@@ -1,14 +1,21 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir
 
+import org.jetbrains.kotlin.analysis.api.analyzeCopy
+import org.jetbrains.kotlin.analysis.api.platform.projectStructure.KotlinProjectStructureProviderBase
 import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileResolutionMode
+import org.jetbrains.kotlin.analysis.api.projectStructure.KaDanglingFileResolutionModeProvider
+import org.jetbrains.kotlin.analysis.api.projectStructure.copyOrigin
 import org.jetbrains.kotlin.analysis.low.level.api.fir.AbstractFirLazyDeclarationResolveTestCase.Directives.LAZY_MODE
 import org.jetbrains.kotlin.analysis.low.level.api.fir.api.LLResolutionFacade
-import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.*
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirCustomScriptDefinitionTestConfigurator
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirOutOfContentRootTestConfigurator
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.AnalysisApiFirOutOfContentRootWithDependenciesTestConfigurator
+import org.jetbrains.kotlin.analysis.low.level.api.fir.test.configurators.LLSourceLikeTestConfigurator
 import org.jetbrains.kotlin.analysis.test.framework.projectStructure.KtTestModule
 import org.jetbrains.kotlin.analysis.test.framework.test.configurators.AnalysisApiTestConfigurator
 import org.jetbrains.kotlin.psi.KtFile
@@ -21,6 +28,7 @@ import org.jetbrains.kotlin.test.directives.model.SimpleDirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.singleOrZeroValue
 import org.jetbrains.kotlin.test.services.TestServices
 import org.jetbrains.kotlin.test.services.moduleStructure
+import org.jetbrains.kotlin.testFederation.SmokeTest
 
 abstract class AbstractFirLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveOverAllPhasesTest() {
     override val additionalDirectives: List<DirectivesContainer>
@@ -79,15 +87,39 @@ abstract class AbstractFirLazyDeclarationResolveTest : AbstractFirLazyDeclaratio
             }
         }
 
-        doLazyResolveTest(fileToTest, testServices, OutputRenderingMode.ALL_FILES_FROM_ALL_MODULES) { resolutionFacade ->
-            findFirDeclarationToResolve(
-                ktFile = fileToTest,
-                testServices = testServices,
-                resolutionFacade = resolutionFacade,
-                fileWithCaret = mainFile,
-            )
+        wrapWithAnalyzeCopyIfNeeded(fileToTest, danglingFileResolutionMode) {
+            doLazyResolveTest(fileToTest, testServices, OutputRenderingMode.ALL_FILES_FROM_ALL_MODULES) { resolutionFacade ->
+                findFirDeclarationToResolve(
+                    ktFile = fileToTest,
+                    testServices = testServices,
+                    resolutionFacade = resolutionFacade,
+                    fileWithCaret = mainFile,
+                )
+            }
         }
     }
+
+    /**
+     * This logic is needed due to the presence of [KaDanglingFileResolutionModeProvider]
+     * in [KotlinProjectStructureProviderBase.computeDefaultDanglingFileResolutionMode].
+     * If no dangling file resolution mode is provided for a file, it might set [KaDanglingFileResolutionMode.PREFER_SELF]
+     * for lazy resolve tests with [KaDanglingFileResolutionMode.IGNORE_SELF] mode if the copy file differs from the original one.
+     * That's why we need to use outer [analyzeCopy] call to manually set the dangling file resolution mode.
+     */
+    private inline fun <R> wrapWithAnalyzeCopyIfNeeded(
+        file: KtFile,
+        danglingFileResolutionMode: KaDanglingFileResolutionMode?,
+        crossinline action: () -> R
+    ) {
+        if (file.copyOrigin != null && danglingFileResolutionMode != null) {
+            analyzeCopy(file, danglingFileResolutionMode) {
+                action()
+            }
+        } else {
+            action()
+        }
+    }
+
 
     override fun configureTest(builder: TestConfigurationBuilder) {
         super.configureTest(builder)
@@ -125,8 +157,9 @@ abstract class AbstractFirLazyDeclarationResolveTest : AbstractFirLazyDeclaratio
     }
 }
 
-abstract class AbstractFirSourceLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
-    override val configurator = AnalysisApiFirSourceTestConfigurator(analyseInDependentSession = false)
+@SmokeTest
+abstract class AbstractFirSourceLikeLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
+    override val configurator = LLSourceLikeTestConfigurator()
 }
 
 abstract class AbstractFirOutOfContentRootLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
@@ -135,10 +168,6 @@ abstract class AbstractFirOutOfContentRootLazyDeclarationResolveTest : AbstractF
 
 abstract class AbstractFirOutOfContentRootWithDependenciesLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
     override val configurator get() = AnalysisApiFirOutOfContentRootWithDependenciesTestConfigurator
-}
-
-abstract class AbstractFirScriptLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {
-    override val configurator = AnalysisApiFirScriptTestConfigurator(analyseInDependentSession = false)
 }
 
 abstract class AbstractFirCustomScriptDefinitionLazyDeclarationResolveTest : AbstractFirLazyDeclarationResolveTest() {

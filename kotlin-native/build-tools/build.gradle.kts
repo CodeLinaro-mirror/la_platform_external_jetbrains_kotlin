@@ -33,7 +33,7 @@ dependencies {
     val coreDepsVersion = libs.versions.kotlin.`for`.gradle.plugins.compilation.get()
     api("org.jetbrains.kotlin:kotlin-stdlib:${coreDepsVersion}")
     implementation("org.jetbrains.kotlin:kotlin-reflect:${coreDepsVersion}") { isTransitive = false }
-    implementation("org.jetbrains.kotlin:kotlin-build-gradle-plugin:${kotlinBuildProperties.buildGradlePluginVersion.get()}")
+    implementation(kotlinBuildHelpers())
     implementation("org.jetbrains.kotlin:kotlin-native-utils:${project.bootstrapKotlinVersion}")
 
     // To build Konan Gradle plugin
@@ -99,6 +99,10 @@ gradlePlugin {
         create("platformManager") {
             id = "platform-manager"
             implementationClass = "org.jetbrains.kotlin.PlatformManagerPlugin"
+        }
+        create("gitClangFormat") {
+            id = "git-clang-format"
+            implementationClass = "org.jetbrains.kotlin.cpp.GitClangFormatPlugin"
         }
     }
 }

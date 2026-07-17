@@ -1,13 +1,12 @@
 // RUN_PIPELINE_TILL: BACKEND
 // DIAGNOSTICS: -UNUSED_PARAMETER
-// LANGUAGE: +UseCorrectExecutionOrderForVarargArguments
 // WITH_STDLIB
 
 fun foo(vararg x: Unit, y: Any) {}
 
 fun main() {
     foo({  }(), y = {  }())
-    foo(x = *<!REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_FUNCTION!>arrayOf({  }())<!>, y = {  }())
+    foo(x = <!REDUNDANT_SPREAD_OPERATOR_IN_NAMED_FORM_IN_FUNCTION!>*<!>arrayOf({  }()), y = {  }())
     foo(x = arrayOf({  }()), y = {  }())
     foo(*arrayOf({  }()), y = {  }())
 }

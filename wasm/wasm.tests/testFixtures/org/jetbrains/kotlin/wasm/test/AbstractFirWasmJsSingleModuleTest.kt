@@ -10,10 +10,8 @@ import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.test.Constructor
 import org.jetbrains.kotlin.test.TargetBackend
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
-import org.jetbrains.kotlin.test.builders.wasmArtifactsHandlersStep
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives
-import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.WASM_FAILS_IN_SINGLE_MODULE_MODE
 import org.jetbrains.kotlin.test.model.AbstractTestFacade
 import org.jetbrains.kotlin.test.model.AnalysisHandler
 import org.jetbrains.kotlin.test.model.BinaryArtifacts
@@ -23,9 +21,7 @@ import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys.WASM_INCLUDED_MODU
 import org.jetbrains.kotlin.wasm.test.converters.WasmBackendSingleModuleFacade
 import org.jetbrains.kotlin.wasm.test.handlers.WasmBoxRunnerWithPrecompiled
 import org.jetbrains.kotlin.wasm.test.handlers.WasmDebugRunnerWithPrecompiled
-import org.jetbrains.kotlin.wasm.test.handlers.WasmTypeScriptCompilationHandler
 import org.jetbrains.kotlin.wasm.test.providers.WasmJsSteppingTestAdditionalSourceProvider
-import org.jetbrains.kotlin.wasm.test.utils.configureIgnoredTestSuppressor
 import org.junit.jupiter.api.BeforeAll
 
 abstract class AbstractWasmJsCodegenSingleModuleRegularStdTest(
@@ -70,7 +66,7 @@ abstract class AbstractWasmJsCodegenSingleModuleTestBase(
     override fun configure(builder: TestConfigurationBuilder) {
         super.configure(builder)
         builder.configureCodegenFirHandlerSteps()
-        builder.configureIgnoredTestSuppressor(WASM_FAILS_IN_SINGLE_MODULE_MODE)
+        builder.configureCodegenIrHandlerSteps()
         builder.enableByConfigurationKey(WASM_INCLUDED_MODULE_ONLY)
     }
 }
@@ -92,9 +88,6 @@ open class AbstractFirWasmTypeScriptExportSingleModuleTest : AbstractWasmJsCodeg
     "typescript-export-single-module/"
 ) {
     override fun configure(builder: TestConfigurationBuilder) {
-        builder.wasmArtifactsHandlersStep {
-            useHandlers(::WasmTypeScriptCompilationHandler)
-        }
         super.configure(builder)
         builder.defaultDirectives {
             +WasmEnvironmentConfigurationDirectives.CHECK_TYPESCRIPT_DECLARATIONS

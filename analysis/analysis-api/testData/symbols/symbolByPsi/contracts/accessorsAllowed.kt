@@ -1,7 +1,6 @@
 // WITH_STDLIB
 // ISSUE: KT-82177
-// DO_NOT_CHECK_NON_PSI_SYMBOL_RESTORE
-// DO_NOT_CHECK_SYMBOL_RESTORE_K1
+// DO_NOT_REQUIRE_NON_PSI_SYMBOL_RESTORATION
 // LANGUAGE: +AllowContractsOnPropertyAccessors, +ContextParameters
 
 @file:OptIn(ExperimentalContracts::class)

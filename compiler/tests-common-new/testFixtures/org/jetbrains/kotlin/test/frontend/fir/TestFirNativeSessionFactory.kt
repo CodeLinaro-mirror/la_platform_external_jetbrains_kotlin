@@ -5,13 +5,13 @@
 
 package org.jetbrains.kotlin.test.frontend.fir
 
-import org.jetbrains.kotlin.backend.konan.serialization.loadNativeKlibsInTestPipeline
+import org.jetbrains.kotlin.backend.konan.serialization.loadNativeKlibs
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.deserialization.ModuleDataProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.session.FirNativeSessionFactory
-import org.jetbrains.kotlin.konan.library.isFromKotlinNativeDistribution
+import org.jetbrains.kotlin.konan.library.isImplicitlyLoadedFromKotlinNativeDistribution
 import org.jetbrains.kotlin.library.Klib
 import org.jetbrains.kotlin.test.services.configuration.NativeEnvironmentConfigurator
 import org.jetbrains.kotlin.name.Name
@@ -28,12 +28,7 @@ object TestFirNativeSessionFactory {
         configuration: CompilerConfiguration,
         extensionRegistrars: List<FirExtensionRegistrar>,
     ): FirSession {
-        val libraries = loadNativeKlibsInTestPipeline(
-            configuration = configuration,
-            libraryPaths = getTransitivesAndFriendsPaths(module, testServices),
-            runtimeLibraryProviders = testServices.nativeEnvironmentConfigurator.getRuntimeLibraryProviders(module),
-            nativeTarget = testServices.nativeEnvironmentConfigurator.getNativeTarget(module),
-        ).all
+        val libraries = loadNativeKlibs(configuration, testServices.nativeEnvironmentConfigurator.getNativeTarget(module)).all
 
         val sharedLibrarySession = FirNativeSessionFactory.createSharedLibrarySession(
             mainModuleName,
@@ -59,7 +54,8 @@ object TestFirNativeSessionFactory {
  * that are capable of locating and properly loading libraries, this function returns just the list of raw library paths.
  *
  * That could be not enough in certain cases. For example, in the case of loading the libraries from the Kotlin/Native distribution,
- * which all need to be marked with [Klib.isFromKotlinNativeDistribution] flag that is checked by the Kotlin/Native backend later.
+ * which all need to be marked with [Klib.isImplicitlyLoadedFromKotlinNativeDistribution] flag that is checked
+ * by the Kotlin/Native backend later.
  */
 fun getAllNativeDependenciesPaths(module: TestModule, testServices: TestServices) =
     NativeEnvironmentConfigurator.getRuntimePathsForModule(module, testServices) + getTransitivesAndFriendsPaths(module, testServices)

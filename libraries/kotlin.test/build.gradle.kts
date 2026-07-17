@@ -19,9 +19,10 @@ import plugins.publishing.configureMultiModuleMavenPublishing
 plugins {
     kotlin("multiplatform")
     `maven-publish`
-    signing
+    id("signing-convention")
     id("nodejs-cache-redirector-configuration")
     id("binaryen-configuration")
+    id("nodejs-configuration")
 }
 
 description = "Kotlin Test Library"
@@ -128,11 +129,11 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmJs {
         nodejs()
-        (this as KotlinJsTargetDsl).compilerOptions {
+        compilerOptions {
+            sourceMap = false
+            sourceMapEmbedSources.unsetConvention()
             freeCompilerArgs.addAll(
                 "-Xklib-ir-inliner=intra-module",
-                "-source-map=false",
-                "-source-map-embed-sources=",
             )
         }
         compilations["main"].compileTaskProvider.configure {
@@ -143,11 +144,13 @@ kotlin {
     @OptIn(ExperimentalWasmDsl::class)
     wasmWasi {
         nodejs()
+        // cast is necessary because of KT-85971
+        // update after bootstrap
         (this as KotlinJsTargetDsl).compilerOptions {
+            sourceMap = false
+            sourceMapEmbedSources.unsetConvention()
             freeCompilerArgs.addAll(
                 "-Xklib-ir-inliner=intra-module",
-                "-source-map=false",
-                "-source-map-embed-sources=",
             )
         }
         compilations["main"].compileTaskProvider.configure {
@@ -453,6 +456,7 @@ configurations {
     }
 
     val jvmMainApi by getting
+    val metadataCompilationApi by configurations.getting
     val nativeApiElements by creating
     for (artifactName in listOf("kotlin-test-common", "kotlin-test-annotations-common")) {
         dependencies {
@@ -461,7 +465,7 @@ configurations {
                 // there is no dependency anymore from kotlin-test to kotlin-test-common and -annotations-common,
                 // but use this constraint to align it if another library brings it transitively
                 jvmMainApi(artifactCoordinates)
-                metadataApiElements(artifactCoordinates)
+                metadataCompilationApi(artifactCoordinates)
                 nativeApiElements(artifactCoordinates)
             }
         }

@@ -1,14 +1,15 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.test.services.configuration
 
+import org.jetbrains.kotlin.backend.common.linkage.partial.setupPartialLinkageConfig
 import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.config.AnalysisFlags.allowFullyQualifiedNameInKClass
-import org.jetbrains.kotlin.constant.EvaluatedConstTracker
+import org.jetbrains.kotlin.ir.backend.js.MainModule
 import org.jetbrains.kotlin.js.config.*
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
@@ -16,19 +17,26 @@ import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives.PROPERTY_LAZY_INITIALIZATION
 import org.jetbrains.kotlin.test.directives.JsEnvironmentConfigurationDirectives.SOURCE_MAP_EMBED_SOURCES
 import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives
+import org.jetbrains.kotlin.test.directives.KlibBasedCompilerTestDirectives.KLIB_RELATIVE_PATH_BASES
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.DISABLE_WASM_EXCEPTION_HANDLING
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.FORCE_DEBUG_FRIENDLY_COMPILATION
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.SOURCE_MAP_INCLUDE_MAPPINGS_FROM_UNAVAILABLE_FILES
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.USE_NEW_EXCEPTION_HANDLING_PROPOSAL
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.USE_OLD_EXCEPTION_HANDLING_PROPOSAL
+import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.USE_STACK_SWITCHING_PROPOSAL
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.WASM_DISABLE_FQNAME_IN_KCLASS
 import org.jetbrains.kotlin.test.directives.WasmEnvironmentConfigurationDirectives.WASM_NO_JS_TAG
 import org.jetbrains.kotlin.test.directives.model.DirectivesContainer
 import org.jetbrains.kotlin.test.directives.model.RegisteredDirectives
+import org.jetbrains.kotlin.test.model.ArtifactKinds
+import org.jetbrains.kotlin.test.model.DependencyRelation
 import org.jetbrains.kotlin.test.model.TestModule
 import org.jetbrains.kotlin.test.services.*
+import org.jetbrains.kotlin.utils.addToStdlib.applyIf
 import org.jetbrains.kotlin.wasm.config.WasmConfigurationKeys
+import org.jetbrains.kotlin.wasm.config.wasmTarget
+import java.io.File
 
 abstract class WasmEnvironmentConfigurator(
     testServices: TestServices,
@@ -39,12 +47,18 @@ abstract class WasmEnvironmentConfigurator(
         get() = listOf(WasmEnvironmentConfigurationDirectives, KlibBasedCompilerTestDirectives)
 
     companion object {
-        fun getRuntimePathsForModule(target: WasmTarget): List<String> {
-            return listOf(stdlibPath(target), kotlinTestPath(target))
+        fun getRuntimePathsForModule(target: WasmTarget, testServices: TestServices): List<String> {
+            return listOf(stdlibPath(target, testServices), kotlinTestPath(target, testServices))
         }
 
         fun kotlinTestPath(target: WasmTarget): String = System.getProperty("kotlin.${target.alias}.kotlin.test.path")!!
         fun stdlibPath(target: WasmTarget): String = System.getProperty("kotlin.${target.alias}.stdlib.path")!!
+
+        fun kotlinTestPath(target: WasmTarget, testServices: TestServices): String =
+            testServices.standardLibrariesPathProvider.kotlinTestWasmKLib(target).absolutePath
+
+        fun stdlibPath(target: WasmTarget, testServices: TestServices): String =
+            testServices.standardLibrariesPathProvider.fullWasmStdlib(target).absolutePath
 
         fun getMainModule(testServices: TestServices): TestModule {
             val modules = testServices.moduleStructure.modules
@@ -58,6 +72,8 @@ abstract class WasmEnvironmentConfigurator(
         fun isMainModule(module: TestModule, testServices: TestServices): Boolean {
             return module == getMainModule(testServices)
         }
+
+        const val WASM_BASE_FILE_NAME = "index"
     }
 
 
@@ -87,17 +103,33 @@ class WasmFirstStageEnvironmentConfigurator(
     override val compilationStage: CompilationStage
         get() = CompilationStage.FIRST
 
+    // TODO KT-85876: this is in large part a duplicate of JsFirstStageEnvironmentConfigurator, refactor this
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
         super.configureCompilerConfiguration(configuration, module)
+        configuration.phaseConfig = createJsTestPhaseConfig(testServices, module)
 
         configuration.outputDir = getKlibArtifactFile(testServices, module.name)
 
         val dependencies = module.regularDependencies.map { getKlibArtifactFile(testServices, it.dependencyModule.name).absolutePath }
         val friends = module.friendDependencies.map { getKlibArtifactFile(testServices, it.dependencyModule.name).absolutePath }
-        val libraries = getRuntimePathsForModule(wasmTarget) + dependencies + friends
+        val libraries = getRuntimePathsForModule(wasmTarget, testServices) + dependencies + friends
 
         configuration.libraries = libraries
         configuration.friendLibraries = friends
+
+        if (isMainModule(module, testServices)) {
+            // set the output name to be used by WebKlibSerializationPipelinePhase
+            configuration.perModuleOutputName = WASM_BASE_FILE_NAME
+        }
+
+        configuration.klibRelativePathBases = module.directives[KLIB_RELATIVE_PATH_BASES].applyIf(testServices.cliBasedFacadesEnabled) {
+            val modulePath = testServices.sourceFileProvider.getKotlinSourceDirectoryForModule(module).canonicalPath
+            map { "$modulePath/$it" }
+        }
+
+        if (testServices.cliBasedFacadesEnabled) {
+            configuration.addSourcesForDependsOnClosure(module, testServices)
+        }
     }
 }
 
@@ -116,8 +148,29 @@ open class WasmSecondStageEnvironmentConfigurator(
         super.configureCompilerConfiguration(configuration, module)
         val registeredDirectives = module.directives
 
+        val wasmTarget = configuration.wasmTarget
+
+        val runtimeKlibs: List<String> = getRuntimePathsForModule(wasmTarget, testServices)
+        val klibDependencies: List<String> = getKlibDependencies(module, testServices, DependencyRelation.RegularDependency)
+            .map { it.absolutePath }
+        val klibFriendDependencies: List<String> = getKlibDependencies(module, testServices, DependencyRelation.FriendDependency)
+            .map { it.absolutePath }
+        val klibArtifact = testServices.artifactsProvider.getArtifact(module, ArtifactKinds.KLib)
+        val mainModule = MainModule.Klib(klibArtifact.outputFile.absolutePath)
+        val mainPath = File(mainModule.libPath).canonicalPath
+        configuration.libraries = runtimeKlibs + klibDependencies + klibFriendDependencies + mainPath
+        configuration.friendLibraries = klibFriendDependencies
+        configuration.includes = mainPath
+
         configuration.put(WasmConfigurationKeys.WASM_ENABLE_ASSERTS, true)
-        configuration.put(WasmConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS, true)
+        configuration.put(
+            WasmConfigurationKeys.WASM_ENABLE_ARRAY_RANGE_CHECKS,
+            WasmEnvironmentConfigurationDirectives.WASM_DISABLE_ARRAY_RANGE_CHECKS !in registeredDirectives
+        )
+        configuration.put(
+            WasmConfigurationKeys.WASM_DISABLE_ARRAY_RANGE_CHECKS_SAFE_ELIMINATION,
+            WasmEnvironmentConfigurationDirectives.WASM_DISABLE_ARRAY_RANGE_CHECKS_SAFE_ELIMINATION in registeredDirectives
+        )
 
         val sourceDirs = module.files.map { it.originalFile.parent }.distinct()
         configuration.sourceMapSourceRoots = sourceDirs
@@ -141,6 +194,7 @@ open class WasmSecondStageEnvironmentConfigurator(
         }
 
         configuration.put(WasmConfigurationKeys.WASM_USE_NEW_EXCEPTION_PROPOSAL, useNewExceptions)
+        configuration.put(WasmConfigurationKeys.WASM_USE_STACK_SWITCHING_PROPOSAL, USE_STACK_SWITCHING_PROPOSAL in registeredDirectives)
         configuration.put(WasmConfigurationKeys.WASM_NO_JS_TAG, WASM_NO_JS_TAG in registeredDirectives)
         configuration.put(
             WasmConfigurationKeys.WASM_INTERNAL_LOCAL_VARIABLE_PREFIX,
@@ -151,11 +205,8 @@ open class WasmSecondStageEnvironmentConfigurator(
             FORCE_DEBUG_FRIENDLY_COMPILATION in registeredDirectives
         )
 
-        val firstPhaseConfiguration = testServices.compilerConfigurationProvider.getCompilerConfiguration(module, CompilationStage.FIRST)
-        configuration.putIfAbsent(
-            CommonConfigurationKeys.EVALUATED_CONST_TRACKER,
-            firstPhaseConfiguration.evaluatedConstTracker ?: EvaluatedConstTracker.create()
-        )
+        // Enforce PL with the ERROR log level to fail any tests where PL detected any incompatibilities.
+        configuration.setupPartialLinkageConfig(PartialLinkageConfig(PartialLinkageLogLevel.ERROR))
     }
 }
 

@@ -8,15 +8,14 @@ package org.jetbrains.kotlin.generators.interpreter
 import org.jetbrains.kotlin.builtins.DefaultBuiltIns
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
 import org.jetbrains.kotlin.builtins.PrimitiveType
-import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.generators.util.GeneratorsFileUtil
 import org.jetbrains.kotlin.ir.BuiltInOperatorNames
+import org.jetbrains.kotlin.util.OperatorNameConventions
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.name.StandardClassIds.Annotations.IntrinsicConstEvaluation
 import org.jetbrains.kotlin.utils.Printer
 import kotlin.reflect.full.memberFunctions
 
@@ -77,7 +76,7 @@ private fun generateInterpretUnaryFunction(p: Printer, unaryOperations: List<Ope
     p.pushIndent()
     p.println("when (name) {")
     p.pushIndent()
-    for ((name, operations) in unaryOperations.groupBy(Operation::name)) {
+    for ([name, operations] in unaryOperations.groupBy(Operation::name)) {
         p.println("\"$name\" -> when (type) {")
         p.pushIndent()
         for (operation in operations.sortedBy { it.typeA.typeSortKey() }) {
@@ -99,10 +98,10 @@ private fun generateInterpretBinaryFunction(p: Printer, binaryOperations: List<O
     p.pushIndent()
     p.println("when (name) {")
     p.pushIndent()
-    for ((name, operations) in binaryOperations.groupBy(Operation::name)) {
+    for ([name, operations] in binaryOperations.groupBy(Operation::name)) {
         p.println("\"$name\" -> when (typeA) {")
         p.pushIndent()
-        for ((typeA, operationsOnTypeA) in operations.sortedBy { it.typeA.typeSortKey() }.groupBy(Operation::typeA)) {
+        for ([typeA, operationsOnTypeA] in operations.sortedBy { it.typeA.typeSortKey() }.groupBy(Operation::typeA)) {
             val singleOperation = operationsOnTypeA.singleOrNull()
             if (singleOperation != null) {
                 // Slightly improve readability if there's only one operation with such name and typeA.
@@ -110,7 +109,7 @@ private fun generateInterpretBinaryFunction(p: Printer, binaryOperations: List<O
             } else {
                 p.println("\"$typeA\" -> when (typeB) {")
                 p.pushIndent()
-                for ((typeB, operationsOnTypeB) in operationsOnTypeA.groupBy(Operation::typeB)) {
+                for ([typeB, operationsOnTypeB] in operationsOnTypeA.groupBy(Operation::typeB)) {
                     for (operation in operationsOnTypeB.sortedBy { it.typeB.typeSortKey() }) {
                         p.println("\"$typeB\" -> return ${operation.expressionString}")
                     }
@@ -135,7 +134,7 @@ private fun generateInterpretTernaryFunction(p: Printer, ternaryOperations: List
     p.pushIndent()
     p.println("when (name) {")
     p.pushIndent()
-    for ((name, operations) in ternaryOperations.groupBy(Operation::name)) {
+    for ([name, operations] in ternaryOperations.groupBy(Operation::name)) {
         p.println("\"$name\" -> when (typeA) {")
         p.pushIndent()
         for (op in operations.sortedBy { it.typeA.typeSortKey()}) {
@@ -182,7 +181,7 @@ private data class Operation(
                     append(".")
                     append(name)
                     if (isFunction) append("(")
-                    parameterTypes.withIndex().drop(1).joinTo(this) { (index, type) ->
+                    parameterTypes.withIndex().drop(1).joinTo(this) { [index, type] ->
                         castValue(('a' + index).toString(), type)
                     }
                     if (isFunction) append(")")
@@ -268,17 +267,19 @@ private fun getOperationMap(argumentsCount: Int): MutableList<Operation> {
 private fun getUnsignedConversionOperationMap(): List<Operation> {
     val operationMap = mutableListOf<Operation>()
 
-    val fullList = listOf("toULong", "toUInt", "toUShort", "toUByte")
+    val fullList = with(OperatorNameConventions) {
+        listOf(TO_ULONG, TO_UINT, TO_USHORT, TO_UBYTE).map { it.asString() }
+    }
     val uintConversionExtensions = mapOf(
         "Long" to fullList,
         "Int" to fullList,
         "Short" to fullList,
         "Byte" to fullList,
-        "Double" to listOf("toULong", "toUInt"),
-        "Float" to listOf("toULong", "toUInt"),
+        "Double" to with(OperatorNameConventions) { listOf(TO_ULONG, TO_UINT).map { it.asString() } },
+        "Float" to with(OperatorNameConventions) { listOf(TO_ULONG, TO_UINT).map { it.asString() } },
     )
 
-    for ((type, extensions) in uintConversionExtensions) {
+    for ([type, extensions] in uintConversionExtensions) {
         for (extension in extensions) {
             operationMap.add(Operation(extension, listOf(type)))
         }

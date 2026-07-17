@@ -1,5 +1,4 @@
 // LANGUAGE: +ContextParameters
-// IGNORE_BACKEND_K1: ANY
 
 class C<T> {
     fun foo() = 1

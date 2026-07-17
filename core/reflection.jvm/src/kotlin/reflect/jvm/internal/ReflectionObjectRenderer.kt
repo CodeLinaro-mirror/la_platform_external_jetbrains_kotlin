@@ -20,7 +20,7 @@ import org.jetbrains.kotlin.builtins.StandardNames
 import org.jetbrains.kotlin.builtins.isNumberedFunctionClassFqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.renderer.render
+import org.jetbrains.kotlin.name.render
 import org.jetbrains.kotlin.renderer.renderFlexibleMutabilityOrArrayElementVarianceType
 import kotlin.reflect.*
 import kotlin.reflect.full.contextParameters
@@ -181,7 +181,19 @@ internal object ReflectionObjectRenderer {
     private fun StringBuilder.renderFunctionType(type: AbstractKType) {
         if (type.isMarkedNullable) append("(")
         if (type.isSuspendFunctionType) append("suspend ")
-        type.arguments.dropLast(1).joinTo(this, prefix = "(", postfix = ") -> ")
+        val args = type.arguments.dropLast(1)
+
+        fun StringBuilder.appendParametersInBracketsAndArrow(parameters: List<KTypeProjection>) {
+            parameters.joinTo(this, prefix = "(", postfix = ") -> ")
+        }
+
+        if (type.annotations.any { it is ExtensionFunctionType } && !args.isEmpty()) {
+            append(args.first())
+            append(".")
+            appendParametersInBracketsAndArrow(args.drop(1))
+        } else {
+            appendParametersInBracketsAndArrow(args)
+        }
         append(type.arguments.last())
         if (type.isMarkedNullable) append(")?")
     }

@@ -44,7 +44,7 @@ KtBlockExpression(34,193): '{'
   NO_CANDIDATES
 
 KtBinaryExpression(40,49): 'list += 1'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -82,7 +82,7 @@ KtBinaryExpression(40,49): 'list += 1'
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -121,7 +121,7 @@ KtBinaryExpression(40,49): 'list += 1'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Array<Int>' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -160,7 +160,7 @@ KtBinaryExpression(40,49): 'list += 1'
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Iterable<Int>' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -200,7 +200,7 @@ KtBinaryExpression(40,49): 'list += 1'
     isInBestCandidates = false
 
 KtNameReferenceExpression(40,44): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -218,7 +218,7 @@ KtNameReferenceExpression(40,44): 'list'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(45,47): '+='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -256,7 +256,7 @@ KtOperationReferenceExpression(45,47): '+='
       }
     isInBestCandidates = true
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -295,7 +295,7 @@ KtOperationReferenceExpression(45,47): '+='
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Array<Int>' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -334,7 +334,7 @@ KtOperationReferenceExpression(45,47): '+='
     diagnostic = ERROR<ARGUMENT_TYPE_MISMATCH: Argument type mismatch: actual type is 'Int', but 'Iterable<Int>' was expected.>
     isInBestCandidates = false
 
-  KaInapplicableCallCandidateInfo:
+  KaInapplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -417,7 +417,7 @@ KtArrayAccessExpression(74,81): 'list[0]'
     isInBestCandidates = true
 
 KtNameReferenceExpression(74,78): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -444,7 +444,7 @@ KtProperty(86,129): 'val explicitIndex = list.get(implicitIndex)'
   NO_CANDIDATES
 
 KtDotQualifiedExpression(106,129): 'list.get(implicitIndex)'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -481,7 +481,7 @@ KtDotQualifiedExpression(106,129): 'list.get(implicitIndex)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(106,110): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -536,7 +536,7 @@ KtCallExpression(111,129): 'get(implicitIndex)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(111,114): 'get'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -579,7 +579,7 @@ KtValueArgument(115,128): 'implicitIndex'
   NO_CANDIDATES
 
 KtNameReferenceExpression(115,128): 'implicitIndex'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -597,7 +597,7 @@ KtNameReferenceExpression(115,128): 'implicitIndex'
     isInBestCandidates = true
 
 KtBinaryExpression(134,172): '(@Suppress("SOME_ERROR") list[1]) += 2'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN
@@ -754,7 +754,7 @@ KtAnnotationEntry(135,158): '@Suppress("SOME_ERROR")'
     isInBestCandidates = true
 
 KtConstructorCalleeExpression(136,144): 'Suppress'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaAnnotationCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -794,7 +794,38 @@ KtUserType(136,144): 'Suppress'
   NO_CANDIDATES
 
 KtNameReferenceExpression(136,144): 'Suppress'
-  NO_CANDIDATES
+  KaApplicableCallCandidate:
+    candidate = KaAnnotationCall:
+      contextArgumentMapping = {}
+      contextArguments = []
+      dispatchReceiver = null
+      extensionReceiver = null
+      signature = KaFunctionSignature:
+        receiverType = null
+        returnType = kotlin.Suppress
+        symbol = <constructor>(vararg names: kotlin.String): kotlin.Suppress
+        valueParameters = [
+          KaVariableSignature:
+            name = names
+            receiverType = null
+            returnType = kotlin.String
+            symbol = vararg names: kotlin.String
+            contextParameters = []
+            callableId = null
+        ]
+        contextParameters = []
+        callableId = null
+      typeArgumentsMapping = {}
+      valueArgumentMapping = {
+        "SOME_ERROR" -> (KaVariableSignature:
+          name = names
+          receiverType = null
+          returnType = kotlin.String
+          symbol = vararg names: kotlin.String
+          contextParameters = []
+          callableId = null)
+      }
+    isInBestCandidates = true
 
 KtValueArgumentList(144,158): '("SOME_ERROR")'
   NO_CANDIDATES
@@ -846,7 +877,7 @@ KtArrayAccessExpression(159,166): 'list[1]'
     isInBestCandidates = true
 
 KtNameReferenceExpression(159,163): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -870,7 +901,7 @@ KtConstantExpression(164,165): '1'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(168,170): '+='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN
@@ -990,7 +1021,7 @@ KtConstantExpression(171,172): '2'
   NO_CANDIDATES
 
 KtBinaryExpression(177,191): '(list[2]) += 3'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN
@@ -1147,7 +1178,7 @@ KtArrayAccessExpression(178,185): 'list[2]'
     isInBestCandidates = true
 
 KtNameReferenceExpression(178,182): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1171,7 +1202,7 @@ KtConstantExpression(183,184): '2'
   NO_CANDIDATES
 
 KtOperationReferenceExpression(187,189): '+='
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundAssignOperation:
         kind = PLUS_ASSIGN
@@ -1387,7 +1418,7 @@ KtCallExpression(241,261): 'foo(--list[i], list)'
     isInBestCandidates = true
 
 KtNameReferenceExpression(241,244): 'foo'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleFunctionCall:
       contextArgumentMapping = {}
       contextArguments = []
@@ -1441,7 +1472,7 @@ KtValueArgument(245,254): '--list[i]'
   NO_CANDIDATES
 
 KtPrefixExpression(245,254): '--list[i]'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = DEC
@@ -1542,7 +1573,7 @@ KtPrefixExpression(245,254): '--list[i]'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(245,247): '--'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = DEC
@@ -1680,7 +1711,7 @@ KtArrayAccessExpression(247,254): 'list[i]'
     isInBestCandidates = true
 
 KtNameReferenceExpression(247,251): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1701,7 +1732,7 @@ KtContainerNode(251,254): '[i]'
   NO_CANDIDATES
 
 KtNameReferenceExpression(252,253): 'i'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1722,7 +1753,7 @@ KtValueArgument(256,260): 'list'
   NO_CANDIDATES
 
 KtNameReferenceExpression(256,260): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null
@@ -1740,7 +1771,7 @@ KtNameReferenceExpression(256,260): 'list'
     isInBestCandidates = true
 
 KtPrefixExpression(266,277): '++(list[2])'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1841,7 +1872,7 @@ KtPrefixExpression(266,277): '++(list[2])'
     isInBestCandidates = true
 
 KtOperationReferenceExpression(266,268): '++'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaCompoundArrayAccessCall:
       compoundOperation = KaCompoundUnaryOperation:
         kind = INC
@@ -1982,7 +2013,7 @@ KtArrayAccessExpression(269,276): 'list[2]'
     isInBestCandidates = true
 
 KtNameReferenceExpression(269,273): 'list'
-  KaApplicableCallCandidateInfo:
+  KaApplicableCallCandidate:
     candidate = KaSimpleVariableAccessCall:
       contextArguments = []
       dispatchReceiver = null

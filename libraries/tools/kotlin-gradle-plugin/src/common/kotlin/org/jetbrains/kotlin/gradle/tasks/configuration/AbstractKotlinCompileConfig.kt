@@ -55,7 +55,7 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
 
             propertiesProvider.kotlinDaemonJvmArgs?.let { kotlinDaemonJvmArgs ->
                 task.kotlinDaemonJvmArguments.set(providers.provider {
-                    kotlinDaemonJvmArgs.split("\\s+".toRegex())
+                    splitKotlinDaemonArgs(kotlinDaemonJvmArgs)
                 })
             }
             task.compilerExecutionStrategy.convention(propertiesProvider.kotlinCompilerExecutionStrategy).finalizeValueOnRead()
@@ -77,6 +77,7 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
 
             task.incremental = false
             task.useModuleDetection.convention(false)
+            @Suppress("DEPRECATION")
             task.runViaBuildToolsApi.convention(propertiesProvider.runKotlinCompilerViaBuildToolsApi).finalizeValueOnRead()
             task.generateCompilerRefIndex.convention(propertiesProvider.generateCompilerRefIndex).finalizeValueOnRead()
 
@@ -119,6 +120,8 @@ internal abstract class AbstractKotlinCompileConfig<TASK : AbstractKotlinCompile
         }
     }
 }
+
+internal fun splitKotlinDaemonArgs(args: String) = args.split("\\s+".toRegex())
 
 private fun KotlinCompilationInfo.explicitApiMode(): Provider<ExplicitApiMode> = project.providers.provider {
     // Plugin explicitly does not configure 'explicitApi' mode for test sources

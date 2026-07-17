@@ -337,6 +337,16 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
     private fun shouldGenerateKotlinCast(expression: IrExpression, toType: IrType): Boolean {
         if (toType.isNullableAny()) return false
         if (toType.isTypeParameter()) return false
+        // For the cases of casts of callable references to return Unit type, such as
+        //
+        // fun suspect(): Dummy { ... }
+        // ::suspect as () -> Unit
+        //
+        // just need to return a Unit instance +builder.irCall(unitGetInstance)
+        // instead of trying to cast to Unit
+        //
+        // also fixes testData/codegen/box/basics/unchecked_cast10.kt
+        if (toType.isUnit()) return false
 
         val argumentType = when (expression) {
             is IrCall -> {
@@ -399,6 +409,16 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
 
         val fromType = argument.type
         if (isExternalType(fromType) != isExternalType(toType)) {
+            if (fromType.classifierOrNull == symbols.jsRelatedSymbols.jsReferenceClass ||
+                fromType.classifierOrNull == symbols.jsRelatedSymbols.jsAnyClass
+            ) {
+                // special case: JsReference<C> can be implicitly converted to Any and then treated as C.
+                // On another hand, it can be unsafely cast from another external type, so do not
+                // resolve it to constants even for `JsReference<C> is C` checks.
+                // JsAny is included as it can contain actual JsReference objects.
+                val argumentAsAny = narrowType(fromType, context.irBuiltIns.anyType, argument)
+                return generateIsSubClassTest(argumentAsAny, toType)
+            }
             return builder.irFalse()
         }
 
@@ -411,6 +431,10 @@ class WasmBaseTypeOperatorTransformer(val context: WasmBackendContext) : IrEleme
             return builder.irFalse()
         }
 
+        return generateIsSubClassTest(argument, toType)
+    }
+
+    private fun generateIsSubClassTest(argument: IrExpression, toType: IrType): IrCall {
         return builder.irCall(symbols.refTest).apply {
             arguments[0] = argument
             typeArguments[0] = toType

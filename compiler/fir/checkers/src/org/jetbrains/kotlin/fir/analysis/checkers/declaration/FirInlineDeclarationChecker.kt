@@ -139,8 +139,8 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
             accessedSymbol: FirBasedSymbol<*>,
             source: KtSourceElement,
         ): KtDiagnosticFactory2<FirBasedSymbol<*>, FirBasedSymbol<*>> {
-            if (!LanguageFeature.ProhibitPrivateOperatorCallInInline.isEnabled()) {
-                val isDelegatedPropertyAccessor = source.kind == KtFakeSourceElementKind.DelegatedPropertyAccessor
+            if (LanguageFeature.ProhibitPrivateOperatorCallInInline.isDisabled()) {
+                val isDelegatedPropertyAccessor = source.kind is KtFakeSourceElementKind.DelegatedPropertyAccessor
                 val isForLoopButNotIteratorCall = source.kind == KtFakeSourceElementKind.DesugaredForLoop &&
                         accessExpression.toReference(session)?.symbol?.memberDeclarationNameOrNull != OperatorNameConventions.ITERATOR
 
@@ -400,7 +400,7 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
             function.valueParameters.any { it.isInlinable(context.session) } || function.contextParameters.any { it.isInlinable(context.session) }
         if (hasInlinableParameters) return
         if (function.isInlineOnly(session)) return
-        if (function.returnTypeRef.needsMultiFieldValueClassFlattening(session)) return
+        if (function.returnTypeRef.needsJvmInlineMultiFieldValueClassFlattening(session)) return
 
         reporter.reportOn(function.source, FirErrors.NOTHING_TO_INLINE)
     }
@@ -423,11 +423,13 @@ object FirInlineDeclarationChecker : FirFunctionChecker(MppCheckerKind.Common) {
         return true
     }
 
-    private fun isInlinableDefaultValue(expression: FirExpression): Boolean =
-        expression is FirCallableReferenceAccess ||
-                expression is FirFunctionCall ||
-                expression is FirAnonymousFunctionExpression ||
-                (expression is FirLiteralExpression && expression.value == null) //this will be reported separately
+    context(context: CheckerContext)
+    private fun isInlinableDefaultValue(expression: FirExpression): Boolean = when (expression) {
+        is FirCallableReferenceAccess, is FirAnonymousFunctionExpression -> true
+        is FirLiteralExpression if expression.value == null -> true // this will be reported separately
+        is FirFunctionCall if LanguageFeature.ProhibitFunctionCallsInDefaultParametersOfInline.isDisabled() -> true
+        else -> false
+    }
 
     context(context: CheckerContext, reporter: DiagnosticReporter)
     fun checkCallableDeclaration(declaration: FirCallableDeclaration) {

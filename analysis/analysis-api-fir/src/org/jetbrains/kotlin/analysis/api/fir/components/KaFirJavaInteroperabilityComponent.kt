@@ -26,6 +26,8 @@ import org.jetbrains.kotlin.analysis.api.fir.types.PublicTypeApproximator
 import org.jetbrains.kotlin.analysis.api.fir.utils.firSymbol
 import org.jetbrains.kotlin.analysis.api.impl.base.components.KaBaseSessionComponent
 import org.jetbrains.kotlin.analysis.api.impl.base.components.withPsiValidityAssertion
+import org.jetbrains.kotlin.analysis.api.impl.base.symbols.findSyntheticJavaPropertyAccessor
+import org.jetbrains.kotlin.analysis.api.impl.base.util.requireIsInstance
 import org.jetbrains.kotlin.analysis.api.lifetime.withValidityAssertion
 import org.jetbrains.kotlin.analysis.api.scopes.KaScope
 import org.jetbrains.kotlin.analysis.api.symbols.*
@@ -34,8 +36,7 @@ import org.jetbrains.kotlin.analysis.api.types.KaTypeMappingMode
 import org.jetbrains.kotlin.analysis.api.types.symbol
 import org.jetbrains.kotlin.analysis.low.level.api.fir.providers.jvmClassNameIfDeserialized
 import org.jetbrains.kotlin.analysis.low.level.api.fir.util.getContainingFile
-import org.jetbrains.kotlin.analysis.utils.errors.requireIsInstance
-import org.jetbrains.kotlin.analysis.utils.isLocalClass
+import org.jetbrains.kotlin.analysis.low.level.api.fir.util.isLocalClass
 import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade
 import org.jetbrains.kotlin.asJava.elements.KtLightElement
 import org.jetbrains.kotlin.asJava.elements.KtLightParameter
@@ -68,7 +69,6 @@ import org.jetbrains.kotlin.fir.types.jvm.buildJavaTypeRef
 import org.jetbrains.kotlin.light.classes.symbol.annotations.annotateByKtType
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
-import org.jetbrains.kotlin.load.java.getPropertyNamesCandidatesByAccessorName
 import org.jetbrains.kotlin.load.java.structure.impl.JavaClassImpl
 import org.jetbrains.kotlin.load.java.structure.impl.JavaTypeImpl
 import org.jetbrains.kotlin.load.java.structure.impl.JavaTypeParameterImpl
@@ -267,13 +267,13 @@ internal class KaFirJavaInteroperabilityComponent(
                         val memberSymbol = containingClassSymbol.declarationSymbols.find { it.findPsi(analysisSession.analysisScope) == member } as? FirCallableSymbol<*>
                         if (memberSymbol != null) {
                             //typeParamSymbol.fir.source == null thus zip is required, see KT-62354
-                            memberSymbol.typeParameterSymbols.zip(member.typeParameters).forEach { (typeParamSymbol, typeParam) ->
+                            memberSymbol.typeParameterSymbols.zip(member.typeParameters).forEach { [typeParamSymbol, typeParam] ->
                                 javaTypeParameterStack.addParameter(JavaTypeParameterImpl(typeParam), typeParamSymbol)
                             }
                         }
                     }
 
-                    containingClassSymbol.typeParameterSymbols.zip(psiClass.typeParameters).forEach { (symbol, typeParameter) ->
+                    containingClassSymbol.typeParameterSymbols.zip(psiClass.typeParameters).forEach { [symbol, typeParameter] ->
                         javaTypeParameterStack.addParameter(JavaTypeParameterImpl(typeParameter), symbol)
                     }
                 }
@@ -284,6 +284,11 @@ internal class KaFirJavaInteroperabilityComponent(
         return coneKotlinType.asKaType()
     }
 
+    override fun KaType.mapToJvmTypeDescriptor(): String {
+        return jvmTypeMapper.mapType(coneType, TypeMappingMode.DEFAULT, sw = null, unresolvedQualifierRemapper = null).descriptor
+    }
+
+    @Deprecated("Use 'mapToJvmTypeDescriptor' instead.", level = DeprecationLevel.HIDDEN)
     override fun KaType.mapToJvmType(mode: TypeMappingMode): Type = withValidityAssertion {
         return jvmTypeMapper.mapType(coneType, mode, sw = null, unresolvedQualifierRemapper = null)
     }
@@ -358,26 +363,9 @@ internal class KaFirJavaInteroperabilityComponent(
      */
     context(_: KaFirSession)
     private fun findJavaAccessorMethodBySyntheticProperty(psiMember: PsiMember, name: Name, scope: KaScope): KaCallableSymbol? {
-        val nameAsString = name.asString()
-        val isGetter = JvmAbi.isGetterName(nameAsString)
-        val isSetter = JvmAbi.isSetterName(nameAsString)
-        if (!isGetter && !isSetter) return null
-
-        val propertyNames = getPropertyNamesCandidatesByAccessorName(name)
-        for (propertyName in propertyNames) {
-            for (callable in scope.callables(propertyName)) {
-                val property = callable as? KaSyntheticJavaPropertySymbol ?: continue
-
-                if (isGetter && property.javaGetterSymbol.psi == psiMember) {
-                    return property.javaGetterSymbol
-                }
-                if (isSetter && property.javaSetterSymbol?.psi == psiMember) {
-                    return property.javaSetterSymbol
-                }
-            }
+        return scope.findSyntheticJavaPropertyAccessor(name) { propertySymbol, accessorKind, _ ->
+            accessorKind.getJavaAccessorSymbol(propertySymbol)?.takeIf { it.psi == psiMember }
         }
-
-        return null
     }
 
     override val KaCallableSymbol.containingJvmClassName: String?
@@ -448,10 +436,12 @@ internal class KaFirJavaInteroperabilityComponent(
         if (property.backingField?.symbol?.hasAnnotation(JvmStandardClassIds.Annotations.JvmField, analysisSession.firSession) == true) {
             return property.name
         }
-        return Name.identifier(getJvmNameAsString(property, isSetter))
+
+        val nameString = getJvmNameAsString(property, isSetter) ?: return SpecialNames.NO_NAME_PROVIDED
+        return Name.identifier(nameString)
     }
 
-    private fun getJvmNameAsString(property: FirProperty, isSetter: Boolean): String {
+    private fun getJvmNameAsString(property: FirProperty, isSetter: Boolean): String? {
         val useSiteTarget = if (isSetter) AnnotationUseSiteTarget.PROPERTY_SETTER else AnnotationUseSiteTarget.PROPERTY_GETTER
         val jvmNameFromProperty = property.getJvmNameFromAnnotation(analysisSession.firSession, useSiteTarget)
         if (jvmNameFromProperty != null) {
@@ -464,7 +454,7 @@ internal class KaFirJavaInteroperabilityComponent(
             return jvmNameFromAccessor
         }
 
-        val identifier = property.name.identifier
+        val identifier = property.name.takeUnless { it.isSpecial }?.identifier ?: return null
         return if (isSetter) JvmAbi.setterName(identifier) else JvmAbi.getterName(identifier)
     }
 }

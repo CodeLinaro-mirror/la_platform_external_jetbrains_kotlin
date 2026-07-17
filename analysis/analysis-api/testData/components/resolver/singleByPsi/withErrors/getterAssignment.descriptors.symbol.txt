@@ -1,4 +1,0 @@
-KtCallExpression(30,35): 'get()'
-  KaSymbolResolutionError:
-    candidateSymbols = []
-    diagnostic = ERROR<UNRESOLVED_REFERENCE: Unresolved reference: get>

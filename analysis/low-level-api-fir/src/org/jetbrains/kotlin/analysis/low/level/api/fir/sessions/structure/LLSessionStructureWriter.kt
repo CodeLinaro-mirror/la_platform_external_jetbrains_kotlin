@@ -5,8 +5,9 @@
 
 package org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.structure
 
+import org.jetbrains.kotlin.analysis.api.KaImplementationDetail
 import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSession
-import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.LLFirSessionCacheStorage
+import org.jetbrains.kotlin.analysis.low.level.api.fir.sessions.cache.LLFirSessionCacheStorage
 import java.io.BufferedWriter
 import kotlin.uuid.ExperimentalUuidApi
 
@@ -41,6 +42,7 @@ import kotlin.uuid.ExperimentalUuidApi
  * - In the right-hand toolbar, click on Statistics and run "Average Degree".
  * - This will calculate in and out degrees for each node. Now the data can be used to visualize the degree distribution.
  */
+@KaImplementationDetail
 object LLSessionStructureWriter {
     /**
      * Writes the session structure described by [storage] and [analysisRoots] to [writer].

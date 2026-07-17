@@ -1,2 +1,7 @@
 KtNameReferenceExpression(129,133): 'post'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      test/post(action: (kotlin.Unit) -> kotlin.Unit): kotlin.Unit
+    ]

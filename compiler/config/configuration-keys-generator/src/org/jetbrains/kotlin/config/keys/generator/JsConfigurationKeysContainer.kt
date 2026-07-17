@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -9,7 +9,11 @@ import org.jetbrains.kotlin.config.keys.generator.model.KeysContainer
 import org.jetbrains.kotlin.incremental.js.IncrementalDataProvider
 import org.jetbrains.kotlin.incremental.js.IncrementalNextRoundChecker
 import org.jetbrains.kotlin.incremental.js.IncrementalResultsConsumer
-import org.jetbrains.kotlin.js.config.*
+import org.jetbrains.kotlin.js.config.ModuleKind
+import org.jetbrains.kotlin.js.config.SourceMapNamesPolicy
+import org.jetbrains.kotlin.js.config.SourceMapSourceEmbedding
+import org.jetbrains.kotlin.js.config.WebArtifactConfiguration
+import org.jetbrains.kotlin.name.FqName
 import java.io.File
 
 @Suppress("unused")
@@ -26,7 +30,12 @@ object JsConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.js.con
 
     val USE_DEBUGGER_CUSTOM_FORMATTERS by key<Boolean>()
 
-    val ARTIFACT_CONFIGURATION by key<WebArtifactConfiguration>()
+    val ARTIFACT_CONFIGURATIONS by key<List<WebArtifactConfiguration>>(
+        """
+        Parameters for running the JS codegen. The codegen will be run once per each configuration.
+        Using more than one configuration is only supported in tests.
+        """.trimIndent()
+    )
 
     val OUTPUT_DIR by key<File>()
 
@@ -107,8 +116,10 @@ object JsConfigurationKeysContainer : KeysContainer("org.jetbrains.kotlin.js.con
     val SAFE_EXTERNAL_BOOLEAN by key<Boolean>("Wrap access to external 'Boolean' properties with an explicit conversion to 'Boolean'.")
     val SAFE_EXTERNAL_BOOLEAN_DIAGNOSTIC by key<String>("Enable runtime diagnostics when accessing external 'Boolean' properties.")
     val MINIMIZED_MEMBER_NAMES by key<Boolean>()
-    val CALL_MAIN_MODE by key<String>("Specify whether the 'main' function should be called upon execution.")
+    val CALL_MAIN by key<Boolean>("Specify whether the 'main' function should be called upon execution.", defaultValue = "true")
     val IC_CACHE_DIRECTORY by key<String>(throwOnNull = false)
     val IC_CACHE_READ_ONLY by key<Boolean>()
     val PRESERVE_IC_ORDER by key<Boolean>()
+    val IC_FILES_TO_LOAD by key<Set<String>>(throwOnNull = false)
+    val ADDITIONAL_EXPORTED_DECLARATION_NAMES by key<Set<FqName>>()
 }

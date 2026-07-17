@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
 import org.jetbrains.kotlin.cli.pipeline.PipelinePhase
 import org.jetbrains.kotlin.cli.pipeline.metadata.MetadataFrontendPipelineArtifact
 import org.jetbrains.kotlin.cli.pipeline.metadata.MetadataKlibFileWriterPhase
+import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.commonizer.ResultsConsumer.Status
 import org.jetbrains.kotlin.commonizer.SourceModuleRoot.Companion.SHARED_TARGET_NAME
 import org.jetbrains.kotlin.commonizer.konan.NativeManifestDataProvider
@@ -29,7 +30,6 @@ import org.jetbrains.kotlin.platform.wasm.WasmPlatformWithTarget
 import org.jetbrains.kotlin.platform.wasm.WasmTarget
 import org.jetbrains.kotlin.psi
 import org.jetbrains.kotlin.test.testFramework.KtUsefulTestCase
-import org.jetbrains.kotlin.test.util.KtTestUtil
 import java.io.File
 import kotlin.contracts.ExperimentalContracts
 import kotlin.test.fail
@@ -49,8 +49,7 @@ abstract class AbstractCommonizationFromSourcesTest : KtUsefulTestCase() {
         )
         val testDir = testDirectoryName
 
-        return File(KtTestUtil.getHomeDirectory())
-            .resolve("native/commonizer/testData")
+        return ForTestCompileRuntime.transformTestDataPath("native/commonizer/testData")
             .resolve(testCaseDir)
             .resolve(testDir)
             .also(::assertIsDirectory)
@@ -194,7 +193,7 @@ private class AnalyzedModules(
         manifestProvider = TargetDependent(sharedTarget.withAllLeaves(), manifestDataProvider),
         dependenciesProvider = TargetDependent(sharedTarget.withAllLeaves()) { target ->
             dependencyModules
-                .filter { (registeredTarget, _) -> target in registeredTarget.withAllLeaves() }
+                .filter { [registeredTarget, _] -> target in registeredTarget.withAllLeaves() }
                 .values.flatten()
                 .map { it.namedMetadata }
                 .plus(loadStdlibMetadata())
@@ -216,7 +215,7 @@ private class AnalyzedModules(
             parentDisposable: Disposable
         ): AnalyzedModules = with(sourceModuleRoots) {
             // phase 1: provide the modules that are the dependencies for "original" and "commonized" modules
-            val (dependencyModules: Map<CommonizerTarget, List<CompiledDependency>>, dependencies: AnalyzedModuleDependencies) =
+            val [dependencyModules: Map<CommonizerTarget, List<CompiledDependency>>, dependencies: AnalyzedModuleDependencies] =
                 createDependencyModules(sharedTarget, dependencyRoots, parentDisposable)
 
             // phase 2: build "original" and "commonized" modules
@@ -225,7 +224,7 @@ private class AnalyzedModules(
 
             val commonizedModules: Map<CommonizerTarget, SerializedMetadata> =
                 createModules(sharedTarget, commonizedRoots, dependencies, parentDisposable)
-                    .mapValues { (_, dependency) -> dependency.namedMetadata.metadata }
+                    .mapValues { [_, dependency] -> dependency.namedMetadata.metadata }
 
             return AnalyzedModules(originalModules, commonizedModules, dependencyModules)
         }
@@ -267,7 +266,7 @@ private class AnalyzedModules(
             }
 
             // then, all platform modules
-            moduleRoots.filterKeys { it != sharedTarget }.forEach { (leafTarget, moduleRoot) ->
+            moduleRoots.filterKeys { it != sharedTarget }.forEach { [leafTarget, moduleRoot] ->
                 result[leafTarget] = createModule(
                     sharedTarget, leafTarget, moduleRoot,
                     dependenciesForOthers, parentDisposable, isDependencyModule
@@ -306,7 +305,7 @@ private class AnalyzedModules(
                 }.toSet()
             )
 
-            val (configuration, serializationArtifact) = serializeModuleToMetadata(
+            val [configuration, serializationArtifact] = serializeModuleToMetadata(
                 moduleName, moduleRoot.location,
                 targetPlatform = targetPlatform,
                 disposable = parentDisposable,
@@ -354,7 +353,7 @@ private object TestPatchingFirVisitor : FirVisitorVoid() {
     override fun visitNamedFunction(namedFunction: FirNamedFunction) {
         val comment = namedFunction.source.psi?.text?.lineSequence()?.firstOrNull()?.takeIf { it.startsWith("//") }
             ?: return
-        val (key, value) = comment.substringAfter("//").split('=', limit = 2).takeIf { it.size == 2 }?.map { it.trim() }
+        val [key, value] = comment.substringAfter("//").split('=', limit = 2).takeIf { it.size == 2 }?.map { it.trim() }
             ?: return
 
         when (key) {

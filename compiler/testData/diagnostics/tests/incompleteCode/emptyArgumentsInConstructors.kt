@@ -13,7 +13,7 @@ annotation class AsAnnotationConstructor(val x: Int, val y: String, val z: IntAr
 
 @AsAnnotationConstructor(<!SYNTAX!><!>, "", [])
 @AsAnnotationConstructor(<!SYNTAX!><!>, "", [],)
-@AsAnnotationConstructor(<!SYNTAX!><!>, <!NO_VALUE_FOR_PARAMETER!>"",)<!>
+@<!NO_VALUE_FOR_PARAMETER!>AsAnnotationConstructor<!>(<!SYNTAX!><!>, "",)
 @AsAnnotationConstructor(<!SYNTAX!><!>, "", <!SYNTAX!><!>,)
 @AsAnnotationConstructor(<!SYNTAX!><!>, <!SYNTAX!><!>, <!SYNTAX!><!>,)
 @AsAnnotationConstructor(<!SYNTAX!><!>, <!SYNTAX!><!>,)
@@ -25,7 +25,7 @@ fun test() {
     val b = B()
     val c = C()
 
-    AsTypedConstructor(<!SYNTAX!><!>, <!TYPE_MISMATCH!>a<!>, <!TYPE_MISMATCH!>b<!>, <!TOO_MANY_ARGUMENTS!>c<!>)
+    AsTypedConstructor(<!SYNTAX!><!>, <!ARGUMENT_TYPE_MISMATCH!>a<!>, <!ARGUMENT_TYPE_MISMATCH!>b<!>, <!TOO_MANY_ARGUMENTS!>c<!>)
     AsTypedConstructor(a, <!SYNTAX!><!>, c)
     AsTypedConstructor(a, <!SYNTAX!><!>,)
     AsTypedConstructor(a = A(), <!SYNTAX!><!>,)

@@ -36,6 +36,10 @@ class CompilerConfiguration {
         return getValue(key) ?: defaultValue
     }
 
+    fun <T : Any> getOrDefault(key: CompilerConfigurationKey<T>, defaultValue: () -> T): T {
+        return getValue(key) ?: defaultValue()
+    }
+
     fun <T : Any> getNotNull(key: CompilerConfigurationKey<T>): T {
         return getValue(key) ?: error("No value for configuration key: $key")
     }
@@ -50,6 +54,10 @@ class CompilerConfiguration {
 
     fun <K, V> getMap(key: CompilerConfigurationKey<Map<K, V>>): Map<K, V> {
         return get(key, defaultValue = emptyMap())
+    }
+
+    fun <T> getSet(key: CompilerConfigurationKey<Set<T>>): Set<T> {
+        return get(key, defaultValue = emptySet())
     }
 
     fun <T : Any> put(key: CompilerConfigurationKey<T>, value: T) {
@@ -112,8 +120,8 @@ class CompilerConfiguration {
 
     override fun toString(): String {
         return buildString {
-            for ((key, value) in map) {
-                append(key).append("=")
+            for ([key, value] in map) {
+                append(key).append(":")
                 when (value) {
                     is Collection<*> -> {
                         appendLine()
@@ -123,11 +131,11 @@ class CompilerConfiguration {
                     }
                     is Map<*, *> -> {
                         appendLine()
-                        for ((k, v) in value) {
+                        for ([k, v] in value) {
                             append("  ").append(k).append("=").appendLine(v)
                         }
                     }
-                    else -> append("  ").appendLine(value)
+                    else -> append(" ").appendLine(value)
                 }
             }
         }.trim()

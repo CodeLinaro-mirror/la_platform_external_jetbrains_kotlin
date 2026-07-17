@@ -1,5 +1,4 @@
 // RUN_PIPELINE_TILL: FRONTEND
-// FIR_IDENTICAL
 // FILE: Bar.java
 
 public class Bar {
@@ -16,7 +15,7 @@ class Foo {
 
 class Baz {
     companion object {
-        const val BAZ = Bar.BAR + 1
+        const val BAZ = <!CONST_VAL_WITH_NON_CONST_INITIALIZER!>Bar.BAR + 1<!>
     }
 }
 

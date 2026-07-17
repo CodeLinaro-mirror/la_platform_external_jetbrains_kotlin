@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.renderer.DescriptorRenderer
 import java.lang.reflect.Constructor
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 import kotlin.jvm.internal.ClassBasedDeclarationContainer
 import kotlin.metadata.KmConstructor
@@ -73,9 +74,9 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
         }
 
         return if (kmProperty.isVar)
-            KotlinKMutableProperty0<Any?>(this, signature, rawBoundReceiver = null, kmProperty)
+            KotlinKMutableProperty0<Any?>(this, signature, rawBoundReceiver = null, kmProperty, KCallableOverriddenStorage.EMPTY)
         else
-            KotlinKProperty0<Any?>(this, signature, rawBoundReceiver = null, kmProperty)
+            KotlinKProperty0<Any?>(this, signature, rawBoundReceiver = null, kmProperty, KCallableOverriddenStorage.EMPTY)
     }
 
     fun findPropertyMetadata(name: String, signature: String): KmProperty {
@@ -180,9 +181,22 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
         return functions.single()
     }
 
-    fun findConstructorMetadata(signature: String): KmConstructor {
-        val constructors = constructorsMetadata.filter { it.signature.toString() == signature }
-        if (constructors.size != 1) {
+    fun findJavaMethod(name: String, nameAndDesc: String): Method {
+        val desc = nameAndDesc.substring(nameAndDesc.indexOf('('), nameAndDesc.length)
+        val signature = classLoader.parseAndLoadDescriptor(desc, loadReturnType = true)
+        val parameterTypes = signature.parameters.toTypedArray()
+        val returnType = signature.returnType!!
+        return methodOwner.lookupMethod(name, parameterTypes, returnType, false) ?: run {
+            val allMembers = jClass.declaredMethods.joinToString("\n") { method -> method.jvmSignature }
+            throw KotlinReflectionInternalError(
+                "Method '$name' (JVM signature: $desc) not resolved in $this:" +
+                        if (allMembers.isEmpty()) " no methods found" else "\n$allMembers"
+            )
+        }
+    }
+
+    fun findConstructorMetadata(signature: String): KmConstructor =
+        constructorsMetadata.singleOrNull { it.signature.toString() == signature } ?: run {
             val allMembers = constructorsMetadata.joinToString("\n") { constructor -> constructor.signature.toString() }
             throw KotlinReflectionInternalError(
                 "Constructor (JVM signature: $signature) not resolved in $this:" +
@@ -190,8 +204,21 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
             )
         }
 
-        return constructors.single()
-    }
+    fun findJavaConstructor(signature: String): Constructor<*> =
+        jClass.declaredConstructors.singleOrNull { it.jvmSignature == signature } ?: run {
+            val allMembers = jClass.declaredConstructors.joinToString("\n") { constructor -> constructor.jvmSignature }
+            throw KotlinReflectionInternalError(
+                "Constructor (JVM signature: $signature) not resolved in $this:" +
+                        if (allMembers.isEmpty()) " no constructors found" else "\n$allMembers"
+            )
+        }
+
+    fun findJavaField(name: String): Field =
+        jClass.getDeclaredField(name) ?: throw KotlinReflectionInternalError(
+            "Field $name not found in $jClass:" + jClass.declaredFields.let { fields ->
+                if (fields.isEmpty()) " no fields found" else "\n" + fields.joinToString("\n") { it.name + " " + it.type }
+            }
+        )
 
     private fun Class<*>.lookupMethod(
         name: String, parameterTypes: Array<Class<*>>, returnType: Class<*>, isStaticDefault: Boolean,

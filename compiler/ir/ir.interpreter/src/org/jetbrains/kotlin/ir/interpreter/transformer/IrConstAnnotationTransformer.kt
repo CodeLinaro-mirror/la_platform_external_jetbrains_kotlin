@@ -39,20 +39,17 @@ internal abstract class IrConstAnnotationTransformer(private val context: IrCons
 
     protected fun transformAnnotations(annotationContainer: IrAnnotationContainer) {
         annotationContainer.annotations.forEach { annotation ->
-            context.saveConstantsOnCondition(!insideFakeOverrideDeclaration) {
-                transformAnnotation(annotation)
-            }
+            transformAnnotation(annotation)
         }
     }
 
     private fun transformAnnotation(annotation: IrConstructorCall) {
         if (annotation.type is IrErrorType) return
-        for ((param, arg) in (annotation.symbol.owner.parameters zip annotation.arguments)) {
+        for ([param, arg] in (annotation.symbol.owner.parameters zip annotation.arguments)) {
             if (arg != null) {
                 annotation.arguments[param] = transformAnnotationArgument(arg, param)
             }
         }
-        context.saveInConstTracker(annotation)
     }
 
     private fun transformAnnotationArgument(argument: IrExpression, valueParameter: IrValueParameter): IrExpression? {

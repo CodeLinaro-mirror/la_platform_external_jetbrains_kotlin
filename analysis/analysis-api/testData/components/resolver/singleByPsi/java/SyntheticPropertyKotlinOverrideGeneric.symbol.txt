@@ -1,11 +1,26 @@
 <caret_1>:
-  KtNameReferenceExpression(309,312): 'foo'
-    null
+  KtNameReferenceExpression(306,309): 'foo'
+    isImplicitReferenceToCompanion: false
+    usesContextSensitiveResolution: false
+    KaSymbolResolutionSuccess:
+      symbols = [
+        var foo: Foo<kotlin.Any>
+      ]
 
 <caret_2>:
-  KtNameReferenceExpression(330,333): 'foo'
-    null
+  KtNameReferenceExpression(327,330): 'foo'
+    isImplicitReferenceToCompanion: false
+    usesContextSensitiveResolution: false
+    KaSymbolResolutionSuccess:
+      symbols = [
+        var foo: Foo<kotlin.Any>
+      ]
 
 <caret_3>:
-  KtNameReferenceExpression(442,445): 'foo'
-    null
+  KtNameReferenceExpression(439,442): 'foo'
+    isImplicitReferenceToCompanion: false
+    usesContextSensitiveResolution: false
+    KaSymbolResolutionSuccess:
+      symbols = [
+        var foo: it(Foo<kotlin.Any> & Foo<T!>)
+      ]

@@ -2,6 +2,7 @@
 // RUN_PLAIN_BOX_FUNCTION
 // SKIP_NODE_JS
 // INFER_MAIN_MODULE
+// DIAGNOSTICS: -REPEATED_ANNOTATION
 
 // MODULE: JS_TESTS
 // FILE: file1.kt
@@ -47,4 +48,10 @@ fun fileLevelExportedFun() = 10
 class FileLevelExportedClass {
     val value = 10
 }
+
+value class FileLevelExportedValueClass(val value: Int)
+
+fun createFileLevelExportedValueClass(value: Int): FileLevelExportedValueClass =
+    FileLevelExportedValueClass(value)
+
 external interface FileLevelExportedExternalInterface

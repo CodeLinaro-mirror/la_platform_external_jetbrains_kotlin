@@ -1,2 +1,7 @@
 KtNameReferenceExpression(54,61): 'getName'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      /JavaEnum.getName(<dispatch receiver>: JavaEnum): kotlin.String!
+    ]

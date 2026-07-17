@@ -7,7 +7,11 @@ package org.jetbrains.kotlin.generators.tests
 
 import org.jetbrains.kotlin.generators.dsl.junit5.generateTestGroupSuiteWithJUnit5
 import org.jetbrains.kotlin.generators.util.TestGeneratorUtil
+import org.jetbrains.kotlin.incremental.AbstractFirWasmInvalidationMultiModuleTest
+import org.jetbrains.kotlin.incremental.AbstractFirWasmInvalidationSingleModuleTest
 import org.jetbrains.kotlin.incremental.AbstractFirWasmInvalidationTest
+import org.jetbrains.kotlin.incremental.AbstractFirWasmInvalidationWithPLMultiModuleTest
+import org.jetbrains.kotlin.incremental.AbstractFirWasmInvalidationWithPLSingleModuleTest
 import org.jetbrains.kotlin.incremental.AbstractFirWasmInvalidationWithPLTest
 import org.jetbrains.kotlin.test.utils.CUSTOM_TEST_DATA_EXTENSION_PATTERN
 import org.jetbrains.kotlin.wasm.test.*
@@ -32,6 +36,12 @@ fun main(args: Array<String>) {
     // TODO: Remove excludedPattern below after fix of KT-78960 (it's simpler to exclude temporarily than to split test `boxInline/innerClasses/kt12126.kt`)
     val excludedPatternForBoxInlineTestsWithInliner = "kt12126.kt"
 
+    // These tests exercise low-level coroutine intrinsics.
+    // The Stack Switching implementation intentionally doesn't reproduce those intrinsic semantics.
+    // Supporting them would require extra flags/checks for working with special cases of internal testing.
+    // We exclude these tests instead of muting them per-mode.
+    val excludedPatternStackSwitchingCoroutines =
+        "^(intercepted|startCoroutineUninterceptedOrReturn|suspendCoroutineUninterceptedOrReturn)\\.kt$"
 
     generateTestGroupSuiteWithJUnit5(args) {
         testGroup(testsRoot, "compiler/testData/klib/partial-linkage") {
@@ -51,7 +61,35 @@ fun main(args: Array<String>) {
                     recursive = false,
                 )
             }
+            testClass<AbstractFirWasmInvalidationMultiModuleTest> {
+                model(
+                    "invalidation/",
+                    pattern = "^([^_](.+))$",
+                    recursive = false,
+                )
+            }
+            testClass<AbstractFirWasmInvalidationSingleModuleTest> {
+                model(
+                    "invalidation/",
+                    pattern = "^([^_](.+))$",
+                    recursive = false,
+                )
+            }
             testClass<AbstractFirWasmInvalidationWithPLTest> {
+                model(
+                    "invalidationWithPL/",
+                    pattern = "^([^_](.+))$",
+                    recursive = false,
+                )
+            }
+            testClass<AbstractFirWasmInvalidationWithPLMultiModuleTest> {
+                model(
+                    "invalidationWithPL/",
+                    pattern = "^([^_](.+))$",
+                    recursive = false,
+                )
+            }
+            testClass<AbstractFirWasmInvalidationWithPLSingleModuleTest> {
                 model(
                     "invalidationWithPL/",
                     pattern = "^([^_](.+))$",
@@ -110,7 +148,11 @@ fun main(args: Array<String>) {
             }
 
             testClass<AbstractFirWasmJsCodegenBoxTest> {
-                model("codegen/box", pattern = jsTranslatorTestPattern, excludeDirs = jvmOnlyBoxTests + k1BoxTestDir)
+                model("codegen/box", pattern = jsTranslatorTestPattern, excludeDirs = jvmOnlyBoxTests + k1BoxTestDir, smokeTest = true)
+            }
+
+            testClass<AbstractFirWasmJsCodegenCoroutinesStackSwitchingTest> {
+                model("codegen/box/coroutines", pattern = jsTranslatorTestPattern, excludedPattern = excludedPatternStackSwitchingCoroutines)
             }
 
             testClass<AbstractFirWasmJsCodegenBoxWithInlinedFunInKlibTest> {
@@ -168,6 +210,10 @@ fun main(args: Array<String>) {
             }
             testClass<AbstractFirWasmJsSteppingSplitWithInlinedFunInKlibTest> {
                 model("debug/stepping")
+            }
+
+            testClass<AbstractFirWasmJsLocalVariableTest> {
+                model("debug/localVariables")
             }
         }
         testGroup(testsRoot, "js/js.translator/testData", testRunnerMethodName = "runTest0") {

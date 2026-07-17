@@ -6,49 +6,22 @@
 package org.jetbrains.kotlin.backend.konan
 
 import org.jetbrains.kotlin.backend.common.linkage.partial.setupPartialLinkageConfig
+import org.jetbrains.kotlin.cli.CliDiagnostics.KONAN_ARGUMENT_ERROR
+import org.jetbrains.kotlin.cli.CliDiagnostics.KONAN_ARGUMENT_STRONG_WARNING
+import org.jetbrains.kotlin.cli.CliDiagnostics.KONAN_ARGUMENT_WARNING
 import org.jetbrains.kotlin.cli.common.arguments.K2NativeCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.cliArgument
 import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.config.kotlinSourceRoots
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.*
+import org.jetbrains.kotlin.cli.report
+import org.jetbrains.kotlin.cli.reportLog
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CommonConfigurationKeys.MODULE_NAME
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.getModuleNameForSource
-import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptionWithValue
-import org.jetbrains.kotlin.config.nativeBinaryOptions.BinaryOptions
-import org.jetbrains.kotlin.config.nativeBinaryOptions.Freezing
-import org.jetbrains.kotlin.config.nativeBinaryOptions.GC
-import org.jetbrains.kotlin.config.nativeBinaryOptions.MemoryModel
-import org.jetbrains.kotlin.config.nativeBinaryOptions.parseBinaryOptions
+import org.jetbrains.kotlin.config.nativeBinaryOptions.*
 import org.jetbrains.kotlin.config.targetPlatform
-import org.jetbrains.kotlin.konan.config.NativeConfigurationKeys
-import org.jetbrains.kotlin.konan.config.konanDontCompressKlib
-import org.jetbrains.kotlin.konan.config.konanEntryPoint
-import org.jetbrains.kotlin.konan.config.konanExportKdoc
-import org.jetbrains.kotlin.konan.config.konanFriendLibraries
-import org.jetbrains.kotlin.konan.config.konanGeneratedHeaderKlibPath
-import org.jetbrains.kotlin.konan.config.konanIncludedBinaries
-import org.jetbrains.kotlin.konan.config.konanIncludedLibraries
-import org.jetbrains.kotlin.konan.config.konanLibraries
-import org.jetbrains.kotlin.konan.config.konanLibraryToAddToCache
-import org.jetbrains.kotlin.konan.config.konanManifestAddend
-import org.jetbrains.kotlin.konan.config.konanManifestNativeTargets
-import org.jetbrains.kotlin.konan.config.konanNativeLibraries
-import org.jetbrains.kotlin.konan.config.konanNoDefaultLibs
-import org.jetbrains.kotlin.konan.config.konanNoEndorsedLibs
-import org.jetbrains.kotlin.konan.config.konanNoStdlib
-import org.jetbrains.kotlin.konan.config.konanOutputPath
-import org.jetbrains.kotlin.konan.config.konanPrintBitcode
-import org.jetbrains.kotlin.konan.config.konanPrintFiles
-import org.jetbrains.kotlin.konan.config.konanPrintIr
-import org.jetbrains.kotlin.konan.config.konanProducedArtifactKind
-import org.jetbrains.kotlin.konan.config.konanPurgeUserLibs
-import org.jetbrains.kotlin.konan.config.konanRefinesModules
-import org.jetbrains.kotlin.konan.config.konanShortModuleName
-import org.jetbrains.kotlin.konan.config.konanTarget
-import org.jetbrains.kotlin.konan.config.konanWriteDependenciesOfProducedKlibTo
+import org.jetbrains.kotlin.konan.config.*
 import org.jetbrains.kotlin.konan.file.File
 import org.jetbrains.kotlin.konan.target.CompilerOutputKind
 import org.jetbrains.kotlin.konan.target.KonanTarget
@@ -56,7 +29,7 @@ import org.jetbrains.kotlin.konan.util.visibleName
 import org.jetbrains.kotlin.platform.konan.NativePlatforms
 
 fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArguments) = with(NativeConfigurationKeys) {
-    val commonSources = arguments.commonSources?.toSet().orEmpty().map { it.absoluteNormalizedFile() }
+    val commonSources = arguments.commonSources.toSet().map { it.absoluteNormalizedFile() }
     val hmppModuleStructure = get(CommonConfigurationKeys.HMPP_MODULE_STRUCTURE)
     arguments.freeArgs.forEach {
         addKotlinSourceRoot(it, isCommon = it.absoluteNormalizedFile() in commonSources, hmppModuleStructure?.getModuleNameForSource(it))
@@ -102,10 +75,10 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     arguments.manifestFile?.let { konanManifestAddend = it }
     arguments.runtimeFile?.let { put(RUNTIME_FILE, it) }
     arguments.temporaryFilesDir?.let { put(TEMPORARY_FILES_DIR, it) }
-    put(SAVE_LLVM_IR, arguments.saveLlvmIrAfter.orEmpty().toList())
+    put(SAVE_LLVM_IR, arguments.saveLlvmIrAfter.toList())
 
     if (arguments.optimization && arguments.debug) {
-        report(WARNING, "Unsupported combination of flags: -opt and -g. Please pick one.")
+        report(KONAN_ARGUMENT_WARNING, "Unsupported combination of flags: -opt and -g. Please pick one.")
     }
 
     put(LIST_TARGETS, arguments.listTargets)
@@ -114,7 +87,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     // TODO: remove after 1.4 release.
     @Suppress("DEPRECATION")
     if (arguments.lightDebugDeprecated) {
-        report(WARNING,
+        report(KONAN_ARGUMENT_WARNING,
                 "-Xg0 is now deprecated and skipped by compiler. Light debug information is enabled by default for Darwin platforms." +
                         " For other targets, please, use `-Xadd-light-debug=enable` instead.")
     }
@@ -123,7 +96,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
         "disable" -> false
         null -> null
         else -> {
-            report(ERROR, "Unsupported -Xadd-light-debug= value: $it. Possible values are 'enable'/'disable'")
+            report(KONAN_ARGUMENT_ERROR, "Unsupported -Xadd-light-debug= value: $it. Possible values are 'enable'/'disable'")
             null
         }
     })
@@ -132,14 +105,12 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
         "disable" -> false
         null -> null
         else -> {
-            report(ERROR, "Unsupported -Xg-generate-debug-tramboline= value: $it. Possible values are 'enable'/'disable'")
+            report(KONAN_ARGUMENT_ERROR, "Unsupported -Xg-generate-debug-tramboline= value: $it. Possible values are 'enable'/'disable'")
             null
         }
     })
     put(STATIC_FRAMEWORK, selectFrameworkType(this@setupFromArguments, arguments, outputKind))
     put(OVERRIDE_CLANG_OPTIONS, arguments.clangOptions.toNonNullList())
-
-    konanExportKdoc = arguments.exportKDoc
 
     konanPrintIr = arguments.printIr
     konanPrintBitcode = arguments.printBitCode
@@ -161,7 +132,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
         "experimental" -> MemoryModel.EXPERIMENTAL
         null -> null
         else -> {
-            report(ERROR, "Unsupported memory model ${arguments.memoryModel}")
+            report(KONAN_ARGUMENT_ERROR, "Unsupported memory model ${arguments.memoryModel}")
             null
         }
     }
@@ -173,20 +144,20 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
     get(BinaryOptions.memoryModel)?.also {
         if (it != MemoryModel.EXPERIMENTAL) {
-            report(ERROR, "Legacy MM is deprecated and no longer works.")
+            report(KONAN_ARGUMENT_ERROR, "Legacy MM is deprecated and no longer works.")
         } else {
-            report(STRONG_WARNING, "-memory-model and memoryModel switches are deprecated and will be removed in a future release.")
+            report(KONAN_ARGUMENT_STRONG_WARNING, "-memory-model and memoryModel switches are deprecated and will be removed in a future release.")
         }
     }
 
     get(BinaryOptions.freezing)?.also {
         if (it != Freezing.Disabled) {
             report(
-                    CompilerMessageSeverity.ERROR,
+                    KONAN_ARGUMENT_ERROR,
                     "`freezing` is not supported with the new MM. Freezing API is deprecated since 1.7.20. See https://kotlinlang.org/docs/native-migration-guide.html for details"
             )
         } else {
-            report(STRONG_WARNING, "freezing switch is deprecated and will be removed in a future release.")
+            report(KONAN_ARGUMENT_STRONG_WARNING, "freezing switch is deprecated and will be removed in a future release.")
         }
     }
 
@@ -199,17 +170,16 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     // We need to download dependencies only if we use them ( = there are files to compile).
     put(CHECK_DEPENDENCIES,
             kotlinSourceRoots.isNotEmpty()
-                    || !arguments.includes.isNullOrEmpty()
-                    || !arguments.exportedLibraries.isNullOrEmpty()
-                    || (outputKind == CompilerOutputKind.PROGRAM && arguments.libraries?.isNotEmpty() == true)
+                    || arguments.includes.isNotEmpty()
+                    || arguments.exportedLibraries.isNotEmpty()
+                    || (outputKind == CompilerOutputKind.PROGRAM && arguments.libraries.isNotEmpty())
                     || outputKind.isCache
                     || arguments.checkDependencies
     )
     if (arguments.friendModules != null)
         konanFriendLibraries = arguments.friendModules!!.split(File.pathSeparator).filterNot(String::isEmpty)
 
-    if (arguments.refinesPaths != null)
-        konanRefinesModules = arguments.refinesPaths!!.filterNot(String::isEmpty)
+    konanRefinesModules = arguments.refinesPaths.filterNot(String::isEmpty)
 
     put(EXPORTED_LIBRARIES, selectExportedLibraries(this@setupFromArguments, arguments, outputKind))
     konanIncludedLibraries = selectIncludes(this@setupFromArguments, arguments, outputKind)
@@ -222,7 +192,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
     val libraryToAddToCache = parseLibraryToAddToCache(arguments, this@setupFromArguments, outputKind)
     if (libraryToAddToCache != null && !arguments.outputName.isNullOrEmpty())
-        report(ERROR, "${K2NativeCompilerArguments::libraryToAddToCache.cliArgument} already implicitly sets output file name")
+        report(KONAN_ARGUMENT_ERROR, "${K2NativeCompilerArguments::libraryToAddToCache.cliArgument} already implicitly sets output file name")
     libraryToAddToCache?.let { konanLibraryToAddToCache = it }
     put(CACHED_LIBRARIES, parseCachedLibraries(arguments, this@setupFromArguments))
     put(CACHE_DIRECTORIES, arguments.cacheDirectories.toNonNullList())
@@ -230,19 +200,19 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     arguments.autoCacheDir?.let { put(AUTO_CACHE_DIR, it) }
     val incrementalCacheDir = arguments.incrementalCacheDir
     if ((incrementalCacheDir != null) xor (arguments.incrementalCompilation == true))
-        report(ERROR, "For incremental compilation both flags should be supplied: " +
+        report(KONAN_ARGUMENT_ERROR, "For incremental compilation both flags should be supplied: " +
                 "-Xenable-incremental-compilation and ${K2NativeCompilerArguments::incrementalCacheDir.cliArgument}")
     incrementalCacheDir?.let { put(INCREMENTAL_CACHE_DIR, it) }
-    arguments.filesToCache?.let { put(FILES_TO_CACHE, it.toList()) }
+    put(FILES_TO_CACHE, arguments.filesToCache.toList())
     put(MAKE_PER_FILE_CACHE, arguments.makePerFileCache)
     val nThreadsRaw = parseBackendThreads(arguments.backendThreads)
     val availableProcessors = Runtime.getRuntime().availableProcessors()
     val nThreads = if (nThreadsRaw == 0) availableProcessors else nThreadsRaw
     if (nThreads > 1) {
-        report(LOGGING, "Running backend in parallel with $nThreads threads")
+        reportLog("Running backend in parallel with $nThreads threads")
     }
     if (nThreads > availableProcessors) {
-        report(WARNING, "The number of threads $nThreads is more than the number of processors $availableProcessors")
+        report(KONAN_ARGUMENT_WARNING, "The number of threads $nThreads is more than the number of processors $availableProcessors")
     }
     put(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS, nThreads)
 
@@ -255,13 +225,13 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     when (arguments.destroyRuntimeMode) {
         null -> {}
         "legacy" -> {
-            report(ERROR, "New MM is incompatible with 'legacy' destroy runtime mode.")
+            report(KONAN_ARGUMENT_ERROR, "New MM is incompatible with 'legacy' destroy runtime mode.")
         }
         "on-shutdown" -> {
-            report(STRONG_WARNING, "-Xdestroy-runtime-mode switch is deprecated and will be removed in a future release.")
+            report(KONAN_ARGUMENT_STRONG_WARNING, "-Xdestroy-runtime-mode switch is deprecated and will be removed in a future release.")
         }
         else -> {
-            report(ERROR, "Unsupported destroy runtime mode ${arguments.destroyRuntimeMode}")
+            report(KONAN_ARGUMENT_ERROR, "Unsupported destroy runtime mode ${arguments.destroyRuntimeMode}")
         }
     }
 
@@ -277,13 +247,13 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
                     "$fullName (or: $short)"
                 }
             }
-            report(ERROR, "Unsupported argument -Xgc=${arguments.gc}. Use -Xbinary=gc= with values ${validValues}")
+            report(KONAN_ARGUMENT_ERROR, "Unsupported argument -Xgc=${arguments.gc}. Use -Xbinary=gc= with values ${validValues}")
             null
         }
     }
     if (gcFromArgument != null) {
         val newValue = gcFromArgument.shortcut
-        report(WARNING, "-Xgc=${arguments.gc} compiler argument is deprecated. Use -Xbinary=gc=${newValue} instead")
+        report(KONAN_ARGUMENT_WARNING, "-Xgc=${arguments.gc} compiler argument is deprecated. Use -Xbinary=gc=${newValue} instead")
     }
     // TODO: revise priority and/or report conflicting values.
     if (get(BinaryOptions.gc) == null) {
@@ -291,7 +261,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     }
 
     if (arguments.checkExternalCalls) {
-        report(WARNING, "-Xcheck-state-at-external-calls compiler argument is deprecated. Use -Xbinary=checkStateAtExternalCalls=true instead")
+        report(KONAN_ARGUMENT_WARNING, "-Xcheck-state-at-external-calls compiler argument is deprecated. Use -Xbinary=checkStateAtExternalCalls=true instead")
     }
     // TODO: revise priority and/or report conflicting values.
     if (get(BinaryOptions.checkStateAtExternalCalls) == null) {
@@ -303,36 +273,36 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
         "enable" -> true
         "disable" -> false
         else -> {
-            report(ERROR, "Expected 'enable' or 'disable' for lazy property initialization")
+            report(KONAN_ARGUMENT_ERROR, "Expected 'enable' or 'disable' for lazy property initialization")
             false
         }
     })
     putIfNotNull(ALLOCATION_MODE, when (arguments.allocator) {
         null -> null
         "std" -> {
-            report(STRONG_WARNING, "Std allocator is deprecated in Kotlin/Native compiler and will be removed in the future. Please consider using -Xbinary=pagedAllocator=false compiler flag instead.")
+            report(KONAN_ARGUMENT_STRONG_WARNING, "Std allocator is deprecated in Kotlin/Native compiler and will be removed in the future. Please consider using -Xbinary=pagedAllocator=false compiler flag instead.")
             AllocationMode.STD
         }
         "mimalloc" -> {
-            report(ERROR, "Usage of mimalloc in Kotlin/Native compiler is deprecated. Please remove -Xallocator=mimalloc compiler flag.")
+            report(KONAN_ARGUMENT_ERROR, "Usage of mimalloc in Kotlin/Native compiler is deprecated. Please remove -Xallocator=mimalloc compiler flag.")
             AllocationMode.CUSTOM
         }
         "custom" -> AllocationMode.CUSTOM
         else -> {
-            report(ERROR, "Expected 'std', or 'custom' for allocator")
+            report(KONAN_ARGUMENT_ERROR, "Expected 'std', or 'custom' for allocator")
             AllocationMode.CUSTOM
         }
     })
     when (arguments.workerExceptionHandling) {
         null -> {}
         "legacy" -> {
-            report(ERROR, "Legacy exception handling in workers is deprecated")
+            report(KONAN_ARGUMENT_ERROR, "Legacy exception handling in workers is deprecated")
         }
         "use-hook" -> {
-            report(STRONG_WARNING, "-Xworker-exception-handling is deprecated")
+            report(KONAN_ARGUMENT_STRONG_WARNING, "-Xworker-exception-handling is deprecated")
         }
         else -> {
-            report(ERROR, "Unsupported worker exception handling mode ${arguments.workerExceptionHandling}")
+            report(KONAN_ARGUMENT_ERROR, "Unsupported worker exception handling mode ${arguments.workerExceptionHandling}")
         }
     }
 
@@ -345,7 +315,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
         else -> {
             val file = File(variant)
             if (!file.exists) {
-                report(ERROR, "`-Xllvm-variant` should be `user`, `dev` or an absolute path. Got: $variant")
+                report(KONAN_ARGUMENT_ERROR, "`-Xllvm-variant` should be `user`, `dev` or an absolute path. Got: $variant")
                 null
             } else {
                 LlvmVariant.Custom(file)
@@ -356,13 +326,7 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     putIfNotNull(BUNDLE_ID, parseBundleId(arguments, outputKind, this@setupFromArguments))
     arguments.testDumpOutputPath?.let { put(TEST_DUMP_OUTPUT_PATH, it) }
 
-    setupPartialLinkageConfig(
-            mode = arguments.partialLinkageMode,
-            logLevel = arguments.partialLinkageLogLevel,
-            compilerModeAllowsUsingPartialLinkage = outputKind != CompilerOutputKind.LIBRARY, // Don't run PL when producing KLIB.
-            onWarning = { report(WARNING, it) },
-            onError = { report(ERROR, it) }
-    )
+    setupPartialLinkageConfig(arguments, KONAN_ARGUMENT_STRONG_WARNING, KONAN_ARGUMENT_ERROR)
 
     put(OMIT_FRAMEWORK_BINARY, arguments.omitFrameworkBinary)
     putIfNotNull(COMPILE_FROM_BITCODE, parseCompileFromBitcode(arguments, this@setupFromArguments, outputKind))
@@ -371,10 +335,9 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
     putIfNotNull(SAVE_LLVM_IR_DIRECTORY, arguments.saveLlvmIrDirectory)
     putIfNotNull(KONAN_DATA_DIR, arguments.konanDataDir)
 
-    val manifestNativeTargets = arguments.manifestNativeTargets?.let { parseManifestNativeTargets(it) }
-    if (manifestNativeTargets != null)
-        konanManifestNativeTargets = manifestNativeTargets
-    this@setupFromArguments.targetPlatform = NativePlatforms.nativePlatformByTargets(manifestNativeTargets.orEmpty())
+    val manifestNativeTargets = parseManifestNativeTargets(arguments.manifestNativeTargets)
+    konanManifestNativeTargets = manifestNativeTargets
+    this@setupFromArguments.targetPlatform = NativePlatforms.nativePlatformByTargets(manifestNativeTargets)
 
     putIfNotNull(LLVM_MODULE_PASSES, arguments.llvmModulePasses)
     putIfNotNull(LLVM_LTO_PASSES, arguments.llvmLTOPasses)
@@ -382,22 +345,24 @@ fun CompilerConfiguration.setupFromArguments(arguments: K2NativeCompilerArgument
 
 private fun String.absoluteNormalizedFile() = java.io.File(this).absoluteFile.normalize()
 
-internal fun CompilerConfiguration.setupCommonOptionsForCaches(konanConfig: KonanConfig) = with(NativeConfigurationKeys) {
-    konanTarget = konanConfig.target.toString()
-    put(DEBUG, konanConfig.debug)
-    setupPartialLinkageConfig(konanConfig.partialLinkageConfig)
-    putIfNotNull(EXTERNAL_DEPENDENCIES, konanConfig.externalDependenciesFile?.absolutePath)
-    put(PROPERTY_LAZY_INITIALIZATION, konanConfig.propertyLazyInitialization)
-    put(BinaryOptions.genericSafeCasts, konanConfig.genericSafeCasts)
-    put(BinaryOptions.stripDebugInfoFromNativeLibs, !konanConfig.useDebugInfoInNativeLibs)
-    put(ALLOCATION_MODE, konanConfig.allocationMode)
-    put(BinaryOptions.gc, konanConfig.gc)
-    put(BinaryOptions.gcSchedulerType, konanConfig.gcSchedulerType)
-    put(BinaryOptions.runtimeAssertionsMode, konanConfig.runtimeAssertsMode)
-    put(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS, konanConfig.threadsCount)
-    putIfNotNull(KONAN_DATA_DIR, konanConfig.distribution.localKonanDir.absolutePath)
-    putIfNotNull(BinaryOptions.minidumpLocation, konanConfig.minidumpLocation)
-    putIfNotNull(BinaryOptions.macabi, konanConfig.macabi)
+internal fun CompilerConfiguration.setupCommonOptionsForCaches(config: NativeSecondStageCompilationConfig) = with(NativeConfigurationKeys) {
+    konanTarget = config.target.toString()
+    put(DEBUG, config.debug)
+    setupPartialLinkageConfig(config.partialLinkageConfig)
+    putIfNotNull(EXTERNAL_DEPENDENCIES, config.externalDependenciesFile?.absolutePath)
+    put(PROPERTY_LAZY_INITIALIZATION, config.propertyLazyInitialization)
+    put(BinaryOptions.genericSafeCasts, config.genericSafeCasts)
+    put(BinaryOptions.stripDebugInfoFromNativeLibs, !config.useDebugInfoInNativeLibs)
+    put(ALLOCATION_MODE, config.allocationMode)
+    put(BinaryOptions.gc, config.gc)
+    put(BinaryOptions.gcSchedulerType, config.gcSchedulerType)
+    put(BinaryOptions.runtimeAssertionsMode, config.runtimeAssertsMode)
+    put(CommonConfigurationKeys.PARALLEL_BACKEND_THREADS, config.threadsCount)
+    putIfNotNull(KONAN_DATA_DIR, config.distribution.localKonanDir.absolutePath)
+    putIfNotNull(BinaryOptions.minidumpLocation, config.minidumpLocation)
+    putIfNotNull(BinaryOptions.macabi, config.macabi)
+    putIfNotNull(BinaryOptions.cCallMode, config.cCallMode)
+    putIfNotNull(RUNTIME_LOGS, config.configuration.runtimeLogs)
 }
 
 private fun Array<String>?.toNonNullList() = this?.asList().orEmpty()
@@ -409,7 +374,7 @@ private fun selectFrameworkType(
 ): Boolean {
     return if (outputKind != CompilerOutputKind.FRAMEWORK && arguments.staticFramework) {
         configuration.report(
-                STRONG_WARNING,
+                KONAN_ARGUMENT_STRONG_WARNING,
                 "'${K2NativeCompilerArguments::staticFramework.cliArgument}' is only supported when producing frameworks, " +
                         "but the compiler is producing ${outputKind.name.lowercase()}"
         )
@@ -427,7 +392,7 @@ private fun parsePreLinkCachesValue(
     "disable" -> false
     null -> null
     else -> {
-        configuration.report(ERROR, "Unsupported `-Xpre-link-caches` value: $value. Possible values are 'enable'/'disable'")
+        configuration.report(KONAN_ARGUMENT_ERROR, "Unsupported `-Xpre-link-caches` value: $value. Possible values are 'enable'/'disable'")
         null
     }
 }
@@ -437,11 +402,11 @@ private fun selectExportedLibraries(
         arguments: K2NativeCompilerArguments,
         outputKind: CompilerOutputKind
 ): List<String> {
-    val exportedLibraries = arguments.exportedLibraries?.toList().orEmpty()
+    val exportedLibraries = arguments.exportedLibraries.toList()
 
     return if (exportedLibraries.isNotEmpty() && outputKind != CompilerOutputKind.FRAMEWORK &&
             outputKind != CompilerOutputKind.STATIC && outputKind != CompilerOutputKind.DYNAMIC) {
-        configuration.report(STRONG_WARNING,
+        configuration.report(KONAN_ARGUMENT_STRONG_WARNING,
                 "-Xexport-library is only supported when producing frameworks or native libraries, " +
                         "but the compiler is producing ${outputKind.name.lowercase()}")
 
@@ -456,11 +421,11 @@ private fun selectIncludes(
         arguments: K2NativeCompilerArguments,
         outputKind: CompilerOutputKind
 ): List<String> {
-    val includes = arguments.includes?.toList().orEmpty()
+    val includes = arguments.includes.toList()
 
     return if (includes.isNotEmpty() && outputKind == CompilerOutputKind.LIBRARY) {
         configuration.report(
-                ERROR,
+                KONAN_ARGUMENT_ERROR,
                 "The ${K2NativeCompilerArguments::includes.cliArgument} flag is not supported when producing ${outputKind.name.lowercase()}"
         )
         emptyList()
@@ -472,11 +437,11 @@ private fun selectIncludes(
 private fun parseCachedLibraries(
         arguments: K2NativeCompilerArguments,
         configuration: CompilerConfiguration
-): Map<String, String> = arguments.cachedLibraries?.asList().orEmpty().mapNotNull {
+): Map<String, String> = arguments.cachedLibraries.asList().mapNotNull {
     val libraryAndCache = it.split(",")
     if (libraryAndCache.size != 2) {
         configuration.report(
-                ERROR,
+                KONAN_ARGUMENT_ERROR,
                 "incorrect ${K2NativeCompilerArguments::cachedLibraries.cliArgument} format: expected '<library>,<cache>', got '$it'"
         )
         null
@@ -493,7 +458,7 @@ private fun parseLibraryToAddToCache(
     val input = arguments.libraryToAddToCache
 
     return if (input != null && !outputKind.isCache) {
-        configuration.report(ERROR, "${K2NativeCompilerArguments::libraryToAddToCache.cliArgument} can't be used when not producing cache")
+        configuration.report(KONAN_ARGUMENT_ERROR, "${K2NativeCompilerArguments::libraryToAddToCache.cliArgument} can't be used when not producing cache")
         null
     } else {
         input
@@ -518,7 +483,7 @@ private fun parseShortModuleName(
 
     return if (input != null && outputKind != CompilerOutputKind.LIBRARY) {
         configuration.report(
-                STRONG_WARNING,
+                KONAN_ARGUMENT_STRONG_WARNING,
                 "${K2NativeCompilerArguments::shortModuleName.cliArgument} is only supported when producing a Kotlin library, " +
                         "but the compiler is producing ${outputKind.name.lowercase()}"
         )
@@ -531,10 +496,10 @@ private fun parseShortModuleName(
 private fun parseDebugPrefixMap(
         arguments: K2NativeCompilerArguments,
         configuration: CompilerConfiguration
-): Map<String, String> = arguments.debugPrefixMap?.asList().orEmpty().mapNotNull {
+): Map<String, String> = arguments.debugPrefixMap.asList().mapNotNull {
     val libraryAndCache = it.split("=")
     if (libraryAndCache.size != 2) {
-        configuration.report(ERROR, "incorrect debug prefix map format: expected '<old>=<new>', got '$it'")
+        configuration.report(KONAN_ARGUMENT_ERROR, "incorrect debug prefix map format: expected '<old>=<new>', got '$it'")
         null
     } else {
         libraryAndCache[0] to libraryAndCache[1]
@@ -550,8 +515,8 @@ fun parseBinaryOptions(
         configuration: CompilerConfiguration
 ): List<BinaryOptionWithValue<*>> = parseBinaryOptions(
         arguments.binaryOptions,
-        reportWarning = { configuration.report(STRONG_WARNING, it) },
-        reportError = { configuration.report(ERROR, it) },
+        reportWarning = { configuration.report(KONAN_ARGUMENT_STRONG_WARNING, it) },
+        reportError = { configuration.report(KONAN_ARGUMENT_ERROR, it) },
 )
 
 private fun parseOverrideKonanProperties(
@@ -567,7 +532,7 @@ private fun parseKeyValuePairs(
     if (keyValueSeparatorIndex > 0) {
         it.substringBefore('=') to it.substringAfter('=')
     } else {
-        configuration.report(ERROR, "incorrect property format: expected '<key>=<value>', got '$it'")
+        configuration.report(KONAN_ARGUMENT_ERROR, "incorrect property format: expected '<key>=<value>', got '$it'")
         null
     }
 }?.toMap()
@@ -579,7 +544,7 @@ private fun parseBundleId(
 ): String? {
     val argumentValue = arguments.bundleId
     return if (argumentValue != null && outputKind != CompilerOutputKind.FRAMEWORK) {
-        configuration.report(STRONG_WARNING, "Setting a bundle ID is only supported when producing a framework " +
+        configuration.report(KONAN_ARGUMENT_STRONG_WARNING, "Setting a bundle ID is only supported when producing a framework " +
                 "but the compiler is producing ${outputKind.name.lowercase()}")
         null
     } else {
@@ -592,7 +557,7 @@ private fun parseSerializedDependencies(
         configuration: CompilerConfiguration
 ): String? {
     if (!arguments.serializedDependencies.isNullOrEmpty() && arguments.compileFromBitcode.isNullOrEmpty()) {
-        configuration.report(STRONG_WARNING,
+        configuration.report(KONAN_ARGUMENT_STRONG_WARNING,
                 "Providing serialized dependencies only works in conjunction with a bitcode file to compile.")
     }
     return arguments.serializedDependencies
@@ -604,7 +569,7 @@ private fun parseCompileFromBitcode(
         outputKind: CompilerOutputKind,
 ): String? {
     if (!arguments.compileFromBitcode.isNullOrEmpty() && !outputKind.involvesBitcodeGeneration) {
-        configuration.report(ERROR,
+        configuration.report(KONAN_ARGUMENT_ERROR,
                 "Compilation from bitcode is not available when producing ${outputKind.visibleName}")
     }
     return arguments.compileFromBitcode
@@ -612,11 +577,11 @@ private fun parseCompileFromBitcode(
 
 private fun CompilerConfiguration.parseManifestNativeTargets(targetStrings: Array<String>): List<KonanTarget> {
     val trimmedTargetStrings = targetStrings.map { it.trim() }
-    val (recognizedTargetNames, unrecognizedTargetNames) = trimmedTargetStrings.partition { it in KonanTarget.predefinedTargets.keys }
+    val [recognizedTargetNames, unrecognizedTargetNames] = trimmedTargetStrings.partition { it in KonanTarget.predefinedTargets.keys }
 
     if (unrecognizedTargetNames.isNotEmpty()) {
         report(
-                WARNING,
+                KONAN_ARGUMENT_WARNING,
                 """
                     The following target names passed to the -Xmanifest-native-targets are not recognized:
                     ${unrecognizedTargetNames.joinToString(separator = ", ")}

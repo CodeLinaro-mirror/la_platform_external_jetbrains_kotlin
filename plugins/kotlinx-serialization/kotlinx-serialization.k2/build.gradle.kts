@@ -7,6 +7,7 @@ plugins {
 dependencies {
     compileOnly(project(":compiler:fir:cones"))
     compileOnly(project(":compiler:fir:tree"))
+    compileOnly(project(":compiler:fir:diagnostic-renderers"))
     compileOnly(project(":compiler:fir:fir-serialization"))
     compileOnly(project(":compiler:fir:fir-deserialization"))
     compileOnly(project(":compiler:fir:resolve"))
@@ -16,6 +17,9 @@ dependencies {
     compileOnly(project(":native:native.config"))
 
     implementation(project(":kotlinx-serialization-compiler-plugin.common"))
+    implementation(project(":compiler:frontend.common-psi"))
+    implementation(project(":compiler:psi:psi-api"))
+    implementation(project(":core:compiler.common.jvm"))
 
     compileOnly(intellijCore())
 }

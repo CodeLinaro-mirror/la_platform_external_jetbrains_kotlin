@@ -20,9 +20,10 @@ internal class KotlinCompileCommonConfig(
                 }
             ).disallowChanges()
             task.refinesMetadataPaths.from(compilationInfo.refinesPaths).disallowChanges()
+            @Suppress("DEPRECATION")
             task.moduleName.set(providers.provider { compilationInfo.moduleName })
             task.incrementalModuleInfoProvider.disallowChanges()
-            task.runViaBuildToolsApi.value(false).disallowChanges()
+            task.runViaBuildToolsApi.convention(propertiesProvider.runKotlinMetadataCompilerViaBuildToolsApi)
         }
     }
 }

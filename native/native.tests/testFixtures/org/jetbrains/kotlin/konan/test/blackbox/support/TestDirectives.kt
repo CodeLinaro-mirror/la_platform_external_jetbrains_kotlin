@@ -17,6 +17,7 @@ import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.PROGRAM_A
 import org.jetbrains.kotlin.konan.test.blackbox.support.TestDirectives.TEST_RUNNER
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck
 import org.jetbrains.kotlin.konan.test.blackbox.support.runner.TestRunCheck.OutputDataFile
+import org.jetbrains.kotlin.konan.test.blackbox.support.settings.Settings
 import org.jetbrains.kotlin.konan.test.blackbox.support.util.ReplLLDBSessionSpec
 import org.jetbrains.kotlin.test.directives.model.*
 import org.jetbrains.kotlin.test.services.JUnit5Assertions.assertTrue
@@ -223,8 +224,6 @@ enum class TestRunnerType {
     NO_EXIT
 }
 
-internal val CINTEROP_SOURCE_EXTENSIONS = setOf("c", "cpp", "m", "mm")
-
 internal class TestCInteropArgs(cinteropArgs: List<String>) : TestCompilerArgs(emptyList(), cinteropArgs) {
     constructor(vararg cinteropArgs: String) : this(cinteropArgs.asList())
 }
@@ -294,7 +293,16 @@ open class TestCompilerArgs(
     }
 }
 
-internal fun parseTestKind(registeredDirectives: RegisteredDirectives): TestKind? {
+/**
+ * Gets the [TestKind] defined by possible [RegisteredDirectives].
+ * The default is determined by TEST_KIND global property, for ex. testrunner's annotation:
+ *      @EnforcedProperty(property = ClassLevelProperty.TEST_KIND, propertyValue = "STANDALONE_NO_TR")
+ */
+fun Settings.testKind(registeredDirectives: RegisteredDirectives?): TestKind =
+    parseTestKind(registeredDirectives) ?: get<TestKind>()
+
+private fun parseTestKind(registeredDirectives: RegisteredDirectives?): TestKind? {
+    if (registeredDirectives == null) return null
     if (KIND !in registeredDirectives)
         return null // The default is determined by TEST_KIND global property
 

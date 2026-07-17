@@ -53,17 +53,23 @@ abstract class InteropTestsBase {
         NativeMemoryAllocator.dispose()
     }
 
-    protected fun buildNativeLibraryFrom(defFile: File, headersDirectory: File, imports: Imports = ImportsMock()): NativeLibrary {
+    protected fun buildNativeLibraryFrom(defFile: File, cinteropArguments: Array<String>, imports: Imports = ImportsMock()): NativeLibrary {
         val tool = prepareTool(HostManager.hostName, KotlinPlatform.NATIVE, runFromDaemon = true, propertyOverrides = propertyOverrides)
-        val cinteropArguments = CInteropArguments()
-        cinteropArguments.argParser.parse(arrayOf(
-                "-compiler-option", "-I${headersDirectory.absolutePath}"
-        ))
+        val arguments = CInteropArguments()
+        arguments.argParser.parse(cinteropArguments)
         return buildNativeLibrary(
                 tool,
                 DefFile(defFile, tool.target),
-                cinteropArguments,
+                arguments,
                 imports
+        )
+    }
+
+    protected fun buildNativeLibraryFrom(defFile: File, headersDirectory: File, imports: Imports = ImportsMock()): NativeLibrary {
+        return buildNativeLibraryFrom(
+                defFile = defFile,
+                cinteropArguments = arrayOf("-compiler-option", "-I${headersDirectory.absolutePath}"),
+                imports = imports,
         )
     }
 
@@ -92,7 +98,7 @@ abstract class InteropTestsBase {
 
     protected fun mockImports(vararg dependencies: Pair<IndexerResult, String>): Imports {
         val headerToPackage = buildMap<HeaderId, String> {
-            dependencies.forEach { (dependency, packageName) ->
+            dependencies.forEach { [dependency, packageName] ->
                 dependency.index.includedHeaders.forEach { headerId ->
                     put(headerId, packageName)
                 }

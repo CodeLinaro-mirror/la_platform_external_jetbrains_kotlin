@@ -7,6 +7,7 @@ package org.jetbrains.kotlin.gradle.targets.js.yarn
 
 import org.gradle.api.Project
 import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ProviderFactory
 import org.gradle.process.ExecOperations
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.JsPlatformDisambiguator
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
@@ -21,31 +22,16 @@ internal constructor(
     nodeJsRoot: NodeJsRootExtension,
     yarnSpec: YarnRootEnvSpec,
     objects: ObjectFactory,
+    providers: ProviderFactory,
     execOps: ExecOperations,
 ) : BaseYarnRootExtension(
     project = project,
     nodeJsRoot = nodeJsRoot,
     yarnSpec = yarnSpec,
     objects = objects,
+    providers = providers,
     execOps = execOps,
 ) {
-
-    @Deprecated(
-        "Extending or manually creating instances of this class is deprecated. Scheduled for removal in Kotlin 2.4.",
-        level = DeprecationLevel.ERROR
-    )
-    @Suppress("UNUSED_PARAMETER", "UNREACHABLE_CODE")
-    constructor(
-        project: Project,
-        nodeJsRoot: NodeJsRootExtension,
-        yarnSpec: YarnRootEnvSpec,
-    ) : this(
-        project = throw UnsupportedOperationException(),
-        nodeJsRoot = throw UnsupportedOperationException(),
-        yarnSpec = throw UnsupportedOperationException(),
-        objects = throw UnsupportedOperationException(),
-        execOps = throw UnsupportedOperationException(),
-    )
 
     companion object : HasPlatformDisambiguator by JsPlatformDisambiguator {
         val YARN: String

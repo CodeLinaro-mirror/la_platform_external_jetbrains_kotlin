@@ -15,10 +15,9 @@ import org.jetbrains.kotlin.backend.common.serialization.metadata.serializeKlibH
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.ir.IrDiagnosticReporter
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
-import org.jetbrains.kotlin.ir.visitors.IrVisitor
 import org.jetbrains.kotlin.konan.properties.Properties
 import org.jetbrains.kotlin.library.*
-import org.jetbrains.kotlin.util.toKlibMetadataVersion
+import org.jetbrains.kotlin.util.toMetadataVersion
 import java.io.File
 
 /**
@@ -83,8 +82,6 @@ fun KtSourceFile.toIoFileOrNull(): File? = when (this) {
  * @param dependencies The list of KLIBs that the KLIB being produced depends on.
  * @param createModuleSerializer Used for creating a backend-specific instance of [IrModuleSerializer].
  * @param metadataSerializer Something capable of serializing the metadata of the source files. See the corresponding interface KDoc.
- * @param platformKlibCheckers Additional checks to be run before serializing [irModuleFragment].
- *     Can be used to report serialization-time diagnostics.
  * @param processCompiledFileData Called for each newly serialized file. Useful for incremental compilation.
  * @param processKlibHeader Called after serializing the KLIB header. Useful for incremental compilation.
  */
@@ -97,16 +94,10 @@ fun <SourceFile> serializeModuleIntoKlib(
     dependencies: List<KotlinLibrary>,
     createModuleSerializer: (irDiagnosticReporter: IrDiagnosticReporter) -> IrModuleSerializer<*>,
     metadataSerializer: KlibSingleFileMetadataSerializer<SourceFile>,
-    platformKlibCheckers: List<(IrDiagnosticReporter) -> IrVisitor<*, Nothing?>> = emptyList(),
     processCompiledFileData: ((File, KotlinFileSerializedData) -> Unit)? = null,
     processKlibHeader: (ByteArray) -> Unit = {},
 ): SerializerOutput {
     val serializedIr = irModuleFragment?.let {
-        it.runIrLevelCheckers(
-            diagnosticReporter,
-            *platformKlibCheckers.toTypedArray(),
-        )
-
         createModuleSerializer(
             diagnosticReporter,
         ).serializedIrModule(it)
@@ -116,7 +107,7 @@ fun <SourceFile> serializeModuleIntoKlib(
 
     val compiledKotlinFiles = buildList {
         addAll(cleanFiles)
-        metadataSerializer.forEachFile { i, sourceFile, ktSourceFile, packageFqName ->
+        metadataSerializer.forEachFile { i, ioFile, sourceFile, ktSourceFile, packageFqName ->
             val binaryFile = serializedFiles?.get(i)?.also {
                 assert(ktSourceFile == null || ktSourceFile.path == it.path) {
                     """The Kt and Ir files are put in different order
@@ -133,15 +124,6 @@ fun <SourceFile> serializeModuleIntoKlib(
                 KotlinFileSerializedData(metadata, binaryFile)
 
             if (processCompiledFileData != null) {
-                val ioFile = ktSourceFile?.toIoFileOrNull() ?: error(
-                    buildString {
-                        appendLine("No file found for source ${ktSourceFile?.path}")
-                        appendLine("This happened because there is a compiler plugin which generates new top-level declarations")
-                        appendLine("and the incremental compilation is enabled.")
-                        appendLine("Consider disabling the incremental compilation for this module or disable the plugin.")
-                        appendLine("If you met this error, please describe your use-case in https://youtrack.jetbrains.com/issue/KT-82395")
-                    }
-                )
                 processCompiledFileData(ioFile, compiledKotlinFile)
             }
 
@@ -158,15 +140,15 @@ fun <SourceFile> serializeModuleIntoKlib(
 
     processKlibHeader(header)
 
-    val (fragmentNames, fragmentParts) = compiledKotlinFiles
+    val [fragmentNames, fragmentParts] = compiledKotlinFiles
         .groupBy { it.fqName }
-        .map { (fqn, data) ->
+        .map { [fqn, data] ->
             fqn to data.sortedBy { it.path }.map { it.metadata }
         }
         .sortedBy { it.first }
         .unzip()
 
-    val metadataVersion = configuration.languageVersionSettings.languageVersion.toKlibMetadataVersion().toArray()
+    val metadataVersion = configuration.languageVersionSettings.languageVersion.toMetadataVersion().toArray()
 
     val serializedMetadata = SerializedMetadata(
         module = header,
@@ -199,17 +181,13 @@ fun addLanguageFeaturesToManifest(manifestProperties: Properties, languageVersio
     }
 
     val presentablePoisoningFeatures =
-        enabledFeatures.filter { it.forcesPreReleaseBinariesIfEnabled() }.sortedBy(LanguageFeature::name).joinToString(" ") { "+$it" }
+        enabledFeatures.filter { it.forcesPreReleaseBinariesIfEnabled(languageVersionSettings.languageVersion) }.sortedBy(LanguageFeature::name).joinToString(" ") { "+$it" }
     if (presentablePoisoningFeatures.isNotBlank()) {
         manifestProperties.setProperty(KLIB_PROPERTY_MANUALLY_ENABLED_POISONING_LANGUAGE_FEATURES, presentablePoisoningFeatures)
     }
-}
 
-private fun IrModuleFragment.runIrLevelCheckers(
-    diagnosticReporter: IrDiagnosticReporter,
-    vararg checkers: (IrDiagnosticReporter) -> IrVisitor<*, Nothing?>,
-) {
-    for (checker in checkers) {
-        accept(checker(diagnosticReporter), null)
+    if (languageVersionSettings.supportsFeature(LanguageFeature.CompanionBlocksAndExtensions)) {
+        manifestProperties.setProperty(KLIB_PROPERTY_NEW_COMPANION_INITIALIZATION, true.toString())
     }
 }
+

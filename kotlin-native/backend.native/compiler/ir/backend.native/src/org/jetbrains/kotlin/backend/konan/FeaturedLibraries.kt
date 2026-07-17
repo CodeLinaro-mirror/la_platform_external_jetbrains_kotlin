@@ -5,23 +5,24 @@
 
 package org.jetbrains.kotlin.backend.konan
 
-import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
+import org.jetbrains.kotlin.cli.CliDiagnostics
+import org.jetbrains.kotlin.cli.report
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
 import org.jetbrains.kotlin.konan.config.exportedLibraries
 import org.jetbrains.kotlin.konan.file.File
-import org.jetbrains.kotlin.konan.library.isFromKotlinNativeDistribution
+import org.jetbrains.kotlin.konan.library.isImplicitlyLoadedFromKotlinNativeDistribution
 import org.jetbrains.kotlin.library.KotlinLibrary
 import org.jetbrains.kotlin.library.SearchPathResolver
 import org.jetbrains.kotlin.library.metadata.*
 import org.jetbrains.kotlin.library.metadata.resolver.KotlinLibraryResolveResult
 import org.jetbrains.kotlin.library.toUnresolvedLibraries
 
-internal fun ModuleDescriptor.getExportedDependencies(konanConfig: KonanConfig): List<ModuleDescriptor> =
-        getDescriptorsFromLibraries((konanConfig.exportedLibraries + konanConfig.includedLibraries).toSet())
+internal fun ModuleDescriptor.getExportedDependencies(config: NativeSecondStageCompilationConfig): List<ModuleDescriptor> =
+        getDescriptorsFromLibraries((config.exportedLibraries + config.includedLibraries).toSet())
 
-internal fun ModuleDescriptor.getIncludedLibraryDescriptors(konanConfig: KonanConfig): List<ModuleDescriptor> =
-        getDescriptorsFromLibraries(konanConfig.includedLibraries.toSet())
+internal fun ModuleDescriptor.getIncludedLibraryDescriptors(config: NativeSecondStageCompilationConfig): List<ModuleDescriptor> =
+        getDescriptorsFromLibraries(config.includedLibraries.toSet())
 
 private fun ModuleDescriptor.getDescriptorsFromLibraries(libraries: Set<KotlinLibrary>) =
     allDependencyModules.filter {
@@ -63,7 +64,7 @@ private sealed class FeaturedLibrariesReporter {
     protected val KotlinLibrary.reportedKind: String
         get() = when {
             isCInteropLibrary() -> "Interop"
-            isFromKotlinNativeDistribution -> "Default"
+            isImplicitlyLoadedFromKotlinNativeDistribution -> "Default"
             else -> "Unknown kind"
         }
 
@@ -78,7 +79,7 @@ private sealed class FeaturedLibrariesReporter {
 
         override fun reportIllegalKind(library: KotlinLibrary) {
             configuration.report(
-                    CompilerMessageSeverity.STRONG_WARNING,
+                    CliDiagnostics.KONAN_ARGUMENT_STRONG_WARNING,
                     illegalKindMessage(library.reportedKind, library.location.path)
             )
         }
@@ -92,7 +93,7 @@ private sealed class FeaturedLibrariesReporter {
                 includedLibraries.forEach { appendLine(it.libraryFile) }
             }
 
-            configuration.report(CompilerMessageSeverity.STRONG_WARNING, message)
+            configuration.report(CliDiagnostics.KONAN_ARGUMENT_STRONG_WARNING, message)
         }
     }
 
@@ -100,7 +101,7 @@ private sealed class FeaturedLibrariesReporter {
         override fun reportIllegalKind(library: KotlinLibrary) = with(library) {
             val message = "$reportedKind library $location cannot be passed with -Xinclude " +
                     "(library path: ${libraryFile.absolutePath})"
-            configuration.report(CompilerMessageSeverity.STRONG_WARNING, message)
+            configuration.report(CliDiagnostics.KONAN_ARGUMENT_STRONG_WARNING, message)
         }
 
         override fun reportNotIncludedLibraries(includedLibraries: List<KotlinLibrary>, remainingFeaturedLibraries: Set<File>) {
@@ -156,13 +157,13 @@ private fun getFeaturedLibraries(
     val remainingFeaturedLibraries = featuredLibraryFiles.toMutableSet()
     val result = mutableListOf<KotlinLibrary>()
     //TODO: please add type checks before cast.
-    val libraries = resolvedLibraries.getFullList(null)
+    val libraries = resolvedLibraries.getFullList()
 
     for (library in libraries) {
         val libraryFile = library.libraryFile
         if (libraryFile in featuredLibraryFiles) {
             remainingFeaturedLibraries -= libraryFile
-            if (library.isCInteropLibrary() || (!allowDefaultLibs && library.isFromKotlinNativeDistribution)) {
+            if (library.isCInteropLibrary() || (!allowDefaultLibs && library.isImplicitlyLoadedFromKotlinNativeDistribution)) {
                 reporter.reportIllegalKind(library)
             } else {
                 result += library

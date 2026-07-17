@@ -82,6 +82,7 @@ org.jetbrains.kotlin.analysis.api.contracts.description.KaContractConstantValue.
 org.jetbrains.kotlin.analysis.api.contracts.description.KaContractHoldsInEffectDeclaration.condition
 org.jetbrains.kotlin.analysis.api.contracts.description.KaContractHoldsInEffectDeclaration.valueParameterReference
 org.jetbrains.kotlin.analysis.api.contracts.description.KaContractReturnsContractEffectDeclaration.KaContractReturnsSpecificValueEffectDeclaration.value
+org.jetbrains.kotlin.analysis.api.contracts.description.KaContractReturnsResultOfEffectDeclaration.valueParameterReference
 org.jetbrains.kotlin.analysis.api.contracts.description.booleans.KaContractBinaryLogicExpression.KaLogicOperation
 org.jetbrains.kotlin.analysis.api.contracts.description.booleans.KaContractBinaryLogicExpression.KaLogicOperation.AND
 org.jetbrains.kotlin.analysis.api.contracts.description.booleans.KaContractBinaryLogicExpression.KaLogicOperation.OR
@@ -371,6 +372,7 @@ org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParamete
 org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer
 org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer.NO_TYPE_PARAMETERS
 org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer.WIHTOUT_BOUNDS
+org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer.WITHOUT_BOUNDS
 org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer.WITH_BOUNDS_IN_WHERE_CLAUSE
 org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer.renderTypeParameters(KaSession, KaDeclarationSymbol, KaDeclarationRenderer, PrettyPrinter)
 org.jetbrains.kotlin.analysis.api.renderer.declarations.renderers.KaTypeParametersRenderer.renderWhereClause(KaSession, KaDeclarationSymbol, KaDeclarationRenderer, PrettyPrinter)
@@ -565,8 +567,6 @@ org.jetbrains.kotlin.analysis.api.resolution.KaCompoundUnaryOperation.Precedence
 org.jetbrains.kotlin.analysis.api.resolution.KaDelegatedConstructorCall.Kind
 org.jetbrains.kotlin.analysis.api.resolution.KaPartiallyAppliedFunctionSymbol
 org.jetbrains.kotlin.analysis.api.resolution.KaPartiallyAppliedVariableSymbol
-org.jetbrains.kotlin.analysis.api.resolution.KaSymbolBasedReference
-org.jetbrains.kotlin.analysis.api.resolution.KaSymbolBasedReference.resolveToSymbols()
 org.jetbrains.kotlin.analysis.api.resolve.extensions.KaResolveExtensionNavigationTargetsProvider
 org.jetbrains.kotlin.analysis.api.resolve.extensions.KaResolveExtensionProvider.Companion.EP_NAME
 org.jetbrains.kotlin.analysis.api.resolve.extensions.KaResolveExtensionProvider.Companion.provideExtensionsFor(KaModule)
@@ -598,8 +598,4 @@ org.jetbrains.kotlin.analysis.api.types.KaErrorType.errorMessage
 org.jetbrains.kotlin.analysis.api.types.KaErrorType.presentableText
 org.jetbrains.kotlin.analysis.api.types.KaResolvedClassTypeQualifier.symbol
 org.jetbrains.kotlin.analysis.api.types.KaTypeNullability.Companion.create(Boolean)
-org.jetbrains.kotlin.analysis.api.utils.errors.withClassEntry(String, Any?)
-org.jetbrains.kotlin.analysis.api.utils.errors.withKaModuleEntry(String, KaModule?)
-org.jetbrains.kotlin.analysis.api.utils.errors.withPsiEntry(String, PsiElement?, (PsiElement) -> KaModule)
-org.jetbrains.kotlin.analysis.api.utils.errors.withPsiEntry(String, PsiElement?, KaModule?)
 org.jetbrains.kotlin.analysis.api.utils.getApiKClassOf(Any)

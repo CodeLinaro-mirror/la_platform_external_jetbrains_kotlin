@@ -5,11 +5,18 @@
 
 package org.jetbrains.kotlin.test.klib
 
+import org.jetbrains.kotlin.config.ApiVersion
 import org.jetbrains.kotlin.config.LanguageVersion
+import org.jetbrains.kotlin.test.TestInfrastructureInternals
+import org.jetbrains.kotlin.test.builders.RegisteredDirectivesBuilder
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ALLOW_DANGEROUS_LANGUAGE_VERSION_TESTING
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.ALLOW_MULTIPLE_API_VERSIONS_SETTING
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.API_VERSION
+import org.jetbrains.kotlin.test.directives.LanguageSettingsDirectives.LANGUAGE_VERSION
 import org.jetbrains.kotlin.test.directives.model.StringDirective
 import org.jetbrains.kotlin.test.services.TestServices
+import org.jetbrains.kotlin.test.services.defaultsProvider
 import org.jetbrains.kotlin.test.services.moduleStructure
-import org.jetbrains.kotlin.test.services.targetPlatform
 
 /*
  * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
@@ -20,14 +27,10 @@ const val VERSION_AND_TARGET_SEPARATOR = ':'
 const val TARGETS_SEPARATOR = ','
 const val VERSIONS_SEPARATOR = ','
 
-internal fun TestServices.createUnmutingErrorIfNeeded(stringDirective: StringDirective, defaultLanguageVersion: LanguageVersion): List<Throwable> {
-    return if (versionAndTargetAreIgnored(stringDirective, defaultLanguageVersion))
-        listOf(
-            AssertionError(
-                "Looks like this test can be unmuted. Remove $defaultLanguageVersion from the $stringDirective directive"
-            )
-        )
-    else emptyList()
+internal fun TestServices.throwUnmutingErrorIfNeeded(stringDirective: StringDirective, defaultLanguageVersion: LanguageVersion) {
+    if (versionAndTargetAreIgnored(stringDirective, defaultLanguageVersion)) {
+        throw AssertionError("Looks like this test can be unmuted. Remove $defaultLanguageVersion from the $stringDirective directive")
+    }
 }
 
 /**
@@ -51,7 +54,9 @@ internal fun TestServices.versionAndTargetAreIgnored(directive: StringDirective,
                 2 -> { // Check for a matching platform or ANY platform
                     if (parts[0] == "ANY") return true
                     val targets = parts[0].split(TARGETS_SEPARATOR).map { it.uppercase() }
-                    val componentPlatformNames = firstModule.targetPlatform(this).componentPlatforms.map {
+
+                    @OptIn(TestInfrastructureInternals::class)
+                    val componentPlatformNames = defaultsProvider.targetPlatform.componentPlatforms.map {
                         it.platformName.uppercase()
                     }
                     if (componentPlatformNames.any(targets::contains))
@@ -62,4 +67,15 @@ internal fun TestServices.versionAndTargetAreIgnored(directive: StringDirective,
         }
     }
     return false
+}
+
+/**
+ * Set up the necessary directives for a KLIB compatibility test to enforce running it under
+ * a specific [customLanguageVersion] and the relevant API version.
+ */
+fun RegisteredDirectivesBuilder.setupCustomLanguageVersionForKlibCompatibilityTest(customLanguageVersion: LanguageVersion) {
+    +ALLOW_DANGEROUS_LANGUAGE_VERSION_TESTING
+    LANGUAGE_VERSION with customLanguageVersion
+    +ALLOW_MULTIPLE_API_VERSIONS_SETTING
+    API_VERSION with ApiVersion.createByLanguageVersion(customLanguageVersion)
 }

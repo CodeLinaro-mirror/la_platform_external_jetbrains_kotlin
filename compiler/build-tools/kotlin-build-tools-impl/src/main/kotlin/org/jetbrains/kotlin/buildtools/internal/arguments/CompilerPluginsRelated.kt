@@ -12,12 +12,10 @@ import org.jetbrains.kotlin.cli.common.arguments.CommonCompilerArguments
 internal fun CommonCompilerArguments.applyCompilerPlugins(plugins: List<CompilerPlugin>) {
     val filteredPlugins = plugins.filter { it.pluginId != RAW_PLUGIN_ID }
     validatePluginsConfiguration(filteredPlugins)
-    pluginClasspaths =
-        (pluginClasspaths ?: emptyArray()) + filteredPlugins.flatMap { it.classpath }.map { it.absolutePathStringOrThrow() }.toTypedArray()
-    pluginOptions = (pluginOptions
-        ?: emptyArray()) + filteredPlugins.flatMap { plugin -> plugin.rawArguments.map { option -> "plugin:${plugin.pluginId}:${option.key}=${option.value}" } }
+    pluginClasspaths += filteredPlugins.flatMap { it.classpath }.map { it.absolutePathStringOrThrow() }.toTypedArray()
+    pluginOptions += filteredPlugins.flatMap { plugin -> plugin.rawArguments.map { option -> "plugin:${plugin.pluginId}:${option.key}=${option.value}" } }
         .toTypedArray()
-    pluginOrderConstraints = (pluginOrderConstraints ?: emptyArray()) + filteredPlugins.flatMap { plugin ->
+    pluginOrderConstraints += filteredPlugins.flatMap { plugin ->
         plugin.orderingRequirements.map { order ->
             when (order.relation) {
                 CompilerPluginPartialOrderRelation.BEFORE -> "${plugin.pluginId}>${order.otherPluginId}"
@@ -49,11 +47,10 @@ private fun validatePluginsConfiguration(plugins: List<CompilerPlugin>) {
 internal const val RAW_PLUGIN_ID = "___RAW_PLUGINS_APPLIED___"
 
 internal fun applyCompilerPlugins(
-    currentValue: List<CompilerPlugin>?,
+    currentValue: List<CompilerPlugin>,
     compilerArgs: CommonCompilerArguments,
 ): List<CompilerPlugin> {
-    val normalizedCurrentValue = currentValue ?: emptyList()
-    val rawValue = if (compilerArgs.pluginClasspaths == null && compilerArgs.pluginConfigurations == null) {
+    val rawValue = if (compilerArgs.pluginClasspaths.isEmpty() && compilerArgs.pluginConfigurations.isEmpty()) {
         emptyList()
     } else {
         listOf(
@@ -65,5 +62,5 @@ internal fun applyCompilerPlugins(
             )
         )
     }
-    return normalizedCurrentValue + rawValue
+    return currentValue + rawValue
 }

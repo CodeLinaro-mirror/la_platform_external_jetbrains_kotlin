@@ -224,7 +224,7 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
         val loggedCompilerInput = LoggedData.CompilerInput(sourceModules)
         val loggedCompilerParameters = LoggedData.CompilerParameters(home, compilerArgs)
 
-        val (loggedCompilerCall: LoggedData, result: TestCompilationResult.ImmediateResult<out A>) = try {
+        val [loggedCompilerCall: LoggedData, result: TestCompilationResult.ImmediateResult<out A>] = try {
             val compilerToolCallResult = when (compilerOutputInterceptor) {
                 CompilerOutputInterceptor.DEFAULT -> callCompiler(
                     compilerArgs = compilerArgs,
@@ -236,7 +236,7 @@ abstract class BasicCompilation<A : TestCompilationArtifact>(
                 )
             }
 
-            val (exitCode, compilerOutput, compilerOutputHasErrors, duration) = compilerToolCallResult
+            (val exitCode, val compilerOutput = toolOutput, val compilerOutputHasErrors = toolOutputHasErrors, val duration) = compilerToolCallResult
 
             val loggedCompilationToolCall = LoggedData.CompilationToolCall(
                 "COMPILER",
@@ -497,7 +497,8 @@ class CInteropCompilation(
     defFile: File,
     sources: List<File> = emptyList(),
     dependencies: Iterable<CompiledDependency<KLIB>>,
-    expectedArtifact: KLIB
+    expectedArtifact: KLIB,
+    noDefaultLibs: Boolean = true,
 ) : TestCompilation<KLIB>() {
     private val targets: KotlinNativeTargets = settings.get()
     private val classLoader: KotlinNativeClassLoader = settings.get()
@@ -531,7 +532,9 @@ class CInteropCompilation(
             add(targets.testTarget.name)
             add("-o")
             add(expectedArtifact.klibFile.canonicalPath)
-            add("-no-default-libs")
+            if (noDefaultLibs) {
+                add("-no-default-libs")
+            }
             dependencies.forEach {
                 add("-l")
                 add(it.artifact.path)
@@ -545,15 +548,24 @@ class CInteropCompilation(
             }
             add("-compiler-option")
             add("-I${defFile.parentFile}")
+
+            // Don't reuse the system-wide module cache to make the test run more predictably.
+            // See also KT-68254 and KT-85815.
+            val modulesCache = expectedArtifact.klibFile.resolveSibling("modulesCache")
+            add("-compiler-option")
+            add("-fmodules-cache-path=${modulesCache.absolutePath}")
         }
 
         val loggedCInteropParameters = LoggedData.CInteropParameters(args, defFile)
-        val (loggedCall: LoggedData, immediateResult: TestCompilationResult.ImmediateResult<out KLIB>) = try {
-            val (exitCode, cinteropOutput, cinteropOutputHasErrors, duration) = invokeCInterop(
-                classLoader.classLoader,
-                expectedArtifact.klibFile,
-                args.toTypedArray()
-            )
+        val [loggedCall: LoggedData, immediateResult: TestCompilationResult.ImmediateResult<out KLIB>] = try {
+            (
+                val exitCode, val cinteropOutput = toolOutput, val cinteropOutputHasErrors = toolOutputHasErrors, val duration
+            ) =
+                invokeCInterop(
+                    classLoader.classLoader,
+                    expectedArtifact.klibFile,
+                    args.toTypedArray()
+                )
 
             val loggedInteropCall = LoggedData.CompilationToolCall(
                 toolName = "CINTEROP",
@@ -588,10 +600,14 @@ class SwiftCompilation<T : TestCompilationArtifact>(
     expectedArtifact: T,
     swiftExtraOpts: List<String>,
     outputFile: (T) -> File,
+    minOSVersion: String? = null,
 ) : TestCompilation<T>() {
     override val result: TestCompilationResult<out T> by lazy {
         val configs = testRunSettings.configurables as AppleConfigurables
-        val swiftTarget = configs.targetTriple.withOSVersion(configs.osVersionMin).toString()
+        val effectiveOSVersion = minOSVersion?.let {
+            maxOf(minOSVersion, configs.osVersionMin, compareBy({ it.substringBefore(".").toInt() }, { it.substringAfter(".").toInt() }))
+        } ?: configs.osVersionMin
+        val swiftTarget = configs.targetTriple.withOSVersion(effectiveOSVersion).toString()
 
         val optimizationModeFlags = swiftcOptimizationModeFlags(testRunSettings.get<OptimizationMode>())
 
@@ -620,9 +636,11 @@ class SwiftCompilation<T : TestCompilationArtifact>(
         }
 
         val loggedSwiftCParameters = LoggedData.SwiftCParameters(args, sources)
-        val (loggedCall: LoggedData, immediateResult: TestCompilationResult.ImmediateResult<out T>) = try {
-            val (exitCode, swiftcOutput, swiftcOutputHasErrors, duration) =
-                invokeSwiftC(testRunSettings, args)
+        val [loggedCall: LoggedData, immediateResult: TestCompilationResult.ImmediateResult<out T>] = try {
+            (val exitCode, val swiftcOutput = toolOutput, val swiftcOutputHasErrors = toolOutputHasErrors, val duration) = invokeSwiftC(
+                testRunSettings,
+                args
+            )
 
             val loggedSwiftCCall = LoggedData.CompilationToolCall(
                 toolName = "SWIFTC",
@@ -778,11 +796,7 @@ class ExecutableCompilation(
         }
 
         internal fun ArgsBuilder.applyPartialLinkageArgs(partialLinkageConfig: UsedPartialLinkageConfig) {
-            with(partialLinkageConfig.config) {
-                add("-Xpartial-linkage=${mode.name.lowercase()}")
-                if (mode.isEnabled)
-                    add("-Xpartial-linkage-loglevel=${logLevel.name.lowercase()}")
-            }
+            add("-Xpartial-linkage-loglevel=${partialLinkageConfig.config.logLevel.name.lowercase()}")
         }
 
         internal fun ArgsBuilder.applyFileCheckArgs(fileCheckStage: String?, fileCheckDump: File?) =

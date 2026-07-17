@@ -5,30 +5,28 @@ import KotlinRuntimeSupport
 
 public final class _ExportedKotlinPackages_conflictingTypealiases_Bar_Conflict: KotlinRuntime.KotlinBase {
     public init() {
-        if Self.self != edge_cases._ExportedKotlinPackages_conflictingTypealiases_Bar_Conflict.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from edge_cases._ExportedKotlinPackages_conflictingTypealiases_Bar_Conflict ") }
         let __kt = conflictingTypealiases_Bar_Conflict_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        conflictingTypealiases_Bar_Conflict_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { conflictingTypealiases_Bar_Conflict_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 public final class _ExportedKotlinPackages_conflictingTypealiases_Foo_Conflict: KotlinRuntime.KotlinBase {
     public init() {
-        if Self.self != edge_cases._ExportedKotlinPackages_conflictingTypealiases_Foo_Conflict.self { fatalError("Inheritance from exported Kotlin classes is not supported yet: \(String(reflecting: Self.self)) inherits from edge_cases._ExportedKotlinPackages_conflictingTypealiases_Foo_Conflict ") }
         let __kt = conflictingTypealiases_Foo_Conflict_init_allocate()
-        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge)
-        conflictingTypealiases_Foo_Conflict_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt)
+        super.init(__externalRCRefUnsafe: __kt, options: .asBoundBridge);
+        { conflictingTypealiases_Foo_Conflict_init_initialize__TypesOfArguments__Swift_UnsafeMutableRawPointer__(__kt); return () }()
     }
     package override init(
         __externalRCRefUnsafe: Swift.UnsafeMutableRawPointer?,
         options: KotlinRuntime.KotlinBaseConstructionOptions
     ) {
-        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options)
+        super.init(__externalRCRefUnsafe: __externalRCRefUnsafe, options: options);
     }
 }
 extension ExportedKotlinPackages.conflictingTypealiases.Bar where Self : KotlinRuntimeSupport._KotlinBridgeable {
@@ -45,15 +43,19 @@ extension KotlinRuntimeSupport._KotlinExistential: ExportedKotlinPackages.confli
 }
 extension KotlinRuntimeSupport._KotlinExistential: ExportedKotlinPackages.conflictingTypealiases.Bar where Wrapped : ExportedKotlinPackages.conflictingTypealiases._Bar {
 }
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: ExportedKotlinPackages.conflictingTypealiases._Foo {
+}
+extension KotlinRuntimeSupport._KotlinExistentialPenBox: ExportedKotlinPackages.conflictingTypealiases._Bar {
+}
 extension ExportedKotlinPackages.conflictingTypealiases {
-    public protocol Bar: KotlinRuntime.KotlinBase, ExportedKotlinPackages.conflictingTypealiases.Foo {
+    public protocol Bar: KotlinRuntime.KotlinBase, ExportedKotlinPackages.conflictingTypealiases.Foo, ExportedKotlinPackages.conflictingTypealiases._Bar {
     }
-    public protocol Foo: KotlinRuntime.KotlinBase {
+    public protocol Foo: KotlinRuntime.KotlinBase, ExportedKotlinPackages.conflictingTypealiases._Foo {
     }
     @objc(_Bar)
-    package protocol _Bar: ExportedKotlinPackages.conflictingTypealiases._Foo {
+    public protocol _Bar: ExportedKotlinPackages.conflictingTypealiases._Foo {
     }
     @objc(_Foo)
-    package protocol _Foo {
+    public protocol _Foo {
     }
 }

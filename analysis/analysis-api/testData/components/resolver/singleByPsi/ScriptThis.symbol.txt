@@ -1,2 +1,16 @@
 KtNameReferenceExpression(16,20): 'this'
-  null
+  isImplicitReferenceToCompanion: false
+  usesContextSensitiveResolution: false
+  KaSymbolResolutionSuccess:
+    symbols = [
+      KaScriptSymbol:
+        annotations: []
+        isActual: false
+        isExpect: false
+        isExternal: false
+        location: TOP_LEVEL
+        modality: FINAL
+        name: <script-ScriptThis.kts>
+        origin: SOURCE
+        visibility: LOCAL
+    ]

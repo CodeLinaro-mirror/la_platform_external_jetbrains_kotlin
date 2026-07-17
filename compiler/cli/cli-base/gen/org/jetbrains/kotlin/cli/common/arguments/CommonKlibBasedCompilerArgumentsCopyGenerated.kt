@@ -15,10 +15,13 @@ fun copyCommonKlibBasedCompilerArguments(from: CommonKlibBasedCompilerArguments,
     to.enableSignatureClashChecks = from.enableSignatureClashChecks
     to.irInlinerBeforeKlibSerialization = from.irInlinerBeforeKlibSerialization
     to.klibZipFileAccessorCacheLimit = from.klibZipFileAccessorCacheLimit
+    @Suppress("DEPRECATION")
     to.normalizeAbsolutePath = from.normalizeAbsolutePath
     to.partialLinkageLogLevel = from.partialLinkageLogLevel
+    @Suppress("DEPRECATION")
     to.partialLinkageMode = from.partialLinkageMode
-    to.relativePathBases = from.relativePathBases?.copyOf()
+    to.relativePathBases = from.relativePathBases.copyOf()
+    to.skipLibrarySpecialCompatibilityChecks = from.skipLibrarySpecialCompatibilityChecks
 
     return to
 }

@@ -1,10 +1,11 @@
 KaEnumEntrySymbol:
   annotations: []
   callableId: test/E.A
-  compilerVisibility: Public
   contextReceivers: []
   enumEntryInitializer: KaAnonymousObjectSymbol(<local>/<no name provided>)
   isActual: false
+  isCompanion: true
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -22,16 +23,17 @@ KaEnumEntrySymbol:
   getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
   getContainingJvmClassName: test.E
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: test.E.A
 
 KaEnumEntrySymbol:
   annotations: []
   callableId: test/E.B
-  compilerVisibility: Public
   contextReceivers: []
   enumEntryInitializer: null
   isActual: false
+  isCompanion: true
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -49,7 +51,7 @@ KaEnumEntrySymbol:
   getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
   getContainingJvmClassName: test.E
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: test.E.B
 
 KaKotlinPropertySymbol:
@@ -57,9 +59,10 @@ KaKotlinPropertySymbol:
   backingFieldSymbol: KaBackingFieldSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Private
     contextReceivers: []
     isActual: false
+    isCompanion: false
+    isDelegated: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -83,19 +86,18 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
     getContainingJvmClassName: test.E
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   callableId: test/E.foo
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -119,15 +121,16 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
     getContainingJvmClassName: test.E
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   hasBackingField: true
   hasGetter: true
   hasSetter: false
   initializer: KaConstantInitializerValue(5)
   isActual: false
+  isCompanion: false
   isConst: false
-  isDelegatedProperty: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -155,7 +158,7 @@ KaKotlinPropertySymbol:
   getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
   getContainingJvmClassName: test.E
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   javaGetterName: getFoo
   javaSetterName: null
   isInline: false
@@ -164,13 +167,13 @@ KaKotlinPropertySymbol:
 KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.bar
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -201,20 +204,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: test.E
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: null
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.values
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: true
   isExpect: false
   isExtension: false
   isExternal: false
@@ -246,20 +249,20 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: test.E
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: test.E.values
 
 KaNamedFunctionSymbol:
   annotations: []
   callableId: test/E.valueOf
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   contractEffects: []
   hasStableParameterNames: true
   isActual: false
   isBuiltinFunctionInvoke: false
+  isCompanion: true
   isExpect: false
   isExtension: false
   isExternal: false
@@ -284,14 +287,14 @@ KaNamedFunctionSymbol:
     KaValueParameterSymbol:
       annotations: []
       callableId: null
-      compilerVisibility: Public
       contextReceivers: []
       generatedPrimaryConstructorProperty: null
       hasDeclaredDefaultValue: false
       hasDefaultValue: false
-      hasSynthesizedName: false
       isActual: false
+      isCompanion: false
       isCrossinline: false
+      isDelegated: false
       isExpect: false
       isExtension: false
       isExternal: false
@@ -312,7 +315,7 @@ KaNamedFunctionSymbol:
       getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
       getContainingJvmClassName: test.E
       getContainingModule: KaSourceModule "Sources of main"
-      deprecationStatus: null
+      deprecation: null
       importableFqName: null
   ]
   visibility: PUBLIC
@@ -320,7 +323,7 @@ KaNamedFunctionSymbol:
   getContainingJvmClassName: test.E
   canBeOperator: false
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   returnValueStatus: Unspecified
   importableFqName: test.E.valueOf
 
@@ -328,16 +331,15 @@ KaKotlinPropertySymbol:
   annotations: []
   backingFieldSymbol: null
   callableId: test/E.entries
-  compilerVisibility: Public
   contextParameters: []
   contextReceivers: []
   getter: KaPropertyGetterSymbol:
     annotations: []
     callableId: null
-    compilerVisibility: Public
     contextReceivers: []
     hasStableParameterNames: true
     isActual: false
+    isCompanion: false
     isExpect: false
     isExtension: false
     isExternal: false
@@ -362,15 +364,16 @@ KaKotlinPropertySymbol:
     getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
     getContainingJvmClassName: test.E
     getContainingModule: KaSourceModule "Sources of main"
-    deprecationStatus: null
+    deprecation: null
     importableFqName: null
   hasBackingField: false
   hasGetter: true
   hasSetter: false
   initializer: null
   isActual: false
+  isCompanion: true
   isConst: false
-  isDelegatedProperty: false
+  isDelegated: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -399,7 +402,7 @@ KaKotlinPropertySymbol:
   getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
   getContainingJvmClassName: test.E
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   javaGetterName: getEntries
   javaSetterName: null
   isInline: false
@@ -408,11 +411,11 @@ KaKotlinPropertySymbol:
 KaConstructorSymbol:
   annotations: []
   callableId: null
-  compilerVisibility: Private
   containingClassId: test/E
   contextReceivers: []
   hasStableParameterNames: true
   isActual: false
+  isCompanion: false
   isExpect: false
   isExtension: false
   isExternal: false
@@ -431,5 +434,5 @@ KaConstructorSymbol:
   getContainingFileSymbol: KaFileSymbol(enumClassWithFinalMembers.kt)
   getContainingJvmClassName: test.E
   getContainingModule: KaSourceModule "Sources of main"
-  deprecationStatus: null
+  deprecation: null
   importableFqName: test.E

@@ -49,6 +49,8 @@ internal class GradleBuildToolsApiCompilerRunner(
             params.buildFinishedListenerService.set(buildFinishedListenerService)
             params.buildIdService.set(buildIdService)
             params.buildSessionService.set(buildSessionService)
+            params.compilerDiagnosticsProblemsReporterFactory.set(taskProvider.compilerDiagnosticsProblemsReporterFactory)
+            params.warningModeIsAll.set(taskProvider.warningModeIsAll)
             if (taskOutputsBackup != null) {
                 params.taskOutputsToRestore.set(taskOutputsBackup.outputsToRestore)
                 params.snapshotsDir.set(taskOutputsBackup.snapshotsDir)

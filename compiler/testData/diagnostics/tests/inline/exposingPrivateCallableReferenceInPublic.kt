@@ -1,4 +1,3 @@
-// FIR_IDENTICAL
 // RUN_PIPELINE_TILL: FRONTEND
 // DIAGNOSTICS: -NOTHING_TO_INLINE
 // LANGUAGE: +ForbidExposingLessVisibleTypesInInline
@@ -10,6 +9,15 @@ private class PC {
     fun f() {}
     val p = 1
 }
+
+class A private constructor() {
+    public inline fun publicInlineFunction() = ::<!NON_PUBLIC_CALL_FROM_PUBLIC_INLINE!>A<!>
+}
+
+private fun Int.privateExtensionFun() {}
+
+private val String.privateVal: String
+    get() = this
 
 inline fun test() {
     ::<!NON_PUBLIC_CALL_FROM_PUBLIC_INLINE!>f<!>
@@ -27,6 +35,9 @@ inline fun test() {
             ::p
         }
     }
+
+    Int::<!NON_PUBLIC_CALL_FROM_PUBLIC_INLINE!>privateExtensionFun<!>
+    String::<!NON_PUBLIC_CALL_FROM_PUBLIC_INLINE!>privateVal<!>
 }
 
 class C {

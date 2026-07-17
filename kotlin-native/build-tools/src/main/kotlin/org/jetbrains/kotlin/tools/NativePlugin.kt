@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.tools
 
 import org.gradle.api.DefaultTask
+import org.gradle.api.InvalidUserDataException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.file.FileCollection
@@ -20,6 +21,8 @@ import org.jetbrains.kotlin.dependencies.NativeDependenciesExtension
 import org.jetbrains.kotlin.dependencies.NativeDependenciesPlugin
 import org.jetbrains.kotlin.konan.target.HostManager.Companion.hostIsMac
 import org.jetbrains.kotlin.konan.target.HostManager.Companion.hostIsMingw
+import org.jetbrains.kotlin.utils.reproducibilityCompilerFlags
+import org.jetbrains.kotlin.utils.reproducibilityRootsMap
 import org.jetbrains.kotlin.utils.reproduciblySortedFilePaths
 import java.io.File
 import javax.inject.Inject
@@ -167,10 +170,14 @@ open class SourceSet(
     fun implicitTasks(): Array<TaskProvider<*>> {
         initialSourceSet?.implicitTasks()
         return resolvePatterns().map {
-            sourceSets.project.tasks.register<ToolExecutionTask>(it.second, ToolExecutionTask::class.java) {
-                val toolConfiguration = it.first
-                toolConfiguration.configure(this, initialSourceSet!!.rule != null)
-                dependsOn(initialSourceSet.collection)
+            try {
+                sourceSets.project.tasks.register<ToolExecutionTask>(it.second, ToolExecutionTask::class.java) {
+                    val toolConfiguration = it.first
+                    toolConfiguration.configure(this, initialSourceSet!!.rule != null)
+                    dependsOn(initialSourceSet.collection)
+                }
+            } catch (_: InvalidUserDataException) {
+                sourceSets.project.tasks.named(it.second)
             }
         }.toTypedArray()
     }
@@ -221,39 +228,26 @@ open class NativeToolsExtension(val project: Project) {
     val llvmDir by nativeDependenciesExtension::llvmPath
     val hostPlatform by nativeDependenciesExtension::hostPlatform
 
-    // This is copied from `ClangArgs`
-    private val jdkDir: File
-        get() = File(System.getProperty("java.home")).canonicalFile.let { home ->
-            if (home.resolve("include").exists()) {
-                home
-            } else {
-                home.parentFile.also {
-                    check(it.resolve("include").exists())
-                }
-            }
-        }
+    // Keep in sync with ClangArgs.kt
+    private val jdkDir by lazy {
+        val home = File(System.getProperty("java.home")).canonicalFile
+        val parent = home.parentFile
+        val javaHome = System.getenv("JAVA_HOME")?.let(::File)
+
+        listOfNotNull(home, parent, javaHome)
+                .firstOrNull { it.resolve("include").exists() }
+                ?: error("JNI headers not found")
+    }
 
     private val reproducibilityRootsMap: Map<File, String>
-        get() = mapOf(
-                // This applies for both sources of the current project, and dependencies on other
-                // projects inside the repo.
-                project.isolated.rootProject.let {
-                    it.projectDirectory.asFile to it.name
-                },
-                // This is the common root for native dependencies: sysroots, llvm, ...
-                nativeDependenciesExtension.nativeDependenciesRoot to "NATIVE_DEPS",
-                // Not every user of `NativePlugin` uses JNI, but there's no harm to keep it for all.
-                jdkDir to "JDK",
-        )
+        get() = reproducibilityRootsMap(project, nativeDependenciesExtension, jdkDir)
 
     /**
      * Use these flags for `clang` invocations, so that the generated binaries do not contain
      * absolute paths.
      */
     val reproducibilityCompilerFlags: Array<String>
-        get() = reproducibilityRootsMap.map {
-            "-ffile-prefix-map=${it.key}=${it.value}"
-        }.toTypedArray()
+        get() = reproducibilityCompilerFlags(reproducibilityRootsMap).toTypedArray()
 
     /**
      * Whenever a `FileCollection` is passed as arguments, it's order must be stable sorted for reproducibility.
@@ -292,6 +286,7 @@ open class NativeToolsExtension(val project: Project) {
     }
 }
 
+fun solib(vararg nameFragments: String) = solib(name = nameFragments.joinToString(""))
 
 fun solib(name: String) = when {
     hostIsMingw -> "$name.dll"

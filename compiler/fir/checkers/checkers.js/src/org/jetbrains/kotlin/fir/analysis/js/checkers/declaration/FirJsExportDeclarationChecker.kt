@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.fir.analysis.checkers.MppCheckerKind
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirBasicDeclarationChecker
 import org.jetbrains.kotlin.fir.analysis.checkers.getAnnotationFirstArgument
-import org.jetbrains.kotlin.fir.resolve.getContainingClassSymbol
 import org.jetbrains.kotlin.fir.analysis.checkers.isTopLevel
 import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors
 import org.jetbrains.kotlin.fir.analysis.diagnostics.js.FirJsErrors.EXPOSED_NOT_EXPORTED_SUPER_INTERFACE
@@ -24,12 +23,10 @@ import org.jetbrains.kotlin.fir.analysis.js.checkers.sanitizeName
 import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.declarations.utils.*
 import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
+import org.jetbrains.kotlin.fir.isDisabled
 import org.jetbrains.kotlin.fir.isEnabled
 import org.jetbrains.kotlin.fir.isEnumEntries
-import org.jetbrains.kotlin.fir.resolve.expandedConeTypeWithEnsuredPhase
-import org.jetbrains.kotlin.fir.resolve.fullyExpandedType
-import org.jetbrains.kotlin.fir.resolve.toRegularClassSymbol
-import org.jetbrains.kotlin.fir.resolve.toSymbol
+import org.jetbrains.kotlin.fir.resolve.*
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertyAccessorSymbol
@@ -74,7 +71,7 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
             reporter.reportOn(declaration.source, FirJsErrors.WRONG_EXPORTED_DECLARATION, kind)
         }
 
-        if (!LanguageFeature.AllowExpectDeclarationsInJsExport.isEnabled() && declaration.isExpect) {
+        if (LanguageFeature.AllowExpectDeclarationsInJsExport.isDisabled() && declaration.isExpect) {
             reportWrongExportedDeclaration("expect")
         }
 
@@ -136,6 +133,11 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
                     return
                 }
 
+                if (declaration.contextParameters.isNotEmpty()) {
+                    reportWrongExportedDeclaration("property with context parameters")
+                    return
+                }
+
                 val containingClass = declaration.getContainingClassSymbol() as? FirClassSymbol<*>
                 val enumEntriesProperty = containingClass?.let(declaration::isEnumEntries) ?: false
                 val returnType = declaration.returnTypeRef.coneType
@@ -165,18 +167,28 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
                 }
 
                 val wrongDeclaration: String? = when (declaration.classKind) {
-                    ClassKind.ANNOTATION_CLASS -> "annotation class"
+                    ClassKind.ANNOTATION_CLASS if LanguageFeature.JsAllowExportingAnnotationClasses.isDisabled() -> "annotation class"
                     ClassKind.CLASS -> when {
-                        context.isInsideInterface -> "nested class inside exported interface"
-                        declaration.isInlineOrValue -> "value class"
+                        LanguageFeature.AllowInterfaceNestedClassesInJsExport.isDisabled() && context.isInsideInterface -> "nested class inside exported interface"
+                        LanguageFeature.JsAllowExportingValueClasses.isDisabled() && declaration.isInlineOrValue -> "value class"
                         else -> null
                     }
-                    else -> if (context.isInsideInterface && !declaration.status.isCompanion) {
-                        "nested/inner declaration inside exported interface"
-                    } else null
+
+                    else if context.isInsideInterface -> when {
+                        !declaration.status.isCompanion -> "nested/inner declaration inside exported interface"
+                        declaration.symbol.isEffectivelyExternal(context.session) -> "external companion object"
+                        else -> null
+                    }
+
+                    else -> null
                 }
 
-                if (context.isInsideInterface && declaration.status.isCompanion && declaration.nameOrSpecialName != DEFAULT_NAME_FOR_COMPANION_OBJECT) {
+                if (
+                    !context.languageVersionSettings.supportsFeature(LanguageFeature.AllowNamedCompanionForJsExport) &&
+                    context.isInsideInterface &&
+                    declaration.status.isCompanion &&
+                    declaration.nameOrSpecialName != DEFAULT_NAME_FOR_COMPANION_OBJECT
+                ) {
                     reporter.reportOn(declaration.source, FirJsErrors.NAMED_COMPANION_IN_EXPORTED_INTERFACE)
                 }
 
@@ -267,6 +279,7 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
     ): Boolean {
         // In case of other errors (like syntax error) we should not emit extra diagnostic
         if (this is ConeErrorType) return true
+        if (isStarProjection) return LanguageFeature.JsAllowExportingStarProjection.isEnabled()
         if (!currentlyProcessed.add(this)) {
             return true
         }
@@ -274,8 +287,11 @@ object FirJsExportDeclarationChecker : FirBasicDeclarationChecker(MppCheckerKind
         val expandedType = fullyExpandedType(session, FirTypeAlias::expandedConeTypeWithEnsuredPhase)
 
         val isExportableFunctionType = expandedType.isBasicFunctionType(session)
+                || (LanguageFeature.JsExportingSuspendLambdas.isEnabled() && expandedType.isBasicSuspendFunctionType(session))
+
         val isExportableArgs = expandedType.isExportableTypeArguments(session, currentlyProcessed)
         currentlyProcessed.remove(this)
+
         if (isExportableFunctionType || !isExportableArgs) {
             return isExportableArgs
         }

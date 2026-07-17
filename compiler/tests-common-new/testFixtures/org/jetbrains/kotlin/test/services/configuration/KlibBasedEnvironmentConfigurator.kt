@@ -24,8 +24,18 @@ interface KlibBasedEnvironmentConfigurator {
         return testName + outputFileSuffix
     }
 
+    /**
+     * The location of the generated KLIB artifact (as a directory).
+     */
+    fun getKlibArtifactDir(testServices: TestServices, moduleName: String): File {
+        return getKlibOutputDir(testServices).resolve(getKlibArtifactSimpleName(testServices, moduleName))
+    }
+
+    /**
+     * The location of the generated KLIB artifact (as a ZIP archive).
+     */
     fun getKlibArtifactFile(testServices: TestServices, moduleName: String): File {
-        return getKlibOutputDir(testServices).resolve(getKlibArtifactSimpleName(testServices, moduleName) + ".klib")
+        return getKlibArtifactDir(testServices, moduleName).run { resolveSibling("$name.klib") }
     }
 
     fun getKlibOutputDir(testServices: TestServices): File {
@@ -66,7 +76,7 @@ interface KlibBasedEnvironmentConfigurator {
         val mapping: Map<ModuleDescriptor, KotlinLibrary> = getDependencyModulesFor(module, testServices)
             .associateWith { testServices.libraryProvider.getCompiledLibraryByDescriptor(it) }
 
-        return mapping.entries.associate { (descriptor, library) ->
+        return mapping.entries.associate { [descriptor, library] ->
             library to descriptor.allDependencyModules.filter { it != descriptor }.map { mapping.getValue(it) }
         }
     }

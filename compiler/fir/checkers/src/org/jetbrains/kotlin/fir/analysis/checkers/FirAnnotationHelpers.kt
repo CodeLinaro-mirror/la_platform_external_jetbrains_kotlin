@@ -88,6 +88,12 @@ fun FirExpression.extractClassesFromArgument(session: FirSession): List<FirRegul
     }
 }
 
+fun FirExpression.extractClassesAndSourcesFromArgument(session: FirSession): List<Pair<FirRegularClassSymbol, KtSourceElement?>> {
+    return unwrapAndFlattenArgument(flattenArrays = true).mapNotNull {
+        it.extractClassFromArgument(session)?.to(it.source)
+    }
+}
+
 fun FirExpression.extractClassFromArgument(session: FirSession): FirRegularClassSymbol? {
     if (this !is FirGetClassCall) return null
     return when (val argument = argument) {
@@ -103,15 +109,8 @@ fun FirExpression.extractClassFromArgument(session: FirSession): FirRegularClass
 }
 
 context(context: CheckerContext, reporter: DiagnosticReporter)
-fun checkRepeatedAnnotation(
-    useSiteTarget: AnnotationUseSiteTarget?,
-    existingTargetsForAnnotation: MutableList<AnnotationUseSiteTarget?>,
-    annotation: FirAnnotation,
-    annotationSource: KtSourceElement?,
-) {
-    val duplicated = useSiteTarget in existingTargetsForAnnotation
-            || existingTargetsForAnnotation.any { (it == null) != (useSiteTarget == null) }
-    if (duplicated && !annotation.isRepeatable(context.session)) {
+fun checkRepeatedAnnotation(annotation: FirAnnotation, annotationSource: KtSourceElement?) {
+    if (!annotation.isRepeatable(context.session)) {
         reporter.reportOn(annotationSource, FirErrors.REPEATED_ANNOTATION)
     }
 }
@@ -152,23 +151,20 @@ fun FirAnnotationContainer.getImplicitUseSiteTargetList(): List<AnnotationUseSit
 
 context(context: CheckerContext, reporter: DiagnosticReporter)
 fun checkRepeatedAnnotation(
-    annotationContainer: FirAnnotationContainer?,
     annotations: List<FirAnnotation>,
     annotationSources: Map<FirAnnotation, KtSourceElement?>,
     defaultSource: KtSourceElement?,
 ) {
     if (annotations.size <= 1) return
-
-    val annotationsMap = hashMapOf<ConeKotlinType, MutableList<AnnotationUseSiteTarget?>>()
+    val annotationsSet = hashSetOf<ConeKotlinType>()
 
     for (annotation in annotations) {
-        val useSiteTarget = annotation.useSiteTarget ?: annotationContainer?.getDefaultUseSiteTarget(annotation)
         val expandedType = annotation.annotationTypeRef.coneType.fullyExpandedType()
-        val existingTargetsForAnnotation = annotationsMap.getOrPut(expandedType) { arrayListOf() }
-
         val source = annotationSources[annotation] ?: defaultSource
-        checkRepeatedAnnotation(useSiteTarget, existingTargetsForAnnotation, annotation, source)
-        existingTargetsForAnnotation.add(useSiteTarget)
+        if (expandedType in annotationsSet) {
+            checkRepeatedAnnotation(annotation, source)
+        }
+        annotationsSet.add(expandedType)
     }
 }
 

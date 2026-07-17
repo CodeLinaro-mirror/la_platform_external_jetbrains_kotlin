@@ -1,5 +1,4 @@
 // LANGUAGE: +ContextParameters
-// IGNORE_BACKEND_K1: ANY
 // WITH_STDLIB
 // OPT_IN: kotlin.contracts.ExperimentalContracts
 

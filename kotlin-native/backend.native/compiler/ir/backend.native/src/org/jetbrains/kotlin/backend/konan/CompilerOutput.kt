@@ -31,7 +31,7 @@ import java.io.File
 /**
  * Supposed to be true for a single LLVM module within final binary.
  */
-val KonanConfig.isFinalBinary: Boolean get() = when (this.produce) {
+val NativeSecondStageCompilationConfig.isFinalBinary: Boolean get() = when (this.produce) {
     CompilerOutputKind.PROGRAM, CompilerOutputKind.DYNAMIC,
     CompilerOutputKind.STATIC -> true
     CompilerOutputKind.DYNAMIC_CACHE, CompilerOutputKind.STATIC_CACHE, CompilerOutputKind.HEADER_CACHE,
@@ -46,7 +46,7 @@ val CompilerOutputKind.isNativeLibrary: Boolean
 /**
  * Return true if compiler has to generate a C API for dynamic/static library.
  */
-val KonanConfig.produceCInterface: Boolean
+val NativeSecondStageCompilationConfig.produceCInterface: Boolean
     get() = this.produce.isNativeLibrary && this.cInterfaceGenerationMode != CInterfaceGenerationMode.NONE
 
 val CompilerOutputKind.involvesBitcodeGeneration: Boolean
@@ -80,7 +80,7 @@ val CompilerOutputKind.isCache: Boolean
 internal fun produceCStubs(generationState: NativeGenerationState) {
     generationState.cStubsManager.compile(
             generationState.config.clang,
-            generationState.messageCollector,
+            generationState.diagnosticReporter,
             generationState.inVerbosePhase
     ).forEach {
         parseAndLinkBitcodeFile(generationState, generationState.llvm.module, it.absolutePath)
@@ -101,7 +101,7 @@ private fun collectLlvmModules(generationState: NativeGenerationState, generated
     val config = generationState.config
     val runtimeModulesConfig = generationState.runtimeModulesConfig
 
-    val (bitcodePartOfStdlib, bitcodeLibraries) = generationState.dependenciesTracker.bitcodeToLink
+    val [bitcodePartOfStdlib, bitcodeLibraries] = generationState.dependenciesTracker.bitcodeToLink
             .filterNot { it.isCInteropLibrary() && config.cCallMode == CCallMode.Direct }
             .partition { it.isNativeStdlib && generationState.producedLlvmModuleContainsStdlib }
             .toList()
@@ -186,7 +186,7 @@ private fun collectLlvmModules(generationState: NativeGenerationState, generated
     }
 
     fun parseBitcodeFiles(files: List<String>): List<LLVMModuleRef> = files.map { bitcodeFile ->
-        val parsedModule = parseBitcodeFile(generationState, generationState.messageCollector, generationState.llvmContext, bitcodeFile)
+        val parsedModule = parseBitcodeFile(generationState, generationState.diagnosticReporter, generationState.llvmContext, bitcodeFile)
         if (!generationState.shouldUseDebugInfoFromNativeLibs()) {
             LLVMStripModuleDebugInfo(parsedModule)
         }
@@ -233,7 +233,7 @@ internal fun insertAliasToEntryPoint(context: NativeBackendPhaseContext, module:
     val entryPointName = config.entryPointName
     val entryPoint = LLVMGetNamedFunction(module, entryPointName)
             ?: error("Module doesn't contain `$entryPointName`")
-    val programAddressSpace = LLVMGetProgramAddressSpace(module)
+    val programAddressSpace = LLVMKotlinGetProgramAddressSpace(module)
     LLVMAddAlias2(module, getGlobalFunctionType(entryPoint), programAddressSpace, entryPoint, "main")
 }
 
@@ -253,7 +253,7 @@ internal fun linkBitcodeDependencies(generationState: NativeGenerationState,
 }
 
 private fun parseAndLinkBitcodeFile(generationState: NativeGenerationState, llvmModule: LLVMModuleRef, path: String) {
-    val parsedModule = parseBitcodeFile(generationState, generationState.messageCollector, generationState.llvmContext, path)
+    val parsedModule = parseBitcodeFile(generationState, generationState.diagnosticReporter, generationState.llvmContext, path)
     if (!generationState.shouldUseDebugInfoFromNativeLibs()) {
         LLVMStripModuleDebugInfo(parsedModule)
     }
@@ -263,7 +263,7 @@ private fun parseAndLinkBitcodeFile(generationState: NativeGenerationState, llvm
     }
 }
 
-private fun embedAppleLinkerOptionsToBitcode(llvm: CodegenLlvmHelpers, config: KonanConfig) {
+private fun embedAppleLinkerOptionsToBitcode(llvm: CodegenLlvmHelpers, config: NativeSecondStageCompilationConfig) {
     fun findEmbeddableOptions(options: List<String>): List<List<String>> {
         val result = mutableListOf<List<String>>()
         val iterator = options.iterator()
@@ -279,7 +279,7 @@ private fun embedAppleLinkerOptionsToBitcode(llvm: CodegenLlvmHelpers, config: K
     }
 
     val optionsToEmbed = findEmbeddableOptions(config.platform.configurables.linkerKonanFlags) +
-            llvm.dependenciesTracker.allNativeDependencies.flatMap { findEmbeddableOptions(it.linkerOpts) }
+            llvm.dependenciesTracker.allNativeDependencies.flatMap { findEmbeddableOptions(it.linkerOpts) }.toList()
 
     embedLlvmLinkOptions(llvm.llvmContext, llvm.module, optionsToEmbed)
 }

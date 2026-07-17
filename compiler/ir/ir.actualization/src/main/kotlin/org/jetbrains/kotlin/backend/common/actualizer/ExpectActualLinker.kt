@@ -23,10 +23,11 @@ import org.jetbrains.kotlin.ir.types.isNullableAny
 import org.jetbrains.kotlin.ir.types.makeNotNull
 import org.jetbrains.kotlin.ir.util.DeepCopyIrTreeWithSymbols
 import org.jetbrains.kotlin.ir.util.SymbolRemapper
-import org.jetbrains.kotlin.ir.util.constructedClass
 import org.jetbrains.kotlin.ir.util.isClass
 import org.jetbrains.kotlin.ir.util.isInterface
+import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.ir.util.render
+import org.jetbrains.kotlin.utils.addToStdlib.assignFrom
 import org.jetbrains.kotlin.utils.memoryOptimizedMap
 import org.jetbrains.kotlin.utils.memoryOptimizedMapNotNull
 import org.jetbrains.kotlin.utils.setSize
@@ -218,7 +219,7 @@ internal open class ActualizerVisitor(
         }
 
     override fun visitAnnotation(expression: IrAnnotation): IrAnnotation {
-        val constructorSymbol = symbolRemapper.getReferencedConstructor(expression.symbol)
+        val constructorSymbol = symbolRemapper.getReferencedConstructor(expression.classSymbol.owner.primaryConstructor!!.symbol)
 
         return IrAnnotationImpl(
             expression.startOffset,
@@ -229,8 +230,8 @@ internal open class ActualizerVisitor(
             expression.constructorTypeArgumentsCount,
             expression.origin,
         ).apply {
-            copyRemappedTypeArgumentsFrom(expression)
-            transformValueArguments(expression)
+            arguments.assignFrom(expression.arguments) { it?.transform() }
+            typeArguments.assignFrom(expression.typeArguments) { it?.remapType() }
             processAttributes(expression)
 
             // This is a hack to allow actualizing annotation constructors without parameters with constructors with default arguments.
@@ -254,8 +255,8 @@ internal open class ActualizerVisitor(
             expression.constructorTypeArgumentsCount,
             expression.origin,
         ).apply {
-            copyRemappedTypeArgumentsFrom(expression)
-            transformValueArguments(expression)
+            arguments.assignFrom(expression.arguments) { it?.transform() }
+            typeArguments.assignFrom(expression.typeArguments) { it?.remapType() }
             processAttributes(expression)
 
             // This is a hack to allow actualizing annotation constructors without parameters with constructors with default arguments.
@@ -275,7 +276,7 @@ internal open class ActualizerVisitor(
         transformAnnotations(this)
         if (!membersActualization) return
         val newAnnotations = annotations.memoryOptimizedMapNotNull { annotation ->
-            val annotationClass = annotation.symbol.owner.constructedClass
+            val annotationClass = annotation.classSymbol.owner
             when {
                 annotationClass.isExpect && annotationClass.containsOptionalExpectation() -> null
                 else -> annotation

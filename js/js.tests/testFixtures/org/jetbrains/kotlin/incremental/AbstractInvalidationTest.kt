@@ -11,6 +11,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.SingleRootFileViewProvider
 import com.intellij.testFramework.TestDataFile
 import org.jetbrains.kotlin.backend.common.phaser.then
+import org.jetbrains.kotlin.cli.common.allowNoSourceFiles
 import org.jetbrains.kotlin.cli.common.config.addKotlinSourceRoot
 import org.jetbrains.kotlin.cli.common.createPerformanceManagerFor
 import org.jetbrains.kotlin.cli.common.disposeRootInWriteAction
@@ -18,11 +19,8 @@ import org.jetbrains.kotlin.cli.common.localfs.KotlinLocalFileSystem
 import org.jetbrains.kotlin.cli.common.messages.MessageRenderer
 import org.jetbrains.kotlin.cli.common.messages.PrintingMessageCollector
 import org.jetbrains.kotlin.cli.common.renderDiagnosticInternalName
-import org.jetbrains.kotlin.cli.js.reportCollectedDiagnostics
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
-import org.jetbrains.kotlin.cli.pipeline.ConfigurationPipelineArtifact
-import org.jetbrains.kotlin.cli.pipeline.PipelineContext
-import org.jetbrains.kotlin.cli.pipeline.PipelineStepException
+import org.jetbrains.kotlin.cli.pipeline.*
 import org.jetbrains.kotlin.cli.pipeline.web.WebFir2IrPipelinePhase
 import org.jetbrains.kotlin.cli.pipeline.web.WebFrontendPipelinePhase
 import org.jetbrains.kotlin.cli.pipeline.web.WebKlibInliningPipelinePhase
@@ -32,7 +30,6 @@ import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime
 import org.jetbrains.kotlin.config.*
 import org.jetbrains.kotlin.config.phaser.PhaseConfig
 import org.jetbrains.kotlin.config.phaser.invokeToplevel
-import org.jetbrains.kotlin.diagnostics.impl.DiagnosticsCollectorImpl
 import org.jetbrains.kotlin.ir.backend.js.ic.DirtyFileState
 import org.jetbrains.kotlin.ir.backend.js.ic.KotlinLibraryFile
 import org.jetbrains.kotlin.ir.backend.js.ic.KotlinSourceFileMap
@@ -53,6 +50,7 @@ import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions
 import java.io.ByteArrayOutputStream
+import org.jetbrains.kotlin.test.testInfraError
 import java.io.File
 import java.io.PrintStream
 import java.nio.charset.Charset
@@ -95,6 +93,9 @@ abstract class AbstractInvalidationTest(
 
     protected abstract val environment: KotlinCoreEnvironment
 
+    protected open val librariesToExcludeFromStats
+        get() = setOf(stdlibKLib, kotlinTestKLib)
+
     @AfterEach
     protected fun disposeEnvironment() {
         // The test is run with `Lifecycle.PER_METHOD` (as it's the default), so the disposable needs to be disposed after each test.
@@ -111,11 +112,15 @@ abstract class AbstractInvalidationTest(
     }
 
     private fun parseModuleInfo(moduleName: String, infoFile: File): ModuleInfo {
-        return ModuleInfoParser(infoFile, modelTarget).parse(moduleName)
+        return ModuleInfoParser(
+            infoFile,
+            modelTarget,
+            DirtyFileState.entries.map { it.str },
+        ).parse(moduleName)
     }
 
     private val File.filesInDir
-        get() = listFiles() ?: error("cannot retrieve the file list for $absolutePath directory")
+        get() = listFiles() ?: testInfraError("cannot retrieve the file list for $absolutePath directory")
 
     protected abstract fun createProjectStepsExecutor(
         projectInfo: ProjectInfo,
@@ -178,11 +183,13 @@ abstract class AbstractInvalidationTest(
         allLibraries: List<String>,
         friendLibraries: List<String>,
         includedLibrary: String? = null,
+        outputDir: File,
     ): CompilerConfiguration {
         val copy = environment.configuration.copy()
         copy.moduleName = moduleName
         copy.perModuleOutputName = moduleName
         copy.outputName = moduleName
+        copy.outputDir = outputDir
         copy.moduleKind = moduleKind
         copy.propertyLazyInitialization = true
         copy.sourceMap = true
@@ -196,9 +203,9 @@ abstract class AbstractInvalidationTest(
                 val switchLanguageFeature = when {
                     it.startsWith("+") -> this::enable
                     it.startsWith("-") -> this::disable
-                    else -> error("Language feature should start with + or -")
+                    else -> testInfraError("Language feature should start with + or -")
                 }
-                val feature = LanguageFeature.fromString(it.substring(1)) ?: error("Unknown language feature $it")
+                val feature = LanguageFeature.fromString(it.substring(1)) ?: testInfraError("Unknown language feature $it")
                 switchLanguageFeature(feature)
             }
             build()
@@ -249,7 +256,7 @@ abstract class AbstractInvalidationTest(
             val projStepId = projStep.id
             val moduleTestDir = File(testDir, module)
             val moduleSourceDir = File(sourceDir, module)
-            val moduleInfo = moduleInfos[module] ?: error("No module info found for $module")
+            val moduleInfo = moduleInfos[module] ?: testInfraError("No module info found for $module")
             val moduleStep = moduleInfo.steps.getValue(projStepId)
             for (modification in moduleStep.modifications) {
                 modification.execute(moduleTestDir, moduleSourceDir) {}
@@ -273,6 +280,7 @@ abstract class AbstractInvalidationTest(
                     languageFeatures = projStep.language,
                     allLibraries = dependencies.map { it.canonicalPath },
                     friendLibraries = friends.map { it.canonicalPath },
+                    outputDir = jsDir,
                 )
                 configuration.enableKlibRelativePaths(moduleSourceDir)
                 outputKlibFile.delete()
@@ -280,7 +288,7 @@ abstract class AbstractInvalidationTest(
             }
 
             val dtsFile = moduleStep.expectedDTS.ifNotEmpty {
-                moduleTestDir.resolve(singleOrNull() ?: error("$module module may generate only one d.ts at step $projStepId"))
+                moduleTestDir.resolve(singleOrNull() ?: testInfraError("$module module may generate only one d.ts at step $projStepId"))
             }
             return TestStepInfo(
                 module.safeModuleName,
@@ -296,7 +304,7 @@ abstract class AbstractInvalidationTest(
             stats: KotlinSourceFileMap<EnumSet<DirtyFileState>>,
             testInfo: List<TestStepInfo>
         ) {
-            val gotStats = stats.filter { it.key.path != stdlibKLib && it.key.path != kotlinTestKLib }
+            val gotStats = stats.filter { it.key.path !in librariesToExcludeFromStats }
 
             val checkedLibs = mutableSetOf<KotlinLibraryFile>()
 
@@ -306,7 +314,7 @@ abstract class AbstractInvalidationTest(
                 checkedLibs += libFile
 
                 val got = mutableMapOf<String, MutableSet<String>>()
-                for ((srcFile, dirtyStats) in updateStatus) {
+                for ([srcFile, dirtyStats] in updateStatus) {
                     for (dirtyStat in dirtyStats) {
                         if (dirtyStat != DirtyFileState.NON_MODIFIED_IR) {
                             got.getOrPut(dirtyStat.str) { mutableSetOf() }.add(srcFile.toString())
@@ -397,7 +405,7 @@ abstract class AbstractInvalidationTest(
         val psiManager = PsiManager.getInstance(project)
         val fileSystem = VirtualFileManager.getInstance().getFileSystem(StandardFileSystems.FILE_PROTOCOL) as KotlinLocalFileSystem
 
-        val vFile = fileSystem.findFileByIoFile(file) ?: error("File not found: $file")
+        val vFile = fileSystem.findFileByIoFile(file) ?: testInfraError("File not found: $file")
 
         return SingleRootFileViewProvider(psiManager, vFile).allFiles.find {
             it is KtFile && it.virtualFile.canonicalPath == vFile.canonicalPath
@@ -417,17 +425,20 @@ abstract class AbstractInvalidationTest(
     ) {
         val outputStream = ByteArrayOutputStream()
         val messageCollector = PrintingMessageCollector(PrintStream(outputStream), MessageRenderer.PLAIN_FULL_PATHS, true)
-        val diagnosticCollector = DiagnosticsCollectorImpl()
-        val performanceManager = createPerformanceManagerFor(configuration.targetPlatform ?: error("Expected a target platform"))
+        val performanceManager = createPerformanceManagerFor(configuration.targetPlatform ?: testInfraError("Expected a target platform"))
         val phaseConfig = createPhaseConfig(stepId, buildDir)
 
+        @OptIn(MessageCollectorAccess::class) // write access
+        configuration.messageCollector = messageCollector
         configuration.addSourcesFromDir(sourceDir)
         configuration.produceKlibFile = true
         configuration.outputDir = outputKlibFile.parentFile
         configuration.phaseConfig = phaseConfig
         configuration.renderDiagnosticInternalName = true
+        configuration.allowNoSourceFiles = true
 
         val klibSerializationCompoundPhase = WebFrontendPipelinePhase then
+                FrontendFilesForPluginsGenerationPipelinePhase() then
                 WebFir2IrPipelinePhase then
                 WebKlibInliningPipelinePhase then
                 WebKlibSerializationPipelinePhase
@@ -436,20 +447,17 @@ abstract class AbstractInvalidationTest(
             klibSerializationCompoundPhase.invokeToplevel(
                 phaseConfig,
                 context = PipelineContext(
-                    configuration.messageCollector,
-                    diagnosticCollector,
                     performanceManager,
-                    renderDiagnosticInternalName = true,
                     kaptMode = false,
                 ),
-                input = ConfigurationPipelineArtifact(configuration, diagnosticCollector, rootDisposable),
+                input = ConfigurationPipelineArtifact(configuration, rootDisposable),
             )
         } catch (_: PipelineStepException) {
             // Some pipeline step did not produce any output because of an error.
             // Check for an error below.
         }
 
-        reportCollectedDiagnostics(configuration, diagnosticCollector, messageCollector)
+        CheckCompilationErrors.CheckDiagnosticCollector.reportToMessageCollector(configuration)
 
         if (messageCollector.hasErrors()) {
             val messages = outputStream.toByteArray().toString(Charset.forName("UTF-8"))

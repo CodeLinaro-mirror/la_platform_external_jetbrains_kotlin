@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Copyright 2010-2026 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
@@ -8,24 +8,23 @@ package org.jetbrains.kotlin.scripting.compiler.plugin.services
 import org.jetbrains.kotlin.*
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
-import org.jetbrains.kotlin.fir.FirElement
-import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.builder.Context
 import org.jetbrains.kotlin.fir.builder.FirReplSnippetConfiguratorExtension
-import org.jetbrains.kotlin.fir.copyWithNewSourceKind
+import org.jetbrains.kotlin.fir.builder.buildLabel
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.builder.FirFileBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.FirReplSnippetBuilder
-import org.jetbrains.kotlin.fir.declarations.builder.buildProperty
-import org.jetbrains.kotlin.fir.declarations.builder.buildScriptReceiverParameter
+import org.jetbrains.kotlin.fir.declarations.builder.*
 import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
-import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyAccessor
 import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyBackingField
+import org.jetbrains.kotlin.fir.declarations.impl.FirDefaultPropertyGetter
 import org.jetbrains.kotlin.fir.expressions.FirBlock
 import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirStatement
-import org.jetbrains.kotlin.fir.moduleData
+import org.jetbrains.kotlin.fir.expressions.FirPropertyAccessExpression
+import org.jetbrains.kotlin.fir.expressions.buildUnaryArgumentList
+import org.jetbrains.kotlin.fir.expressions.builder.*
+import org.jetbrains.kotlin.fir.references.builder.buildSimpleNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
+import org.jetbrains.kotlin.fir.symbols.impl.FirAnonymousFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirReceiverParameterSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirRegularPropertySymbol
 import org.jetbrains.kotlin.fir.types.FirTypeRef
@@ -74,10 +73,13 @@ class FirReplSnippetConfiguratorExtensionImpl(
             return
         }
 
-        configuration[ScriptCompilationConfiguration.implicitReceivers]?.forEach { implicitReceiver ->
+        configuration[ScriptCompilationConfiguration.implicitReceivers]?.forEachIndexed { index, implicitReceiver ->
             receivers.add(
                 buildScriptReceiverParameter {
-                    typeRef = this@configure.tryResolveOrBuildParameterTypeRefFromKotlinType(implicitReceiver)
+                    typeRef = tryResolveOrBuildParameterTypeRefFromKotlinType(
+                        implicitReceiver,
+                        this@configure.source.fakeElement(KtFakeSourceElementKind.ScriptParameter.ImplicitReceiver(index)),
+                    )
                     isBaseClassReceiver = false
                     symbol = FirReceiverParameterSymbol()
                     moduleData = session.moduleData
@@ -88,7 +90,81 @@ class FirReplSnippetConfiguratorExtensionImpl(
         }
     }
 
-    override fun MutableList<FirStatement>.configure(sourceFile: KtSourceFile?, scriptSource: KtSourceElement, context: Context<*>) {
+    override fun FirBlockBuilder.configureEvalBody(sourceFile: KtSourceFile?, scriptSource: KtSourceElement, context: Context<*>) {
+        val configuration = getOrLoadConfiguration(session, sourceFile!!)?.valueOrNull() ?: run {
+            // TODO: add error or log, if necessary (see implementation for scripts) (KT-74742)
+            return
+        }
+
+        val wrapperFqName = FqName(
+            configuration[ScriptCompilationConfiguration.repl.internalWrapper]
+                ?: return
+        )
+
+        val evalBody = this
+        val fakeSource = scriptSource.fakeElement(KtFakeSourceElementKind.ReplEvalFunction)
+
+        // Move all statements to the wrapper body block.
+        val wrapperBody = buildBlock { statements += evalBody.statements }
+        evalBody.statements.clear()
+
+        // Build the wrapper lambda argument.
+        val wrapperLambdaSymbol = FirAnonymousFunctionSymbol()
+        val wrapperLabelName = wrapperFqName.shortName().asString()
+        val target = FirFunctionTarget(labelName = wrapperLabelName, isLambda = true)
+        val wrapperLambda = buildAnonymousFunctionExpression {
+            source = fakeSource
+            isTrailingLambda = true
+            anonymousFunction = buildAnonymousFunction {
+                source = fakeSource
+                moduleData = session.moduleData
+                origin = FirDeclarationOrigin.Synthetic.ReplEvalFunction
+                returnTypeRef = FirImplicitTypeRefImplWithoutSource
+                symbol = wrapperLambdaSymbol
+                receiverParameter = buildReceiverParameter {
+                    source = evalBody.source?.fakeElement(KtFakeSourceElementKind.ReceiverFromType)
+                    typeRef = FirImplicitTypeRefImplWithoutSource
+                    symbol = FirReceiverParameterSymbol()
+                    moduleData = session.moduleData
+                    origin = FirDeclarationOrigin.Synthetic.ReplEvalFunction
+                    containingDeclarationSymbol = wrapperLambdaSymbol
+                }
+                isLambda = true
+                label = buildLabel {
+                    source = scriptSource.fakeElement(KtFakeSourceElementKind.GeneratedLambdaLabel)
+                    name = wrapperLabelName
+                }
+                context.firFunctionTargets += target
+                hasExplicitParameterList = false
+                body = wrapperBody
+            }.also { target.bind(it) }
+        }
+
+        // Add a call to the wrapper as the single statement of the eval body.
+        evalBody.statements += buildFunctionCall {
+            source = fakeSource
+            explicitReceiver = explicitReceiver(wrapperFqName.parent(), fakeSource)
+            argumentList = buildUnaryArgumentList(wrapperLambda)
+            calleeReference = buildSimpleNamedReference {
+                source = fakeSource
+                name = wrapperFqName.shortName()
+            }
+        }
+    }
+
+    private fun explicitReceiver(parent: FqName, receiverSource: KtSourceElement): FirPropertyAccessExpression? {
+        if (parent.isRoot) return null
+        return buildPropertyAccessExpression {
+            source = receiverSource
+            explicitReceiver = explicitReceiver(parent.parent(), receiverSource)
+            calleeReference = buildSimpleNamedReference {
+                source = receiverSource
+                name = parent.shortName()
+            }
+        }
+    }
+
+    override fun MutableList<FirElement>.configure(sourceFile: KtSourceFile?, scriptSource: KtSourceElement, context: Context<*>) {
         val configuration = getOrLoadConfiguration(session, sourceFile!!)?.valueOrNull() ?: run {
             // TODO: add error or log, if necessary (see implementation for scripts) (KT-74742)
             return
@@ -106,15 +182,17 @@ class FirReplSnippetConfiguratorExtensionImpl(
 
         if (resultFieldName == null) return
 
-        val last = lastOrNull()
-        if (last == null || !last.isExpression()) return
+        val [lastScriptBlock, lastExpression] = findExpressionForResultProperty() ?: return
+        if (!lastExpression.isExpression()) {
+            return
+        }
 
         val callableId = CallableId(context.packageFqName, Name.identifier(resultFieldName))
         val propertySymbol = FirRegularPropertySymbol(callableId)
         val propertyReturnType = FirImplicitTypeRefImplWithoutSource
 
         val property = buildProperty {
-            source = last.source?.fakeElement(KtFakeSourceElementKind.ReplResultField)
+            source = lastScriptBlock.source
             moduleData = session.moduleData
             origin = FirDeclarationOrigin.ScriptCustomization.ResultProperty
             returnTypeRef = propertyReturnType
@@ -125,27 +203,27 @@ class FirReplSnippetConfiguratorExtensionImpl(
             dispatchReceiverType = context.dispatchReceiverTypesStack.lastOrNull()
             isLocal = false
 
-            initializer = last
+            initializer = lastExpression
 
             backingField = FirDefaultPropertyBackingField(
-                moduleData = session.moduleData,
+                moduleData = moduleData,
                 origin = origin,
-                source = null,
+                source = lastScriptBlock.source?.fakeElement(KtFakeSourceElementKind.DefaultAccessor.BackingField),
                 annotations = annotations,
-                returnTypeRef = returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DefaultAccessor),
+                returnTypeRef = returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.DefaultAccessor.BackingField),
                 isVar = isVar,
                 propertySymbol = symbol,
                 status = status,
             )
 
-            getter = FirDefaultPropertyAccessor.createGetterOrSetter(
-                source = null,
-                session.moduleData,
-                origin,
-                propertyReturnType.copyWithNewSourceKind(KtFakeSourceElementKind.ImplicitTypeRef),
-                status.visibility,
-                propertySymbol,
-                isGetter = true,
+            getter = FirDefaultPropertyGetter(
+                source = lastScriptBlock.source?.fakeElement(KtFakeSourceElementKind.DefaultAccessor.Getter),
+                moduleData = moduleData,
+                origin = origin,
+                propertyTypeRef = returnTypeRef.copyWithNewSourceKind(KtFakeSourceElementKind.ImplicitTypeRef),
+                visibility = status.visibility,
+                propertySymbol = symbol,
+                modality = status.modality,
             )
         }
 
@@ -153,9 +231,9 @@ class FirReplSnippetConfiguratorExtensionImpl(
     }
 
     // TODO: deduplicate with the very similar code in the script configurator (KT-74741)
-    private fun FirReplSnippetBuilder.tryResolveOrBuildParameterTypeRefFromKotlinType(
+    private fun tryResolveOrBuildParameterTypeRefFromKotlinType(
         kotlinType: KotlinType,
-        sourceElement: KtSourceElement = source.fakeElement(KtFakeSourceElementKind.ScriptParameter),
+        sourceElement: KtSourceElement,
     ): FirTypeRef {
         // TODO: check/support generics and other cases (KT-72638)
         // such a conversion by simple splitting by a '.', is overly simple and does not support all cases, e.g. generics or backticks
